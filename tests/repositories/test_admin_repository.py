@@ -28,8 +28,8 @@ from typing import Any
 
 import pytest
 
-from rainbow.models.auth import Invite, User, UserSetting
-from rainbow.repositories.admin_repositories import (
+from fundamental.models.auth import Invite, User, UserSetting
+from fundamental.repositories.admin_repositories import (
     InviteRepository,
     SettingRepository,
     UserAdminRepository,

@@ -1,0 +1,22 @@
+@use "../../styles/colors" as *;
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 32px 16px;
+}
+
+.title {
+  font-size: 32px;
+  font-weight: 600;
+  color: get-theme-color("text", "a0");
+  margin: 0;
+  line-height: 1.2;
+}
+
+.rightSection {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}

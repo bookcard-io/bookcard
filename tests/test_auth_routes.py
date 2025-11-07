@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import pytest
 from fastapi import HTTPException
 
-import rainbow.api.routes.auth as auth
+import fundamental.api.routes.auth as auth
 
 
 @dataclass
@@ -250,7 +250,7 @@ def test_auth_service_constructs_service(monkeypatch: pytest.MonkeyPatch) -> Non
 
     # Test that _auth_service constructs the service correctly
     service = auth._auth_service(request, session)  # type: ignore[arg-type]
-    from rainbow.services.auth_service import AuthService
+    from fundamental.services.auth_service import AuthService
 
     assert isinstance(service, AuthService)
 

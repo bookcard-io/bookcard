@@ -30,8 +30,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from rainbow.api.main import _register_routers, _setup_logging, create_app
-from rainbow.config import AppConfig
+from fundamental.api.main import _register_routers, _setup_logging, create_app
+from fundamental.config import AppConfig
 
 
 @pytest.mark.parametrize(
@@ -135,7 +135,7 @@ def test_create_app_with_config(config_provided: bool, use_env: bool) -> None:
         )
         app = create_app(config)
     else:
-        with patch("rainbow.api.main.AppConfig.from_env") as mock_from_env:
+        with patch("fundamental.api.main.AppConfig.from_env") as mock_from_env:
             config = AppConfig(
                 jwt_secret="env-secret",
                 jwt_algorithm="HS256",
@@ -146,7 +146,7 @@ def test_create_app_with_config(config_provided: bool, use_env: bool) -> None:
             mock_from_env.return_value = config
             app = create_app()
     assert isinstance(app, FastAPI)
-    assert app.title == "Rainbow"
+    assert app.title == "Fundamental"
     assert app.version == "0.1.0"
     assert app.summary == "Self-hosted ebook management and reading API"
 
@@ -197,7 +197,7 @@ def test_create_app_adds_middleware() -> None:
     app = create_app(config)
     # Check that middleware is present
     middleware_classes = [middleware.cls for middleware in app.user_middleware]
-    from rainbow.api.middleware.auth_middleware import AuthMiddleware
+    from fundamental.api.middleware.auth_middleware import AuthMiddleware
 
     assert AuthMiddleware in middleware_classes
 
@@ -211,7 +211,7 @@ def test_create_app_calls_setup_logging() -> None:
         database_url="sqlite:///:memory:",
         echo_sql=False,
     )
-    with patch("rainbow.api.main._setup_logging") as mock_setup:
+    with patch("fundamental.api.main._setup_logging") as mock_setup:
         create_app(config)
         mock_setup.assert_called_once()
 
@@ -225,7 +225,7 @@ def test_create_app_creates_engine() -> None:
         database_url="sqlite:///:memory:",
         echo_sql=False,
     )
-    with patch("rainbow.api.main.create_db_engine") as mock_create_engine:
+    with patch("fundamental.api.main.create_db_engine") as mock_create_engine:
         mock_engine = MagicMock()
         mock_create_engine.return_value = mock_engine
         app = create_app(config)
@@ -236,7 +236,7 @@ def test_create_app_creates_engine() -> None:
 def test_app_instance_created() -> None:
     """Test that module-level app instance is created."""
     # Import the module to trigger app creation
-    import rainbow.api.main as main_module
+    import fundamental.api.main as main_module
 
     assert hasattr(main_module, "app")
     assert isinstance(main_module.app, FastAPI)

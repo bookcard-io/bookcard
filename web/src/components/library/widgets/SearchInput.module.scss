@@ -1,0 +1,49 @@
+@use "../../../styles/colors" as *;
+
+.searchForm {
+  flex: 1;
+  min-width: 0;
+}
+
+.searchContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  width: 18px;
+  height: 18px;
+  color: get-theme-color("text", "a30");
+  pointer-events: none;
+  z-index: 1;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 10px 16px 10px 40px;
+  background-color: get-theme-color("surface-tonal", "a10");
+  border: 1px solid get-theme-color("surface", "a20");
+  border-radius: 8px;
+  color: get-theme-color("text", "a0");
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s, background-color 0.2s;
+
+  &::placeholder {
+    color: get-theme-color("text", "a40");
+  }
+
+  &:focus {
+    outline: none;
+    border-color: get-theme-color("primary", "a0");
+    background-color: get-theme-color("surface-tonal", "a0");
+  }
+
+  &:hover:not(:focus) {
+    border-color: get-theme-color("surface", "a30");
+  }
+}

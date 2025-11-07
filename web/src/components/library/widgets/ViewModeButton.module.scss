@@ -1,0 +1,38 @@
+@use "../../../styles/colors" as *;
+
+.viewModeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background-color: get-theme-color("surface-tonal", "a10");
+  border: 1px solid get-theme-color("surface", "a20");
+  border-radius: 8px;
+  color: get-theme-color("text", "a30");
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+
+  &:hover {
+    background-color: get-theme-color("surface-tonal", "a20");
+    border-color: get-theme-color("surface", "a30");
+    color: get-theme-color("text", "a0");
+  }
+
+  &:active {
+    background-color: get-theme-color("surface-tonal", "a30");
+  }
+
+  &.active {
+    background-color: get-theme-color("surface-tonal", "a20");
+    border-color: get-theme-color("surface", "a30");
+    color: get-theme-color("text", "a0");
+  }
+}
+
+.icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}

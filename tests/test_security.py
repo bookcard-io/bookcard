@@ -27,8 +27,8 @@ from datetime import UTC, datetime, timedelta
 import jwt
 import pytest
 
-from rainbow.config import AppConfig
-from rainbow.services.security import (
+from fundamental.config import AppConfig
+from fundamental.services.security import (
     JWTManager,
     PasswordHasher,
     SecurityTokenError,

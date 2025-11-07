@@ -1,0 +1,170 @@
+@use "sass:map";
+
+/** Theme selector - Change this to switch between themes */
+/** Options: 'dark' or 'light' */
+$theme: 'dark' !default;
+
+/** Base colors */
+$clr-dark-a0: #000000;
+$clr-light-a0: #ffffff;
+
+/** Theme color maps */
+$themes: (
+  'dark': (
+    'primary': (
+      'a0': #90aaf9,
+      'a10': #9eb3fa,
+      'a20': #abbcfb,
+      'a30': #b7c5fc,
+      'a40': #c4cffc,
+      'a50': #d0d8fd,
+    ),
+    'text': (
+        'a0': #ffffff,
+        'a10': #e4e4e4,
+        'a20': #d7d7d7,
+        'a30': #cacaca,
+        'a40': #bdbdbd,
+        'a50': #b1b1b1,
+    ),
+    'surface': (
+      'a0': #0b0e14,
+      'a10': #232529,
+      'a20': #3a3c40,
+      'a30': #535558,
+      'a40': #6d6f72,
+      'a50': #888a8c,
+    ),
+    'surface-tonal': (
+      'a0': #191d27,
+      'a10': #2e323b,
+      'a20': #454851,
+      'a30': #5d5f67,
+      'a40': #76787f,
+      'a50': #909197,
+    ),
+    'success': (
+      'a0': #22946e,
+      'a10': #47d5a6,
+      'a20': #9ae8ce,
+    ),
+    'warning': (
+      'a0': #a87a2a,
+      'a10': #d7ac61,
+      'a20': #ecd7b2,
+    ),
+    'danger': (
+      'a0': #9c2121,
+      'a10': #d94a4a,
+      'a20': #eb9e9e,
+    ),
+    'info': (
+      'a0': #21498a,
+      'a10': #4077d1,
+      'a20': #92b2e5,
+    ),
+  ),
+  'light': (
+    'primary': (
+      'a0': #90aaf9,
+      'a10': #7f95da,
+      'a20': #6f81bc,
+      'a30': #5f6e9f,
+      'a40': #4f5b82,
+      'a50': #404967,
+    ),
+    'surface': (
+      'a0': #f1f1f1,
+      'a10': #e4e4e4,
+      'a20': #d7d7d7,
+      'a30': #cacaca,
+      'a40': #bdbdbd,
+      'a50': #b1b1b1,
+    ),
+    'surface-tonal': (
+      'a0': #e8eaf2,
+      'a10': #dcdee5,
+      'a20': #d0d1d8,
+      'a30': #c4c5cb,
+      'a40': #b8b9be,
+      'a50': #adaeb1,
+    ),
+    'success': (
+      'a0': #1b7f5c,
+      'a10': #28be8a,
+      'a20': #58dbad,
+    ),
+    'warning': (
+      'a0': #b8871f,
+      'a10': #dfae44,
+      'a20': #ebca85,
+    ),
+    'danger': (
+      'a0': #b13535,
+      'a10': #d06262,
+      'a20': #e29d9d,
+    ),
+    'info': (
+      'a0': #1e56a3,
+      'a10': #347ada,
+      'a20': #74a4e6,
+    ),
+  ),
+);
+
+/** Helper function to get theme color */
+@function get-theme-color($color-type, $shade) {
+  $theme-map: map.get($themes, $theme);
+  $color-map: map.get($theme-map, $color-type);
+  @return map.get($color-map, $shade);
+}
+
+/** Theme primary colors */
+$clr-primary-a0: get-theme-color('primary', 'a0');
+$clr-primary-a10: get-theme-color('primary', 'a10');
+$clr-primary-a20: get-theme-color('primary', 'a20');
+$clr-primary-a30: get-theme-color('primary', 'a30');
+$clr-primary-a40: get-theme-color('primary', 'a40');
+$clr-primary-a50: get-theme-color('primary', 'a50');
+
+/** Theme surface colors */
+$clr-surface-a0: get-theme-color('surface', 'a0');
+$clr-surface-a10: get-theme-color('surface', 'a10');
+$clr-surface-a20: get-theme-color('surface', 'a20');
+$clr-surface-a30: get-theme-color('surface', 'a30');
+$clr-surface-a40: get-theme-color('surface', 'a40');
+$clr-surface-a50: get-theme-color('surface', 'a50');
+
+/** Theme tonal surface colors */
+$clr-surface-tonal-a0: get-theme-color('surface-tonal', 'a0');
+$clr-surface-tonal-a10: get-theme-color('surface-tonal', 'a10');
+$clr-surface-tonal-a20: get-theme-color('surface-tonal', 'a20');
+$clr-surface-tonal-a30: get-theme-color('surface-tonal', 'a30');
+$clr-surface-tonal-a40: get-theme-color('surface-tonal', 'a40');
+$clr-surface-tonal-a50: get-theme-color('surface-tonal', 'a50');
+
+/** Success colors */
+$clr-success-a0: get-theme-color('success', 'a0');
+$clr-success-a10: get-theme-color('success', 'a10');
+$clr-success-a20: get-theme-color('success', 'a20');
+
+/** Warning colors */
+$clr-warning-a0: get-theme-color('warning', 'a0');
+$clr-warning-a10: get-theme-color('warning', 'a10');
+$clr-warning-a20: get-theme-color('warning', 'a20');
+
+/** Danger colors */
+$clr-danger-a0: get-theme-color('danger', 'a0');
+$clr-danger-a10: get-theme-color('danger', 'a10');
+$clr-danger-a20: get-theme-color('danger', 'a20');
+
+/** Info colors */
+$clr-info-a0: get-theme-color('info', 'a0');
+$clr-info-a10: get-theme-color('info', 'a10');
+$clr-info-a20: get-theme-color('info', 'a20');
+
+/** Examples */
+.bg-primary {
+  color: $clr-primary-a50;
+  background-color: $clr-surface-a0;
+}

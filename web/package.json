@@ -1,0 +1,126 @@
+{
+  "name": "fundamental-web",
+  "version": "1.0.0",
+  "description": "Self-hosted ebook management and reading application",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:spotlight": "npx @spotlightjs/spotlight",
+    "dev:next": "next dev",
+    "dev": "run-p dev:*",
+    "build:next": "next build --webpack",
+    "build-local": "npm run build:next",
+    "build": "npm run build:next",
+    "start": "next start",
+    "build-stats": "cross-env ANALYZE=true npm run build",
+    "clean": "rimraf .next out coverage",
+    "check:types": "tsc --noEmit --pretty",
+    "check:deps": "knip",
+    "check:i18n": "i18n-check -l src/locales -s en -u src -f next-intl",
+    "commit": "commit",
+    "lint": "biome check .",
+    "lint:fix": "biome check . --write",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:coverage": "vitest run --coverage",
+    "storybook": "storybook dev -p 6006",
+    "storybook:test": "vitest run --config .storybook/vitest.config.mts",
+    "build-storybook": "storybook build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/knguyen1/fundamental.git"
+  },
+  "keywords": [
+    "music",
+    "streaming"
+  ],
+  "author": "knguyen",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/knguyen1/fundamental/issues"
+  },
+  "homepage": "https://github.com/knguyen1/fundamental#readme",
+  "dependencies": {
+    "@arcjet/next": "^1.0.0-beta.13",
+    "@clerk/localizations": "^3.26.4",
+    "@clerk/nextjs": "^6.34.1",
+    "@hookform/resolvers": "^5.2.2",
+    "@logtape/logtape": "^1.1.2",
+    "@sentry/nextjs": "^10.22.0",
+    "@t3-oss/env-nextjs": "^0.13.8",
+    "drizzle-orm": "^0.44.7",
+    "next": "^16.0.1",
+    "next-intl": "^4.4.0",
+    "pg": "^8.16.3",
+    "posthog-js": "^1.284.0",
+    "primeicons": "^7.0.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-hook-form": "^7.66.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.2",
+    "@chromatic-com/playwright": "^0.12.7",
+    "@commitlint/cli": "^20.1.0",
+    "@commitlint/config-conventional": "^20.0.0",
+    "@commitlint/prompt-cli": "^20.1.0",
+    "@faker-js/faker": "^10.1.0",
+    "@lingual/i18n-check": "^0.8.12",
+    "@next/bundle-analyzer": "^16.0.1",
+    "@playwright/test": "^1.56.1",
+    "@spotlightjs/spotlight": "^4.4.0",
+    "@storybook/addon-a11y": "^10.0.2",
+    "@storybook/addon-docs": "^10.0.2",
+    "@storybook/addon-vitest": "^10.0.2",
+    "@storybook/nextjs-vite": "^10.0.2",
+    "@tailwindcss/postcss": "^4.1.16",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^24.9.2",
+    "@types/pg": "^8.15.6",
+    "@types/react": "^19.2.2",
+    "@vitejs/plugin-react": "^5.1.0",
+    "@vitest/browser": "^4.0.7",
+    "@vitest/browser-playwright": "^4.0.7",
+    "@vitest/coverage-v8": "^4.0.7",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "checkly": "^6.8.2",
+    "conventional-changelog-conventionalcommits": "^9.1.0",
+    "cross-env": "^10.1.0",
+    "cssnano": "^7.1.2",
+    "dotenv-cli": "^10.0.0",
+    "drizzle-kit": "^0.31.6",
+    "knip": "^5.66.4",
+    "npm-run-all": "^4.1.5",
+    "postcss": "^8.5.6",
+    "postcss-load-config": "^6.0.1",
+    "rimraf": "^6.1.0",
+    "sass": "^1.93.3",
+    "semantic-release": "^25.0.1",
+    "storybook": "^10.0.0",
+    "tailwindcss": "^4.1.16",
+    "typescript": "^5.9.3",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^4.0.7",
+    "vitest-browser-react": "^2.0.2"
+  },
+  "release": {
+    "branches": [
+      "main"
+    ],
+    "plugins": [
+      [
+        "@semantic-release/commit-analyzer",
+        {
+          "preset": "conventionalcommits"
+        }
+      ],
+      "@semantic-release/release-notes-generator",
+      "@semantic-release/github"
+    ]
+  }
+}

@@ -27,7 +27,7 @@ from typing import Any, TypeVar
 import pytest
 from sqlmodel import Field, SQLModel
 
-from rainbow.repositories.base import Repository
+from fundamental.repositories.base import Repository
 
 
 class MockResult:

@@ -26,8 +26,8 @@ from typing import Any
 
 import pytest
 
-from rainbow.models.auth import User
-from rainbow.repositories.user_repository import UserRepository
+from fundamental.models.auth import User
+from fundamental.repositories.user_repository import UserRepository
 
 
 class MockResult:

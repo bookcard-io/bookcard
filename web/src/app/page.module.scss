@@ -1,0 +1,28 @@
+@use "../styles/colors" as *;
+
+$sidebar-width: 280px;
+$sidebar-collapsed-width: 64px;
+
+.appContainer {
+	display: flex;
+	min-height: 100vh;
+}
+
+.mainContent {
+	flex: 1;
+	margin-left: $sidebar-width;
+	background-color: get-theme-color("surface", "a0");
+	transition: margin-left 0.3s ease;
+	overflow-y: auto;
+	height: 100vh;
+}
+
+.mainContent.collapsed {
+	margin-left: $sidebar-collapsed-width;
+}
+
+.contentWrapper {
+	display: flex;
+	flex-direction: column;
+	min-height: 100%;
+}

@@ -25,7 +25,7 @@
 import pytest
 from pydantic import ValidationError
 
-from rainbow.api.schemas import (
+from fundamental.api.schemas import (
     InviteValidationResponse,
     LoginRequest,
     LoginResponse,

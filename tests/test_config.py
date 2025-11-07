@@ -27,7 +27,7 @@ from unittest.mock import patch
 
 import pytest
 
-from rainbow.config import AppConfig
+from fundamental.config import AppConfig
 
 
 @pytest.mark.parametrize(
@@ -58,7 +58,7 @@ def test_parse_bool_env_missing_key() -> None:
 
 def test_get_jwt_secret_success() -> None:
     """Test successful JWT secret retrieval."""
-    with patch.dict(os.environ, {"RAINBOW_JWT_SECRET": "test-secret-123"}):
+    with patch.dict(os.environ, {"FUNDAMENTAL_JWT_SECRET": "test-secret-123"}):
         result = AppConfig._get_jwt_secret()
         assert result == "test-secret-123"
 
@@ -67,14 +67,14 @@ def test_get_jwt_secret_missing() -> None:
     """Test JWT secret retrieval when environment variable is missing."""
     with (
         patch.dict(os.environ, {}, clear=True),
-        pytest.raises(ValueError, match="RAINBOW_JWT_SECRET is not set"),
+        pytest.raises(ValueError, match="FUNDAMENTAL_JWT_SECRET is not set"),
     ):
         AppConfig._get_jwt_secret()
 
 
 def test_get_jwt_algorithm_success() -> None:
     """Test successful JWT algorithm retrieval."""
-    with patch.dict(os.environ, {"RAINBOW_JWT_ALG": "HS256"}):
+    with patch.dict(os.environ, {"FUNDAMENTAL_JWT_ALG": "HS256"}):
         result = AppConfig._get_jwt_algorithm()
         assert result == "HS256"
 
@@ -83,7 +83,7 @@ def test_get_jwt_algorithm_missing() -> None:
     """Test JWT algorithm retrieval when environment variable is missing."""
     with (
         patch.dict(os.environ, {}, clear=True),
-        pytest.raises(ValueError, match="RAINBOW_JWT_ALG is not set"),
+        pytest.raises(ValueError, match="FUNDAMENTAL_JWT_ALG is not set"),
     ):
         AppConfig._get_jwt_algorithm()
 
@@ -106,11 +106,11 @@ def test_from_env(
 ) -> None:
     """Test configuration creation from environment variables."""
     env_vars = {
-        "RAINBOW_JWT_SECRET": jwt_secret,
-        "RAINBOW_JWT_ALG": jwt_alg,
-        "RAINBOW_JWT_EXPIRES_MIN": jwt_expires,
-        "RAINBOW_DATABASE_URL": db_url,
-        "RAINBOW_ECHO_SQL": echo_sql,
+        "FUNDAMENTAL_JWT_SECRET": jwt_secret,
+        "FUNDAMENTAL_JWT_ALG": jwt_alg,
+        "FUNDAMENTAL_JWT_EXPIRES_MIN": jwt_expires,
+        "FUNDAMENTAL_DATABASE_URL": db_url,
+        "FUNDAMENTAL_ECHO_SQL": echo_sql,
     }
     with patch.dict(os.environ, env_vars):
         config = AppConfig.from_env()
@@ -124,10 +124,10 @@ def test_from_env(
 def test_from_env_default_database_url() -> None:
     """Test that default database URL is used when not set."""
     env_vars = {
-        "RAINBOW_JWT_SECRET": "secret",
-        "RAINBOW_JWT_ALG": "HS256",
-        "RAINBOW_JWT_EXPIRES_MIN": "15",
+        "FUNDAMENTAL_JWT_SECRET": "secret",
+        "FUNDAMENTAL_JWT_ALG": "HS256",
+        "FUNDAMENTAL_JWT_EXPIRES_MIN": "15",
     }
     with patch.dict(os.environ, env_vars):
         config = AppConfig.from_env()
-        assert config.database_url == "sqlite:///rainbow.db"
+        assert config.database_url == "sqlite:///fundamental.db"

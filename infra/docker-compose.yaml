@@ -1,16 +1,16 @@
 services:
-  rainbow-backend:
+  fundamental-backend:
     build:
       context: ..
       dockerfile: infra/Dockerfile.backend
-    container_name: rainbow-backend
+    container_name: fundamental-backend
     restart: unless-stopped
     environment:
       # backend authentication settings
-      RAINBOW_JWT_SECRET: ${RAINBOW_JWT_SECRET:-youShouldChangeThis}
-      RAINBOW_JWT_ALG: ${RAINBOW_JWT_ALG:-HS256}
-      RAINBOW_JWT_EXPIRES_MIN: ${RAINBOW_JWT_EXPIRES_MIN:-131400} # 3 months
-      RAINBOW_ALEMBIC_ENABLED: ${RAINBOW_ALEMBIC_ENABLED:-true}
+      FUNDAMENTAL_JWT_SECRET: ${FUNDAMENTAL_JWT_SECRET:-youShouldChangeThis}
+      FUNDAMENTAL_JWT_ALG: ${FUNDAMENTAL_JWT_ALG:-HS256}
+      FUNDAMENTAL_JWT_EXPIRES_MIN: ${FUNDAMENTAL_JWT_EXPIRES_MIN:-131400} # 3 months
+      FUNDAMENTAL_ALEMBIC_ENABLED: ${FUNDAMENTAL_ALEMBIC_ENABLED:-true}
 
       # library administration settings
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
@@ -29,11 +29,11 @@ services:
       timeout: 5s
       retries: 5
 
-  rainbow-web:
+  fundamental-web:
     build:
       context: ../web
       dockerfile: ../infra/Dockerfile.web
-    container_name: rainbow-web
+    container_name: fundamental-web
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -41,8 +41,8 @@ services:
       NPM_CONFIG_LOGLEVEL: warn
       PORT: "3000"
       # Backend API URL (used by server-side API routes)
-      BACKEND_URL: ${BACKEND_URL:-http://rainbow-backend:8000}
+      BACKEND_URL: ${BACKEND_URL:-http://fundamental-backend:8000}
     ports:
       - "3000:3000"
     depends_on:
-      - rainbow-backend
+      - fundamental-backend

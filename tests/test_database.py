@@ -26,7 +26,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import rainbow.database as db
+import fundamental.database as db
 
 
 def test_create_db_engine_passes_config(monkeypatch: pytest.MonkeyPatch) -> None:

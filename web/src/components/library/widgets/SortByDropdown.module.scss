@@ -1,0 +1,42 @@
+@use "../../../styles/colors" as *;
+
+.dropdown {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background-color: get-theme-color("surface-tonal", "a10");
+  border: 1px solid get-theme-color("surface", "a20");
+  border-radius: 8px;
+  color: get-theme-color("text", "a0");
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+  white-space: nowrap;
+
+  &:hover {
+    background-color: get-theme-color("surface-tonal", "a20");
+    border-color: get-theme-color("surface", "a30");
+  }
+
+  &:active {
+    background-color: get-theme-color("surface-tonal", "a30");
+  }
+}
+
+.dropdownText {
+  line-height: 1;
+}
+
+.chevronIcon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: get-theme-color("text", "a30");
+  transition: transform 0.2s;
+}
+
+.dropdown:hover .chevronIcon {
+  color: get-theme-color("text", "a0");
+}

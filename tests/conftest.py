@@ -29,12 +29,12 @@ from typing import Any
 import pytest
 
 # Ensure required application environment variables are available during test import
-os.environ.setdefault("RAINBOW_JWT_SECRET", "test-secret")
-os.environ.setdefault("RAINBOW_JWT_ALG", "HS256")
-os.environ.setdefault("RAINBOW_JWT_EXPIRES_MIN", "15")
-os.environ.setdefault("RAINBOW_DATABASE_URL", "sqlite:///rainbow.db")
-os.environ.setdefault("RAINBOW_ALEMBIC_ENABLED", "false")
-os.environ.setdefault("RAINBOW_ECHO_SQL", "false")
+os.environ.setdefault("FUNDAMENTAL_JWT_SECRET", "test-secret")
+os.environ.setdefault("FUNDAMENTAL_JWT_ALG", "HS256")
+os.environ.setdefault("FUNDAMENTAL_JWT_EXPIRES_MIN", "15")
+os.environ.setdefault("FUNDAMENTAL_DATABASE_URL", "sqlite:///fundamental.db")
+os.environ.setdefault("FUNDAMENTAL_ALEMBIC_ENABLED", "false")
+os.environ.setdefault("FUNDAMENTAL_ECHO_SQL", "false")
 
 
 class MockResult:
