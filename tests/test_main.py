@@ -108,7 +108,11 @@ def test_register_routers() -> None:
     app = FastAPI()
     _register_routers(app)
     # Check that auth router is included
-    routes = [route.path for route in app.routes]
+    routes = [
+        getattr(route, "path", str(route))
+        for route in app.routes
+        if hasattr(route, "path")
+    ]
     assert "/auth" in routes or any("/auth" in route for route in routes)
 
 
@@ -119,9 +123,7 @@ def test_register_routers() -> None:
         (False, True),
     ],
 )
-def test_create_app_with_config(
-    config_provided: bool, use_env: bool
-) -> None:
+def test_create_app_with_config(config_provided: bool, use_env: bool) -> None:
     """Test app creation with provided config or environment."""
     if config_provided:
         config = AppConfig(
@@ -175,7 +177,11 @@ def test_create_app_registers_routers() -> None:
         echo_sql=False,
     )
     app = create_app(config)
-    routes = [route.path for route in app.routes]
+    routes = [
+        getattr(route, "path", str(route))
+        for route in app.routes
+        if hasattr(route, "path")
+    ]
     assert "/auth" in routes or any("/auth" in route for route in routes)
 
 
@@ -190,9 +196,7 @@ def test_create_app_adds_middleware() -> None:
     )
     app = create_app(config)
     # Check that middleware is present
-    middleware_classes = [
-        middleware.cls for middleware in app.user_middleware
-    ]
+    middleware_classes = [middleware.cls for middleware in app.user_middleware]
     from rainbow.api.middleware.auth_middleware import AuthMiddleware
 
     assert AuthMiddleware in middleware_classes
@@ -252,4 +256,3 @@ def test_app_endpoints_accessible() -> None:
     # Test that auth endpoints are accessible
     response = client.get("/docs")
     assert response.status_code in [200, 404]  # OpenAPI docs endpoint
-
