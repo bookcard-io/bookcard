@@ -1,0 +1,48 @@
+services:
+  rainbow-backend:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backend
+    container_name: rainbow-backend
+    restart: unless-stopped
+    environment:
+      # backend authentication settings
+      RAINBOW_JWT_SECRET: ${RAINBOW_JWT_SECRET:-youShouldChangeThis}
+      RAINBOW_JWT_ALG: ${RAINBOW_JWT_ALG:-HS256}
+      RAINBOW_JWT_EXPIRES_MIN: ${RAINBOW_JWT_EXPIRES_MIN:-131400} # 3 months
+      RAINBOW_ALEMBIC_ENABLED: ${RAINBOW_ALEMBIC_ENABLED:-true}
+
+      # library administration settings
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health | grep -q 'ok'"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  rainbow-web:
+    build:
+      context: ../web
+      dockerfile: ../infra/Dockerfile.web
+    container_name: rainbow-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      NPM_CONFIG_LOGLEVEL: warn
+      PORT: "3000"
+      # Backend API URL (used by server-side API routes)
+      BACKEND_URL: ${BACKEND_URL:-http://rainbow-backend:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - rainbow-backend

@@ -1,0 +1,139 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rainbow"
+version = "0.1.0"
+description = "Web app for browsing, reading, and downloading ebooks stored in a calibre database."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = [ "LICENSE" ]
+dependencies = [
+    "alembic>=1.17.1",
+    "bcrypt==4.3.0",
+    "fastapi>=0.121.0",
+    "httpx>=0.28.1",
+    "passlib[bcrypt]>=1.7.4",
+    "psycopg[binary]>=3.2.12",
+    "pydantic[email]>=2.12.4",
+    "pyjwt>=2.10.1",
+    "python-dotenv>=1.2.1",
+    "sqlalchemy>=2.0.44",
+    "sqlmodel>=0.0.27",
+    "uvicorn[standard]>=0.38.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["rainbow"]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.3.0",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+    "pytest-cov>=7.0.0",
+    "pytest-xdist>=3.8.0",
+    "ruff>=0.14.4",
+    "ty>=0.0.1a25",
+]
+
+[tool.ruff]
+target-version = "py312"
+extend-include = ["*.ipynb"]
+
+[tool.ruff.format]
+preview = true
+docstring-code-format = true
+docstring-code-line-length = 20
+
+[tool.ruff.lint]
+preview = true
+select = [
+    "E4",
+    "E7",
+    "E9",
+    "W291",
+    "YTT",
+    "T10",
+    "ICN",
+    "INP",
+    "Q",
+    "RSE",
+    "SLOT",
+    "INT",
+    "FLY",
+    "LOG",
+    "C90",
+    "T20",
+    "D",
+    "RET",
+    "PD",
+    "N",
+    "PIE",
+    "SIM",
+    "S",
+    "G",
+    "ERA",
+    "ASYNC",
+    "TID",
+    "UP",
+    "SLF",
+    "BLE",
+    "C4",
+    "I",
+    "F",
+    "A",
+    "ARG",
+    "PTH",
+    "RUF",
+    "B",
+    "TCH",
+    "DTZ",
+    "PYI",
+    "PT",
+    "EM",
+    "TRY",
+    "PERF",
+    "C901",
+    "ANN",
+    # "FBT", # use named arguments for boolean flags
+    # "TD", # todos
+    # "FIX", # fixme
+    # "FURB" # preview rules
+]
+
+[tool.ruff.lint.per-file-ignores]
+"rainbow/db/migrations/env.py" = ["F401"]
+"tests/*" = [
+    "D",      # relax all docstring rules for tests
+    "S101",   # assert usage in tests
+    "S105",   # hard-coded password in tests
+    "S106",   # hard-coded password in tests
+    "ARG",    # unused args in test helpers/lambdas
+    "SLF001", # private member access if needed
+    "EM101",  # string literal exceptions in tests
+    "TRY003", # long exception messages in raise
+    "S108",   # insecure usage of directory
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.coverage.run]
+omit = [
+    "rainbow/db/migrations/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
