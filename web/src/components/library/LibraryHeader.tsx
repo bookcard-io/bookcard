@@ -1,7 +1,7 @@
 "use client";
 
-import { AddBooksButton } from "./widgets/AddBooksButton";
 import styles from "./LibraryHeader.module.scss";
+import { AddBooksButton } from "./widgets/AddBooksButton";
 
 export interface LibraryHeaderProps {
   /**

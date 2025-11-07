@@ -69,7 +69,9 @@ export function Sidebar() {
             height={24}
             className={styles.logo}
           />
-          {!isCollapsed && <span className={styles.brandName}>Fundamental</span>}
+          {!isCollapsed && (
+            <span className={styles.brandName}>Fundamental</span>
+          )}
         </div>
         <button
           type="button"

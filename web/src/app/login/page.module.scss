@@ -1,0 +1,204 @@
+@use "../../styles/colors" as *;
+
+.loginContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  width: 100%;
+  background-color: get-theme-color("surface", "a0");
+  padding: 2rem;
+  position: relative;
+  overflow: hidden;
+
+  // Faint pulsar/starburst gradient from upper right
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100%;
+    height: 100%;
+    $primary-color: get-theme-color("primary", "a0");
+    background: radial-gradient(
+      ellipse 80% 60% at top right,
+      rgba($primary-color, 0.18) 0%,
+      rgba($primary-color, 0.10) 30%,
+      transparent 70%
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  // Additional subtle gradient overlay for depth
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100%;
+    height: 100%;
+    $primary-color: get-theme-color("primary", "a0");
+    background: linear-gradient(
+      135deg,
+      transparent 0%,
+      transparent 40%,
+      rgba($primary-color, 0.06) 60%,
+      transparent 100%
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+}
+
+.loginCard {
+  width: 100%;
+  max-width: 28rem;
+  background-color: get-theme-color("surface-tonal", "a0");
+  border-radius: 0.75rem;
+  padding: 2.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  position: relative;
+  z-index: 1;
+}
+
+.loginHeader {
+  margin-bottom: 2rem;
+}
+
+.loginTitle {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: get-theme-color("text", "a0");
+  margin-bottom: 0.5rem;
+  line-height: 1.2;
+}
+
+.loginSubtitle {
+  font-size: 0.875rem;
+  color: get-theme-color("text", "a30");
+  line-height: 1.5;
+}
+
+.loginForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.errorMessage {
+  background-color: rgba(156, 33, 33, 0.2);
+  border: 1px solid get-theme-color("danger", "a0");
+  color: get-theme-color("danger", "a20");
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: get-theme-color("text", "a10");
+  line-height: 1.5;
+}
+
+.input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: get-theme-color("surface", "a0");
+  border: 1px solid get-theme-color("surface", "a20");
+  border-radius: 0.5rem;
+  color: get-theme-color("text", "a0");
+  font-size: 1rem;
+  line-height: 1.5;
+  transition: border-color 0.2s, box-shadow 0.2s;
+
+  &::placeholder {
+    color: get-theme-color("text", "a40");
+  }
+
+  &:focus {
+    outline: none;
+    border-color: get-theme-color("primary", "a0");
+    box-shadow: 0 0 0 3px rgba(144, 170, 249, 0.1);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.passwordContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.passwordContainer .input {
+  padding-right: 3rem;
+}
+
+.passwordToggle {
+  position: absolute;
+  right: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  color: get-theme-color("text", "a30");
+  transition: color 0.2s;
+
+  &:hover {
+    color: get-theme-color("text", "a10");
+  }
+
+  &:focus {
+    outline: none;
+    color: get-theme-color("primary", "a0");
+  }
+}
+
+.eyeIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.submitButton {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: get-theme-color("primary", "a0");
+  color: get-theme-color("surface", "a0");
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: background-color 0.2s, opacity 0.2s;
+
+  &:hover:not(:disabled) {
+    background-color: get-theme-color("primary", "a10");
+  }
+
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(144, 170, 249, 0.3);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
