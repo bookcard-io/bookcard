@@ -413,3 +413,6 @@ books/
 
 # docs and various
 misc/
+
+# database files
+fundamental.db

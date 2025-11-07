@@ -1,0 +1,336 @@
+# The MIT License (MIT)
+
+# Copyright (c) 2025 knguyen and others
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy of
+# this software and associated documentation files (the "Software"), to deal in
+# the Software without restriction, including without limitation the rights to
+# use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+# of the Software, and to permit persons to whom the Software is furnished to do
+# so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+"""Seed initial admin user, roles, and permissions (one-time, idempotent).
+
+Revision ID: a2a0c8c2d1b0
+Revises: ce04c7de48d9
+Create Date: 2025-11-02 00:00:00.000000
+
+"""
+
+from __future__ import annotations
+
+import os
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+from alembic import op
+from passlib.context import CryptContext
+from sqlalchemy import text
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+# revision identifiers, used by Alembic.
+revision: str = "a2a0c8c2d1b0"
+down_revision: str | Sequence[str] | None = "ce04c7de48d9"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
+
+
+def upgrade() -> None:
+    """Insert initial admin user, roles, and permissions (one-time, idempotent).
+
+    Uses environment variables provided by the runtime (e.g., docker-compose):
+    - ADMIN_USERNAME
+    - ADMIN_EMAIL
+    - ADMIN_PASSWORD
+
+    The insertion is guarded to be idempotent:
+    - If any row exists in users, roles, or permissions, it skips seeding.
+    """
+    conn = op.get_bind()
+
+    # Quick exit if any users already exist
+    total_users = conn.execute(text("SELECT COUNT(1) FROM users")).scalar_one()
+    if int(total_users or 0) > 0:
+        return
+
+    # Quick exit if any roles already exist
+    total_roles = conn.execute(text("SELECT COUNT(1) FROM roles")).scalar_one()
+    if int(total_roles or 0) > 0:
+        return
+
+    username = os.getenv("ADMIN_USERNAME", "admin")
+    email = os.getenv("ADMIN_EMAIL", "admin@example.com")
+    password = os.getenv("ADMIN_PASSWORD", "admin123")
+
+    # Idempotency on username/email too (paranoid check)
+    exists = conn.execute(
+        text("SELECT 1 FROM users WHERE username = :u OR email = :e LIMIT 1"),
+        {"u": username, "e": email},
+    ).first()
+    if exists is not None:
+        return
+
+    # Hash the password with bcrypt via passlib to match application behavior
+    pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    password_hash = pwd_ctx.hash(password)
+
+    now = datetime.now(UTC)
+
+    # Insert admin user
+    conn.execute(
+        text(
+            """
+            INSERT INTO users (
+                username, email, password_hash, profile_picture, is_active, is_admin,
+                created_at, updated_at, last_login
+            ) VALUES (
+                :username, :email, :password_hash, NULL, TRUE, TRUE,
+                :created_at, :updated_at, NULL
+            )
+            """
+        ),
+        {
+            "username": username,
+            "email": email,
+            "password_hash": password_hash,
+            "created_at": now,
+            "updated_at": now,
+        },
+    )
+    # Get the inserted user ID
+    user_result = conn.execute(
+        text("SELECT id FROM users WHERE username = :username"),
+        {"username": username},
+    )
+    user_id = user_result.scalar_one()
+
+    # Seed roles
+    roles_data = [
+        ("admin", "Administrator with full system access"),
+        ("user", "Standard user with basic access"),
+        ("viewer", "Read-only user with viewing permissions"),
+    ]
+
+    role_ids = {}
+    for role_name, role_description in roles_data:
+        conn.execute(
+            text(
+                """
+                INSERT INTO roles (name, description, created_at)
+                VALUES (:name, :description, :created_at)
+                """
+            ),
+            {
+                "name": role_name,
+                "description": role_description,
+                "created_at": now,
+            },
+        )
+        # Get the inserted role ID
+        role_result = conn.execute(
+            text("SELECT id FROM roles WHERE name = :name"),
+            {"name": role_name},
+        )
+        role_ids[role_name] = role_result.scalar_one()
+
+    # Seed permissions
+    permissions_data = [
+        # User management permissions
+        ("users:read", "Read user information", "users", "read"),
+        ("users:write", "Create and update users", "users", "write"),
+        ("users:delete", "Delete users", "users", "delete"),
+        # Book management permissions
+        ("books:read", "Read book information", "books", "read"),
+        ("books:write", "Create and update books", "books", "write"),
+        ("books:delete", "Delete books", "books", "delete"),
+        # Role management permissions
+        ("roles:read", "Read role information", "roles", "read"),
+        ("roles:write", "Create and update roles", "roles", "write"),
+        ("roles:delete", "Delete roles", "roles", "delete"),
+        # Permission management permissions
+        ("permissions:read", "Read permission information", "permissions", "read"),
+        ("permissions:write", "Create and update permissions", "permissions", "write"),
+        ("permissions:delete", "Delete permissions", "permissions", "delete"),
+        # System permissions
+        ("system:admin", "Full system administration access", "system", "admin"),
+    ]
+
+    permission_ids = {}
+    for perm_name, perm_description, resource, action in permissions_data:
+        conn.execute(
+            text(
+                """
+                INSERT INTO permissions (name, description, resource, action, created_at)
+                VALUES (:name, :description, :resource, :action, :created_at)
+                """
+            ),
+            {
+                "name": perm_name,
+                "description": perm_description,
+                "resource": resource,
+                "action": action,
+                "created_at": now,
+            },
+        )
+        # Get the inserted permission ID
+        perm_result = conn.execute(
+            text("SELECT id FROM permissions WHERE name = :name"),
+            {"name": perm_name},
+        )
+        permission_ids[perm_name] = perm_result.scalar_one()
+
+    # Assign all permissions to admin role
+    admin_role_id = role_ids["admin"]
+    for perm_id in permission_ids.values():
+        conn.execute(
+            text(
+                """
+                INSERT INTO role_permissions (role_id, permission_id, assigned_at)
+                VALUES (:role_id, :permission_id, :assigned_at)
+                """
+            ),
+            {
+                "role_id": admin_role_id,
+                "permission_id": perm_id,
+                "assigned_at": now,
+            },
+        )
+
+    # Assign basic permissions to user role
+    user_role_id = role_ids["user"]
+    user_permissions = [
+        permission_ids["users:read"],
+        permission_ids["books:read"],
+        permission_ids["books:write"],
+    ]
+    for perm_id in user_permissions:
+        conn.execute(
+            text(
+                """
+                INSERT INTO role_permissions (role_id, permission_id, assigned_at)
+                VALUES (:role_id, :permission_id, :assigned_at)
+                """
+            ),
+            {
+                "role_id": user_role_id,
+                "permission_id": perm_id,
+                "assigned_at": now,
+            },
+        )
+
+    # Assign read-only permissions to viewer role
+    viewer_role_id = role_ids["viewer"]
+    viewer_permissions = [
+        permission_ids["users:read"],
+        permission_ids["books:read"],
+    ]
+    for perm_id in viewer_permissions:
+        conn.execute(
+            text(
+                """
+                INSERT INTO role_permissions (role_id, permission_id, assigned_at)
+                VALUES (:role_id, :permission_id, :assigned_at)
+                """
+            ),
+            {
+                "role_id": viewer_role_id,
+                "permission_id": perm_id,
+                "assigned_at": now,
+            },
+        )
+
+    # Assign admin role to the seeded admin user
+    conn.execute(
+        text(
+            """
+            INSERT INTO user_roles (user_id, role_id, assigned_at)
+            VALUES (:user_id, :role_id, :assigned_at)
+            """
+        ),
+        {
+            "user_id": user_id,
+            "role_id": admin_role_id,
+            "assigned_at": now,
+        },
+    )
+
+
+def downgrade() -> None:
+    """Remove seeded data: admin user, roles, permissions, and associations.
+
+    This keeps downgrade safe: it won't touch data created later with
+    different credentials or names.
+    """
+    conn = op.get_bind()
+    username = os.getenv("ADMIN_USERNAME", "admin")
+    email = os.getenv("ADMIN_EMAIL", "admin@example.com")
+
+    # Remove user-role associations for the admin user
+    conn.execute(
+        text(
+            """
+            DELETE FROM user_roles
+            WHERE user_id IN (
+                SELECT id FROM users WHERE username = :u OR email = :e
+            )
+            """
+        ),
+        {"u": username, "e": email},
+    )
+
+    # Remove role-permission associations for seeded roles
+    conn.execute(
+        text(
+            """
+            DELETE FROM role_permissions
+            WHERE role_id IN (
+                SELECT id FROM roles WHERE name IN ('admin', 'user', 'viewer')
+            )
+            """
+        ),
+    )
+
+    # Remove seeded permissions
+    conn.execute(
+        text(
+            """
+            DELETE FROM permissions
+            WHERE name IN (
+                'users:read', 'users:write', 'users:delete',
+                'books:read', 'books:write', 'books:delete',
+                'roles:read', 'roles:write', 'roles:delete',
+                'permissions:read', 'permissions:write', 'permissions:delete',
+                'system:admin'
+            )
+            """
+        ),
+    )
+
+    # Remove seeded roles
+    conn.execute(
+        text(
+            """
+            DELETE FROM roles
+            WHERE name IN ('admin', 'user', 'viewer')
+            """
+        ),
+    )
+
+    # Remove the seeded admin user
+    conn.execute(
+        text("DELETE FROM users WHERE username = :u OR email = :e"),
+        {"u": username, "e": email},
+    )
