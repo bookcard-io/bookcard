@@ -38,6 +38,7 @@ from typing import TYPE_CHECKING
 from fastapi import FastAPI
 
 from fundamental.api.middleware.auth_middleware import AuthMiddleware
+from fundamental.api.routes.admin import router as admin_router
 from fundamental.api.routes.auth import router as auth_router
 from fundamental.config import AppConfig
 from fundamental.database import create_db_engine
@@ -91,6 +92,7 @@ def _register_routers(app: FastAPI) -> None:
         FastAPI application instance.
     """
     app.include_router(auth_router)
+    app.include_router(admin_router)
 
 
 def create_app(config: AppConfig | None = None) -> FastAPI:

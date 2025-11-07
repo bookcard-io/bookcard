@@ -92,3 +92,30 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="user_not_found"
         )
     return user
+
+
+def get_admin_user(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    """Require the current user to be an admin.
+
+    Parameters
+    ----------
+    current_user : User
+        Current authenticated user from get_current_user.
+
+    Returns
+    -------
+    User
+        Admin user.
+
+    Raises
+    ------
+    HTTPException
+        If the user is not an admin (403).
+    """
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="admin_required"
+        )
+    return current_user

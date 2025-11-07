@@ -103,11 +103,13 @@ def login(
 
 @router.get("/me", response_model=UserRead)
 def me(
-    current_user: CurrentUserDep,
+    request: Request,
+    session: SessionDep,
 ) -> UserRead:
     """Return the current authenticated user."""
     # FastAPI will serialize using response_model=UserRead
     # with from_attributes=True from UserRead.model_config
+    current_user = get_current_user(request, session)
     return UserRead.model_validate(current_user)
 
 
@@ -115,7 +117,6 @@ def me(
 def change_password(
     request: Request,
     session: SessionDep,
-    current_user: CurrentUserDep,
     payload: PasswordChangeRequest,
 ) -> None:
     """Change the current user's password.
@@ -132,6 +133,7 @@ def change_password(
         Request containing current and new passwords.
     """
     service = _auth_service(request, session)
+    current_user = get_current_user(request, session)
     try:
         service.change_password(
             current_user.id,  # type: ignore[arg-type]
@@ -159,7 +161,8 @@ def logout() -> None:
 
 @router.get("/profile", response_model=ProfileRead)
 def get_profile(
-    current_user: CurrentUserDep,
+    request: Request,
+    session: SessionDep,
 ) -> ProfileRead:
     """Return the current user's profile with profile picture.
 
@@ -173,6 +176,7 @@ def get_profile(
     ProfileRead
         User profile including profile picture path.
     """
+    current_user = get_current_user(request, session)
     return ProfileRead.model_validate(current_user)
 
 
@@ -180,7 +184,6 @@ def get_profile(
 def update_profile_picture(
     request: Request,
     session: SessionDep,
-    current_user: CurrentUserDep,
     payload: ProfilePictureUpdateRequest,
 ) -> ProfileRead:
     """Update the current user's profile picture.
@@ -207,6 +210,7 @@ def update_profile_picture(
         If user is not found (404).
     """
     service = _auth_service(request, session)
+    current_user = get_current_user(request, session)
     try:
         user = service.update_profile_picture(
             current_user.id,  # type: ignore[arg-type]
@@ -223,7 +227,6 @@ def update_profile_picture(
 def delete_profile_picture(
     request: Request,
     session: SessionDep,
-    current_user: CurrentUserDep,
 ) -> ProfileRead:
     """Delete the current user's profile picture.
 
@@ -247,6 +250,7 @@ def delete_profile_picture(
         If user is not found (404).
     """
     service = _auth_service(request, session)
+    current_user = get_current_user(request, session)
     try:
         user = service.delete_profile_picture(current_user.id)  # type: ignore[arg-type]
     except ValueError as exc:
