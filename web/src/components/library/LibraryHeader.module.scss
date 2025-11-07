@@ -1,4 +1,4 @@
-@use "../../styles/colors" as *;
+@use "../../styles/typography" as *;
 
 .header {
   display: flex;
@@ -8,11 +8,7 @@
 }
 
 .title {
-  font-size: 32px;
-  font-weight: 600;
-  color: get-theme-color("text", "a0");
-  margin: 0;
-  line-height: 1.2;
+  @include pageTitle;
 }
 
 .rightSection {

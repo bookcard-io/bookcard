@@ -23,11 +23,36 @@
 """Authentication and user database models for Fundamental."""
 
 from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any, ClassVar
 from uuid import uuid4
 
 from sqlalchemy import JSON, Column
+from sqlalchemy import Enum as SQLEnum
 from sqlmodel import Field, Relationship, SQLModel
+
+
+class EBookFormat(StrEnum):
+    """E-book file format enumeration.
+
+    Supported formats for e-reader devices.
+    """
+
+    EPUB = "epub"
+    MOBI = "mobi"
+    AZW = "azw"
+    AZW3 = "azw3"
+    PDF = "pdf"
+    TXT = "txt"
+    RTF = "rtf"
+    FB2 = "fb2"
+    LIT = "lit"
+    LRF = "lrf"
+    OEB = "oeb"
+    PDB = "pdb"
+    RB = "rb"
+    SNB = "snb"
+    TCR = "tcr"
 
 
 class User(SQLModel, table=True):
@@ -81,6 +106,7 @@ class User(SQLModel, table=True):
     settings: list["UserSetting"] = Relationship(back_populates="user")
     roles: list["UserRole"] = Relationship(back_populates="user")
     refresh_tokens: list["RefreshToken"] = Relationship(back_populates="user")
+    ereader_devices: list["EReaderDevice"] = Relationship(back_populates="user")
 
 
 class UserSetting(SQLModel, table=True):
@@ -362,3 +388,56 @@ class Invite(SQLModel, table=True):
     )
     expires_at: datetime = Field(index=True)
     used_at: datetime | None = Field(default=None)
+
+
+class EReaderDevice(SQLModel, table=True):
+    """E-reader device email configuration.
+
+    Stores e-reader email addresses and preferences for sending books
+    to devices like Kindle, Kobo, and other e-readers.
+
+    Attributes
+    ----------
+    id : int | None
+        Primary key identifier.
+    user_id : int
+        Foreign key to user.
+    email : str
+        E-reader email address (e.g., Kindle send-to-email).
+    device_name : str | None
+        User-friendly device name (e.g., "My Kindle", "Kobo Clara").
+    device_type : str
+        Device type: 'kindle', 'kobo', 'generic', etc.
+    is_default : bool
+        Whether this is the default device for sending.
+    preferred_format : EBookFormat | None
+        Preferred format for this device (e.g., EPUB, MOBI, AZW3).
+    created_at : datetime
+        Device creation timestamp.
+    updated_at : datetime
+        Last update timestamp.
+    """
+
+    __tablename__ = "ereader_devices"
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    email: str = Field(max_length=255, index=True)
+    device_name: str | None = Field(default=None, max_length=100)
+    device_type: str = Field(default="kindle", max_length=50)
+    is_default: bool = Field(default=False)
+    preferred_format: EBookFormat | None = Field(
+        default=None,
+        sa_column=Column(SQLEnum(EBookFormat, native_enum=False)),
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        index=True,
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column_kwargs={"onupdate": lambda: datetime.now(UTC)},
+    )
+
+    # Relationships
+    user: User = Relationship(back_populates="ereader_devices")

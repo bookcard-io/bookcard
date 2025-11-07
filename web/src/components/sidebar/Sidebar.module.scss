@@ -166,4 +166,9 @@ $transition-duration: 0.3s;
 	text-decoration: none;
 	font-size: 14px;
 	padding: 8px;
+
+	&.active {
+		color: $clr-primary-a20;
+		background-color: get-theme-color("surface", "a20");
+	}
 }

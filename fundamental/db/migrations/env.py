@@ -78,16 +78,39 @@ def get_database_url() -> str:
 # with SQLModel.metadata. We use that metadata object for Alembic.
 target_metadata = SQLModel.metadata
 
-# Define which tables belong to the auth models (exclude Calibre models)
-AUTH_TABLES = {
-    "users",
-    "user_settings",
-    "roles",
-    "permissions",
-    "user_roles",
-    "role_permissions",
-    "refresh_tokens",
-    "invites",
+# Define which tables to exclude from migrations (Calibre models)
+# These tables are defined in fundamental/models/core.py, media.py, reading.py, and system.py
+EXCLUDED_TABLES = {
+    # From core.py
+    "authors",
+    "publishers",
+    "series",
+    "tags",
+    "languages",
+    "ratings",
+    "books",
+    "comments",
+    "identifiers",
+    "books_authors_link",
+    "books_languages_link",
+    "books_publishers_link",
+    "books_ratings_link",
+    "books_series_link",
+    "books_tags_link",
+    # From media.py
+    "data",
+    "conversion_options",
+    # From reading.py
+    "annotations",
+    "annotations_dirtied",
+    "last_read_positions",
+    # From system.py
+    "preferences",
+    "library_id",
+    "metadata_dirtied",
+    "feeds",
+    "custom_columns",
+    "books_plugin_data",
 }
 
 
@@ -105,10 +128,10 @@ def include_object(
     _reflected: bool,
     _compare_to: SchemaItem | None,
 ) -> bool:
-    """Filter objects to only include auth-related tables.
+    """Filter objects to exclude Calibre database models.
 
-    Excludes all Calibre database models (core, media, reading, system)
-    from Alembic migrations.
+    Excludes all tables from fundamental/models/core.py, media.py, reading.py,
+    and system.py from Alembic migrations. All other tables are included.
 
     Parameters
     ----------
@@ -129,7 +152,7 @@ def include_object(
         True to include the object, False to exclude it.
     """
     if type_ == "table" and name is not None:
-        return name in AUTH_TABLES
+        return name not in EXCLUDED_TABLES
     return True
 
 

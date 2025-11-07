@@ -1,0 +1,10 @@
+@use "colors" as *;
+
+/** Shared page title mixin */
+@mixin pageTitle {
+  font-size: 32px;
+  font-weight: 600;
+  color: get-theme-color("text", "a0");
+  margin: 0;
+  line-height: 1.2;
+}

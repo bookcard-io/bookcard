@@ -23,6 +23,8 @@
 """Database models for Fundamental."""
 
 from fundamental.models.auth import (
+    EBookFormat,
+    EReaderDevice,
     Permission,
     RefreshToken,
     Role,
@@ -79,6 +81,8 @@ __all__ = [
     "ConversionOptions",
     "CustomColumn",
     "Data",
+    "EBookFormat",
+    "EReaderDevice",
     "Feed",
     "Identifier",
     "Language",

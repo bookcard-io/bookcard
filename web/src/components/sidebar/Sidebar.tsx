@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useSidebar } from "@/contexts/SidebarContext";
 import { LibraryBuilding } from "@/icons/LibraryBuilding";
@@ -38,6 +39,8 @@ const sectionIcons: Record<
 
 export function Sidebar() {
   const { isCollapsed, setIsCollapsed } = useSidebar();
+  const router = useRouter();
+  const pathname = usePathname();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(["MY LIBRARY", "MY SHELVES", "DEVICES"]),
   );
@@ -55,6 +58,12 @@ export function Sidebar() {
   const handleLinkClick = () => {
     // No-op for now
   };
+
+  const handleAdminClick = () => {
+    router.push("/admin");
+  };
+
+  const isAdminActive = pathname === "/admin";
 
   return (
     <aside
@@ -136,8 +145,8 @@ export function Sidebar() {
       <div className={styles.footer}>
         <button
           type="button"
-          onClick={handleLinkClick}
-          className={styles.settingsLink}
+          onClick={handleAdminClick}
+          className={`${styles.settingsLink} ${isAdminActive ? styles.active : ""}`}
           aria-label="Admin Settings"
         >
           <i className="pi pi-cog"></i>

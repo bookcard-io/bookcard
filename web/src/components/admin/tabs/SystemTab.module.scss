@@ -1,0 +1,26 @@
+@use "../../../styles/colors" as *;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.section {
+  background-color: get-theme-color("surface-tonal", "a0");
+  border-radius: 8px;
+  padding: 24px;
+  border: 1px solid get-theme-color("surface", "a20");
+}
+
+.sectionTitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: get-theme-color("text", "a0");
+  margin: 0 0 16px 0;
+}
+
+.placeholder {
+  color: get-theme-color("text", "a30");
+  font-size: 14px;
+}
