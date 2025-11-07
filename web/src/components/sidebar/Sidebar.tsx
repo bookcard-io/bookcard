@@ -138,7 +138,7 @@ export function Sidebar() {
           type="button"
           onClick={handleLinkClick}
           className={styles.settingsLink}
-          aria-label="Fundamental Settings"
+          aria-label="Admin Settings"
         >
           <i className="pi pi-cog"></i>
           {!isCollapsed && <span>Admin Settings</span>}
