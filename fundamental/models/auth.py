@@ -23,9 +23,10 @@
 """Authentication and user database models for Fundamental."""
 
 from datetime import UTC, datetime
-from typing import ClassVar
+from typing import Any, ClassVar
 from uuid import uuid4
 
+from sqlalchemy import JSON, Column
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -225,7 +226,18 @@ class UserRole(SQLModel, table=True):
 
 
 class RolePermission(SQLModel, table=True):
-    """Role-permission association table.
+    """Role-permission association table with optional resource conditions.
+
+    Supports resource-specific permissions through the `condition` field.
+    When `condition` is None, the permission applies globally.
+    When `condition` is set, the permission only applies when the condition matches.
+
+    Condition examples:
+    - Tag-based: `{"tag": "kids"}` or `{"tags": ["kids", "young-adult"]}`
+    - Author-based: `{"author_id": 123}` or `{"author_ids": [1, 2, 3]}`
+    - Genre-based: `{"genre": "fiction"}`
+    - Series-based: `{"series_id": 456}`
+    - Multiple: `{"tags": ["kids"], "author_id": 123}`
 
     Attributes
     ----------
@@ -235,6 +247,9 @@ class RolePermission(SQLModel, table=True):
         Foreign key to role.
     permission_id : int
         Foreign key to permission.
+    condition : dict[str, Any] | None
+        Optional JSON condition that specifies when this permission applies.
+        None means the permission applies globally to all resources.
     assigned_at : datetime
         Assignment timestamp.
     """
@@ -244,6 +259,10 @@ class RolePermission(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     role_id: int = Field(foreign_key="roles.id", index=True)
     permission_id: int = Field(foreign_key="permissions.id", index=True)
+    condition: dict[str, Any] | None = Field(
+        default=None,
+        sa_column=Column(JSON),
+    )
     assigned_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
     )

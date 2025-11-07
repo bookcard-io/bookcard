@@ -54,6 +54,7 @@ class AppConfig:
     jwt_secret: str
     jwt_algorithm: str
     jwt_expires_minutes: int
+    alembic_enabled: bool = False
     database_url: str = "sqlite:///fundamental.db"
     echo_sql: bool = False
 
@@ -132,4 +133,7 @@ class AppConfig:
                 "FUNDAMENTAL_DATABASE_URL", "sqlite:///fundamental.db"
             ),
             echo_sql=AppConfig._parse_bool_env("FUNDAMENTAL_ECHO_SQL", "false"),
+            alembic_enabled=AppConfig._parse_bool_env(
+                "FUNDAMENTAL_ALEMBIC_ENABLED", "false"
+            ),
         )

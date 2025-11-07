@@ -28,9 +28,12 @@ application state. Designed for IOC and testability.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import sys
+from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 
@@ -38,6 +41,17 @@ from fundamental.api.middleware.auth_middleware import AuthMiddleware
 from fundamental.api.routes.auth import router as auth_router
 from fundamental.config import AppConfig
 from fundamental.database import create_db_engine
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+try:
+    # Imported lazily in function to avoid hard dependency at import time in tests
+    from alembic import command as _alembic_command  # type: ignore
+    from alembic.config import Config as _AlembicConfig  # type: ignore
+except ImportError:  # pragma: no cover - only for environments without Alembic
+    _alembic_command = None  # type: ignore[assignment]
+    _AlembicConfig = None  # type: ignore[assignment]
 
 
 def _setup_logging() -> None:
@@ -98,10 +112,28 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
 
     cfg = config or AppConfig.from_env()
 
+    @asynccontextmanager
+    async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+        """Application lifespan manager.
+
+        Runs database migrations at startup when enabled.
+        """
+        if (
+            cfg.alembic_enabled
+            and _AlembicConfig is not None
+            and _alembic_command is not None
+        ):
+            alembic_cfg = _AlembicConfig()
+            alembic_cfg.set_main_option("script_location", "fundamental/db/migrations")
+            await asyncio.to_thread(_alembic_command.upgrade, alembic_cfg, "head")
+        _ = getattr(app, "state", None)
+        yield
+
     app = FastAPI(
         title="Fundamental",
         version="0.1.0",
         summary="Self-hosted ebook management and reading API",
+        lifespan=_lifespan,
     )
 
     # Application state
