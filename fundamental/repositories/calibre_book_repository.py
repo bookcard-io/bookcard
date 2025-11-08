@@ -41,13 +41,21 @@ from fundamental.models.core import (
     Author,
     Book,
     BookAuthorLink,
+    BookLanguageLink,
+    BookPublisherLink,
+    BookRatingLink,
     BookSeriesLink,
     BookTagLink,
+    Comment,
+    Identifier,
+    Language,
+    Publisher,
+    Rating,
     Series,
     Tag,
 )
 from fundamental.repositories.filters import FilterBuilder
-from fundamental.repositories.models import BookWithRelations
+from fundamental.repositories.models import BookWithFullRelations, BookWithRelations
 from fundamental.repositories.suggestions import FilterSuggestionFactory
 
 if TYPE_CHECKING:
@@ -658,6 +666,590 @@ class CalibreBookRepository:
                 authors=authors,
                 series=series_name,
             )
+
+    def get_book_full(self, book_id: int) -> BookWithFullRelations | None:
+        """Get a book by ID with all related metadata for editing.
+
+        Parameters
+        ----------
+        book_id : int
+            Calibre book ID.
+
+        Returns
+        -------
+        BookWithFullRelations | None
+            Book with all related metadata if found, None otherwise.
+        """
+        with self._get_session() as session:
+            # Get book with series
+            series_alias = aliased(Series)
+            stmt = (
+                select(
+                    Book,
+                    series_alias.name.label("series_name"),
+                    series_alias.id.label("series_id"),
+                )  # type: ignore[attr-defined]
+                .outerjoin(BookSeriesLink, Book.id == BookSeriesLink.book)
+                .outerjoin(series_alias, BookSeriesLink.series == series_alias.id)
+                .where(Book.id == book_id)
+            )
+            result = session.exec(stmt).first()
+
+            if result is None:
+                return None
+
+            book = self._unwrap_book_from_result(result)
+            if book is None:
+                return None
+
+            # Extract series info
+            series_name = self._unwrap_series_name_from_result(result)
+            series_id = None
+            with suppress(AttributeError, TypeError, KeyError, IndexError):
+                if hasattr(result, "series_id"):
+                    series_id = result.series_id  # type: ignore[attr-defined]
+                elif hasattr(result, "__getitem__"):
+                    series_id = result[2]  # type: ignore[index]
+
+            # Get authors
+            authors_stmt = (
+                select(Author.name)
+                .join(BookAuthorLink, Author.id == BookAuthorLink.author)
+                .where(BookAuthorLink.book == book_id)
+                .order_by(BookAuthorLink.id)
+            )
+            authors = list(session.exec(authors_stmt).all())
+
+            # Get tags
+            tags_stmt = (
+                select(Tag.name)
+                .join(BookTagLink, Tag.id == BookTagLink.tag)
+                .where(BookTagLink.book == book_id)
+                .order_by(BookTagLink.id)
+            )
+            tags = list(session.exec(tags_stmt).all())
+
+            # Get identifiers
+            identifiers_stmt = (
+                select(Identifier.type, Identifier.val)
+                .where(Identifier.book == book_id)
+                .order_by(Identifier.id)
+            )
+            identifiers = [
+                {"type": ident_type, "val": ident_val}
+                for ident_type, ident_val in session.exec(identifiers_stmt).all()
+            ]
+
+            # Get comment/description
+            comment_stmt = select(Comment.text).where(Comment.book == book_id)
+            comment_result = session.exec(comment_stmt).first()
+            description = comment_result if comment_result else None
+
+            # Get publisher
+            publisher_stmt = (
+                select(Publisher.name, Publisher.id)
+                .join(BookPublisherLink, Publisher.id == BookPublisherLink.publisher)
+                .where(BookPublisherLink.book == book_id)
+            )
+            publisher_result = session.exec(publisher_stmt).first()
+            publisher = None
+            publisher_id = None
+            if publisher_result:
+                publisher, publisher_id = publisher_result
+
+            # Get language
+            language_stmt = (
+                select(Language.lang_code, Language.id)
+                .join(BookLanguageLink, Language.id == BookLanguageLink.lang_code)
+                .where(BookLanguageLink.book == book_id)
+                .order_by(BookLanguageLink.item_order)
+            )
+            language_result = session.exec(language_stmt).first()
+            language = None
+            language_id = None
+            if language_result:
+                language, language_id = language_result
+
+            # Get rating
+            rating_stmt = (
+                select(Rating.rating, Rating.id)
+                .join(BookRatingLink, Rating.id == BookRatingLink.rating)
+                .where(BookRatingLink.book == book_id)
+            )
+            rating_result = session.exec(rating_stmt).first()
+            rating = None
+            rating_id = None
+            if rating_result:
+                rating, rating_id = rating_result
+
+            return BookWithFullRelations(
+                book=book,
+                authors=authors,
+                series=series_name,
+                series_id=series_id,
+                tags=tags,
+                identifiers=identifiers,
+                description=description,
+                publisher=publisher,
+                publisher_id=publisher_id,
+                language=language,
+                language_id=language_id,
+                rating=rating,
+                rating_id=rating_id,
+            )
+
+    def _update_book_fields(
+        self,
+        book: Book,
+        title: str | None = None,
+        pubdate: datetime | None = None,
+        series_index: float | None = None,
+    ) -> None:
+        """Update direct book fields.
+
+        Parameters
+        ----------
+        book : Book
+            Book instance to update.
+        title : str | None
+            Book title to update.
+        pubdate : datetime | None
+            Publication date to update.
+        series_index : float | None
+            Series index to update.
+        """
+        if title is not None:
+            book.title = title
+        if pubdate is not None:
+            book.pubdate = pubdate
+        if series_index is not None:
+            book.series_index = series_index
+        book.last_modified = datetime.now(UTC)
+
+    def _update_book_authors(
+        self, session: Session, book_id: int, author_names: list[str]
+    ) -> None:
+        """Update book authors (many-to-many relationship).
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Calibre book ID.
+        author_names : list[str]
+            List of author names to set (replaces existing).
+        """
+        # Delete existing author links
+        delete_links_stmt = select(BookAuthorLink).where(BookAuthorLink.book == book_id)
+        existing_links = session.exec(delete_links_stmt).all()
+        for link in existing_links:
+            session.delete(link)
+
+        # Create or get authors and create links
+        for author_name in author_names:
+            if not author_name.strip():
+                continue
+            # Find or create author
+            author_stmt = select(Author).where(Author.name == author_name)
+            author = session.exec(author_stmt).first()
+            if author is None:
+                author = Author(name=author_name)
+                session.add(author)
+                session.flush()
+            if author.id is None:
+                continue
+            # Create link if doesn't exist
+            link_stmt = select(BookAuthorLink).where(
+                BookAuthorLink.book == book_id,
+                BookAuthorLink.author == author.id,
+            )
+            existing_link = session.exec(link_stmt).first()
+            if existing_link is None:
+                link = BookAuthorLink(book=book_id, author=author.id)
+                session.add(link)
+
+    def _update_book_series(
+        self,
+        session: Session,
+        book_id: int,
+        series_name: str | None = None,
+        series_id: int | None = None,
+    ) -> None:
+        """Update book series (many-to-many relationship).
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Calibre book ID.
+        series_name : str | None
+            Series name to set (creates if doesn't exist).
+        series_id : int | None
+            Series ID to set (if provided, series_name is ignored).
+        """
+        # Delete existing series link
+        delete_series_stmt = select(BookSeriesLink).where(
+            BookSeriesLink.book == book_id
+        )
+        existing_series_links = session.exec(delete_series_stmt).all()
+        for link in existing_series_links:
+            session.delete(link)
+
+        # Determine if we should remove series or set a new one
+        should_remove = series_name == "" or (
+            series_id is None and series_name is not None and not series_name.strip()
+        )
+
+        if should_remove:
+            return
+
+        target_series_id = series_id
+        if target_series_id is None and series_name is not None and series_name.strip():
+            # Find or create series
+            series_stmt = select(Series).where(Series.name == series_name)
+            series = session.exec(series_stmt).first()
+            if series is None:
+                series = Series(name=series_name)
+                session.add(series)
+                session.flush()
+            if series.id is not None:
+                target_series_id = series.id
+
+        if target_series_id is not None:
+            link = BookSeriesLink(book=book_id, series=target_series_id)
+            session.add(link)
+
+    def _update_book_tags(
+        self, session: Session, book_id: int, tag_names: list[str]
+    ) -> None:
+        """Update book tags (many-to-many relationship).
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Calibre book ID.
+        tag_names : list[str]
+            List of tag names to set (replaces existing).
+        """
+        # Delete existing tag links
+        delete_tags_stmt = select(BookTagLink).where(BookTagLink.book == book_id)
+        existing_tag_links = session.exec(delete_tags_stmt).all()
+        for link in existing_tag_links:
+            session.delete(link)
+
+        # Create or get tags and create links
+        for tag_name in tag_names:
+            if not tag_name.strip():
+                continue
+            tag_stmt = select(Tag).where(Tag.name == tag_name)
+            tag = session.exec(tag_stmt).first()
+            if tag is None:
+                tag = Tag(name=tag_name)
+                session.add(tag)
+                session.flush()
+            if tag.id is None:
+                continue
+            link = BookTagLink(book=book_id, tag=tag.id)
+            session.add(link)
+
+    def _update_book_identifiers(
+        self, session: Session, book_id: int, identifiers: list[dict[str, str]]
+    ) -> None:
+        """Update book identifiers (one-to-many relationship).
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Calibre book ID.
+        identifiers : list[dict[str, str]]
+            List of identifiers with 'type' and 'val' keys (replaces existing).
+        """
+        # Delete existing identifiers
+        delete_identifiers_stmt = select(Identifier).where(Identifier.book == book_id)
+        existing_identifiers = session.exec(delete_identifiers_stmt).all()
+        for ident in existing_identifiers:
+            session.delete(ident)
+
+        # Create new identifiers
+        for ident_data in identifiers:
+            ident_type = ident_data.get("type", "isbn")
+            ident_val = ident_data.get("val", "")
+            if ident_val.strip():
+                ident = Identifier(book=book_id, type=ident_type, val=ident_val)
+                session.add(ident)
+
+    def _update_book_description(
+        self, session: Session, book_id: int, description: str
+    ) -> None:
+        """Update book description/comment (one-to-one relationship).
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Calibre book ID.
+        description : str
+            Book description/comment to set.
+        """
+        comment_stmt = select(Comment).where(Comment.book == book_id)
+        comment = session.exec(comment_stmt).first()
+        if comment is None:
+            comment = Comment(book=book_id, text=description)
+            session.add(comment)
+        else:
+            comment.text = description
+
+    def _update_book_publisher(
+        self,
+        session: Session,
+        book_id: int,
+        publisher_name: str | None = None,
+        publisher_id: int | None = None,
+    ) -> None:
+        """Update book publisher (many-to-many relationship).
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Calibre book ID.
+        publisher_name : str | None
+            Publisher name to set (creates if doesn't exist).
+        publisher_id : int | None
+            Publisher ID to set (if provided, publisher_name is ignored).
+        """
+        # Delete existing publisher link
+        delete_publisher_stmt = select(BookPublisherLink).where(
+            BookPublisherLink.book == book_id
+        )
+        existing_publisher_links = session.exec(delete_publisher_stmt).all()
+        for link in existing_publisher_links:
+            session.delete(link)
+
+        target_publisher_id = publisher_id
+        if target_publisher_id is None and publisher_name is not None:
+            # Find or create publisher
+            publisher_stmt = select(Publisher).where(Publisher.name == publisher_name)
+            publisher = session.exec(publisher_stmt).first()
+            if publisher is None:
+                publisher = Publisher(name=publisher_name)
+                session.add(publisher)
+                session.flush()
+            if publisher.id is not None:
+                target_publisher_id = publisher.id
+
+        if target_publisher_id is not None:
+            link = BookPublisherLink(book=book_id, publisher=target_publisher_id)
+            session.add(link)
+
+    def _update_book_language(
+        self,
+        session: Session,
+        book_id: int,
+        language_code: str | None = None,
+        language_id: int | None = None,
+    ) -> None:
+        """Update book language (many-to-many relationship).
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Calibre book ID.
+        language_code : str | None
+            Language code to set (creates if doesn't exist).
+        language_id : int | None
+            Language ID to set (if provided, language_code is ignored).
+        """
+        # Delete existing language link
+        delete_language_stmt = select(BookLanguageLink).where(
+            BookLanguageLink.book == book_id
+        )
+        existing_language_links = session.exec(delete_language_stmt).all()
+        for link in existing_language_links:
+            session.delete(link)
+
+        target_language_id = language_id
+        if target_language_id is None and language_code is not None:
+            # Find or create language
+            language_stmt = select(Language).where(Language.lang_code == language_code)
+            language = session.exec(language_stmt).first()
+            if language is None:
+                language = Language(lang_code=language_code)
+                session.add(language)
+                session.flush()
+            if language.id is not None:
+                target_language_id = language.id
+
+        if target_language_id is not None:
+            link = BookLanguageLink(book=book_id, lang_code=target_language_id)
+            session.add(link)
+
+    def _update_book_rating(
+        self,
+        session: Session,
+        book_id: int,
+        rating_value: int | None = None,
+        rating_id: int | None = None,
+    ) -> None:
+        """Update book rating (many-to-many relationship).
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Calibre book ID.
+        rating_value : int | None
+            Rating value to set (creates if doesn't exist).
+        rating_id : int | None
+            Rating ID to set (if provided, rating_value is ignored).
+        """
+        # Delete existing rating link
+        delete_rating_stmt = select(BookRatingLink).where(
+            BookRatingLink.book == book_id
+        )
+        existing_rating_links = session.exec(delete_rating_stmt).all()
+        for link in existing_rating_links:
+            session.delete(link)
+
+        target_rating_id = rating_id
+        if target_rating_id is None and rating_value is not None:
+            # Find or create rating
+            rating_stmt = select(Rating).where(Rating.rating == rating_value)
+            rating = session.exec(rating_stmt).first()
+            if rating is None:
+                rating = Rating(rating=rating_value)
+                session.add(rating)
+                session.flush()
+            if rating.id is not None:
+                target_rating_id = rating.id
+
+        if target_rating_id is not None:
+            link = BookRatingLink(book=book_id, rating=target_rating_id)
+            session.add(link)
+
+    def update_book(
+        self,
+        book_id: int,
+        title: str | None = None,
+        pubdate: datetime | None = None,
+        author_names: list[str] | None = None,
+        series_name: str | None = None,
+        series_id: int | None = None,
+        series_index: float | None = None,
+        tag_names: list[str] | None = None,
+        identifiers: list[dict[str, str]] | None = None,
+        description: str | None = None,
+        publisher_name: str | None = None,
+        publisher_id: int | None = None,
+        language_code: str | None = None,
+        language_id: int | None = None,
+        rating_value: int | None = None,
+        rating_id: int | None = None,
+    ) -> BookWithFullRelations | None:
+        """Update book metadata.
+
+        Parameters
+        ----------
+        book_id : int
+            Calibre book ID.
+        title : str | None
+            Book title to update.
+        pubdate : datetime | None
+            Publication date to update.
+        author_names : list[str] | None
+            List of author names to set (replaces existing).
+        series_name : str | None
+            Series name to set (creates if doesn't exist).
+        series_id : int | None
+            Series ID to set (if provided, series_name is ignored).
+        series_index : float | None
+            Series index to update.
+        tag_names : list[str] | None
+            List of tag names to set (replaces existing).
+        identifiers : list[dict[str, str]] | None
+            List of identifiers with 'type' and 'val' keys (replaces existing).
+        description : str | None
+            Book description/comment to set.
+        publisher_name : str | None
+            Publisher name to set (creates if doesn't exist).
+        publisher_id : int | None
+            Publisher ID to set (if provided, publisher_name is ignored).
+        language_code : str | None
+            Language code to set (creates if doesn't exist).
+        language_id : int | None
+            Language ID to set (if provided, language_code is ignored).
+        rating_value : int | None
+            Rating value to set (creates if doesn't exist).
+        rating_id : int | None
+            Rating ID to set (if provided, rating_value is ignored).
+
+        Returns
+        -------
+        BookWithFullRelations | None
+            Updated book with all relations if found, None otherwise.
+        """
+        with self._get_session() as session:
+            # Get existing book
+            book_stmt = select(Book).where(Book.id == book_id)
+            book = session.exec(book_stmt).first()
+            if book is None:
+                return None
+
+            # Update book fields
+            self._update_book_fields(
+                book, title=title, pubdate=pubdate, series_index=series_index
+            )
+
+            # Update authors
+            if author_names is not None:
+                self._update_book_authors(session, book_id, author_names)
+
+            # Update series
+            if series_name is not None or series_id is not None:
+                self._update_book_series(session, book_id, series_name, series_id)
+
+            # Update tags
+            if tag_names is not None:
+                self._update_book_tags(session, book_id, tag_names)
+
+            # Update identifiers
+            if identifiers is not None:
+                self._update_book_identifiers(session, book_id, identifiers)
+
+            # Update description
+            if description is not None:
+                self._update_book_description(session, book_id, description)
+
+            # Update publisher
+            if publisher_id is not None or publisher_name is not None:
+                self._update_book_publisher(
+                    session, book_id, publisher_name, publisher_id
+                )
+
+            # Update language
+            if language_id is not None or language_code is not None:
+                self._update_book_language(session, book_id, language_code, language_id)
+
+            # Update rating
+            if rating_id is not None or rating_value is not None:
+                self._update_book_rating(session, book_id, rating_value, rating_id)
+
+            session.commit()
+            session.refresh(book)
+
+            # Return updated book with full relations
+            return self.get_book_full(book_id)
 
     def search_suggestions(
         self,

@@ -37,7 +37,11 @@ from fundamental.repositories.filters import (
     SeriesFilterStrategy,
     TitleFilterStrategy,
 )
-from fundamental.repositories.models import BookWithRelations, FilterContext
+from fundamental.repositories.models import (
+    BookWithFullRelations,
+    BookWithRelations,
+    FilterContext,
+)
 from fundamental.repositories.suggestions import (
     AuthorSuggestionStrategy,
     FilterSuggestionFactory,
@@ -55,6 +59,7 @@ from fundamental.repositories.suggestions import (
 __all__ = [
     "AuthorFilterStrategy",
     "AuthorSuggestionStrategy",
+    "BookWithFullRelations",
     # Models
     "BookWithRelations",
     # Main repository

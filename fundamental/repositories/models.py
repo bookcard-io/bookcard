@@ -57,6 +57,55 @@ class BookWithRelations:
 
 
 @dataclass
+class BookWithFullRelations:
+    """Book with all related metadata for editing.
+
+    Attributes
+    ----------
+    book : Book
+        Book instance.
+    authors : list[str]
+        List of author names.
+    series : str | None
+        Series name if part of a series.
+    series_id : int | None
+        Series ID if part of a series.
+    tags : list[str]
+        List of tag names.
+    identifiers : list[dict[str, str]]
+        List of identifiers, each with 'type' and 'val' keys.
+    description : str | None
+        Book description/comment text.
+    publisher : str | None
+        Publisher name.
+    publisher_id : int | None
+        Publisher ID.
+    language : str | None
+        Language code.
+    language_id : int | None
+        Language ID.
+    rating : int | None
+        Rating value (0-5).
+    rating_id : int | None
+        Rating ID.
+    """
+
+    book: Book
+    authors: list[str]
+    series: str | None
+    series_id: int | None
+    tags: list[str]
+    identifiers: list[dict[str, str]]
+    description: str | None
+    publisher: str | None
+    publisher_id: int | None
+    language: str | None
+    language_id: int | None
+    rating: int | None
+    rating_id: int | None
+
+
+@dataclass
 class FilterContext:
     """Context for building filter conditions.
 

@@ -28,7 +28,7 @@ from unittest.mock import MagicMock, patch
 
 from fundamental.models.config import Library
 from fundamental.models.core import Book
-from fundamental.repositories import BookWithRelations
+from fundamental.repositories import BookWithFullRelations, BookWithRelations
 from fundamental.services.book_service import BookService
 
 
@@ -506,3 +506,135 @@ def test_list_books_with_filters_all_filters() -> None:
         assert count_args["formats"] == ["EPUB"]
         assert count_args["rating_ids"] == [7]
         assert count_args["language_ids"] == [8]
+
+
+def test_get_book_full_delegates_to_repo() -> None:
+    """Test get_book_full delegates to repository (covers line 129)."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+
+    with patch(
+        "fundamental.services.book_service.CalibreBookRepository"
+    ) as mock_repo_class:
+        mock_repo = MagicMock()
+        mock_book_full = MagicMock()
+        mock_repo.get_book_full.return_value = mock_book_full
+        mock_repo_class.return_value = mock_repo
+
+        service = BookService(library)
+        result = service.get_book_full(123)
+
+        assert result is mock_book_full
+        mock_repo.get_book_full.assert_called_once_with(123)
+
+
+def test_update_book_delegates_to_repo() -> None:
+    """Test update_book delegates to repository (covers line 192)."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+
+    with patch(
+        "fundamental.services.book_service.CalibreBookRepository"
+    ) as mock_repo_class:
+        mock_repo = MagicMock()
+        mock_updated_book = MagicMock()
+        mock_repo.update_book.return_value = mock_updated_book
+        mock_repo_class.return_value = mock_repo
+
+        service = BookService(library)
+        result = service.update_book(
+            book_id=123,
+            title="New Title",
+            author_names=["Author 1"],
+        )
+
+        assert result is mock_updated_book
+        mock_repo.update_book.assert_called_once()
+        call_kwargs = mock_repo.update_book.call_args[1]
+        assert call_kwargs["book_id"] == 123
+        assert call_kwargs["title"] == "New Title"
+        assert call_kwargs["author_names"] == ["Author 1"]
+
+
+def test_get_thumbnail_url_with_book_with_full_relations() -> None:
+    """Test get_thumbnail_url with BookWithFullRelations (covers line 226)."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+
+    book = Book(id=789, title="Test Book", uuid="test-uuid", has_cover=True)
+    book_with_full_rels = BookWithFullRelations(
+        book=book,
+        authors=[],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        language=None,
+        language_id=None,
+        rating=None,
+        rating_id=None,
+    )
+
+    with patch("fundamental.services.book_service.CalibreBookRepository"):
+        service = BookService(library)
+        result = service.get_thumbnail_url(book_with_full_rels)
+
+        assert result == "/api/books/789/cover"
+
+
+def test_get_thumbnail_path_with_book_with_full_relations() -> None:
+    """Test get_thumbnail_path with BookWithFullRelations (covers line 251)."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/tmp/test_library",
+        calibre_db_file="metadata.db",
+    )
+
+    book = Book(
+        id=789,
+        title="Test Book",
+        uuid="test-uuid",
+        has_cover=True,
+        path="Author Name/Test Book (789)",
+    )
+    book_with_full_rels = BookWithFullRelations(
+        book=book,
+        authors=[],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        language=None,
+        language_id=None,
+        rating=None,
+        rating_id=None,
+    )
+
+    with (
+        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("pathlib.Path.exists", return_value=True),
+    ):
+        service = BookService(library)
+        result = service.get_thumbnail_path(book_with_full_rels)
+
+        assert result is not None
+        assert str(result).endswith("cover.jpg")

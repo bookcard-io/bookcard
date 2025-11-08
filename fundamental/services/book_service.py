@@ -32,11 +32,14 @@ from typing import TYPE_CHECKING
 
 from fundamental.models.core import Book
 from fundamental.repositories import (
+    BookWithFullRelations,
     BookWithRelations,
     CalibreBookRepository,
 )
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from fundamental.models.config import Library
 
 
@@ -110,13 +113,110 @@ class BookService:
         """
         return self._book_repo.get_book(book_id)
 
-    def get_thumbnail_url(self, book: Book | BookWithRelations) -> str | None:
+    def get_book_full(self, book_id: int) -> BookWithFullRelations | None:
+        """Get a book by ID with all related metadata for editing.
+
+        Parameters
+        ----------
+        book_id : int
+            Calibre book ID.
+
+        Returns
+        -------
+        BookWithFullRelations | None
+            Book with all related metadata if found, None otherwise.
+        """
+        return self._book_repo.get_book_full(book_id)
+
+    def update_book(
+        self,
+        book_id: int,
+        title: str | None = None,
+        pubdate: datetime | None = None,
+        author_names: list[str] | None = None,
+        series_name: str | None = None,
+        series_id: int | None = None,
+        series_index: float | None = None,
+        tag_names: list[str] | None = None,
+        identifiers: list[dict[str, str]] | None = None,
+        description: str | None = None,
+        publisher_name: str | None = None,
+        publisher_id: int | None = None,
+        language_code: str | None = None,
+        language_id: int | None = None,
+        rating_value: int | None = None,
+        rating_id: int | None = None,
+    ) -> BookWithFullRelations | None:
+        """Update book metadata.
+
+        Parameters
+        ----------
+        book_id : int
+            Calibre book ID.
+        title : str | None
+            Book title to update.
+        pubdate : datetime | None
+            Publication date to update.
+        author_names : list[str] | None
+            List of author names to set (replaces existing).
+        series_name : str | None
+            Series name to set (creates if doesn't exist).
+        series_id : int | None
+            Series ID to set (if provided, series_name is ignored).
+        series_index : float | None
+            Series index to update.
+        tag_names : list[str] | None
+            List of tag names to set (replaces existing).
+        identifiers : list[dict[str, str]] | None
+            List of identifiers with 'type' and 'val' keys (replaces existing).
+        description : str | None
+            Book description/comment to set.
+        publisher_name : str | None
+            Publisher name to set (creates if doesn't exist).
+        publisher_id : int | None
+            Publisher ID to set (if provided, publisher_name is ignored).
+        language_code : str | None
+            Language code to set (creates if doesn't exist).
+        language_id : int | None
+            Language ID to set (if provided, language_code is ignored).
+        rating_value : int | None
+            Rating value to set (creates if doesn't exist).
+        rating_id : int | None
+            Rating ID to set (if provided, rating_value is ignored).
+
+        Returns
+        -------
+        BookWithFullRelations | None
+            Updated book with all relations if found, None otherwise.
+        """
+        return self._book_repo.update_book(
+            book_id=book_id,
+            title=title,
+            pubdate=pubdate,
+            author_names=author_names,
+            series_name=series_name,
+            series_id=series_id,
+            series_index=series_index,
+            tag_names=tag_names,
+            identifiers=identifiers,
+            description=description,
+            publisher_name=publisher_name,
+            publisher_id=publisher_id,
+            language_code=language_code,
+            language_id=language_id,
+            rating_value=rating_value,
+            rating_id=rating_id,
+        )
+
+    def get_thumbnail_url(
+        self, book: Book | BookWithRelations | BookWithFullRelations
+    ) -> str | None:
         """Generate thumbnail URL for a book.
 
         Parameters
         ----------
-        book : Book | BookWithRelations
-            Book instance or BookWithRelations.
+        book : Book | BookWithRelations | BookWithFullRelations
+            Book instance, BookWithRelations, or BookWithFullRelations.
 
         Returns
         -------
@@ -133,13 +233,15 @@ class BookService:
         # Format: /api/books/{book_id}/cover
         return f"/api/books/{book_id}/cover"
 
-    def get_thumbnail_path(self, book: Book | BookWithRelations) -> Path | None:
+    def get_thumbnail_path(
+        self, book: Book | BookWithRelations | BookWithFullRelations
+    ) -> Path | None:
         """Get filesystem path to book cover thumbnail.
 
         Parameters
         ----------
-        book : Book | BookWithRelations
-            Book instance or BookWithRelations.
+        book : Book | BookWithRelations | BookWithFullRelations
+            Book instance, BookWithRelations, or BookWithFullRelations.
 
         Returns
         -------

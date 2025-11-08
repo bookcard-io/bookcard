@@ -36,6 +36,7 @@ from fundamental.api.schemas import (
     BookFilterRequest,
     BookListResponse,
     BookRead,
+    BookUpdate,
     FilterSuggestionsResponse,
     SearchSuggestionItem,
     SearchSuggestionsResponse,
@@ -174,6 +175,7 @@ def list_books(
 def get_book(
     session: SessionDep,
     book_id: int,
+    full: bool = False,
 ) -> BookRead:
     """Get a book by ID.
 
@@ -183,6 +185,8 @@ def get_book(
         Database session dependency.
     book_id : int
         Calibre book ID.
+    full : bool
+        If True, return full book details with all metadata (default: False).
 
     Returns
     -------
@@ -195,7 +199,11 @@ def get_book(
         If book not found (404) or no active library (404).
     """
     book_service = _get_active_library_service(session)
-    book_with_rels = book_service.get_book(book_id)
+
+    if full:
+        book_with_rels = book_service.get_book_full(book_id)
+    else:
+        book_with_rels = book_service.get_book(book_id)
 
     if book_with_rels is None:
         raise HTTPException(
@@ -210,7 +218,9 @@ def get_book(
             detail="book_missing_id",
         )
     thumbnail_url = book_service.get_thumbnail_url(book_with_rels)
-    return BookRead(
+
+    # Build base BookRead
+    book_read = BookRead(
         id=book.id,
         title=book.title,
         authors=book_with_rels.authors,
@@ -223,6 +233,122 @@ def get_book(
         uuid=book.uuid or "",
         thumbnail_url=thumbnail_url,
         has_cover=book.has_cover,
+    )
+
+    # Add full details if requested
+    if full and hasattr(book_with_rels, "tags"):
+        from fundamental.repositories.models import BookWithFullRelations
+
+        if isinstance(book_with_rels, BookWithFullRelations):
+            book_read.tags = book_with_rels.tags
+            book_read.identifiers = book_with_rels.identifiers
+            book_read.description = book_with_rels.description
+            book_read.publisher = book_with_rels.publisher
+            book_read.publisher_id = book_with_rels.publisher_id
+            book_read.language = book_with_rels.language
+            book_read.language_id = book_with_rels.language_id
+            book_read.rating = book_with_rels.rating
+            book_read.rating_id = book_with_rels.rating_id
+            book_read.series_id = book_with_rels.series_id
+
+    return book_read
+
+
+@router.put("/{book_id}", response_model=BookRead)
+def update_book(
+    session: SessionDep,
+    book_id: int,
+    update: BookUpdate,
+) -> BookRead:
+    """Update book metadata.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+    book_id : int
+        Calibre book ID.
+    update : BookUpdate
+        Book update payload.
+
+    Returns
+    -------
+    BookRead
+        Updated book data with all metadata.
+
+    Raises
+    ------
+    HTTPException
+        If book not found (404) or no active library (404).
+    """
+    book_service = _get_active_library_service(session)
+
+    # Check if book exists
+    existing_book = book_service.get_book(book_id)
+    if existing_book is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="book_not_found",
+        )
+
+    # Update book
+    updated_book = book_service.update_book(
+        book_id=book_id,
+        title=update.title,
+        pubdate=update.pubdate,
+        author_names=update.author_names,
+        series_name=update.series_name,
+        series_id=update.series_id,
+        series_index=update.series_index,
+        tag_names=update.tag_names,
+        identifiers=update.identifiers,
+        description=update.description,
+        publisher_name=update.publisher_name,
+        publisher_id=update.publisher_id,
+        language_code=update.language_code,
+        language_id=update.language_id,
+        rating_value=update.rating_value,
+        rating_id=update.rating_id,
+    )
+
+    if updated_book is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="book_not_found",
+        )
+
+    book = updated_book.book
+    if book.id is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="book_missing_id",
+        )
+
+    thumbnail_url = book_service.get_thumbnail_url(updated_book)
+
+    return BookRead(
+        id=book.id,
+        title=book.title,
+        authors=updated_book.authors,
+        author_sort=book.author_sort,
+        pubdate=book.pubdate,
+        timestamp=book.timestamp,
+        series=updated_book.series,
+        series_id=updated_book.series_id,
+        series_index=book.series_index,
+        isbn=book.isbn,
+        uuid=book.uuid or "",
+        thumbnail_url=thumbnail_url,
+        has_cover=book.has_cover,
+        tags=updated_book.tags,
+        identifiers=updated_book.identifiers,
+        description=updated_book.description,
+        publisher=updated_book.publisher,
+        publisher_id=updated_book.publisher_id,
+        language=updated_book.language,
+        language_id=updated_book.language_id,
+        rating=updated_book.rating,
+        rating_id=updated_book.rating_id,
     )
 
 

@@ -365,6 +365,8 @@ class BookRead(BaseModel):
         Date book was added to library.
     series : str | None
         Series name if part of a series.
+    series_id : int | None
+        Series ID if part of a series.
     series_index : float | None
         Position in series.
     isbn : str | None
@@ -375,6 +377,24 @@ class BookRead(BaseModel):
         URL to book cover thumbnail.
     has_cover : bool
         Whether the book has a cover image.
+    tags : list[str]
+        List of tag names.
+    identifiers : list[dict[str, str]]
+        List of identifiers, each with 'type' and 'val' keys.
+    description : str | None
+        Book description/comment text.
+    publisher : str | None
+        Publisher name.
+    publisher_id : int | None
+        Publisher ID.
+    language : str | None
+        Language code.
+    language_id : int | None
+        Language ID.
+    rating : int | None
+        Rating value (0-5).
+    rating_id : int | None
+        Rating ID.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -386,11 +406,75 @@ class BookRead(BaseModel):
     pubdate: datetime | None = None
     timestamp: datetime | None = None
     series: str | None = None
+    series_id: int | None = None
     series_index: float | None = None
     isbn: str | None = None
     uuid: str
     thumbnail_url: str | None = None
     has_cover: bool = False
+    tags: list[str] = Field(default_factory=list)
+    identifiers: list[dict[str, str]] = Field(default_factory=list)
+    description: str | None = None
+    publisher: str | None = None
+    publisher_id: int | None = None
+    language: str | None = None
+    language_id: int | None = None
+    rating: int | None = None
+    rating_id: int | None = None
+
+
+class BookUpdate(BaseModel):
+    """Book metadata update request.
+
+    Attributes
+    ----------
+    title : str | None
+        Book title to update.
+    pubdate : datetime | None
+        Publication date to update.
+    author_names : list[str] | None
+        List of author names to set (replaces existing).
+    series_name : str | None
+        Series name to set (creates if doesn't exist).
+    series_id : int | None
+        Series ID to set (if provided, series_name is ignored).
+    series_index : float | None
+        Series index to update.
+    tag_names : list[str] | None
+        List of tag names to set (replaces existing).
+    identifiers : list[dict[str, str]] | None
+        List of identifiers with 'type' and 'val' keys (replaces existing).
+    description : str | None
+        Book description/comment to set.
+    publisher_name : str | None
+        Publisher name to set (creates if doesn't exist).
+    publisher_id : int | None
+        Publisher ID to set (if provided, publisher_name is ignored).
+    language_code : str | None
+        Language code to set (creates if doesn't exist).
+    language_id : int | None
+        Language ID to set (if provided, language_code is ignored).
+    rating_value : int | None
+        Rating value to set (creates if doesn't exist).
+    rating_id : int | None
+        Rating ID to set (if provided, rating_value is ignored).
+    """
+
+    title: str | None = None
+    pubdate: datetime | None = None
+    author_names: list[str] | None = None
+    series_name: str | None = None
+    series_id: int | None = None
+    series_index: float | None = None
+    tag_names: list[str] | None = None
+    identifiers: list[dict[str, str]] | None = None
+    description: str | None = None
+    publisher_name: str | None = None
+    publisher_id: int | None = None
+    language_code: str | None = None
+    language_id: int | None = None
+    rating_value: int | None = None
+    rating_id: int | None = None
 
 
 class BookListResponse(BaseModel):

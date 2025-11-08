@@ -24,6 +24,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -33,7 +34,7 @@ from fastapi import HTTPException
 import fundamental.api.routes.books as books
 from fundamental.models.config import Library
 from fundamental.models.core import Book
-from fundamental.repositories import BookWithRelations
+from fundamental.repositories import BookWithFullRelations, BookWithRelations
 from tests.conftest import DummySession
 
 
@@ -45,15 +46,18 @@ class MockBookService:
         *,
         list_books_result: tuple[list[BookWithRelations], int] | None = None,
         get_book_result: BookWithRelations | None = None,
+        get_book_full_result: BookWithFullRelations | None = None,
         get_thumbnail_url_result: str | None = None,
         get_thumbnail_path_result: Path | None = None,
         search_suggestions_result: dict[str, list[dict[str, str | int]]] | None = None,
         filter_suggestions_result: list[dict[str, str | int]] | None = None,
         list_books_with_filters_result: tuple[list[BookWithRelations], int]
         | None = None,
+        update_book_result: BookWithFullRelations | None = None,
     ) -> None:
         self._list_books_result = list_books_result or ([], 0)
         self._get_book_result = get_book_result
+        self._get_book_full_result = get_book_full_result
         self._get_thumbnail_url_result = get_thumbnail_url_result
         self._get_thumbnail_path_result = get_thumbnail_path_result
         self._search_suggestions_result = search_suggestions_result or {
@@ -64,6 +68,7 @@ class MockBookService:
         }
         self._filter_suggestions_result = filter_suggestions_result or []
         self._list_books_with_filters_result = list_books_with_filters_result or ([], 0)
+        self._update_book_result = update_book_result
 
     def list_books(
         self,
@@ -80,11 +85,19 @@ class MockBookService:
         """Mock get_book method."""
         return self._get_book_result
 
-    def get_thumbnail_url(self, book: Book | BookWithRelations) -> str | None:
+    def get_book_full(self, book_id: int) -> BookWithFullRelations | None:
+        """Mock get_book_full method."""
+        return self._get_book_full_result
+
+    def get_thumbnail_url(
+        self, book: Book | BookWithRelations | BookWithFullRelations
+    ) -> str | None:
         """Mock get_thumbnail_url method."""
         return self._get_thumbnail_url_result
 
-    def get_thumbnail_path(self, book: Book | BookWithRelations) -> Path | None:
+    def get_thumbnail_path(
+        self, book: Book | BookWithRelations | BookWithFullRelations
+    ) -> Path | None:
         """Mock get_thumbnail_path method."""
         return self._get_thumbnail_path_result
 
@@ -126,6 +139,28 @@ class MockBookService:
     ) -> tuple[list[BookWithRelations], int]:
         """Mock list_books_with_filters method."""
         return self._list_books_with_filters_result
+
+    def update_book(
+        self,
+        book_id: int,
+        title: str | None = None,
+        pubdate: object | None = None,
+        author_names: list[str] | None = None,
+        series_name: str | None = None,
+        series_id: int | None = None,
+        series_index: float | None = None,
+        tag_names: list[str] | None = None,
+        identifiers: list[dict[str, str]] | None = None,
+        description: str | None = None,
+        publisher_name: str | None = None,
+        publisher_id: int | None = None,
+        language_code: str | None = None,
+        language_id: int | None = None,
+        rating_value: int | None = None,
+        rating_id: int | None = None,
+    ) -> BookWithFullRelations | None:
+        """Mock update_book method."""
+        return self._update_book_result
 
 
 def test_get_active_library_service_no_active_library() -> None:
@@ -772,3 +807,301 @@ def test_filter_books_skips_books_without_id(monkeypatch: pytest.MonkeyPatch) ->
     # Should only include book with ID
     assert len(result.items) == 1
     assert result.items[0].id == 2
+
+
+def test_get_book_with_full_true(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test get_book with full=True returns full details (covers lines 204, 240-252)."""
+    session = DummySession()
+
+    book = Book(
+        id=1,
+        title="Test Book",
+        author_sort="Author, Test",
+        pubdate="2024-01-01",
+        timestamp="2024-01-01T00:00:00",
+        series_index=1.0,
+        isbn="1234567890",
+        uuid="test-uuid",
+        has_cover=True,
+        path="test/path",
+    )
+    book_with_full_rels = BookWithFullRelations(
+        book=book,
+        authors=["Test Author"],
+        series="Test Series",
+        series_id=1,
+        tags=["Fiction", "Adventure"],
+        identifiers=[{"type": "isbn", "val": "1234567890"}],
+        description="Test description",
+        publisher="Test Publisher",
+        publisher_id=1,
+        language="en",
+        language_id=1,
+        rating=5,
+        rating_id=1,
+    )
+
+    mock_service = MockBookService(
+        get_book_full_result=book_with_full_rels,
+        get_thumbnail_url_result="/api/books/1/cover",
+    )
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    result = books.get_book(session, book_id=1, full=True)
+    assert result.id == 1
+    assert result.title == "Test Book"
+    assert result.tags == ["Fiction", "Adventure"]
+    assert result.identifiers == [{"type": "isbn", "val": "1234567890"}]
+    assert result.description == "Test description"
+    assert result.publisher == "Test Publisher"
+    assert result.publisher_id == 1
+    assert result.language == "en"
+    assert result.language_id == 1
+    assert result.rating == 5
+    assert result.rating_id == 1
+    assert result.series_id == 1
+
+
+def test_get_book_with_full_false(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test get_book with full=False doesn't return full details (covers line 206)."""
+    session = DummySession()
+
+    book = Book(
+        id=1,
+        title="Test Book",
+        author_sort="Author, Test",
+        pubdate="2024-01-01",
+        timestamp="2024-01-01T00:00:00",
+        series_index=1.0,
+        isbn="1234567890",
+        uuid="test-uuid",
+        has_cover=True,
+        path="test/path",
+    )
+    book_with_rels = BookWithRelations(
+        book=book,
+        authors=["Test Author"],
+        series=None,
+    )
+
+    mock_service = MockBookService(
+        get_book_result=book_with_rels,
+        get_thumbnail_url_result="/api/books/1/cover",
+    )
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    result = books.get_book(session, book_id=1, full=False)
+    assert result.id == 1
+    assert result.title == "Test Book"
+    assert result.tags == []
+    assert result.identifiers == []
+    assert result.description is None
+
+
+def test_update_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test update_book succeeds with valid update (covers lines 284-329)."""
+    from datetime import datetime
+
+    from fundamental.api.schemas import BookUpdate
+
+    session = DummySession()
+
+    book = Book(
+        id=1,
+        title="Updated Book",
+        author_sort="Author, Test",
+        pubdate=datetime(2024, 1, 1, tzinfo=UTC),
+        timestamp=datetime(2024, 1, 1, tzinfo=UTC),
+        series_index=1.5,
+        isbn="1234567890",
+        uuid="test-uuid",
+        has_cover=True,
+        path="test/path",
+    )
+    updated_book = BookWithFullRelations(
+        book=book,
+        authors=["Updated Author"],
+        series="Updated Series",
+        series_id=2,
+        tags=["Updated Tag"],
+        identifiers=[{"type": "isbn", "val": "0987654321"}],
+        description="Updated description",
+        publisher="Updated Publisher",
+        publisher_id=2,
+        language="fr",
+        language_id=2,
+        rating=4,
+        rating_id=2,
+    )
+
+    existing_book = BookWithRelations(
+        book=Book(id=1, title="Original Book", uuid="test-uuid"),
+        authors=[],
+        series=None,
+    )
+
+    mock_service = MockBookService(
+        get_book_result=existing_book,
+        update_book_result=updated_book,
+        get_thumbnail_url_result="/api/books/1/cover",
+    )
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    update = BookUpdate(
+        title="Updated Book",
+        author_names=["Updated Author"],
+        series_name="Updated Series",
+        series_index=1.5,
+        tag_names=["Updated Tag"],
+        identifiers=[{"type": "isbn", "val": "0987654321"}],
+        description="Updated description",
+        publisher_name="Updated Publisher",
+        language_code="fr",
+        rating_value=4,
+    )
+
+    result = books.update_book(session, book_id=1, update=update)
+    assert result.id == 1
+    assert result.title == "Updated Book"
+    assert result.authors == ["Updated Author"]
+    assert result.series == "Updated Series"
+    assert result.series_id == 2
+    assert result.series_index == 1.5
+    assert result.tags == ["Updated Tag"]
+    assert result.identifiers == [{"type": "isbn", "val": "0987654321"}]
+    assert result.description == "Updated description"
+    assert result.publisher == "Updated Publisher"
+    assert result.publisher_id == 2
+    assert result.language == "fr"
+    assert result.language_id == 2
+    assert result.rating == 4
+    assert result.rating_id == 2
+
+
+def test_update_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test update_book raises 404 when book not found (covers lines 286-292)."""
+    from fundamental.api.schemas import BookUpdate
+
+    session = DummySession()
+
+    mock_service = MockBookService(get_book_result=None)
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    update = BookUpdate(title="Updated Book")
+
+    with pytest.raises(HTTPException) as exc_info:
+        books.update_book(session, book_id=999, update=update)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "book_not_found"
+
+
+def test_update_book_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test update_book raises 404 when update returns None (covers lines 314-318)."""
+    from fundamental.api.schemas import BookUpdate
+
+    session = DummySession()
+
+    existing_book = BookWithRelations(
+        book=Book(id=1, title="Original Book", uuid="test-uuid"),
+        authors=[],
+        series=None,
+    )
+
+    mock_service = MockBookService(
+        get_book_result=existing_book,
+        update_book_result=None,
+    )
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    update = BookUpdate(title="Updated Book")
+
+    with pytest.raises(HTTPException) as exc_info:
+        books.update_book(session, book_id=1, update=update)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "book_not_found"
+
+
+def test_update_book_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test update_book raises 500 when book has no ID (covers lines 320-325)."""
+    from fundamental.api.schemas import BookUpdate
+
+    session = DummySession()
+
+    existing_book = BookWithRelations(
+        book=Book(id=1, title="Original Book", uuid="test-uuid"),
+        authors=[],
+        series=None,
+    )
+
+    book_no_id = Book(
+        id=None,
+        title="Updated Book",
+        uuid="test-uuid",
+    )
+    updated_book = BookWithFullRelations(
+        book=book_no_id,
+        authors=[],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        language=None,
+        language_id=None,
+        rating=None,
+        rating_id=None,
+    )
+
+    mock_service = MockBookService(
+        get_book_result=existing_book,
+        update_book_result=updated_book,
+    )
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    update = BookUpdate(title="Updated Book")
+
+    with pytest.raises(HTTPException) as exc_info:
+        books.update_book(session, book_id=1, update=update)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.detail == "book_missing_id"
