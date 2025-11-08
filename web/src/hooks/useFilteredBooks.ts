@@ -191,8 +191,14 @@ export function useFilteredBooks(
           // First page: replace accumulated books
           setAccumulatedBooks(result.items);
         } else {
-          // Subsequent pages: append to accumulated books
-          setAccumulatedBooks((prev) => [...prev, ...result.items]);
+          // Subsequent pages: append to accumulated books, deduplicating by ID
+          setAccumulatedBooks((prev) => {
+            const existingIds = new Set(prev.map((book) => book.id));
+            const newBooks = result.items.filter(
+              (book) => !existingIds.has(book.id),
+            );
+            return [...prev, ...newBooks];
+          });
         }
       }
     } catch (err) {

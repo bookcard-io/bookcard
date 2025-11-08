@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useBooks } from "@/hooks/useBooks";
 import { useFilteredBooks } from "@/hooks/useFilteredBooks";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
@@ -85,6 +85,18 @@ export function BooksGrid({
     hasMore,
   });
 
+  // Deduplicate books by ID as a safeguard (hooks should handle this, but defensive programming)
+  const uniqueBooks = useMemo(() => {
+    const seen = new Set<number>();
+    return books.filter((book) => {
+      if (seen.has(book.id)) {
+        return false;
+      }
+      seen.add(book.id);
+      return true;
+    });
+  }, [books]);
+
   if (error) {
     return (
       <div className={styles.errorContainer}>
@@ -93,7 +105,7 @@ export function BooksGrid({
     );
   }
 
-  if (isLoading && books.length === 0) {
+  if (isLoading && uniqueBooks.length === 0) {
     return (
       <div className={styles.loadingContainer}>
         <p className={styles.loadingMessage}>Loading books...</p>
@@ -101,7 +113,7 @@ export function BooksGrid({
     );
   }
 
-  if (books.length === 0) {
+  if (uniqueBooks.length === 0) {
     return (
       <div className={styles.emptyContainer}>
         <p className={styles.emptyMessage}>No books found</p>
@@ -114,22 +126,22 @@ export function BooksGrid({
       {total > 0 && (
         <div className={styles.paginationInfo}>
           {hasMore
-            ? `Scroll for more (${books.length} of ${total})`
-            : `${books.length} of ${total} books`}
+            ? `Scroll for more (${uniqueBooks.length} of ${total})`
+            : `${uniqueBooks.length} of ${total} books`}
         </div>
       )}
       <div className={styles.grid}>
-        {books.map((book) => (
+        {uniqueBooks.map((book) => (
           <BookCard
             key={book.id}
             book={book}
-            allBooks={books}
+            allBooks={uniqueBooks}
             onClick={onBookClick}
           />
         ))}
       </div>
       {hasMore && <div ref={sentinelRef as React.RefObject<HTMLDivElement>} />}
-      {isLoading && books.length > 0 && (
+      {isLoading && uniqueBooks.length > 0 && (
         <div className={styles.loadingMore}>Loading more books...</div>
       )}
     </div>
