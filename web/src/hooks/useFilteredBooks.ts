@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FilterValues } from "@/components/library/widgets/FiltersPanel";
 import type { Book, BookListResponse } from "@/types/book";
 import { filtersToApiBody, hasActiveFilters } from "@/utils/filters";
@@ -69,6 +69,36 @@ export function useFilteredBooks(
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Track previous prop values to detect changes
+  const prevSortByRef = useRef<string | undefined>(initialSortBy);
+  const prevSortOrderRef = useRef<string | undefined>(initialSortOrder);
+  const prevPageSizeRef = useRef<number | undefined>(initialPageSize);
+
+  // Use current values from options, not initial values
+  const currentSortBy = options.sort_by ?? initialSortBy;
+  const currentSortOrder = options.sort_order ?? initialSortOrder;
+  const currentPageSize = options.page_size ?? initialPageSize;
+  const currentPage = options.page ?? initialPage;
+
+  // Sync when options change
+  useEffect(() => {
+    if (options.sort_by !== prevSortByRef.current) {
+      prevSortByRef.current = options.sort_by;
+    }
+  }, [options.sort_by]);
+
+  useEffect(() => {
+    if (options.sort_order !== prevSortOrderRef.current) {
+      prevSortOrderRef.current = options.sort_order;
+    }
+  }, [options.sort_order]);
+
+  useEffect(() => {
+    if (options.page_size !== prevPageSizeRef.current) {
+      prevPageSizeRef.current = options.page_size;
+    }
+  }, [options.page_size]);
+
   const fetchFilteredBooks = useCallback(async () => {
     if (!enabled || !filters) {
       return;
@@ -86,10 +116,10 @@ export function useFilteredBooks(
 
     try {
       const queryParams = new URLSearchParams({
-        page: initialPage.toString(),
-        page_size: initialPageSize.toString(),
-        sort_by: initialSortBy,
-        sort_order: initialSortOrder,
+        page: currentPage.toString(),
+        page_size: currentPageSize.toString(),
+        sort_by: currentSortBy,
+        sort_order: currentSortOrder,
       });
 
       const filterBody = filtersToApiBody(filters);
@@ -123,10 +153,10 @@ export function useFilteredBooks(
   }, [
     enabled,
     filters,
-    initialPage,
-    initialPageSize,
-    initialSortBy,
-    initialSortOrder,
+    currentPage,
+    currentPageSize,
+    currentSortBy,
+    currentSortOrder,
   ]);
 
   useEffect(() => {
@@ -136,8 +166,8 @@ export function useFilteredBooks(
   return {
     books: data?.items || [],
     total: data?.total || 0,
-    page: data?.page || initialPage,
-    pageSize: data?.page_size || initialPageSize,
+    page: data?.page || currentPage,
+    pageSize: data?.page_size || currentPageSize,
     totalPages: data?.total_pages || 0,
     isLoading,
     error,

@@ -1,4 +1,5 @@
 @use "../../../styles/colors" as *;
+@use "../../../styles/variables" as *;
 
 .container {
   display: flex;
@@ -24,8 +25,8 @@
 }
 
 .checkbox {
-  width: 18px;
-  height: 18px;
+  width: $icon-size;
+  height: $icon-size;
   cursor: pointer;
   accent-color: get-theme-color("primary", "a0");
 }

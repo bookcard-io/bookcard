@@ -9,6 +9,7 @@ import type {
   SelectedFilterSuggestions,
 } from "@/components/library/widgets/FiltersPanel";
 import { FiltersPanel } from "@/components/library/widgets/FiltersPanel";
+import type { SortField } from "@/components/library/widgets/SortPanel";
 import type { ViewMode } from "@/components/library/widgets/ViewModeButtons";
 import { useSidebar } from "@/contexts/SidebarContext";
 import type { SearchSuggestion } from "@/types/search";
@@ -25,13 +26,12 @@ export function MainContent() {
   const [searchInputValue, setSearchInputValue] = useState("");
   const [filterQuery, setFilterQuery] = useState("");
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+  const [showSortPanel, setShowSortPanel] = useState(false);
   const [filters, setFilters] = useState<FilterValues>(createEmptyFilters());
   const [selectedFilterSuggestions, setSelectedFilterSuggestions] =
     useState<SelectedFilterSuggestions>({});
-  const [sortBy] = useState<
-    "timestamp" | "pubdate" | "title" | "author_sort" | "series_index"
-  >("timestamp");
-  const [sortOrder] = useState<"asc" | "desc">("desc");
+  const [sortBy, setSortBy] = useState<SortField>("timestamp");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
   const handleSearchChange = (value: string) => {
@@ -71,6 +71,33 @@ export function MainContent() {
 
   const handleFiltersClick = () => {
     setShowFiltersPanel((prev) => !prev);
+    // Close sort panel when filters panel opens
+    if (!showFiltersPanel) {
+      setShowSortPanel(false);
+    }
+  };
+
+  const handleSortByClick = () => {
+    setShowSortPanel((prev) => !prev);
+    // Close filters panel when sort panel opens
+    if (!showSortPanel) {
+      setShowFiltersPanel(false);
+    }
+  };
+
+  const handleSortByChange = (newSortBy: SortField) => {
+    setSortBy(newSortBy);
+    setShowSortPanel(false);
+  };
+
+  const handleViewModeChange = (mode: ViewMode) => {
+    // The "sort" button is an action (toggle asc/desc), not a view switch.
+    // Do not change the current view when it's clicked – just flip sort order.
+    if (mode === "sort") {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setViewMode(mode);
   };
 
   const handleFiltersChange = (newFilters: FilterValues) => {
@@ -108,8 +135,13 @@ export function MainContent() {
             onSearchSubmit={handleSearchSubmit}
             onSuggestionClick={handleSuggestionClick}
             onFiltersClick={handleFiltersClick}
+            onSortByClick={handleSortByClick}
+            sortBy={sortBy}
+            showSortPanel={showSortPanel}
+            onSortByChange={handleSortByChange}
             activeViewMode={viewMode}
-            onViewModeChange={setViewMode}
+            sortOrder={sortOrder}
+            onViewModeChange={handleViewModeChange}
           />
           {showFiltersPanel && (
             <FiltersPanel

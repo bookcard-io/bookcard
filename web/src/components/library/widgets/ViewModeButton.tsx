@@ -1,14 +1,12 @@
 "use client";
 
-import type React from "react";
-import type { SVGProps } from "react";
 import styles from "./ViewModeButton.module.scss";
 
 export interface ViewModeButtonProps {
   /**
-   * Icon component to display in the button.
+   * PrimeIcons class name(s) to display in the button.
    */
-  icon: React.ComponentType<SVGProps<SVGSVGElement>>;
+  iconClass: string;
   /**
    * Whether this view mode is currently active.
    */
@@ -27,9 +25,10 @@ export interface ViewModeButtonProps {
  * Individual view mode toggle button component.
  *
  * Represents a single view mode option (e.g., grid, list, sort).
+ * Follows SRP by handling only button UI and click events.
  */
 export function ViewModeButton({
-  icon: Icon,
+  iconClass,
   isActive = false,
   onClick,
   ariaLabel,
@@ -46,7 +45,7 @@ export function ViewModeButton({
       aria-label={ariaLabel}
       aria-pressed={isActive}
     >
-      <Icon className={styles.icon} aria-hidden="true" />
+      <i className={`pi ${iconClass} ${styles.icon}`} aria-hidden="true" />
     </button>
   );
 }

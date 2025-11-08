@@ -1,8 +1,5 @@
 "use client";
 
-import { GridView } from "@/icons/GridView";
-import { ListSort } from "@/icons/ListSort";
-import { ListView } from "@/icons/ListView";
 import { ViewModeButton } from "./ViewModeButton";
 import styles from "./ViewModeButtons.module.scss";
 
@@ -14,6 +11,10 @@ export interface ViewModeButtonsProps {
    */
   activeMode?: ViewMode;
   /**
+   * Current sort order (used to determine sort icon).
+   */
+  sortOrder?: "asc" | "desc";
+  /**
    * Callback fired when a view mode is selected.
    */
   onModeChange?: (mode: ViewMode) => void;
@@ -23,32 +24,38 @@ export interface ViewModeButtonsProps {
  * Container component for view mode toggle buttons.
  *
  * Manages multiple view mode options (sort, grid, list) and their active state.
+ * Follows SRP by handling only view mode selection UI.
  */
 export function ViewModeButtons({
   activeMode = "grid",
+  sortOrder = "desc",
   onModeChange,
 }: ViewModeButtonsProps) {
   const handleModeChange = (mode: ViewMode) => {
     onModeChange?.(mode);
   };
 
+  // Determine sort icon based on current sort order
+  const sortIconClass =
+    sortOrder === "asc" ? "pi-sort-amount-down-alt" : "pi-sort-amount-up";
+
   return (
     <fieldset className={styles.viewModeButtons} aria-label="View mode options">
       <legend className={styles.legend}>View mode options</legend>
       <ViewModeButton
-        icon={ListSort}
+        iconClass={sortIconClass}
         isActive={activeMode === "sort"}
         onClick={() => handleModeChange("sort")}
         ariaLabel="Sort view"
       />
       <ViewModeButton
-        icon={GridView}
+        iconClass="pi-th-large"
         isActive={activeMode === "grid"}
         onClick={() => handleModeChange("grid")}
         ariaLabel="Grid view"
       />
       <ViewModeButton
-        icon={ListView}
+        iconClass="pi-list"
         isActive={activeMode === "list"}
         onClick={() => handleModeChange("list")}
         ariaLabel="List view"
