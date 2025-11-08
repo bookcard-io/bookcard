@@ -239,6 +239,97 @@ def test_profile_read(
     assert profile.is_admin == is_admin
 
 
+def test_user_read_from_user_with_default_ereader() -> None:
+    """Test UserRead.from_user with default e-reader device."""
+    from fundamental.api.schemas import UserRead
+    from fundamental.models.auth import EReaderDevice, User
+
+    user = User(
+        id=1,
+        username="alice",
+        email="alice@example.com",
+        password_hash="hash",
+        is_admin=False,
+    )
+    device1 = EReaderDevice(
+        id=1,
+        user_id=1,
+        email="device1@example.com",
+        is_default=False,
+    )
+    device2 = EReaderDevice(
+        id=2,
+        user_id=1,
+        email="device2@example.com",
+        is_default=True,
+    )
+    user.ereader_devices = [device1, device2]  # type: ignore[attr-defined]
+    user.roles = []  # type: ignore[attr-defined]
+
+    user_read = UserRead.from_user(user)
+    assert user_read.id == 1
+    assert user_read.username == "alice"
+    assert user_read.default_ereader_email == "device2@example.com"
+
+
+def test_user_read_from_user_with_roles() -> None:
+    """Test UserRead.from_user with roles."""
+    from fundamental.api.schemas import RoleRead, UserRead
+    from fundamental.models.auth import Role, User, UserRole
+
+    user = User(
+        id=1,
+        username="alice",
+        email="alice@example.com",
+        password_hash="hash",
+        is_admin=False,
+    )
+    role1 = Role(id=1, name="viewer", description="Viewer role")
+    role2 = Role(id=2, name="editor", description="Editor role")
+    user_role1 = UserRole(id=1, user_id=1, role_id=1)
+    user_role1.role = role1  # type: ignore[attr-defined]
+    user_role2 = UserRole(id=2, user_id=1, role_id=2)
+    user_role2.role = role2  # type: ignore[attr-defined]
+    user.roles = [user_role1, user_role2]  # type: ignore[attr-defined]
+    user.ereader_devices = []  # type: ignore[attr-defined]
+
+    user_read = UserRead.from_user(user)
+    assert user_read.id == 1
+    assert len(user_read.roles) == 2
+    assert isinstance(user_read.roles[0], RoleRead)
+    assert user_read.roles[0].name == "viewer"
+    assert user_read.roles[1].name == "editor"
+
+
+def test_user_read_from_user_with_role_none() -> None:
+    """Test UserRead.from_user handles UserRole with None role."""
+    from fundamental.api.schemas import UserRead
+    from fundamental.models.auth import User, UserRole
+
+    user = User(
+        id=1,
+        username="alice",
+        email="alice@example.com",
+        password_hash="hash",
+        is_admin=False,
+    )
+    user_role1 = UserRole(id=1, user_id=1, role_id=1)
+    user_role1.role = None  # type: ignore[attr-defined]
+    user_role2 = UserRole(id=2, user_id=1, role_id=2)
+    from fundamental.models.auth import Role
+
+    role2 = Role(id=2, name="editor", description="Editor role")
+    user_role2.role = role2  # type: ignore[attr-defined]
+    user.roles = [user_role1, user_role2]  # type: ignore[attr-defined]
+    user.ereader_devices = []  # type: ignore[attr-defined]
+
+    user_read = UserRead.from_user(user)
+    assert user_read.id == 1
+    # Should only include roles that are not None
+    assert len(user_read.roles) == 1
+    assert user_read.roles[0].name == "editor"
+
+
 @pytest.mark.parametrize(
     ("valid", "token"),
     [

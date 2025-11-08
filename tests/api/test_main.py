@@ -22,8 +22,11 @@
 
 """Tests for FastAPI application factory."""
 
+from __future__ import annotations
+
 import logging
 import os
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -32,6 +35,9 @@ from fastapi.testclient import TestClient
 
 from fundamental.api.main import _register_routers, _setup_logging, create_app
 from fundamental.config import AppConfig
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @pytest.mark.parametrize(
@@ -47,33 +53,36 @@ from fundamental.config import AppConfig
 def test_setup_logging_with_level(log_level: str, expected_level: int) -> None:
     """Test logging setup with different log levels."""
     with patch.dict(os.environ, {"LOG_LEVEL": log_level}):
-        # Clear existing handlers to avoid interference
+        # Clear existing handlers and reset level to avoid interference
         logging.root.handlers.clear()
+        logging.root.setLevel(logging.NOTSET)
         _setup_logging()
         assert logging.root.level == expected_level
-        app_logger = logging.getLogger("moose")
+        app_logger = logging.getLogger("fundamental")
         assert app_logger.level == expected_level
 
 
 def test_setup_logging_default_level() -> None:
     """Test logging setup with default level when LOG_LEVEL not set."""
     with patch.dict(os.environ, {}, clear=True):
-        # Clear existing handlers to avoid interference
+        # Clear existing handlers and reset level to avoid interference
         logging.root.handlers.clear()
+        logging.root.setLevel(logging.NOTSET)
         _setup_logging()
         assert logging.root.level == logging.INFO
-        app_logger = logging.getLogger("moose")
+        app_logger = logging.getLogger("fundamental")
         assert app_logger.level == logging.INFO
 
 
 def test_setup_logging_invalid_level() -> None:
     """Test logging setup with invalid log level defaults to INFO."""
     with patch.dict(os.environ, {"LOG_LEVEL": "INVALID"}):
-        # Clear existing handlers to avoid interference
+        # Clear existing handlers and reset level to avoid interference
         logging.root.handlers.clear()
+        logging.root.setLevel(logging.NOTSET)
         _setup_logging()
         assert logging.root.level == logging.INFO
-        app_logger = logging.getLogger("moose")
+        app_logger = logging.getLogger("fundamental")
         assert app_logger.level == logging.INFO
 
 
@@ -99,8 +108,84 @@ def test_setup_logging_app_logger_propagates() -> None:
         # Clear existing handlers to avoid interference
         logging.root.handlers.clear()
         _setup_logging()
-        app_logger = logging.getLogger("moose")
+        app_logger = logging.getLogger("fundamental")
         assert app_logger.propagate is True
+
+
+def test_create_app_lifespan_with_alembic_enabled() -> None:
+    """Test that lifespan runs alembic migrations when enabled."""
+    import asyncio
+    from unittest.mock import MagicMock, patch
+
+    config = AppConfig(
+        jwt_secret="test-secret",
+        jwt_algorithm="HS256",
+        jwt_expires_minutes=15,
+        database_url="sqlite:///:memory:",
+        echo_sql=False,
+        alembic_enabled=True,
+    )
+
+    with (
+        patch("fundamental.api.main._AlembicConfig") as mock_config_class,
+        patch("fundamental.api.main._alembic_command") as mock_command,
+        patch("asyncio.to_thread") as mock_to_thread,
+    ):
+        mock_config = MagicMock()
+        mock_config_class.return_value = mock_config
+        mock_upgrade = MagicMock()
+        mock_command.upgrade = mock_upgrade
+
+        async def mock_to_thread_impl(
+            fn: Callable[..., object], *args: object, **kwargs: object
+        ) -> object:
+            """Mock asyncio.to_thread that calls function directly."""
+            result = fn(*args, **kwargs)
+            await asyncio.sleep(0)  # Make it truly async
+            return result
+
+        mock_to_thread.side_effect = mock_to_thread_impl
+
+        app = create_app(config)
+
+        async def run_lifespan() -> None:
+            if app.router.lifespan_context:  # type: ignore[attr-defined]
+                async with app.router.lifespan_context(app):  # type: ignore[attr-defined]
+                    pass
+
+        asyncio.run(run_lifespan())
+
+        mock_config_class.assert_called_once()
+        mock_config.set_main_option.assert_called_once_with(
+            "script_location", "fundamental/db/migrations"
+        )
+        # Verify upgrade was called via asyncio.to_thread
+        mock_to_thread.assert_called_once()
+        mock_upgrade.assert_called_once_with(mock_config, "head")
+
+
+def test_create_app_lifespan_without_alembic() -> None:
+    """Test that lifespan skips alembic when disabled."""
+    import asyncio
+
+    config = AppConfig(
+        jwt_secret="test-secret",
+        jwt_algorithm="HS256",
+        jwt_expires_minutes=15,
+        database_url="sqlite:///:memory:",
+        echo_sql=False,
+        alembic_enabled=False,
+    )
+
+    app = create_app(config)
+
+    async def run_lifespan() -> None:
+        if app.router.lifespan_context:  # type: ignore[attr-defined]
+            async with app.router.lifespan_context(app):  # type: ignore[attr-defined]
+                pass
+
+    # Should not raise any errors
+    asyncio.run(run_lifespan())
 
 
 def test_register_routers() -> None:

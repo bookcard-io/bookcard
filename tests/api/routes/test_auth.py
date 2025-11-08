@@ -6,6 +6,8 @@ import pytest
 from fastapi import HTTPException
 
 import fundamental.api.routes.auth as auth
+from fundamental.models.auth import User
+from tests.conftest import DummySession
 
 
 @dataclass
@@ -171,13 +173,44 @@ def test_register_conflict_maps_to_http_409(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_login_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test login succeeds with valid credentials."""
+
     def fake_auth_service(request: object, session: object) -> FakeService:
         return FakeService("ok")
 
     monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    session = DummySession()
+    user = User(
+        id=1,
+        username="alice",
+        email="alice@example.com",
+        password_hash="hash",
+        is_admin=False,
+    )
+    user.ereader_devices = []  # type: ignore[attr-defined]
+    user.roles = []  # type: ignore[attr-defined]
+    session.add_exec_result([user])
     payload = auth.LoginRequest(identifier="alice", password="password123")
-    resp = auth.login(DummyRequest(), object(), payload)
+    resp = auth.login(DummyRequest(), session, payload)
     assert resp.access_token == "token"
+
+
+def test_login_user_not_found_after_login(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test login raises 500 when user_with_rels is None after login."""
+
+    def fake_auth_service(request: object, session: object) -> FakeService:
+        return FakeService("ok")
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    session = DummySession()
+    # Return empty result to simulate user not found after login
+    session.add_exec_result([])
+    payload = auth.LoginRequest(identifier="alice", password="password123")
+    with pytest.raises(HTTPException) as exc_info:
+        auth.login(DummyRequest(), session, payload)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.detail == "user_not_found"
 
 
 def test_login_invalid_credentials_maps_to_http_401(
@@ -195,12 +228,52 @@ def test_login_invalid_credentials_maps_to_http_401(
     assert exc.value.detail == auth.AuthError.INVALID_CREDENTIALS
 
 
-def test_me_returns_user_read() -> None:
-    user = DummyUser(1, "alice", "a@example.com")
-    resp = auth.me(user)  # type: ignore[arg-type]
+def test_me_returns_user_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test me endpoint returns current user."""
+    user = User(
+        id=1,
+        username="alice",
+        email="a@example.com",
+        password_hash="hash",
+        is_admin=False,
+    )
+    user.ereader_devices = []  # type: ignore[attr-defined]
+    user.roles = []  # type: ignore[attr-defined]
+    session = DummySession()
+    session.add_exec_result([user])
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+    resp = auth.me(DummyRequest(), session)
     assert resp.id == 1
     assert resp.username == "alice"
     assert resp.email == "a@example.com"
+
+
+def test_me_user_not_found_after_get(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test me endpoint raises 500 when user_with_rels is None."""
+    user = User(
+        id=1,
+        username="alice",
+        email="a@example.com",
+        password_hash="hash",
+        is_admin=False,
+    )
+    session = DummySession()
+    # Return empty result to simulate user not found after get_current_user
+    session.add_exec_result([])
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+    with pytest.raises(HTTPException) as exc_info:
+        auth.me(DummyRequest(), session)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.detail == "user_not_found"
 
 
 def test_register_raises_other_valueerror(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -262,12 +335,24 @@ def test_change_password_success(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_auth_service(request: object, session: object) -> _StubAuthService:
         return stub
 
+    user = User(
+        id=1,
+        username="alice",
+        email="a@example.com",
+        password_hash="hash",
+        is_admin=False,
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
     monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
     payload = auth.PasswordChangeRequest(
         current_password="oldpw", new_password="newpw123"
     )
-    user = DummyUser(id=1, username="alice", email="a@example.com")
-    resp = auth.change_password(DummyRequest(), object(), user, payload)  # type: ignore[arg-type]
+    session = DummySession()
+    resp = auth.change_password(DummyRequest(), session, payload)
     assert resp is None  # 204 No Content
 
 
@@ -280,14 +365,26 @@ def test_change_password_invalid_password(monkeypatch: pytest.MonkeyPatch) -> No
     def fake_auth_service(request: object, session: object) -> _StubAuthService:
         return stub
 
+    user = User(
+        id=1,
+        username="alice",
+        email="a@example.com",
+        password_hash="hash",
+        is_admin=False,
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
     monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
     payload = auth.PasswordChangeRequest(
         current_password="wrong", new_password="newpw123"
     )
-    user = DummyUser(id=1, username="alice", email="a@example.com")
+    session = DummySession()
 
     with pytest.raises(HTTPException) as exc_info:
-        auth.change_password(DummyRequest(), object(), user, payload)  # type: ignore[arg-type]
+        auth.change_password(DummyRequest(), session, payload)
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail == auth.AuthError.INVALID_PASSWORD
@@ -300,14 +397,26 @@ def test_change_password_user_not_found(monkeypatch: pytest.MonkeyPatch) -> None
     def fake_auth_service(request: object, session: object) -> _StubAuthService:
         return stub
 
+    user = User(
+        id=1,
+        username="alice",
+        email="a@example.com",
+        password_hash="hash",
+        is_admin=False,
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
     monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
     payload = auth.PasswordChangeRequest(
         current_password="oldpw", new_password="newpw123"
     )
-    user = DummyUser(id=1, username="alice", email="a@example.com")
+    session = DummySession()
 
     with pytest.raises(HTTPException) as exc_info:
-        auth.change_password(DummyRequest(), object(), user, payload)  # type: ignore[arg-type]
+        auth.change_password(DummyRequest(), session, payload)
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
 
@@ -319,14 +428,26 @@ def test_change_password_unexpected_error(monkeypatch: pytest.MonkeyPatch) -> No
     def fake_auth_service(request: object, session: object) -> _StubAuthService:
         return stub
 
+    user = User(
+        id=1,
+        username="alice",
+        email="a@example.com",
+        password_hash="hash",
+        is_admin=False,
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
     monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
     payload = auth.PasswordChangeRequest(
         current_password="oldpw", new_password="newpw123"
     )
-    user = DummyUser(id=1, username="alice", email="a@example.com")
+    session = DummySession()
 
     with pytest.raises(ValueError, match="unexpected_error"):
-        auth.change_password(DummyRequest(), object(), user, payload)  # type: ignore[arg-type]
+        auth.change_password(DummyRequest(), session, payload)
 
 
 def test_logout_returns_none() -> None:
@@ -335,21 +456,45 @@ def test_logout_returns_none() -> None:
     assert result is None
 
 
-def test_get_profile_returns_profile_read() -> None:
+def test_get_profile_returns_profile_read(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test get_profile returns ProfileRead with profile picture."""
-    user = DummyUser(id=1, username="alice", email="a@example.com")
-    user.profile_picture = "/path/to/pic.jpg"  # type: ignore[attr-defined]
-    resp = auth.get_profile(user)  # type: ignore[arg-type]
+    user = User(
+        id=1,
+        username="alice",
+        email="a@example.com",
+        password_hash="hash",
+        is_admin=False,
+        profile_picture="/path/to/pic.jpg",
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+    session = DummySession()
+    resp = auth.get_profile(DummyRequest(), session)
     assert resp.id == 1
     assert resp.username == "alice"
     assert resp.profile_picture == "/path/to/pic.jpg"
 
 
-def test_get_profile_without_picture() -> None:
+def test_get_profile_without_picture(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test get_profile handles user without profile picture."""
-    user = DummyUser(id=1, username="alice", email="a@example.com")
-    user.profile_picture = None  # type: ignore[attr-defined]
-    resp = auth.get_profile(user)  # type: ignore[arg-type]
+    user = User(
+        id=1,
+        username="alice",
+        email="a@example.com",
+        password_hash="hash",
+        is_admin=False,
+        profile_picture=None,
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+    session = DummySession()
+    resp = auth.get_profile(DummyRequest(), session)
     assert resp.profile_picture is None
 
 
@@ -363,10 +508,22 @@ def test_update_profile_picture_success(monkeypatch: pytest.MonkeyPatch) -> None
     def fake_auth_service(request: object, session: object) -> _StubAuthService:
         return stub
 
+    user = User(
+        id=1,
+        username="alice",
+        email="a@example.com",
+        password_hash="hash",
+        is_admin=False,
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
     monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
     payload = auth.ProfilePictureUpdateRequest(picture_path="/new/path.jpg")
-    user = DummyUser(id=1, username="alice", email="a@example.com")
-    resp = auth.update_profile_picture(DummyRequest(), object(), user, payload)  # type: ignore[arg-type]
+    session = DummySession()
+    resp = auth.update_profile_picture(DummyRequest(), session, payload)
     assert resp.profile_picture == "/new/path.jpg"
 
 
@@ -381,12 +538,24 @@ def test_update_profile_picture_user_not_found(
     def fake_auth_service(request: object, session: object) -> _StubAuthService:
         return stub
 
+    user = User(
+        id=1,
+        username="alice",
+        email="a@example.com",
+        password_hash="hash",
+        is_admin=False,
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
     monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
     payload = auth.ProfilePictureUpdateRequest(picture_path="/path.jpg")
-    user = DummyUser(id=1, username="alice", email="a@example.com")
+    session = DummySession()
 
     with pytest.raises(HTTPException) as exc_info:
-        auth.update_profile_picture(DummyRequest(), object(), user, payload)  # type: ignore[arg-type]
+        auth.update_profile_picture(DummyRequest(), session, payload)
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
 
@@ -402,12 +571,24 @@ def test_update_profile_picture_unexpected_error(
     def fake_auth_service(request: object, session: object) -> _StubAuthService:
         return stub
 
+    user = User(
+        id=1,
+        username="alice",
+        email="a@example.com",
+        password_hash="hash",
+        is_admin=False,
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
     monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
     payload = auth.ProfilePictureUpdateRequest(picture_path="/path.jpg")
-    user = DummyUser(id=1, username="alice", email="a@example.com")
+    session = DummySession()
 
     with pytest.raises(ValueError, match="unexpected_error"):
-        auth.update_profile_picture(DummyRequest(), object(), user, payload)  # type: ignore[arg-type]
+        auth.update_profile_picture(DummyRequest(), session, payload)
 
 
 def test_delete_profile_picture_success(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -417,10 +598,22 @@ def test_delete_profile_picture_success(monkeypatch: pytest.MonkeyPatch) -> None
     def fake_auth_service(request: object, session: object) -> _StubAuthService:
         return stub
 
+    user = User(
+        id=1,
+        username="alice",
+        email="a@example.com",
+        password_hash="hash",
+        is_admin=False,
+        profile_picture="/path/to/pic.jpg",
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
     monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
-    user = DummyUser(id=1, username="alice", email="a@example.com")
-    user.profile_picture = "/path/to/pic.jpg"  # type: ignore[attr-defined]
-    resp = auth.delete_profile_picture(DummyRequest(), object(), user)  # type: ignore[arg-type]
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+    session = DummySession()
+    resp = auth.delete_profile_picture(DummyRequest(), session)
     assert resp.profile_picture is None
 
 
@@ -435,11 +628,23 @@ def test_delete_profile_picture_user_not_found(
     def fake_auth_service(request: object, session: object) -> _StubAuthService:
         return stub
 
+    user = User(
+        id=1,
+        username="alice",
+        email="a@example.com",
+        password_hash="hash",
+        is_admin=False,
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
     monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
-    user = DummyUser(id=1, username="alice", email="a@example.com")
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+    session = DummySession()
 
     with pytest.raises(HTTPException) as exc_info:
-        auth.delete_profile_picture(DummyRequest(), object(), user)  # type: ignore[arg-type]
+        auth.delete_profile_picture(DummyRequest(), session)
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
 
@@ -455,11 +660,23 @@ def test_delete_profile_picture_unexpected_error(
     def fake_auth_service(request: object, session: object) -> _StubAuthService:
         return stub
 
+    user = User(
+        id=1,
+        username="alice",
+        email="a@example.com",
+        password_hash="hash",
+        is_admin=False,
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
     monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
-    user = DummyUser(id=1, username="alice", email="a@example.com")
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+    session = DummySession()
 
     with pytest.raises(ValueError, match="unexpected_error"):
-        auth.delete_profile_picture(DummyRequest(), object(), user)  # type: ignore[arg-type]
+        auth.delete_profile_picture(DummyRequest(), session)
 
 
 def test_validate_invite_token_success(monkeypatch: pytest.MonkeyPatch) -> None:

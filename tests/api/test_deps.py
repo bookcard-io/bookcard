@@ -154,3 +154,38 @@ def test_get_current_user_success() -> None:
             assert result == user
             assert result.id == 1
             assert result.username == "testuser"
+
+
+def test_get_admin_user_success() -> None:
+    """Test successful get_admin_user with admin user."""
+    from fundamental.api.deps import get_admin_user
+
+    admin_user = User(
+        id=1,
+        username="admin",
+        email="admin@example.com",
+        password_hash="hash",
+        is_admin=True,
+    )
+    result = get_admin_user(admin_user)
+    assert result == admin_user
+    assert result.is_admin is True
+
+
+def test_get_admin_user_not_admin() -> None:
+    """Test get_admin_user raises 403 when user is not admin."""
+    from fundamental.api.deps import get_admin_user
+
+    regular_user = User(
+        id=1,
+        username="user",
+        email="user@example.com",
+        password_hash="hash",
+        is_admin=False,
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        get_admin_user(regular_user)
+    exc = exc_info.value
+    assert isinstance(exc, HTTPException)
+    assert exc.status_code == status.HTTP_403_FORBIDDEN
+    assert exc.detail == "admin_required"
