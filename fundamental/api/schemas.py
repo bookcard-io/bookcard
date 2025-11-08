@@ -415,3 +415,39 @@ class BookListResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+class SearchSuggestionItem(BaseModel):
+    """Single search suggestion item.
+
+    Attributes
+    ----------
+    id : int
+        Identifier for the item (book ID, author ID, tag ID, etc.).
+    name : str
+        Display name for the suggestion.
+    """
+
+    id: int
+    name: str
+
+
+class SearchSuggestionsResponse(BaseModel):
+    """Search suggestions response.
+
+    Attributes
+    ----------
+    books : list[SearchSuggestionItem]
+        List of book title matches.
+    authors : list[SearchSuggestionItem]
+        List of author name matches.
+    tags : list[SearchSuggestionItem]
+        List of tag matches.
+    series : list[SearchSuggestionItem]
+        List of series matches.
+    """
+
+    books: list[SearchSuggestionItem] = Field(default_factory=list)
+    authors: list[SearchSuggestionItem] = Field(default_factory=list)
+    tags: list[SearchSuggestionItem] = Field(default_factory=list)
+    series: list[SearchSuggestionItem] = Field(default_factory=list)

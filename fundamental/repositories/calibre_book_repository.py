@@ -38,7 +38,15 @@ from sqlalchemy import func
 from sqlalchemy.orm import aliased
 from sqlmodel import Session, create_engine, select
 
-from fundamental.models.core import Author, Book, BookAuthorLink, BookSeriesLink, Series
+from fundamental.models.core import (
+    Author,
+    Book,
+    BookAuthorLink,
+    BookSeriesLink,
+    BookTagLink,
+    Series,
+    Tag,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -248,7 +256,7 @@ class CalibreBookRepository:
         Parameters
         ----------
         search_query : str | None
-            Optional search query to filter by title or author.
+            Optional search query to filter by title, author, or tag.
 
         Returns
         -------
@@ -257,13 +265,28 @@ class CalibreBookRepository:
         """
         with self._get_session() as session:
             if search_query:
-                pattern = f"%{search_query}%"
+                # Use case-insensitive search for SQLite
+                query_lower = search_query.lower()
+                pattern_lower = f"%{query_lower}%"
+                author_alias = aliased(Author)
+                tag_alias = aliased(Tag)
+                series_search_alias = aliased(Series)
                 stmt = (
                     select(func.count(func.distinct(Book.id)))
                     .outerjoin(BookAuthorLink, Book.id == BookAuthorLink.book)
-                    .outerjoin(Author, BookAuthorLink.author == Author.id)
+                    .outerjoin(author_alias, BookAuthorLink.author == author_alias.id)
+                    .outerjoin(BookTagLink, Book.id == BookTagLink.book)
+                    .outerjoin(tag_alias, BookTagLink.tag == tag_alias.id)
+                    .outerjoin(BookSeriesLink, Book.id == BookSeriesLink.book)
+                    .outerjoin(
+                        series_search_alias,
+                        BookSeriesLink.series == series_search_alias.id,
+                    )
                     .where(
-                        (Book.title.like(pattern)) | (Author.name.like(pattern))  # type: ignore[attr-defined]
+                        (func.lower(Book.title).like(pattern_lower))  # type: ignore[attr-defined]
+                        | (func.lower(author_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
+                        | (func.lower(tag_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
+                        | (func.lower(series_search_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
                     )
                 )
             else:
@@ -323,14 +346,23 @@ class CalibreBookRepository:
 
             # Add search filter if provided
             if search_query:
-                pattern = f"%{search_query}%"
+                # Use case-insensitive search for SQLite
+                query_lower = search_query.lower()
+                pattern_lower = f"%{query_lower}%"
                 author_alias = aliased(Author)
+                tag_alias = aliased(Tag)
+                # Reuse the existing series_alias from the base query for search
                 stmt = (
                     stmt.outerjoin(BookAuthorLink, Book.id == BookAuthorLink.book)
                     .outerjoin(author_alias, BookAuthorLink.author == author_alias.id)
+                    .outerjoin(BookTagLink, Book.id == BookTagLink.book)
+                    .outerjoin(tag_alias, BookTagLink.tag == tag_alias.id)
                     .distinct()
                     .where(
-                        (Book.title.like(pattern)) | (author_alias.name.like(pattern))  # type: ignore[attr-defined]
+                        (func.lower(Book.title).like(pattern_lower))  # type: ignore[attr-defined]
+                        | (func.lower(author_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
+                        | (func.lower(tag_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
+                        | (func.lower(series_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
                     )
                 )
 
@@ -422,6 +454,99 @@ class CalibreBookRepository:
                 authors=authors,
                 series=series_name,
             )
+
+    def search_suggestions(
+        self,
+        query: str,
+        book_limit: int = 3,
+        author_limit: int = 3,
+        tag_limit: int = 3,
+        series_limit: int = 3,
+    ) -> dict[str, list[dict[str, str | int]]]:
+        """Search for suggestions across books, authors, tags, and series.
+
+        Parameters
+        ----------
+        query : str
+            Search query string.
+        book_limit : int
+            Maximum number of book matches to return (default: 3).
+        author_limit : int
+            Maximum number of author matches to return (default: 3).
+        tag_limit : int
+            Maximum number of tag matches to return (default: 3).
+        series_limit : int
+            Maximum number of series matches to return (default: 3).
+
+        Returns
+        -------
+        dict[str, list[dict[str, str | int]]]
+            Dictionary with keys 'books', 'authors', 'tags', 'series', each
+            containing a list of matches with 'name' and 'id' fields.
+        """
+        if not query or not query.strip():
+            return {"books": [], "authors": [], "tags": [], "series": []}
+
+        results = {
+            "books": [],
+            "authors": [],
+            "tags": [],
+            "series": [],
+        }
+
+        with self._get_session() as session:
+            # Use func.lower for case-insensitive search in SQLite
+            query_lower = query.strip().lower()
+            pattern_lower = f"%{query_lower}%"
+
+            # Search books by title
+            book_stmt = (
+                select(Book.id, Book.title)
+                .where(func.lower(Book.title).like(pattern_lower))  # type: ignore[attr-defined]
+                .limit(book_limit)
+            )
+            book_results = session.exec(book_stmt).all()
+            results["books"] = [
+                {"id": book_id, "name": book_title}
+                for book_id, book_title in book_results
+            ]
+
+            # Search authors
+            author_stmt = (
+                select(Author.id, Author.name)
+                .where(func.lower(Author.name).like(pattern_lower))  # type: ignore[attr-defined]
+                .limit(author_limit)
+            )
+            author_results = session.exec(author_stmt).all()
+            results["authors"] = [
+                {"id": author_id, "name": author_name}
+                for author_id, author_name in author_results
+            ]
+
+            # Search tags
+            tag_stmt = (
+                select(Tag.id, Tag.name)
+                .where(func.lower(Tag.name).like(pattern_lower))  # type: ignore[attr-defined]
+                .limit(tag_limit)
+            )
+            tag_results = session.exec(tag_stmt).all()
+            results["tags"] = [
+                {"id": tag_id, "name": tag_name} for tag_id, tag_name in tag_results
+            ]
+
+            # Search series
+            series_stmt = (
+                select(Series.id, Series.name)
+                .where(func.lower(Series.name).like(pattern_lower))  # type: ignore[attr-defined]
+                .limit(series_limit)
+            )
+            series_results = session.exec(series_stmt).all()
+            results["series"] = [
+                {"id": series_id, "name": series_name}
+                for series_id, series_name in series_results
+            ]
+
+        return results
 
     @staticmethod
     def _parse_datetime(value: str | float | None) -> datetime | None:

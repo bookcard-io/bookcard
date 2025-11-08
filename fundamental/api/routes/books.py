@@ -32,7 +32,12 @@ from fastapi.responses import FileResponse
 from sqlmodel import Session
 
 from fundamental.api.deps import get_db_session
-from fundamental.api.schemas import BookListResponse, BookRead
+from fundamental.api.schemas import (
+    BookListResponse,
+    BookRead,
+    SearchSuggestionItem,
+    SearchSuggestionsResponse,
+)
 from fundamental.repositories.config_repository import LibraryRepository
 from fundamental.services.book_service import BookService
 from fundamental.services.config_service import LibraryService
@@ -261,4 +266,63 @@ def get_book_cover(
         path=str(cover_path),
         media_type="image/jpeg",
         filename=f"cover_{book_id_for_filename}.jpg",
+    )
+
+
+@router.get("/search/suggestions", response_model=SearchSuggestionsResponse)
+def search_suggestions(
+    session: SessionDep,
+    q: str,
+) -> SearchSuggestionsResponse:
+    """Get search suggestions for autocomplete.
+
+    Searches across book titles, authors, tags, and series.
+    Returns top matches for each category.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+    q : str
+        Search query string.
+
+    Returns
+    -------
+    SearchSuggestionsResponse
+        Search suggestions grouped by type (books, authors, tags, series).
+
+    Raises
+    ------
+    HTTPException
+        If no active library is configured (404).
+    """
+    if not q or not q.strip():
+        return SearchSuggestionsResponse()
+
+    book_service = _get_active_library_service(session)
+    results = book_service.search_suggestions(
+        query=q,
+        book_limit=5,
+        author_limit=5,
+        tag_limit=5,
+        series_limit=5,
+    )
+
+    return SearchSuggestionsResponse(
+        books=[
+            SearchSuggestionItem(id=int(item["id"]), name=str(item["name"]))
+            for item in results["books"]
+        ],
+        authors=[
+            SearchSuggestionItem(id=int(item["id"]), name=str(item["name"]))
+            for item in results["authors"]
+        ],
+        tags=[
+            SearchSuggestionItem(id=int(item["id"]), name=str(item["name"]))
+            for item in results["tags"]
+        ],
+        series=[
+            SearchSuggestionItem(id=int(item["id"]), name=str(item["name"]))
+            for item in results["series"]
+        ],
     )

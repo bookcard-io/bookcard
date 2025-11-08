@@ -159,3 +159,40 @@ class BookService:
         if cover_path.exists():
             return cover_path
         return None
+
+    def search_suggestions(
+        self,
+        query: str,
+        book_limit: int = 3,
+        author_limit: int = 3,
+        tag_limit: int = 3,
+        series_limit: int = 3,
+    ) -> dict[str, list[dict[str, str | int]]]:
+        """Search for suggestions across books, authors, tags, and series.
+
+        Parameters
+        ----------
+        query : str
+            Search query string.
+        book_limit : int
+            Maximum number of book matches to return (default: 3).
+        author_limit : int
+            Maximum number of author matches to return (default: 3).
+        tag_limit : int
+            Maximum number of tag matches to return (default: 3).
+        series_limit : int
+            Maximum number of series matches to return (default: 3).
+
+        Returns
+        -------
+        dict[str, list[dict[str, str | int]]]
+            Dictionary with keys 'books', 'authors', 'tags', 'series', each
+            containing a list of matches with 'name' and 'id' fields.
+        """
+        return self._book_repo.search_suggestions(
+            query=query,
+            book_limit=book_limit,
+            author_limit=author_limit,
+            tag_limit=tag_limit,
+            series_limit=series_limit,
+        )

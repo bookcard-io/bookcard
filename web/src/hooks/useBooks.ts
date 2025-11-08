@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Book, BookListResponse, BooksQueryParams } from "@/types/book";
 
 export interface UseBooksOptions extends BooksQueryParams {
@@ -57,6 +57,50 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
   const [data, setData] = useState<BookListResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Track previous prop values to detect changes
+  const prevSearchRef = useRef<string | undefined>(initialSearch);
+  const prevSortByRef = useRef<string | undefined>(initialSortBy);
+  const prevSortOrderRef = useRef<string | undefined>(initialSortOrder);
+  const prevPageSizeRef = useRef<number | undefined>(initialPageSize);
+
+  // Sync internal state with prop changes
+  useEffect(() => {
+    const newSearch = options.search ?? "";
+    if (options.search !== prevSearchRef.current) {
+      prevSearchRef.current = options.search;
+      setSearch(newSearch);
+      setPage(1); // Reset to first page when search changes
+    }
+  }, [options.search]);
+
+  useEffect(() => {
+    if (options.sort_by !== prevSortByRef.current) {
+      prevSortByRef.current = options.sort_by;
+      if (options.sort_by !== undefined) {
+        setSortBy(options.sort_by);
+      }
+    }
+  }, [options.sort_by]);
+
+  useEffect(() => {
+    if (options.sort_order !== prevSortOrderRef.current) {
+      prevSortOrderRef.current = options.sort_order;
+      if (options.sort_order !== undefined) {
+        setSortOrder(options.sort_order);
+      }
+    }
+  }, [options.sort_order]);
+
+  useEffect(() => {
+    if (options.page_size !== prevPageSizeRef.current) {
+      prevPageSizeRef.current = options.page_size;
+      if (options.page_size !== undefined) {
+        setPageSize(options.page_size);
+        setPage(1); // Reset to first page when page size changes
+      }
+    }
+  }, [options.page_size]);
 
   const fetchBooks = useCallback(async () => {
     if (!enabled) {

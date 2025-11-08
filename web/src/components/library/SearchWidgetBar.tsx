@@ -1,5 +1,6 @@
 "use client";
 
+import type { SearchSuggestion } from "@/types/search";
 import styles from "./SearchWidgetBar.module.scss";
 import { FiltersButton } from "./widgets/FiltersButton";
 import { SearchInput } from "./widgets/SearchInput";
@@ -20,6 +21,10 @@ export interface SearchWidgetBarProps {
    * Callback fired when search is submitted.
    */
   onSearchSubmit?: (value: string) => void;
+  /**
+   * Callback fired when a search suggestion is clicked.
+   */
+  onSuggestionClick?: (suggestion: SearchSuggestion) => void;
   /**
    * Callback fired when filters button is clicked.
    */
@@ -51,6 +56,7 @@ export function SearchWidgetBar({
   searchValue = "",
   onSearchChange,
   onSearchSubmit,
+  onSuggestionClick,
   onFiltersClick,
   onWithSelectedClick,
   onSortByClick,
@@ -63,6 +69,7 @@ export function SearchWidgetBar({
         value={searchValue}
         onChange={onSearchChange}
         onSubmit={onSearchSubmit}
+        onSuggestionClick={onSuggestionClick}
       />
       <FiltersButton onClick={onFiltersClick} />
       <WithSelectedDropdown onClick={onWithSelectedClick} />
