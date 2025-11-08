@@ -310,3 +310,199 @@ def test_get_thumbnail_path_with_book_with_relations() -> None:
 
         assert result is not None
         assert str(result).endswith("cover.jpg")
+
+
+def test_search_suggestions_delegates_to_repo() -> None:
+    """Test search_suggestions delegates to repository (covers line 192)."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+
+    with patch(
+        "fundamental.services.book_service.CalibreBookRepository"
+    ) as mock_repo_class:
+        mock_repo = MagicMock()
+        mock_repo.search_suggestions.return_value = {
+            "books": [],
+            "authors": [],
+            "tags": [],
+            "series": [],
+        }
+        mock_repo_class.return_value = mock_repo
+
+        service = BookService(library)
+        result = service.search_suggestions(
+            query="test",
+            book_limit=5,
+            author_limit=5,
+            tag_limit=5,
+            series_limit=5,
+        )
+
+        assert result == {
+            "books": [],
+            "authors": [],
+            "tags": [],
+            "series": [],
+        }
+        mock_repo.search_suggestions.assert_called_once_with(
+            query="test",
+            book_limit=5,
+            author_limit=5,
+            tag_limit=5,
+            series_limit=5,
+        )
+
+
+def test_filter_suggestions_delegates_to_repo() -> None:
+    """Test filter_suggestions delegates to repository (covers line 223)."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+
+    with patch(
+        "fundamental.services.book_service.CalibreBookRepository"
+    ) as mock_repo_class:
+        mock_repo = MagicMock()
+        mock_repo.filter_suggestions.return_value = [
+            {"id": 1, "name": "Author 1"},
+            {"id": 2, "name": "Author 2"},
+        ]
+        mock_repo_class.return_value = mock_repo
+
+        service = BookService(library)
+        result = service.filter_suggestions(
+            query="author",
+            filter_type="author",
+            limit=10,
+        )
+
+        assert len(result) == 2
+        assert result[0]["id"] == 1
+        assert result[0]["name"] == "Author 1"
+        mock_repo.filter_suggestions.assert_called_once_with(
+            query="author",
+            filter_type="author",
+            limit=10,
+        )
+
+
+def test_list_books_with_filters_calculates_offset() -> None:
+    """Test list_books_with_filters calculates offset correctly (covers lines 281-308)."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+
+    with patch(
+        "fundamental.services.book_service.CalibreBookRepository"
+    ) as mock_repo_class:
+        mock_repo = MagicMock()
+        mock_repo.list_books_with_filters.return_value = []
+        mock_repo.count_books_with_filters.return_value = 0
+        mock_repo_class.return_value = mock_repo
+
+        service = BookService(library)
+        books, total = service.list_books_with_filters(
+            page=2,
+            page_size=20,
+            author_ids=[1, 2],
+            title_ids=[3, 4],
+        )
+
+        # Page 2 with page_size 20 should have offset 20
+        mock_repo.list_books_with_filters.assert_called_once_with(
+            limit=20,
+            offset=20,
+            author_ids=[1, 2],
+            title_ids=[3, 4],
+            genre_ids=None,
+            publisher_ids=None,
+            identifier_ids=None,
+            series_ids=None,
+            formats=None,
+            rating_ids=None,
+            language_ids=None,
+            sort_by="timestamp",
+            sort_order="desc",
+        )
+        mock_repo.count_books_with_filters.assert_called_once_with(
+            author_ids=[1, 2],
+            title_ids=[3, 4],
+            genre_ids=None,
+            publisher_ids=None,
+            identifier_ids=None,
+            series_ids=None,
+            formats=None,
+            rating_ids=None,
+            language_ids=None,
+        )
+        assert books == []
+        assert total == 0
+
+
+def test_list_books_with_filters_all_filters() -> None:
+    """Test list_books_with_filters passes all filter parameters (covers lines 281-308)."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+
+    with patch(
+        "fundamental.services.book_service.CalibreBookRepository"
+    ) as mock_repo_class:
+        mock_repo = MagicMock()
+        mock_repo.list_books_with_filters.return_value = []
+        mock_repo.count_books_with_filters.return_value = 0
+        mock_repo_class.return_value = mock_repo
+
+        service = BookService(library)
+        service.list_books_with_filters(
+            page=1,
+            page_size=10,
+            author_ids=[1],
+            title_ids=[2],
+            genre_ids=[3],
+            publisher_ids=[4],
+            identifier_ids=[5],
+            series_ids=[6],
+            formats=["EPUB"],
+            rating_ids=[7],
+            language_ids=[8],
+            sort_by="title",
+            sort_order="asc",
+        )
+
+        call_args = mock_repo.list_books_with_filters.call_args[1]
+        assert call_args["author_ids"] == [1]
+        assert call_args["title_ids"] == [2]
+        assert call_args["genre_ids"] == [3]
+        assert call_args["publisher_ids"] == [4]
+        assert call_args["identifier_ids"] == [5]
+        assert call_args["series_ids"] == [6]
+        assert call_args["formats"] == ["EPUB"]
+        assert call_args["rating_ids"] == [7]
+        assert call_args["language_ids"] == [8]
+        assert call_args["sort_by"] == "title"
+        assert call_args["sort_order"] == "asc"
+
+        count_args = mock_repo.count_books_with_filters.call_args[1]
+        assert count_args["author_ids"] == [1]
+        assert count_args["title_ids"] == [2]
+        assert count_args["genre_ids"] == [3]
+        assert count_args["publisher_ids"] == [4]
+        assert count_args["identifier_ids"] == [5]
+        assert count_args["series_ids"] == [6]
+        assert count_args["formats"] == ["EPUB"]
+        assert count_args["rating_ids"] == [7]
+        assert count_args["language_ids"] == [8]

@@ -196,3 +196,113 @@ class BookService:
             tag_limit=tag_limit,
             series_limit=series_limit,
         )
+
+    def filter_suggestions(
+        self,
+        query: str,
+        filter_type: str,
+        limit: int = 10,
+    ) -> list[dict[str, str | int]]:
+        """Get filter suggestions for a specific filter type.
+
+        Parameters
+        ----------
+        query : str
+            Search query string.
+        filter_type : str
+            Type of filter: 'author', 'title', 'genre', 'publisher',
+            'identifier', 'series', 'format', 'rating', 'language'.
+        limit : int
+            Maximum number of suggestions to return (default: 10).
+
+        Returns
+        -------
+        list[dict[str, str | int]]
+            List of suggestions with 'id' and 'name' fields.
+        """
+        return self._book_repo.filter_suggestions(
+            query=query,
+            filter_type=filter_type,
+            limit=limit,
+        )
+
+    def list_books_with_filters(
+        self,
+        page: int = 1,
+        page_size: int = 20,
+        author_ids: list[int] | None = None,
+        title_ids: list[int] | None = None,
+        genre_ids: list[int] | None = None,
+        publisher_ids: list[int] | None = None,
+        identifier_ids: list[int] | None = None,
+        series_ids: list[int] | None = None,
+        formats: list[str] | None = None,
+        rating_ids: list[int] | None = None,
+        language_ids: list[int] | None = None,
+        sort_by: str = "timestamp",
+        sort_order: str = "desc",
+    ) -> tuple[list[BookWithRelations], int]:
+        """List books with multiple filter criteria using OR conditions.
+
+        Parameters
+        ----------
+        page : int
+            Page number (1-indexed).
+        page_size : int
+            Number of items per page.
+        author_ids : list[int] | None
+            List of author IDs to filter by (OR condition).
+        title_ids : list[int] | None
+            List of book IDs to filter by (OR condition).
+        genre_ids : list[int] | None
+            List of tag IDs to filter by (OR condition).
+        publisher_ids : list[int] | None
+            List of publisher IDs to filter by (OR condition).
+        identifier_ids : list[int] | None
+            List of identifier IDs to filter by (OR condition).
+        series_ids : list[int] | None
+            List of series IDs to filter by (OR condition).
+        formats : list[str] | None
+            List of format strings to filter by (OR condition).
+        rating_ids : list[int] | None
+            List of rating IDs to filter by (OR condition).
+        language_ids : list[int] | None
+            List of language IDs to filter by (OR condition).
+        sort_by : str
+            Field to sort by (default: 'timestamp').
+        sort_order : str
+            Sort order: 'asc' or 'desc' (default: 'desc').
+
+        Returns
+        -------
+        tuple[list[BookWithRelations], int]
+            Tuple of (books with relations list, total count).
+        """
+        offset = (page - 1) * page_size
+        books = self._book_repo.list_books_with_filters(
+            limit=page_size,
+            offset=offset,
+            author_ids=author_ids,
+            title_ids=title_ids,
+            genre_ids=genre_ids,
+            publisher_ids=publisher_ids,
+            identifier_ids=identifier_ids,
+            series_ids=series_ids,
+            formats=formats,
+            rating_ids=rating_ids,
+            language_ids=language_ids,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
+        total = self._book_repo.count_books_with_filters(
+            author_ids=author_ids,
+            title_ids=title_ids,
+            genre_ids=genre_ids,
+            publisher_ids=publisher_ids,
+            identifier_ids=identifier_ids,
+            series_ids=series_ids,
+            formats=formats,
+            rating_ids=rating_ids,
+            language_ids=language_ids,
+        )
+        return books, total

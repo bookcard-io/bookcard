@@ -47,11 +47,23 @@ class MockBookService:
         get_book_result: BookWithRelations | None = None,
         get_thumbnail_url_result: str | None = None,
         get_thumbnail_path_result: Path | None = None,
+        search_suggestions_result: dict[str, list[dict[str, str | int]]] | None = None,
+        filter_suggestions_result: list[dict[str, str | int]] | None = None,
+        list_books_with_filters_result: tuple[list[BookWithRelations], int]
+        | None = None,
     ) -> None:
         self._list_books_result = list_books_result or ([], 0)
         self._get_book_result = get_book_result
         self._get_thumbnail_url_result = get_thumbnail_url_result
         self._get_thumbnail_path_result = get_thumbnail_path_result
+        self._search_suggestions_result = search_suggestions_result or {
+            "books": [],
+            "authors": [],
+            "tags": [],
+            "series": [],
+        }
+        self._filter_suggestions_result = filter_suggestions_result or []
+        self._list_books_with_filters_result = list_books_with_filters_result or ([], 0)
 
     def list_books(
         self,
@@ -75,6 +87,45 @@ class MockBookService:
     def get_thumbnail_path(self, book: Book | BookWithRelations) -> Path | None:
         """Mock get_thumbnail_path method."""
         return self._get_thumbnail_path_result
+
+    def search_suggestions(
+        self,
+        query: str,
+        book_limit: int = 3,
+        author_limit: int = 3,
+        tag_limit: int = 3,
+        series_limit: int = 3,
+    ) -> dict[str, list[dict[str, str | int]]]:
+        """Mock search_suggestions method."""
+        return self._search_suggestions_result
+
+    def filter_suggestions(
+        self,
+        query: str,
+        filter_type: str,
+        limit: int = 10,
+    ) -> list[dict[str, str | int]]:
+        """Mock filter_suggestions method."""
+        return self._filter_suggestions_result
+
+    def list_books_with_filters(
+        self,
+        page: int = 1,
+        page_size: int = 20,
+        author_ids: list[int] | None = None,
+        title_ids: list[int] | None = None,
+        genre_ids: list[int] | None = None,
+        publisher_ids: list[int] | None = None,
+        identifier_ids: list[int] | None = None,
+        series_ids: list[int] | None = None,
+        formats: list[str] | None = None,
+        rating_ids: list[int] | None = None,
+        language_ids: list[int] | None = None,
+        sort_by: str = "timestamp",
+        sort_order: str = "desc",
+    ) -> tuple[list[BookWithRelations], int]:
+        """Mock list_books_with_filters method."""
+        return self._list_books_with_filters_result
 
 
 def test_get_active_library_service_no_active_library() -> None:
@@ -439,3 +490,285 @@ def test_get_book_cover_file_not_exists(monkeypatch: pytest.MonkeyPatch) -> None
     result = books.get_book_cover(session, book_id=1)
     assert isinstance(result, Response)
     assert result.status_code == 404
+
+
+def test_search_suggestions_empty_query(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test search_suggestions returns empty response for empty query (covers lines 301-313)."""
+    session = DummySession()
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return MockBookService()
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    result = books.search_suggestions(session, q="")
+    assert result.books == []
+    assert result.authors == []
+    assert result.tags == []
+    assert result.series == []
+
+
+def test_search_suggestions_whitespace_query(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test search_suggestions returns empty response for whitespace-only query (covers lines 301-313)."""
+    session = DummySession()
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return MockBookService()
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    result = books.search_suggestions(session, q="   ")
+    assert result.books == []
+    assert result.authors == []
+    assert result.tags == []
+    assert result.series == []
+
+
+def test_search_suggestions_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test search_suggestions succeeds with valid query (covers lines 301-313)."""
+    session = DummySession()
+
+    mock_service = MockBookService(
+        search_suggestions_result={
+            "books": [{"id": 1, "name": "Book 1"}],
+            "authors": [{"id": 1, "name": "Author 1"}],
+            "tags": [{"id": 1, "name": "Tag 1"}],
+            "series": [{"id": 1, "name": "Series 1"}],
+        }
+    )
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    result = books.search_suggestions(session, q="test")
+    assert len(result.books) == 1
+    assert len(result.authors) == 1
+    assert len(result.tags) == 1
+    assert len(result.series) == 1
+    assert result.books[0].id == 1
+    assert result.books[0].name == "Book 1"
+
+
+def test_filter_suggestions_empty_query(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test filter_suggestions returns empty response for empty query (covers lines 364-374)."""
+    session = DummySession()
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return MockBookService()
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    result = books.filter_suggestions(session, q="", filter_type="author")
+    assert result.suggestions == []
+
+
+def test_filter_suggestions_whitespace_query(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test filter_suggestions returns empty response for whitespace-only query (covers lines 364-374)."""
+    session = DummySession()
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return MockBookService()
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    result = books.filter_suggestions(session, q="   ", filter_type="author")
+    assert result.suggestions == []
+
+
+def test_filter_suggestions_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test filter_suggestions succeeds with valid query (covers lines 364-374)."""
+    session = DummySession()
+
+    mock_service = MockBookService(
+        filter_suggestions_result=[
+            {"id": 1, "name": "Author 1"},
+            {"id": 2, "name": "Author 2"},
+        ]
+    )
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    result = books.filter_suggestions(
+        session, q="author", filter_type="author", limit=10
+    )
+    assert len(result.suggestions) == 2
+    assert result.suggestions[0].id == 1
+    assert result.suggestions[0].name == "Author 1"
+
+
+def test_filter_books_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test filter_books succeeds with valid filters (covers lines 422-472)."""
+    from fundamental.api.schemas import BookFilterRequest
+
+    session = DummySession()
+    book = Book(
+        id=1,
+        title="Test Book",
+        author_sort="Author, Test",
+        pubdate="2024-01-01",
+        timestamp="2024-01-01T00:00:00",
+        series_index=1.0,
+        isbn="1234567890",
+        uuid="test-uuid",
+        has_cover=True,
+        path="test/path",
+    )
+    book_with_rels = BookWithRelations(
+        book=book,
+        authors=["Test Author"],
+        series=None,
+    )
+
+    mock_service = MockBookService(
+        list_books_with_filters_result=([book_with_rels], 1),
+        get_thumbnail_url_result="/api/books/1/cover",
+    )
+    # Use setattr to allow dynamic assignment for assertion testing
+    mock_service.list_books_with_filters = MagicMock(return_value=([book_with_rels], 1))  # type: ignore[method-assign]
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    filter_request = BookFilterRequest(
+        author_ids=[1, 2],
+        title_ids=[3, 4],
+        genre_ids=[5, 6],
+    )
+
+    result = books.filter_books(
+        session,
+        filter_request=filter_request,
+        page=1,
+        page_size=20,
+        sort_by="timestamp",
+        sort_order="desc",
+    )
+
+    assert result.total == 1
+    assert len(result.items) == 1
+    assert result.items[0].id == 1
+    assert result.items[0].title == "Test Book"
+    # Verify the method was called (MagicMock has assert_called_once)
+    list_method = mock_service.list_books_with_filters
+    if hasattr(list_method, "assert_called_once"):
+        list_method.assert_called_once()  # type: ignore[attr-defined]
+
+
+def test_filter_books_pagination_adjustments(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test filter_books adjusts invalid pagination parameters (covers lines 422-472)."""
+    from fundamental.api.schemas import BookFilterRequest
+
+    session = DummySession()
+
+    mock_service = MockBookService(list_books_with_filters_result=([], 0))
+    # Use setattr to allow dynamic assignment for assertion testing
+    mock_service.list_books_with_filters = MagicMock(return_value=([], 0))  # type: ignore[method-assign]
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    filter_request = BookFilterRequest()
+
+    # Test page < 1
+    result = books.filter_books(
+        session, filter_request=filter_request, page=0, page_size=20
+    )
+    assert result.page == 1
+
+    # Test page_size < 1
+    result = books.filter_books(
+        session, filter_request=filter_request, page=1, page_size=0
+    )
+    assert result.page_size == 20
+
+    # Test page_size > 100
+    result = books.filter_books(
+        session, filter_request=filter_request, page=1, page_size=200
+    )
+    assert result.page_size == 100
+
+
+def test_filter_books_skips_books_without_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test filter_books skips books without ID (covers lines 422-472)."""
+    from fundamental.api.schemas import BookFilterRequest
+
+    session = DummySession()
+
+    book_no_id = Book(
+        id=None,
+        title="Book Without ID",
+        author_sort="Author",
+        pubdate="2024-01-01",
+        timestamp="2024-01-01T00:00:00",
+        series_index=1.0,
+        isbn="1234567890",
+        uuid="test-uuid",
+        has_cover=False,
+        path="test/path",
+    )
+    book_with_id = Book(
+        id=2,
+        title="Book With ID",
+        author_sort="Author",
+        pubdate="2024-01-01",
+        timestamp="2024-01-01T00:00:00",
+        series_index=1.0,
+        isbn="1234567890",
+        uuid="test-uuid",
+        has_cover=False,
+        path="test/path",
+    )
+
+    book_with_rels_no_id = BookWithRelations(book=book_no_id, authors=[], series=None)
+    book_with_rels_with_id = BookWithRelations(
+        book=book_with_id, authors=[], series=None
+    )
+
+    mock_service = MockBookService(
+        list_books_with_filters_result=(
+            [book_with_rels_no_id, book_with_rels_with_id],
+            2,
+        ),
+        get_thumbnail_url_result=None,
+    )
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    filter_request = BookFilterRequest()
+
+    result = books.filter_books(
+        session, filter_request=filter_request, page=1, page_size=20
+    )
+    # Should only include book with ID
+    assert len(result.items) == 1
+    assert result.items[0].id == 2

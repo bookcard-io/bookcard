@@ -1,6 +1,5 @@
 "use client";
 
-import { Filter } from "@/icons/Filter";
 import styles from "./FiltersButton.module.scss";
 
 export interface FiltersButtonProps {
@@ -26,8 +25,9 @@ export function FiltersButton({ onClick }: FiltersButtonProps) {
       className={styles.filtersButton}
       onClick={handleClick}
       aria-label="Open filters"
+      data-filters-button
     >
-      <Filter className={styles.filterIcon} aria-hidden="true" />
+      <i className="pi pi-filter" aria-hidden="true" />
       <span className={styles.buttonText}>Filters</span>
     </button>
   );

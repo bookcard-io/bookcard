@@ -1,0 +1,121 @@
+@use "../../../styles/colors" as *;
+
+.filtersPanel {
+  position: absolute;
+  top: calc(100% - 8px);
+  left: 32px;
+  right: 32px;
+  background-color: get-theme-color("surface-tonal", "a10");
+  border: 1px solid get-theme-color("surface", "a20");
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid get-theme-color("surface", "a20");
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: get-theme-color("text", "a0");
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  color: get-theme-color("text", "a30");
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: background-color 0.15s, color 0.15s;
+
+  &:hover {
+    background-color: get-theme-color("surface-tonal", "a20");
+    color: get-theme-color("text", "a0");
+  }
+}
+
+.filtersGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  padding: 20px 24px;
+}
+
+.panelFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid get-theme-color("surface", "a20");
+}
+
+.footerInfo {
+  color: get-theme-color("text", "a30");
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.footerActions {
+  display: flex;
+  gap: 12px;
+}
+
+.clearButton {
+  padding: 10px 24px;
+  background-color: transparent;
+  color: get-theme-color("text", "a30");
+  border: 1px solid get-theme-color("surface", "a20");
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+
+  &:hover {
+    background-color: get-theme-color("surface-tonal", "a20");
+    color: get-theme-color("text", "a0");
+    border-color: get-theme-color("surface", "a30");
+  }
+
+  &:active {
+    background-color: get-theme-color("surface-tonal", "a30");
+  }
+}
+
+.applyButton {
+  padding: 10px 24px;
+  background-color: get-theme-color("primary", "a0");
+  color: get-theme-color("text", "a0");
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s, opacity 0.2s;
+
+  &:hover {
+    opacity: 0.9;
+  }
+
+  &:active {
+    opacity: 0.8;
+  }
+}

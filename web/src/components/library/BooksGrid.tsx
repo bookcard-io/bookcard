@@ -1,15 +1,20 @@
 "use client";
 
 import { useBooks } from "@/hooks/useBooks";
+import { useFilteredBooks } from "@/hooks/useFilteredBooks";
 import type { Book } from "@/types/book";
+import { hasActiveFilters } from "@/utils/filters";
 import { BookCard } from "./BookCard";
 import styles from "./BooksGrid.module.scss";
+import type { FilterValues } from "./widgets/FiltersPanel";
 
 export interface BooksGridProps {
   /** Callback fired when a book card is clicked. */
   onBookClick?: (book: Book) => void;
   /** Search query to filter books. */
   searchQuery?: string;
+  /** Filter values for advanced filtering. */
+  filters?: FilterValues;
   /** Sort field. */
   sortBy?: "timestamp" | "pubdate" | "title" | "author_sort" | "series_index";
   /** Sort order. */
@@ -27,17 +32,39 @@ export interface BooksGridProps {
 export function BooksGrid({
   onBookClick,
   searchQuery,
+  filters,
   sortBy,
   sortOrder,
   pageSize = 20,
 }: BooksGridProps) {
-  const { books, isLoading, error, total } = useBooks({
-    enabled: true,
-    search: searchQuery,
+  // Determine which filtering mechanism is active
+  const filtersActive = hasActiveFilters(filters);
+  const hasActiveSearch = searchQuery && searchQuery.trim().length > 0;
+
+  // Use filtered books if filters are active, otherwise use search
+  // Only one hook should be active at a time to avoid DRY violations and collisions
+  // Priority: filters > search > all books
+  const filteredBooksResult = useFilteredBooks({
+    enabled: filtersActive && !hasActiveSearch,
+    filters: filtersActive ? filters : undefined,
     sort_by: sortBy,
     sort_order: sortOrder,
     page_size: pageSize,
   });
+
+  const regularBooksResult = useBooks({
+    enabled: !filtersActive,
+    search: hasActiveSearch ? searchQuery : undefined,
+    sort_by: sortBy,
+    sort_order: sortOrder,
+    page_size: pageSize,
+  });
+
+  // Use filtered books if filters are active, otherwise use regular books
+  // Regular books hook handles both search and "show all" cases
+  const { books, isLoading, error, total } = filtersActive
+    ? filteredBooksResult
+    : regularBooksResult;
 
   if (error) {
     return (

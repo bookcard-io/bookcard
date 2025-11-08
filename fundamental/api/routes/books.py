@@ -33,8 +33,10 @@ from sqlmodel import Session
 
 from fundamental.api.deps import get_db_session
 from fundamental.api.schemas import (
+    BookFilterRequest,
     BookListResponse,
     BookRead,
+    FilterSuggestionsResponse,
     SearchSuggestionItem,
     SearchSuggestionsResponse,
 )
@@ -325,4 +327,152 @@ def search_suggestions(
             SearchSuggestionItem(id=int(item["id"]), name=str(item["name"]))
             for item in results["series"]
         ],
+    )
+
+
+@router.get("/filter/suggestions", response_model=FilterSuggestionsResponse)
+def filter_suggestions(
+    session: SessionDep,
+    q: str,
+    filter_type: str,
+    limit: int = 10,
+) -> FilterSuggestionsResponse:
+    """Get filter suggestions for a specific filter type.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+    q : str
+        Search query string.
+    filter_type : str
+        Type of filter: 'author', 'title', 'genre', 'publisher',
+        'identifier', 'series', 'format', 'rating', 'language'.
+    limit : int
+        Maximum number of suggestions to return (default: 10).
+
+    Returns
+    -------
+    FilterSuggestionsResponse
+        Filter suggestions for the specified type.
+
+    Raises
+    ------
+    HTTPException
+        If no active library is configured (404).
+    """
+    if not q or not q.strip():
+        return FilterSuggestionsResponse()
+
+    book_service = _get_active_library_service(session)
+    results = book_service.filter_suggestions(
+        query=q,
+        filter_type=filter_type,
+        limit=limit,
+    )
+
+    return FilterSuggestionsResponse(
+        suggestions=[
+            SearchSuggestionItem(id=int(item["id"]), name=str(item["name"]))
+            for item in results
+        ]
+    )
+
+
+@router.post("/filter", response_model=BookListResponse)
+def filter_books(
+    session: SessionDep,
+    filter_request: BookFilterRequest,
+    page: int = 1,
+    page_size: int = 20,
+    sort_by: str = "timestamp",
+    sort_order: str = "desc",
+) -> BookListResponse:
+    """Filter books with multiple criteria using OR conditions.
+
+    Each filter type uses OR conditions (e.g., multiple authors = OR).
+    Different filter types are combined with AND conditions.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+    filter_request : BookFilterRequest
+        Filter criteria.
+    page : int
+        Page number (1-indexed, default: 1).
+    page_size : int
+        Number of items per page (default: 20, max: 100).
+    sort_by : str
+        Field to sort by: 'timestamp', 'pubdate', 'title', 'author_sort',
+        'series_index' (default: 'timestamp').
+    sort_order : str
+        Sort order: 'asc' or 'desc' (default: 'desc').
+
+    Returns
+    -------
+    BookListResponse
+        Paginated list of filtered books.
+
+    Raises
+    ------
+    HTTPException
+        If no active library is configured (404).
+    """
+    if page < 1:
+        page = 1
+    if page_size < 1:
+        page_size = 20
+    if page_size > 100:
+        page_size = 100
+
+    book_service = _get_active_library_service(session)
+    books, total = book_service.list_books_with_filters(
+        page=page,
+        page_size=page_size,
+        author_ids=filter_request.author_ids,
+        title_ids=filter_request.title_ids,
+        genre_ids=filter_request.genre_ids,
+        publisher_ids=filter_request.publisher_ids,
+        identifier_ids=filter_request.identifier_ids,
+        series_ids=filter_request.series_ids,
+        formats=filter_request.formats,
+        rating_ids=filter_request.rating_ids,
+        language_ids=filter_request.language_ids,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+
+    # Convert to BookRead with thumbnail URLs
+    book_reads = []
+    for book_with_rels in books:
+        book = book_with_rels.book
+        # Skip books without IDs (should not happen in Calibre, but type safety)
+        if book.id is None:
+            continue
+        thumbnail_url = book_service.get_thumbnail_url(book_with_rels)
+        book_read = BookRead(
+            id=book.id,
+            title=book.title,
+            authors=book_with_rels.authors,
+            author_sort=book.author_sort,
+            pubdate=book.pubdate,
+            timestamp=book.timestamp,
+            series=book_with_rels.series,
+            series_index=book.series_index,
+            isbn=book.isbn,
+            uuid=book.uuid or "",
+            thumbnail_url=thumbnail_url,
+            has_cover=book.has_cover,
+        )
+        book_reads.append(book_read)
+
+    total_pages = math.ceil(total / page_size) if page_size > 0 else 0
+
+    return BookListResponse(
+        items=book_reads,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
     )

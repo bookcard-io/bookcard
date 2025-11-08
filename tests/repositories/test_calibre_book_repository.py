@@ -29,10 +29,34 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlmodel import select
 
-from fundamental.models.core import Book
+from fundamental.models.core import (
+    Book,
+)
 from fundamental.repositories.calibre_book_repository import (
+    AuthorFilterStrategy,
+    AuthorSuggestionStrategy,
     CalibreBookRepository,
+    FilterBuilder,
+    FilterContext,
+    FilterSuggestionFactory,
+    FormatFilterStrategy,
+    FormatSuggestionStrategy,
+    GenreFilterStrategy,
+    GenreSuggestionStrategy,
+    IdentifierFilterStrategy,
+    IdentifierSuggestionStrategy,
+    LanguageFilterStrategy,
+    LanguageSuggestionStrategy,
+    PublisherFilterStrategy,
+    PublisherSuggestionStrategy,
+    RatingFilterStrategy,
+    RatingSuggestionStrategy,
+    SeriesFilterStrategy,
+    SeriesSuggestionStrategy,
+    TitleFilterStrategy,
+    TitleSuggestionStrategy,
 )
 
 
@@ -827,3 +851,784 @@ def test_parse_datetime_os_error() -> None:
         result = CalibreBookRepository._parse_datetime(999999999999999999)
 
         assert result is None
+
+
+# Filter Strategy Tests
+
+
+def test_filter_strategy_apply_with_none() -> None:
+    """Test FilterStrategy.apply returns context unchanged when filter_value is None (covers lines 131-133)."""
+    strategy = AuthorFilterStrategy()
+    base_stmt = select(Book)
+    context = FilterContext(stmt=base_stmt, or_conditions=[], and_conditions=[])
+
+    result = strategy.apply(context, None)
+
+    assert result is context
+    assert len(result.or_conditions) == 0
+
+
+def test_filter_strategy_apply_with_empty_list() -> None:
+    """Test FilterStrategy.apply returns context unchanged when filter_value is empty (covers lines 131-133)."""
+    strategy = AuthorFilterStrategy()
+    base_stmt = select(Book)
+    context = FilterContext(stmt=base_stmt, or_conditions=[], and_conditions=[])
+
+    result = strategy.apply(context, [])
+
+    assert result is context
+    assert len(result.or_conditions) == 0
+
+
+def test_author_filter_strategy_build_filter() -> None:
+    """Test AuthorFilterStrategy._build_filter (covers lines 166-171)."""
+    strategy = AuthorFilterStrategy()
+    base_stmt = select(Book)
+    context = FilterContext(stmt=base_stmt, or_conditions=[], and_conditions=[])
+
+    result = strategy._build_filter(context, [1, 2, 3])
+
+    assert len(result.or_conditions) == 1
+    assert result.stmt != base_stmt  # Should have joins added
+
+
+def test_title_filter_strategy_build_filter() -> None:
+    """Test TitleFilterStrategy._build_filter (covers lines 183-184)."""
+    strategy = TitleFilterStrategy()
+    base_stmt = select(Book)
+    context = FilterContext(stmt=base_stmt, or_conditions=[], and_conditions=[])
+
+    result = strategy._build_filter(context, [1, 2, 3])
+
+    assert len(result.or_conditions) == 1
+    assert result.stmt == base_stmt  # No joins needed
+
+
+def test_genre_filter_strategy_build_filter() -> None:
+    """Test GenreFilterStrategy._build_filter (covers lines 196-201)."""
+    strategy = GenreFilterStrategy()
+    base_stmt = select(Book)
+    context = FilterContext(stmt=base_stmt, or_conditions=[], and_conditions=[])
+
+    result = strategy._build_filter(context, [1, 2, 3])
+
+    assert len(result.or_conditions) == 1
+    assert result.stmt != base_stmt  # Should have joins added
+
+
+def test_publisher_filter_strategy_build_filter() -> None:
+    """Test PublisherFilterStrategy._build_filter (covers lines 213-218)."""
+    strategy = PublisherFilterStrategy()
+    base_stmt = select(Book)
+    context = FilterContext(stmt=base_stmt, or_conditions=[], and_conditions=[])
+
+    result = strategy._build_filter(context, [1, 2, 3])
+
+    assert len(result.or_conditions) == 1
+    assert result.stmt != base_stmt  # Should have joins added
+
+
+def test_identifier_filter_strategy_build_filter() -> None:
+    """Test IdentifierFilterStrategy._build_filter (covers lines 230-235)."""
+    strategy = IdentifierFilterStrategy()
+    base_stmt = select(Book)
+    context = FilterContext(stmt=base_stmt, or_conditions=[], and_conditions=[])
+
+    result = strategy._build_filter(context, [1, 2, 3])
+
+    assert len(result.or_conditions) == 1
+    assert result.stmt != base_stmt  # Should have joins added
+
+
+def test_series_filter_strategy_build_filter() -> None:
+    """Test SeriesFilterStrategy._build_filter (covers lines 249-251)."""
+    strategy = SeriesFilterStrategy()
+    base_stmt = select(Book)
+    context = FilterContext(stmt=base_stmt, or_conditions=[], and_conditions=[])
+
+    result = strategy._build_filter(context, [1, 2, 3])
+
+    assert len(result.or_conditions) == 1
+
+
+def test_format_filter_strategy_build_filter() -> None:
+    """Test FormatFilterStrategy._build_filter (covers lines 263-266)."""
+    strategy = FormatFilterStrategy()
+    base_stmt = select(Book)
+    context = FilterContext(stmt=base_stmt, or_conditions=[], and_conditions=[])
+
+    result = strategy._build_filter(context, ["EPUB", "PDF"])
+
+    assert len(result.and_conditions) == 1
+    assert result.stmt != base_stmt  # Should have joins added
+
+
+def test_rating_filter_strategy_build_filter() -> None:
+    """Test RatingFilterStrategy._build_filter (covers lines 278-283)."""
+    strategy = RatingFilterStrategy()
+    base_stmt = select(Book)
+    context = FilterContext(stmt=base_stmt, or_conditions=[], and_conditions=[])
+
+    result = strategy._build_filter(context, [1, 2, 3])
+
+    assert len(result.and_conditions) == 1
+    assert result.stmt != base_stmt  # Should have joins added
+
+
+def test_language_filter_strategy_build_filter() -> None:
+    """Test LanguageFilterStrategy._build_filter (covers lines 295-300)."""
+    strategy = LanguageFilterStrategy()
+    base_stmt = select(Book)
+    context = FilterContext(stmt=base_stmt, or_conditions=[], and_conditions=[])
+
+    result = strategy._build_filter(context, [1, 2, 3])
+
+    assert len(result.and_conditions) == 1
+    assert result.stmt != base_stmt  # Should have joins added
+
+
+# FilterBuilder Tests
+
+
+def test_filter_builder_init() -> None:
+    """Test FilterBuilder initialization (covers lines 318-319)."""
+    base_stmt = select(Book)
+    builder = FilterBuilder(base_stmt)
+
+    assert builder._context.stmt == base_stmt
+    assert len(builder._context.or_conditions) == 0
+    assert len(builder._context.and_conditions) == 0
+
+
+def test_filter_builder_with_author_ids() -> None:
+    """Test FilterBuilder.with_author_ids (covers lines 344-345)."""
+    base_stmt = select(Book)
+    builder = FilterBuilder(base_stmt)
+
+    result = builder.with_author_ids([1, 2, 3])
+
+    assert result is builder
+    assert len(builder._context.or_conditions) == 1
+
+
+def test_filter_builder_with_title_ids() -> None:
+    """Test FilterBuilder.with_title_ids (covers lines 360-361)."""
+    base_stmt = select(Book)
+    builder = FilterBuilder(base_stmt)
+
+    result = builder.with_title_ids([1, 2, 3])
+
+    assert result is builder
+    assert len(builder._context.or_conditions) == 1
+
+
+def test_filter_builder_with_genre_ids() -> None:
+    """Test FilterBuilder.with_genre_ids (covers lines 376-377)."""
+    base_stmt = select(Book)
+    builder = FilterBuilder(base_stmt)
+
+    result = builder.with_genre_ids([1, 2, 3])
+
+    assert result is builder
+    assert len(builder._context.or_conditions) == 1
+
+
+def test_filter_builder_with_publisher_ids() -> None:
+    """Test FilterBuilder.with_publisher_ids (covers lines 392-395)."""
+    base_stmt = select(Book)
+    builder = FilterBuilder(base_stmt)
+
+    result = builder.with_publisher_ids([1, 2, 3])
+
+    assert result is builder
+    assert len(builder._context.or_conditions) == 1
+
+
+def test_filter_builder_with_identifier_ids() -> None:
+    """Test FilterBuilder.with_identifier_ids (covers lines 410-413)."""
+    base_stmt = select(Book)
+    builder = FilterBuilder(base_stmt)
+
+    result = builder.with_identifier_ids([1, 2, 3])
+
+    assert result is builder
+    assert len(builder._context.or_conditions) == 1
+
+
+def test_filter_builder_with_series_ids_with_alias() -> None:
+    """Test FilterBuilder.with_series_ids with alias (covers lines 432-437)."""
+    base_stmt = select(Book)
+    builder = FilterBuilder(base_stmt)
+    mock_alias = MagicMock()
+    mock_alias.id.in_ = MagicMock(return_value="condition")
+
+    result = builder.with_series_ids([1, 2, 3], series_alias=mock_alias)
+
+    assert result is builder
+    assert len(builder._context.or_conditions) == 1
+
+
+def test_filter_builder_with_series_ids_without_alias() -> None:
+    """Test FilterBuilder.with_series_ids without alias (covers lines 432-437)."""
+    base_stmt = select(Book)
+    builder = FilterBuilder(base_stmt)
+
+    result = builder.with_series_ids([1, 2, 3])
+
+    assert result is builder
+    assert len(builder._context.or_conditions) == 1
+
+
+def test_filter_builder_with_formats() -> None:
+    """Test FilterBuilder.with_formats (covers lines 452-453)."""
+    base_stmt = select(Book)
+    builder = FilterBuilder(base_stmt)
+
+    result = builder.with_formats(["EPUB", "PDF"])
+
+    assert result is builder
+    assert len(builder._context.and_conditions) == 1
+
+
+def test_filter_builder_with_rating_ids() -> None:
+    """Test FilterBuilder.with_rating_ids (covers lines 468-469)."""
+    base_stmt = select(Book)
+    builder = FilterBuilder(base_stmt)
+
+    result = builder.with_rating_ids([1, 2, 3])
+
+    assert result is builder
+    assert len(builder._context.and_conditions) == 1
+
+
+def test_filter_builder_with_language_ids() -> None:
+    """Test FilterBuilder.with_language_ids (covers lines 484-485)."""
+    base_stmt = select(Book)
+    builder = FilterBuilder(base_stmt)
+
+    result = builder.with_language_ids([1, 2, 3])
+
+    assert result is builder
+    assert len(builder._context.and_conditions) == 1
+
+
+def test_filter_builder_build_no_conditions() -> None:
+    """Test FilterBuilder.build with no conditions (covers lines 500-517)."""
+    base_stmt = select(Book)
+    builder = FilterBuilder(base_stmt)
+
+    result = builder.build()
+
+    assert result == base_stmt
+
+
+def test_filter_builder_build_single_or_condition() -> None:
+    """Test FilterBuilder.build with single OR condition (covers lines 500-517)."""
+    base_stmt = select(Book)
+    builder = FilterBuilder(base_stmt)
+    builder._context.or_conditions.append(Book.id.in_([1, 2, 3]))  # type: ignore[attr-defined]
+
+    result = builder.build()
+
+    assert result != base_stmt
+
+
+def test_filter_builder_build_multiple_or_conditions() -> None:
+    """Test FilterBuilder.build with multiple OR conditions (covers lines 500-517)."""
+    base_stmt = select(Book)
+    builder = FilterBuilder(base_stmt)
+    builder._context.or_conditions.append(Book.id.in_([1, 2]))  # type: ignore[attr-defined]
+    builder._context.or_conditions.append(Book.id.in_([3, 4]))  # type: ignore[attr-defined]
+
+    result = builder.build()
+
+    assert result != base_stmt
+
+
+def test_filter_builder_build_and_conditions() -> None:
+    """Test FilterBuilder.build with AND conditions (covers lines 500-517)."""
+    base_stmt = select(Book)
+    builder = FilterBuilder(base_stmt)
+    builder._context.and_conditions.append(Book.id.in_([1, 2]))  # type: ignore[attr-defined]
+
+    result = builder.build()
+
+    assert result != base_stmt
+
+
+def test_filter_builder_build_or_and_conditions() -> None:
+    """Test FilterBuilder.build with both OR and AND conditions (covers lines 500-517)."""
+    base_stmt = select(Book)
+    builder = FilterBuilder(base_stmt)
+    builder._context.or_conditions.append(Book.id.in_([1, 2]))  # type: ignore[attr-defined]
+    builder._context.and_conditions.append(Book.id.in_([3, 4]))  # type: ignore[attr-defined]
+
+    result = builder.build()
+
+    assert result != base_stmt
+
+
+# FilterSuggestionStrategy Tests
+
+
+def test_author_suggestion_strategy() -> None:
+    """Test AuthorSuggestionStrategy.get_suggestions (covers lines 552-560)."""
+    strategy = AuthorSuggestionStrategy()
+    mock_session = MagicMock()
+    mock_session.exec.return_value.all.return_value = [(1, "Author 1"), (2, "Author 2")]
+
+    result = strategy.get_suggestions(mock_session, "author", 10)
+
+    assert len(result) == 2
+    assert result[0] == {"id": 1, "name": "Author 1"}
+    assert result[1] == {"id": 2, "name": "Author 2"}
+
+
+def test_title_suggestion_strategy() -> None:
+    """Test TitleSuggestionStrategy.get_suggestions (covers lines 572-580)."""
+    strategy = TitleSuggestionStrategy()
+    mock_session = MagicMock()
+    mock_session.exec.return_value.all.return_value = [(1, "Book 1"), (2, "Book 2")]
+
+    result = strategy.get_suggestions(mock_session, "book", 10)
+
+    assert len(result) == 2
+    assert result[0] == {"id": 1, "name": "Book 1"}
+
+
+def test_genre_suggestion_strategy() -> None:
+    """Test GenreSuggestionStrategy.get_suggestions (covers lines 590-598)."""
+    strategy = GenreSuggestionStrategy()
+    mock_session = MagicMock()
+    mock_session.exec.return_value.all.return_value = [(1, "Tag 1"), (2, "Tag 2")]
+
+    result = strategy.get_suggestions(mock_session, "tag", 10)
+
+    assert len(result) == 2
+    assert result[0] == {"id": 1, "name": "Tag 1"}
+
+
+def test_publisher_suggestion_strategy() -> None:
+    """Test PublisherSuggestionStrategy.get_suggestions (covers lines 608-616)."""
+    strategy = PublisherSuggestionStrategy()
+    mock_session = MagicMock()
+    mock_session.exec.return_value.all.return_value = [
+        (1, "Publisher 1"),
+        (2, "Publisher 2"),
+    ]
+
+    result = strategy.get_suggestions(mock_session, "pub", 10)
+
+    assert len(result) == 2
+    assert result[0] == {"id": 1, "name": "Publisher 1"}
+
+
+def test_identifier_suggestion_strategy() -> None:
+    """Test IdentifierSuggestionStrategy.get_suggestions (covers lines 629-637)."""
+    strategy = IdentifierSuggestionStrategy()
+    mock_session = MagicMock()
+    mock_session.exec.return_value.all.return_value = [
+        (1, "123456", "ISBN"),
+        (2, "789012", "ASIN"),
+    ]
+
+    result = strategy.get_suggestions(mock_session, "123", 10)
+
+    assert len(result) == 2
+    assert result[0] == {"id": 1, "name": "ISBN: 123456"}
+    assert result[1] == {"id": 2, "name": "ASIN: 789012"}
+
+
+def test_series_suggestion_strategy() -> None:
+    """Test SeriesSuggestionStrategy.get_suggestions (covers lines 653-661)."""
+    strategy = SeriesSuggestionStrategy()
+    mock_session = MagicMock()
+    mock_session.exec.return_value.all.return_value = [(1, "Series 1"), (2, "Series 2")]
+
+    result = strategy.get_suggestions(mock_session, "series", 10)
+
+    assert len(result) == 2
+    assert result[0] == {"id": 1, "name": "Series 1"}
+
+
+def test_format_suggestion_strategy() -> None:
+    """Test FormatSuggestionStrategy.get_suggestions (covers lines 673-682)."""
+    strategy = FormatSuggestionStrategy()
+    mock_session = MagicMock()
+    mock_session.exec.return_value.all.return_value = ["EPUB", "PDF"]
+
+    result = strategy.get_suggestions(mock_session, "epub", 10)
+
+    assert len(result) == 2
+    assert result[0] == {"id": 1, "name": "EPUB"}
+    assert result[1] == {"id": 2, "name": "PDF"}
+
+
+def test_rating_suggestion_strategy_numeric() -> None:
+    """Test RatingSuggestionStrategy.get_suggestions with numeric query (covers lines 695-709)."""
+    strategy = RatingSuggestionStrategy()
+    mock_session = MagicMock()
+    mock_session.exec.return_value.all.return_value = [(1, 5), (2, 4)]
+
+    result = strategy.get_suggestions(mock_session, "5", 10)
+
+    assert len(result) == 2
+    assert result[0] == {"id": 1, "name": "5"}
+
+
+def test_rating_suggestion_strategy_non_numeric() -> None:
+    """Test RatingSuggestionStrategy.get_suggestions with non-numeric query (covers lines 695-709)."""
+    strategy = RatingSuggestionStrategy()
+    mock_session = MagicMock()
+    mock_session.exec.return_value.all.return_value = [(1, 5), (2, 4), (3, None)]
+
+    result = strategy.get_suggestions(mock_session, "all", 10)
+
+    assert len(result) == 2  # None filtered out
+    assert result[0] == {"id": 1, "name": "5"}
+
+
+def test_language_suggestion_strategy() -> None:
+    """Test LanguageSuggestionStrategy.get_suggestions (covers lines 723-731)."""
+    strategy = LanguageSuggestionStrategy()
+    mock_session = MagicMock()
+    mock_session.exec.return_value.all.return_value = [(1, "en"), (2, "fr")]
+
+    result = strategy.get_suggestions(mock_session, "en", 10)
+
+    assert len(result) == 2
+    assert result[0] == {"id": 1, "name": "en"}
+
+
+def test_filter_suggestion_factory_get_strategy() -> None:
+    """Test FilterSuggestionFactory.get_strategy (covers line 769)."""
+    strategy = FilterSuggestionFactory.get_strategy("author")
+    assert isinstance(strategy, AuthorSuggestionStrategy)
+
+    strategy = FilterSuggestionFactory.get_strategy("title")
+    assert isinstance(strategy, TitleSuggestionStrategy)
+
+    strategy = FilterSuggestionFactory.get_strategy("genre")
+    assert isinstance(strategy, GenreSuggestionStrategy)
+
+    strategy = FilterSuggestionFactory.get_strategy("publisher")
+    assert isinstance(strategy, PublisherSuggestionStrategy)
+
+    strategy = FilterSuggestionFactory.get_strategy("identifier")
+    assert isinstance(strategy, IdentifierSuggestionStrategy)
+
+    strategy = FilterSuggestionFactory.get_strategy("series")
+    assert isinstance(strategy, SeriesSuggestionStrategy)
+
+    strategy = FilterSuggestionFactory.get_strategy("format")
+    assert isinstance(strategy, FormatSuggestionStrategy)
+
+    strategy = FilterSuggestionFactory.get_strategy("rating")
+    assert isinstance(strategy, RatingSuggestionStrategy)
+
+    strategy = FilterSuggestionFactory.get_strategy("language")
+    assert isinstance(strategy, LanguageSuggestionStrategy)
+
+    strategy = FilterSuggestionFactory.get_strategy("invalid")
+    assert strategy is None
+
+
+# Repository Method Tests
+
+
+def test_build_book_with_relations() -> None:
+    """Test _build_book_with_relations (covers lines 1124-1138)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_file = Path(tmpdir) / "metadata.db"
+        db_file.touch()
+
+        repo = CalibreBookRepository(str(tmpdir))
+        book = Book(id=1, title="Test Book", uuid="test-uuid")
+        mock_result = MagicMock()
+        mock_result.Book = book
+        mock_result.series_name = "Test Series"
+
+        with patch.object(repo, "_get_session") as mock_session:
+            mock_session_obj = MagicMock()
+            mock_exec = MagicMock()
+            mock_exec.all.return_value = ["Author 1", "Author 2"]
+            mock_session_obj.exec.return_value = mock_exec
+            mock_session.return_value.__enter__.return_value = mock_session_obj
+
+            result = repo._build_book_with_relations(mock_session_obj, mock_result)
+
+            assert result is not None
+            assert result.book.id == 1
+            assert result.series == "Test Series"
+            assert result.authors == ["Author 1", "Author 2"]
+
+
+def test_build_book_with_relations_none_book() -> None:
+    """Test _build_book_with_relations returns None when book is None (covers lines 1124-1138)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_file = Path(tmpdir) / "metadata.db"
+        db_file.touch()
+
+        repo = CalibreBookRepository(str(tmpdir))
+        mock_result = MagicMock()
+        mock_result.Book = None
+
+        with patch.object(repo, "_get_session") as mock_session:
+            mock_session_obj = MagicMock()
+            mock_session.return_value.__enter__.return_value = mock_session_obj
+
+            result = repo._build_book_with_relations(mock_session_obj, mock_result)
+
+            assert result is None
+
+
+def test_build_book_with_relations_no_id() -> None:
+    """Test _build_book_with_relations returns None when book.id is None (covers lines 1124-1138)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_file = Path(tmpdir) / "metadata.db"
+        db_file.touch()
+
+        repo = CalibreBookRepository(str(tmpdir))
+        book = Book(id=None, title="Test Book", uuid="test-uuid")
+        mock_result = MagicMock()
+        mock_result.Book = book
+
+        with patch.object(repo, "_get_session") as mock_session:
+            mock_session_obj = MagicMock()
+            mock_session.return_value.__enter__.return_value = mock_session_obj
+
+            result = repo._build_book_with_relations(mock_session_obj, mock_result)
+
+            assert result is None
+
+
+def test_get_sort_field() -> None:
+    """Test _get_sort_field (covers lines 1157-1164)."""
+    repo = CalibreBookRepository("/path/to/library")
+
+    assert repo._get_sort_field("timestamp") == Book.timestamp
+    assert repo._get_sort_field("pubdate") == Book.pubdate
+    assert repo._get_sort_field("title") == Book.title
+    assert repo._get_sort_field("author_sort") == Book.author_sort
+    assert repo._get_sort_field("series_index") == Book.series_index
+    assert repo._get_sort_field("invalid") == Book.timestamp  # Default
+
+
+def test_list_books_with_filters() -> None:
+    """Test list_books_with_filters (covers lines 1221-1261)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_file = Path(tmpdir) / "metadata.db"
+        db_file.touch()
+
+        repo = CalibreBookRepository(str(tmpdir))
+        book = Book(id=1, title="Test Book", uuid="test-uuid")
+        mock_result = MagicMock()
+        mock_result.Book = book
+        mock_result.series_name = None
+
+        with patch.object(repo, "_get_session") as mock_session:
+            mock_session_obj = MagicMock()
+            mock_exec = MagicMock()
+            mock_exec.all.side_effect = [[mock_result], []]
+            mock_session_obj.exec.return_value = mock_exec
+            mock_session.return_value.__enter__.return_value = mock_session_obj
+
+            result = repo.list_books_with_filters(
+                limit=10,
+                offset=0,
+                author_ids=[1, 2],
+                title_ids=[3, 4],
+                sort_by="timestamp",
+                sort_order="desc",
+            )
+
+            assert len(result) == 1
+            assert result[0].book.id == 1
+
+
+def test_list_books_with_filters_asc() -> None:
+    """Test list_books_with_filters with asc order (covers lines 1221-1261)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_file = Path(tmpdir) / "metadata.db"
+        db_file.touch()
+
+        repo = CalibreBookRepository(str(tmpdir))
+        book = Book(id=1, title="Test Book", uuid="test-uuid")
+        mock_result = MagicMock()
+        mock_result.Book = book
+        mock_result.series_name = None
+
+        with patch.object(repo, "_get_session") as mock_session:
+            mock_session_obj = MagicMock()
+            mock_exec = MagicMock()
+            mock_exec.all.side_effect = [[mock_result], []]
+            mock_session_obj.exec.return_value = mock_exec
+            mock_session.return_value.__enter__.return_value = mock_session_obj
+
+            result = repo.list_books_with_filters(limit=10, offset=0, sort_order="asc")
+
+            assert len(result) == 1
+
+
+def test_list_books_with_filters_invalid_sort_order() -> None:
+    """Test list_books_with_filters with invalid sort_order (covers lines 1221-1261)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_file = Path(tmpdir) / "metadata.db"
+        db_file.touch()
+
+        repo = CalibreBookRepository(str(tmpdir))
+        book = Book(id=1, title="Test Book", uuid="test-uuid")
+        mock_result = MagicMock()
+        mock_result.Book = book
+        mock_result.series_name = None
+
+        with patch.object(repo, "_get_session") as mock_session:
+            mock_session_obj = MagicMock()
+            mock_exec = MagicMock()
+            mock_exec.all.side_effect = [[mock_result], []]
+            mock_session_obj.exec.return_value = mock_exec
+            mock_session.return_value.__enter__.return_value = mock_session_obj
+
+            result = repo.list_books_with_filters(
+                limit=10, offset=0, sort_order="invalid"
+            )
+
+            assert len(result) == 1
+
+
+def test_count_books_with_filters() -> None:
+    """Test count_books_with_filters (covers lines 1303-1326)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_file = Path(tmpdir) / "metadata.db"
+        db_file.touch()
+
+        repo = CalibreBookRepository(str(tmpdir))
+
+        with patch.object(repo, "_get_session") as mock_session:
+            mock_session.return_value.__enter__.return_value.exec.return_value.one.return_value = 5
+
+            result = repo.count_books_with_filters(
+                author_ids=[1, 2], title_ids=[3, 4], genre_ids=[5, 6]
+            )
+
+            assert result == 5
+
+
+def test_count_books_with_filters_zero() -> None:
+    """Test count_books_with_filters returns 0 when result is None (covers lines 1303-1326)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_file = Path(tmpdir) / "metadata.db"
+        db_file.touch()
+
+        repo = CalibreBookRepository(str(tmpdir))
+
+        with patch.object(repo, "_get_session") as mock_session:
+            mock_session.return_value.__enter__.return_value.exec.return_value.one.return_value = None
+
+            result = repo.count_books_with_filters()
+
+            assert result == 0
+
+
+def test_filter_suggestions() -> None:
+    """Test filter_suggestions (covers lines 1491-1499)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_file = Path(tmpdir) / "metadata.db"
+        db_file.touch()
+
+        repo = CalibreBookRepository(str(tmpdir))
+
+        with patch.object(repo, "_get_session") as mock_session:
+            mock_session_obj = MagicMock()
+            mock_exec = MagicMock()
+            mock_exec.all.return_value = [(1, "Author 1")]
+            mock_session_obj.exec.return_value = mock_exec
+            mock_session.return_value.__enter__.return_value = mock_session_obj
+
+            result = repo.filter_suggestions("author", "author", 10)
+
+            assert len(result) == 1
+            assert result[0] == {"id": 1, "name": "Author 1"}
+
+
+def test_filter_suggestions_empty_query() -> None:
+    """Test filter_suggestions with empty query (covers lines 1491-1499)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_file = Path(tmpdir) / "metadata.db"
+        db_file.touch()
+
+        repo = CalibreBookRepository(str(tmpdir))
+
+        result = repo.filter_suggestions("", "author", 10)
+
+        assert result == []
+
+
+def test_filter_suggestions_invalid_type() -> None:
+    """Test filter_suggestions with invalid filter_type (covers lines 1491-1499)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_file = Path(tmpdir) / "metadata.db"
+        db_file.touch()
+
+        repo = CalibreBookRepository(str(tmpdir))
+
+        result = repo.filter_suggestions("query", "invalid", 10)
+
+        assert result == []
+
+
+def test_search_suggestions() -> None:
+    """Test search_suggestions (covers lines 1404-1466)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_file = Path(tmpdir) / "metadata.db"
+        db_file.touch()
+
+        repo = CalibreBookRepository(str(tmpdir))
+
+        with patch.object(repo, "_get_session") as mock_session:
+            mock_session_obj = MagicMock()
+            mock_exec = MagicMock()
+            mock_exec.all.side_effect = [
+                [(1, "Book 1")],  # books
+                [(1, "Author 1")],  # authors
+                [(1, "Tag 1")],  # tags
+                [(1, "Series 1")],  # series
+            ]
+            mock_session_obj.exec.return_value = mock_exec
+            mock_session.return_value.__enter__.return_value = mock_session_obj
+
+            result = repo.search_suggestions(
+                "test", book_limit=3, author_limit=3, tag_limit=3, series_limit=3
+            )
+
+            assert "books" in result
+            assert "authors" in result
+            assert "tags" in result
+            assert "series" in result
+            assert len(result["books"]) == 1
+
+
+def test_search_suggestions_empty_query() -> None:
+    """Test search_suggestions with empty query (covers lines 1404-1466)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_file = Path(tmpdir) / "metadata.db"
+        db_file.touch()
+
+        repo = CalibreBookRepository(str(tmpdir))
+
+        result = repo.search_suggestions("")
+
+        assert result == {"books": [], "authors": [], "tags": [], "series": []}
+
+
+def test_search_suggestions_whitespace_query() -> None:
+    """Test search_suggestions with whitespace-only query (covers lines 1404-1466)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_file = Path(tmpdir) / "metadata.db"
+        db_file.touch()
+
+        repo = CalibreBookRepository(str(tmpdir))
+
+        result = repo.search_suggestions("   ")
+
+        assert result == {"books": [], "authors": [], "tags": [], "series": []}

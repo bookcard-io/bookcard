@@ -451,3 +451,51 @@ class SearchSuggestionsResponse(BaseModel):
     authors: list[SearchSuggestionItem] = Field(default_factory=list)
     tags: list[SearchSuggestionItem] = Field(default_factory=list)
     series: list[SearchSuggestionItem] = Field(default_factory=list)
+
+
+class FilterSuggestionsResponse(BaseModel):
+    """Filter suggestions response.
+
+    Attributes
+    ----------
+    suggestions : list[SearchSuggestionItem]
+        List of filter suggestions for the specified filter type.
+    """
+
+    suggestions: list[SearchSuggestionItem] = Field(default_factory=list)
+
+
+class BookFilterRequest(BaseModel):
+    """Book filter request.
+
+    Attributes
+    ----------
+    author_ids : list[int] | None
+        List of author IDs to filter by (OR condition).
+    title_ids : list[int] | None
+        List of book IDs to filter by (OR condition).
+    genre_ids : list[int] | None
+        List of tag IDs to filter by (OR condition).
+    publisher_ids : list[int] | None
+        List of publisher IDs to filter by (OR condition).
+    identifier_ids : list[int] | None
+        List of identifier IDs to filter by (OR condition).
+    series_ids : list[int] | None
+        List of series IDs to filter by (OR condition).
+    formats : list[str] | None
+        List of format strings to filter by (OR condition).
+    rating_ids : list[int] | None
+        List of rating IDs to filter by (OR condition).
+    language_ids : list[int] | None
+        List of language IDs to filter by (OR condition).
+    """
+
+    author_ids: list[int] | None = Field(default=None)
+    title_ids: list[int] | None = Field(default=None)
+    genre_ids: list[int] | None = Field(default=None)
+    publisher_ids: list[int] | None = Field(default=None)
+    identifier_ids: list[int] | None = Field(default=None)
+    series_ids: list[int] | None = Field(default=None)
+    formats: list[str] | None = Field(default=None)
+    rating_ids: list[int] | None = Field(default=None)
+    language_ids: list[int] | None = Field(default=None)
