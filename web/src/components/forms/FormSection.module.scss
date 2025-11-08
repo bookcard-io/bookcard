@@ -1,0 +1,44 @@
+@use "../../styles/colors" as *;
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid get-theme-color("surface", "a20");
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+}
+
+.header {
+  margin-bottom: 0;
+}
+
+.title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: get-theme-color("text", "a0");
+  margin: 0 0 0.5rem 0;
+  line-height: 1.4;
+}
+
+.description {
+  font-size: 0.875rem;
+  color: get-theme-color("text", "a30");
+  margin: 0;
+  line-height: 1.5;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+
+  @media (min-width: 768px) {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

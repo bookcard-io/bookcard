@@ -1,0 +1,74 @@
+@use "../../styles/colors" as *;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: get-theme-color("text", "a10");
+  line-height: 1.5;
+}
+
+.input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: get-theme-color("surface", "a0");
+  border: 1px solid get-theme-color("surface", "a20");
+  border-radius: 0.5rem;
+  color: get-theme-color("text", "a0");
+  font-size: 1rem;
+  line-height: 1.5;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+
+  &::placeholder {
+    color: get-theme-color("text", "a40");
+  }
+
+  &:focus {
+    outline: none;
+    border-color: get-theme-color("primary", "a0");
+    background-color: get-theme-color("surface", "a10");
+    box-shadow: 0 0 0 3px rgba(144, 170, 249, 0.1);
+  }
+
+  &:hover:not(:focus) {
+    border-color: get-theme-color("surface", "a30");
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &::-webkit-calendar-picker-indicator {
+    filter: invert(0.8);
+    cursor: pointer;
+  }
+}
+
+.inputError {
+  border-color: get-theme-color("danger", "a0");
+
+  &:focus {
+    border-color: get-theme-color("danger", "a0");
+    box-shadow: 0 0 0 3px rgba(156, 33, 33, 0.1);
+  }
+}
+
+.error {
+  font-size: 0.875rem;
+  color: get-theme-color("danger", "a10");
+  line-height: 1.5;
+}
+
+.helperText {
+  font-size: 0.875rem;
+  color: get-theme-color("text", "a30");
+  line-height: 1.5;
+}

@@ -27,6 +27,15 @@
     box-shadow: 0 0 0 2px rgba(144, 170, 249, 0.2);
     outline: none;
   }
+
+  &:focus {
+    outline: 2px solid get-theme-color("primary", "a0");
+    outline-offset: 2px;
+  }
+
+  &:focus:not(:focus-visible) {
+    outline: none;
+  }
 }
 
 .coverContainer {
@@ -34,6 +43,10 @@
   aspect-ratio: 2 / 3;
   position: relative;
   overflow: hidden;
+
+  &:hover .hoverOverlay {
+    opacity: 1;
+  }
 }
 
 .cover {
@@ -93,4 +106,91 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.hoverOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 0.75rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.checkbox {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.25rem;
+  border: 2px solid get-theme-color("primary", "a0");
+  background-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  color: get-theme-color("text", "a0");
+  padding: 0;
+
+  &:hover {
+    background-color: rgba(144, 170, 249, 0.2);
+  }
+
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(144, 170, 249, 0.3);
+  }
+
+  i {
+    font-size: 0.875rem;
+    display: block;
+  }
+}
+
+.checkboxSelected {
+  background-color: get-theme-color("primary", "a0");
+  border-color: get-theme-color("primary", "a0");
+}
+
+.editButton {
+  align-self: flex-end;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(4px);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  color: get-theme-color("text", "a0");
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(144, 170, 249, 0.3);
+  }
+
+  i {
+    font-size: 1.125rem;
+    display: block;
+  }
 }

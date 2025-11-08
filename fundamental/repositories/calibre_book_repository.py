@@ -31,9 +31,9 @@ from __future__ import annotations
 from contextlib import contextmanager, suppress
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import func
+from sqlalchemy import event, func
 from sqlalchemy.orm import aliased
 from sqlmodel import Session, create_engine, select
 
@@ -222,7 +222,27 @@ class CalibreBookRepository:
             raise FileNotFoundError(msg)
         if self._engine is None:
             db_url = f"sqlite:///{self._db_path}"
+
+            def _register_title_sort(dbapi_conn: Any, connection_record: Any) -> None:
+                """Register title_sort SQLite function.
+
+                Calibre's database triggers reference this function, which
+                normalizes titles for sorting (removing articles, etc.).
+                This implementation returns the title as-is for simplicity.
+
+                Parameters
+                ----------
+                dbapi_conn : Any
+                    SQLite database connection.
+                connection_record : Any
+                    Connection record (required by event listener signature).
+                """
+                # connection_record is required by event listener signature but unused
+                _ = connection_record
+                dbapi_conn.create_function("title_sort", 1, lambda x: x or "")
+
             self._engine = create_engine(db_url, echo=False, future=True)
+            event.listen(self._engine, "connect", _register_title_sort)
         return self._engine
 
     @contextmanager
@@ -798,6 +818,21 @@ class CalibreBookRepository:
                 rating_id=rating_id,
             )
 
+    def _normalize_string_set(self, strings: list[str]) -> set[str]:
+        """Normalize a list of strings for comparison.
+
+        Parameters
+        ----------
+        strings : list[str]
+            List of strings to normalize.
+
+        Returns
+        -------
+        set[str]
+            Set of normalized (lowercased, stripped) strings, excluding empty ones.
+        """
+        return {s.strip().lower() for s in strings if s.strip()}
+
     def _update_book_fields(
         self,
         book: Book,
@@ -840,7 +875,26 @@ class CalibreBookRepository:
         author_names : list[str]
             List of author names to set (replaces existing).
         """
-        # Delete existing author links
+        # Get current authors
+        current_authors_stmt = (
+            select(Author.name)
+            .join(BookAuthorLink, Author.id == BookAuthorLink.author)
+            .where(BookAuthorLink.book == book_id)
+            .order_by(BookAuthorLink.id)
+        )
+        current_author_names = self._normalize_string_set(
+            list(session.exec(current_authors_stmt).all())
+        )
+
+        # Normalize new author names
+        normalized_new_authors = self._normalize_string_set(author_names)
+
+        # Check if authors are actually changing
+        if current_author_names == normalized_new_authors:
+            # Authors haven't changed, no update needed
+            return
+
+        # Authors are changing - delete existing author links
         delete_links_stmt = select(BookAuthorLink).where(BookAuthorLink.book == book_id)
         existing_links = session.exec(delete_links_stmt).all()
         for link in existing_links:
@@ -889,13 +943,9 @@ class CalibreBookRepository:
         series_id : int | None
             Series ID to set (if provided, series_name is ignored).
         """
-        # Delete existing series link
-        delete_series_stmt = select(BookSeriesLink).where(
-            BookSeriesLink.book == book_id
-        )
-        existing_series_links = session.exec(delete_series_stmt).all()
-        for link in existing_series_links:
-            session.delete(link)
+        # Get current series link
+        current_link_stmt = select(BookSeriesLink).where(BookSeriesLink.book == book_id)
+        current_link = session.exec(current_link_stmt).first()
 
         # Determine if we should remove series or set a new one
         should_remove = series_name == "" or (
@@ -903,8 +953,12 @@ class CalibreBookRepository:
         )
 
         if should_remove:
+            # Remove series - delete link if present
+            if current_link is not None:
+                session.delete(current_link)
             return
 
+        # Determine target series ID
         target_series_id = series_id
         if target_series_id is None and series_name is not None and series_name.strip():
             # Find or create series
@@ -917,6 +971,17 @@ class CalibreBookRepository:
             if series.id is not None:
                 target_series_id = series.id
 
+        # Check if series is actually changing
+        current_series_id = current_link.series if current_link else None
+        if current_series_id == target_series_id:
+            # Series hasn't changed, no update needed
+            return
+
+        # Series is changing - delete existing link if present
+        if current_link is not None:
+            session.delete(current_link)
+
+        # Add new link if target series is specified
         if target_series_id is not None:
             link = BookSeriesLink(book=book_id, series=target_series_id)
             session.add(link)
@@ -935,7 +1000,25 @@ class CalibreBookRepository:
         tag_names : list[str]
             List of tag names to set (replaces existing).
         """
-        # Delete existing tag links
+        # Get current tags
+        current_tags_stmt = (
+            select(Tag.name)
+            .join(BookTagLink, Tag.id == BookTagLink.tag)
+            .where(BookTagLink.book == book_id)
+        )
+        current_tag_names = self._normalize_string_set(
+            list(session.exec(current_tags_stmt).all())
+        )
+
+        # Normalize new tag names
+        normalized_new_tags = self._normalize_string_set(tag_names)
+
+        # Check if tags are actually changing
+        if current_tag_names == normalized_new_tags:
+            # Tags haven't changed, no update needed
+            return
+
+        # Tags are changing - delete existing tag links
         delete_tags_stmt = select(BookTagLink).where(BookTagLink.book == book_id)
         existing_tag_links = session.exec(delete_tags_stmt).all()
         for link in existing_tag_links:
@@ -970,10 +1053,32 @@ class CalibreBookRepository:
         identifiers : list[dict[str, str]]
             List of identifiers with 'type' and 'val' keys (replaces existing).
         """
-        # Delete existing identifiers
-        delete_identifiers_stmt = select(Identifier).where(Identifier.book == book_id)
-        existing_identifiers = session.exec(delete_identifiers_stmt).all()
-        for ident in existing_identifiers:
+        # Get current identifiers
+        current_identifiers_stmt = select(Identifier).where(Identifier.book == book_id)
+        current_identifiers = session.exec(current_identifiers_stmt).all()
+        current_identifiers_set = {
+            (ident.type.lower().strip(), ident.val.strip())
+            for ident in current_identifiers
+            if ident.val.strip()
+        }
+
+        # Normalize new identifiers (type and val, filter empty)
+        normalized_new_identifiers = {
+            (
+                ident_data.get("type", "isbn").lower().strip(),
+                ident_data.get("val", "").strip(),
+            )
+            for ident_data in identifiers
+            if ident_data.get("val", "").strip()
+        }
+
+        # Check if identifiers are actually changing
+        if current_identifiers_set == normalized_new_identifiers:
+            # Identifiers haven't changed, no update needed
+            return
+
+        # Identifiers are changing - delete existing identifiers
+        for ident in current_identifiers:
             session.delete(ident)
 
         # Create new identifiers
@@ -1026,14 +1131,13 @@ class CalibreBookRepository:
         publisher_id : int | None
             Publisher ID to set (if provided, publisher_name is ignored).
         """
-        # Delete existing publisher link
-        delete_publisher_stmt = select(BookPublisherLink).where(
+        # Get current publisher link
+        current_link_stmt = select(BookPublisherLink).where(
             BookPublisherLink.book == book_id
         )
-        existing_publisher_links = session.exec(delete_publisher_stmt).all()
-        for link in existing_publisher_links:
-            session.delete(link)
+        current_link = session.exec(current_link_stmt).first()
 
+        # Determine target publisher ID
         target_publisher_id = publisher_id
         if target_publisher_id is None and publisher_name is not None:
             # Find or create publisher
@@ -1046,6 +1150,17 @@ class CalibreBookRepository:
             if publisher.id is not None:
                 target_publisher_id = publisher.id
 
+        # Check if publisher is actually changing
+        current_publisher_id = current_link.publisher if current_link else None
+        if current_publisher_id == target_publisher_id:
+            # Publisher hasn't changed, no update needed
+            return
+
+        # Publisher is changing - delete existing link if present
+        if current_link is not None:
+            session.delete(current_link)
+
+        # Add new link if target publisher is specified
         if target_publisher_id is not None:
             link = BookPublisherLink(book=book_id, publisher=target_publisher_id)
             session.add(link)
@@ -1070,14 +1185,13 @@ class CalibreBookRepository:
         language_id : int | None
             Language ID to set (if provided, language_code is ignored).
         """
-        # Delete existing language link
-        delete_language_stmt = select(BookLanguageLink).where(
+        # Get current language link
+        current_link_stmt = select(BookLanguageLink).where(
             BookLanguageLink.book == book_id
         )
-        existing_language_links = session.exec(delete_language_stmt).all()
-        for link in existing_language_links:
-            session.delete(link)
+        current_link = session.exec(current_link_stmt).first()
 
+        # Determine target language ID
         target_language_id = language_id
         if target_language_id is None and language_code is not None:
             # Find or create language
@@ -1090,6 +1204,17 @@ class CalibreBookRepository:
             if language.id is not None:
                 target_language_id = language.id
 
+        # Check if language is actually changing
+        current_language_id = current_link.lang_code if current_link else None
+        if current_language_id == target_language_id:
+            # Language hasn't changed, no update needed
+            return
+
+        # Language is changing - delete existing link if present
+        if current_link is not None:
+            session.delete(current_link)
+
+        # Add new link if target language is specified
         if target_language_id is not None:
             link = BookLanguageLink(book=book_id, lang_code=target_language_id)
             session.add(link)
@@ -1114,14 +1239,11 @@ class CalibreBookRepository:
         rating_id : int | None
             Rating ID to set (if provided, rating_value is ignored).
         """
-        # Delete existing rating link
-        delete_rating_stmt = select(BookRatingLink).where(
-            BookRatingLink.book == book_id
-        )
-        existing_rating_links = session.exec(delete_rating_stmt).all()
-        for link in existing_rating_links:
-            session.delete(link)
+        # Get current rating link
+        current_link_stmt = select(BookRatingLink).where(BookRatingLink.book == book_id)
+        current_link = session.exec(current_link_stmt).first()
 
+        # Determine target rating ID
         target_rating_id = rating_id
         if target_rating_id is None and rating_value is not None:
             # Find or create rating
@@ -1134,6 +1256,17 @@ class CalibreBookRepository:
             if rating.id is not None:
                 target_rating_id = rating.id
 
+        # Check if rating is actually changing
+        current_rating_id = current_link.rating if current_link else None
+        if current_rating_id == target_rating_id:
+            # Rating hasn't changed, no update needed
+            return
+
+        # Rating is changing - delete existing link if present
+        if current_link is not None:
+            session.delete(current_link)
+
+        # Add new link if target rating is specified
         if target_rating_id is not None:
             link = BookRatingLink(book=book_id, rating=target_rating_id)
             session.add(link)
@@ -1200,50 +1333,56 @@ class CalibreBookRepository:
             Updated book with all relations if found, None otherwise.
         """
         with self._get_session() as session:
-            # Get existing book
-            book_stmt = select(Book).where(Book.id == book_id)
-            book = session.exec(book_stmt).first()
-            if book is None:
-                return None
+            # Disable autoflush to prevent errors with Calibre-specific SQLite functions
+            # (e.g., title_sort) that may be referenced in triggers
+            with session.no_autoflush:
+                # Get existing book
+                book_stmt = select(Book).where(Book.id == book_id)
+                book = session.exec(book_stmt).first()
+                if book is None:
+                    return None
 
-            # Update book fields
-            self._update_book_fields(
-                book, title=title, pubdate=pubdate, series_index=series_index
-            )
+                # Update authors first (before book fields to avoid trigger issues)
+                if author_names is not None:
+                    self._update_book_authors(session, book_id, author_names)
 
-            # Update authors
-            if author_names is not None:
-                self._update_book_authors(session, book_id, author_names)
+                # Update series
+                if series_name is not None or series_id is not None:
+                    self._update_book_series(session, book_id, series_name, series_id)
 
-            # Update series
-            if series_name is not None or series_id is not None:
-                self._update_book_series(session, book_id, series_name, series_id)
+                # Update tags
+                if tag_names is not None:
+                    self._update_book_tags(session, book_id, tag_names)
 
-            # Update tags
-            if tag_names is not None:
-                self._update_book_tags(session, book_id, tag_names)
+                # Update identifiers
+                if identifiers is not None:
+                    self._update_book_identifiers(session, book_id, identifiers)
 
-            # Update identifiers
-            if identifiers is not None:
-                self._update_book_identifiers(session, book_id, identifiers)
+                # Update description
+                if description is not None:
+                    self._update_book_description(session, book_id, description)
 
-            # Update description
-            if description is not None:
-                self._update_book_description(session, book_id, description)
+                # Update publisher
+                if publisher_id is not None or publisher_name is not None:
+                    self._update_book_publisher(
+                        session, book_id, publisher_name, publisher_id
+                    )
 
-            # Update publisher
-            if publisher_id is not None or publisher_name is not None:
-                self._update_book_publisher(
-                    session, book_id, publisher_name, publisher_id
+                # Update language
+                if language_id is not None or language_code is not None:
+                    self._update_book_language(
+                        session, book_id, language_code, language_id
+                    )
+
+                # Update rating
+                if rating_id is not None or rating_value is not None:
+                    self._update_book_rating(session, book_id, rating_value, rating_id)
+
+                # Update book fields last (after all other operations to avoid
+                # triggering title_sort function during intermediate flushes)
+                self._update_book_fields(
+                    book, title=title, pubdate=pubdate, series_index=series_index
                 )
-
-            # Update language
-            if language_id is not None or language_code is not None:
-                self._update_book_language(session, book_id, language_code, language_id)
-
-            # Update rating
-            if rating_id is not None or rating_value is not None:
-                self._update_book_rating(session, book_id, rating_value, rating_id)
 
             session.commit()
             session.refresh(book)

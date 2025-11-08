@@ -46,6 +46,11 @@ export function FilterSuggestionsDropdown({
           key={suggestion.id}
           type="button"
           className={styles.suggestionItem}
+          onMouseDown={(e) => {
+            // Prevent input blur from firing before we handle selection
+            e.preventDefault();
+            onSuggestionClick(suggestion);
+          }}
           onClick={() => onSuggestionClick(suggestion)}
         >
           {suggestion.name}

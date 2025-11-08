@@ -19,6 +19,8 @@ export interface Book {
   timestamp: string | null;
   /** Series name if part of a series. */
   series: string | null;
+  /** Series ID if part of a series. */
+  series_id: number | null;
   /** Position in series. */
   series_index: number | null;
   /** ISBN identifier. */
@@ -29,6 +31,57 @@ export interface Book {
   thumbnail_url: string | null;
   /** Whether the book has a cover image. */
   has_cover: boolean;
+  /** List of tag names. */
+  tags?: string[];
+  /** List of identifiers, each with 'type' and 'val' keys. */
+  identifiers?: Array<{ type: string; val: string }>;
+  /** Book description/comment text. */
+  description?: string | null;
+  /** Publisher name. */
+  publisher?: string | null;
+  /** Publisher ID. */
+  publisher_id?: number | null;
+  /** Language code. */
+  language?: string | null;
+  /** Language ID. */
+  language_id?: number | null;
+  /** Rating value (0-5). */
+  rating?: number | null;
+  /** Rating ID. */
+  rating_id?: number | null;
+}
+
+export interface BookUpdate {
+  /** Book title to update. */
+  title?: string | null;
+  /** Publication date to update. */
+  pubdate?: string | null;
+  /** List of author names to set (replaces existing). */
+  author_names?: string[] | null;
+  /** Series name to set (creates if doesn't exist). */
+  series_name?: string | null;
+  /** Series ID to set (if provided, series_name is ignored). */
+  series_id?: number | null;
+  /** Series index to update. */
+  series_index?: number | null;
+  /** List of tag names to set (replaces existing). */
+  tag_names?: string[] | null;
+  /** List of identifiers with 'type' and 'val' keys (replaces existing). */
+  identifiers?: Array<{ type: string; val: string }> | null;
+  /** Book description/comment to set. */
+  description?: string | null;
+  /** Publisher name to set (creates if doesn't exist). */
+  publisher_name?: string | null;
+  /** Publisher ID to set (if provided, publisher_name is ignored). */
+  publisher_id?: number | null;
+  /** Language code to set (creates if doesn't exist). */
+  language_code?: string | null;
+  /** Language ID to set (if provided, language_code is ignored). */
+  language_id?: number | null;
+  /** Rating value to set (0-5). */
+  rating_value?: number | null;
+  /** Rating ID to set (if provided, rating_value is ignored). */
+  rating_id?: number | null;
 }
 
 export interface BookListResponse {
