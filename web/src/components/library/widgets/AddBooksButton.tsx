@@ -1,6 +1,5 @@
 "use client";
 
-import { Plus } from "@/icons/Plus";
 import styles from "./AddBooksButton.module.scss";
 
 export interface AddBooksButtonProps {
@@ -27,7 +26,7 @@ export function AddBooksButton({ onClick }: AddBooksButtonProps) {
       onClick={handleClick}
       aria-label="Add books"
     >
-      <Plus className={styles.plusIcon} aria-hidden="true" />
+      <i className="pi pi-plus" aria-hidden="true" />
       <span className={styles.buttonText}>Add Books</span>
     </button>
   );
