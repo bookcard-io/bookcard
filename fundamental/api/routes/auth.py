@@ -27,7 +27,8 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlmodel import Session
+from sqlalchemy.orm import selectinload
+from sqlmodel import Session, select
 
 from fundamental.api.deps import get_current_user, get_db_session
 from fundamental.api.schemas import (
@@ -41,7 +42,7 @@ from fundamental.api.schemas import (
     UserCreate,
     UserRead,
 )
-from fundamental.models.auth import User
+from fundamental.models.auth import User, UserRole
 from fundamental.repositories.user_repository import UserRepository
 from fundamental.services.auth_service import AuthError, AuthService
 from fundamental.services.security import JWTManager, PasswordHasher
@@ -95,9 +96,23 @@ def login(
                 status_code=401, detail=AuthError.INVALID_CREDENTIALS
             ) from exc
         raise
+
+    # Load relationships for user
+    stmt = (
+        select(User)
+        .where(User.id == user.id)
+        .options(
+            selectinload(User.ereader_devices),
+            selectinload(User.roles).selectinload(UserRole.role),
+        )
+    )
+    user_with_rels = session.exec(stmt).first()
+    if user_with_rels is None:
+        raise HTTPException(status_code=500, detail="user_not_found")
+
     return LoginResponse(
         access_token=token,
-        user=UserRead.model_validate(user),
+        user=UserRead.from_user(user_with_rels),
     )
 
 
@@ -107,10 +122,22 @@ def me(
     session: SessionDep,
 ) -> UserRead:
     """Return the current authenticated user."""
-    # FastAPI will serialize using response_model=UserRead
-    # with from_attributes=True from UserRead.model_config
     current_user = get_current_user(request, session)
-    return UserRead.model_validate(current_user)
+
+    # Load relationships for current user
+    stmt = (
+        select(User)
+        .where(User.id == current_user.id)
+        .options(
+            selectinload(User.ereader_devices),
+            selectinload(User.roles).selectinload(UserRole.role),
+        )
+    )
+    user_with_rels = session.exec(stmt).first()
+    if user_with_rels is None:
+        raise HTTPException(status_code=500, detail="user_not_found")
+
+    return UserRead.from_user(user_with_rels)
 
 
 @router.put("/password", status_code=status.HTTP_204_NO_CONTENT)

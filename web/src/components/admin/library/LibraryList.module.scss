@@ -1,0 +1,94 @@
+@use "../../../styles/colors" as *;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.libraryItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background-color: get-theme-color("surface", "a10");
+  border: 1px solid get-theme-color("surface", "a20");
+  border-radius: 6px;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: get-theme-color("primary", "a0");
+}
+
+.libraryInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.libraryName {
+  font-size: 14px;
+  font-weight: 500;
+  color: get-theme-color("text", "a0");
+
+  &.active {
+    color: get-theme-color("primary", "a0");
+  }
+}
+
+.libraryPath {
+  font-size: 12px;
+  color: get-theme-color("text", "a30");
+  word-break: break-all;
+}
+
+.updatedAt {
+  font-size: 11px;
+  color: get-theme-color("text", "a40");
+}
+
+.deleteButton {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: get-theme-color("danger", "a0");
+  background-color: transparent;
+  border: 1px solid get-theme-color("danger", "a20");
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+
+  &:hover:not(.deleting) {
+    background-color: get-theme-color("danger", "a20");
+    color: get-theme-color("danger", "a0");
+  }
+
+  &.deleting {
+    opacity: 0.6;
+    cursor: not-allowed;
+    color: get-theme-color("danger", "a30");
+    border-color: get-theme-color("danger", "a30");
+  }
+}
+
+.empty {
+  padding: 24px;
+  text-align: center;
+  color: get-theme-color("text", "a30");
+  font-size: 14px;
+  font-style: italic;
+}

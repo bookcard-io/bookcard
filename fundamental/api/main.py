@@ -40,6 +40,7 @@ from fastapi import FastAPI
 from fundamental.api.middleware.auth_middleware import AuthMiddleware
 from fundamental.api.routes.admin import router as admin_router
 from fundamental.api.routes.auth import router as auth_router
+from fundamental.api.routes.fs import router as fs_router
 from fundamental.config import AppConfig
 from fundamental.database import create_db_engine
 
@@ -78,7 +79,7 @@ def _setup_logging() -> None:
     )
 
     # Configure application-specific logger
-    app_logger = logging.getLogger("moose")
+    app_logger = logging.getLogger("fundamental")
     app_logger.setLevel(numeric_level)
     app_logger.propagate = True
 
@@ -93,6 +94,7 @@ def _register_routers(app: FastAPI) -> None:
     """
     app.include_router(auth_router)
     app.include_router(admin_router)
+    app.include_router(fs_router)
 
 
 def create_app(config: AppConfig | None = None) -> FastAPI:

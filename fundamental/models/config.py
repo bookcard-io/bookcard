@@ -119,40 +119,49 @@ class EmailServerConfig(SQLModel, table=True):
     )
 
 
-class DatabaseConfig(SQLModel, table=True):
-    """Database configuration for Calibre library.
+class Library(SQLModel, table=True):
+    """Calibre library configuration.
+
+    Supports multiple libraries, with one active library at a time.
+    Each library points to a separate Calibre metadata.db file.
 
     Attributes
     ----------
     id : int | None
-        Primary key identifier. Only one record should exist (singleton).
-    calibre_db_path : str | None
-        Path to Calibre database directory.
-    calibre_db_file : str | None
+        Primary key identifier.
+    name : str
+        User-friendly library name.
+    calibre_db_path : str
+        Path to Calibre database directory (contains metadata.db).
+    calibre_db_file : str
         Calibre database filename (default: 'metadata.db').
     calibre_uuid : str | None
-        Calibre library UUID.
+        Calibre library UUID (auto-detected from database).
     use_split_library : bool
         Whether to use split library mode (default: False).
     split_library_dir : str | None
         Directory for split library mode.
     auto_reconnect : bool
         Whether to automatically reconnect to database on errors (default: True).
+    is_active : bool
+        Whether this is the currently active library (only one can be active).
     created_at : datetime
-        Configuration creation timestamp.
+        Library creation timestamp.
     updated_at : datetime
         Last update timestamp.
     """
 
-    __tablename__ = "database_config"
+    __tablename__ = "libraries"
 
     id: int | None = Field(default=None, primary_key=True)
-    calibre_db_path: str | None = Field(default=None, max_length=1000)
-    calibre_db_file: str | None = Field(default="metadata.db", max_length=255)
+    name: str = Field(max_length=255)
+    calibre_db_path: str = Field(max_length=1000)
+    calibre_db_file: str = Field(default="metadata.db", max_length=255)
     calibre_uuid: str | None = Field(default=None, max_length=36)
     use_split_library: bool = Field(default=False)
     split_library_dir: str | None = Field(default=None, max_length=1000)
     auto_reconnect: bool = Field(default=True)
+    is_active: bool = Field(default=False, index=True)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         index=True,

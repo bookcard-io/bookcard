@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { useActiveLibrary } from "@/contexts/ActiveLibraryContext";
 import { useSidebar } from "@/contexts/SidebarContext";
 import { LibraryBuilding } from "@/icons/LibraryBuilding";
 import { LibraryOutline } from "@/icons/LibraryOutline";
@@ -14,10 +15,6 @@ interface NavSection {
 }
 
 const navSections: NavSection[] = [
-  {
-    title: "MY LIBRARY",
-    items: ["Add books", "Library/options", "Switch/add library"],
-  },
   {
     title: "MY SHELVES",
     items: ["To-read", "DNF", "Estonian Sci-Fi", "Recommended", "Add shelf"],
@@ -39,6 +36,7 @@ const sectionIcons: Record<
 
 export function Sidebar() {
   const { isCollapsed, setIsCollapsed } = useSidebar();
+  const { activeLibrary } = useActiveLibrary();
   const router = useRouter();
   const pathname = usePathname();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
@@ -53,6 +51,14 @@ export function Sidebar() {
       newExpanded.add(title);
     }
     setExpandedSections(newExpanded);
+  };
+
+  const handleHomeClick = () => {
+    router.push("/");
+  };
+
+  const handleLibraryMenuClick = () => {
+    // Placeholder for now
   };
 
   const handleLinkClick = () => {
@@ -93,6 +99,66 @@ export function Sidebar() {
       </div>
 
       <nav className={styles.nav}>
+        {/* MY LIBRARY Section */}
+        <div className={styles.section}>
+          <button
+            type="button"
+            className={styles.sectionHeader}
+            onClick={() => toggleSection("MY LIBRARY")}
+          >
+            {LibraryBuilding && (
+              <LibraryBuilding
+                className={styles.sectionIcon}
+                aria-hidden="true"
+              />
+            )}
+            {!isCollapsed && (
+              <span className={styles.sectionTitle}>MY LIBRARY</span>
+            )}
+            {!isCollapsed && (
+              <i
+                className={`pi ${
+                  expandedSections.has("MY LIBRARY")
+                    ? "pi-chevron-up"
+                    : "pi-chevron-down"
+                } ${styles.chevron}`}
+                aria-hidden="true"
+              />
+            )}
+          </button>
+          {expandedSections.has("MY LIBRARY") && !isCollapsed && (
+            <ul className={styles.sectionItems}>
+              <li>
+                <button
+                  type="button"
+                  onClick={handleHomeClick}
+                  className={styles.navLink}
+                >
+                  Home
+                </button>
+              </li>
+              {activeLibrary && (
+                <li>
+                  <div className={styles.libraryItem}>
+                    <span className={styles.libraryName}>
+                      {activeLibrary.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleLibraryMenuClick}
+                      className={styles.libraryMenuButton}
+                      aria-label="Library options"
+                    >
+                      <i className="pi pi-ellipsis-v" aria-hidden="true" />
+                    </button>
+                  </div>
+                </li>
+              )}
+            </ul>
+          )}
+        </div>
+
+        {/* Other Sections */}
         {navSections.map((section) => {
           const IconComponent = sectionIcons[section.title];
           return (

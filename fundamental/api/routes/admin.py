@@ -37,6 +37,9 @@ from fundamental.api.schemas import (
     EReaderDeviceCreate,
     EReaderDeviceRead,
     EReaderDeviceUpdate,
+    LibraryCreate,
+    LibraryRead,
+    LibraryUpdate,
     PermissionRead,
     RoleCreate,
     RolePermissionGrant,
@@ -45,6 +48,9 @@ from fundamental.api.schemas import (
     UserRoleAssign,
 )
 from fundamental.models.auth import EBookFormat, User
+from fundamental.repositories.config_repository import (
+    LibraryRepository,
+)
 from fundamental.repositories.ereader_repository import EReaderRepository
 from fundamental.repositories.role_repository import (
     PermissionRepository,
@@ -53,6 +59,7 @@ from fundamental.repositories.role_repository import (
     UserRoleRepository,
 )
 from fundamental.repositories.user_repository import UserRepository
+from fundamental.services.config_service import LibraryService
 from fundamental.services.ereader_service import EReaderService
 from fundamental.services.role_service import RoleService
 from fundamental.services.security import PasswordHasher
@@ -62,9 +69,6 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 SessionDep = Annotated[Session, Depends(get_db_session)]
 AdminUserDep = Annotated[User, Depends(get_admin_user)]
-
-
-# User Management
 
 
 @router.post(
@@ -889,3 +893,246 @@ def delete_device(
         session.commit()
     except ValueError as exc:
         raise HTTPException(status_code=404, detail="device_not_found") from exc
+
+
+# Library Management
+
+
+@router.get(
+    "/libraries",
+    response_model=list[LibraryRead],
+    dependencies=[Depends(get_admin_user)],
+)
+def list_libraries(
+    session: SessionDep,
+) -> list[LibraryRead]:
+    """List all libraries.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+
+    Returns
+    -------
+    list[LibraryRead]
+        List of all libraries.
+    """
+    library_repo = LibraryRepository(session)
+    library_service = LibraryService(session, library_repo)
+    libraries = library_service.list_libraries()
+    return [LibraryRead.model_validate(lib) for lib in libraries]
+
+
+@router.get(
+    "/libraries/active",
+    response_model=LibraryRead | None,
+    dependencies=[Depends(get_admin_user)],
+)
+def get_active_library(
+    session: SessionDep,
+) -> LibraryRead | None:
+    """Get the currently active library.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+
+    Returns
+    -------
+    LibraryRead | None
+        The active library if one exists, None otherwise.
+    """
+    library_repo = LibraryRepository(session)
+    library_service = LibraryService(session, library_repo)
+    library = library_service.get_active_library()
+    if library is None:
+        return None
+    return LibraryRead.model_validate(library)
+
+
+@router.post(
+    "/libraries",
+    response_model=LibraryRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(get_admin_user)],
+)
+def create_library(
+    session: SessionDep,
+    payload: LibraryCreate,
+) -> LibraryRead:
+    """Create a new library.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+    payload : LibraryCreate
+        Library creation payload.
+
+    Returns
+    -------
+    LibraryRead
+        Created library.
+
+    Raises
+    ------
+    HTTPException
+        If library path already exists (409).
+    """
+    library_repo = LibraryRepository(session)
+    library_service = LibraryService(session, library_repo)
+
+    try:
+        library = library_service.create_library(
+            name=payload.name,
+            calibre_db_path=payload.calibre_db_path,
+            calibre_db_file=payload.calibre_db_file,
+            use_split_library=payload.use_split_library,
+            split_library_dir=payload.split_library_dir,
+            auto_reconnect=payload.auto_reconnect,
+            is_active=payload.is_active,
+        )
+        session.commit()
+        return LibraryRead.model_validate(library)
+    except ValueError as exc:
+        msg = str(exc)
+        if msg == "library_path_already_exists":
+            raise HTTPException(status_code=409, detail=msg) from exc
+        raise
+
+
+@router.put(
+    "/libraries/{library_id}",
+    response_model=LibraryRead,
+    dependencies=[Depends(get_admin_user)],
+)
+def update_library(
+    session: SessionDep,
+    library_id: int,
+    payload: LibraryUpdate,
+) -> LibraryRead:
+    """Update a library.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+    library_id : int
+        Library identifier.
+    payload : LibraryUpdate
+        Library update payload.
+
+    Returns
+    -------
+    LibraryRead
+        Updated library.
+
+    Raises
+    ------
+    HTTPException
+        If library not found (404) or path conflict (409).
+    """
+    library_repo = LibraryRepository(session)
+    library_service = LibraryService(session, library_repo)
+
+    try:
+        library = library_service.update_library(
+            library_id,
+            name=payload.name,
+            calibre_db_path=payload.calibre_db_path,
+            calibre_db_file=payload.calibre_db_file,
+            calibre_uuid=payload.calibre_uuid,
+            use_split_library=payload.use_split_library,
+            split_library_dir=payload.split_library_dir,
+            auto_reconnect=payload.auto_reconnect,
+            is_active=payload.is_active,
+        )
+        session.commit()
+        return LibraryRead.model_validate(library)
+    except ValueError as exc:
+        msg = str(exc)
+        if msg == "library_not_found":
+            raise HTTPException(status_code=404, detail=msg) from exc
+        if msg == "library_path_already_exists":
+            raise HTTPException(status_code=409, detail=msg) from exc
+        raise
+
+
+@router.delete(
+    "/libraries/{library_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(get_admin_user)],
+)
+def delete_library(
+    session: SessionDep,
+    library_id: int,
+) -> None:
+    """Delete a library.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+    library_id : int
+        Library identifier.
+
+    Raises
+    ------
+    HTTPException
+        If library not found (404).
+    """
+    library_repo = LibraryRepository(session)
+    library_service = LibraryService(session, library_repo)
+
+    try:
+        library_service.delete_library(library_id)
+        session.commit()
+    except ValueError as exc:
+        msg = str(exc)
+        if msg == "library_not_found":
+            raise HTTPException(status_code=404, detail=msg) from exc
+        raise
+
+
+@router.post(
+    "/libraries/{library_id}/activate",
+    response_model=LibraryRead,
+    dependencies=[Depends(get_admin_user)],
+)
+def activate_library(
+    session: SessionDep,
+    library_id: int,
+) -> LibraryRead:
+    """Set a library as the active one.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+    library_id : int
+        Library identifier.
+
+    Returns
+    -------
+    LibraryRead
+        Updated library.
+
+    Raises
+    ------
+    HTTPException
+        If library not found (404).
+    """
+    library_repo = LibraryRepository(session)
+    library_service = LibraryService(session, library_repo)
+
+    try:
+        library = library_service.set_active_library(library_id)
+        session.commit()
+        return LibraryRead.model_validate(library)
+    except ValueError as exc:
+        msg = str(exc)
+        if msg == "library_not_found":
+            raise HTTPException(status_code=404, detail=msg) from exc
+        raise

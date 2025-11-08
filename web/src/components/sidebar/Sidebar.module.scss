@@ -139,12 +139,43 @@ $transition-duration: 0.3s;
 	display: block;
 	width: calc(100% - 32px);
 	padding: 10px 16px 10px 46px; // 16px (sectionHeader padding) + 18px (icon width) + 12px (icon margin) = 46px
-	margin: 0 16px;
 	color: get-theme-color("text", "a30");
 	text-decoration: none;
 	font-size: 14px;
 	text-align: left;
 	transition: background-color 0.2s, color 0.2s;
+
+	&:hover {
+		color: get-theme-color("text", "a10");
+	}
+}
+
+.libraryItem {
+	@include hoverableLink;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	width: calc(100% - 32px);
+	padding: 10px 0px 10px 46px; // 16px (sectionHeader padding) + 18px (icon width) + 12px (icon margin) = 46px, 0 right padding to align with chevron
+	color: get-theme-color("text", "a30");
+	font-size: 14px;
+}
+
+.libraryName {
+	flex: 1;
+	text-align: left;
+}
+
+.libraryMenuButton {
+	background: none;
+	border: none;
+	color: get-theme-color("text", "a30");
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	transition: background-color 0.2s, color 0.2s;
+	font-size: 16px;
 
 	&:hover {
 		color: get-theme-color("text", "a10");

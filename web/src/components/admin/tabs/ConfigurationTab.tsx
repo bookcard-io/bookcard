@@ -1,21 +1,24 @@
 "use client";
 
+import { LibraryManagement } from "../library/LibraryManagement";
 import styles from "./ConfigurationTab.module.scss";
 
 export function ConfigurationTab() {
   return (
     <div className={styles.container}>
       <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>Email Server Settings</h2>
-        <p className={styles.placeholder}>
-          Email server configuration will be implemented here.
+        <h2 className={styles.sectionTitle}>Library Management</h2>
+        <p className={styles.helpText}>
+          Manage multiple Calibre libraries. Only one library can be active at a
+          time. The active library is used for all book operations.
         </p>
+        <LibraryManagement />
       </div>
 
       <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>Database Configuration</h2>
+        <h2 className={styles.sectionTitle}>Email Server Settings</h2>
         <p className={styles.placeholder}>
-          Calibre database configuration will be implemented here.
+          Email server configuration will be implemented here.
         </p>
       </div>
 

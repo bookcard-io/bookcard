@@ -1,8 +1,8 @@
-"""Add system settings models.
+"""Add system config tables.
 
-Revision ID: d632e4565fb4
+Revision ID: b29f7b57a860
 Revises: a5b265dab65d
-Create Date: 2025-11-07 16:46:55.664338
+Create Date: 2025-11-07 19:48:04.390283
 
 """
 
@@ -13,7 +13,7 @@ import sqlmodel
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "d632e4565fb4"
+revision: str = "b29f7b57a860"
 down_revision: str | Sequence[str] | None = "a5b265dab65d"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -103,37 +103,6 @@ def upgrade() -> None:
     op.create_index(
         op.f("ix_content_restrictions_config_created_at"),
         "content_restrictions_config",
-        ["created_at"],
-        unique=False,
-    )
-    op.create_table(
-        "database_config",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column(
-            "calibre_db_path",
-            sqlmodel.AutoString(length=1000),
-            nullable=True,
-        ),
-        sa.Column(
-            "calibre_db_file",
-            sqlmodel.AutoString(length=255),
-            nullable=True,
-        ),
-        sa.Column("calibre_uuid", sqlmodel.AutoString(length=36), nullable=True),
-        sa.Column("use_split_library", sa.Boolean(), nullable=False),
-        sa.Column(
-            "split_library_dir",
-            sqlmodel.AutoString(length=1000),
-            nullable=True,
-        ),
-        sa.Column("auto_reconnect", sa.Boolean(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index(
-        op.f("ix_database_config_created_at"),
-        "database_config",
         ["created_at"],
         unique=False,
     )
@@ -285,6 +254,39 @@ def upgrade() -> None:
         op.f("ix_ldap_config_created_at"), "ldap_config", ["created_at"], unique=False
     )
     op.create_table(
+        "libraries",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("name", sqlmodel.AutoString(length=255), nullable=False),
+        sa.Column(
+            "calibre_db_path",
+            sqlmodel.AutoString(length=1000),
+            nullable=False,
+        ),
+        sa.Column(
+            "calibre_db_file",
+            sqlmodel.AutoString(length=255),
+            nullable=False,
+        ),
+        sa.Column("calibre_uuid", sqlmodel.AutoString(length=36), nullable=True),
+        sa.Column("use_split_library", sa.Boolean(), nullable=False),
+        sa.Column(
+            "split_library_dir",
+            sqlmodel.AutoString(length=1000),
+            nullable=True,
+        ),
+        sa.Column("auto_reconnect", sa.Boolean(), nullable=False),
+        sa.Column("is_active", sa.Boolean(), nullable=False),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_libraries_created_at"), "libraries", ["created_at"], unique=False
+    )
+    op.create_index(
+        op.f("ix_libraries_is_active"), "libraries", ["is_active"], unique=False
+    )
+    op.create_table(
         "scheduled_tasks_config",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("start_time_hour", sa.Integer(), nullable=False),
@@ -389,6 +391,9 @@ def downgrade() -> None:
         table_name="scheduled_tasks_config",
     )
     op.drop_table("scheduled_tasks_config")
+    op.drop_index(op.f("ix_libraries_is_active"), table_name="libraries")
+    op.drop_index(op.f("ix_libraries_created_at"), table_name="libraries")
+    op.drop_table("libraries")
     op.drop_index(op.f("ix_ldap_config_created_at"), table_name="ldap_config")
     op.drop_table("ldap_config")
     op.drop_index(
@@ -403,8 +408,6 @@ def downgrade() -> None:
         op.f("ix_email_server_config_created_at"), table_name="email_server_config"
     )
     op.drop_table("email_server_config")
-    op.drop_index(op.f("ix_database_config_created_at"), table_name="database_config")
-    op.drop_table("database_config")
     op.drop_index(
         op.f("ix_content_restrictions_config_created_at"),
         table_name="content_restrictions_config",

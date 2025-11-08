@@ -1,0 +1,67 @@
+@use "../../../styles/colors" as *;
+
+.container {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: get-theme-color("text", "a0");
+  background-color: get-theme-color("surface", "a10");
+  border: 1px solid get-theme-color("surface", "a20");
+  border-radius: 6px;
+  transition: border-color 0.2s;
+
+  &:focus {
+    outline: none;
+    border-color: get-theme-color("primary", "a0");
+  }
+
+  &:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+}
+
+.suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  max-height: 240px;
+  overflow-y: auto;
+  background-color: get-theme-color("surface", "a0");
+  border: 1px solid get-theme-color("surface", "a20");
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.suggestionItem {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background-color: transparent;
+  color: get-theme-color("text", "a0");
+  border: 0;
+  border-bottom: 1px solid get-theme-color("surface", "a20");
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  font-size: 14px;
+  transition: background-color 0.15s;
+
+  &:hover,
+  &.selected {
+    background-color: get-theme-color("surface-tonal", "a0");
+  }
+
+  &:last-child {
+    border-bottom: none;
+  }
+}

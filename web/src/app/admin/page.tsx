@@ -2,6 +2,7 @@
 
 import { AdminSettings } from "@/components/admin/AdminSettings";
 import { Sidebar } from "@/components/sidebar/Sidebar";
+import { ActiveLibraryProvider } from "@/contexts/ActiveLibraryContext";
 import { SidebarProvider, useSidebar } from "@/contexts/SidebarContext";
 import styles from "./page.module.scss";
 
@@ -18,11 +19,13 @@ function AdminContent() {
 
 export default function AdminPage() {
   return (
-    <SidebarProvider>
-      <div className={styles.appContainer}>
-        <Sidebar />
-        <AdminContent />
-      </div>
-    </SidebarProvider>
+    <ActiveLibraryProvider>
+      <SidebarProvider>
+        <div className={styles.appContainer}>
+          <Sidebar />
+          <AdminContent />
+        </div>
+      </SidebarProvider>
+    </ActiveLibraryProvider>
   );
 }

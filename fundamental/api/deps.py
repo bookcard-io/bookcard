@@ -33,13 +33,12 @@ from fastapi import Depends, HTTPException, Request, status
 from sqlmodel import Session  # noqa: TC002
 
 from fundamental.database import get_session
+from fundamental.models.auth import User  # noqa: TC001
 from fundamental.repositories.user_repository import UserRepository
 from fundamental.services.security import JWTManager, SecurityTokenError
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-
-    from fundamental.models.auth import User
 
 
 def get_db_session(request: Request) -> Iterator[Session]:

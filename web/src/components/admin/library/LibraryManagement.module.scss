@@ -1,0 +1,77 @@
+@use "../../../styles/colors" as *;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.addSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inputGroup {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.nameInput {
+  flex: 0 0 250px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: get-theme-color("text", "a0");
+  background-color: get-theme-color("surface", "a10");
+  border: 1px solid get-theme-color("surface", "a20");
+  border-radius: 6px;
+  transition: border-color 0.2s;
+
+  &:focus {
+    outline: none;
+    border-color: get-theme-color("primary", "a0");
+  }
+
+  &:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+}
+
+.addButton {
+  flex: 0 0 auto;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: get-theme-color("text", "a0");
+  background-color: get-theme-color("primary", "a0");
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+
+  &:hover:not(:disabled) {
+    background-color: get-theme-color("primary", "a10");
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.error {
+  padding: 12px 16px;
+  background-color: get-theme-color("danger", "a20");
+  color: get-theme-color("danger", "a0");
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.loading {
+  padding: 24px;
+  text-align: center;
+  color: get-theme-color("text", "a30");
+  font-size: 14px;
+}
