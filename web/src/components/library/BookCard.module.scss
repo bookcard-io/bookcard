@@ -1,0 +1,96 @@
+@use "../../styles/colors" as *;
+
+.card {
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  border-radius: 4px;
+  overflow: hidden;
+  background: linear-gradient(
+    to bottom,
+    get-theme-color("surface", "a0") 0%,
+    get-theme-color("surface", "a10") 100%
+  );
+  border: 2px solid transparent;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  &.selected {
+    border-color: get-theme-color("primary", "a0");
+    box-shadow: 0 0 0 2px rgba(144, 170, 249, 0.2);
+    outline: none;
+  }
+}
+
+.coverContainer {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  position: relative;
+  overflow: hidden;
+}
+
+.cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.coverPlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    135deg,
+    get-theme-color("surface", "a20") 0%,
+    get-theme-color("surface", "a10") 100%
+  );
+}
+
+.placeholderText {
+  color: get-theme-color("text", "a40");
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info {
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-height: 4rem;
+}
+
+.title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: get-theme-color("text", "a0");
+  margin: 0;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.author {
+  font-size: 0.75rem;
+  color: get-theme-color("text", "a30");
+  margin: 0;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

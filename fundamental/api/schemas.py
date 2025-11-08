@@ -24,14 +24,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from datetime import (
+    datetime,  # noqa: TC003 Pydantic needs datetime at runtime for validation
+)
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-if TYPE_CHECKING:
-    from datetime import datetime
-
-    from fundamental.models.auth import User
+from fundamental.models.auth import User  # noqa: TC001
 
 
 class UserRead(BaseModel):
@@ -345,3 +344,74 @@ class LibraryUpdate(BaseModel):
     is_active: bool | None = Field(
         default=None, description="Set as the active library"
     )
+
+
+class BookRead(BaseModel):
+    """Book representation for API responses.
+
+    Attributes
+    ----------
+    id : int
+        Calibre book ID.
+    title : str
+        Book title.
+    authors : list[str]
+        List of author names.
+    author_sort : str | None
+        Sortable author name.
+    pubdate : datetime | None
+        Publication date.
+    timestamp : datetime | None
+        Date book was added to library.
+    series : str | None
+        Series name if part of a series.
+    series_index : float | None
+        Position in series.
+    isbn : str | None
+        ISBN identifier.
+    uuid : str
+        Unique identifier for the book.
+    thumbnail_url : str | None
+        URL to book cover thumbnail.
+    has_cover : bool
+        Whether the book has a cover image.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    authors: list[str] = Field(default_factory=list)
+    author_sort: str | None = None
+    pubdate: datetime | None = None
+    timestamp: datetime | None = None
+    series: str | None = None
+    series_index: float | None = None
+    isbn: str | None = None
+    uuid: str
+    thumbnail_url: str | None = None
+    has_cover: bool = False
+
+
+class BookListResponse(BaseModel):
+    """Paginated book list response.
+
+    Attributes
+    ----------
+    items : list[BookRead]
+        List of books for current page.
+    total : int
+        Total number of books matching the query.
+    page : int
+        Current page number (1-indexed).
+    page_size : int
+        Number of items per page.
+    total_pages : int
+        Total number of pages.
+    """
+
+    items: list[BookRead]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int

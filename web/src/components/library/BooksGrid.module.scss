@@ -1,0 +1,53 @@
+.container {
+  width: 100%;
+  padding: 1.5rem 0;
+}
+
+.paginationInfo {
+  padding: 0 32px 1rem;
+  color: var(--text-secondary, #888);
+  font-size: 0.875rem;
+  text-align: left;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 1.5rem;
+  padding: 0 32px;
+}
+
+.loadingContainer,
+.errorContainer,
+.emptyContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: 2rem;
+}
+
+.loadingMessage,
+.errorMessage,
+.emptyMessage {
+  color: var(--text-secondary, #aaa);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.errorMessage {
+  color: var(--error-color, #ff6b6b);
+}
+
+@media (min-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+}
