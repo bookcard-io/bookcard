@@ -3,7 +3,7 @@
 alembic==1.17.1 \
     --hash=sha256:8a289f6778262df31571d29cca4c7fbacd2f0f582ea0816f4c399b6da7528486 \
     --hash=sha256:cbc2386e60f89608bb63f30d2d6cc66c7aaed1fe105bd862828600e5ad167023
-    # via fundamental (pyproject.toml)
+    # via calibre-fundamental (pyproject.toml)
 annotated-doc==0.0.3 \
     --hash=sha256:348ec6664a76f1fd3be81f43dffbee4c7e8ce931ba71ec67cc7f4ade7fbbb580 \
     --hash=sha256:e18370014c70187422c33e945053ff4c286f453a984eba84d0dbfa0c935adeda
@@ -72,7 +72,7 @@ bcrypt==4.3.0 \
     --hash=sha256:f6746e6fec103fcd509b96bacdfdaa2fbde9a553245dbada284435173a6f1aef \
     --hash=sha256:f81b0ed2639568bf14749112298f9e4e2b28853dab50a8b357e31798686a036d
     # via
-    #   fundamental (pyproject.toml)
+    #   calibre-fundamental (pyproject.toml)
     #   passlib
 certifi==2025.10.5 \
     --hash=sha256:0f212c2744a9bb6de0c56639a6f68afe01ecd92d91f14ae897c4fe7bbeeef0de \
@@ -101,7 +101,7 @@ email-validator==2.3.0 \
 fastapi==0.121.0 \
     --hash=sha256:06663356a0b1ee93e875bbf05a31fb22314f5bed455afaaad2b2dad7f26e98fa \
     --hash=sha256:8bdf1b15a55f4e4b0d6201033da9109ea15632cb76cf156e7b8b4019f2172106
-    # via fundamental (pyproject.toml)
+    # via calibre-fundamental (pyproject.toml)
 greenlet==3.2.4 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64' \
     --hash=sha256:00fadb3fedccc447f517ee0d3fd8fe49eae949e1cd0f6a611818f4f6fb7dc83b \
     --hash=sha256:015d48959d4add5d6c9f6c5210ee3803a830dce46356e3bc326d6776bde54681 \
@@ -228,7 +228,7 @@ httptools==0.7.1 \
 httpx==0.28.1 \
     --hash=sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc \
     --hash=sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad
-    # via fundamental (pyproject.toml)
+    # via calibre-fundamental (pyproject.toml)
 idna==3.11 \
     --hash=sha256:771a87f49d9defaf64091e6e6fe9c18d4833f140bd19464795bc32d966ca37ea \
     --hash=sha256:795dafcc9c04ed0c1fb032c2aa73654d8e8c5023a7df64a53f39190ada629902
@@ -334,11 +334,11 @@ markupsafe==3.0.3 \
 passlib==1.7.4 \
     --hash=sha256:aa6bca462b8d8bda89c70b382f0c298a20b5560af6cbfa2dce410c0a2fb669f1 \
     --hash=sha256:defd50f72b65c5402ab2c573830a6978e5f202ad0d984793c8dde2c4152ebe04
-    # via fundamental (pyproject.toml)
+    # via calibre-fundamental (pyproject.toml)
 psycopg==3.2.12 \
     --hash=sha256:85c08d6f6e2a897b16280e0ff6406bef29b1327c045db06d21f364d7cd5da90b \
     --hash=sha256:8a1611a2d4c16ae37eada46438be9029a35bb959bb50b3d0e1e93c0f3d54c9ee
-    # via fundamental (pyproject.toml)
+    # via calibre-fundamental (pyproject.toml)
 psycopg-binary==3.2.12 ; implementation_name != 'pypy' \
     --hash=sha256:095ccda59042a1239ac2fefe693a336cb5cecf8944a8d9e98b07f07e94e2b78d \
     --hash=sha256:0afb71a99871a41dd677d207c6a988d978edde5d6a018bafaed4f9da45357055 \
@@ -407,7 +407,7 @@ pydantic==2.12.4 \
     --hash=sha256:0f8cb9555000a4b5b617f66bfd2566264c4984b27589d3b845685983e8ea85ac \
     --hash=sha256:92d3d202a745d46f9be6df459ac5a064fdaa3c1c4cd8adcfa332ccf3c05f871e
     # via
-    #   fundamental (pyproject.toml)
+    #   calibre-fundamental (pyproject.toml)
     #   fastapi
     #   sqlmodel
 pydantic-core==2.41.5 \
@@ -536,12 +536,12 @@ pydantic-core==2.41.5 \
 pyjwt==2.10.1 \
     --hash=sha256:3cc5772eb20009233caf06e9d8a0577824723b44e6648ee0a2aedb6cf9381953 \
     --hash=sha256:dcdd193e30abefd5debf142f9adfcdd2b58004e644f25406ffaebd50bd98dacb
-    # via fundamental (pyproject.toml)
+    # via calibre-fundamental (pyproject.toml)
 python-dotenv==1.2.1 \
     --hash=sha256:42667e897e16ab0d66954af0e60a9caa94f0fd4ecf3aaf6d2d260eec1aa36ad6 \
     --hash=sha256:b81ee9561e9ca4004139c6cbba3a238c32b03e4894671e181b671e8cb8425d61
     # via
-    #   fundamental (pyproject.toml)
+    #   calibre-fundamental (pyproject.toml)
     #   uvicorn
 pyyaml==6.0.3 \
     --hash=sha256:00c4bdeba853cc34e7dd471f16b4114f4162dc03e6b7afcc2128711f0eca823c \
@@ -681,13 +681,13 @@ sqlalchemy==2.0.44 \
     --hash=sha256:f9480c0740aabd8cb29c329b422fb65358049840b34aba0adf63162371d2a96e \
     --hash=sha256:ff486e183d151e51b1d694c7aa1695747599bb00b9f5f604092b54b74c64a8e1
     # via
-    #   fundamental (pyproject.toml)
+    #   calibre-fundamental (pyproject.toml)
     #   alembic
     #   sqlmodel
 sqlmodel==0.0.27 \
     --hash=sha256:667fe10aa8ff5438134668228dc7d7a08306f4c5c4c7e6ad3ad68defa0e7aa49 \
     --hash=sha256:ad1227f2014a03905aef32e21428640848ac09ff793047744a73dfdd077ff620
-    # via fundamental (pyproject.toml)
+    # via calibre-fundamental (pyproject.toml)
 starlette==0.49.3 \
     --hash=sha256:1c14546f299b5901a1ea0e34410575bc33bbd741377a10484a54445588d00284 \
     --hash=sha256:b579b99715fdc2980cf88c8ec96d3bf1ce16f5a8051a7c2b84ef9b1cdecaea2f
@@ -716,7 +716,7 @@ tzdata==2025.2 ; sys_platform == 'win32' \
 uvicorn==0.38.0 \
     --hash=sha256:48c0afd214ceb59340075b4a052ea1ee91c16fbc2a9b1469cca0e54566977b02 \
     --hash=sha256:fd97093bdd120a2609fc0d3afe931d4d4ad688b6e75f0f929fde1bc36fe0e91d
-    # via fundamental (pyproject.toml)
+    # via calibre-fundamental (pyproject.toml)
 uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32' \
     --hash=sha256:017bd46f9e7b78e81606329d07141d3da446f8798c6baeec124260e22c262772 \
     --hash=sha256:0530a5fbad9c9e4ee3f2b33b148c6a64d47bbad8000ea63704fa8260f4cf728e \

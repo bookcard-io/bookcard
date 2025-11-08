@@ -1,7 +1,7 @@
 {
-  "name": "fundamental-web",
+  "name": "calibre-fundamental",
   "version": "1.0.0",
-  "description": "Self-hosted ebook management and reading application",
+  "description": "Web app for browsing, reading, and downloading ebooks stored in a calibre database.",
   "engines": {
     "node": ">=20"
   },
@@ -30,7 +30,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/knguyen1/fundamental.git"
+    "url": "git@github.com:knguyen1/calibre-fundamental.git"
   },
   "keywords": [
     "music",
@@ -39,9 +39,9 @@
   "author": "knguyen",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/knguyen1/fundamental/issues"
+    "url": "https://github.com/knguyen1/calibre-fundamental/issues"
   },
-  "homepage": "https://github.com/knguyen1/fundamental#readme",
+  "homepage": "https://github.com/knguyen1/calibre-fundamental#readme",
   "dependencies": {
     "@arcjet/next": "^1.0.0-beta.13",
     "@clerk/localizations": "^3.26.4",

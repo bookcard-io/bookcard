@@ -3,7 +3,7 @@ requires = ["hatchling==1.27.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "fundamental"
+name = "calibre-fundamental"
 version = "0.1.0"
 description = "Web app for browsing, reading, and downloading ebooks stored in a calibre database."
 readme = "README.md"
