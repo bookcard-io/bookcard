@@ -21,3 +21,65 @@
 # SOFTWARE.
 
 """Repositories module for Fundamental."""
+
+# Re-export all classes from calibre_book_repository for backward compatibility
+from fundamental.repositories.calibre_book_repository import CalibreBookRepository
+from fundamental.repositories.filters import (
+    AuthorFilterStrategy,
+    FilterBuilder,
+    FilterStrategy,
+    FormatFilterStrategy,
+    GenreFilterStrategy,
+    IdentifierFilterStrategy,
+    LanguageFilterStrategy,
+    PublisherFilterStrategy,
+    RatingFilterStrategy,
+    SeriesFilterStrategy,
+    TitleFilterStrategy,
+)
+from fundamental.repositories.models import BookWithRelations, FilterContext
+from fundamental.repositories.suggestions import (
+    AuthorSuggestionStrategy,
+    FilterSuggestionFactory,
+    FilterSuggestionStrategy,
+    FormatSuggestionStrategy,
+    GenreSuggestionStrategy,
+    IdentifierSuggestionStrategy,
+    LanguageSuggestionStrategy,
+    PublisherSuggestionStrategy,
+    RatingSuggestionStrategy,
+    SeriesSuggestionStrategy,
+    TitleSuggestionStrategy,
+)
+
+__all__ = [
+    "AuthorFilterStrategy",
+    "AuthorSuggestionStrategy",
+    # Models
+    "BookWithRelations",
+    # Main repository
+    "CalibreBookRepository",
+    "FilterBuilder",
+    "FilterContext",
+    # Filter strategies
+    "FilterStrategy",
+    "FilterSuggestionFactory",
+    # Suggestion strategies
+    "FilterSuggestionStrategy",
+    "FormatFilterStrategy",
+    "FormatSuggestionStrategy",
+    "GenreFilterStrategy",
+    "GenreSuggestionStrategy",
+    "IdentifierFilterStrategy",
+    "IdentifierSuggestionStrategy",
+    "LanguageFilterStrategy",
+    "LanguageSuggestionStrategy",
+    "PublisherFilterStrategy",
+    "PublisherSuggestionStrategy",
+    "RatingFilterStrategy",
+    "RatingSuggestionStrategy",
+    "SeriesFilterStrategy",
+    "SeriesSuggestionStrategy",
+    "TitleFilterStrategy",
+    "TitleSuggestionStrategy",
+]

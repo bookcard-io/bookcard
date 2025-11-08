@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fundamental.models.core import Book
-from fundamental.repositories.calibre_book_repository import (
+from fundamental.repositories import (
     BookWithRelations,
     CalibreBookRepository,
 )

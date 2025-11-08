@@ -33,7 +33,7 @@ from fastapi import HTTPException
 import fundamental.api.routes.books as books
 from fundamental.models.config import Library
 from fundamental.models.core import Book
-from fundamental.repositories.calibre_book_repository import BookWithRelations
+from fundamental.repositories import BookWithRelations
 from tests.conftest import DummySession
 
 

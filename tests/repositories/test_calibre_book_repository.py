@@ -34,7 +34,7 @@ from sqlmodel import select
 from fundamental.models.core import (
     Book,
 )
-from fundamental.repositories.calibre_book_repository import (
+from fundamental.repositories import (
     AuthorFilterStrategy,
     AuthorSuggestionStrategy,
     CalibreBookRepository,
