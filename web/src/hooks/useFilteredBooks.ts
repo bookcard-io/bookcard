@@ -8,6 +8,8 @@ export interface UseFilteredBooksOptions {
   filters?: FilterValues;
   /** Whether to automatically fetch on mount. */
   enabled?: boolean;
+  /** Whether to enable infinite scroll mode (accumulates books across pages). */
+  infiniteScroll?: boolean;
   /** Page number (1-indexed). */
   page?: number;
   /** Number of items per page. */
@@ -19,7 +21,7 @@ export interface UseFilteredBooksOptions {
 }
 
 export interface UseFilteredBooksResult {
-  /** List of books for current page. */
+  /** List of books (accumulated if infinite scroll is enabled). */
   books: Book[];
   /** Total number of books. */
   total: number;
@@ -35,6 +37,10 @@ export interface UseFilteredBooksResult {
   error: string | null;
   /** Function to refetch books. */
   refetch: () => Promise<void>;
+  /** Function to load next page (only available when infiniteScroll is enabled). */
+  loadMore?: () => void;
+  /** Whether there are more pages to load (only available when infiniteScroll is enabled). */
+  hasMore?: boolean;
 }
 
 /**
@@ -58,6 +64,7 @@ export function useFilteredBooks(
 ): UseFilteredBooksResult {
   const {
     enabled = true,
+    infiniteScroll = false,
     filters,
     page: initialPage = 1,
     page_size: initialPageSize = 20,
@@ -66,6 +73,7 @@ export function useFilteredBooks(
   } = options;
 
   const [data, setData] = useState<BookListResponse | null>(null);
+  const [accumulatedBooks, setAccumulatedBooks] = useState<Book[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,12 +81,45 @@ export function useFilteredBooks(
   const prevSortByRef = useRef<string | undefined>(initialSortBy);
   const prevSortOrderRef = useRef<string | undefined>(initialSortOrder);
   const prevPageSizeRef = useRef<number | undefined>(initialPageSize);
+  const prevFiltersRef = useRef<FilterValues | undefined>(filters);
 
   // Use current values from options, not initial values
   const currentSortBy = options.sort_by ?? initialSortBy;
   const currentSortOrder = options.sort_order ?? initialSortOrder;
   const currentPageSize = options.page_size ?? initialPageSize;
-  const currentPage = options.page ?? initialPage;
+  const [currentPage, setCurrentPage] = useState(options.page ?? initialPage);
+
+  // Reset accumulated books when filters, sort, or page size change
+  useEffect(() => {
+    if (!infiniteScroll) {
+      return;
+    }
+
+    const filtersChanged = filters !== prevFiltersRef.current;
+    const sortByChanged = currentSortBy !== prevSortByRef.current;
+    const sortOrderChanged = currentSortOrder !== prevSortOrderRef.current;
+    const pageSizeChanged = currentPageSize !== prevPageSizeRef.current;
+
+    if (
+      filtersChanged ||
+      sortByChanged ||
+      sortOrderChanged ||
+      pageSizeChanged
+    ) {
+      setAccumulatedBooks([]);
+      setCurrentPage(1);
+      prevFiltersRef.current = filters;
+      prevSortByRef.current = currentSortBy;
+      prevSortOrderRef.current = currentSortOrder;
+      prevPageSizeRef.current = currentPageSize;
+    }
+  }, [
+    infiniteScroll,
+    filters,
+    currentSortBy,
+    currentSortOrder,
+    currentPageSize,
+  ]);
 
   // Sync when options change
   useEffect(() => {
@@ -143,6 +184,17 @@ export function useFilteredBooks(
 
       const result = (await response.json()) as BookListResponse;
       setData(result);
+
+      // Accumulate books for infinite scroll
+      if (infiniteScroll) {
+        if (currentPage === 1) {
+          // First page: replace accumulated books
+          setAccumulatedBooks(result.items);
+        } else {
+          // Subsequent pages: append to accumulated books
+          setAccumulatedBooks((prev) => [...prev, ...result.items]);
+        }
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       setError(message);
@@ -152,6 +204,7 @@ export function useFilteredBooks(
     }
   }, [
     enabled,
+    infiniteScroll,
     filters,
     currentPage,
     currentPageSize,
@@ -163,8 +216,26 @@ export function useFilteredBooks(
     void fetchFilteredBooks();
   }, [fetchFilteredBooks]);
 
+  const loadMore = useCallback(() => {
+    if (!infiniteScroll || isLoading || !data) {
+      return;
+    }
+    const pageNum = data.page || currentPage;
+    const totalPages = data.total_pages || 0;
+    if (pageNum < totalPages) {
+      setCurrentPage(pageNum + 1);
+    }
+  }, [infiniteScroll, isLoading, data, currentPage]);
+
+  const hasMore =
+    infiniteScroll && data
+      ? (data.page || currentPage) < (data.total_pages || 0)
+      : false;
+
+  const books = infiniteScroll ? accumulatedBooks : data?.items || [];
+
   return {
-    books: data?.items || [],
+    books,
     total: data?.total || 0,
     page: data?.page || currentPage,
     pageSize: data?.page_size || currentPageSize,
@@ -172,5 +243,6 @@ export function useFilteredBooks(
     isLoading,
     error,
     refetch: fetchFilteredBooks,
+    ...(infiniteScroll && { loadMore, hasMore }),
   };
 }

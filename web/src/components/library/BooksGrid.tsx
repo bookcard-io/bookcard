@@ -1,7 +1,9 @@
 "use client";
 
+import { useCallback } from "react";
 import { useBooks } from "@/hooks/useBooks";
 import { useFilteredBooks } from "@/hooks/useFilteredBooks";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import type { Book } from "@/types/book";
 import { hasActiveFilters } from "@/utils/filters";
 import { BookCard } from "./BookCard";
@@ -45,7 +47,8 @@ export function BooksGrid({
   // Only one hook should be active at a time to avoid DRY violations and collisions
   // Priority: filters > search > all books
   const filteredBooksResult = useFilteredBooks({
-    enabled: filtersActive && !hasActiveSearch,
+    enabled: filtersActive, // Filters take priority, ignore search if both are active
+    infiniteScroll: true,
     filters: filtersActive ? filters : undefined,
     sort_by: sortBy,
     sort_order: sortOrder,
@@ -53,7 +56,8 @@ export function BooksGrid({
   });
 
   const regularBooksResult = useBooks({
-    enabled: !filtersActive,
+    enabled: !filtersActive, // Only run if filters are not active
+    infiniteScroll: true,
     search: hasActiveSearch ? searchQuery : undefined,
     sort_by: sortBy,
     sort_order: sortOrder,
@@ -62,9 +66,24 @@ export function BooksGrid({
 
   // Use filtered books if filters are active, otherwise use regular books
   // Regular books hook handles both search and "show all" cases
-  const { books, isLoading, error, total } = filtersActive
+  const { books, isLoading, error, total, loadMore, hasMore } = filtersActive
     ? filteredBooksResult
     : regularBooksResult;
+
+  // Infinite scroll handler
+  const handleLoadMore = useCallback(() => {
+    if (loadMore) {
+      loadMore();
+    }
+  }, [loadMore]);
+
+  // Set up infinite scroll sentinel
+  const sentinelRef = useInfiniteScroll({
+    onLoadMore: handleLoadMore,
+    enabled: Boolean(loadMore && hasMore),
+    isLoading,
+    hasMore,
+  });
 
   if (error) {
     return (
@@ -94,7 +113,9 @@ export function BooksGrid({
     <div className={styles.container}>
       {total > 0 && (
         <div className={styles.paginationInfo}>
-          Showing {books.length} of {total} books
+          {hasMore
+            ? `Scroll for more (${books.length} of ${total})`
+            : `${books.length} of ${total} books`}
         </div>
       )}
       <div className={styles.grid}>
@@ -107,6 +128,10 @@ export function BooksGrid({
           />
         ))}
       </div>
+      {hasMore && <div ref={sentinelRef as React.RefObject<HTMLDivElement>} />}
+      {isLoading && books.length > 0 && (
+        <div className={styles.loadingMore}>Loading more books...</div>
+      )}
     </div>
   );
 }

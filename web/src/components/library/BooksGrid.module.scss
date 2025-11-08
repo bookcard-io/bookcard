@@ -39,6 +39,13 @@
   color: var(--error-color, #ff6b6b);
 }
 
+.loadingMore {
+  padding: 1rem 32px;
+  color: var(--text-secondary, #888);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
 @media (min-width: 768px) {
   .grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
