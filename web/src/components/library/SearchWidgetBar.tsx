@@ -3,6 +3,7 @@
 import type { SearchSuggestion } from "@/types/search";
 import styles from "./SearchWidgetBar.module.scss";
 import { FiltersButton } from "./widgets/FiltersButton";
+import type { FilterValues } from "./widgets/FiltersPanel";
 import { SearchInput } from "./widgets/SearchInput";
 import { SortByDropdown } from "./widgets/SortByDropdown";
 import type { SortField } from "./widgets/SortPanel";
@@ -31,6 +32,10 @@ export interface SearchWidgetBarProps {
    * Callback fired when filters button is clicked.
    */
   onFiltersClick?: () => void;
+  /**
+   * Current filter values for displaying active filter count.
+   */
+  filters?: FilterValues;
   /**
    * Callback fired when "With selected" dropdown is clicked.
    */
@@ -76,6 +81,7 @@ export function SearchWidgetBar({
   onSearchSubmit,
   onSuggestionClick,
   onFiltersClick,
+  filters,
   onWithSelectedClick,
   onSortByClick,
   sortBy = "timestamp",
@@ -93,7 +99,7 @@ export function SearchWidgetBar({
         onSubmit={onSearchSubmit}
         onSuggestionClick={onSuggestionClick}
       />
-      <FiltersButton onClick={onFiltersClick} />
+      <FiltersButton onClick={onFiltersClick} filters={filters} />
       <WithSelectedDropdown onClick={onWithSelectedClick} />
       <div className={styles.sortByWrapper}>
         <SortByDropdown sortBy={sortBy} onClick={onSortByClick} />

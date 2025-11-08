@@ -135,6 +135,7 @@ export function MainContent() {
             onSearchSubmit={handleSearchSubmit}
             onSuggestionClick={handleSuggestionClick}
             onFiltersClick={handleFiltersClick}
+            filters={filters}
             onSortByClick={handleSortByClick}
             sortBy={sortBy}
             showSortPanel={showSortPanel}
