@@ -1,5 +1,47 @@
 @use "../../styles/colors" as *;
 
+// Mixins for DRY principles
+@mixin line-clamp($lines) {
+  display: -webkit-box;
+  -webkit-line-clamp: $lines;
+  line-clamp: $lines;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@mixin full-size {
+  width: 100%;
+  height: 100%;
+}
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin focus-ring {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(144, 170, 249, 0.3);
+}
+
+@mixin icon-base {
+  display: block;
+}
+
+@mixin interactive-button {
+  @include flex-center;
+  cursor: pointer;
+  pointer-events: auto;
+  color: get-theme-color("text", "a0");
+  transition: background-color 0.2s ease;
+
+  &:focus {
+    @include focus-ring;
+  }
+}
+
 .card {
   display: flex;
   flex-direction: column;
@@ -50,17 +92,13 @@
 }
 
 .cover {
-  width: 100%;
-  height: 100%;
+  @include full-size;
   object-fit: cover;
 }
 
 .coverPlaceholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  @include full-size;
+  @include flex-center;
   background: linear-gradient(
     135deg,
     get-theme-color("surface", "a20") 0%,
@@ -89,11 +127,7 @@
   color: get-theme-color("text", "a0");
   margin: 0;
   line-height: 1.3;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  @include line-clamp(2);
 }
 
 .author {
@@ -101,11 +135,7 @@
   color: get-theme-color("text", "a30");
   margin: 0;
   line-height: 1.3;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  @include line-clamp(1);
 }
 
 .hoverOverlay {
@@ -124,33 +154,29 @@
   pointer-events: none;
 }
 
+// Show hoverOverlay when card is selected (to persist checkbox visibility)
+.card.selected .hoverOverlay {
+  opacity: 1;
+}
+
 .checkbox {
+  @include interactive-button;
+  cursor: default;
   width: 1.5rem;
   height: 1.5rem;
   border-radius: 0.25rem;
-  border: 2px solid get-theme-color("primary", "a0");
+  border: 2px solid get-theme-color("text", "a0");
   background-color: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  pointer-events: auto;
   transition: background-color 0.2s ease, border-color 0.2s ease;
-  color: get-theme-color("text", "a0");
   padding: 0;
 
   &:hover {
     background-color: rgba(144, 170, 249, 0.2);
   }
 
-  &:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(144, 170, 249, 0.3);
-  }
-
   i {
+    @include icon-base;
     font-size: 0.875rem;
-    display: block;
   }
 }
 
@@ -160,20 +186,17 @@
 }
 
 .editButton {
-  align-self: flex-end;
+  @include interactive-button;
+  position: absolute;
+  bottom: 0.75rem;
+  left: 0.75rem;
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 50%;
   background-color: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(4px);
   border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  pointer-events: auto;
   transition: background-color 0.2s ease, transform 0.1s ease;
-  color: get-theme-color("text", "a0");
 
   &:hover {
     background-color: rgba(255, 255, 255, 0.3);
@@ -184,13 +207,36 @@
     transform: scale(0.95);
   }
 
-  &:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(144, 170, 249, 0.3);
+  i {
+    @include icon-base;
+    font-size: 1.125rem;
+  }
+}
+
+.menuButton {
+  @include interactive-button;
+  position: absolute;
+  bottom: 0.75rem;
+  right: 0.75rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(4px);
+  border: none;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+  }
+
+  &:active {
+    transform: scale(0.95);
   }
 
   i {
+    @include icon-base;
     font-size: 1.125rem;
-    display: block;
   }
 }

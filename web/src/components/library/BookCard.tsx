@@ -11,7 +11,7 @@ export interface BookCardProps {
   book: Book;
   /** All books in the grid (needed for range selection). */
   allBooks: Book[];
-  /** Callback fired when card is clicked (for navigation). */
+  /** Callback fired when card is clicked. Reserved for future use (currently no-op). */
   onClick?: (book: Book) => void;
 }
 
@@ -19,38 +19,36 @@ export interface BookCardProps {
  * Book card component for displaying a single book in the grid.
  *
  * Displays book cover thumbnail, title, and author(s).
- * Supports multi-select with Ctrl/Shift+click.
+ * Selection is only available via the checkbox overlay.
+ * Card clicks are currently a no-op and reserved for future use.
  * Follows SRP by focusing solely on book display.
  */
-export function BookCard({ book, allBooks, onClick }: BookCardProps) {
+export function BookCard({ book, allBooks, onClick: _onClick }: BookCardProps) {
   const { isSelected, handleBookClick } = useSelectedBooks();
   const selected = isSelected(book.id);
 
   const router = useRouter();
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    // Handle multi-select first
-    handleBookClick(book, allBooks, e);
-    // Then call optional onClick for navigation
-    if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
-      onClick?.(book);
-    }
+    // Card clicks are currently a no-op and reserved for future use.
+    // Selection is only available via the checkbox overlay.
+    // This prevents accidental selection when clicking on the card.
+    e.preventDefault();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      // For keyboard, just call onClick (no multi-select via keyboard)
-      onClick?.(book);
-    }
+    // Keyboard navigation is currently a no-op and reserved for future use.
+    // Selection is only available via the checkbox overlay.
+    e.preventDefault();
   };
 
   const handleCheckboxClick = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
-    // Create a synthetic event for handleBookClick with modifier keys reset
+    // Only way to add/remove books from selection is via the checkbox.
+    // Create a synthetic event with ctrlKey set to toggle behavior.
     const syntheticEvent = {
       ...e,
-      ctrlKey: false,
+      ctrlKey: true,
       metaKey: false,
       shiftKey: false,
     } as React.MouseEvent;
@@ -71,7 +69,7 @@ export function BookCard({ book, allBooks, onClick }: BookCardProps) {
       className={`${styles.card} ${selected ? styles.selected : ""}`}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
-      aria-label={`View details for ${book.title} by ${authorsText}${selected ? " (selected)" : ""}`}
+      aria-label={`${book.title} by ${authorsText}${selected ? " (selected)" : ""}. Use checkbox to select.`}
       data-book-card
     >
       <div className={styles.coverContainer}>
@@ -125,6 +123,23 @@ export function BookCard({ book, allBooks, onClick }: BookCardProps) {
             }}
           >
             <i className="pi pi-pencil" aria-hidden="true" />
+          </div>
+          {/* biome-ignore lint/a11y/useSemanticElements: Cannot use button inside button, using div with role="button" for accessibility */}
+          <div
+            className={styles.menuButton}
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Menu"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+              }
+            }}
+          >
+            <i className="pi pi-ellipsis-v" aria-hidden="true" />
           </div>
         </div>
       </div>
