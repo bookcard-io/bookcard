@@ -408,7 +408,7 @@ iOSInjectionProject/
 web/vitest-test-results/
 
 # media folders
-uploads/
+/uploads/
 /books/
 
 # docs and various
