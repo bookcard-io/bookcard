@@ -1,84 +1,155 @@
 @use "../../styles/colors" as *;
 
+// Variables
+$text-primary: get-theme-color("text", "a0");
+$text-secondary: get-theme-color("text", "a20");
+$text-tertiary: get-theme-color("text", "a30");
+$surface-border: get-theme-color("surface", "a20");
+$surface-scroll-track: get-theme-color("surface", "a10");
+$surface-scroll-thumb: get-theme-color("surface", "a30");
+$surface-scroll-thumb-hover: get-theme-color("surface", "a40");
+$primary-outline: get-theme-color("primary", "a0");
+
+$spacing-xs: 0.25rem;
+$spacing-sm: 0.5rem;
+$spacing-md: 0.75rem;
+$spacing-lg: 1rem;
+$spacing-xl: 1.5rem;
+
+$border-radius-sm: 3px;
+$border-radius-md: 0.5rem;
+$border-radius-circle: 50%;
+
+$transition-base: 0.2s ease;
+$transition-fast: 0.1s ease;
+
+// Mixins
+@mixin flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin section-spacing {
+  margin-top: $spacing-xs;
+}
+
+@mixin text-secondary {
+  color: $text-tertiary;
+  font-weight: 500;
+}
+
+@mixin scrollbar-base {
+  border-radius: $border-radius-sm;
+}
+
 .header {
   display: flex;
-  gap: 1.5rem;
+  gap: $spacing-xl;
   align-items: flex-start;
-  padding-bottom: 1.5rem;
-  border-bottom: 1px solid get-theme-color("surface", "a20");
+  padding-bottom: $spacing-xl;
+  border-bottom: 1px solid $surface-border;
 }
 
 .coverContainer {
   flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
+  @include flex-column;
   align-items: center;
 }
 
 .cover {
-  border-radius: 0.5rem;
+  border-radius: $border-radius-md;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   object-fit: cover;
 }
 
 .iconActions {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 1.75rem;
-  margin-top: 1.5rem;
+  @include flex-center;
+  gap: $spacing-lg;
+  margin-top: $spacing-lg;
   width: 100%;
+}
+
+.iconButton {
+  border-radius: $border-radius-circle;
+  background: none;
+  border: none;
+  padding: $spacing-sm;
+  cursor: pointer;
+  @include flex-center;
+  transition: background-color $transition-base, transform $transition-fast,
+    opacity $transition-base;
+  min-width: 2rem;
+  min-height: 2rem;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(4px);
+    transform: scale(1.1);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
 
   i {
     font-size: 1.25rem;
-    color: get-theme-color("text", "a30");
-    cursor: default;
-    transition: color 0.2s ease;
+    color: $text-tertiary;
+    transition: color $transition-base;
+  }
 
-    &:hover {
-      color: get-theme-color("text", "a0");
-    }
+  &:hover i {
+    color: $text-primary;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $primary-outline;
+    outline-offset: 2px;
+    border-radius: $border-radius-circle;
   }
 }
 
 .headerInfo {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  @include flex-column;
+  gap: $spacing-md;
   min-width: 0; // Allow text to wrap
 }
 
 .ratingSection {
   display: flex;
   align-items: center;
-  margin-top: 0.25rem;
+  @include section-spacing;
 }
 
 .descriptionSection {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 0.25rem;
+  @include flex-column;
+  gap: $spacing-sm;
+  @include section-spacing;
 }
 
 .descriptionTitle {
   font-size: 1rem;
   font-weight: 600;
-  color: get-theme-color("text", "a0");
+  color: $text-primary;
   margin: 0;
 }
 
 .description {
-  color: get-theme-color("text", "a20");
+  color: $text-secondary;
   line-height: 1.5;
   font-size: 0.875rem;
   max-height: 200px;
   overflow-y: auto;
-  padding-right: 0.5rem;
+  padding-right: $spacing-sm;
 
   :global(p) {
-    margin: 0 0 0.75rem 0;
+    margin: 0 0 $spacing-md 0;
   }
 
   :global(p:last-child) {
@@ -91,16 +162,16 @@
   }
 
   &::-webkit-scrollbar-track {
-    background: get-theme-color("surface", "a10");
-    border-radius: 3px;
+    background: $surface-scroll-track;
+    @include scrollbar-base;
   }
 
   &::-webkit-scrollbar-thumb {
-    background: get-theme-color("surface", "a30");
-    border-radius: 3px;
+    background: $surface-scroll-thumb;
+    @include scrollbar-base;
 
     &:hover {
-      background: get-theme-color("surface", "a40");
+      background: $surface-scroll-thumb-hover;
     }
   }
 }
@@ -108,7 +179,7 @@
 .title {
   font-size: 2rem;
   font-weight: 700;
-  color: get-theme-color("text", "a0");
+  color: $text-primary;
   margin: 0;
   line-height: 1.3;
 }
@@ -116,23 +187,21 @@
 .authors,
 .series {
   display: flex;
-  gap: 0.5rem;
+  gap: $spacing-sm;
   align-items: baseline;
   font-size: 1rem;
 }
 
 .label {
-  color: get-theme-color("text", "a30");
-  font-weight: 500;
+  @include text-secondary;
 }
 
 .value {
-  color: get-theme-color("text", "a0");
+  color: $text-primary;
 }
 
 .seriesIndex {
-  color: get-theme-color("text", "a30");
-  font-weight: 500;
+  @include text-secondary;
 }
 
 @media (max-width: 768px) {
@@ -140,8 +209,8 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: 1rem;
-    padding-bottom: 1rem;
+    gap: $spacing-lg;
+    padding-bottom: $spacing-lg;
   }
 
   .title {

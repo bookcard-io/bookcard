@@ -163,7 +163,6 @@ export function useMetadataSearchStream(
     locale = "en",
     maxResultsPerProvider = 20,
     providerIds,
-    enabled = true,
     requestId,
   } = options;
 

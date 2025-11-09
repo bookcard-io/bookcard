@@ -8,6 +8,8 @@ export interface BookViewHeaderProps {
   book: Book;
   /** Whether to show description. */
   showDescription?: boolean;
+  /** Callback when edit icon is clicked. */
+  onEdit?: () => void;
 }
 
 /**
@@ -19,6 +21,7 @@ export interface BookViewHeaderProps {
 export function BookViewHeader({
   book,
   showDescription = false,
+  onEdit,
 }: BookViewHeaderProps) {
   return (
     <div className={styles.header}>
@@ -33,13 +36,44 @@ export function BookViewHeader({
             unoptimized
           />
           <div className={styles.iconActions}>
-            <i className="pi pi-book" aria-hidden="true" title="Read book" />
-            <i className="pi pi-send" aria-hidden="true" title="Send book" />
-            <i
-              className="pi pi-arrow-right-arrow-left"
-              aria-hidden="true"
+            <button
+              type="button"
+              className={styles.iconButton}
+              aria-label="Read book"
+              title="Read book"
+            >
+              <i className="pi pi-book" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className={styles.iconButton}
+              aria-label="Send book"
+              title="Send book"
+            >
+              <i className="pi pi-send" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className={styles.iconButton}
+              aria-label="Convert format"
               title="Convert format"
-            />
+            >
+              <i
+                className="pi pi-arrow-right-arrow-left"
+                aria-hidden="true"
+              />
+            </button>
+            {onEdit && (
+              <button
+                type="button"
+                onClick={onEdit}
+                className={styles.iconButton}
+                aria-label="Edit metadata"
+                title="Edit metadata"
+              >
+                <i className="pi pi-pencil" aria-hidden="true" />
+              </button>
+            )}
           </div>
         </div>
       )}

@@ -159,7 +159,11 @@ export function BookViewModal({
         </button>
 
         <div className={styles.content}>
-          <BookViewHeader book={book} showDescription={true} />
+          <BookViewHeader
+            book={book}
+            showDescription={true}
+            onEdit={handleEdit}
+          />
 
           <div className={styles.mainContent}>
             <BookViewMetadata book={book} />
@@ -167,18 +171,6 @@ export function BookViewModal({
             {book.formats && book.formats.length > 0 && bookId && (
               <BookViewFormats formats={book.formats} bookId={bookId} />
             )}
-          </div>
-
-          {/* Actions */}
-          <div className={styles.actions}>
-            <Button
-              type="button"
-              variant="primary"
-              size="medium"
-              onClick={handleEdit}
-            >
-              Edit Metadata
-            </Button>
           </div>
         </div>
       </div>
