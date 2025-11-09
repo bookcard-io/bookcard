@@ -150,13 +150,40 @@
   justify-content: space-between;
   padding: 0.75rem;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.2s ease, background-color 0.2s ease;
   pointer-events: none;
 }
 
-// Show hoverOverlay when card is selected (to persist checkbox visibility)
+// When selected but not hovered: hide curtain and buttons, but keep checkbox visible
 .card.selected .hoverOverlay {
   opacity: 1;
+  background-color: transparent;
+
+  .editButton,
+  .menuButton {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .checkbox {
+    pointer-events: auto;
+  }
+}
+
+// Show full overlay on hover (overrides selected state)
+.coverContainer:hover .hoverOverlay {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.5);
+
+  .editButton,
+  .menuButton {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .checkbox {
+    pointer-events: auto;
+  }
 }
 
 .checkbox {
@@ -196,7 +223,7 @@
   background-color: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(4px);
   border: none;
-  transition: background-color 0.2s ease, transform 0.1s ease;
+  transition: background-color 0.2s ease, transform 0.1s ease, opacity 0.2s ease;
 
   &:hover {
     background-color: rgba(255, 255, 255, 0.3);
@@ -224,7 +251,7 @@
   background-color: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(4px);
   border: none;
-  transition: background-color 0.2s ease, transform 0.1s ease;
+  transition: background-color 0.2s ease, transform 0.1s ease, opacity 0.2s ease;
 
   &:hover {
     background-color: rgba(255, 255, 255, 0.3);
