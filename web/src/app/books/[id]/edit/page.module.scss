@@ -1,0 +1,165 @@
+@use "../../../../styles/colors" as *;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: get-theme-color("surface", "a0");
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+  gap: 2rem;
+  position: relative;
+  z-index: 2;
+}
+
+.headerContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.backButton {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: get-theme-color("text", "a20");
+  font-size: 0.875rem;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  transition: color 0.2s;
+
+  &:hover {
+    color: get-theme-color("primary", "a0");
+  }
+
+  &:focus {
+    outline: none;
+    color: get-theme-color("primary", "a0");
+  }
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: get-theme-color("text", "a0");
+  margin: 0;
+  line-height: 1.2;
+}
+
+.coverPreview {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.cover {
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  object-fit: cover;
+  position: relative;
+  z-index: 10;
+}
+
+.statusMessages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.errorBanner {
+  padding: 1rem 1.5rem;
+  background-color: get-theme-color("danger", "a20");
+  color: get-theme-color("danger", "a0");
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.successBanner {
+  padding: 1rem 1.5rem;
+  background-color: get-theme-color("success", "a20");
+  color: get-theme-color("success", "a0");
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.loading,
+.error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  gap: 1rem;
+  color: get-theme-color("text", "a30");
+  font-size: 1rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  margin-top: -90px; // Raise by 50% of cover art height (180px * 0.5de = 90px)
+}
+
+.formCard {
+  background-color: get-theme-color("surface-tonal", "a0");
+  border-radius: 0.75rem;
+  padding: 2rem;
+  border: 1px solid get-theme-color("surface", "a20");
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  position: relative;
+  z-index: 1;
+}
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid get-theme-color("surface", "a20");
+  margin-top: 1rem;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+.spanCols2to3 {
+  @media (min-width: 768px) {
+    grid-column: 2 / 4;
+  }
+}

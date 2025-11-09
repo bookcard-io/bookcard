@@ -409,7 +409,7 @@ web/vitest-test-results/
 
 # media folders
 uploads/
-books/
+/books/
 
 # docs and various
 misc/
