@@ -137,7 +137,7 @@ def search_metadata_get(
     query: str = Query(..., min_length=1, description="Search query"),
     locale: str = Query(default="en", description="Locale code"),
     max_results_per_provider: int = Query(
-        default=10, ge=1, le=50, description="Max results per provider"
+        default=20, ge=1, le=50, description="Max results per provider"
     ),
     provider_ids: str | None = Query(
         default=None, description="Comma-separated list of provider IDs"
@@ -189,7 +189,7 @@ def search_metadata_stream(
     query: str = Query(..., min_length=1, description="Search query"),
     locale: str = Query(default="en", description="Locale code"),
     max_results_per_provider: int = Query(
-        default=10, ge=1, le=50, description="Max results per provider"
+        default=20, ge=1, le=50, description="Max results per provider"
     ),
     provider_ids: str | None = Query(
         default=None, description="Comma-separated list of provider IDs"

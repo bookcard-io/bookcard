@@ -478,6 +478,7 @@ class MetadataService:
                 providers_completed=providers_completed,
                 providers_failed=providers_failed,
                 duration_ms=overall_duration_ms,
+                results=all_results,
             )
         )
 

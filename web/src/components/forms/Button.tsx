@@ -6,7 +6,7 @@ import styles from "./Button.module.scss";
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   /** Button variant style. */
-  variant?: "primary" | "secondary" | "danger" | "ghost";
+  variant?: "primary" | "secondary" | "danger" | "ghost" | "success";
   /** Button size. */
   size?: "small" | "medium" | "large";
   /** Whether button is in loading state. */

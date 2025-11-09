@@ -152,3 +152,7 @@ class MetadataSearchCompletedEvent(MetadataSearchEvent):
     providers_completed: int = Field(ge=0)
     providers_failed: int = Field(ge=0)
     duration_ms: int = Field(ge=0)
+    results: list[MetadataRecord] = Field(
+        default_factory=list,
+        description="Aggregated metadata records from all providers",
+    )

@@ -66,6 +66,19 @@
   }
 }
 
+.success {
+  background-color: get-theme-color("success", "a0");
+  color: get-theme-color("text", "a0");
+
+  &:hover:not(:disabled) {
+    background-color: get-theme-color("success", "a10");
+  }
+
+  &:active:not(:disabled) {
+    background-color: get-theme-color("success", "a0");
+  }
+}
+
 .small {
   padding: 0.5rem 1rem;
   font-size: 0.875rem;

@@ -30,7 +30,9 @@ from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING
-from urllib.parse import quote
+from urllib.parse import (
+    quote,  # noqa: F401 (kept for future query building enhancements)
+)
 
 import httpx
 
@@ -181,11 +183,11 @@ class GoogleBooksProvider(MetadataProvider):
         Returns
         -------
         str
-            URL-encoded search query.
+            Cleaned search query string (NOT URL-encoded).
         """
-        # Simple query building - can be enhanced with title tokenization
-        # like calibre-web does, but keeping it simple for now
-        return quote(query.strip())
+        # Let the HTTP client handle URL encoding via params; avoid double-encoding.
+        # Future enhancement: add field qualifiers (intitle:, inauthor:) like calibre-web.
+        return query.strip()
 
     def _parse_item(self, item: dict) -> MetadataRecord | None:
         """Parse a single item from Google Books API response.
@@ -204,11 +206,18 @@ class GoogleBooksProvider(MetadataProvider):
             volume_info = item.get("volumeInfo", {})
             book_id = item.get("id", "")
 
-            if not book_id or not volume_info:
+            if not book_id:
                 return None
+
+            # volume_info might be missing, use empty dict as fallback
+            volume_info = volume_info or {}
 
             # Extract basic info
             title = volume_info.get("title", "")
+
+            # Require at least a title to create a meaningful record
+            if not title:
+                return None
             authors = volume_info.get("authors", [])
             description = volume_info.get("description", "")
 

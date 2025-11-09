@@ -1,0 +1,69 @@
+@use "../../styles/colors" as *;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background-color: get-theme-color("surface-tonal", "a0");
+  border-radius: 0.5rem;
+  border: 1px solid get-theme-color("surface", "a20");
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title {
+  font-weight: 600;
+  color: get-theme-color("text", "a0");
+  font-size: 0.825rem;
+}
+
+.stats {
+  font-size: 0.7rem;
+  color: get-theme-color("text", "a30");
+}
+
+.progressBar {
+  width: 100%;
+  height: 0.5rem;
+  background-color: get-theme-color("surface", "a20");
+  border-radius: 0.25rem;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background-color: get-theme-color("primary", "a0");
+  transition: width 0.3s ease;
+  border-radius: 0.25rem;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.72rem;
+}
+
+.summaryItem {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.summaryLabel {
+  color: get-theme-color("text", "a30");
+}
+
+.summaryValue {
+  font-weight: 600;
+  color: get-theme-color("text", "a0");
+}
+
+.summaryValueFailed {
+  color: get-theme-color("danger", "a10");
+}

@@ -14,6 +14,7 @@ import { RatingInput } from "@/components/forms/RatingInput";
 import { TagInput } from "@/components/forms/TagInput";
 import { TextArea } from "@/components/forms/TextArea";
 import { TextInput } from "@/components/forms/TextInput";
+import { MetadataFetchModal } from "@/components/metadata";
 import { useBook } from "@/hooks/useBook";
 import type { BookUpdate } from "@/types/book";
 import styles from "./page.module.scss";
@@ -43,6 +44,7 @@ export default function BookEditPage({ params }: BookEditPageProps) {
   const [formData, setFormData] = useState<BookUpdate>({});
   const [hasChanges, setHasChanges] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showMetadataModal, setShowMetadataModal] = useState(false);
 
   // Enable scrolling on this page (global styles disable it)
   useEffect(() => {
@@ -188,7 +190,18 @@ export default function BookEditPage({ params }: BookEditPageProps) {
           >
             ← Back
           </button>
-          <h1 className={styles.title}>Edit Book Metadata</h1>
+          <div className={styles.titleRow}>
+            <h1 className={styles.title}>Edit Book Metadata</h1>
+            <Button
+              type="button"
+              variant="success"
+              size="medium"
+              onClick={() => setShowMetadataModal(true)}
+              disabled={isUpdating}
+            >
+              Fetch Metadata
+            </Button>
+          </div>
         </div>
         {book.thumbnail_url && (
           <div className={styles.coverPreview}>
@@ -203,6 +216,13 @@ export default function BookEditPage({ params }: BookEditPageProps) {
           </div>
         )}
       </div>
+
+      {showMetadataModal && (
+        <MetadataFetchModal
+          book={book}
+          onClose={() => setShowMetadataModal(false)}
+        />
+      )}
 
       <form onSubmit={handleSubmit} className={styles.form}>
         <div className={styles.formCard}>
