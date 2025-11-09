@@ -16,6 +16,7 @@ import { TextArea } from "@/components/forms/TextArea";
 import { TextInput } from "@/components/forms/TextInput";
 import { MetadataFetchModal } from "@/components/metadata";
 import { useBook } from "@/hooks/useBook";
+import { languageFilterSuggestionsService } from "@/services/filterSuggestionsService";
 import type { BookUpdate } from "@/types/book";
 import styles from "./page.module.scss";
 
@@ -86,7 +87,7 @@ export default function BookEditPage({ params }: BookEditPageProps) {
         identifiers: book.identifiers || [],
         description: book.description || null,
         publisher_name: book.publisher || null,
-        language_code: book.language || null,
+        language_codes: book.languages || null,
         rating_value: book.rating ?? null,
       });
       setHasChanges(false);
@@ -140,6 +141,12 @@ export default function BookEditPage({ params }: BookEditPageProps) {
         cleanedPayload.identifiers.length === 0
       ) {
         cleanedPayload.identifiers = null;
+      }
+      if (
+        cleanedPayload.language_codes &&
+        cleanedPayload.language_codes.length === 0
+      ) {
+        cleanedPayload.language_codes = null;
       }
 
       const updated = await updateBook(cleanedPayload);
@@ -350,15 +357,19 @@ export default function BookEditPage({ params }: BookEditPageProps) {
               placeholder="Enter publisher name"
               filterType="publisher"
             />
-            <TextInput
-              id="language"
-              label="Language"
-              value={formData.language_code || ""}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                handleFieldChange("language_code", e.target.value || null)
+            <TagInput
+              id="languages"
+              label="Languages (ISO 639-1 language code)"
+              tags={formData.language_codes || []}
+              onChange={(languages) =>
+                handleFieldChange(
+                  "language_codes",
+                  languages.length > 0 ? languages : null,
+                )
               }
-              placeholder="Language code (e.g., en, fr, es)"
-              helperText="ISO 639-1 language code"
+              placeholder="Add language code"
+              filterType="language"
+              suggestionsService={languageFilterSuggestionsService}
             />
           </FormSection>
         </div>

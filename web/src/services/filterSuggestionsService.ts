@@ -1,3 +1,4 @@
+import { POPULAR_LANGUAGES } from "@/constants/languages";
 import type { SearchSuggestionItem } from "@/types/search";
 
 /**
@@ -60,7 +61,54 @@ class ApiFilterSuggestionsService implements FilterSuggestionsService {
 }
 
 /**
+ * Service implementation for static language suggestions.
+ *
+ * Uses a predefined list of popular languages and filters them
+ * based on the query string (matches both code and name).
+ */
+class LanguageFilterSuggestionsService implements FilterSuggestionsService {
+  async fetchSuggestions(
+    query: string,
+    filterType: string,
+  ): Promise<SearchSuggestionItem[]> {
+    if (!query.trim() || filterType !== "language") {
+      return [];
+    }
+
+    const queryLower = query.toLowerCase().trim();
+    const matches: SearchSuggestionItem[] = [];
+
+    for (let i = 0; i < POPULAR_LANGUAGES.length; i++) {
+      const [code, name] = POPULAR_LANGUAGES[i];
+      const codeLower = code.toLowerCase();
+      const nameLower = name.toLowerCase();
+
+      // Match if query matches code or name
+      if (codeLower.includes(queryLower) || nameLower.includes(queryLower)) {
+        matches.push({
+          id: i + 1, // Use index + 1 as ID
+          name: code, // Return the ISO code as the name
+        });
+      }
+
+      // Limit results to 20 for performance
+      if (matches.length >= 20) {
+        break;
+      }
+    }
+
+    return matches;
+  }
+}
+
+/**
  * Default service instance.
  */
 export const defaultFilterSuggestionsService: FilterSuggestionsService =
   new ApiFilterSuggestionsService();
+
+/**
+ * Language-specific service instance for static suggestions.
+ */
+export const languageFilterSuggestionsService: FilterSuggestionsService =
+  new LanguageFilterSuggestionsService();

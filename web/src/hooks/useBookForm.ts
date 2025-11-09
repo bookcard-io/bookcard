@@ -1,0 +1,179 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { Book, BookUpdate } from "@/types/book";
+
+export interface UseBookFormOptions {
+  /** Book data to initialize form from. */
+  book: Book | null;
+  /** Callback when book is successfully updated. */
+  onUpdateSuccess?: () => void;
+  /** Function to update the book. */
+  updateBook: (update: BookUpdate) => Promise<Book | null>;
+}
+
+export interface UseBookFormResult {
+  /** Current form data. */
+  formData: BookUpdate;
+  /** Whether form has unsaved changes. */
+  hasChanges: boolean;
+  /** Whether update was successful. */
+  showSuccess: boolean;
+  /** Handler for field changes. */
+  handleFieldChange: <K extends keyof BookUpdate>(
+    field: K,
+    value: BookUpdate[K],
+  ) => void;
+  /** Handler for form submission. */
+  handleSubmit: (e: React.FormEvent) => Promise<void>;
+  /** Reset form to initial state. */
+  resetForm: () => void;
+}
+
+/**
+ * Custom hook for managing book edit form state and submission.
+ *
+ * Handles form initialization, field changes, and submission logic.
+ * Follows SRP by separating form logic from UI components.
+ * Follows DRY by centralizing form state management.
+ *
+ * Parameters
+ * ----------
+ * options : UseBookFormOptions
+ *     Configuration options including book data and update function.
+ *
+ * Returns
+ * -------
+ * UseBookFormResult
+ *     Form state and control functions.
+ */
+export function useBookForm({
+  book,
+  onUpdateSuccess,
+  updateBook,
+}: UseBookFormOptions): UseBookFormResult {
+  const [formData, setFormData] = useState<BookUpdate>({});
+  const [hasChanges, setHasChanges] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [lastBookId, setLastBookId] = useState<number | null>(null);
+  const justUpdatedRef = useRef(false);
+
+  // Initialize form data when book loads (only on initial load or book ID change)
+  useEffect(() => {
+    if (book && book.id !== lastBookId) {
+      // Extract date part from ISO string if present
+      let pubdateValue: string | null = null;
+      if (book.pubdate) {
+        const dateMatch = book.pubdate.match(/^(\d{4}-\d{2}-\d{2})/);
+        if (dateMatch?.[1]) {
+          pubdateValue = dateMatch[1];
+        }
+      }
+
+      setFormData({
+        title: book.title,
+        pubdate: pubdateValue,
+        author_names: book.authors || [],
+        series_name: book.series || null,
+        series_index: book.series_index ?? null,
+        tag_names: book.tags || [],
+        identifiers: book.identifiers || [],
+        description: book.description || null,
+        publisher_name: book.publisher || null,
+        language_codes: book.languages || null,
+        rating_value: book.rating ?? null,
+      });
+      setHasChanges(false);
+      setLastBookId(book.id);
+      // Only reset success if this is a new book (different ID) and we didn't just update
+      if (lastBookId !== null && !justUpdatedRef.current) {
+        setShowSuccess(false);
+      }
+      justUpdatedRef.current = false;
+    } else if (book && book.id === lastBookId && justUpdatedRef.current) {
+      // Book was just updated (same ID), preserve success state
+      justUpdatedRef.current = false;
+    }
+  }, [book, lastBookId]);
+
+  const handleFieldChange = useCallback(
+    <K extends keyof BookUpdate>(field: K, value: BookUpdate[K]) => {
+      setFormData((prev) => {
+        const updated = { ...prev, [field]: value };
+        setHasChanges(true);
+        return updated;
+      });
+    },
+    [],
+  );
+
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+
+      if (!book?.id) {
+        return;
+      }
+
+      // Convert date string to ISO format if provided
+      const updatePayload: BookUpdate = { ...formData };
+      if (updatePayload.pubdate) {
+        // If it's just a date string (YYYY-MM-DD), convert to ISO
+        if (
+          typeof updatePayload.pubdate === "string" &&
+          updatePayload.pubdate.match(/^\d{4}-\d{2}-\d{2}$/)
+        ) {
+          updatePayload.pubdate = `${updatePayload.pubdate}T00:00:00Z`;
+        }
+      }
+
+      // Clean up empty arrays - convert to null for backend
+      const cleanedPayload: BookUpdate = { ...updatePayload };
+      if (
+        cleanedPayload.author_names &&
+        cleanedPayload.author_names.length === 0
+      ) {
+        cleanedPayload.author_names = null;
+      }
+      if (cleanedPayload.tag_names && cleanedPayload.tag_names.length === 0) {
+        cleanedPayload.tag_names = null;
+      }
+      if (
+        cleanedPayload.identifiers &&
+        cleanedPayload.identifiers.length === 0
+      ) {
+        cleanedPayload.identifiers = null;
+      }
+      if (
+        cleanedPayload.language_codes &&
+        cleanedPayload.language_codes.length === 0
+      ) {
+        cleanedPayload.language_codes = null;
+      }
+
+      const updated = await updateBook(cleanedPayload);
+      if (updated) {
+        setHasChanges(false);
+        justUpdatedRef.current = true;
+        setShowSuccess(true);
+        // Hide success message after 3 seconds
+        setTimeout(() => setShowSuccess(false), 3000);
+        onUpdateSuccess?.();
+      }
+    },
+    [book?.id, formData, updateBook, onUpdateSuccess],
+  );
+
+  const resetForm = useCallback(() => {
+    setFormData({});
+    setHasChanges(false);
+    setShowSuccess(false);
+  }, []);
+
+  return {
+    formData,
+    hasChanges,
+    showSuccess,
+    handleFieldChange,
+    handleSubmit,
+    resetForm,
+  };
+}

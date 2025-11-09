@@ -781,18 +781,20 @@ class CalibreBookRepository:
             if publisher_result:
                 publisher, publisher_id = publisher_result
 
-            # Get language
+            # Get languages
             language_stmt = (
                 select(Language.lang_code, Language.id)
                 .join(BookLanguageLink, Language.id == BookLanguageLink.lang_code)
                 .where(BookLanguageLink.book == book_id)
                 .order_by(BookLanguageLink.item_order)
             )
-            language_result = session.exec(language_stmt).first()
-            language = None
-            language_id = None
-            if language_result:
-                language, language_id = language_result
+            language_results = list(session.exec(language_stmt).all())
+            languages: list[str] = []
+            language_ids: list[int] = []
+            for lang_code, lang_id in language_results:
+                languages.append(lang_code)
+                if lang_id is not None:
+                    language_ids.append(lang_id)
 
             # Get rating
             rating_stmt = (
@@ -827,8 +829,8 @@ class CalibreBookRepository:
                 description=description,
                 publisher=publisher,
                 publisher_id=publisher_id,
-                language=language,
-                language_id=language_id,
+                languages=languages,
+                language_ids=language_ids,
                 rating=rating,
                 rating_id=rating_id,
                 formats=formats,
@@ -1181,14 +1183,10 @@ class CalibreBookRepository:
             link = BookPublisherLink(book=book_id, publisher=target_publisher_id)
             session.add(link)
 
-    def _update_book_language(
-        self,
-        session: Session,
-        book_id: int,
-        language_code: str | None = None,
-        language_id: int | None = None,
-    ) -> None:
-        """Update book language (many-to-many relationship).
+    def _get_current_language_ids(
+        self, session: Session, book_id: int
+    ) -> tuple[list[BookLanguageLink], set[int]]:
+        """Get current language links and their IDs.
 
         Parameters
         ----------
@@ -1196,53 +1194,179 @@ class CalibreBookRepository:
             Database session.
         book_id : int
             Calibre book ID.
-        language_code : str | None
-            Language code to set (creates if doesn't exist).
-        language_id : int | None
-            Language ID to set (if provided, language_code is ignored).
+
+        Returns
+        -------
+        tuple[list[BookLanguageLink], set[int]]
+            Tuple of (current links, set of language IDs).
         """
-        # Get all current language links
         current_links_stmt = select(BookLanguageLink).where(
             BookLanguageLink.book == book_id
         )
         current_links = list(session.exec(current_links_stmt).all())
-
-        # Determine target language ID
-        target_language_id = language_id
-        if target_language_id is None and language_code is not None:
-            # Find or create language
-            language_stmt = select(Language).where(Language.lang_code == language_code)
-            language = session.exec(language_stmt).first()
-            if language is None:
-                language = Language(lang_code=language_code)
-                session.add(language)
-                session.flush()
-            if language.id is not None:
-                target_language_id = language.id
-
-        # Check if language is actually changing
         current_language_ids = {link.lang_code for link in current_links}
-        if target_language_id in current_language_ids and len(current_links) == 1:
-            # Language hasn't changed, no update needed
-            return
+        return current_links, current_language_ids
 
-        # Language is changing - delete all existing links
+    def _find_or_create_language(
+        self, session: Session, lang_code: str
+    ) -> Language | None:
+        """Find or create a language by code.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        lang_code : str
+            Language code (ISO 639-1).
+
+        Returns
+        -------
+        Language | None
+            Language instance, or None if creation failed.
+        """
+        language_stmt = select(Language).where(Language.lang_code == lang_code)
+        language = session.exec(language_stmt).first()
+        if language is None:
+            language = Language(lang_code=lang_code)
+            session.add(language)
+            session.flush()
+        return language
+
+    def _resolve_language_ids(
+        self,
+        session: Session,
+        language_ids: list[int] | None = None,
+        language_codes: list[str] | None = None,
+    ) -> list[int]:
+        """Resolve language_ids or language_codes to a list of language IDs.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        language_ids : list[int] | None
+            List of language IDs (takes priority).
+        language_codes : list[str] | None
+            List of language codes to resolve.
+
+        Returns
+        -------
+        list[int]
+            List of resolved language IDs.
+        """
+        if language_ids is not None:
+            return language_ids
+
+        if language_codes is None:
+            return []
+
+        target_language_ids: list[int] = []
+        for lang_code in language_codes:
+            language = self._find_or_create_language(session, lang_code)
+            if language is not None and language.id is not None:
+                target_language_ids.append(language.id)
+
+        return target_language_ids
+
+    def _remove_duplicate_ids(self, ids: list[int]) -> list[int]:
+        """Remove duplicates from a list while preserving order.
+
+        Parameters
+        ----------
+        ids : list[int]
+            List of IDs that may contain duplicates.
+
+        Returns
+        -------
+        list[int]
+            List of unique IDs in original order.
+        """
+        seen: set[int] = set()
+        unique_ids: list[int] = []
+        for item_id in ids:
+            if item_id not in seen:
+                seen.add(item_id)
+                unique_ids.append(item_id)
+        return unique_ids
+
+    def _delete_existing_language_links(
+        self, session: Session, current_links: list[BookLanguageLink]
+    ) -> None:
+        """Delete existing language links.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        current_links : list[BookLanguageLink]
+            List of existing language links to delete.
+        """
         for link in current_links:
             session.delete(link)
-        # Flush to ensure deletions are processed before insert
         session.flush()
 
-        # Add new link if target language is specified
-        if target_language_id is not None:
-            # Defensive check: ensure link doesn't already exist
+    def _create_language_links(
+        self, session: Session, book_id: int, language_ids: list[int]
+    ) -> None:
+        """Create new language links.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Calibre book ID.
+        language_ids : list[int]
+            List of language IDs to create links for.
+        """
+        for order, target_language_id in enumerate(language_ids):
             existing_link_stmt = select(BookLanguageLink).where(
                 BookLanguageLink.book == book_id,
                 BookLanguageLink.lang_code == target_language_id,
             )
             existing_link = session.exec(existing_link_stmt).first()
             if existing_link is None:
-                link = BookLanguageLink(book=book_id, lang_code=target_language_id)
+                link = BookLanguageLink(
+                    book=book_id,
+                    lang_code=target_language_id,
+                    item_order=order,
+                )
                 session.add(link)
+
+    def _update_book_language(
+        self,
+        session: Session,
+        book_id: int,
+        language_codes: list[str] | None = None,
+        language_ids: list[int] | None = None,
+    ) -> None:
+        """Update book languages (many-to-many relationship).
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Calibre book ID.
+        language_codes : list[str] | None
+            List of language codes to set (creates if doesn't exist).
+        language_ids : list[int] | None
+            List of language IDs to set (if provided, language_codes is ignored).
+        """
+        current_links, current_language_ids = self._get_current_language_ids(
+            session, book_id
+        )
+
+        target_language_ids = self._resolve_language_ids(
+            session, language_ids, language_codes
+        )
+        target_language_ids = self._remove_duplicate_ids(target_language_ids)
+
+        if set(target_language_ids) == current_language_ids:
+            return
+
+        self._delete_existing_language_links(session, current_links)
+        self._create_language_links(session, book_id, target_language_ids)
 
     def _update_book_rating(
         self,
@@ -1310,8 +1434,8 @@ class CalibreBookRepository:
         description: str | None = None,
         publisher_name: str | None = None,
         publisher_id: int | None = None,
-        language_code: str | None = None,
-        language_id: int | None = None,
+        language_codes: list[str] | None = None,
+        language_ids: list[int] | None = None,
         rating_value: int | None = None,
         rating_id: int | None = None,
     ) -> BookWithFullRelations | None:
@@ -1343,10 +1467,10 @@ class CalibreBookRepository:
             Publisher name to set (creates if doesn't exist).
         publisher_id : int | None
             Publisher ID to set (if provided, publisher_name is ignored).
-        language_code : str | None
-            Language code to set (creates if doesn't exist).
-        language_id : int | None
-            Language ID to set (if provided, language_code is ignored).
+        language_codes : list[str] | None
+            List of language codes to set (creates if doesn't exist).
+        language_ids : list[int] | None
+            List of language IDs to set (if provided, language_codes is ignored).
         rating_value : int | None
             Rating value to set (creates if doesn't exist).
         rating_id : int | None
@@ -1394,9 +1518,12 @@ class CalibreBookRepository:
                     )
 
                 # Update language
-                if language_id is not None or language_code is not None:
+                if language_ids is not None or language_codes is not None:
                     self._update_book_language(
-                        session, book_id, language_code, language_id
+                        session,
+                        book_id,
+                        language_codes=language_codes,
+                        language_ids=language_ids,
                     )
 
                 # Update rating

@@ -41,10 +41,10 @@ export interface Book {
   publisher?: string | null;
   /** Publisher ID. */
   publisher_id?: number | null;
-  /** Language code. */
-  language?: string | null;
-  /** Language ID. */
-  language_id?: number | null;
+  /** List of language codes. */
+  languages?: string[];
+  /** List of language IDs. */
+  language_ids?: number[];
   /** Rating value (0-5). */
   rating?: number | null;
   /** Rating ID. */
@@ -76,10 +76,10 @@ export interface BookUpdate {
   publisher_name?: string | null;
   /** Publisher ID to set (if provided, publisher_name is ignored). */
   publisher_id?: number | null;
-  /** Language code to set (creates if doesn't exist). */
-  language_code?: string | null;
-  /** Language ID to set (if provided, language_code is ignored). */
-  language_id?: number | null;
+  /** List of language codes to set (creates if doesn't exist). */
+  language_codes?: string[] | null;
+  /** List of language IDs to set (if provided, language_codes is ignored). */
+  language_ids?: number[] | null;
   /** Rating value to set (0-5). */
   rating_value?: number | null;
   /** Rating ID to set (if provided, rating_value is ignored). */

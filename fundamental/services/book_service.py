@@ -142,8 +142,8 @@ class BookService:
         description: str | None = None,
         publisher_name: str | None = None,
         publisher_id: int | None = None,
-        language_code: str | None = None,
-        language_id: int | None = None,
+        language_codes: list[str] | None = None,
+        language_ids: list[int] | None = None,
         rating_value: int | None = None,
         rating_id: int | None = None,
     ) -> BookWithFullRelations | None:
@@ -175,10 +175,10 @@ class BookService:
             Publisher name to set (creates if doesn't exist).
         publisher_id : int | None
             Publisher ID to set (if provided, publisher_name is ignored).
-        language_code : str | None
-            Language code to set (creates if doesn't exist).
-        language_id : int | None
-            Language ID to set (if provided, language_code is ignored).
+        language_codes : list[str] | None
+            List of language codes to set (creates if doesn't exist).
+        language_ids : list[int] | None
+            List of language IDs to set (if provided, language_codes is ignored).
         rating_value : int | None
             Rating value to set (creates if doesn't exist).
         rating_id : int | None
@@ -202,8 +202,8 @@ class BookService:
             description=description,
             publisher_name=publisher_name,
             publisher_id=publisher_id,
-            language_code=language_code,
-            language_id=language_id,
+            language_codes=language_codes,
+            language_ids=language_ids,
             rating_value=rating_value,
             rating_id=rating_id,
         )

@@ -578,32 +578,78 @@
 
 .tagActionsColumn {
   display: flex;
-  align-items: flex-end;
-  padding-bottom: 0.5rem;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.tagActionsLabel {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: get-theme-color("text", "a10");
+  line-height: 1.5;
+  height: 1.3125rem; // Matches TagInput label height (0.875rem * 1.5)
+}
+
+.tagActionsButton {
+  height: 2.75rem; // Matches TagInput tagsContainer min-height
+  width: auto;
+  align-self: flex-start;
 }
 
 // Footer
 .footer {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
   padding: 1rem 1.5rem 1.5rem;
   border-top: 1px solid get-theme-color("surface", "a20");
   background-color: get-theme-color("surface-tonal", "a10");
 }
 
+.statusMessages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
 .errorBanner {
   padding: 0.75rem 1rem;
-  background-color: get-theme-color("danger", "a0");
-  color: get-theme-color("text", "a0");
+  background-color: get-theme-color("danger", "a20");
+  color: get-theme-color("danger", "a0");
   border-radius: 0.375rem;
   font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.successBanner {
+  padding: 0.75rem 1rem;
+  background-color: get-theme-color("success", "a20");
+  color: get-theme-color("success", "a0");
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .footerActions {
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
+  flex-shrink: 0;
 }
 
 .loading,
@@ -696,7 +742,13 @@
   }
 
   .footer {
+    flex-direction: column;
+    gap: 1rem;
     padding: 1rem;
+  }
+
+  .statusMessages {
+    width: 100%;
   }
 
   .footerActions {

@@ -3,6 +3,7 @@
 import { type KeyboardEvent, useState } from "react";
 import { FilterSuggestionsDropdown } from "@/components/library/widgets/FilterSuggestionsDropdown";
 import { useFilterSuggestions } from "@/hooks/useFilterSuggestions";
+import type { FilterSuggestionsService } from "@/services/filterSuggestionsService";
 import styles from "./TagInput.module.scss";
 
 export interface TagInputProps {
@@ -22,6 +23,10 @@ export interface TagInputProps {
   id?: string;
   /** Optional filter type to enable autocomplete suggestions (e.g., 'genre'). */
   filterType?: string;
+  /** Optional custom service for fetching suggestions (for IOC). */
+  suggestionsService?: FilterSuggestionsService;
+  /** Maximum number of tags allowed (default: unlimited). */
+  maxTags?: number;
 }
 
 /**
@@ -39,6 +44,8 @@ export function TagInput({
   helperText,
   id = "tag-input",
   filterType,
+  suggestionsService,
+  maxTags,
 }: TagInputProps) {
   const [inputValue, setInputValue] = useState("");
 
@@ -46,6 +53,7 @@ export function TagInput({
     query: inputValue,
     filterType: filterType || "",
     enabled: Boolean(filterType) && inputValue.trim().length > 0,
+    service: suggestionsService,
   });
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -61,6 +69,11 @@ export function TagInput({
   const addTag = () => {
     const trimmed = inputValue.trim();
     if (trimmed && !tags.includes(trimmed)) {
+      // Check maxTags limit
+      if (maxTags !== undefined && tags.length >= maxTags) {
+        setInputValue("");
+        return;
+      }
       onChange([...tags, trimmed]);
       setInputValue("");
     }
@@ -68,6 +81,11 @@ export function TagInput({
 
   const addSuggestion = (name: string) => {
     if (!tags.includes(name)) {
+      // Check maxTags limit
+      if (maxTags !== undefined && tags.length >= maxTags) {
+        setInputValue("");
+        return;
+      }
       onChange([...tags, name]);
     }
     setInputValue("");
@@ -81,6 +99,8 @@ export function TagInput({
     Boolean(filterType) &&
     inputValue.trim().length > 0 &&
     (isLoading || suggestions.length > 0);
+
+  const canAddMoreTags = maxTags === undefined || tags.length < maxTags;
 
   return (
     <div className={styles.container}>
@@ -104,22 +124,24 @@ export function TagInput({
               </button>
             </span>
           ))}
-          <input
-            id={id}
-            type="text"
-            className={`${styles.input} ${error ? styles.inputError : ""}`}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onBlur={() => setTimeout(() => addTag(), 150)}
-            placeholder={tags.length === 0 ? placeholder : ""}
-            aria-invalid={error ? "true" : "false"}
-            aria-describedby={
-              error || helperText
-                ? `${id}-${error ? "error" : "helper"}`
-                : undefined
-            }
-          />
+          {canAddMoreTags && (
+            <input
+              id={id}
+              type="text"
+              className={`${styles.input} ${error ? styles.inputError : ""}`}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={() => setTimeout(() => addTag(), 150)}
+              placeholder={tags.length === 0 ? placeholder : ""}
+              aria-invalid={error ? "true" : "false"}
+              aria-describedby={
+                error || helperText
+                  ? `${id}-${error ? "error" : "helper"}`
+                  : undefined
+              }
+            />
+          )}
         </div>
         {shouldShowDropdown && (
           <FilterSuggestionsDropdown

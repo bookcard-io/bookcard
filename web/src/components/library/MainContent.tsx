@@ -154,6 +154,7 @@ export function MainContent() {
         onClose={bookModal.handleCloseModal}
         onNavigatePrevious={bookModal.handleNavigatePrevious}
         onNavigateNext={bookModal.handleNavigateNext}
+        onEdit={bookEditModal.handleEditBook}
       />
       <BookEditModal
         bookId={bookEditModal.editingBookId}

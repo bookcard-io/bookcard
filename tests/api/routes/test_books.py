@@ -154,8 +154,8 @@ class MockBookService:
         description: str | None = None,
         publisher_name: str | None = None,
         publisher_id: int | None = None,
-        language_code: str | None = None,
-        language_id: int | None = None,
+        language_codes: list[str] | None = None,
+        language_ids: list[int] | None = None,
         rating_value: int | None = None,
         rating_id: int | None = None,
     ) -> BookWithFullRelations | None:
@@ -835,8 +835,8 @@ def test_get_book_with_full_true(monkeypatch: pytest.MonkeyPatch) -> None:
         description="Test description",
         publisher="Test Publisher",
         publisher_id=1,
-        language="en",
-        language_id=1,
+        languages=["en"],
+        language_ids=[1],
         rating=5,
         rating_id=1,
         formats=[],
@@ -862,8 +862,8 @@ def test_get_book_with_full_true(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result.description == "Test description"
     assert result.publisher == "Test Publisher"
     assert result.publisher_id == 1
-    assert result.language == "en"
-    assert result.language_id == 1
+    assert result.languages == ["en"]
+    assert result.language_ids == [1]
     assert result.rating == 5
     assert result.rating_id == 1
     assert result.series_id == 1
@@ -941,8 +941,8 @@ def test_update_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
         description="Updated description",
         publisher="Updated Publisher",
         publisher_id=2,
-        language="fr",
-        language_id=2,
+        languages=["fr"],
+        language_ids=[2],
         rating=4,
         rating_id=2,
         formats=[],
@@ -976,7 +976,7 @@ def test_update_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
         identifiers=[{"type": "isbn", "val": "0987654321"}],
         description="Updated description",
         publisher_name="Updated Publisher",
-        language_code="fr",
+        language_codes=["fr"],
         rating_value=4,
     )
 
@@ -992,8 +992,8 @@ def test_update_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result.description == "Updated description"
     assert result.publisher == "Updated Publisher"
     assert result.publisher_id == 2
-    assert result.language == "fr"
-    assert result.language_id == 2
+    assert result.languages == ["fr"]
+    assert result.language_ids == [2]
     assert result.rating == 4
     assert result.rating_id == 2
 
@@ -1082,8 +1082,8 @@ def test_update_book_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
         description=None,
         publisher=None,
         publisher_id=None,
-        language=None,
-        language_id=None,
+        languages=[],
+        language_ids=[],
         rating=None,
         rating_id=None,
         formats=[],

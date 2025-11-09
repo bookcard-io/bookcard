@@ -80,10 +80,10 @@ class BookWithFullRelations:
         Publisher name.
     publisher_id : int | None
         Publisher ID.
-    language : str | None
-        Language code.
-    language_id : int | None
-        Language ID.
+    languages : list[str]
+        List of language codes.
+    language_ids : list[int]
+        List of language IDs.
     rating : int | None
         Rating value (0-5).
     rating_id : int | None
@@ -101,8 +101,8 @@ class BookWithFullRelations:
     description: str | None
     publisher: str | None
     publisher_id: int | None
-    language: str | None
-    language_id: int | None
+    languages: list[str]
+    language_ids: list[int]
     rating: int | None
     rating_id: int | None
     formats: list[dict[str, str | int]]

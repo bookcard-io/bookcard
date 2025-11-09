@@ -338,8 +338,8 @@ def get_book(
             book_read.description = book_with_rels.description
             book_read.publisher = book_with_rels.publisher
             book_read.publisher_id = book_with_rels.publisher_id
-            book_read.language = book_with_rels.language
-            book_read.language_id = book_with_rels.language_id
+            book_read.languages = book_with_rels.languages
+            book_read.language_ids = book_with_rels.language_ids
             book_read.rating = book_with_rels.rating
             book_read.rating_id = book_with_rels.rating_id
             book_read.series_id = book_with_rels.series_id
@@ -399,8 +399,8 @@ def update_book(
         description=update.description,
         publisher_name=update.publisher_name,
         publisher_id=update.publisher_id,
-        language_code=update.language_code,
-        language_id=update.language_id,
+        language_codes=update.language_codes,
+        language_ids=update.language_ids,
         rating_value=update.rating_value,
         rating_id=update.rating_id,
     )
@@ -439,8 +439,8 @@ def update_book(
         description=updated_book.description,
         publisher=updated_book.publisher,
         publisher_id=updated_book.publisher_id,
-        language=updated_book.language,
-        language_id=updated_book.language_id,
+        languages=updated_book.languages,
+        language_ids=updated_book.language_ids,
         rating=updated_book.rating,
         rating_id=updated_book.rating_id,
     )

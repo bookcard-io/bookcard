@@ -1689,7 +1689,7 @@ def test_get_book_full_success() -> None:
             mock_exec6.first.return_value = ("Test Publisher", 1)
             # Language query
             mock_exec7 = MagicMock()
-            mock_exec7.first.return_value = ("en", 1)
+            mock_exec7.all.return_value = [("en", 1)]
             # Rating query
             mock_exec8 = MagicMock()
             mock_exec8.first.return_value = (5, 1)
@@ -1725,8 +1725,8 @@ def test_get_book_full_success() -> None:
             assert result.description == "Test description"
             assert result.publisher == "Test Publisher"
             assert result.publisher_id == 1
-            assert result.language == "en"
-            assert result.language_id == 1
+            assert result.languages == ["en"]
+            assert result.language_ids == [1]
             assert result.rating == 5
             assert result.rating_id == 1
 
@@ -1808,7 +1808,7 @@ def test_get_book_full_no_comment() -> None:
             mock_exec6 = MagicMock()
             mock_exec6.first.return_value = None  # No publisher
             mock_exec7 = MagicMock()
-            mock_exec7.first.return_value = None  # No language
+            mock_exec7.all.return_value = []  # No languages
             mock_exec8 = MagicMock()
             mock_exec8.first.return_value = None  # No rating
             # Formats query
@@ -1833,7 +1833,7 @@ def test_get_book_full_no_comment() -> None:
             assert result is not None
             assert result.description is None
             assert result.publisher is None
-            assert result.language is None
+            assert result.languages == []
             assert result.rating is None
 
 
@@ -2395,7 +2395,7 @@ def test_update_book_language_with_code() -> None:
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = add_entity
 
-        repo._update_book_language(mock_session, 1, language_code="fr")
+        repo._update_book_language(mock_session, 1, language_codes=["fr"])
 
         # Verify language was created and link was added
         added_languages = [
@@ -2473,8 +2473,8 @@ def test_update_book_orchestration() -> None:
             description=None,
             publisher=None,
             publisher_id=None,
-            language=None,
-            language_id=None,
+            languages=[],
+            language_ids=[],
             rating=None,
             rating_id=None,
             formats=[],
@@ -2706,7 +2706,7 @@ def test_update_book_language_with_id() -> None:
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = lambda x: mock_session.added.append(x)
 
-        repo._update_book_language(mock_session, 1, language_id=5)
+        repo._update_book_language(mock_session, 1, language_ids=[5])
 
         # Should use provided language_id
         added_links = [
@@ -2742,7 +2742,7 @@ def test_update_book_language_with_existing() -> None:
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = lambda x: mock_session.added.append(x)
 
-        repo._update_book_language(mock_session, 1, language_code="fr")
+        repo._update_book_language(mock_session, 1, language_codes=["fr"])
 
         # Should use existing language
         added_languages = [
@@ -2977,8 +2977,8 @@ def test_update_book_all_fields() -> None:
             description="Description",
             publisher="Publisher 1",
             publisher_id=1,
-            language="en",
-            language_id=1,
+            languages=["en"],
+            language_ids=[1],
             rating=5,
             rating_id=1,
             formats=[],
@@ -3021,7 +3021,7 @@ def test_update_book_all_fields() -> None:
                     ],
                     description="Description",
                     publisher_name="Publisher 1",
-                    language_code="en",
+                    language_codes=["en"],
                     rating_value=5,
                 )
 

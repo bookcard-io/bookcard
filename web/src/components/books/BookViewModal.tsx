@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { BookViewFormats } from "@/components/books/BookViewFormats";
 import { BookViewHeader } from "@/components/books/BookViewHeader";
@@ -20,6 +19,8 @@ export interface BookViewModalProps {
   onNavigatePrevious?: () => void;
   /** Callback when navigating to next book. */
   onNavigateNext?: () => void;
+  /** Callback when edit button is clicked. Should open edit modal and close view modal. */
+  onEdit?: (bookId: number) => void;
 }
 
 /**
@@ -35,8 +36,8 @@ export function BookViewModal({
   onClose,
   onNavigatePrevious,
   onNavigateNext,
+  onEdit,
 }: BookViewModalProps) {
-  const router = useRouter();
   const { book, isLoading, error } = useBook({
     bookId: bookId || 0,
     enabled: bookId !== null,
@@ -44,10 +45,11 @@ export function BookViewModal({
   });
 
   const handleEdit = useCallback(() => {
-    if (bookId) {
-      router.push(`/books/${bookId}/edit`);
+    if (bookId && onEdit) {
+      onEdit(bookId);
+      onClose();
     }
-  }, [bookId, router]);
+  }, [bookId, onEdit, onClose]);
 
   // Handle keyboard navigation
   useKeyboardNavigation({

@@ -72,10 +72,10 @@ class BookRead(BaseModel):
         Publisher name.
     publisher_id : int | None
         Publisher ID.
-    language : str | None
-        Language code.
-    language_id : int | None
-        Language ID.
+    languages : list[str]
+        List of language codes.
+    language_ids : list[int]
+        List of language IDs.
     rating : int | None
         Rating value (0-5).
     rating_id : int | None
@@ -104,8 +104,8 @@ class BookRead(BaseModel):
     description: str | None = None
     publisher: str | None = None
     publisher_id: int | None = None
-    language: str | None = None
-    language_id: int | None = None
+    languages: list[str] = Field(default_factory=list)
+    language_ids: list[int] = Field(default_factory=list)
     rating: int | None = None
     rating_id: int | None = None
     formats: list[dict[str, str | int]] = Field(default_factory=list)
@@ -138,10 +138,10 @@ class BookUpdate(BaseModel):
         Publisher name to set (creates if doesn't exist).
     publisher_id : int | None
         Publisher ID to set (if provided, publisher_name is ignored).
-    language_code : str | None
-        Language code to set (creates if doesn't exist).
-    language_id : int | None
-        Language ID to set (if provided, language_code is ignored).
+    language_codes : list[str] | None
+        List of language codes to set (creates if doesn't exist). Replaces existing languages.
+    language_ids : list[int] | None
+        List of language IDs to set (if provided, language_codes is ignored). Replaces existing languages.
     rating_value : int | None
         Rating value to set (creates if doesn't exist).
     rating_id : int | None
@@ -159,8 +159,8 @@ class BookUpdate(BaseModel):
     description: str | None = None
     publisher_name: str | None = None
     publisher_id: int | None = None
-    language_code: str | None = None
-    language_id: int | None = None
+    language_codes: list[str] | None = None
+    language_ids: list[int] | None = None
     rating_value: int | None = None
     rating_id: int | None = None
 

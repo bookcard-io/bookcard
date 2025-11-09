@@ -39,11 +39,11 @@ export function BookViewMetadata({ book }: BookViewMetadataProps) {
             <span className={styles.metadataValue}>{book.publisher}</span>
           </div>
         )}
-        {book.language && (
+        {book.languages && book.languages.length > 0 && (
           <div className={styles.metadataItem}>
-            <span className={styles.metadataLabel}>Language:</span>
+            <span className={styles.metadataLabel}>Languages:</span>
             <span className={styles.metadataValue}>
-              {book.language.toUpperCase()}
+              {book.languages.map((lang) => lang.toUpperCase()).join(", ")}
             </span>
           </div>
         )}
