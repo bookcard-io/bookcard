@@ -37,9 +37,6 @@ from sqlalchemy import event, func
 from sqlalchemy.orm import aliased
 from sqlmodel import Session, create_engine, select
 
-if TYPE_CHECKING:
-    import sqlite3
-
 from fundamental.models.core import (
     Author,
     Book,
@@ -62,6 +59,7 @@ from fundamental.repositories.models import BookWithFullRelations, BookWithRelat
 from fundamental.repositories.suggestions import FilterSuggestionFactory
 
 if TYPE_CHECKING:
+    import sqlite3
     from collections.abc import Iterator
 
     from sqlalchemy import Engine
