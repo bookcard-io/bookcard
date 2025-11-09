@@ -1,11 +1,9 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { useBooks } from "@/hooks/useBooks";
-import { useFilteredBooks } from "@/hooks/useFilteredBooks";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
+import { useLibraryBooks } from "@/hooks/useLibraryBooks";
 import type { Book } from "@/types/book";
-import { hasActiveFilters } from "@/utils/filters";
 import { BookCard } from "./BookCard";
 import styles from "./BooksGrid.module.scss";
 import type { FilterValues } from "./widgets/FiltersPanel";
@@ -39,36 +37,16 @@ export function BooksGrid({
   sortOrder,
   pageSize = 20,
 }: BooksGridProps) {
-  // Determine which filtering mechanism is active
-  const filtersActive = hasActiveFilters(filters);
-  const hasActiveSearch = searchQuery && searchQuery.trim().length > 0;
-
-  // Use filtered books if filters are active, otherwise use search
-  // Only one hook should be active at a time to avoid DRY violations and collisions
-  // Priority: filters > search > all books
-  const filteredBooksResult = useFilteredBooks({
-    enabled: filtersActive, // Filters take priority, ignore search if both are active
-    infiniteScroll: true,
-    filters: filtersActive ? filters : undefined,
-    sort_by: sortBy,
-    sort_order: sortOrder,
-    page_size: pageSize,
-  });
-
-  const regularBooksResult = useBooks({
-    enabled: !filtersActive, // Only run if filters are not active
-    infiniteScroll: true,
-    search: hasActiveSearch ? searchQuery : undefined,
-    sort_by: sortBy,
-    sort_order: sortOrder,
-    page_size: pageSize,
-  });
-
-  // Use filtered books if filters are active, otherwise use regular books
-  // Regular books hook handles both search and "show all" cases
-  const { books, isLoading, error, total, loadMore, hasMore } = filtersActive
-    ? filteredBooksResult
-    : regularBooksResult;
+  // Fetch books using centralized hook to eliminate DRY violation
+  const { books, isLoading, error, total, loadMore, hasMore } = useLibraryBooks(
+    {
+      filters,
+      searchQuery,
+      sortBy,
+      sortOrder,
+      pageSize,
+    },
+  );
 
   // Infinite scroll handler
   const handleLoadMore = useCallback(() => {

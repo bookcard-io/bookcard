@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { BookViewModal } from "@/components/books/BookViewModal";
 import { BooksGrid } from "@/components/library/BooksGrid";
 import { LibraryHeader } from "@/components/library/LibraryHeader";
@@ -8,6 +8,7 @@ import { SearchWidgetBar } from "@/components/library/SearchWidgetBar";
 import { FiltersPanel } from "@/components/library/widgets/FiltersPanel";
 import { useSidebar } from "@/contexts/SidebarContext";
 import { useBookViewModal } from "@/hooks/useBookViewModal";
+import { useLibraryBooks } from "@/hooks/useLibraryBooks";
 import { useLibraryFilters } from "@/hooks/useLibraryFilters";
 import { useLibrarySearch } from "@/hooks/useLibrarySearch";
 import { useLibrarySorting } from "@/hooks/useLibrarySorting";
@@ -25,19 +26,19 @@ import styles from "./MainContent.module.scss";
 export function MainContent() {
   const { isCollapsed } = useSidebar();
 
-  // Book view modal state
-  const bookModal = useBookViewModal();
-
-  // Search state (needs book modal handler)
-  const search = useLibrarySearch({
-    onBookClick: (bookId: number) => {
-      bookModal.handleBookClick({ id: bookId });
-    },
-  });
-
   // Use refs to store coordination methods to avoid circular dependencies
   const sortCloseRef = useRef<(() => void) | undefined>(undefined);
   const filtersCloseRef = useRef<(() => void) | undefined>(undefined);
+  const bookModalRef = useRef<{
+    handleBookClick: (book: { id: number }) => void;
+  } | null>(null);
+
+  // Search state - use ref for book click to avoid circular dependency
+  const search = useLibrarySearch({
+    onBookClick: (bookId: number) => {
+      bookModalRef.current?.handleBookClick({ id: bookId });
+    },
+  });
 
   // Sorting state with coordination
   const sorting = useLibrarySorting({
@@ -61,6 +62,29 @@ export function MainContent() {
     },
   });
   filtersCloseRef.current = filters.closeFiltersPanel;
+
+  // Fetch books using centralized hook to eliminate DRY violation
+  const { books, loadMore, hasMore, isLoading } = useLibraryBooks({
+    filters: filters.filters,
+    searchQuery: search.filterQuery,
+    sortBy: sorting.sortBy,
+    sortOrder: sorting.sortOrder,
+    pageSize: 20,
+  });
+
+  // Extract book IDs for navigation
+  const bookIds = useMemo(() => books.map((book) => book.id), [books]);
+
+  // Book view modal state with book IDs and infinite scroll support for navigation
+  const bookModal = useBookViewModal({
+    bookIds,
+    loadMore,
+    hasMore,
+    isLoading,
+  });
+
+  // Update ref so search can access book modal
+  bookModalRef.current = bookModal;
 
   // View mode state
   const viewMode = useLibraryViewMode({
