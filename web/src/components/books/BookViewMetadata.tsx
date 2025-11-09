@@ -64,12 +64,6 @@ export function BookViewMetadata({ book }: BookViewMetadataProps) {
             </div>
           </div>
         )}
-        {book.rating !== null && book.rating !== undefined && (
-          <div className={styles.metadataItem}>
-            <span className={styles.metadataLabel}>Rating:</span>
-            <span className={styles.metadataValue}>{book.rating} / 5</span>
-          </div>
-        )}
       </section>
 
       {/* Identifiers */}
