@@ -10,6 +10,9 @@
 
 .coverContainer {
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .cover {
@@ -18,12 +21,38 @@
   object-fit: cover;
 }
 
+.iconActions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.75rem;
+  margin-top: 1.5rem;
+  width: 100%;
+
+  i {
+    font-size: 1.25rem;
+    color: get-theme-color("text", "a30");
+    cursor: default;
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: get-theme-color("text", "a0");
+    }
+  }
+}
+
 .headerInfo {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   min-width: 0; // Allow text to wrap
+}
+
+.ratingSection {
+  display: flex;
+  align-items: center;
+  margin-top: 0.25rem;
 }
 
 .descriptionSection {

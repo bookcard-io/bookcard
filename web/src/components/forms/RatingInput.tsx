@@ -1,6 +1,7 @@
 "use client";
 
 import styles from "./RatingInput.module.scss";
+import { RatingStars } from "./RatingStars";
 
 export interface RatingInputProps {
   /** Label text for the input. */
@@ -22,6 +23,7 @@ export interface RatingInputProps {
  *
  * Follows SRP by focusing solely on rating selection.
  * Uses controlled component pattern (IOC via props).
+ * Reuses RatingStars component for star rendering (DRY).
  */
 export function RatingInput({
   label,
@@ -48,7 +50,6 @@ export function RatingInput({
         </label>
       )}
       <div
-        className={styles.starsContainer}
         role="radiogroup"
         aria-label={label || "Rating"}
         aria-invalid={error ? "true" : "false"}
@@ -58,21 +59,12 @@ export function RatingInput({
             : undefined
         }
       >
-        {[1, 2, 3, 4, 5].map((star) => (
-          <button
-            key={star}
-            type="button"
-            className={`${styles.star} ${value !== null && star <= value ? styles.starFilled : ""}`}
-            onClick={() => handleStarClick(star)}
-            aria-label={`Rate ${star} out of 5`}
-            aria-pressed={value !== null && star <= value}
-          >
-            ★
-          </button>
-        ))}
-        {value !== null && (
-          <span className={styles.ratingText}>{value} / 5</span>
-        )}
+        <RatingStars
+          value={value}
+          interactive
+          onStarClick={handleStarClick}
+          showText
+        />
       </div>
       {error && (
         <span id={`${id}-error`} className={styles.error} role="alert">

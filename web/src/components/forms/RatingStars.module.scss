@@ -1,0 +1,58 @@
+@use "../../styles/colors" as *;
+
+.starsContainer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.star {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: get-theme-color("surface", "a30");
+  line-height: 1;
+  padding: 0.25rem;
+  transition: color 0.2s, transform 0.1s;
+
+  // Size variants
+  &.small {
+    font-size: 1rem;
+    padding: 0.125rem;
+  }
+
+  &.medium {
+    font-size: 1.5rem;
+    padding: 0.25rem;
+  }
+
+  &.large {
+    font-size: 2rem;
+    padding: 0.375rem;
+  }
+}
+
+// Interactive styles (for buttons)
+.star:is(button) {
+  cursor: pointer;
+
+  &:hover {
+    color: get-theme-color("warning", "a10");
+    transform: scale(1.1);
+  }
+
+  &:focus {
+    outline: none;
+    color: get-theme-color("warning", "a10");
+  }
+}
+
+.starFilled {
+  color: get-theme-color("warning", "a10");
+}
+
+.ratingText {
+  font-size: 0.875rem;
+  color: get-theme-color("text", "a20");
+  margin-left: 0.5rem;
+}

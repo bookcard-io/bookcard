@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { RatingDisplay } from "@/components/forms/RatingDisplay";
 import type { Book } from "@/types/book";
 import styles from "./BookViewHeader.module.scss";
 
@@ -31,6 +32,15 @@ export function BookViewHeader({
             className={styles.cover}
             unoptimized
           />
+          <div className={styles.iconActions}>
+            <i className="pi pi-book" aria-hidden="true" title="Read book" />
+            <i className="pi pi-send" aria-hidden="true" title="Send book" />
+            <i
+              className="pi pi-arrow-right-arrow-left"
+              aria-hidden="true"
+              title="Convert format"
+            />
+          </div>
         </div>
       )}
       <div className={styles.headerInfo}>
@@ -54,6 +64,11 @@ export function BookViewHeader({
                   </span>
                 )}
             </span>
+          </div>
+        )}
+        {book.rating !== null && book.rating !== undefined && (
+          <div className={styles.ratingSection}>
+            <RatingDisplay value={book.rating} showText size="medium" />
           </div>
         )}
         {showDescription && book.description && (

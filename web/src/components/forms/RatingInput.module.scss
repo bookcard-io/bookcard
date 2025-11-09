@@ -14,43 +14,6 @@
   line-height: 1.5;
 }
 
-.starsContainer {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.star {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  color: get-theme-color("surface", "a30");
-  cursor: pointer;
-  padding: 0.25rem;
-  line-height: 1;
-  transition: color 0.2s, transform 0.1s;
-
-  &:hover {
-    color: get-theme-color("warning", "a10");
-    transform: scale(1.1);
-  }
-
-  &:focus {
-    outline: none;
-    color: get-theme-color("warning", "a10");
-  }
-}
-
-.starFilled {
-  color: get-theme-color("warning", "a10");
-}
-
-.ratingText {
-  font-size: 0.875rem;
-  color: get-theme-color("text", "a20");
-  margin-left: 0.5rem;
-}
-
 .error {
   font-size: 0.875rem;
   color: get-theme-color("danger", "a10");
