@@ -58,10 +58,7 @@ export function BookViewHeader({
               aria-label="Convert format"
               title="Convert format"
             >
-              <i
-                className="pi pi-arrow-right-arrow-left"
-                aria-hidden="true"
-              />
+              <i className="pi pi-arrow-right-arrow-left" aria-hidden="true" />
             </button>
             {onEdit && (
               <button

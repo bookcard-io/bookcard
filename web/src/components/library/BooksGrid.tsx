@@ -11,6 +11,8 @@ import type { FilterValues } from "./widgets/FiltersPanel";
 export interface BooksGridProps {
   /** Callback fired when a book card is clicked. */
   onBookClick?: (book: Book) => void;
+  /** Callback fired when a book edit button is clicked. */
+  onBookEdit?: (bookId: number) => void;
   /** Search query to filter books. */
   searchQuery?: string;
   /** Filter values for advanced filtering. */
@@ -31,6 +33,7 @@ export interface BooksGridProps {
  */
 export function BooksGrid({
   onBookClick,
+  onBookEdit,
   searchQuery,
   filters,
   sortBy,
@@ -115,6 +118,7 @@ export function BooksGrid({
             book={book}
             allBooks={uniqueBooks}
             onClick={onBookClick}
+            onEdit={onBookEdit}
           />
         ))}
       </div>

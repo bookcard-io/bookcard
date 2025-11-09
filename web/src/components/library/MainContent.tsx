@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useMemo, useRef } from "react";
+import { BookEditModal } from "@/components/books/BookEditModal";
 import { BookViewModal } from "@/components/books/BookViewModal";
 import { BooksGrid } from "@/components/library/BooksGrid";
 import { LibraryHeader } from "@/components/library/LibraryHeader";
 import { SearchWidgetBar } from "@/components/library/SearchWidgetBar";
 import { FiltersPanel } from "@/components/library/widgets/FiltersPanel";
 import { useSidebar } from "@/contexts/SidebarContext";
+import { useBookEditModal } from "@/hooks/useBookEditModal";
 import { useBookViewModal } from "@/hooks/useBookViewModal";
 import { useLibraryBooks } from "@/hooks/useLibraryBooks";
 import { useLibraryFilters } from "@/hooks/useLibraryFilters";
@@ -86,6 +88,9 @@ export function MainContent() {
   // Update ref so search can access book modal
   bookModalRef.current = bookModal;
 
+  // Book edit modal state
+  const bookEditModal = useBookEditModal();
+
   // View mode state
   const viewMode = useLibraryViewMode({
     onSortToggle: sorting.handleSortToggle,
@@ -140,6 +145,7 @@ export function MainContent() {
             sortBy={sorting.sortBy}
             sortOrder={sorting.sortOrder}
             onBookClick={bookModal.handleBookClick}
+            onBookEdit={bookEditModal.handleEditBook}
           />
         )}
       </div>
@@ -148,6 +154,10 @@ export function MainContent() {
         onClose={bookModal.handleCloseModal}
         onNavigatePrevious={bookModal.handleNavigatePrevious}
         onNavigateNext={bookModal.handleNavigateNext}
+      />
+      <BookEditModal
+        bookId={bookEditModal.editingBookId}
+        onClose={bookEditModal.handleCloseModal}
       />
     </main>
   );

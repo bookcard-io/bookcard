@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { useSelectedBooks } from "@/contexts/SelectedBooksContext";
 import type { Book } from "@/types/book";
 import styles from "./BookCard.module.scss";
@@ -13,6 +12,8 @@ export interface BookCardProps {
   allBooks: Book[];
   /** Callback fired when card is clicked. Reserved for future use. */
   onClick?: (book: Book) => void;
+  /** Callback fired when edit button is clicked. */
+  onEdit?: (bookId: number) => void;
 }
 
 /**
@@ -24,11 +25,14 @@ export interface BookCardProps {
  * Special overlay buttons (checkbox, edit, menu) stop event propagation.
  * Follows SRP by focusing solely on book display.
  */
-export function BookCard({ book, allBooks, onClick: _onClick }: BookCardProps) {
+export function BookCard({
+  book,
+  allBooks,
+  onClick: _onClick,
+  onEdit,
+}: BookCardProps) {
   const { isSelected, handleBookClick } = useSelectedBooks();
   const selected = isSelected(book.id);
-
-  const router = useRouter();
 
   const handleClick = () => {
     // Open book view modal via callback
@@ -63,7 +67,9 @@ export function BookCard({ book, allBooks, onClick: _onClick }: BookCardProps) {
 
   const handleEditClick = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
-    router.push(`/books/${book.id}/edit`);
+    if (onEdit) {
+      onEdit(book.id);
+    }
   };
 
   const authorsText =
