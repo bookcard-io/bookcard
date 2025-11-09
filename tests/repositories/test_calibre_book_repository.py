@@ -1912,26 +1912,31 @@ def test_update_book_authors() -> None:
         mock_session.added = []
         mock_session.deleted = []
 
-        # Mock existing links
-        existing_link = BookAuthorLink(book=1, author=1)
+        # Mock existing author names query (selects Author.name, returns strings)
         mock_exec1 = MagicMock()
-        mock_exec1.all.return_value = [existing_link]
+        mock_exec1.all.return_value = ["Author 1"]
+
+        # Mock existing links query (selects BookAuthorLink, returns objects)
+        existing_link = BookAuthorLink(book=1, author=1)
+        mock_exec2 = MagicMock()
+        mock_exec2.all.return_value = [existing_link]
 
         # Mock author lookup - first author exists, second doesn't
         author1 = Author(id=1, name="Author 1")
-        mock_exec2 = MagicMock()
-        mock_exec2.first.side_effect = [author1, None]  # First exists, second doesn't
+        mock_exec3 = MagicMock()
+        mock_exec3.first.side_effect = [author1, None]  # First exists, second doesn't
 
         # Mock link check
-        mock_exec3 = MagicMock()
-        mock_exec3.first.side_effect = [None, None]  # Links don't exist
+        mock_exec4 = MagicMock()
+        mock_exec4.first.side_effect = [None, None]  # Links don't exist
 
         mock_session.exec.side_effect = [
-            mock_exec1,
-            mock_exec2,
-            mock_exec3,
-            mock_exec2,
-            mock_exec3,
+            mock_exec1,  # Get current author names (strings)
+            mock_exec2,  # Get existing links to delete (BookAuthorLink objects)
+            mock_exec3,  # Author lookup (first)
+            mock_exec4,  # Link check (first)
+            mock_exec3,  # Author lookup (second)
+            mock_exec4,  # Link check (second)
         ]
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = lambda x: mock_session.added.append(x)
@@ -2026,7 +2031,7 @@ def test_update_book_series_remove() -> None:
 
         existing_link = BookSeriesLink(book=1, series=1)
         mock_exec = MagicMock()
-        mock_exec.all.return_value = [existing_link]
+        mock_exec.first.return_value = existing_link
         mock_session.exec.return_value = mock_exec
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = lambda x: mock_session.added.append(x)
@@ -2051,18 +2056,22 @@ def test_update_book_tags() -> None:
         mock_session.added = []
         mock_session.deleted = []
 
-        # Mock existing links
-        existing_link = BookTagLink(book=1, tag=1)
+        # Mock existing tag names query (selects Tag.name, returns strings)
         mock_exec1 = MagicMock()
-        mock_exec1.all.return_value = [existing_link]
+        mock_exec1.all.return_value = ["Tag 1"]
+
+        # Mock existing links query (selects BookTagLink, returns objects)
+        existing_link = BookTagLink(book=1, tag=1)
+        mock_exec2 = MagicMock()
+        mock_exec2.all.return_value = [existing_link]
 
         # Mock tag lookup - first exists, second doesn't
         tag1 = Tag(id=1, name="Tag 1")
-        mock_exec2 = MagicMock()
+        mock_exec3 = MagicMock()
         # First call: lookup Tag 1 (exists), Second call: lookup Tag 2 (doesn't exist)
-        mock_exec2.first.side_effect = [tag1, None]
+        mock_exec3.first.side_effect = [tag1, None]
 
-        mock_session.exec.side_effect = [mock_exec1, mock_exec2, mock_exec2]
+        mock_session.exec.side_effect = [mock_exec1, mock_exec2, mock_exec3, mock_exec3]
 
         tag_id_counter = [2]  # Start from 2 for new tags
 
@@ -2100,15 +2109,19 @@ def test_update_book_tags_skips_whitespace() -> None:
         mock_session.added = []
         mock_session.deleted = []
 
-        # Mock existing links deletion (1 call)
+        # Mock existing tag names query (selects Tag.name, returns strings)
         mock_exec1 = MagicMock()
         mock_exec1.all.return_value = []
 
-        # Mock tag lookups - only for non-whitespace tags (2 calls: Tag 1 and Tag 2)
+        # Mock existing links deletion (1 call)
         mock_exec2 = MagicMock()
-        mock_exec2.first.return_value = None  # Tags don't exist
+        mock_exec2.all.return_value = []
 
-        mock_session.exec.side_effect = [mock_exec1, mock_exec2, mock_exec2]
+        # Mock tag lookups - only for non-whitespace tags (2 calls: Tag 1 and Tag 2)
+        mock_exec3 = MagicMock()
+        mock_exec3.first.return_value = None  # Tags don't exist
+
+        mock_session.exec.side_effect = [mock_exec1, mock_exec2, mock_exec3, mock_exec3]
         mock_session.flush = MagicMock()
         mock_session.delete = MagicMock()
         mock_session.add = MagicMock()
@@ -2116,9 +2129,9 @@ def test_update_book_tags_skips_whitespace() -> None:
         repo._update_book_tags(mock_session, 1, ["Tag 1", "", "   ", "\t", "Tag 2"])
 
         # Should only process non-whitespace tags
-        # 1 call for deleting existing links + 2 calls for tag lookups (Tag 1 and Tag 2)
+        # 1 call for getting current tag names + 1 call for deleting existing links + 2 calls for tag lookups (Tag 1 and Tag 2)
         # Empty/whitespace tags should be skipped
-        assert mock_session.exec.call_count == 3
+        assert mock_session.exec.call_count == 4
 
 
 def test_update_book_tags_skips_none_id() -> None:
@@ -2132,15 +2145,19 @@ def test_update_book_tags_skips_none_id() -> None:
         mock_session.added = []
         mock_session.deleted = []
 
-        # Mock existing links
+        # Mock existing tag names query (selects Tag.name, returns strings)
         mock_exec1 = MagicMock()
         mock_exec1.all.return_value = []
 
-        # Mock tag lookup - tag doesn't exist, will be created
+        # Mock existing links query (selects BookTagLink, returns objects)
         mock_exec2 = MagicMock()
-        mock_exec2.first.return_value = None
+        mock_exec2.all.return_value = []
 
-        mock_session.exec.side_effect = [mock_exec1, mock_exec2]
+        # Mock tag lookup - tag doesn't exist, will be created
+        mock_exec3 = MagicMock()
+        mock_exec3.first.return_value = None
+
+        mock_session.exec.side_effect = [mock_exec1, mock_exec2, mock_exec3]
 
         def flush_mock() -> None:
             # Simulate flush NOT setting ID (failure case)
@@ -2347,7 +2364,11 @@ def test_update_book_language_with_code() -> None:
         mock_exec2 = MagicMock()
         mock_exec2.first.return_value = None
 
-        mock_session.exec.side_effect = [mock_exec1, mock_exec2]
+        # Mock defensive check query (after flush, check if link exists)
+        mock_exec3 = MagicMock()
+        mock_exec3.first.return_value = None  # Link doesn't exist, so it will be added
+
+        mock_session.exec.side_effect = [mock_exec1, mock_exec2, mock_exec3]
 
         def flush_mock() -> None:
             # Simulate flush setting IDs on added entities
@@ -2452,30 +2473,38 @@ def test_update_book_orchestration() -> None:
             mock_exec1 = MagicMock()
             mock_exec1.first.return_value = book
             # _update_book_authors calls:
-            # - Delete existing links
+            # - Get current author names (strings)
             mock_exec2 = MagicMock()
             mock_exec2.all.return_value = []
-            # - Lookup author
-            mock_exec3 = MagicMock()
-            mock_exec3.first.return_value = None  # Author doesn't exist
-            # - Check link doesn't exist
-            mock_exec4 = MagicMock()
-            mock_exec4.first.return_value = None
-            # _update_book_tags calls:
             # - Delete existing links
+            mock_exec3 = MagicMock()
+            mock_exec3.all.return_value = []
+            # - Lookup author
+            mock_exec4 = MagicMock()
+            mock_exec4.first.return_value = None  # Author doesn't exist
+            # - Check link doesn't exist
             mock_exec5 = MagicMock()
-            mock_exec5.all.return_value = []
-            # - Lookup tag
+            mock_exec5.first.return_value = None
+            # _update_book_tags calls:
+            # - Get current tag names (strings)
             mock_exec6 = MagicMock()
-            mock_exec6.first.return_value = None  # Tag doesn't exist
+            mock_exec6.all.return_value = []
+            # - Delete existing links
+            mock_exec7 = MagicMock()
+            mock_exec7.all.return_value = []
+            # - Lookup tag
+            mock_exec8 = MagicMock()
+            mock_exec8.first.return_value = None  # Tag doesn't exist
 
             mock_session_obj.exec.side_effect = [
                 mock_exec1,  # Book lookup
-                mock_exec2,  # Authors: delete links
-                mock_exec3,  # Authors: lookup author
-                mock_exec4,  # Authors: check link
-                mock_exec5,  # Tags: delete links
-                mock_exec6,  # Tags: lookup tag
+                mock_exec2,  # Authors: get current names
+                mock_exec3,  # Authors: delete links
+                mock_exec4,  # Authors: lookup author
+                mock_exec5,  # Authors: check link
+                mock_exec6,  # Tags: get current names
+                mock_exec7,  # Tags: delete links
+                mock_exec8,  # Tags: lookup tag
             ]
             mock_session_obj.flush = MagicMock()
             mock_session_obj.commit = MagicMock()
@@ -2653,9 +2682,14 @@ def test_update_book_language_with_id() -> None:
         mock_session.deleted = []
 
         existing_link = BookLanguageLink(book=1, lang_code=1)
-        mock_exec = MagicMock()
-        mock_exec.all.return_value = [existing_link]
-        mock_session.exec.return_value = mock_exec
+        mock_exec1 = MagicMock()
+        mock_exec1.all.return_value = [existing_link]
+        # Mock defensive check query (after flush, check if link exists)
+        mock_exec2 = MagicMock()
+        mock_exec2.first.return_value = None  # Link doesn't exist, so it will be added
+
+        mock_session.exec.side_effect = [mock_exec1, mock_exec2]
+        mock_session.flush = MagicMock()
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = lambda x: mock_session.added.append(x)
 
@@ -2686,8 +2720,11 @@ def test_update_book_language_with_existing() -> None:
         mock_exec1.all.return_value = [existing_link]
         mock_exec2 = MagicMock()
         mock_exec2.first.return_value = existing_language
+        # Mock defensive check query (after flush, check if link exists)
+        mock_exec3 = MagicMock()
+        mock_exec3.first.return_value = None  # Link doesn't exist, so it will be added
 
-        mock_session.exec.side_effect = [mock_exec1, mock_exec2]
+        mock_session.exec.side_effect = [mock_exec1, mock_exec2, mock_exec3]
         mock_session.flush = MagicMock()
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = lambda x: mock_session.added.append(x)
@@ -2778,7 +2815,7 @@ def test_update_book_series_whitespace_only() -> None:
 
         existing_link = BookSeriesLink(book=1, series=1)
         mock_exec = MagicMock()
-        mock_exec.all.return_value = [existing_link]
+        mock_exec.first.return_value = existing_link
         mock_session.exec.return_value = mock_exec
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = lambda x: mock_session.added.append(x)
@@ -2802,19 +2839,24 @@ def test_update_book_author_with_existing_link() -> None:
         mock_session.added = []
         mock_session.deleted = []
 
-        existing_link = BookAuthorLink(book=1, author=1)
+        # Mock existing author names query (selects Author.name, returns strings)
         mock_exec1 = MagicMock()
-        mock_exec1.all.return_value = [existing_link]
+        mock_exec1.all.return_value = ["Author 1"]
+
+        # Mock existing links query (selects BookAuthorLink, returns objects)
+        existing_link = BookAuthorLink(book=1, author=1)
+        mock_exec2 = MagicMock()
+        mock_exec2.all.return_value = [existing_link]
 
         author1 = Author(id=1, name="Author 1")
-        mock_exec2 = MagicMock()
-        mock_exec2.first.return_value = author1
+        mock_exec3 = MagicMock()
+        mock_exec3.first.return_value = author1
 
         # Link already exists
-        mock_exec3 = MagicMock()
-        mock_exec3.first.return_value = existing_link
+        mock_exec4 = MagicMock()
+        mock_exec4.first.return_value = existing_link
 
-        mock_session.exec.side_effect = [mock_exec1, mock_exec2, mock_exec3]
+        mock_session.exec.side_effect = [mock_exec1, mock_exec2, mock_exec3, mock_exec4]
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = lambda x: mock_session.added.append(x)
         mock_session.flush = MagicMock()
@@ -2837,13 +2879,18 @@ def test_update_book_author_id_none_after_flush() -> None:
         mock_session.added = []
         mock_session.deleted = []
 
+        # Mock existing author names query (selects Author.name, returns strings)
         mock_exec1 = MagicMock()
         mock_exec1.all.return_value = []
 
-        # Author created but id is None after flush
+        # Mock existing links query (selects BookAuthorLink, returns objects)
         mock_exec2 = MagicMock()
-        mock_exec2.first.return_value = None  # Author doesn't exist
-        mock_session.exec.side_effect = [mock_exec1, mock_exec2]
+        mock_exec2.all.return_value = []
+
+        # Author created but id is None after flush
+        mock_exec3 = MagicMock()
+        mock_exec3.first.return_value = None  # Author doesn't exist
+        mock_session.exec.side_effect = [mock_exec1, mock_exec2, mock_exec3]
         mock_session.flush = MagicMock()
 
         # After flush, author.id is still None (simulate failure)

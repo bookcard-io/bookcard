@@ -31,11 +31,14 @@ from __future__ import annotations
 from contextlib import contextmanager, suppress
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from sqlalchemy import event, func
 from sqlalchemy.orm import aliased
 from sqlmodel import Session, create_engine, select
+
+if TYPE_CHECKING:
+    import sqlite3
 
 from fundamental.models.core import (
     Author,
@@ -223,7 +226,9 @@ class CalibreBookRepository:
         if self._engine is None:
             db_url = f"sqlite:///{self._db_path}"
 
-            def _register_title_sort(dbapi_conn: Any, connection_record: Any) -> None:
+            def _register_title_sort(
+                dbapi_conn: sqlite3.Connection, connection_record: object
+            ) -> None:
                 """Register title_sort SQLite function.
 
                 Calibre's database triggers reference this function, which
@@ -232,9 +237,9 @@ class CalibreBookRepository:
 
                 Parameters
                 ----------
-                dbapi_conn : Any
+                dbapi_conn : sqlite3.Connection
                     SQLite database connection.
-                connection_record : Any
+                connection_record : object
                     Connection record (required by event listener signature).
                 """
                 # connection_record is required by event listener signature but unused
@@ -1185,11 +1190,11 @@ class CalibreBookRepository:
         language_id : int | None
             Language ID to set (if provided, language_code is ignored).
         """
-        # Get current language link
-        current_link_stmt = select(BookLanguageLink).where(
+        # Get all current language links
+        current_links_stmt = select(BookLanguageLink).where(
             BookLanguageLink.book == book_id
         )
-        current_link = session.exec(current_link_stmt).first()
+        current_links = list(session.exec(current_links_stmt).all())
 
         # Determine target language ID
         target_language_id = language_id
@@ -1205,19 +1210,28 @@ class CalibreBookRepository:
                 target_language_id = language.id
 
         # Check if language is actually changing
-        current_language_id = current_link.lang_code if current_link else None
-        if current_language_id == target_language_id:
+        current_language_ids = {link.lang_code for link in current_links}
+        if target_language_id in current_language_ids and len(current_links) == 1:
             # Language hasn't changed, no update needed
             return
 
-        # Language is changing - delete existing link if present
-        if current_link is not None:
-            session.delete(current_link)
+        # Language is changing - delete all existing links
+        for link in current_links:
+            session.delete(link)
+        # Flush to ensure deletions are processed before insert
+        session.flush()
 
         # Add new link if target language is specified
         if target_language_id is not None:
-            link = BookLanguageLink(book=book_id, lang_code=target_language_id)
-            session.add(link)
+            # Defensive check: ensure link doesn't already exist
+            existing_link_stmt = select(BookLanguageLink).where(
+                BookLanguageLink.book == book_id,
+                BookLanguageLink.lang_code == target_language_id,
+            )
+            existing_link = session.exec(existing_link_stmt).first()
+            if existing_link is None:
+                link = BookLanguageLink(book=book_id, lang_code=target_language_id)
+                session.add(link)
 
     def _update_book_rating(
         self,
