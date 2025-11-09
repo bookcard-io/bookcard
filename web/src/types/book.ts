@@ -49,6 +49,8 @@ export interface Book {
   rating?: number | null;
   /** Rating ID. */
   rating_id?: number | null;
+  /** List of file formats, each with 'format' and 'size' keys. */
+  formats?: Array<{ format: string; size: number }>;
 }
 
 export interface BookUpdate {

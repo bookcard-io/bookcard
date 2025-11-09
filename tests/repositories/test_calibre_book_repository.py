@@ -1693,6 +1693,9 @@ def test_get_book_full_success() -> None:
             # Rating query
             mock_exec8 = MagicMock()
             mock_exec8.first.return_value = (5, 1)
+            # Formats query
+            mock_exec9 = MagicMock()
+            mock_exec9.all.return_value = []
 
             mock_session_obj.exec.side_effect = [
                 mock_exec1,  # Book query
@@ -1703,6 +1706,7 @@ def test_get_book_full_success() -> None:
                 mock_exec6,  # Publisher
                 mock_exec7,  # Language
                 mock_exec8,  # Rating
+                mock_exec9,  # Formats
             ]
             mock_session.return_value.__enter__.return_value = mock_session_obj
 
@@ -1807,6 +1811,9 @@ def test_get_book_full_no_comment() -> None:
             mock_exec7.first.return_value = None  # No language
             mock_exec8 = MagicMock()
             mock_exec8.first.return_value = None  # No rating
+            # Formats query
+            mock_exec9 = MagicMock()
+            mock_exec9.all.return_value = []
 
             mock_session_obj.exec.side_effect = [
                 mock_exec1,
@@ -1817,6 +1824,7 @@ def test_get_book_full_no_comment() -> None:
                 mock_exec6,
                 mock_exec7,
                 mock_exec8,
+                mock_exec9,  # Formats
             ]
             mock_session.return_value.__enter__.return_value = mock_session_obj
 
@@ -1859,6 +1867,9 @@ def test_get_book_full_series_id_from_index() -> None:
             mock_exec7.first.return_value = None
             mock_exec8 = MagicMock()
             mock_exec8.first.return_value = None
+            # Formats query
+            mock_exec9 = MagicMock()
+            mock_exec9.all.return_value = []
 
             mock_session_obj.exec.side_effect = [
                 mock_exec1,
@@ -1869,6 +1880,7 @@ def test_get_book_full_series_id_from_index() -> None:
                 mock_exec6,
                 mock_exec7,
                 mock_exec8,
+                mock_exec9,  # Formats
             ]
             mock_session.return_value.__enter__.return_value = mock_session_obj
 
@@ -2465,6 +2477,7 @@ def test_update_book_orchestration() -> None:
             language_id=None,
             rating=None,
             rating_id=None,
+            formats=[],
         )
 
         with patch.object(repo, "_get_session") as mock_session:
@@ -2968,6 +2981,7 @@ def test_update_book_all_fields() -> None:
             language_id=1,
             rating=5,
             rating_id=1,
+            formats=[],
         )
 
         with patch.object(repo, "_get_session") as mock_session:

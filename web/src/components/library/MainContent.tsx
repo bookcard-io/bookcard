@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BookViewModal } from "@/components/books/BookViewModal";
 import { BooksGrid } from "@/components/library/BooksGrid";
 import { LibraryHeader } from "@/components/library/LibraryHeader";
 import { SearchWidgetBar } from "@/components/library/SearchWidgetBar";
@@ -33,6 +34,7 @@ export function MainContent() {
   const [sortBy, setSortBy] = useState<SortField>("timestamp");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [viewingBookId, setViewingBookId] = useState<number | null>(null);
 
   const handleSearchChange = (value: string) => {
     // Update input value but don't filter - only show suggestions
@@ -65,8 +67,23 @@ export function MainContent() {
   };
 
   const handleBookClick = (book: { id: number }) => {
-    // TODO: Navigate to book detail page
-    console.log("Book clicked:", book.id);
+    setViewingBookId(book.id);
+  };
+
+  const handleCloseModal = () => {
+    setViewingBookId(null);
+  };
+
+  const handleNavigatePrevious = () => {
+    if (viewingBookId) {
+      setViewingBookId(viewingBookId - 1);
+    }
+  };
+
+  const handleNavigateNext = () => {
+    if (viewingBookId) {
+      setViewingBookId(viewingBookId + 1);
+    }
   };
 
   const handleFiltersClick = () => {
@@ -166,6 +183,12 @@ export function MainContent() {
           />
         )}
       </div>
+      <BookViewModal
+        bookId={viewingBookId}
+        onClose={handleCloseModal}
+        onNavigatePrevious={handleNavigatePrevious}
+        onNavigateNext={handleNavigateNext}
+      />
     </main>
   );
 }

@@ -1,0 +1,126 @@
+@use "../../styles/colors" as *;
+
+.header {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid get-theme-color("surface", "a20");
+}
+
+.coverContainer {
+  flex-shrink: 0;
+}
+
+.cover {
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  object-fit: cover;
+}
+
+.headerInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0; // Allow text to wrap
+}
+
+.descriptionSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.descriptionTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: get-theme-color("text", "a0");
+  margin: 0;
+}
+
+.description {
+  color: get-theme-color("text", "a20");
+  line-height: 1.5;
+  font-size: 0.875rem;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+
+  :global(p) {
+    margin: 0 0 0.75rem 0;
+  }
+
+  :global(p:last-child) {
+    margin-bottom: 0;
+  }
+
+  // Custom scrollbar
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: get-theme-color("surface", "a10");
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: get-theme-color("surface", "a30");
+    border-radius: 3px;
+
+    &:hover {
+      background: get-theme-color("surface", "a40");
+    }
+  }
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: get-theme-color("text", "a0");
+  margin: 0;
+  line-height: 1.3;
+}
+
+.authors,
+.series {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  font-size: 1rem;
+}
+
+.label {
+  color: get-theme-color("text", "a30");
+  font-weight: 500;
+}
+
+.value {
+  color: get-theme-color("text", "a0");
+}
+
+.seriesIndex {
+  color: get-theme-color("text", "a30");
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 1rem;
+    padding-bottom: 1rem;
+  }
+
+  .title {
+    font-size: 1.5rem;
+  }
+
+  .authors,
+  .series {
+    font-size: 0.9375rem;
+  }
+}

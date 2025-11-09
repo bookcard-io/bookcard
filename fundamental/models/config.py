@@ -135,6 +135,11 @@ class Library(SQLModel, table=True):
         Path to Calibre database directory (contains metadata.db).
     calibre_db_file : str
         Calibre database filename (default: 'metadata.db').
+    library_root : str | None
+        Optional root directory where Calibre stores book files. If provided,
+        file paths are resolved under this directory instead of deriving from
+        ``calibre_db_path``. This is useful when the database directory and
+        the books directory are not the same parent (e.g., split mounts).
     calibre_uuid : str | None
         Calibre library UUID (auto-detected from database).
     use_split_library : bool
@@ -157,6 +162,7 @@ class Library(SQLModel, table=True):
     name: str = Field(max_length=255)
     calibre_db_path: str = Field(max_length=1000)
     calibre_db_file: str = Field(default="metadata.db", max_length=255)
+    library_root: str | None = Field(default=None, max_length=1000)
     calibre_uuid: str | None = Field(default=None, max_length=36)
     use_split_library: bool = Field(default=False)
     split_library_dir: str | None = Field(default=None, max_length=1000)

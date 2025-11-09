@@ -254,7 +254,12 @@ class BookService:
             return None
 
         # Calibre stores covers as cover.jpg in the book's path directory
-        library_path = Path(self._library.calibre_db_path)
+        # Prefer explicit library_root from config when provided
+        lib_root = getattr(self._library, "library_root", None)
+        if lib_root:
+            library_path = Path(lib_root)
+        else:
+            library_path = Path(self._library.calibre_db_path)
         book_path = library_path / book_obj.path
         cover_path = book_path / "cover.jpg"
 

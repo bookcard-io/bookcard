@@ -588,6 +588,7 @@ def test_get_thumbnail_url_with_book_with_full_relations() -> None:
         language_id=None,
         rating=None,
         rating_id=None,
+        formats=[],
     )
 
     with patch("fundamental.services.book_service.CalibreBookRepository"):
@@ -627,6 +628,7 @@ def test_get_thumbnail_path_with_book_with_full_relations() -> None:
         language_id=None,
         rating=None,
         rating_id=None,
+        formats=[],
     )
 
     with (

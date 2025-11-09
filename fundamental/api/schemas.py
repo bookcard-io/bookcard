@@ -395,6 +395,8 @@ class BookRead(BaseModel):
         Rating value (0-5).
     rating_id : int | None
         Rating ID.
+    formats : list[dict[str, str | int]]
+        List of file formats, each with 'format' and 'size' keys.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -421,6 +423,7 @@ class BookRead(BaseModel):
     language_id: int | None = None
     rating: int | None = None
     rating_id: int | None = None
+    formats: list[dict[str, str | int]] = Field(default_factory=list)
 
 
 class BookUpdate(BaseModel):

@@ -88,6 +88,8 @@ class BookWithFullRelations:
         Rating value (0-5).
     rating_id : int | None
         Rating ID.
+    formats : list[dict[str, str | int]]
+        List of file formats, each with 'format' and 'size' keys.
     """
 
     book: Book
@@ -103,6 +105,7 @@ class BookWithFullRelations:
     language_id: int | None
     rating: int | None
     rating_id: int | None
+    formats: list[dict[str, str | int]]
 
 
 @dataclass

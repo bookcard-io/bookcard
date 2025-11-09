@@ -49,6 +49,99 @@ router = APIRouter(prefix="/books", tags=["books"])
 
 SessionDep = Annotated[Session, Depends(get_db_session)]
 
+# Media types mapping for book file formats
+FILE_FORMAT_MEDIA_TYPES = {
+    "EPUB": "application/epub+zip",
+    "PDF": "application/pdf",
+    "MOBI": "application/x-mobipocket-ebook",
+    "AZW3": "application/vnd.amazon.ebook",
+    "FB2": "application/x-fictionbook+xml",
+    "LIT": "application/x-ms-reader",
+    "LRF": "application/x-sony-bbeb",
+    "ODT": "application/vnd.oasis.opendocument.text",
+    "RTF": "application/rtf",
+    "TXT": "text/plain",
+    "HTML": "text/html",
+    "HTM": "text/html",
+}
+
+
+def _find_format_data(
+    formats: list[dict[str, str | int]], requested_format: str
+) -> tuple[dict[str, str | int] | None, list[str]]:
+    """Find format data matching the requested format.
+
+    Parameters
+    ----------
+    formats : list[dict[str, str | int]]
+        List of format dictionaries from book data.
+    requested_format : str
+        Requested file format (e.g., 'EPUB', 'PDF').
+
+    Returns
+    -------
+    tuple[dict[str, str | int] | None, list[str]]
+        Tuple of (format data if found, list of available formats).
+    """
+    format_upper = requested_format.upper()
+    available_formats = []
+    format_data = None
+    for fmt in formats:
+        fmt_format = fmt.get("format", "")
+        available_formats.append(str(fmt_format))
+        if isinstance(fmt_format, str) and fmt_format.upper() == format_upper:
+            format_data = fmt
+    return format_data, available_formats
+
+
+def _get_file_name(
+    format_data: dict[str, str | int],
+    book_id: int,
+    file_format: str,
+) -> str:
+    """Get filename for the book file.
+
+    Parameters
+    ----------
+    format_data : dict[str, str | int]
+        Format data dictionary, may contain 'name' field.
+    book_id : int
+        Book ID for fallback naming.
+    file_format : str
+        File format extension.
+
+    Returns
+    -------
+    str
+        Filename for the book file.
+    """
+    file_name = format_data.get("name", "")
+    if not file_name or not isinstance(file_name, str):
+        # Calibre standard naming: {book_id}.{format_lower}
+        return f"{book_id}.{file_format.lower()}"
+
+    # Ensure filename has the correct extension
+    expected_suffix = f".{file_format.lower()}"
+    if not file_name.lower().endswith(expected_suffix):
+        return f"{file_name}{expected_suffix}"
+    return file_name
+
+
+def _get_media_type(format_upper: str) -> str:
+    """Get media type for file format.
+
+    Parameters
+    ----------
+    format_upper : str
+        File format in uppercase.
+
+    Returns
+    -------
+    str
+        Media type string.
+    """
+    return FILE_FORMAT_MEDIA_TYPES.get(format_upper, "application/octet-stream")
+
 
 def _get_active_library_service(
     session: SessionDep,
@@ -250,6 +343,7 @@ def get_book(
             book_read.rating = book_with_rels.rating
             book_read.rating_id = book_with_rels.rating_id
             book_read.series_id = book_with_rels.series_id
+            book_read.formats = book_with_rels.formats
 
     return book_read
 
@@ -394,6 +488,121 @@ def get_book_cover(
         path=str(cover_path),
         media_type="image/jpeg",
         filename=f"cover_{book_id_for_filename}.jpg",
+    )
+
+
+@router.get("/{book_id}/download/{file_format}", response_model=None)
+def download_book_file(
+    session: SessionDep,
+    book_id: int,
+    file_format: str,
+) -> FileResponse | Response:
+    """Download a book file in the specified format.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+    book_id : int
+        Calibre book ID.
+    file_format : str
+        File format (e.g., 'EPUB', 'PDF', 'MOBI').
+
+    Returns
+    -------
+    FileResponse | Response
+        Book file or 404 response.
+
+    Raises
+    ------
+    HTTPException
+        If book not found (404), format not found (404), or no active library (404).
+    """
+    from pathlib import Path
+
+    book_service = _get_active_library_service(session)
+    book_with_rels = book_service.get_book_full(book_id)
+
+    if book_with_rels is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="book_not_found",
+        )
+
+    book = book_with_rels.book
+    if book.id is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="book_missing_id",
+        )
+
+    # Find the format in the book's formats
+    format_upper = file_format.upper()
+    format_data, available_formats = _find_format_data(
+        book_with_rels.formats, file_format
+    )
+
+    if format_data is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"format_not_found: requested '{format_upper}', available: {available_formats}",
+        )
+
+    # Construct file path: library_root / book.path / file_name
+    # Prefer explicit library_root from config when provided
+    lib_root = getattr(book_service._library, "library_root", None)  # type: ignore[attr-defined]  # noqa: SLF001
+    if lib_root:
+        library_path = Path(lib_root)
+    else:
+        # Determine library root robustly from configured calibre_db_path
+        library_db_path = book_service._library.calibre_db_path  # type: ignore[attr-defined]  # noqa: SLF001
+        library_db_path_obj = Path(library_db_path)
+        # If calibre_db_path points to a directory, use it directly.
+        # If it points to a file (e.g., metadata.db), use its parent directory.
+        if library_db_path_obj.is_dir():
+            library_path = library_db_path_obj
+        else:
+            library_path = library_db_path_obj.parent
+    book_path = library_path / book.path
+    file_name = _get_file_name(format_data, book_id, file_format)
+    file_path = book_path / file_name
+
+    if not file_path.exists():
+        # Try alternative: just the format extension
+        alt_file_name = f"{book_id}.{file_format.lower()}"
+        alt_file_path = book_path / alt_file_name
+        if alt_file_path.exists():
+            file_path = alt_file_path
+            file_name = alt_file_name
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"file_not_found: tried {file_path} and {alt_file_path}",
+            )
+
+    # Determine media type based on format
+    media_type = _get_media_type(format_upper)
+
+    # Sanitize author name(s)
+    authors_str = ", ".join(book_with_rels.authors) if book_with_rels.authors else ""
+    safe_author = "".join(
+        c for c in authors_str if c.isalnum() or c in (" ", "-", "_", ",")
+    ).strip()
+    if not safe_author:
+        safe_author = "Unknown"
+
+    # Use book title for filename, sanitized
+    safe_title = "".join(
+        c for c in book.title if c.isalnum() or c in (" ", "-", "_")
+    ).strip()
+    if not safe_title:
+        safe_title = f"book_{book_id}"
+    filename = f"{safe_author} - {safe_title}.{file_format.lower()}"
+
+    return FileResponse(
+        path=str(file_path),
+        media_type=media_type,
+        filename=filename,
     )
 
 

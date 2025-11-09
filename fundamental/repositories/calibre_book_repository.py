@@ -54,6 +54,7 @@ from fundamental.models.core import (
     Series,
     Tag,
 )
+from fundamental.models.media import Data
 from fundamental.repositories.filters import FilterBuilder
 from fundamental.repositories.models import BookWithFullRelations, BookWithRelations
 from fundamental.repositories.suggestions import FilterSuggestionFactory
@@ -805,6 +806,17 @@ class CalibreBookRepository:
             if rating_result:
                 rating, rating_id = rating_result
 
+            # Get file formats
+            formats_stmt = (
+                select(Data.format, Data.uncompressed_size, Data.name)
+                .where(Data.book == book_id)
+                .order_by(Data.format)
+            )
+            formats = [
+                {"format": fmt, "size": size, "name": name or ""}
+                for fmt, size, name in session.exec(formats_stmt).all()
+            ]
+
             return BookWithFullRelations(
                 book=book,
                 authors=authors,
@@ -819,6 +831,7 @@ class CalibreBookRepository:
                 language_id=language_id,
                 rating=rating,
                 rating_id=rating_id,
+                formats=formats,
             )
 
     def _normalize_string_set(self, strings: list[str]) -> set[str]:

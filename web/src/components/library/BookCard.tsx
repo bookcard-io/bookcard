@@ -11,7 +11,7 @@ export interface BookCardProps {
   book: Book;
   /** All books in the grid (needed for range selection). */
   allBooks: Book[];
-  /** Callback fired when card is clicked. Reserved for future use (currently no-op). */
+  /** Callback fired when card is clicked. Reserved for future use. */
   onClick?: (book: Book) => void;
 }
 
@@ -19,8 +19,9 @@ export interface BookCardProps {
  * Book card component for displaying a single book in the grid.
  *
  * Displays book cover thumbnail, title, and author(s).
+ * Clicking the card opens the book view modal.
  * Selection is only available via the checkbox overlay.
- * Card clicks are currently a no-op and reserved for future use.
+ * Special overlay buttons (checkbox, edit, menu) stop event propagation.
  * Follows SRP by focusing solely on book display.
  */
 export function BookCard({ book, allBooks, onClick: _onClick }: BookCardProps) {
@@ -29,17 +30,22 @@ export function BookCard({ book, allBooks, onClick: _onClick }: BookCardProps) {
 
   const router = useRouter();
 
-  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    // Card clicks are currently a no-op and reserved for future use.
-    // Selection is only available via the checkbox overlay.
-    // This prevents accidental selection when clicking on the card.
-    e.preventDefault();
+  const handleClick = () => {
+    // Open book view modal via callback
+    // Special overlay buttons (checkbox, edit, menu) stop propagation
+    if (_onClick) {
+      _onClick(book);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
-    // Keyboard navigation is currently a no-op and reserved for future use.
-    // Selection is only available via the checkbox overlay.
-    e.preventDefault();
+    // Open book view modal on Enter or Space
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (_onClick) {
+        _onClick(book);
+      }
+    }
   };
 
   const handleCheckboxClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -69,7 +75,7 @@ export function BookCard({ book, allBooks, onClick: _onClick }: BookCardProps) {
       className={`${styles.card} ${selected ? styles.selected : ""}`}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
-      aria-label={`${book.title} by ${authorsText}${selected ? " (selected)" : ""}. Use checkbox to select.`}
+      aria-label={`${book.title} by ${authorsText}${selected ? " (selected)" : ""}. Click to view details.`}
       data-book-card
     >
       <div className={styles.coverContainer}>

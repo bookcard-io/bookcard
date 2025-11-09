@@ -839,6 +839,7 @@ def test_get_book_with_full_true(monkeypatch: pytest.MonkeyPatch) -> None:
         language_id=1,
         rating=5,
         rating_id=1,
+        formats=[],
     )
 
     mock_service = MockBookService(
@@ -944,6 +945,7 @@ def test_update_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
         language_id=2,
         rating=4,
         rating_id=2,
+        formats=[],
     )
 
     existing_book = BookWithRelations(
@@ -1084,6 +1086,7 @@ def test_update_book_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
         language_id=None,
         rating=None,
         rating_id=None,
+        formats=[],
     )
 
     mock_service = MockBookService(
