@@ -1,143 +1,79 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useRef } from "react";
 import { BookViewModal } from "@/components/books/BookViewModal";
 import { BooksGrid } from "@/components/library/BooksGrid";
 import { LibraryHeader } from "@/components/library/LibraryHeader";
 import { SearchWidgetBar } from "@/components/library/SearchWidgetBar";
-import type {
-  FilterValues,
-  SelectedFilterSuggestions,
-} from "@/components/library/widgets/FiltersPanel";
 import { FiltersPanel } from "@/components/library/widgets/FiltersPanel";
-import type { SortField } from "@/components/library/widgets/SortPanel";
-import type { ViewMode } from "@/components/library/widgets/ViewModeButtons";
 import { useSidebar } from "@/contexts/SidebarContext";
-import type { SearchSuggestion } from "@/types/search";
-import { createEmptyFilters } from "@/utils/filters";
+import { useBookViewModal } from "@/hooks/useBookViewModal";
+import { useLibraryFilters } from "@/hooks/useLibraryFilters";
+import { useLibrarySearch } from "@/hooks/useLibrarySearch";
+import { useLibrarySorting } from "@/hooks/useLibrarySorting";
+import { useLibraryViewMode } from "@/hooks/useLibraryViewMode";
 import styles from "./MainContent.module.scss";
 
 /**
  * Main content area for the library view.
- * Handles search, filtering, sorting, and book display.
+ *
+ * Composes specialized hooks for search, filtering, sorting, view mode, and book viewing.
+ * Follows SRP by delegating state management to specialized hooks.
+ * Follows IOC by composing hooks with coordination callbacks.
+ * Follows SOC by separating concerns into independent hooks.
  */
 export function MainContent() {
   const { isCollapsed } = useSidebar();
-  // Separate state for input value (what user types) vs filter query (what filters books)
-  const [searchInputValue, setSearchInputValue] = useState("");
-  const [filterQuery, setFilterQuery] = useState("");
-  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
-  const [showSortPanel, setShowSortPanel] = useState(false);
-  const [filters, setFilters] = useState<FilterValues>(createEmptyFilters());
-  const [selectedFilterSuggestions, setSelectedFilterSuggestions] =
-    useState<SelectedFilterSuggestions>({});
-  const [sortBy, setSortBy] = useState<SortField>("timestamp");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [viewingBookId, setViewingBookId] = useState<number | null>(null);
 
-  const handleSearchChange = (value: string) => {
-    // Update input value but don't filter - only show suggestions
-    setSearchInputValue(value);
-  };
+  // Book view modal state
+  const bookModal = useBookViewModal();
 
-  const handleSearchSubmit = (value: string) => {
-    // When user submits search manually, filter by the submitted value
-    // Clear filters when search is applied
-    setFilters(createEmptyFilters());
-    setSelectedFilterSuggestions({});
-    setFilterQuery(value);
-    setSearchInputValue(value);
-  };
+  // Search state (needs book modal handler)
+  const search = useLibrarySearch({
+    onBookClick: (bookId: number) => {
+      bookModal.handleBookClick({ id: bookId });
+    },
+  });
 
-  const handleSuggestionClick = (suggestion: SearchSuggestion) => {
-    // Filter books by tag, author, or series when suggestion pill is clicked
-    // Clear filters when search is applied
-    if (
-      suggestion.type === "TAG" ||
-      suggestion.type === "AUTHOR" ||
-      suggestion.type === "SERIES"
-    ) {
-      setFilters(createEmptyFilters());
-      setSelectedFilterSuggestions({});
-      setFilterQuery(suggestion.name);
-      setSearchInputValue(suggestion.name);
-    }
-    // BOOK type is no-op as requested
-  };
+  // Use refs to store coordination methods to avoid circular dependencies
+  const sortCloseRef = useRef<(() => void) | undefined>(undefined);
+  const filtersCloseRef = useRef<(() => void) | undefined>(undefined);
 
-  const handleBookClick = (book: { id: number }) => {
-    setViewingBookId(book.id);
-  };
+  // Sorting state with coordination
+  const sorting = useLibrarySorting({
+    onSortPanelChange: (isOpen) => {
+      // Close filters panel when sort panel opens
+      if (isOpen) {
+        filtersCloseRef.current?.();
+      }
+    },
+  });
+  sortCloseRef.current = sorting.closeSortPanel;
 
-  const handleCloseModal = () => {
-    setViewingBookId(null);
-  };
+  // Filters state with coordination
+  const filters = useLibraryFilters({
+    onClearSearch: search.clearSearch,
+    onFiltersPanelChange: (isOpen) => {
+      // Close sort panel when filters panel opens
+      if (isOpen) {
+        sortCloseRef.current?.();
+      }
+    },
+  });
+  filtersCloseRef.current = filters.closeFiltersPanel;
 
-  const handleNavigatePrevious = () => {
-    if (viewingBookId) {
-      setViewingBookId(viewingBookId - 1);
-    }
-  };
+  // View mode state
+  const viewMode = useLibraryViewMode({
+    onSortToggle: sorting.handleSortToggle,
+  });
 
-  const handleNavigateNext = () => {
-    if (viewingBookId) {
-      setViewingBookId(viewingBookId + 1);
-    }
-  };
-
-  const handleFiltersClick = () => {
-    setShowFiltersPanel((prev) => !prev);
-    // Close sort panel when filters panel opens
-    if (!showFiltersPanel) {
-      setShowSortPanel(false);
-    }
-  };
-
-  const handleSortByClick = () => {
-    setShowSortPanel((prev) => !prev);
-    // Close filters panel when sort panel opens
-    if (!showSortPanel) {
-      setShowFiltersPanel(false);
-    }
-  };
-
-  const handleSortByChange = (newSortBy: SortField) => {
-    setSortBy(newSortBy);
-    setShowSortPanel(false);
-  };
-
-  const handleViewModeChange = (mode: ViewMode) => {
-    // The "sort" button is an action (toggle asc/desc), not a view switch.
-    // Do not change the current view when it's clicked – just flip sort order.
-    if (mode === "sort") {
-      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
-      return;
-    }
-    setViewMode(mode);
-  };
-
-  const handleFiltersChange = (newFilters: FilterValues) => {
-    setFilters(newFilters);
-  };
-
-  const handleApplyFilters = (appliedFilters: FilterValues) => {
-    // Clear search when filters are applied
-    setFilterQuery("");
-    setSearchInputValue("");
-    setFilters(appliedFilters);
-    setShowFiltersPanel(false);
-  };
-
-  const handleSuggestionsChange = (suggestions: SelectedFilterSuggestions) => {
-    setSelectedFilterSuggestions(suggestions);
-  };
-
-  const handleClearFilters = () => {
-    // Clear all filters and suggestions
-    setFilters(createEmptyFilters());
-    setSelectedFilterSuggestions({});
-  };
+  // Combined view mode change handler
+  const handleViewModeChange = useCallback(
+    (mode: string) => {
+      viewMode.handleViewModeChange(mode as typeof viewMode.viewMode);
+    },
+    [viewMode],
+  );
 
   return (
     <main
@@ -147,47 +83,47 @@ export function MainContent() {
         <LibraryHeader />
         <div className={styles.widgetBarContainer}>
           <SearchWidgetBar
-            searchValue={searchInputValue}
-            onSearchChange={handleSearchChange}
-            onSearchSubmit={handleSearchSubmit}
-            onSuggestionClick={handleSuggestionClick}
-            onFiltersClick={handleFiltersClick}
-            filters={filters}
-            onSortByClick={handleSortByClick}
-            sortBy={sortBy}
-            showSortPanel={showSortPanel}
-            onSortByChange={handleSortByChange}
-            activeViewMode={viewMode}
-            sortOrder={sortOrder}
+            searchValue={search.searchInputValue}
+            onSearchChange={search.handleSearchChange}
+            onSearchSubmit={search.handleSearchSubmit}
+            onSuggestionClick={search.handleSuggestionClick}
+            onFiltersClick={filters.handleFiltersClick}
+            filters={filters.filters}
+            onSortByClick={sorting.handleSortByClick}
+            sortBy={sorting.sortBy}
+            showSortPanel={sorting.showSortPanel}
+            onSortByChange={sorting.handleSortByChange}
+            activeViewMode={viewMode.viewMode}
+            sortOrder={sorting.sortOrder}
             onViewModeChange={handleViewModeChange}
           />
-          {showFiltersPanel && (
+          {filters.showFiltersPanel && (
             <FiltersPanel
-              filters={filters}
-              selectedSuggestions={selectedFilterSuggestions}
-              onFiltersChange={handleFiltersChange}
-              onSuggestionsChange={handleSuggestionsChange}
-              onApply={handleApplyFilters}
-              onClear={handleClearFilters}
-              onClose={() => setShowFiltersPanel(false)}
+              filters={filters.filters}
+              selectedSuggestions={filters.selectedFilterSuggestions}
+              onFiltersChange={filters.handleFiltersChange}
+              onSuggestionsChange={filters.handleSuggestionsChange}
+              onApply={filters.handleApplyFilters}
+              onClear={filters.handleClearFilters}
+              onClose={filters.handleCloseFiltersPanel}
             />
           )}
         </div>
-        {viewMode === "grid" && (
+        {viewMode.viewMode === "grid" && (
           <BooksGrid
-            searchQuery={filterQuery}
-            filters={filters}
-            sortBy={sortBy}
-            sortOrder={sortOrder}
-            onBookClick={handleBookClick}
+            searchQuery={search.filterQuery}
+            filters={filters.filters}
+            sortBy={sorting.sortBy}
+            sortOrder={sorting.sortOrder}
+            onBookClick={bookModal.handleBookClick}
           />
         )}
       </div>
       <BookViewModal
-        bookId={viewingBookId}
-        onClose={handleCloseModal}
-        onNavigatePrevious={handleNavigatePrevious}
-        onNavigateNext={handleNavigateNext}
+        bookId={bookModal.viewingBookId}
+        onClose={bookModal.handleCloseModal}
+        onNavigatePrevious={bookModal.handleNavigatePrevious}
+        onNavigateNext={bookModal.handleNavigateNext}
       />
     </main>
   );
