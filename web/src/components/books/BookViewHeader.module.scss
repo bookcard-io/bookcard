@@ -68,6 +68,66 @@ $transition-fast: 0.1s ease;
   object-fit: cover;
 }
 
+.coverClickable {
+  position: relative;
+  display: inline-block;
+  line-height: 0; // remove inline gap
+
+  &:hover .coverCurtain {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.coverCurtain {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: radial-gradient(
+      circle at center,
+      rgba(0, 0, 0, 0.25) 0%,
+      rgba(0, 0, 0, 0.35) 60%,
+      rgba(0, 0, 0, 0.45) 100%
+    );
+  color: $text-primary;
+  border-radius: $border-radius-md;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  opacity: 0;
+  pointer-events: none;
+  transition: background-color $transition-base, transform $transition-fast,
+    opacity $transition-base;
+
+  i {
+    font-size: 1.5rem;
+    color: $text-primary;
+    opacity: 0.95;
+    transition: transform $transition-fast, opacity $transition-base;
+  }
+
+  &:hover {
+    background: radial-gradient(
+      circle at center,
+      rgba(0, 0, 0, 0.3) 0%,
+      rgba(0, 0, 0, 0.45) 60%,
+      rgba(0, 0, 0, 0.55) 100%
+    );
+  }
+
+  &:hover i {
+    transform: scale(1.08);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $primary-outline;
+    outline-offset: 2px;
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
 .iconActions {
   @include flex-center;
   gap: $spacing-lg;

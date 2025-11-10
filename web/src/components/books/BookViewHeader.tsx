@@ -1,4 +1,8 @@
+"use client";
+
 import Image from "next/image";
+import { useCallback, useState } from "react";
+import { FullscreenImageModal } from "@/components/common/FullscreenImageModal";
 import { RatingDisplay } from "@/components/forms/RatingDisplay";
 import type { Book } from "@/types/book";
 import styles from "./BookViewHeader.module.scss";
@@ -23,18 +27,36 @@ export function BookViewHeader({
   showDescription = false,
   onEdit,
 }: BookViewHeaderProps) {
+  const [isCoverOpen, setIsCoverOpen] = useState(false);
+  const openCover = useCallback(() => setIsCoverOpen(true), []);
+  const closeCover = useCallback(() => setIsCoverOpen(false), []);
+
   return (
     <div className={styles.header}>
       {book.thumbnail_url && (
         <div className={styles.coverContainer}>
-          <Image
-            src={book.thumbnail_url}
-            alt={`Cover for ${book.title}`}
-            width={200}
-            height={300}
-            className={styles.cover}
-            unoptimized
-          />
+          <div className={styles.coverClickable}>
+            <Image
+              src={book.thumbnail_url}
+              alt={`Cover for ${book.title}`}
+              width={200}
+              height={300}
+              className={styles.cover}
+              unoptimized
+            />
+            <button
+              type="button"
+              className={styles.coverCurtain}
+              aria-label="View cover full screen"
+              title="View cover"
+              onClick={openCover}
+            >
+              <i
+                className="pi pi-arrow-up-right-and-arrow-down-left-from-center"
+                aria-hidden="true"
+              />
+            </button>
+          </div>
           <div className={styles.iconActions}>
             <button
               type="button"
@@ -72,6 +94,12 @@ export function BookViewHeader({
               </button>
             )}
           </div>
+          <FullscreenImageModal
+            src={book.thumbnail_url}
+            alt={`Cover for ${book.title}`}
+            isOpen={isCoverOpen}
+            onClose={closeCover}
+          />
         </div>
       )}
       <div className={styles.headerInfo}>

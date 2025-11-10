@@ -1,6 +1,8 @@
 "use client";
 
 import Image from "next/image";
+import { useCallback, useState } from "react";
+import { FullscreenImageModal } from "@/components/common/FullscreenImageModal";
 import { Button } from "@/components/forms/Button";
 import type { Book } from "@/types/book";
 import { formatFileSize } from "@/utils/format";
@@ -18,6 +20,10 @@ export interface BookEditCoverSectionProps {
  * Follows SRP by focusing solely on cover and formats presentation.
  */
 export function BookEditCoverSection({ book }: BookEditCoverSectionProps) {
+  const [isCoverOpen, setIsCoverOpen] = useState(false);
+  const openCover = useCallback(() => setIsCoverOpen(true), []);
+  const closeCover = useCallback(() => setIsCoverOpen(false), []);
+
   return (
     <div className={styles.leftSidebar}>
       <div className={styles.coverContainer}>
@@ -37,6 +43,7 @@ export function BookEditCoverSection({ book }: BookEditCoverSectionProps) {
                 className={styles.coverActionButton}
                 aria-label="View cover"
                 title="View cover"
+                onClick={openCover}
               >
                 <span
                   className="pi pi-arrow-up-right-and-arrow-down-left-from-center"
@@ -58,6 +65,12 @@ export function BookEditCoverSection({ book }: BookEditCoverSectionProps) {
             <span>No Cover</span>
           </div>
         )}
+        <FullscreenImageModal
+          src={book.thumbnail_url || ""}
+          alt={`Cover for ${book.title}`}
+          isOpen={isCoverOpen}
+          onClose={closeCover}
+        />
         <div className={styles.coverActions}>
           <Button
             type="button"
