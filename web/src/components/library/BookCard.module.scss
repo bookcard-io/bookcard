@@ -91,6 +91,10 @@
   }
 }
 
+.coverWrapper {
+  @include full-size;
+}
+
 .cover {
   @include full-size;
   object-fit: cover;

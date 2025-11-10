@@ -74,7 +74,11 @@ export function BookEditCoverSection({
   return (
     <div className={styles.leftSidebar}>
       <div className={styles.coverContainer}>
-        <BookCoverDisplay book={book} coverUrl={displayCoverUrl} />
+        <BookCoverDisplay
+          book={book}
+          coverUrl={displayCoverUrl}
+          isLoading={isLoading}
+        />
         <BookCoverActions
           isUrlInputVisible={urlInput.isVisible}
           onSetFromUrlClick={urlInput.show}

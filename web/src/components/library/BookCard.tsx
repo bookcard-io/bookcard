@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { ImageWithLoading } from "@/components/common/ImageWithLoading";
 import { useSelectedBooks } from "@/contexts/SelectedBooksContext";
 import type { Book } from "@/types/book";
 import styles from "./BookCard.module.scss";
@@ -86,12 +86,13 @@ export function BookCard({
     >
       <div className={styles.coverContainer}>
         {book.thumbnail_url ? (
-          <Image
+          <ImageWithLoading
             src={book.thumbnail_url}
             alt={`Cover for ${book.title}`}
             width={200}
             height={300}
             className={styles.cover}
+            containerClassName={styles.coverWrapper}
             unoptimized
           />
         ) : (

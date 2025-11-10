@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { ImageWithLoading } from "@/components/common/ImageWithLoading";
 import { AutocompleteTextInput } from "@/components/forms/AutocompleteTextInput";
 import { Button } from "@/components/forms/Button";
 import { DateInput } from "@/components/forms/DateInput";
@@ -236,7 +236,7 @@ export default function BookEditPage({ params }: BookEditPageProps) {
         </div>
         {book.thumbnail_url && (
           <div className={styles.coverPreview}>
-            <Image
+            <ImageWithLoading
               src={book.thumbnail_url}
               alt={`Cover for ${book.title}`}
               width={120}

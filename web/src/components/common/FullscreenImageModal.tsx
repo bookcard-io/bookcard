@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { useCallback } from "react";
+import { ImageWithLoading } from "@/components/common/ImageWithLoading";
 import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
 import { useModal } from "@/hooks/useModal";
 import styles from "./FullscreenImageModal.module.scss";
@@ -69,7 +69,7 @@ export function FullscreenImageModal({
           onClick={onClose}
         >
           <span className={styles.srOnly}>Click anywhere to close</span>
-          <Image
+          <ImageWithLoading
             src={src}
             alt={alt}
             fill={false}

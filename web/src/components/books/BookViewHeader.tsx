@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { useCallback, useState } from "react";
 import { FullscreenImageModal } from "@/components/common/FullscreenImageModal";
+import { ImageWithLoading } from "@/components/common/ImageWithLoading";
 import { RatingDisplay } from "@/components/forms/RatingDisplay";
 import type { Book } from "@/types/book";
 import styles from "./BookViewHeader.module.scss";
@@ -36,12 +36,13 @@ export function BookViewHeader({
       {book.thumbnail_url && (
         <div className={styles.coverContainer}>
           <div className={styles.coverClickable}>
-            <Image
+            <ImageWithLoading
               src={book.thumbnail_url}
               alt={`Cover for ${book.title}`}
               width={200}
               height={300}
               className={styles.cover}
+              containerClassName={styles.coverWrapper}
               unoptimized
             />
             <button

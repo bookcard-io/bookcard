@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { useCallback, useState } from "react";
 import { FullscreenImageModal } from "@/components/common/FullscreenImageModal";
+import { ImageWithLoading } from "@/components/common/ImageWithLoading";
 import type { Book } from "@/types/book";
 import styles from "./BookEditModal.module.scss";
 
@@ -11,6 +11,8 @@ export interface BookCoverDisplayProps {
   book: Book;
   /** Cover URL to display (staged or original). */
   coverUrl: string | null;
+  /** Optional loading state (e.g., when backend is processing cover URL). */
+  isLoading?: boolean;
 }
 
 /**
@@ -24,7 +26,11 @@ export interface BookCoverDisplayProps {
  * props : BookCoverDisplayProps
  *     Component props including book and cover URL.
  */
-export function BookCoverDisplay({ book, coverUrl }: BookCoverDisplayProps) {
+export function BookCoverDisplay({
+  book,
+  coverUrl,
+  isLoading,
+}: BookCoverDisplayProps) {
   const [isCoverOpen, setIsCoverOpen] = useState(false);
   const openCover = useCallback(() => setIsCoverOpen(true), []);
   const closeCover = useCallback(() => setIsCoverOpen(false), []);
@@ -33,12 +39,13 @@ export function BookCoverDisplay({ book, coverUrl }: BookCoverDisplayProps) {
     <>
       {coverUrl ? (
         <div className={styles.coverWrapper}>
-          <Image
+          <ImageWithLoading
             src={coverUrl}
             alt={`Cover for ${book.title}`}
             width={200}
             height={300}
             className={styles.cover}
+            isLoading={isLoading}
             unoptimized
           />
           <div className={styles.coverOverlay}>

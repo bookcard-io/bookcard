@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { useCallback } from "react";
+import { ImageWithLoading } from "@/components/common/ImageWithLoading";
 import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
 import styles from "./MetadataResultItem.module.scss";
 
@@ -30,7 +30,7 @@ export function MetadataResultItem({
             aria-label={`Load metadata for ${record.title}`}
             title="Click to load metadata to form"
           >
-            <Image
+            <ImageWithLoading
               src={record.cover_url}
               alt={`Cover for ${record.title}`}
               width={60}
