@@ -7,7 +7,6 @@ import { useLibraryBooks } from "@/hooks/useLibraryBooks";
 import type { Book } from "@/types/book";
 import { deduplicateBooks } from "@/utils/books";
 import { BookCard } from "./BookCard";
-import styles from "./BooksGrid.module.scss";
 import type { FilterValues } from "./widgets/FiltersPanel";
 
 export interface BooksGridProps {
@@ -85,38 +84,38 @@ export function BooksGrid({
 
   if (error) {
     return (
-      <div className={styles.errorContainer}>
-        <p className={styles.errorMessage}>Error loading books: {error}</p>
+      <div className="flex items-center justify-center min-h-[400px] p-8">
+        <p className="text-danger-a10 text-base m-0">Error loading books: {error}</p>
       </div>
     );
   }
 
   if (isLoading && uniqueBooks.length === 0) {
     return (
-      <div className={styles.loadingContainer}>
-        <p className={styles.loadingMessage}>Loading books...</p>
+      <div className="flex items-center justify-center min-h-[400px] p-8">
+        <p className="text-text-a40 text-base m-0">Loading books...</p>
       </div>
     );
   }
 
   if (uniqueBooks.length === 0) {
     return (
-      <div className={styles.emptyContainer}>
-        <p className={styles.emptyMessage}>No books found</p>
+      <div className="flex items-center justify-center min-h-[400px] p-8">
+        <p className="text-text-a40 text-base m-0">No books found</p>
       </div>
     );
   }
 
   return (
-    <div className={styles.container}>
+    <div className="w-full py-6">
       {total > 0 && (
-        <div className={styles.paginationInfo}>
+        <div className="px-8 pb-4 text-text-a40 text-sm text-left">
           {hasMore
             ? `Scroll for more (${uniqueBooks.length} of ${total})`
             : `${uniqueBooks.length} of ${total} books`}
         </div>
       )}
-      <div className={styles.grid}>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-6 px-8 md:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:gap-8 lg:grid-cols-[repeat(auto-fill,minmax(180px,1fr))]">
         {uniqueBooks.map((book) => (
           <BookCard
             key={book.id}
@@ -129,7 +128,7 @@ export function BooksGrid({
       </div>
       {hasMore && <div ref={sentinelRef as React.RefObject<HTMLDivElement>} />}
       {isLoading && uniqueBooks.length > 0 && (
-        <div className={styles.loadingMore}>Loading more books...</div>
+        <div className="p-4 px-8 text-text-a40 text-sm text-center">Loading more books...</div>
       )}
     </div>
   );

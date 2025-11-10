@@ -1,5 +1,6 @@
 @use "colors" as *;
 @use "typography" as *;
+@use "tailwindcss";
 
 @theme {
   /* Primary colors (dark theme) */
@@ -57,8 +58,6 @@
   --shadow-primary-glow: 0 0 0 2px rgba(144, 170, 249, 0.2);
   --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
-
-@import "tailwindcss";
 
 @layer base {
 	* {
