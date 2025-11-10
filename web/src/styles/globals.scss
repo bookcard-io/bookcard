@@ -1,24 +1,85 @@
 @use "colors" as *;
 @use "typography" as *;
 
-* {
-	box-sizing: border-box;
-	margin: 0;
-	padding: 0;
+@theme {
+  /* Primary colors (dark theme) */
+  --color-primary-a0: #90aaf9;
+  --color-primary-a10: #9eb3fa;
+  --color-primary-a20: #abbcfb;
+  --color-primary-a30: #b7c5fc;
+  --color-primary-a40: #c4cffc;
+  --color-primary-a50: #d0d8fd;
+
+  /* Text colors (dark theme) */
+  --color-text-a0: #ffffff;
+  --color-text-a10: #e4e4e4;
+  --color-text-a20: #d7d7d7;
+  --color-text-a30: #cacaca;
+  --color-text-a40: #bdbdbd;
+  --color-text-a50: #b1b1b1;
+
+  /* Surface colors (dark theme) */
+  --color-surface-a0: #0b0e14;
+  --color-surface-a10: #232529;
+  --color-surface-a20: #3a3c40;
+  --color-surface-a30: #535558;
+  --color-surface-a40: #6d6f72;
+  --color-surface-a50: #888a8c;
+
+  /* Surface tonal colors (dark theme) */
+  --color-surface-tonal-a0: #191d27;
+  --color-surface-tonal-a10: #2e323b;
+  --color-surface-tonal-a20: #454851;
+  --color-surface-tonal-a30: #5d5f67;
+  --color-surface-tonal-a40: #76787f;
+  --color-surface-tonal-a50: #909197;
+
+  /* Semantic colors */
+  --color-success-a0: #22946e;
+  --color-success-a10: #47d5a6;
+  --color-success-a20: #9ae8ce;
+
+  --color-warning-a0: #a87a2a;
+  --color-warning-a10: #d7ac61;
+  --color-warning-a20: #ecd7b2;
+
+  --color-danger-a0: #9c2121;
+  --color-danger-a10: #d94a4a;
+  --color-danger-a20: #eb9e9e;
+
+  --color-info-a0: #21498a;
+  --color-info-a10: #4077d1;
+  --color-info-a20: #92b2e5;
+
+  /* Custom box shadows */
+  --shadow-focus-ring: 0 0 0 3px rgba(144, 170, 249, 0.3);
+  --shadow-focus-ring-danger: 0 0 0 3px rgba(156, 33, 33, 0.1);
+  --shadow-primary-glow: 0 0 0 2px rgba(144, 170, 249, 0.2);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-html,
-body {
-  height: 100%;
-  overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Oxygen-Sans", Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-}
+@import "tailwindcss";
 
-body {
-	background-color: get-theme-color("surface", "a0");
-	color: get-theme-color("surface", "a50");
-	-webkit-font-smoothing: antialiased;
-	-moz-osx-font-smoothing: grayscale;
+@layer base {
+	* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Oxygen-Sans", Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  }
+
+  body {
+    background-color: get-theme-color("surface", "a0");
+    color: get-theme-color("surface", "a50");
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 }
 
 // Global styles are now in page.module.scss
