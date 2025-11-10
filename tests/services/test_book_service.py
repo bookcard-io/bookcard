@@ -152,6 +152,42 @@ def test_get_thumbnail_url_with_book_has_cover() -> None:
         assert result == "/api/books/123/cover"
 
 
+def test_get_thumbnail_url_with_cover_path_exists() -> None:
+    """Test get_thumbnail_url includes cache-busting parameter when cover exists (covers lines 239-240)."""
+    from pathlib import Path
+    from unittest.mock import MagicMock, patch
+
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/tmp/test_library",
+        calibre_db_file="metadata.db",
+    )
+
+    book = Book(
+        id=123,
+        title="Test Book",
+        uuid="test-uuid",
+        has_cover=True,
+        path="Author Name/Test Book (123)",
+    )
+
+    # Mock cover path that exists
+    mock_cover_path = MagicMock(spec=Path)
+    mock_cover_path.exists.return_value = True
+    mock_cover_path.stat.return_value.st_mtime = 1234567890.5
+
+    with (
+        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch.object(BookService, "get_thumbnail_path", return_value=mock_cover_path),
+    ):
+        service = BookService(library)
+        result = service.get_thumbnail_url(book)
+
+        assert result == "/api/books/123/cover?v=1234567890"
+        mock_cover_path.stat.assert_called_once()
+
+
 def test_get_thumbnail_url_with_book_no_cover() -> None:
     """Test get_thumbnail_url returns None when book has no cover (covers lines 126-130)."""
     library = Library(
