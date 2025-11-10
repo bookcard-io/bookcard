@@ -29,6 +29,7 @@ Documentation: https://comicvine.gamespot.com/api/documentation
 from __future__ import annotations
 
 import logging
+import os
 import re
 from typing import TYPE_CHECKING, ClassVar
 from urllib.parse import quote
@@ -64,10 +65,11 @@ class ComicVineProvider(MetadataProvider):
     SOURCE_DESCRIPTION = "ComicVine Books"
     REQUEST_TIMEOUT = 15  # seconds
 
-    # API key from calibre-web (public key, documented in their codebase)
     # Users can override this by setting COMICVINE_API_KEY environment variable
     # or by modifying the provider initialization
-    DEFAULT_API_KEY = "57558043c53943d5d1e96a9ad425b0eb85532ee6"
+    DEFAULT_API_KEY = os.getenv(
+        "COMICVINE_API_KEY", "57558043c53943d5d1e96a9ad425b0eb85532ee6"
+    )
 
     HEADERS: ClassVar[dict[str, str]] = {"User-Agent": "Not Evil Browser"}
 
