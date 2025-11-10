@@ -24,7 +24,10 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
     return (
       <div className="flex flex-col gap-2 w-full">
         {label && (
-          <label htmlFor={props.id} className="text-sm font-medium text-text-a10 leading-normal">
+          <label
+            htmlFor={props.id}
+            className="text-sm font-medium text-text-a10 leading-normal"
+          >
             {label}
           </label>
         )}
@@ -63,12 +66,19 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
           {...props}
         />
         {error && (
-          <span id={`${props.id}-error`} className="text-sm text-danger-a10 leading-normal" role="alert">
+          <span
+            id={`${props.id}-error`}
+            className="text-sm text-danger-a10 leading-normal"
+            role="alert"
+          >
             {error}
           </span>
         )}
         {helperText && !error && (
-          <span id={`${props.id}-helper`} className="text-sm text-text-a30 leading-normal">
+          <span
+            id={`${props.id}-helper`}
+            className="text-sm text-text-a30 leading-normal"
+          >
             {helperText}
           </span>
         )}

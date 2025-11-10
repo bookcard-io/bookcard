@@ -39,10 +39,14 @@ export function FormSection({
           {title}
         </h2>
         {description && (
-          <p className="text-sm text-text-a30 m-0 leading-normal">{description}</p>
+          <p className="text-sm text-text-a30 m-0 leading-normal">
+            {description}
+          </p>
         )}
       </div>
-      <div className="flex flex-col gap-5 md:grid md:grid-cols-3">{children}</div>
+      <div className="flex flex-col gap-5 md:grid md:grid-cols-3">
+        {children}
+      </div>
     </section>
   );
 }
