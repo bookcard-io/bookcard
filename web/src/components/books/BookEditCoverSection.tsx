@@ -1,190 +1,98 @@
 "use client";
 
-import Image from "next/image";
-import { useCallback, useState } from "react";
-import { FullscreenImageModal } from "@/components/common/FullscreenImageModal";
-import { Button } from "@/components/forms/Button";
+import { useCallback } from "react";
+import { useCoverFromUrl } from "@/hooks/useCoverFromUrl";
+import { useCoverUrlInput } from "@/hooks/useCoverUrlInput";
 import type { Book } from "@/types/book";
-import { formatFileSize } from "@/utils/format";
+import { BookCoverActions } from "./BookCoverActions";
+import { BookCoverDisplay } from "./BookCoverDisplay";
 import styles from "./BookEditModal.module.scss";
+import { BookFormatsSection } from "./BookFormatsSection";
+import { CoverUrlInput } from "./CoverUrlInput";
 
 export interface BookEditCoverSectionProps {
   /** Current book being edited. */
   book: Book;
+  /** Staged cover URL (if set from URL input). */
+  stagedCoverUrl?: string | null;
+  /** Callback when cover URL is set. */
+  onCoverUrlSet?: (url: string) => void;
+  /** Callback when URL input visibility changes. */
+  onUrlInputVisibilityChange?: (isVisible: boolean) => void;
 }
 
 /**
  * Cover and formats section component for book edit modal.
  *
  * Displays book cover, cover actions, and file formats.
- * Follows SRP by focusing solely on cover and formats presentation.
+ * Follows SRP by delegating to specialized components.
+ * Uses IOC via hooks and components.
+ *
+ * Parameters
+ * ----------
+ * props : BookEditCoverSectionProps
+ *     Component props including book and callbacks.
  */
-export function BookEditCoverSection({ book }: BookEditCoverSectionProps) {
-  const [isCoverOpen, setIsCoverOpen] = useState(false);
-  const openCover = useCallback(() => setIsCoverOpen(true), []);
-  const closeCover = useCallback(() => setIsCoverOpen(false), []);
+export function BookEditCoverSection({
+  book,
+  stagedCoverUrl,
+  onCoverUrlSet,
+  onUrlInputVisibilityChange,
+}: BookEditCoverSectionProps) {
+  const { isLoading, error, downloadCover, clearError } = useCoverFromUrl({
+    bookId: book.id,
+    onSuccess: (tempUrl) => {
+      onCoverUrlSet?.(tempUrl);
+    },
+  });
+
+  const urlInput = useCoverUrlInput({
+    onVisibilityChange: onUrlInputVisibilityChange,
+    onSubmit: async (url) => {
+      if (!isLoading) {
+        try {
+          await downloadCover(url);
+          urlInput.hide();
+        } catch {
+          // Error is handled by useCoverFromUrl hook
+        }
+      }
+    },
+  });
+
+  const handleUrlChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      urlInput.handleChange(e);
+      clearError();
+    },
+    [urlInput, clearError],
+  );
+
+  // Use staged cover URL if available, otherwise use book's thumbnail_url
+  const displayCoverUrl = stagedCoverUrl || book.thumbnail_url;
 
   return (
     <div className={styles.leftSidebar}>
       <div className={styles.coverContainer}>
-        {book.thumbnail_url ? (
-          <div className={styles.coverWrapper}>
-            <Image
-              src={book.thumbnail_url}
-              alt={`Cover for ${book.title}`}
-              width={200}
-              height={300}
-              className={styles.cover}
-              unoptimized
-            />
-            <div className={styles.coverOverlay}>
-              <button
-                type="button"
-                className={styles.coverActionButton}
-                aria-label="View cover"
-                title="View cover"
-                onClick={openCover}
-              >
-                <span
-                  className="pi pi-arrow-up-right-and-arrow-down-left-from-center"
-                  aria-hidden="true"
-                />
-              </button>
-              <button
-                type="button"
-                className={styles.coverActionButton}
-                aria-label="Delete cover"
-                title="Delete cover"
-              >
-                <span className="pi pi-trash" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className={styles.coverPlaceholder}>
-            <span>No Cover</span>
-          </div>
-        )}
-        <FullscreenImageModal
-          src={book.thumbnail_url || ""}
-          alt={`Cover for ${book.title}`}
-          isOpen={isCoverOpen}
-          onClose={closeCover}
+        <BookCoverDisplay book={book} coverUrl={displayCoverUrl} />
+        <BookCoverActions
+          isUrlInputVisible={urlInput.isVisible}
+          onSetFromUrlClick={urlInput.show}
+          urlInput={
+            urlInput.isVisible ? (
+              <CoverUrlInput
+                value={urlInput.value}
+                disabled={isLoading}
+                error={error}
+                inputRef={urlInput.inputRef}
+                onChange={handleUrlChange}
+                onKeyDown={urlInput.handleKeyDown}
+              />
+            ) : undefined
+          }
         />
-        <div className={styles.coverActions}>
-          <Button
-            type="button"
-            variant="ghost"
-            size="small"
-            className={styles.coverAction}
-          >
-            <span className="pi pi-image" aria-hidden="true" />
-            Select cover
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="small"
-            className={styles.coverAction}
-          >
-            <span className="pi pi-link" aria-hidden="true" />
-            Set cover from URL
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="small"
-            className={styles.coverAction}
-          >
-            <span className="pi pi-download" aria-hidden="true" />
-            Download cover
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="small"
-            className={styles.coverAction}
-          >
-            <span className="pi pi-sparkles" aria-hidden="true" />
-            Generate cover
-          </Button>
-        </div>
       </div>
-
-      {/* Formats Section */}
-      <div className={styles.formatsSection}>
-        <h3 className={styles.formatsTitle}>Formats</h3>
-        {book.formats && book.formats.length > 0 ? (
-          <div className={styles.formatsList}>
-            {book.formats.map((file) => (
-              <div
-                key={`${file.format}-${file.size}`}
-                className={styles.formatItem}
-              >
-                <div className={styles.formatIcon}>
-                  {file.format.toUpperCase()}
-                </div>
-                <div className={styles.formatInfo}>
-                  <span className={styles.formatName}>
-                    {file.format.toUpperCase()}
-                  </span>
-                  <span className={styles.formatSize}>
-                    {formatFileSize(file.size)}
-                  </span>
-                </div>
-                <div className={styles.formatActions}>
-                  <button
-                    type="button"
-                    className={styles.formatActionButton}
-                    aria-label={`Info for ${file.format.toUpperCase()}`}
-                    title={`Info for ${file.format.toUpperCase()}`}
-                  >
-                    <span className="pi pi-info-circle" aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.formatActionButton}
-                    aria-label={`Copy ${file.format.toUpperCase()}`}
-                    title={`Copy ${file.format.toUpperCase()}`}
-                  >
-                    <span className="pi pi-copy" aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.formatActionButton}
-                    aria-label={`Delete ${file.format.toUpperCase()}`}
-                    title={`Delete ${file.format.toUpperCase()}`}
-                  >
-                    <span className="pi pi-trash" aria-hidden="true" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className={styles.noFormats}>No formats available</div>
-        )}
-        <div className={styles.formatButtons}>
-          <Button
-            type="button"
-            variant="ghost"
-            size="small"
-            className={styles.formatAction}
-          >
-            <span className="pi pi-plus" aria-hidden="true" />
-            Add new format
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="small"
-            className={styles.formatAction}
-          >
-            <span className="pi pi-arrow-right-arrow-left" aria-hidden="true" />
-            Convert
-          </Button>
-        </div>
-      </div>
+      <BookFormatsSection book={book} />
     </div>
   );
 }

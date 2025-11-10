@@ -16,6 +16,7 @@ dependencies = [
     "fastapi>=0.121.0",
     "httpx>=0.28.1",
     "passlib[bcrypt]>=1.7.4",
+    "pillow>=12.0.0",
     "psycopg[binary]>=3.2.12",
     "pydantic[email]>=2.12.4",
     "pyjwt>=2.10.1",

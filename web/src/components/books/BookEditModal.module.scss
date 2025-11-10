@@ -388,6 +388,16 @@
   }
 }
 
+.urlError {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  color: get-theme-color("danger", "a10");
+  font-size: 0.875rem;
+  line-height: 1.5;
+  border-radius: 0.375rem;
+  background-color: get-theme-color("danger", "a20");
+}
+
 // Formats Section
 .formatsSection {
   display: flex;

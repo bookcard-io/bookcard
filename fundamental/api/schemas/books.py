@@ -271,3 +271,29 @@ class BookFilterRequest(BaseModel):
     formats: list[str] | None = Field(default=None)
     rating_ids: list[int] | None = Field(default=None)
     language_ids: list[int] | None = Field(default=None)
+
+
+class CoverFromUrlRequest(BaseModel):
+    """Request to download cover image from URL.
+
+    Attributes
+    ----------
+    url : str
+        URL of the cover image to download.
+    """
+
+    url: str = Field(..., description="URL of the cover image to download")
+
+
+class CoverFromUrlResponse(BaseModel):
+    """Response containing temporary cover image URL.
+
+    Attributes
+    ----------
+    temp_url : str
+        Temporary URL to access the downloaded cover image.
+    """
+
+    temp_url: str = Field(
+        ..., description="Temporary URL to access the downloaded cover image"
+    )

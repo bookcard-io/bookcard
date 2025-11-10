@@ -5,9 +5,11 @@ import { Button } from "@/components/forms/Button";
 import { MetadataFetchModal } from "@/components/metadata";
 import { useBook } from "@/hooks/useBook";
 import { useBookForm } from "@/hooks/useBookForm";
+import { useCoverUrlInput } from "@/hooks/useCoverUrlInput";
 import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
 import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
 import { useModal } from "@/hooks/useModal";
+import { useStagedCoverUrl } from "@/hooks/useStagedCoverUrl";
 import {
   applyBookUpdateToForm,
   convertMetadataRecordToBookUpdate,
@@ -31,6 +33,11 @@ export interface BookEditModalProps {
  * Displays a comprehensive form for editing book metadata in a modal overlay.
  * Follows SRP by delegating to specialized components.
  * Uses IOC via hooks and components.
+ *
+ * Parameters
+ * ----------
+ * props : BookEditModalProps
+ *     Component props including book ID and close callback.
  */
 export function BookEditModal({ bookId, onClose }: BookEditModalProps) {
   const { book, isLoading, error, updateBook, isUpdating, updateError } =
@@ -47,6 +54,13 @@ export function BookEditModal({ bookId, onClose }: BookEditModalProps) {
     });
 
   const [showMetadataModal, setShowMetadataModal] = useState(false);
+
+  const { stagedCoverUrl, setStagedCoverUrl, clearStagedCoverUrl } =
+    useStagedCoverUrl({
+      bookId,
+    });
+
+  const urlInput = useCoverUrlInput();
 
   /**
    * Handles metadata record selection and populates the form.
@@ -67,9 +81,26 @@ export function BookEditModal({ bookId, onClose }: BookEditModalProps) {
     [handleFieldChange],
   );
 
+  const handleClose = useCallback(() => {
+    // Reset staged cover URL and URL input when closing
+    clearStagedCoverUrl();
+    urlInput.hide();
+    onClose();
+  }, [clearStagedCoverUrl, urlInput, onClose]);
+
+  const handleEscape = useCallback(() => {
+    // If URL input is visible, hide it first
+    if (urlInput.isVisible) {
+      urlInput.hide();
+      return;
+    }
+    // Otherwise, close the modal
+    handleClose();
+  }, [urlInput, handleClose]);
+
   // Handle keyboard navigation
   useKeyboardNavigation({
-    onEscape: onClose,
+    onEscape: handleEscape,
     enabled: !isLoading && !!book && bookId !== null,
   });
 
@@ -79,10 +110,10 @@ export function BookEditModal({ bookId, onClose }: BookEditModalProps) {
   const handleOverlayClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (e.target === e.currentTarget) {
-        onClose();
+        handleClose();
       }
     },
-    [onClose],
+    [handleClose],
   );
 
   const handleModalClick = useCallback(
@@ -140,7 +171,7 @@ export function BookEditModal({ bookId, onClose }: BookEditModalProps) {
         >
           <div className={styles.error}>
             {error || "Book not found"}
-            <Button onClick={onClose} variant="secondary" size="medium">
+            <Button onClick={handleClose} variant="secondary" size="medium">
               Close
             </Button>
           </div>
@@ -170,7 +201,7 @@ export function BookEditModal({ bookId, onClose }: BookEditModalProps) {
       >
         <button
           type="button"
-          onClick={onClose}
+          onClick={handleClose}
           className={styles.closeButton}
           aria-label="Close"
         >
@@ -194,7 +225,18 @@ export function BookEditModal({ bookId, onClose }: BookEditModalProps) {
 
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.content}>
-            <BookEditCoverSection book={book} />
+            <BookEditCoverSection
+              book={book}
+              stagedCoverUrl={stagedCoverUrl}
+              onCoverUrlSet={setStagedCoverUrl}
+              onUrlInputVisibilityChange={(isVisible) => {
+                if (isVisible) {
+                  urlInput.show();
+                } else {
+                  urlInput.hide();
+                }
+              }}
+            />
             <BookEditFormFields
               book={book}
               formData={formData}
@@ -207,7 +249,7 @@ export function BookEditModal({ bookId, onClose }: BookEditModalProps) {
             showSuccess={showSuccess}
             isUpdating={isUpdating}
             hasChanges={hasChanges}
-            onCancel={onClose}
+            onCancel={handleClose}
           />
         </form>
       </div>

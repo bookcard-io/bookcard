@@ -24,11 +24,17 @@
 
 from __future__ import annotations
 
+import hashlib
+import io
 import math
+import tempfile
+from pathlib import Path
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import FileResponse
+from PIL import Image
 from sqlmodel import Session
 
 from fundamental.api.deps import get_db_session
@@ -37,6 +43,8 @@ from fundamental.api.schemas import (
     BookListResponse,
     BookRead,
     BookUpdate,
+    CoverFromUrlRequest,
+    CoverFromUrlResponse,
     FilterSuggestionsResponse,
     SearchSuggestionItem,
     SearchSuggestionsResponse,
@@ -603,6 +611,218 @@ def download_book_file(
         path=str(file_path),
         media_type=media_type,
         filename=filename,
+    )
+
+
+# Temporary cover storage (in-memory for now, could be moved to disk/DB)
+_temp_cover_storage: dict[str, Path] = {}
+
+
+def _validate_cover_url_request(
+    session: SessionDep,
+    book_id: int,
+    url: str,
+) -> None:
+    """Validate book existence and URL format.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+    book_id : int
+        Calibre book ID.
+    url : str
+        Image URL to validate.
+
+    Raises
+    ------
+    HTTPException
+        If book not found (404) or URL is invalid (400).
+    """
+    book_service = _get_active_library_service(session)
+    book_with_rels = book_service.get_book(book_id)
+
+    if book_with_rels is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="book_not_found",
+        )
+
+    if not url:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="url_required",
+        )
+
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="invalid_url_format",
+        )
+
+
+def _download_and_validate_image(url: str) -> tuple[bytes, Image.Image]:
+    """Download image from URL and validate it.
+
+    Parameters
+    ----------
+    url : str
+        Image URL to download.
+
+    Returns
+    -------
+    tuple[bytes, Image.Image]
+        Image content bytes and PIL Image object.
+
+    Raises
+    ------
+    HTTPException
+        If download fails (400) or image is invalid (400).
+    """
+    try:
+        with httpx.Client(timeout=30.0, follow_redirects=True) as client:
+            response = client.get(url)
+            response.raise_for_status()
+
+            content_type = response.headers.get("content-type", "").lower()
+            if not content_type.startswith("image/"):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="url_not_an_image",
+                )
+
+            try:
+                image = Image.open(io.BytesIO(response.content))
+                image.verify()
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="invalid_image_format",
+                ) from exc
+            else:
+                # Reopen image after verify() closes it
+                image = Image.open(io.BytesIO(response.content))
+                return response.content, image
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"failed_to_download_image: {exc!s}",
+        ) from exc
+
+
+def _save_image_to_temp(content: bytes, image: Image.Image) -> str:
+    """Save image to temporary location and return URL.
+
+    Parameters
+    ----------
+    content : bytes
+        Image content bytes.
+    image : Image.Image
+        PIL Image object.
+
+    Returns
+    -------
+    str
+        Temporary URL to access the image.
+    """
+    content_hash = hashlib.sha256(content).hexdigest()[:16]
+    file_extension = image.format.lower() if image.format else "jpg"
+    if file_extension not in ("jpg", "jpeg", "png", "webp"):
+        file_extension = "jpg"
+
+    temp_dir = Path(tempfile.gettempdir()) / "calibre_covers"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    temp_filename = f"{content_hash}.{file_extension}"
+    temp_path = temp_dir / temp_filename
+
+    temp_path.write_bytes(content)
+    _temp_cover_storage[content_hash] = temp_path
+
+    return f"/api/books/temp-covers/{content_hash}.{file_extension}"
+
+
+@router.post("/{book_id}/cover-from-url", response_model=CoverFromUrlResponse)
+def download_cover_from_url(
+    session: SessionDep,
+    book_id: int,
+    request: CoverFromUrlRequest,
+) -> CoverFromUrlResponse:
+    """Download cover image from URL and save to temporary location.
+
+    Downloads an image from the provided URL, validates it's an image,
+    saves it to a temporary location with a hash-based filename, and
+    returns a URL to access it.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+    book_id : int
+        Calibre book ID.
+    request : CoverFromUrlRequest
+        Request containing the image URL.
+
+    Returns
+    -------
+    CoverFromUrlResponse
+        Response containing temporary URL to access the downloaded image.
+
+    Raises
+    ------
+    HTTPException
+        If book not found (404), URL is invalid (400), image download fails (400),
+        or image validation fails (400).
+    """
+    url = request.url.strip()
+    _validate_cover_url_request(session, book_id, url)
+
+    try:
+        content, image = _download_and_validate_image(url)
+        temp_url = _save_image_to_temp(content, image)
+        return CoverFromUrlResponse(temp_url=temp_url)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"internal_error: {exc!s}",
+        ) from exc
+
+
+@router.get("/temp-covers/{hash_and_ext}", response_model=None)
+def get_temp_cover(
+    hash_and_ext: str,
+) -> FileResponse | Response:
+    """Serve temporary cover image.
+
+    Parameters
+    ----------
+    hash_and_ext : str
+        Hash and extension (e.g., "abc123def456.jpg").
+
+    Returns
+    -------
+    FileResponse | Response
+        Cover image file or 404 response.
+    """
+    # Extract hash from filename
+    if "." not in hash_and_ext:
+        return Response(status_code=status.HTTP_404_NOT_FOUND)
+
+    content_hash = hash_and_ext.rsplit(".", 1)[0]
+
+    if content_hash not in _temp_cover_storage:
+        return Response(status_code=status.HTTP_404_NOT_FOUND)
+
+    temp_path = _temp_cover_storage[content_hash]
+    if not temp_path.exists():
+        # Clean up stale entry
+        _temp_cover_storage.pop(content_hash, None)
+        return Response(status_code=status.HTTP_404_NOT_FOUND)
+
+    return FileResponse(
+        path=str(temp_path),
+        media_type="image/jpeg",
     )
 
 
