@@ -5,7 +5,6 @@ import { Button } from "@/components/forms/Button";
 import { MetadataFetchModal } from "@/components/metadata";
 import { useBook } from "@/hooks/useBook";
 import { useBookForm } from "@/hooks/useBookForm";
-import { useCoverUrlInput } from "@/hooks/useCoverUrlInput";
 import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
 import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
 import { useModal } from "@/hooks/useModal";
@@ -60,8 +59,6 @@ export function BookEditModal({ bookId, onClose }: BookEditModalProps) {
       bookId,
     });
 
-  const urlInput = useCoverUrlInput();
-
   /**
    * Handles metadata record selection and populates the form.
    *
@@ -82,21 +79,17 @@ export function BookEditModal({ bookId, onClose }: BookEditModalProps) {
   );
 
   const handleClose = useCallback(() => {
-    // Reset staged cover URL and URL input when closing
+    // Reset staged cover URL when closing
+    // URL input state is managed internally by BookEditCoverSection
     clearStagedCoverUrl();
-    urlInput.hide();
     onClose();
-  }, [clearStagedCoverUrl, urlInput, onClose]);
+  }, [clearStagedCoverUrl, onClose]);
 
   const handleEscape = useCallback(() => {
-    // If URL input is visible, hide it first
-    if (urlInput.isVisible) {
-      urlInput.hide();
-      return;
-    }
-    // Otherwise, close the modal
+    // URL input handles its own Escape key via useCoverUrlInput's handleKeyDown
+    // So we can directly close the modal
     handleClose();
-  }, [urlInput, handleClose]);
+  }, [handleClose]);
 
   // Handle keyboard navigation
   useKeyboardNavigation({
@@ -229,13 +222,6 @@ export function BookEditModal({ bookId, onClose }: BookEditModalProps) {
               book={book}
               stagedCoverUrl={stagedCoverUrl}
               onCoverUrlSet={setStagedCoverUrl}
-              onUrlInputVisibilityChange={(isVisible) => {
-                if (isVisible) {
-                  urlInput.show();
-                } else {
-                  urlInput.hide();
-                }
-              }}
             />
             <BookEditFormFields
               book={book}

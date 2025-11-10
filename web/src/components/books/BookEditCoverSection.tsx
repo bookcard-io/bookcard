@@ -1,8 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
-import { useCoverFromUrl } from "@/hooks/useCoverFromUrl";
-import { useCoverUrlInput } from "@/hooks/useCoverUrlInput";
+import { useBookCoverFromUrl } from "@/hooks/useBookCoverFromUrl";
 import type { Book } from "@/types/book";
 import { BookCoverActions } from "./BookCoverActions";
 import { BookCoverDisplay } from "./BookCoverDisplay";
@@ -39,34 +37,12 @@ export function BookEditCoverSection({
   onCoverUrlSet,
   onUrlInputVisibilityChange,
 }: BookEditCoverSectionProps) {
-  const { isLoading, error, downloadCover, clearError } = useCoverFromUrl({
-    bookId: book.id,
-    onSuccess: (tempUrl) => {
-      onCoverUrlSet?.(tempUrl);
-    },
-  });
-
-  const urlInput = useCoverUrlInput({
-    onVisibilityChange: onUrlInputVisibilityChange,
-    onSubmit: async (url) => {
-      if (!isLoading) {
-        try {
-          await downloadCover(url);
-          urlInput.hide();
-        } catch {
-          // Error is handled by useCoverFromUrl hook
-        }
-      }
-    },
-  });
-
-  const handleUrlChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      urlInput.handleChange(e);
-      clearError();
-    },
-    [urlInput, clearError],
-  );
+  const { isLoading, error, urlInput, handleUrlChange, handleSetFromUrlClick } =
+    useBookCoverFromUrl({
+      bookId: book.id,
+      onCoverUrlSet,
+      onUrlInputVisibilityChange,
+    });
 
   // Use staged cover URL if available, otherwise use book's thumbnail_url
   const displayCoverUrl = stagedCoverUrl || book.thumbnail_url;
@@ -81,7 +57,7 @@ export function BookEditCoverSection({
         />
         <BookCoverActions
           isUrlInputVisible={urlInput.isVisible}
-          onSetFromUrlClick={urlInput.show}
+          onSetFromUrlClick={handleSetFromUrlClick}
           urlInput={
             urlInput.isVisible ? (
               <CoverUrlInput
