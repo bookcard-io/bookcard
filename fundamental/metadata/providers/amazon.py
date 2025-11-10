@@ -177,17 +177,22 @@ class AmazonProvider(MetadataProvider):
 
                 # Sort by original order for relevance
                 records.sort(key=lambda x: x[1])
-                return [record[0] for record in records]
-
+                result = [record[0] for record in records]
         except httpx.TimeoutException as e:
             msg = f"Amazon search request timed out: {e}"
             raise MetadataProviderTimeoutError(msg) from e
-        except httpx.RequestError as e:
+        except (
+            httpx.HTTPStatusError,
+            httpx.HTTPError,
+            httpx.RequestError,
+        ) as e:
             msg = f"Amazon search request failed: {e}"
             raise MetadataProviderNetworkError(msg) from e
         except (ValueError, TypeError, AttributeError) as e:
             msg = f"Failed to parse Amazon search results: {e}"
             raise MetadataProviderParseError(msg) from e
+        else:
+            return result
 
     def _extract_search_result_links(self, soup: BeautifulSoup) -> list[str]:
         """Extract book detail page links from search results.
@@ -236,96 +241,176 @@ class AmazonProvider(MetadataProvider):
         """
         results: list[tuple[MetadataRecord, int]] = []
 
-        def fetch_detail(link: str, index: int) -> tuple[MetadataRecord, int] | None:
-            """Fetch and parse a single book detail page.
-
-            Parameters
-            ----------
-            link : str
-                Relative URL to book detail page.
-            index : int
-                Original index in search results.
-
-            Returns
-            -------
-            tuple[MetadataRecord, int] | None
-                Parsed metadata record with index, or None if parsing fails.
-            """
-            try:
-                url = f"{self.BASE_URL}{link}"
-                response = client.get(url, headers=self.HEADERS)
-                response.raise_for_status()
-
-                soup = BeautifulSoup(response.text, "html.parser")
-
-                # Try to find the detail section - Amazon's HTML structure may vary
-                detail_section = soup.find(
-                    "div",
-                    attrs={"cel_widget_id": "dpx-ppd_csm_instrumentation_wrapper"},
-                )
-
-                # If primary selector fails, try fallback: use dp-container or whole soup
-                if detail_section is None:
-                    # Try dp-container as fallback
-                    detail_section = soup.find("div", attrs={"id": "dp-container"})
-                    if detail_section is None:
-                        # Last resort: use the whole soup
-                        detail_section = soup
-
-                # Extract description first - if missing, it's likely not a book
-                description = self._extract_description(detail_section)
-                if description is None:
-                    return None
-
-                # Extract other fields
-                title = self._extract_title(detail_section)
-                authors = self._extract_authors(detail_section)
-                rating = self._extract_rating(detail_section)
-                cover_url = self._extract_cover_url(detail_section)
-
-                # Extract external ID from URL (ASIN)
-                external_id = self._extract_asin(link)
-
-                return (
-                    MetadataRecord(
-                        source_id=self.SOURCE_ID,
-                        external_id=external_id,
-                        title=title,
-                        authors=authors,
-                        url=url,
-                        cover_url=cover_url,
-                        description=description,
-                        rating=rating,
-                        # Amazon doesn't reliably provide these fields
-                        series=None,
-                        series_index=None,
-                        identifiers={},
-                        publisher=None,
-                        published_date=None,
-                        languages=[],
-                        tags=[],
-                    ),
-                    index,
-                )
-
-            except (httpx.RequestError, AttributeError, ValueError, TypeError):
-                return None
-
         # Fetch details concurrently
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.MAX_WORKERS
         ) as executor:
             futures = {
-                executor.submit(fetch_detail, link, index)
+                executor.submit(self._fetch_single_book_detail, link, index, client)
                 for index, link in enumerate(links)
             }
 
             for future in concurrent.futures.as_completed(futures):
-                result = future.result()
-                if result is not None:
-                    results.append(result)
+                try:
+                    result = future.result()
+                    if result is not None:
+                        results.append(result)
+                except (
+                    httpx.HTTPStatusError,
+                    httpx.HTTPError,
+                    httpx.RequestError,
+                    AttributeError,
+                    ValueError,
+                    TypeError,
+                    concurrent.futures.CancelledError,
+                ) as e:
+                    # Safety net: catch exceptions that might have escaped
+                    # the inner try-except block (shouldn't happen, but defensive)
+                    logger.warning(
+                        "Unexpected error in Amazon detail fetch future: %s",
+                        e,
+                        exc_info=True,
+                    )
 
         return results
+
+    def _fetch_single_book_detail(
+        self, link: str, index: int, client: httpx.Client
+    ) -> tuple[MetadataRecord, int] | None:
+        """Fetch and parse a single book detail page.
+
+        Parameters
+        ----------
+        link : str
+            Relative URL to book detail page.
+        index : int
+            Original index in search results.
+        client : httpx.Client
+            HTTP client for making requests.
+
+        Returns
+        -------
+        tuple[MetadataRecord, int] | None
+            Parsed metadata record with index, or None if parsing fails.
+        """
+        try:
+            url = f"{self.BASE_URL}{link}"
+            response = client.get(url, headers=self.HEADERS)
+            response.raise_for_status()
+
+            soup = BeautifulSoup(response.text, "html.parser")
+            detail_section = self._find_detail_section(soup)
+
+            # Extract description first - if missing, it's likely not a book
+            description = self._extract_description(detail_section)
+            if description is None:
+                return None
+            record = self._create_metadata_record(
+                link, url, detail_section, description
+            )
+
+        except (
+            httpx.HTTPStatusError,
+            httpx.HTTPError,
+            httpx.RequestError,
+            AttributeError,
+            ValueError,
+            TypeError,
+        ) as e:
+            self._log_http_error(e)
+            return None
+        else:
+            return (record, index)
+
+    def _find_detail_section(self, soup: BeautifulSoup) -> BeautifulSoup:
+        """Find the detail section in Amazon's HTML structure.
+
+        Parameters
+        ----------
+        soup : BeautifulSoup
+            Parsed HTML of the book detail page.
+
+        Returns
+        -------
+        BeautifulSoup
+            The detail section element, or the whole soup as fallback.
+        """
+        detail_section = soup.find(
+            "div",
+            attrs={"cel_widget_id": "dpx-ppd_csm_instrumentation_wrapper"},
+        )
+        if detail_section is not None:
+            return detail_section
+
+        detail_section = soup.find("div", attrs={"id": "dp-container"})
+        if detail_section is not None:
+            return detail_section
+
+        return soup
+
+    def _create_metadata_record(
+        self, link: str, url: str, detail_section: BeautifulSoup, description: str
+    ) -> MetadataRecord:
+        """Create a metadata record from extracted data.
+
+        Parameters
+        ----------
+        link : str
+            Relative URL to book detail page.
+        url : str
+            Full URL to book detail page.
+        detail_section : BeautifulSoup
+            Parsed HTML section containing book details.
+        description : str
+            Book description.
+
+        Returns
+        -------
+        MetadataRecord
+            Metadata record for the book.
+        """
+        title = self._extract_title(detail_section)
+        authors = self._extract_authors(detail_section)
+        rating = self._extract_rating(detail_section)
+        cover_url = self._extract_cover_url(detail_section)
+        external_id = self._extract_asin(link)
+
+        return MetadataRecord(
+            source_id=self.SOURCE_ID,
+            external_id=external_id,
+            title=title,
+            authors=authors,
+            url=url,
+            cover_url=cover_url,
+            description=description,
+            rating=rating,
+            # Amazon doesn't reliably provide these fields
+            series=None,
+            series_index=None,
+            identifiers={},
+            publisher=None,
+            published_date=None,
+            languages=[],
+            tags=[],
+        )
+
+    def _log_http_error(self, error: Exception) -> None:
+        """Log HTTP errors for debugging.
+
+        Parameters
+        ----------
+        error : Exception
+            The HTTP error that occurred.
+        """
+        if isinstance(error, httpx.HTTPStatusError):
+            status_code = error.response.status_code if error.response else "unknown"
+            logger.debug(
+                "Failed to fetch Amazon book detail page: %s (status: %s)",
+                error,
+                status_code,
+            )
+        elif isinstance(error, httpx.HTTPError):
+            logger.debug("Failed to fetch Amazon book detail page: %s", error)
 
     def _extract_title(self, soup: BeautifulSoup) -> str:
         """Extract book title from detail page.
