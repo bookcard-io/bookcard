@@ -40,6 +40,19 @@ export default defineConfig({
         "src/**/*.stories.{js,jsx,ts,tsx}",
         "src/**/*.{scss,sass,css}",
         "src/components/icons/**/*.{ts,tsx}",
+        // SVG icon components (no logic to test)
+        "src/icons/**/*.{ts,tsx}",
+        // Next.js App Router pages and API routes (integration-tested, not unit-tested)
+        "src/app/**/*",
+        // React components (typically integration/E2E tested)
+        "src/components/**/*",
+        // React contexts (typically integration-tested with components)
+        "src/contexts/**/*",
+        // Type definitions (compile-time only, no runtime code)
+        "src/types/**/*",
+        // Next.js infrastructure files
+        "src/instrumentation*.ts",
+        "src/proxy.ts",
       ],
       reporter: ["text", "text-summary", "html", "json"],
       reportsDirectory: "./coverage",

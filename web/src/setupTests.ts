@@ -1,5 +1,5 @@
 import { cleanup } from "@testing-library/react";
-import { afterEach } from "vitest";
+import { afterEach, vi } from "vitest";
 
 // Provide process.env for browser tests (Next.js requires it)
 // This must be done before any Next.js modules are imported
@@ -11,6 +11,25 @@ if (typeof globalThis.process === "undefined") {
     writable: true,
     configurable: true,
   });
+}
+
+// Ensure JSON is available in browser test environment
+if (typeof globalThis.JSON === "undefined") {
+  if (typeof window !== "undefined" && window.JSON) {
+    vi.stubGlobal("JSON", window.JSON);
+  } else {
+    // Fallback: provide a minimal JSON implementation if neither is available
+    // This should not happen in normal browser environments
+    vi.stubGlobal("JSON", {
+      stringify: (value: any) => {
+        // This is a minimal implementation - in practice, browsers always have JSON
+        throw new Error("JSON.stringify not available - this should not happen");
+      },
+      parse: (text: string) => {
+        throw new Error("JSON.parse not available - this should not happen");
+      },
+    });
+  }
 }
 
 // ensure cleanup runs after each test in Vitest (browser and node)

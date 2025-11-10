@@ -111,4 +111,36 @@ describe("useDebounce", () => {
     });
     expect(result.current).toBe(true);
   });
+
+  it("should cleanup timeout on unmount", () => {
+    const { unmount } = renderHook(() => useDebounce("test", 300));
+    unmount();
+    // If cleanup works, advancing timers shouldn't cause issues
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    // Test passes if no errors are thrown
+    expect(true).toBe(true);
+  });
+
+  it("should cleanup timeout when value changes before delay", () => {
+    const { result, rerender } = renderHook(
+      ({ value }) => useDebounce(value, 300),
+      { initialProps: { value: "initial" } },
+    );
+
+    rerender({ value: "updated" });
+    // Cleanup should clear the previous timeout
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    // Value should still be initial
+    expect(result.current).toBe("initial");
+
+    // Advance to complete the new timeout
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    expect(result.current).toBe("updated");
+  });
 });

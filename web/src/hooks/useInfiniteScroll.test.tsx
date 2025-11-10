@@ -169,4 +169,42 @@ describe("useInfiniteScroll", () => {
 
     expect(testDisconnect).toHaveBeenCalled();
   });
+
+  it("should not call onLoadMore when entry is not intersecting", () => {
+    let intersectionCallback:
+      | ((entries: IntersectionObserverEntry[]) => void)
+      | undefined;
+
+    const testObserveFn = vi.fn();
+    const testDisconnectFn = vi.fn();
+    class IntersectionObserverMock {
+      observe = testObserveFn;
+      disconnect = testDisconnectFn;
+      constructor(callback: (entries: IntersectionObserverEntry[]) => void) {
+        intersectionCallback = callback;
+      }
+    }
+    vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
+
+    const TestComponent = () => {
+      const ref = useInfiniteScroll({ onLoadMore });
+      return (
+        <div ref={ref} data-testid="sentinel">
+          Sentinel
+        </div>
+      );
+    };
+
+    render(<TestComponent />);
+
+    const mockEntry = {
+      isIntersecting: false,
+    } as IntersectionObserverEntry;
+
+    if (intersectionCallback) {
+      intersectionCallback([mockEntry]);
+    }
+
+    expect(onLoadMore).not.toHaveBeenCalled();
+  });
 });

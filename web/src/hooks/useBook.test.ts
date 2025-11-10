@@ -204,4 +204,97 @@ describe("useBook", () => {
 
     expect(updateResult).toBeNull();
   });
+
+  it("should handle error without detail field", async () => {
+    const mockResponse = {
+      ok: false,
+      json: vi.fn().mockResolvedValue({}),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockResponse,
+    );
+
+    const { result } = renderHook(() => useBook({ bookId: 1 }));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.error).toBe("Failed to fetch book");
+    expect(result.current.book).toBeNull();
+  });
+
+  it("should handle update error without detail field", async () => {
+    const mockResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockBook),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockResponse,
+    );
+
+    const { result } = renderHook(() => useBook({ bookId: 1 }));
+
+    await waitFor(() => {
+      expect(result.current.book).toEqual(mockBook);
+    });
+
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: false,
+      json: vi.fn().mockResolvedValue({}),
+    });
+
+    const updateResult = await result.current.updateBook({
+      title: "Updated Title",
+    });
+
+    await waitFor(() => {
+      expect(result.current.updateError).toBe("Failed to update book");
+      expect(updateResult).toBeNull();
+    });
+  });
+
+  it("should handle non-Error exception in fetch catch", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(
+      "String error",
+    );
+
+    const { result } = renderHook(() => useBook({ bookId: 1 }));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.error).toBe("Unknown error");
+    expect(result.current.book).toBeNull();
+  });
+
+  it("should handle non-Error exception in update catch", async () => {
+    const mockResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockBook),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockResponse,
+    );
+
+    const { result } = renderHook(() => useBook({ bookId: 1 }));
+
+    await waitFor(() => {
+      expect(result.current.book).toEqual(mockBook);
+    });
+
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(
+      "String error",
+    );
+
+    const updateResult = await result.current.updateBook({
+      title: "Updated Title",
+    });
+
+    await waitFor(() => {
+      expect(result.current.updateError).toBe("Unknown error");
+      expect(updateResult).toBeNull();
+    });
+  });
 });

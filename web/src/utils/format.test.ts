@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { formatDate, formatFileSize, formatYear } from "./format";
 
 describe("format utils", () => {
@@ -57,6 +57,26 @@ describe("format utils", () => {
       expect(result).toBe(invalidDate);
     });
 
+    it("should handle date that creates NaN", () => {
+      // Create a date string that will result in NaN when parsed
+      const invalidDate = "Invalid Date";
+      const result = formatDate(invalidDate);
+      expect(result).toBe(invalidDate);
+    });
+
+    it("should handle exception in date parsing", () => {
+      // Mock toLocaleDateString to throw an error to test catch block
+      const originalToLocaleDateString = Date.prototype.toLocaleDateString;
+      Date.prototype.toLocaleDateString = vi.fn(() => {
+        throw new Error("toLocaleDateString failed");
+      });
+
+      const result = formatDate("2024-01-15");
+      expect(result).toBe("2024-01-15"); // Should return original string on error
+
+      Date.prototype.toLocaleDateString = originalToLocaleDateString;
+    });
+
     it("should format different dates correctly", () => {
       // Handle timezone differences
       expect(formatDate("2023-06-01")).toMatch(/May (31|June 1), 2023/);
@@ -82,6 +102,19 @@ describe("format utils", () => {
     it("should return '—' for invalid date string", () => {
       const invalidDate = "not-a-date";
       expect(formatYear(invalidDate)).toBe("—");
+    });
+
+    it("should handle exception in date parsing", () => {
+      // Mock getFullYear to throw an error to test catch block
+      const originalGetFullYear = Date.prototype.getFullYear;
+      Date.prototype.getFullYear = vi.fn(() => {
+        throw new Error("getFullYear failed");
+      });
+
+      const result = formatYear("2024-01-15");
+      expect(result).toBe("—"); // Should return "—" on error
+
+      Date.prototype.getFullYear = originalGetFullYear;
     });
 
     it("should extract year from different dates", () => {

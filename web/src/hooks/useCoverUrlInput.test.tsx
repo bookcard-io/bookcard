@@ -134,4 +134,34 @@ describe("useCoverUrlInput", () => {
     expect(result.current.inputRef).toBeDefined();
     expect(result.current.inputRef.current).toBeNull();
   });
+
+  it("should auto-focus input when visible", () => {
+    const { result } = renderHook(() => useCoverUrlInput());
+    const mockFocus = vi.fn();
+    const mockInput = {
+      focus: mockFocus,
+    } as unknown as HTMLInputElement;
+
+    act(() => {
+      result.current.show();
+    });
+
+    // Set the ref to simulate input being rendered
+    act(() => {
+      result.current.inputRef.current = mockInput;
+    });
+
+    // Trigger the effect by showing again
+    act(() => {
+      result.current.hide();
+      result.current.show();
+    });
+
+    // Advance timers to trigger setTimeout
+    act(() => {
+      vi.advanceTimersByTime(10);
+    });
+
+    expect(mockFocus).toHaveBeenCalled();
+  });
 });

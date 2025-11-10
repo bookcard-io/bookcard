@@ -252,4 +252,375 @@ describe("useBookForm", () => {
 
     expect(updateBook).not.toHaveBeenCalled();
   });
+
+  it("should reset showSuccess when book ID changes and not just updated", () => {
+    const book1 = { ...mockBook, id: 1 };
+    const book2 = { ...mockBook, id: 2 };
+    const { result, rerender } = renderHook(
+      ({ book }) => useBookForm({ book, updateBook }),
+      { initialProps: { book: book1 } },
+    );
+
+    // Set success state
+    act(() => {
+      result.current.handleSubmit({ preventDefault: vi.fn() } as any);
+    });
+
+    // Change to different book ID
+    rerender({ book: book2 });
+
+    // showSuccess should be reset
+    expect(result.current.showSuccess).toBe(false);
+  });
+
+  it("should set language_codes to null when empty array", async () => {
+    const { result } = renderHook(() =>
+      useBookForm({ book: mockBook, updateBook }),
+    );
+
+    act(() => {
+      result.current.handleFieldChange("language_codes", []);
+    });
+
+    await act(async () => {
+      await result.current.handleSubmit({
+        preventDefault: vi.fn(),
+      } as any);
+    });
+
+    expect(updateBook).toHaveBeenCalledWith(
+      expect.objectContaining({
+        language_codes: null,
+      }),
+    );
+  });
+
+  it("should set identifiers to null when empty array", async () => {
+    const { result } = renderHook(() =>
+      useBookForm({ book: mockBook, updateBook }),
+    );
+
+    act(() => {
+      result.current.handleFieldChange("identifiers", []);
+    });
+
+    await act(async () => {
+      await result.current.handleSubmit({
+        preventDefault: vi.fn(),
+      } as any);
+    });
+
+    expect(updateBook).toHaveBeenCalledWith(
+      expect.objectContaining({
+        identifiers: null,
+      }),
+    );
+  });
+
+  it("should handle updateBook returning null", async () => {
+    updateBook.mockResolvedValue(null);
+
+    const { result } = renderHook(() =>
+      useBookForm({ book: mockBook, updateBook }),
+    );
+
+    act(() => {
+      result.current.handleFieldChange("title", "Updated Title");
+    });
+
+    const submitEvent = {
+      preventDefault: vi.fn(),
+    } as unknown as React.FormEvent;
+
+    await act(async () => {
+      await result.current.handleSubmit(submitEvent);
+    });
+
+    expect(updateBook).toHaveBeenCalled();
+    expect(result.current.hasChanges).toBe(true); // Should remain true since update failed
+    expect(result.current.showSuccess).toBe(false); // Should not show success
+  });
+
+  it("should handle book with null pubdate", () => {
+    const bookWithNullPubdate = {
+      ...mockBook,
+      pubdate: null,
+    };
+
+    const { result } = renderHook(() =>
+      useBookForm({ book: bookWithNullPubdate, updateBook }),
+    );
+
+    expect(result.current.formData.pubdate).toBeNull();
+  });
+
+  it("should handle book with pubdate that doesn't match date pattern", () => {
+    const bookWithInvalidPubdate = {
+      ...mockBook,
+      pubdate: "invalid-date",
+    };
+
+    const { result } = renderHook(() =>
+      useBookForm({ book: bookWithInvalidPubdate, updateBook }),
+    );
+
+    // Should handle gracefully, pubdate might be null or the original value
+    expect(result.current.formData.pubdate).toBeDefined();
+  });
+
+  it("should handle book with ISO string containing time", () => {
+    const bookWithTime = {
+      ...mockBook,
+      pubdate: "2024-01-15T10:30:00Z",
+    };
+
+    const { result } = renderHook(() =>
+      useBookForm({ book: bookWithTime, updateBook }),
+    );
+
+    expect(result.current.formData.pubdate).toBe("2024-01-15");
+  });
+
+  it("should not update form when book ID hasn't changed and not just updated", () => {
+    const { result, rerender } = renderHook(
+      ({ book }) => useBookForm({ book, updateBook }),
+      { initialProps: { book: mockBook } },
+    );
+
+    const initialFormData = { ...result.current.formData };
+
+    // Rerender with same book (same ID)
+    rerender({ book: mockBook });
+
+    // Form data should remain the same
+    expect(result.current.formData).toEqual(initialFormData);
+  });
+
+  it("should handle book update with same ID after successful update", async () => {
+    const updatedBook = { ...mockBook, title: "Updated Title" };
+    updateBook.mockResolvedValue(updatedBook);
+
+    const { result, rerender } = renderHook(
+      ({ book }) => useBookForm({ book, updateBook }),
+      { initialProps: { book: mockBook } },
+    );
+
+    act(() => {
+      result.current.handleFieldChange("title", "Updated Title");
+    });
+
+    const submitEvent = {
+      preventDefault: vi.fn(),
+    } as unknown as React.FormEvent;
+
+    await act(async () => {
+      await result.current.handleSubmit(submitEvent);
+    });
+
+    // Rerender with updated book (same ID)
+    rerender({ book: updatedBook });
+
+    // Form should reflect the updated book
+    expect(result.current.formData.title).toBe("Updated Title");
+  });
+
+  it("should handle pubdate that is not a YYYY-MM-DD string on submit", async () => {
+    const { result } = renderHook(() =>
+      useBookForm({ book: mockBook, updateBook }),
+    );
+
+    act(() => {
+      result.current.handleFieldChange("pubdate", "2024-01-15T10:30:00Z");
+    });
+
+    const submitEvent = {
+      preventDefault: vi.fn(),
+    } as unknown as React.FormEvent;
+
+    await act(async () => {
+      await result.current.handleSubmit(submitEvent);
+    });
+
+    // Should not convert if it's already an ISO string
+    expect(updateBook).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pubdate: "2024-01-15T10:30:00Z",
+      }),
+    );
+  });
+
+  it("should handle book with all optional fields as null", () => {
+    const bookWithNulls = {
+      ...mockBook,
+      description: null,
+      publisher: null,
+      languages: null,
+      rating: null,
+    };
+
+    const { result } = renderHook(() =>
+      useBookForm({ book: bookWithNulls, updateBook }),
+    );
+
+    expect(result.current.formData.description).toBeNull();
+    expect(result.current.formData.publisher_name).toBeNull();
+    expect(result.current.formData.language_codes).toBeNull();
+    expect(result.current.formData.rating_value).toBeNull();
+  });
+
+  it("should not convert pubdate if it doesn't match YYYY-MM-DD pattern", async () => {
+    const { result } = renderHook(() =>
+      useBookForm({ book: mockBook, updateBook }),
+    );
+
+    act(() => {
+      result.current.handleFieldChange("pubdate", "2024-01-15T10:30:00Z");
+    });
+
+    const submitEvent = {
+      preventDefault: vi.fn(),
+    } as unknown as React.FormEvent;
+
+    await act(async () => {
+      await result.current.handleSubmit(submitEvent);
+    });
+
+    // Should not convert if it doesn't match the pattern
+    expect(updateBook).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pubdate: "2024-01-15T10:30:00Z",
+      }),
+    );
+  });
+
+  it("should not convert pubdate if it's null", async () => {
+    const bookWithNullPubdate = {
+      ...mockBook,
+      pubdate: null,
+    };
+
+    const { result } = renderHook(() =>
+      useBookForm({ book: bookWithNullPubdate, updateBook }),
+    );
+
+    act(() => {
+      result.current.handleFieldChange("pubdate", null);
+    });
+
+    const submitEvent = {
+      preventDefault: vi.fn(),
+    } as unknown as React.FormEvent;
+
+    await act(async () => {
+      await result.current.handleSubmit(submitEvent);
+    });
+
+    expect(updateBook).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pubdate: null,
+      }),
+    );
+  });
+
+  it("should handle book with undefined authors", () => {
+    const bookWithUndefinedAuthors = {
+      ...mockBook,
+      authors: undefined,
+    };
+
+    const { result } = renderHook(() =>
+      useBookForm({ book: bookWithUndefinedAuthors, updateBook }),
+    );
+
+    expect(result.current.formData.author_names).toEqual([]);
+  });
+
+  it("should handle book with undefined series", () => {
+    const bookWithUndefinedSeries = {
+      ...mockBook,
+      series: undefined,
+    };
+
+    const { result } = renderHook(() =>
+      useBookForm({ book: bookWithUndefinedSeries, updateBook }),
+    );
+
+    expect(result.current.formData.series_name).toBeNull();
+  });
+
+  it("should handle book with undefined series_index", () => {
+    const bookWithUndefinedSeriesIndex = {
+      ...mockBook,
+      series_index: undefined,
+    };
+
+    const { result } = renderHook(() =>
+      useBookForm({ book: bookWithUndefinedSeriesIndex, updateBook }),
+    );
+
+    expect(result.current.formData.series_index).toBeNull();
+  });
+
+  it("should handle book with undefined tags", () => {
+    const bookWithUndefinedTags = {
+      ...mockBook,
+      tags: undefined,
+    };
+
+    const { result } = renderHook(() =>
+      useBookForm({ book: bookWithUndefinedTags, updateBook }),
+    );
+
+    expect(result.current.formData.tag_names).toEqual([]);
+  });
+
+  it("should set identifiers to null when empty array on submit", async () => {
+    const { result } = renderHook(() =>
+      useBookForm({ book: mockBook, updateBook }),
+    );
+
+    act(() => {
+      result.current.handleFieldChange("identifiers", []);
+    });
+
+    const submitEvent = {
+      preventDefault: vi.fn(),
+    } as unknown as React.FormEvent;
+
+    await act(async () => {
+      await result.current.handleSubmit(submitEvent);
+    });
+
+    expect(updateBook).toHaveBeenCalledWith(
+      expect.objectContaining({
+        identifiers: null,
+      }),
+    );
+  });
+
+  it("should handle identifiers that is already an empty array in formData", async () => {
+    const bookWithEmptyIdentifiers = {
+      ...mockBook,
+      identifiers: [],
+    };
+
+    const { result } = renderHook(() =>
+      useBookForm({ book: bookWithEmptyIdentifiers, updateBook }),
+    );
+
+    const submitEvent = {
+      preventDefault: vi.fn(),
+    } as unknown as React.FormEvent;
+
+    await act(async () => {
+      await result.current.handleSubmit(submitEvent);
+    });
+
+    // Should convert empty array to null
+    expect(updateBook).toHaveBeenCalledWith(
+      expect.objectContaining({
+        identifiers: null,
+      }),
+    );
+  });
 });

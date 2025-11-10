@@ -105,4 +105,22 @@ describe("useKeyboardNavigation", () => {
 
     expect(onEscape).not.toHaveBeenCalled();
   });
+
+  it("should not call onArrowLeft when callback is not provided", () => {
+    renderHook(() => useKeyboardNavigation({ onEscape, onArrowRight }));
+
+    const event = new KeyboardEvent("keydown", { key: "ArrowLeft" });
+    document.dispatchEvent(event);
+
+    expect(onArrowLeft).not.toHaveBeenCalled();
+  });
+
+  it("should not call onArrowRight when callback is not provided", () => {
+    renderHook(() => useKeyboardNavigation({ onEscape, onArrowLeft }));
+
+    const event = new KeyboardEvent("keydown", { key: "ArrowRight" });
+    document.dispatchEvent(event);
+
+    expect(onArrowRight).not.toHaveBeenCalled();
+  });
 });

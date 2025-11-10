@@ -181,4 +181,35 @@ describe("useBookCoverFromUrl", () => {
 
     expect(mockDownloadCover).not.toHaveBeenCalled();
   });
+
+  it("should call onCoverSaved when cover is downloaded", async () => {
+    const onCoverSaved = vi.fn().mockResolvedValue(undefined);
+    (useCoverFromUrl as ReturnType<typeof vi.fn>).mockImplementation(
+      (options) => {
+        return {
+          isLoading: false,
+          error: null,
+          downloadCover: vi.fn().mockImplementation(async () => {
+            await options?.onSuccess?.();
+          }),
+          clearError: vi.fn(),
+        };
+      },
+    );
+
+    const { result } = renderHook(() =>
+      useBookCoverFromUrl({
+        bookId: 1,
+        onCoverSaved,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.downloadCover("https://example.com/cover.jpg");
+    });
+
+    await waitFor(() => {
+      expect(onCoverSaved).toHaveBeenCalled();
+    });
+  });
 });

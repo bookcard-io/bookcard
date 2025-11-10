@@ -171,4 +171,26 @@ describe("useFilterSuggestions", () => {
     });
     expect(mockService.fetchSuggestions).toHaveBeenCalledTimes(2);
   });
+
+  it("should handle non-Error exceptions", async () => {
+    mockService.fetchSuggestions = vi.fn().mockRejectedValue("String error");
+
+    const { result } = renderHook(() =>
+      useFilterSuggestions({
+        query: "test",
+        filterType: "author",
+        service: mockService,
+        debounceDelay: 0,
+      }),
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(0);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.error).toBe("Unknown error");
+    expect(result.current.suggestions).toEqual([]);
+  });
 });

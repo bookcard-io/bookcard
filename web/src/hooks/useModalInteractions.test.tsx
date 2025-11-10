@@ -16,13 +16,12 @@ describe("useModalInteractions", () => {
     const TestComponent = () => {
       const { handleOverlayClick } = useModalInteractions({ onClose });
       return (
-        <button
+        <div
           onClick={handleOverlayClick}
-          type="button"
           data-testid="overlay"
         >
           <div data-testid="modal">Modal Content</div>
-        </button>
+        </div>
       );
     };
 
@@ -39,15 +38,14 @@ describe("useModalInteractions", () => {
         onClose,
       });
       return (
-        <button
+        <div
           onClick={handleOverlayClick}
-          type="button"
           data-testid="overlay"
         >
-          <button onClick={handleModalClick} type="button" data-testid="modal">
+          <div onClick={handleModalClick} data-testid="modal">
             Modal Content
-          </button>
-        </button>
+          </div>
+        </div>
       );
     };
 
@@ -64,15 +62,14 @@ describe("useModalInteractions", () => {
         onClose,
       });
       return (
-        <button
+        <div
           onClick={handleOverlayClick}
-          type="button"
           data-testid="overlay"
         >
-          <button onClick={handleModalClick} type="button" data-testid="modal">
+          <div onClick={handleModalClick} data-testid="modal">
             Modal Content
-          </button>
-        </button>
+          </div>
+        </div>
       );
     };
 

@@ -132,4 +132,59 @@ describe("useAutoSearch", () => {
     expect(startSearch2).toHaveBeenCalledWith("test");
     expect(startSearch1).not.toHaveBeenCalled();
   });
+
+  it("should not search again if hasAutoSearchedRef is true", () => {
+    const { rerender } = renderHook(
+      ({ initialQuery }) =>
+        useAutoSearch({
+          initialQuery,
+          startSearch,
+        }),
+      { initialProps: { initialQuery: "query1" } },
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(startSearch).toHaveBeenCalledTimes(1);
+
+    // Change query and advance timer - should not search again due to guard
+    rerender({ initialQuery: "query2" });
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    // Should still be 1 because hasAutoSearchedRef prevents second search
+    expect(startSearch).toHaveBeenCalledTimes(1);
+  });
+
+  it("should not search if hasAutoSearchedRef becomes true during timeout", () => {
+    const startSearch1 = vi.fn();
+    const startSearch2 = vi.fn();
+
+    const { rerender } = renderHook(
+      ({ startSearch }) =>
+        useAutoSearch({
+          initialQuery: "test",
+          startSearch,
+        }),
+      { initialProps: { startSearch: startSearch1 } },
+    );
+
+    // Advance timer partway
+    act(() => {
+      vi.advanceTimersByTime(50);
+    });
+
+    // Change startSearch function - this will trigger the effect again
+    // but the guard should prevent double search
+    rerender({ startSearch: startSearch2 });
+
+    // Advance timer to complete
+    act(() => {
+      vi.advanceTimersByTime(50);
+    });
+
+    // Should only be called once (by startSearch1 or startSearch2, but not both)
+    expect(startSearch1.mock.calls.length + startSearch2.mock.calls.length).toBe(1);
+  });
 });

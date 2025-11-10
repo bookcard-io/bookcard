@@ -102,4 +102,17 @@ describe("useLibrarySearch", () => {
     expect(result.current.searchInputValue).toBe("");
     expect(result.current.filterQuery).toBe("");
   });
+
+  it("should handle suggestion click for BOOK type without onBookClick", () => {
+    const { result } = renderHook(() => useLibrarySearch());
+    act(() => {
+      result.current.handleSuggestionClick({
+        type: "BOOK",
+        id: 123,
+        name: "Test Book",
+      });
+    });
+    // Should not crash
+    expect(result.current.filterQuery).toBe("");
+  });
 });

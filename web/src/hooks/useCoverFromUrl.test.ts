@@ -148,4 +148,104 @@ describe("useCoverFromUrl", () => {
       }),
     );
   });
+
+  it("should handle temp_url that starts with http", async () => {
+    const onSuccess = vi.fn();
+    const mockResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        temp_url: "http://example.com/temp/cover.jpg",
+      }),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockResponse,
+    );
+
+    const { result } = renderHook(() =>
+      useCoverFromUrl({ bookId: 1, onSuccess }),
+    );
+
+    await act(async () => {
+      await result.current.downloadCover("https://example.com/cover.jpg");
+    });
+
+    await waitFor(() => {
+      expect(onSuccess).toHaveBeenCalledWith(
+        "http://example.com/temp/cover.jpg",
+      );
+    });
+  });
+
+  it("should handle temp_url that starts with https", async () => {
+    const onSuccess = vi.fn();
+    const mockResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        temp_url: "https://example.com/temp/cover.jpg",
+      }),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockResponse,
+    );
+
+    const { result } = renderHook(() =>
+      useCoverFromUrl({ bookId: 1, onSuccess }),
+    );
+
+    await act(async () => {
+      await result.current.downloadCover("https://example.com/cover.jpg");
+    });
+
+    await waitFor(() => {
+      expect(onSuccess).toHaveBeenCalledWith(
+        "https://example.com/temp/cover.jpg",
+      );
+    });
+  });
+
+  it("should handle error response without detail field", async () => {
+    const mockResponse = {
+      ok: false,
+      json: vi.fn().mockResolvedValue({}),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockResponse,
+    );
+
+    const { result } = renderHook(() => useCoverFromUrl({ bookId: 1 }));
+
+    await act(async () => {
+      try {
+        await result.current.downloadCover("https://example.com/cover.jpg");
+      } catch {
+        // Expected to throw
+      }
+    });
+
+    await waitFor(() => {
+      expect(result.current.error).toBe("Failed to download cover from URL");
+      expect(result.current.isLoading).toBe(false);
+    });
+  });
+
+  it("should handle non-Error exception", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(
+      "String error",
+    );
+
+    const { result } = renderHook(() => useCoverFromUrl({ bookId: 1 }));
+
+    await act(async () => {
+      try {
+        await result.current.downloadCover("https://example.com/cover.jpg");
+      } catch {
+        // Expected to throw
+      }
+    });
+
+    await waitFor(() => {
+      expect(result.current.error).toBe("Failed to download cover from URL");
+      expect(result.current.isLoading).toBe(false);
+    });
+  });
 });

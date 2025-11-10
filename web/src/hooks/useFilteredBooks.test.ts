@@ -174,4 +174,176 @@ describe("useFilteredBooks", () => {
       expect(result.current.books).toHaveLength(1); // Reset
     });
   });
+
+  it("should not load more when data is null", async () => {
+    const filters = {
+      ...createEmptyFilters(),
+      authorIds: [1],
+    };
+
+    const { result } = renderHook(() =>
+      useFilteredBooks({ filters, infiniteScroll: true }),
+    );
+
+    // Before any data is loaded, data should be null
+    act(() => {
+      if (result.current.loadMore) {
+        result.current.loadMore();
+      }
+    });
+
+    // Should not cause any fetch calls since data is null
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1); // Only initial fetch
+    });
+  });
+
+  it("should not load more when already on last page", async () => {
+    const lastPageResponse: BookListResponse = {
+      ...mockResponse,
+      page: 2,
+      total_pages: 2,
+    };
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(lastPageResponse),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchResponse,
+    );
+
+    const filters = {
+      ...createEmptyFilters(),
+      authorIds: [1],
+    };
+
+    const { result } = renderHook(() =>
+      useFilteredBooks({ filters, infiniteScroll: true }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.page).toBe(2);
+    });
+
+    const fetchCallCount = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
+
+    act(() => {
+      if (result.current.loadMore) {
+        result.current.loadMore();
+      }
+    });
+
+    // Should not cause additional fetch calls since we're on the last page
+    await waitFor(() => {
+      expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(fetchCallCount);
+    });
+  });
+
+  it("should reset accumulated books when filters change in infinite scroll", async () => {
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockResponse),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchResponse,
+    );
+
+    const filters1 = {
+      ...createEmptyFilters(),
+      authorIds: [1],
+    };
+    const filters2 = {
+      ...createEmptyFilters(),
+      authorIds: [2],
+    };
+
+    const { result, rerender } = renderHook(
+      ({ filters }) => useFilteredBooks({ filters, infiniteScroll: true }),
+      { initialProps: { filters: filters1 } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(1);
+    });
+
+    rerender({ filters: filters2 });
+
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(1); // Reset
+    });
+  });
+
+  it("should not load more when already on last page", async () => {
+    const lastPageResponse: BookListResponse = {
+      ...mockResponse,
+      page: 2,
+      total_pages: 2,
+    };
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(lastPageResponse),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchResponse,
+    );
+
+    const filters = {
+      ...createEmptyFilters(),
+      authorIds: [1],
+    };
+
+    const { result } = renderHook(() =>
+      useFilteredBooks({ filters, infiniteScroll: true }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.page).toBe(2);
+    });
+
+    const fetchCallCount = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
+
+    act(() => {
+      if (result.current.loadMore) {
+        result.current.loadMore();
+      }
+    });
+
+    // Should not cause additional fetch calls since we're on the last page
+    await waitFor(() => {
+      expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(fetchCallCount);
+    });
+  });
+
+  it("should use currentPage when data.page is undefined in hasMore", async () => {
+    const responseWithoutPage: BookListResponse = {
+      ...mockResponse,
+      page: undefined as any,
+      total_pages: 2,
+    };
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(responseWithoutPage),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchResponse,
+    );
+
+    const filters = {
+      ...createEmptyFilters(),
+      authorIds: [1],
+    };
+
+    const { result } = renderHook(() =>
+      useFilteredBooks({ filters, infiniteScroll: true }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    // hasMore should use currentPage when data.page is undefined
+    expect(result.current.hasMore).toBe(true);
+  });
 });

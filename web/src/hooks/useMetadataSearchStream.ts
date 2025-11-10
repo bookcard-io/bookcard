@@ -445,7 +445,13 @@ export function useMetadataSearchStream(
         })
         .catch((error) => {
           if (error.name === "AbortError") {
-            // Search was cancelled, ignore
+            // Search was cancelled, ignore but still update state
+            setState((prev) => ({
+              ...prev,
+              isSearching: false,
+            }));
+            readerRef.current = null;
+            abortControllerRef.current = null;
             return;
           }
           const message =
