@@ -174,12 +174,18 @@
 }
 
 .providersList {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.4rem;
   max-height: 20rem;
   overflow-y: auto;
   padding-right: 0.25rem;
+
+  // If the last item is alone in its row (4th, 7th, 10th, etc.), make it span full width
+  // This targets items that are the 1st in a row (3n+1), are the last child, and are at position 4 or later
+  > *:last-child:nth-child(3n + 1):nth-child(n + 4) {
+    grid-column: 1 / -1;
+  }
 
   &::-webkit-scrollbar {
     width: 0.5rem;
