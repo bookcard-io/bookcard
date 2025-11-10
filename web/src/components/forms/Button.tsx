@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef } from "react";
-import styles from "./Button.module.scss";
+import { cn } from "@/libs/utils";
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -37,14 +37,56 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         type={type}
-        className={`${styles.button} ${styles[variant]} ${styles[size]} ${className || ""}`}
+        className={cn(
+          // Base styles
+          "inline-flex items-center justify-center gap-2 font-inherit font-medium",
+          "border-none rounded-lg cursor-pointer",
+          "transition-[background-color_0.2s,opacity_0.2s,transform_0.1s] ease-in-out",
+          "leading-normal",
+          // Focus styles
+          "focus:outline-none focus:shadow-[0_0_0_3px_rgba(144,170,249,0.3)]",
+          // Disabled styles
+          "disabled:opacity-50 disabled:cursor-not-allowed",
+          // Active styles (disabled buttons won't respond to active state)
+          "active:scale-[0.98]",
+          // Variant styles
+          variant === "primary" && [
+            "bg-primary-a0 text-text-a0",
+            "hover:bg-primary-a10",
+          ],
+          variant === "secondary" && [
+            "bg-surface-a10 text-text-a0 border border-surface-a20",
+            "hover:bg-surface-a20",
+          ],
+          variant === "danger" && [
+            "bg-danger-a0 text-text-a0",
+            "hover:bg-danger-a10",
+          ],
+          variant === "ghost" && [
+            "bg-transparent text-text-a20",
+            "hover:bg-surface-a10 hover:text-text-a0",
+          ],
+          variant === "success" && [
+            "bg-success-a0 text-text-a0",
+            "hover:bg-success-a10",
+            "active:bg-success-a0",
+          ],
+          // Size styles
+          size === "small" && "px-4 py-2 text-sm",
+          size === "medium" && "px-6 py-3 text-base",
+          size === "large" && "px-8 py-4 text-lg",
+          className,
+        )}
         disabled={disabled || loading}
         {...props}
       >
         {loading ? (
           <>
-            <span className={styles.spinner} aria-hidden="true" />
-            <span className={styles.loadingText}>Loading...</span>
+            <span
+              className="w-4 h-4 border-2 border-transparent border-t-current rounded-full animate-spin"
+              aria-hidden="true"
+            />
+            <span className="opacity-80">Loading...</span>
           </>
         ) : (
           children

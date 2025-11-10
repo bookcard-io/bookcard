@@ -85,7 +85,9 @@ export function BooksGrid({
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-[400px] p-8">
-        <p className="text-danger-a10 text-base m-0">Error loading books: {error}</p>
+        <p className="text-danger-a10 text-base m-0">
+          Error loading books: {error}
+        </p>
       </div>
     );
   }
@@ -128,7 +130,9 @@ export function BooksGrid({
       </div>
       {hasMore && <div ref={sentinelRef as React.RefObject<HTMLDivElement>} />}
       {isLoading && uniqueBooks.length > 0 && (
-        <div className="p-4 px-8 text-text-a40 text-sm text-center">Loading more books...</div>
+        <div className="p-4 px-8 text-text-a40 text-sm text-center">
+          Loading more books...
+        </div>
       )}
     </div>
   );
