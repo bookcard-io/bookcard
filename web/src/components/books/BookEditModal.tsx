@@ -216,6 +216,7 @@ export function BookEditModal({
         {showMetadataModal && (
           <MetadataFetchModal
             book={book}
+            formData={formData}
             onClose={() => setShowMetadataModal(false)}
             onSelectMetadata={handleSelectMetadata}
           />

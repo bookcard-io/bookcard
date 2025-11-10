@@ -9,7 +9,7 @@ import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
 import { useMetadataSearchStream } from "@/hooks/useMetadataSearchStream";
 import { useModal } from "@/hooks/useModal";
 import { useModalInteractions } from "@/hooks/useModalInteractions";
-import type { Book } from "@/types/book";
+import type { Book, BookUpdate } from "@/types/book";
 import { hasFailedProviders, sortProviderStatuses } from "@/utils/metadata";
 import { getInitialSearchQuery } from "./getInitialSearchQuery";
 import styles from "./MetadataFetchModal.module.scss";
@@ -21,6 +21,8 @@ import { MetadataSearchProgress } from "./MetadataSearchProgress";
 export interface MetadataFetchModalProps {
   /** Book data to pre-populate search query. */
   book: Book | null;
+  /** Optional form data that takes priority over book data for initial query. */
+  formData?: BookUpdate | null;
   /** Callback when modal should be closed. */
   onClose: () => void;
   /** Callback when a metadata record is selected. */
@@ -42,13 +44,17 @@ export interface MetadataFetchModalProps {
  */
 export function MetadataFetchModal({
   book,
+  formData,
   onClose,
   onSelectMetadata,
   locale = "en",
   maxResultsPerProvider = 20,
   providerIds,
 }: MetadataFetchModalProps) {
-  const initialQuery = useMemo(() => getInitialSearchQuery(book), [book]);
+  const initialQuery = useMemo(
+    () => getInitialSearchQuery(book, formData),
+    [book, formData],
+  );
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const searchInputRef = useRef<HTMLInputElement>(null);
 

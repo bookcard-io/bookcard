@@ -1,32 +1,44 @@
-import type { Book } from "@/types/book";
+import type { Book, BookUpdate } from "@/types/book";
 
 /**
  * Determines the initial search query from book data.
  *
  * Priority: title > series > author
+ * Uses form data if provided, otherwise falls back to book data.
  * Follows SRP by focusing solely on query derivation logic.
  *
- * @param book - Book data to extract query from.
- * @returns Initial search query string, or empty string if no data available.
+ * Parameters
+ * ----------
+ * book : Book | null
+ *     Book data to extract query from.
+ * formData : BookUpdate | null | undefined
+ *     Optional form data that takes priority over book data.
+ *
+ * Returns
+ * -------
+ * string
+ *     Initial search query string, or empty string if no data available.
  */
-export function getInitialSearchQuery(book: Book | null): string {
-  if (!book) {
-    return "";
+export function getInitialSearchQuery(
+  book: Book | null,
+  formData?: BookUpdate | null,
+): string {
+  // Priority 1: Title (from form data or book)
+  const title = formData?.title?.trim() || book?.title?.trim();
+  if (title) {
+    return title;
   }
 
-  // Priority 1: Title
-  if (book.title?.trim()) {
-    return book.title.trim();
+  // Priority 2: Series name (from form data or book)
+  const seriesName = formData?.series_name?.trim() || book?.series?.trim();
+  if (seriesName) {
+    return seriesName;
   }
 
-  // Priority 2: Series name
-  if (book.series?.trim()) {
-    return book.series.trim();
-  }
-
-  // Priority 3: Author name
-  if (book.authors && book.authors.length > 0) {
-    return book.authors[0].trim();
+  // Priority 3: Author name (from form data or book)
+  const authorNames = formData?.author_names || book?.authors;
+  if (authorNames && authorNames.length > 0 && authorNames[0]) {
+    return authorNames[0].trim();
   }
 
   return "";
