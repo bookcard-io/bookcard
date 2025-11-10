@@ -6,9 +6,14 @@ import styles from "./MetadataResultsList.module.scss";
 
 export interface MetadataResultsListProps {
   results: MetadataRecord[];
+  /** Callback when a metadata record is selected. */
+  onSelectMetadata?: (record: MetadataRecord) => void;
 }
 
-export function MetadataResultsList({ results }: MetadataResultsListProps) {
+export function MetadataResultsList({
+  results,
+  onSelectMetadata,
+}: MetadataResultsListProps) {
   if (!results || results.length === 0) {
     return null;
   }
@@ -18,6 +23,7 @@ export function MetadataResultsList({ results }: MetadataResultsListProps) {
         <MetadataResultItem
           key={`${r.source_id}:${r.external_id}:${idx}`}
           record={r}
+          onSelect={onSelectMetadata}
         />
       ))}
     </div>

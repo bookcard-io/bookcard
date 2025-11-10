@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/forms/Button";
 import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
+import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
 import { useMetadataSearchStream } from "@/hooks/useMetadataSearchStream";
 import { useModal } from "@/hooks/useModal";
 import type { Book } from "@/types/book";
@@ -18,6 +19,8 @@ export interface MetadataFetchModalProps {
   book: Book | null;
   /** Callback when modal should be closed. */
   onClose: () => void;
+  /** Callback when a metadata record is selected. */
+  onSelectMetadata?: (record: MetadataRecord) => void;
   /** Locale code for search (default: 'en'). */
   locale?: string;
   /** Maximum results per provider (default: 20). */
@@ -36,6 +39,7 @@ export interface MetadataFetchModalProps {
 export function MetadataFetchModal({
   book,
   onClose,
+  onSelectMetadata,
   locale = "en",
   maxResultsPerProvider = 20,
   providerIds,
@@ -272,7 +276,10 @@ export function MetadataFetchModal({
           {state.results && state.results.length > 0 && (
             <div className={styles.resultsSection}>
               <h3 className={styles.resultsTitle}>Results</h3>
-              <MetadataResultsList results={state.results} />
+              <MetadataResultsList
+                results={state.results}
+                onSelectMetadata={onSelectMetadata}
+              />
             </div>
           )}
 

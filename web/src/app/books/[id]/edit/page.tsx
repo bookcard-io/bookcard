@@ -16,8 +16,13 @@ import { TextArea } from "@/components/forms/TextArea";
 import { TextInput } from "@/components/forms/TextInput";
 import { MetadataFetchModal } from "@/components/metadata";
 import { useBook } from "@/hooks/useBook";
+import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
 import { languageFilterSuggestionsService } from "@/services/filterSuggestionsService";
 import type { BookUpdate } from "@/types/book";
+import {
+  applyBookUpdateToForm,
+  convertMetadataRecordToBookUpdate,
+} from "@/utils/metadata";
 import styles from "./page.module.scss";
 
 interface BookEditPageProps {
@@ -164,6 +169,25 @@ export default function BookEditPage({ params }: BookEditPageProps) {
     router.back();
   }, [router]);
 
+  /**
+   * Handles metadata record selection and populates the form.
+   *
+   * Parameters
+   * ----------
+   * record : MetadataRecord
+   *     Metadata record from external source.
+   */
+  const handleSelectMetadata = useCallback(
+    (record: MetadataRecord) => {
+      const update = convertMetadataRecordToBookUpdate(record);
+      applyBookUpdateToForm(update, handleFieldChange);
+
+      // Close the metadata modal after selection
+      setShowMetadataModal(false);
+    },
+    [handleFieldChange],
+  );
+
   if (isLoading) {
     return (
       <div className={styles.container}>
@@ -206,7 +230,7 @@ export default function BookEditPage({ params }: BookEditPageProps) {
               onClick={() => setShowMetadataModal(true)}
               disabled={isUpdating}
             >
-              Fetch Metadata
+              Fetch metadata
             </Button>
           </div>
         </div>
@@ -228,6 +252,7 @@ export default function BookEditPage({ params }: BookEditPageProps) {
         <MetadataFetchModal
           book={book}
           onClose={() => setShowMetadataModal(false)}
+          onSelectMetadata={handleSelectMetadata}
         />
       )}
 

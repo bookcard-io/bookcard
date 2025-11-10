@@ -6,7 +6,12 @@ import { MetadataFetchModal } from "@/components/metadata";
 import { useBook } from "@/hooks/useBook";
 import { useBookForm } from "@/hooks/useBookForm";
 import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
+import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
 import { useModal } from "@/hooks/useModal";
+import {
+  applyBookUpdateToForm,
+  convertMetadataRecordToBookUpdate,
+} from "@/utils/metadata";
 import { BookEditCoverSection } from "./BookEditCoverSection";
 import { BookEditFormFields } from "./BookEditFormFields";
 import styles from "./BookEditModal.module.scss";
@@ -42,6 +47,25 @@ export function BookEditModal({ bookId, onClose }: BookEditModalProps) {
     });
 
   const [showMetadataModal, setShowMetadataModal] = useState(false);
+
+  /**
+   * Handles metadata record selection and populates the form.
+   *
+   * Parameters
+   * ----------
+   * record : MetadataRecord
+   *     Metadata record from external source.
+   */
+  const handleSelectMetadata = useCallback(
+    (record: MetadataRecord) => {
+      const update = convertMetadataRecordToBookUpdate(record);
+      applyBookUpdateToForm(update, handleFieldChange);
+
+      // Close the metadata modal after selection
+      setShowMetadataModal(false);
+    },
+    [handleFieldChange],
+  );
 
   // Handle keyboard navigation
   useKeyboardNavigation({
@@ -164,6 +188,7 @@ export function BookEditModal({ bookId, onClose }: BookEditModalProps) {
           <MetadataFetchModal
             book={book}
             onClose={() => setShowMetadataModal(false)}
+            onSelectMetadata={handleSelectMetadata}
           />
         )}
 

@@ -1,26 +1,44 @@
 "use client";
 
 import Image from "next/image";
+import { useCallback } from "react";
 import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
 import styles from "./MetadataResultItem.module.scss";
 
 export interface MetadataResultItemProps {
   record: MetadataRecord;
+  /** Callback when this item is selected. */
+  onSelect?: (record: MetadataRecord) => void;
 }
 
-export function MetadataResultItem({ record }: MetadataResultItemProps) {
+export function MetadataResultItem({
+  record,
+  onSelect,
+}: MetadataResultItemProps) {
+  const handleClick = useCallback(() => {
+    onSelect?.(record);
+  }, [onSelect, record]);
+
   return (
     <div className={styles.container}>
       <div className={styles.coverWrap}>
         {record.cover_url ? (
-          <Image
-            src={record.cover_url}
-            alt={`Cover for ${record.title}`}
-            width={60}
-            height={90}
-            className={styles.cover}
-            unoptimized
-          />
+          <button
+            type="button"
+            onClick={handleClick}
+            className={styles.coverButton}
+            aria-label={`Load metadata for ${record.title}`}
+            title="Click to load metadata to form"
+          >
+            <Image
+              src={record.cover_url}
+              alt={`Cover for ${record.title}`}
+              width={60}
+              height={90}
+              className={styles.cover}
+              unoptimized
+            />
+          </button>
         ) : (
           <div className={styles.coverPlaceholder} aria-hidden="true" />
         )}

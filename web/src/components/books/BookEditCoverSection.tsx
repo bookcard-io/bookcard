@@ -87,6 +87,15 @@ export function BookEditCoverSection({ book }: BookEditCoverSectionProps) {
             size="small"
             className={styles.coverAction}
           >
+            <span className="pi pi-link" aria-hidden="true" />
+            Set cover from URL
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="small"
+            className={styles.coverAction}
+          >
             <span className="pi pi-download" aria-hidden="true" />
             Download cover
           </Button>
