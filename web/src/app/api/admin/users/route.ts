@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { AUTH_COOKIE_NAME, BACKEND_URL } from "@/constants/config";
+import { getAuthenticatedClient } from "@/services/http/routeHelpers";
 
 /**
  * GET /api/admin/users
@@ -8,26 +8,26 @@ import { AUTH_COOKIE_NAME, BACKEND_URL } from "@/constants/config";
  */
 export async function GET(request: NextRequest) {
   try {
-    const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
+    const { client, error } = getAuthenticatedClient(request);
 
-    if (!token) {
-      return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
+    if (error) {
+      return error;
     }
 
     const searchParams = request.nextUrl.searchParams;
     const limit = searchParams.get("limit");
     const offset = searchParams.get("offset");
 
-    const url = new URL(`${BACKEND_URL}/admin/users`);
-    if (limit) url.searchParams.set("limit", limit);
-    if (offset) url.searchParams.set("offset", offset);
+    const queryParams: Record<string, string> = {};
+    if (limit) queryParams.limit = limit;
+    if (offset) queryParams.offset = offset;
 
-    const response = await fetch(url.toString(), {
+    const response = await client.request("/admin/users", {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
+      queryParams,
     });
 
     const data = await response.json();

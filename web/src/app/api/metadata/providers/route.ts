@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { AUTH_COOKIE_NAME, BACKEND_URL } from "@/constants/config";
+import { getAuthenticatedClient } from "@/services/http/routeHelpers";
 
 /**
  * GET /api/metadata/providers
@@ -8,19 +8,16 @@ import { AUTH_COOKIE_NAME, BACKEND_URL } from "@/constants/config";
  */
 export async function GET(request: NextRequest) {
   try {
-    const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
+    const { client, error } = getAuthenticatedClient(request);
 
-    if (!token) {
-      return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
+    if (error) {
+      return error;
     }
 
-    const url = new URL(`${BACKEND_URL}/metadata/providers`);
-
-    const response = await fetch(url.toString(), {
+    const response = await client.request("/metadata/providers", {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
     });
 

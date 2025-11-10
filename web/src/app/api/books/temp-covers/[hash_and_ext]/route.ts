@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { AUTH_COOKIE_NAME, BACKEND_URL } from "@/constants/config";
+import { getAuthenticatedClient } from "@/services/http/routeHelpers";
 
 /**
  * GET /api/books/temp-covers/[hash_and_ext]
@@ -11,21 +11,18 @@ export async function GET(
   { params }: { params: Promise<{ hash_and_ext: string }> },
 ) {
   try {
-    const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
+    const { client, error } = getAuthenticatedClient(request);
 
-    if (!token) {
-      return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
+    if (error) {
+      return error;
     }
 
     const { hash_and_ext } = await params;
 
-    const response = await fetch(
-      `${BACKEND_URL}/books/temp-covers/${hash_and_ext}`,
+    const response = await client.request(
+      `/books/temp-covers/${hash_and_ext}`,
       {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       },
     );
 

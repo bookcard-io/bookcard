@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { AUTH_COOKIE_NAME, BACKEND_URL } from "@/constants/config";
+import { getAuthenticatedClient } from "@/services/http/routeHelpers";
 
 /**
  * POST /api/admin/libraries/[id]/activate
@@ -11,24 +11,20 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
+    const { client, error } = getAuthenticatedClient(request);
 
-    if (!token) {
-      return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
+    if (error) {
+      return error;
     }
 
     const { id } = await params;
 
-    const response = await fetch(
-      `${BACKEND_URL}/admin/libraries/${id}/activate`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+    const response = await client.request(`/admin/libraries/${id}/activate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+    });
 
     const data = await response.json();
 

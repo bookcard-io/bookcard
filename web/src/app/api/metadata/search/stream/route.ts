@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { AUTH_COOKIE_NAME, BACKEND_URL } from "@/constants/config";
+import { getAuthenticatedClient } from "@/services/http/routeHelpers";
 
 /**
  * GET /api/metadata/search/stream
@@ -8,12 +8,9 @@ import { AUTH_COOKIE_NAME, BACKEND_URL } from "@/constants/config";
  * Query params: query, locale, max_results_per_provider, provider_ids, request_id
  */
 export async function GET(request: NextRequest) {
-  const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
-  if (!token) {
-    return new Response(JSON.stringify({ detail: "Unauthorized" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
+  const { client, error } = getAuthenticatedClient(request);
+  if (error) {
+    return error;
   }
 
   const { searchParams } = request.nextUrl;
@@ -28,25 +25,23 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const url = new URL(`${BACKEND_URL}/metadata/search/stream`);
-  url.searchParams.set("query", query);
+  const queryParams: Record<string, string> = { query };
   const locale = searchParams.get("locale");
-  if (locale) url.searchParams.set("locale", locale);
+  if (locale) queryParams.locale = locale;
   const maxResults = searchParams.get("max_results_per_provider");
-  if (maxResults) url.searchParams.set("max_results_per_provider", maxResults);
+  if (maxResults) queryParams.max_results_per_provider = maxResults;
   const providerIds = searchParams.get("provider_ids");
-  if (providerIds) url.searchParams.set("provider_ids", providerIds);
+  if (providerIds) queryParams.provider_ids = providerIds;
   const requestId = searchParams.get("request_id");
-  if (requestId) url.searchParams.set("request_id", requestId);
+  if (requestId) queryParams.request_id = requestId;
 
   // Connect to backend SSE
-  const backendResponse = await fetch(url.toString(), {
+  const backendResponse = await client.request("/metadata/search/stream", {
     method: "GET",
     headers: {
-      Authorization: `Bearer ${token}`,
       Accept: "text/event-stream",
     },
-    signal: request.signal,
+    queryParams,
   });
 
   if (!backendResponse.ok || backendResponse.body == null) {

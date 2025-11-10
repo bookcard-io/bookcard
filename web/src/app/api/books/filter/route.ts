@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { AUTH_COOKIE_NAME, BACKEND_URL } from "@/constants/config";
+import { getAuthenticatedClient } from "@/services/http/routeHelpers";
 
 /**
  * POST /api/books/filter
@@ -9,10 +9,10 @@ import { AUTH_COOKIE_NAME, BACKEND_URL } from "@/constants/config";
  */
 export async function POST(request: NextRequest) {
   try {
-    const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
+    const { client, error } = getAuthenticatedClient(request);
 
-    if (!token) {
-      return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
+    if (error) {
+      return error;
     }
 
     const body = await request.json();
@@ -22,24 +22,19 @@ export async function POST(request: NextRequest) {
     const sortBy = searchParams.get("sort_by") || "timestamp";
     const sortOrder = searchParams.get("sort_order") || "desc";
 
-    const queryParams = new URLSearchParams({
-      page,
-      page_size: pageSize,
-      sort_by: sortBy,
-      sort_order: sortOrder,
-    });
-
-    const response = await fetch(
-      `${BACKEND_URL}/books/filter?${queryParams.toString()}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
+    const response = await client.request("/books/filter", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      queryParams: {
+        page,
+        page_size: pageSize,
+        sort_by: sortBy,
+        sort_order: sortOrder,
+      },
+      body: JSON.stringify(body),
+    });
 
     const data = await response.json();
 
