@@ -60,7 +60,14 @@ function convertPublishedDate(
   }
   // Try to extract date part from various formats
   const dateMatch = publishedDate.match(/^(\d{4}-\d{2}-\d{2})/);
-  return dateMatch?.[1] ?? null;
+  if (dateMatch?.[1]) {
+    // Validate the date
+    const date = new Date(dateMatch[1]);
+    if (!Number.isNaN(date.getTime())) {
+      return dateMatch[1];
+    }
+  }
+  return null;
 }
 
 /**
@@ -123,6 +130,8 @@ export function convertMetadataRecordToBookUpdate(
 
   if (record.series_index !== null && record.series_index !== undefined) {
     update.series_index = record.series_index;
+  } else if (record.series_index === null) {
+    update.series_index = null;
   }
 
   if (record.description) {
@@ -133,8 +142,11 @@ export function convertMetadataRecordToBookUpdate(
     update.publisher_name = record.publisher;
   }
 
-  if (pubdate) {
+  if (pubdate !== null && pubdate !== undefined) {
     update.pubdate = pubdate;
+  } else if (record.published_date !== undefined) {
+    // Explicitly set to null if published_date was provided but invalid
+    update.pubdate = null;
   }
 
   if (identifiers.length > 0) {
