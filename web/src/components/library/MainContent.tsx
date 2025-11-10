@@ -16,7 +16,6 @@ import { useLibrarySearch } from "@/hooks/useLibrarySearch";
 import { useLibrarySorting } from "@/hooks/useLibrarySorting";
 import { useLibraryViewMode } from "@/hooks/useLibraryViewMode";
 import type { Book } from "@/types/book";
-import styles from "./MainContent.module.scss";
 
 /**
  * Main content area for the library view.
@@ -111,11 +110,13 @@ export function MainContent() {
 
   return (
     <main
-      className={`${styles.mainContent} ${isCollapsed ? styles.collapsed : ""}`}
+      className={`flex-1 bg-[var(--color-surface-a0)] transition-[margin-left] duration-300 ease-in-out overflow-y-auto h-screen ${
+        isCollapsed ? "ml-[64px]" : "ml-[280px]"
+      }`}
     >
-      <div className={styles.contentWrapper}>
+      <div className="flex flex-col min-h-full">
         <LibraryHeader />
-        <div className={styles.widgetBarContainer}>
+        <div className="relative">
           <SearchWidgetBar
             searchValue={search.searchInputValue}
             onSearchChange={search.handleSearchChange}

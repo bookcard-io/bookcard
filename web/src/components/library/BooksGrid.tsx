@@ -117,7 +117,7 @@ export function BooksGrid({
             : `${uniqueBooks.length} of ${total} books`}
         </div>
       )}
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-6 px-8 md:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:gap-8 lg:grid-cols-[repeat(auto-fill,minmax(180px,1fr))]">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-6 px-8 md:grid-cols-[repeat(auto-fit,minmax(160px,1fr))] md:gap-8 lg:grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
         {uniqueBooks.map((book) => (
           <BookCard
             key={book.id}
