@@ -28,7 +28,7 @@
 .modal {
   background-color: get-theme-color("surface", "a10");
   border-radius: 1rem;
-  max-width: 90vw;
+  max-width: 80vw;
   width: 100%;
   max-height: 95vh;
   overflow-y: auto;
@@ -144,6 +144,11 @@
   grid-template-columns: 2fr 1fr 1fr;
   gap: 1rem;
   align-items: end;
+
+  // Ensure all children can shrink and don't overflow
+  > * {
+    min-width: 0;
+  }
 }
 
 .seriesField {
@@ -663,6 +668,17 @@
   color: get-theme-color("text", "a30");
   font-size: 1rem;
   padding: 2rem;
+}
+
+@media (max-width: 1400px) {
+  .seriesRow {
+    grid-template-columns: 2fr 1fr;
+    gap: 0.75rem;
+
+    .ratingField {
+      grid-column: 1 / -1;
+    }
+  }
 }
 
 @media (max-width: 1024px) {
