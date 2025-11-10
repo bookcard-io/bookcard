@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { useCoverUrlUpdates } from "@/hooks/useCoverUrlUpdates";
+import { useBookDataUpdates } from "@/hooks/useBookDataUpdates";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { useLibraryBooks } from "@/hooks/useLibraryBooks";
 import type { Book } from "@/types/book";
@@ -25,8 +25,9 @@ export interface BooksGridProps {
   sortOrder?: "asc" | "desc";
   /** Number of items per page. */
   pageSize?: number;
-  /** Ref to expose method for updating cover URL. */
-  coverUpdateRef?: React.RefObject<{
+  /** Ref to expose methods for updating book data and cover. */
+  bookDataUpdateRef?: React.RefObject<{
+    updateBook: (bookId: number, bookData: Partial<Book>) => void;
     updateCover: (bookId: number) => void;
   }>;
 }
@@ -45,7 +46,7 @@ export function BooksGrid({
   sortBy,
   sortOrder,
   pageSize = 20,
-  coverUpdateRef,
+  bookDataUpdateRef,
 }: BooksGridProps) {
   // Fetch books using centralized hook (SOC: data fetching separated)
   const { books, isLoading, error, total, loadMore, hasMore } = useLibraryBooks(
@@ -58,9 +59,9 @@ export function BooksGrid({
     },
   );
 
-  // Manage cover URL updates (SRP: cover URL state management separated)
-  const { coverUrlOverrides } = useCoverUrlUpdates({
-    updateRef: coverUpdateRef,
+  // Manage book data updates including cover (SRP: book data state management separated)
+  const { bookDataOverrides } = useBookDataUpdates({
+    updateRef: bookDataUpdateRef,
   });
 
   // Infinite scroll handler (SRP: scroll logic separated)
@@ -76,10 +77,10 @@ export function BooksGrid({
     hasMore,
   });
 
-  // Deduplicate books and apply cover URL overrides (DRY: using utility)
+  // Deduplicate books and apply book data overrides (DRY: using utility)
   const uniqueBooks = useMemo(
-    () => deduplicateBooks(books, coverUrlOverrides),
-    [books, coverUrlOverrides],
+    () => deduplicateBooks(books, undefined, bookDataOverrides),
+    [books, bookDataOverrides],
   );
 
   if (error) {

@@ -15,6 +15,7 @@ import { useLibraryFilters } from "@/hooks/useLibraryFilters";
 import { useLibrarySearch } from "@/hooks/useLibrarySearch";
 import { useLibrarySorting } from "@/hooks/useLibrarySorting";
 import { useLibraryViewMode } from "@/hooks/useLibraryViewMode";
+import type { Book } from "@/types/book";
 import styles from "./MainContent.module.scss";
 
 /**
@@ -34,9 +35,10 @@ export function MainContent() {
   const bookModalRef = useRef<{
     handleBookClick: (book: { id: number }) => void;
   } | null>(null);
-  const booksGridCoverUpdateRef = useRef<{
+  const booksGridBookDataUpdateRef = useRef<{
+    updateBook: (bookId: number, bookData: Partial<Book>) => void;
     updateCover: (bookId: number) => void;
-  } | null>(null);
+  }>({ updateBook: () => {}, updateCover: () => {} });
 
   // Search state - use ref for book click to avoid circular dependency
   const search = useLibrarySearch({
@@ -149,7 +151,7 @@ export function MainContent() {
             sortOrder={sorting.sortOrder}
             onBookClick={bookModal.handleBookClick}
             onBookEdit={bookEditModal.handleEditBook}
-            coverUpdateRef={booksGridCoverUpdateRef}
+            bookDataUpdateRef={booksGridBookDataUpdateRef}
           />
         )}
       </div>
@@ -164,8 +166,16 @@ export function MainContent() {
         bookId={bookEditModal.editingBookId}
         onClose={bookEditModal.handleCloseModal}
         onCoverSaved={(bookId) => {
-          // Update cover in grid when cover is saved
-          booksGridCoverUpdateRef.current?.updateCover(bookId);
+          // Update cover in grid when cover is saved (O(1) operation)
+          booksGridBookDataUpdateRef.current?.updateCover(bookId);
+        }}
+        onBookSaved={(book) => {
+          // Update book data in grid when book is saved (O(1) operation)
+          booksGridBookDataUpdateRef.current?.updateBook(book.id, {
+            title: book.title,
+            authors: book.authors,
+            thumbnail_url: book.thumbnail_url,
+          });
         }}
       />
     </main>

@@ -5,7 +5,7 @@ export interface UseBookFormOptions {
   /** Book data to initialize form from. */
   book: Book | null;
   /** Callback when book is successfully updated. */
-  onUpdateSuccess?: () => void;
+  onUpdateSuccess?: (updatedBook: Book) => void;
   /** Function to update the book. */
   updateBook: (update: BookUpdate) => Promise<Book | null>;
 }
@@ -169,7 +169,7 @@ export function useBookForm({
         setShowSuccess(true);
         // Hide success message after 3 seconds
         setTimeout(() => setShowSuccess(false), 3000);
-        onUpdateSuccess?.();
+        onUpdateSuccess?.(updated);
       }
     },
     [book?.id, formData, updateBook, onUpdateSuccess],

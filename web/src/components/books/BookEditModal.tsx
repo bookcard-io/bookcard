@@ -9,6 +9,7 @@ import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
 import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
 import { useModal } from "@/hooks/useModal";
 import { useStagedCoverUrl } from "@/hooks/useStagedCoverUrl";
+import type { Book } from "@/types/book";
 import {
   applyBookUpdateToForm,
   convertMetadataRecordToBookUpdate,
@@ -26,6 +27,8 @@ export interface BookEditModalProps {
   onClose: () => void;
   /** Callback when cover is saved (for updating grid). */
   onCoverSaved?: (bookId: number) => void;
+  /** Callback when book is saved (for updating grid). */
+  onBookSaved?: (book: Book) => void;
 }
 
 /**
@@ -44,6 +47,7 @@ export function BookEditModal({
   bookId,
   onClose,
   onCoverSaved,
+  onBookSaved,
 }: BookEditModalProps) {
   const { book, isLoading, error, updateBook, isUpdating, updateError } =
     useBook({
@@ -52,11 +56,23 @@ export function BookEditModal({
       full: true,
     });
 
-  const { formData, hasChanges, showSuccess, handleFieldChange, handleSubmit, resetForm } =
-    useBookForm({
-      book,
-      updateBook,
-    });
+  const {
+    formData,
+    hasChanges,
+    showSuccess,
+    handleFieldChange,
+    handleSubmit,
+    resetForm,
+  } = useBookForm({
+    book,
+    updateBook,
+    onUpdateSuccess: (updatedBook) => {
+      // Notify parent that book was saved
+      if (onBookSaved) {
+        onBookSaved(updatedBook);
+      }
+    },
+  });
 
   const [showMetadataModal, setShowMetadataModal] = useState(false);
 

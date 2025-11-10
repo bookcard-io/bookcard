@@ -33,27 +33,30 @@ export function getCoverUrlWithCacheBuster(
 }
 
 /**
- * Deduplicate books by ID and apply cover URL overrides.
+ * Deduplicate books by ID and apply book data overrides.
  *
  * Removes duplicate books based on ID and optionally applies
- * cover URL overrides from a map. Only creates new objects
- * for books with updated URLs to optimize performance.
+ * book data overrides from a map (including cover URL).
+ * Only creates new objects for books with overrides to optimize performance.
  *
  * Parameters
  * ----------
  * books : Book[]
  *     Array of books to deduplicate.
  * coverUrlOverrides? : Map<number, string>
- *     Optional map of book ID to override cover URL.
+ *     Optional map of book ID to override cover URL (deprecated, use bookDataOverrides).
+ * bookDataOverrides? : Map<number, Partial<Book>>
+ *     Optional map of book ID to override book data (title, authors, cover URL, etc.).
  *
  * Returns
  * -------
  * Book[]
- *     Deduplicated array of books with cover URL overrides applied.
+ *     Deduplicated array of books with overrides applied.
  */
 export function deduplicateBooks(
   books: Book[],
   coverUrlOverrides?: Map<number, string>,
+  bookDataOverrides?: Map<number, Partial<Book>>,
 ): Book[] {
   const seen = new Set<number>();
   const result: Book[] = [];
@@ -64,10 +67,23 @@ export function deduplicateBooks(
     }
     seen.add(book.id);
 
-    // Only create new object if URL was overridden (Map lookup is O(1))
+    // Check for overrides (Map lookups are O(1))
+    // coverUrlOverrides is kept for backward compatibility but bookDataOverrides takes precedence
     const overrideUrl = coverUrlOverrides?.get(book.id);
-    if (overrideUrl) {
-      result.push({ ...book, thumbnail_url: overrideUrl });
+    const overrideData = bookDataOverrides?.get(book.id);
+
+    // Only create new object if there are overrides
+    if (overrideUrl || overrideData) {
+      const updatedBook = { ...book };
+      // Apply bookDataOverrides first (takes precedence)
+      if (overrideData) {
+        Object.assign(updatedBook, overrideData);
+      }
+      // Apply coverUrlOverrides only if not already set in bookDataOverrides
+      if (overrideUrl && !overrideData?.thumbnail_url) {
+        updatedBook.thumbnail_url = overrideUrl;
+      }
+      result.push(updatedBook);
     } else {
       result.push(book);
     }
