@@ -52,7 +52,7 @@ export function BookEditModal({
       full: true,
     });
 
-  const { formData, hasChanges, showSuccess, handleFieldChange, handleSubmit } =
+  const { formData, hasChanges, showSuccess, handleFieldChange, handleSubmit, resetForm } =
     useBookForm({
       book,
       updateBook,
@@ -84,11 +84,14 @@ export function BookEditModal({
   );
 
   const handleClose = useCallback(() => {
+    // Reset form to initial state when closing without saving
+    // resetForm only resets if there are unsaved changes
+    resetForm();
     // Reset staged cover URL when closing
     // URL input state is managed internally by BookEditCoverSection
     clearStagedCoverUrl();
     onClose();
-  }, [clearStagedCoverUrl, onClose]);
+  }, [resetForm, clearStagedCoverUrl, onClose]);
 
   const handleEscape = useCallback(() => {
     // URL input handles its own Escape key via useCoverUrlInput's handleKeyDown

@@ -55,32 +55,42 @@ export function useBookForm({
   const [showSuccess, setShowSuccess] = useState(false);
   const [lastBookId, setLastBookId] = useState<number | null>(null);
   const justUpdatedRef = useRef(false);
+  // Store initial form data when modal opens to reset on cancel
+  const initialFormDataRef = useRef<BookUpdate>({});
+
+  // Helper function to convert book to form data
+  const bookToFormData = useCallback((bookData: Book): BookUpdate => {
+    // Extract date part from ISO string if present
+    let pubdateValue: string | null = null;
+    if (bookData.pubdate) {
+      const dateMatch = bookData.pubdate.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (dateMatch?.[1]) {
+        pubdateValue = dateMatch[1];
+      }
+    }
+
+    return {
+      title: bookData.title,
+      pubdate: pubdateValue,
+      author_names: bookData.authors || [],
+      series_name: bookData.series || null,
+      series_index: bookData.series_index ?? null,
+      tag_names: bookData.tags || [],
+      identifiers: bookData.identifiers || [],
+      description: bookData.description || null,
+      publisher_name: bookData.publisher || null,
+      language_codes: bookData.languages || null,
+      rating_value: bookData.rating ?? null,
+    };
+  }, []);
 
   // Initialize form data when book loads (only on initial load or book ID change)
   useEffect(() => {
     if (book && book.id !== lastBookId) {
-      // Extract date part from ISO string if present
-      let pubdateValue: string | null = null;
-      if (book.pubdate) {
-        const dateMatch = book.pubdate.match(/^(\d{4}-\d{2}-\d{2})/);
-        if (dateMatch?.[1]) {
-          pubdateValue = dateMatch[1];
-        }
-      }
-
-      setFormData({
-        title: book.title,
-        pubdate: pubdateValue,
-        author_names: book.authors || [],
-        series_name: book.series || null,
-        series_index: book.series_index ?? null,
-        tag_names: book.tags || [],
-        identifiers: book.identifiers || [],
-        description: book.description || null,
-        publisher_name: book.publisher || null,
-        language_codes: book.languages || null,
-        rating_value: book.rating ?? null,
-      });
+      const initialFormData = bookToFormData(book);
+      setFormData(initialFormData);
+      // Store initial form data for reset on cancel
+      initialFormDataRef.current = initialFormData;
       setHasChanges(false);
       setLastBookId(book.id);
       // Only reset success if this is a new book (different ID) and we didn't just update
@@ -89,10 +99,13 @@ export function useBookForm({
       }
       justUpdatedRef.current = false;
     } else if (book && book.id === lastBookId && justUpdatedRef.current) {
-      // Book was just updated (same ID), preserve success state
+      // Book was just updated (same ID), update form and initial data to reflect saved state
+      const updatedFormData = bookToFormData(book);
+      setFormData(updatedFormData);
+      initialFormDataRef.current = updatedFormData;
       justUpdatedRef.current = false;
     }
-  }, [book, lastBookId]);
+  }, [book, lastBookId, bookToFormData]);
 
   const handleFieldChange = useCallback(
     <K extends keyof BookUpdate>(field: K, value: BookUpdate[K]) => {
@@ -163,10 +176,17 @@ export function useBookForm({
   );
 
   const resetForm = useCallback(() => {
-    setFormData({});
-    setHasChanges(false);
+    // Only reset if there are unsaved changes
+    // If user saved, hasChanges will be false and we shouldn't reset
+    if (hasChanges) {
+      // Reset to initial form data (from when modal was opened)
+      setFormData(initialFormDataRef.current);
+      setHasChanges(false);
+    }
     setShowSuccess(false);
-  }, []);
+    // Reset lastBookId so form reinitializes when modal reopens
+    setLastBookId(null);
+  }, [hasChanges]);
 
   return {
     formData,
