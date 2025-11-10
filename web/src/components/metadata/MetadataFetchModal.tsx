@@ -1,12 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/forms/Button";
+import { useAutoSearch } from "@/hooks/useAutoSearch";
 import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
+import { useMetadataSearchActions } from "@/hooks/useMetadataSearchActions";
 import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
 import { useMetadataSearchStream } from "@/hooks/useMetadataSearchStream";
 import { useModal } from "@/hooks/useModal";
+import { useModalInteractions } from "@/hooks/useModalInteractions";
 import type { Book } from "@/types/book";
+import { hasFailedProviders, sortProviderStatuses } from "@/utils/metadata";
 import { getInitialSearchQuery } from "./getInitialSearchQuery";
 import styles from "./MetadataFetchModal.module.scss";
 import { MetadataProviderStatus } from "./MetadataProviderStatus";
@@ -47,12 +51,8 @@ export function MetadataFetchModal({
   const initialQuery = useMemo(() => getInitialSearchQuery(book), [book]);
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const hasAutoSearchedRef = useRef(false);
-  const startSearchRef = useRef<((overrideQuery?: string) => void) | null>(
-    null,
-  );
 
-  const { state, startSearch, cancelSearch, reset } = useMetadataSearchStream({
+  const searchStream = useMetadataSearchStream({
     query: searchQuery,
     locale,
     maxResultsPerProvider,
@@ -60,42 +60,23 @@ export function MetadataFetchModal({
     enabled: false, // Manual trigger
   });
 
-  // Keep ref in sync with latest startSearch function
-  useEffect(() => {
-    startSearchRef.current = startSearch;
-  }, [startSearch]);
+  const { state, startSearch } = searchStream;
+
+  // Auto-start search when modal opens with initial query
+  useAutoSearch({
+    initialQuery,
+    startSearch,
+    setSearchQuery,
+    enabled: true,
+  });
 
   // Check if there are any failed providers to determine default expanded state
-  const hasFailedProviders = useMemo(() => {
-    return Array.from(state.providerStatuses.values()).some(
-      (status) => status.status === "failed",
-    );
-  }, [state.providerStatuses]);
+  const hasFailed = useMemo(
+    () => hasFailedProviders(state.providerStatuses),
+    [state.providerStatuses],
+  );
 
   const [isProvidersExpanded, setIsProvidersExpanded] = useState(true);
-
-  // Auto-start search when modal opens with initial query (only once)
-  useEffect(() => {
-    if (hasAutoSearchedRef.current || !initialQuery?.trim()) {
-      return;
-    }
-    setSearchQuery(initialQuery);
-    // Small delay to ensure modal is rendered and startSearch is available
-    const timer = setTimeout(() => {
-      // Double-check flag in case effect ran multiple times
-      if (hasAutoSearchedRef.current) {
-        return;
-      }
-      if (startSearchRef.current) {
-        hasAutoSearchedRef.current = true; // Set before calling to prevent race conditions
-        startSearchRef.current();
-      }
-    }, 100);
-    return () => clearTimeout(timer);
-    // startSearch is intentionally omitted - we use startSearchRef which is kept in sync
-    // via a separate effect to avoid re-running this effect when startSearch changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialQuery]);
 
   // Handle keyboard navigation
   useKeyboardNavigation({
@@ -106,68 +87,29 @@ export function MetadataFetchModal({
   // Prevent body scroll when modal is open
   useModal(true);
 
-  const handleOverlayClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.target === e.currentTarget) {
-        onClose();
-      }
-    },
-    [onClose],
+  // Modal interaction handlers
+  const { handleOverlayClick, handleModalClick, handleOverlayKeyDown } =
+    useModalInteractions({ onClose });
+
+  // Search action handlers
+  const { handleSearch, handleCancel, handleClose } = useMetadataSearchActions({
+    searchStream,
+    setSearchQuery,
+    onClose,
+  });
+
+  // Convert provider statuses map to sorted array for rendering
+  const providerStatusesArray = useMemo(
+    () => sortProviderStatuses(state.providerStatuses),
+    [state.providerStatuses],
   );
-
-  const handleModalClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      e.stopPropagation();
-    },
-    [],
-  );
-
-  const handleOverlayKeyDown = useCallback(() => {
-    // Keyboard navigation is handled by useKeyboardNavigation hook
-  }, []);
-
-  const handleSearch = useCallback(
-    (query: string) => {
-      const trimmedQuery = query.trim();
-      if (trimmedQuery) {
-        setSearchQuery(trimmedQuery);
-        reset();
-        // Start search with the new query immediately
-        startSearch(trimmedQuery);
-      }
-    },
-    [reset, startSearch],
-  );
-
-  const handleCancel = useCallback(() => {
-    cancelSearch();
-  }, [cancelSearch]);
-
-  const handleClose = useCallback(() => {
-    cancelSearch();
-    onClose();
-  }, [cancelSearch, onClose]);
-
-  // Convert provider statuses map to array for rendering
-  const providerStatusesArray = useMemo(() => {
-    return Array.from(state.providerStatuses.values()).sort((a, b) => {
-      // Sort by status priority: searching > pending > completed > failed
-      const statusOrder: Record<string, number> = {
-        searching: 0,
-        pending: 1,
-        completed: 2,
-        failed: 3,
-      };
-      return (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99);
-    });
-  }, [state.providerStatuses]);
 
   // Update expanded state when failed providers appear
   useEffect(() => {
-    if (hasFailedProviders && !isProvidersExpanded) {
+    if (hasFailed && !isProvidersExpanded) {
       setIsProvidersExpanded(true);
     }
-  }, [hasFailedProviders, isProvidersExpanded]);
+  }, [hasFailed, isProvidersExpanded]);
 
   return (
     /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
@@ -273,7 +215,7 @@ export function MetadataFetchModal({
             </div>
           )}
 
-          {state.results && state.results.length > 0 && (
+          {state.results?.length > 0 && (
             <div className={styles.resultsSection}>
               <h3 className={styles.resultsTitle}>Results</h3>
               <MetadataResultsList

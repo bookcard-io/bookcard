@@ -162,6 +162,7 @@ class MetadataService:
                 providers_failed=providers_failed,
                 total_providers=total_providers,
                 total_results_so_far=len(all_results),
+                results=list(all_results),
             )
         )
         return providers_completed
@@ -241,6 +242,7 @@ class MetadataService:
                 providers_failed=providers_failed,
                 total_providers=total_providers,
                 total_results_so_far=len(all_results),
+                results=list(all_results),
             )
         )
         return providers_failed

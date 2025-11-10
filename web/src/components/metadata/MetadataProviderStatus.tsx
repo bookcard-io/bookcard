@@ -19,13 +19,33 @@ export function MetadataProviderStatus({
   const getStatusIcon = () => {
     switch (status.status) {
       case "pending":
-        return <div className={styles.iconPending}>○</div>;
+        return (
+          <i
+            className={`pi pi-hourglass ${styles.iconPending}`}
+            aria-hidden="true"
+          />
+        );
       case "searching":
-        return <div className={styles.iconSearching}>⟳</div>;
+        return (
+          <i
+            className={`pi pi-spin pi-spinner ${styles.iconSearching}`}
+            aria-hidden="true"
+          />
+        );
       case "completed":
-        return <div className={styles.iconCompleted}>✓</div>;
+        return (
+          <i
+            className={`pi pi-check ${styles.iconCompleted}`}
+            aria-hidden="true"
+          />
+        );
       case "failed":
-        return <div className={styles.iconFailed}>✗</div>;
+        return (
+          <i
+            className={`pi pi-asterisk ${styles.iconFailed}`}
+            aria-hidden="true"
+          />
+        );
       default:
         return null;
     }

@@ -6,7 +6,10 @@
  * Follows DRY by centralizing metadata conversion logic.
  */
 
-import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
+import type {
+  MetadataRecord,
+  ProviderStatus,
+} from "@/hooks/useMetadataSearchStream";
 import type { BookUpdate } from "@/types/book";
 
 /**
@@ -204,4 +207,56 @@ export function applyBookUpdateToForm(
   if (update.rating_value !== undefined && update.rating_value !== null) {
     handleFieldChange("rating_value", update.rating_value);
   }
+}
+
+/**
+ * Sort provider statuses by priority.
+ *
+ * Sorts providers by status priority: searching > pending > completed > failed.
+ * Follows SRP by focusing solely on sorting logic.
+ *
+ * Parameters
+ * ----------
+ * providerStatuses : Map<string, ProviderStatus>
+ *     Map of provider statuses to sort.
+ *
+ * Returns
+ * -------
+ * Array<ProviderStatus>
+ *     Sorted array of provider statuses.
+ */
+export function sortProviderStatuses(
+  providerStatuses: Map<string, ProviderStatus>,
+): Array<ProviderStatus> {
+  return Array.from(providerStatuses.values()).sort((a, b) => {
+    // Sort by status priority: searching > pending > completed > failed
+    const statusOrder: Record<string, number> = {
+      searching: 0,
+      pending: 1,
+      completed: 2,
+      failed: 3,
+    };
+    return (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99);
+  });
+}
+
+/**
+ * Check if any provider has failed.
+ *
+ * Parameters
+ * ----------
+ * providerStatuses : Map<string, ProviderStatus>
+ *     Map of provider statuses to check.
+ *
+ * Returns
+ * -------
+ * boolean
+ *     True if any provider has failed, false otherwise.
+ */
+export function hasFailedProviders(
+  providerStatuses: Map<string, ProviderStatus>,
+): boolean {
+  return Array.from(providerStatuses.values()).some(
+    (status) => status.status === "failed",
+  );
 }

@@ -51,6 +51,7 @@ export interface MetadataSearchProgressEvent extends MetadataSearchEvent {
   providers_failed: number;
   total_providers: number;
   total_results_so_far: number;
+  results?: MetadataRecord[];
 }
 
 export interface MetadataSearchCompletedEvent extends MetadataSearchEvent {
@@ -263,7 +264,10 @@ export function useMetadataSearchStream(
       const processEvent = (data: MetadataSearchEventUnion) => {
         setState((prev) => {
           const newState = { ...prev };
-          const newProviderStatuses = new Map(prev.providerStatuses);
+          // Ensure we always have a valid Map, even if prev.providerStatuses is somehow invalid
+          const newProviderStatuses = new Map(
+            prev.providerStatuses || new Map(),
+          );
 
           switch (data.event) {
             case "search.started": {
@@ -341,6 +345,14 @@ export function useMetadataSearchStream(
               newState.providersCompleted = evt.providers_completed;
               newState.providersFailed = evt.providers_failed;
               newState.totalResults = evt.total_results_so_far;
+              // Update results incrementally as providers complete
+              // Always update if results array is provided (even if empty)
+              // This ensures we show results as soon as any provider completes
+              if (evt.results !== undefined) {
+                newState.results = Array.isArray(evt.results)
+                  ? evt.results
+                  : [];
+              }
               break;
             }
 

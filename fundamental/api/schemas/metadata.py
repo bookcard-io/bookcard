@@ -142,6 +142,10 @@ class MetadataSearchProgressEvent(MetadataSearchEvent):
     providers_failed: int = Field(ge=0)
     total_providers: int = Field(ge=0)
     total_results_so_far: int = Field(ge=0)
+    results: list[MetadataRecord] = Field(
+        default_factory=list,
+        description="Accumulated metadata records from completed providers",
+    )
 
 
 class MetadataSearchCompletedEvent(MetadataSearchEvent):
