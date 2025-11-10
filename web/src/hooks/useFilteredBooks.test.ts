@@ -226,7 +226,8 @@ describe("useFilteredBooks", () => {
       expect(result.current.page).toBe(2);
     });
 
-    const fetchCallCount = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
+    const fetchCallCount = (globalThis.fetch as ReturnType<typeof vi.fn>).mock
+      .calls.length;
 
     act(() => {
       if (result.current.loadMore) {
@@ -236,7 +237,9 @@ describe("useFilteredBooks", () => {
 
     // Should not cause additional fetch calls since we're on the last page
     await waitFor(() => {
-      expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(fetchCallCount);
+      expect(
+        (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length,
+      ).toBe(fetchCallCount);
     });
   });
 
@@ -302,7 +305,8 @@ describe("useFilteredBooks", () => {
       expect(result.current.page).toBe(2);
     });
 
-    const fetchCallCount = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
+    const fetchCallCount = (globalThis.fetch as ReturnType<typeof vi.fn>).mock
+      .calls.length;
 
     act(() => {
       if (result.current.loadMore) {
@@ -312,16 +316,18 @@ describe("useFilteredBooks", () => {
 
     // Should not cause additional fetch calls since we're on the last page
     await waitFor(() => {
-      expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(fetchCallCount);
+      expect(
+        (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length,
+      ).toBe(fetchCallCount);
     });
   });
 
   it("should use currentPage when data.page is undefined in hasMore", async () => {
-    const responseWithoutPage: BookListResponse = {
+    const responseWithoutPage = {
       ...mockResponse,
-      page: undefined as any,
+      page: undefined,
       total_pages: 2,
-    };
+    } as BookListResponse;
     const mockFetchResponse = {
       ok: true,
       json: vi.fn().mockResolvedValue(responseWithoutPage),

@@ -29,8 +29,15 @@ describe("useMetadataSearchStream", () => {
     const nativeJSON = typeof JSON !== "undefined" ? JSON : null;
 
     // Always ensure JSON is available on globalThis for browser tests
-    if (typeof globalThis.JSON === "undefined" || typeof globalThis.JSON.stringify !== "function") {
-      if (typeof window !== "undefined" && window.JSON && typeof window.JSON.stringify === "function") {
+    if (
+      typeof globalThis.JSON === "undefined" ||
+      typeof globalThis.JSON.stringify !== "function"
+    ) {
+      if (
+        typeof window !== "undefined" &&
+        window.JSON &&
+        typeof window.JSON.stringify === "function"
+      ) {
         vi.stubGlobal("JSON", window.JSON);
       } else if (nativeJSON && typeof nativeJSON.stringify === "function") {
         // Use native JSON from Node.js environment
@@ -38,7 +45,7 @@ describe("useMetadataSearchStream", () => {
       } else {
         // Last resort: provide a working JSON implementation
         vi.stubGlobal("JSON", {
-          stringify: (value: any) => {
+          stringify: (value: unknown) => {
             // Use native JSON.stringify if available, otherwise throw
             if (nativeJSON && typeof nativeJSON.stringify === "function") {
               return nativeJSON.stringify(value);
@@ -450,7 +457,9 @@ describe("useMetadataSearchStream", () => {
     mockReader.read
       .mockResolvedValueOnce({
         done: false,
-        value: new Uint8Array("data: \n\n".split("").map((c) => c.charCodeAt(0))),
+        value: new Uint8Array(
+          "data: \n\n".split("").map((c) => c.charCodeAt(0)),
+        ),
       })
       .mockResolvedValueOnce({ done: true });
 
@@ -526,9 +535,7 @@ describe("useMetadataSearchStream", () => {
       .mockResolvedValueOnce({
         done: false,
         value: new Uint8Array(
-          `data: ${searchStartedStr}\n\n`
-            .split("")
-            .map((c) => c.charCodeAt(0)),
+          `data: ${searchStartedStr}\n\n`.split("").map((c) => c.charCodeAt(0)),
         ),
       })
       .mockResolvedValueOnce({
@@ -558,9 +565,8 @@ describe("useMetadataSearchStream", () => {
     });
 
     await waitFor(() => {
-      const providerStatus = result.current.state.providerStatuses.get(
-        "provider1",
-      );
+      const providerStatus =
+        result.current.state.providerStatuses.get("provider1");
       expect(providerStatus?.name).toBe("Provider 1");
       expect(providerStatus?.status).toBe("searching");
     });
@@ -613,9 +619,7 @@ describe("useMetadataSearchStream", () => {
       .mockResolvedValueOnce({
         done: false,
         value: new Uint8Array(
-          `data: ${searchStartedStr}\n\n`
-            .split("")
-            .map((c) => c.charCodeAt(0)),
+          `data: ${searchStartedStr}\n\n`.split("").map((c) => c.charCodeAt(0)),
         ),
       })
       .mockResolvedValueOnce({
@@ -653,9 +657,8 @@ describe("useMetadataSearchStream", () => {
     });
 
     await waitFor(() => {
-      const providerStatus = result.current.state.providerStatuses.get(
-        "provider1",
-      );
+      const providerStatus =
+        result.current.state.providerStatuses.get("provider1");
       expect(providerStatus?.discovered).toBe(5);
     });
   });
@@ -708,9 +711,7 @@ describe("useMetadataSearchStream", () => {
       .mockResolvedValueOnce({
         done: false,
         value: new Uint8Array(
-          `data: ${searchStartedStr}\n\n`
-            .split("")
-            .map((c) => c.charCodeAt(0)),
+          `data: ${searchStartedStr}\n\n`.split("").map((c) => c.charCodeAt(0)),
         ),
       })
       .mockResolvedValueOnce({
@@ -748,9 +749,8 @@ describe("useMetadataSearchStream", () => {
     });
 
     await waitFor(() => {
-      const providerStatus = result.current.state.providerStatuses.get(
-        "provider1",
-      );
+      const providerStatus =
+        result.current.state.providerStatuses.get("provider1");
       expect(providerStatus?.status).toBe("completed");
       expect(providerStatus?.resultCount).toBe(10);
       expect(providerStatus?.durationMs).toBe(500);
@@ -806,9 +806,7 @@ describe("useMetadataSearchStream", () => {
       .mockResolvedValueOnce({
         done: false,
         value: new Uint8Array(
-          `data: ${searchStartedStr}\n\n`
-            .split("")
-            .map((c) => c.charCodeAt(0)),
+          `data: ${searchStartedStr}\n\n`.split("").map((c) => c.charCodeAt(0)),
         ),
       })
       .mockResolvedValueOnce({
@@ -846,9 +844,8 @@ describe("useMetadataSearchStream", () => {
     });
 
     await waitFor(() => {
-      const providerStatus = result.current.state.providerStatuses.get(
-        "provider1",
-      );
+      const providerStatus =
+        result.current.state.providerStatuses.get("provider1");
       expect(providerStatus?.status).toBe("failed");
       expect(providerStatus?.error).toBe("Connection timeout");
       expect(providerStatus?.errorType).toBe("NetworkError");
@@ -905,9 +902,7 @@ describe("useMetadataSearchStream", () => {
       .mockResolvedValueOnce({
         done: false,
         value: new Uint8Array(
-          `data: ${searchStartedStr}\n\n`
-            .split("")
-            .map((c) => c.charCodeAt(0)),
+          `data: ${searchStartedStr}\n\n`.split("").map((c) => c.charCodeAt(0)),
         ),
       })
       .mockResolvedValueOnce({
@@ -993,9 +988,7 @@ describe("useMetadataSearchStream", () => {
       .mockResolvedValueOnce({
         done: false,
         value: new Uint8Array(
-          `data: ${searchStartedStr}\n\n`
-            .split("")
-            .map((c) => c.charCodeAt(0)),
+          `data: ${searchStartedStr}\n\n`.split("").map((c) => c.charCodeAt(0)),
         ),
       })
       .mockResolvedValueOnce({
@@ -1070,9 +1063,7 @@ describe("useMetadataSearchStream", () => {
       .mockResolvedValueOnce({
         done: false,
         value: new Uint8Array(
-          `data: ${searchStartedStr}\n\n`
-            .split("")
-            .map((c) => c.charCodeAt(0)),
+          `data: ${searchStartedStr}\n\n`.split("").map((c) => c.charCodeAt(0)),
         ),
       })
       .mockResolvedValueOnce({
@@ -1165,9 +1156,7 @@ describe("useMetadataSearchStream", () => {
       .mockResolvedValueOnce({
         done: false,
         value: new Uint8Array(
-          `data: ${searchStartedStr}\n\n`
-            .split("")
-            .map((c) => c.charCodeAt(0)),
+          `data: ${searchStartedStr}\n\n`.split("").map((c) => c.charCodeAt(0)),
         ),
       })
       .mockResolvedValueOnce({
@@ -1241,9 +1230,7 @@ describe("useMetadataSearchStream", () => {
       .mockResolvedValueOnce({
         done: false,
         value: new Uint8Array(
-          `data: ${searchStartedStr}\n\n`
-            .split("")
-            .map((c) => c.charCodeAt(0)),
+          `data: ${searchStartedStr}\n\n`.split("").map((c) => c.charCodeAt(0)),
         ),
       })
       .mockResolvedValueOnce({
@@ -1317,9 +1304,7 @@ describe("useMetadataSearchStream", () => {
       .mockResolvedValueOnce({
         done: false,
         value: new Uint8Array(
-          `data: ${searchStartedStr}\n\n`
-            .split("")
-            .map((c) => c.charCodeAt(0)),
+          `data: ${searchStartedStr}\n\n`.split("").map((c) => c.charCodeAt(0)),
         ),
       })
       .mockResolvedValueOnce({

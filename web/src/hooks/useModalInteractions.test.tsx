@@ -16,10 +16,9 @@ describe("useModalInteractions", () => {
     const TestComponent = () => {
       const { handleOverlayClick } = useModalInteractions({ onClose });
       return (
-        <div
-          onClick={handleOverlayClick}
-          data-testid="overlay"
-        >
+        // biome-ignore lint/a11y/noStaticElementInteractions: test component
+        // biome-ignore lint/a11y/useKeyWithClickEvents: test component
+        <div onClick={handleOverlayClick} data-testid="overlay">
           <div data-testid="modal">Modal Content</div>
         </div>
       );
@@ -38,10 +37,11 @@ describe("useModalInteractions", () => {
         onClose,
       });
       return (
-        <div
-          onClick={handleOverlayClick}
-          data-testid="overlay"
-        >
+        // biome-ignore lint/a11y/noStaticElementInteractions: test component
+        // biome-ignore lint/a11y/useKeyWithClickEvents: test component
+        <div onClick={handleOverlayClick} data-testid="overlay">
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: test component */}
+          {/* biome-ignore lint/a11y/useKeyWithClickEvents: test component */}
           <div onClick={handleModalClick} data-testid="modal">
             Modal Content
           </div>
@@ -62,10 +62,11 @@ describe("useModalInteractions", () => {
         onClose,
       });
       return (
-        <div
-          onClick={handleOverlayClick}
-          data-testid="overlay"
-        >
+        // biome-ignore lint/a11y/noStaticElementInteractions: test component
+        // biome-ignore lint/a11y/useKeyWithClickEvents: test component
+        <div onClick={handleOverlayClick} data-testid="overlay">
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: test component */}
+          {/* biome-ignore lint/a11y/useKeyWithClickEvents: test component */}
           <div onClick={handleModalClick} data-testid="modal">
             Modal Content
           </div>

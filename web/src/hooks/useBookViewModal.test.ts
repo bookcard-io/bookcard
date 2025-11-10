@@ -350,9 +350,7 @@ describe("useBookViewModal", () => {
   });
 
   it("should not navigate previous when bookIds is empty", () => {
-    const { result } = renderHook(() =>
-      useBookViewModal({ bookIds: [] }),
-    );
+    const { result } = renderHook(() => useBookViewModal({ bookIds: [] }));
 
     act(() => {
       result.current.handleBookClick({ id: 1 });

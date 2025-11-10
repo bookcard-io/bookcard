@@ -21,11 +21,13 @@ if (typeof globalThis.JSON === "undefined") {
     // Fallback: provide a minimal JSON implementation if neither is available
     // This should not happen in normal browser environments
     vi.stubGlobal("JSON", {
-      stringify: (value: any) => {
+      stringify: (_value: unknown) => {
         // This is a minimal implementation - in practice, browsers always have JSON
-        throw new Error("JSON.stringify not available - this should not happen");
+        throw new Error(
+          "JSON.stringify not available - this should not happen",
+        );
       },
-      parse: (text: string) => {
+      parse: (_text: string) => {
         throw new Error("JSON.parse not available - this should not happen");
       },
     });

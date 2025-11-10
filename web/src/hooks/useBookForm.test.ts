@@ -263,7 +263,9 @@ describe("useBookForm", () => {
 
     // Set success state
     act(() => {
-      result.current.handleSubmit({ preventDefault: vi.fn() } as any);
+      result.current.handleSubmit({
+        preventDefault: vi.fn(),
+      } as unknown as React.FormEvent);
     });
 
     // Change to different book ID
@@ -285,7 +287,7 @@ describe("useBookForm", () => {
     await act(async () => {
       await result.current.handleSubmit({
         preventDefault: vi.fn(),
-      } as any);
+      } as unknown as React.FormEvent);
     });
 
     expect(updateBook).toHaveBeenCalledWith(
@@ -307,7 +309,7 @@ describe("useBookForm", () => {
     await act(async () => {
       await result.current.handleSubmit({
         preventDefault: vi.fn(),
-      } as any);
+      } as unknown as React.FormEvent);
     });
 
     expect(updateBook).toHaveBeenCalledWith(

@@ -185,6 +185,8 @@ describe("useAutoSearch", () => {
     });
 
     // Should only be called once (by startSearch1 or startSearch2, but not both)
-    expect(startSearch1.mock.calls.length + startSearch2.mock.calls.length).toBe(1);
+    expect(
+      startSearch1.mock.calls.length + startSearch2.mock.calls.length,
+    ).toBe(1);
   });
 });

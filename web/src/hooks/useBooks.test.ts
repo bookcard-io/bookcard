@@ -302,7 +302,8 @@ describe("useBooks", () => {
     });
 
     const initialPage = result.current.page;
-    const fetchCallCount = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
+    const fetchCallCount = (globalThis.fetch as ReturnType<typeof vi.fn>).mock
+      .calls.length;
 
     act(() => {
       // loadMore should not exist when infiniteScroll is false
@@ -313,7 +314,9 @@ describe("useBooks", () => {
       // Page should not have changed
       expect(result.current.page).toBe(initialPage);
       // No additional fetch calls
-      expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(fetchCallCount);
+      expect(
+        (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length,
+      ).toBe(fetchCallCount);
     });
   });
 
@@ -354,7 +357,8 @@ describe("useBooks", () => {
       expect(result.current.page).toBe(2);
     });
 
-    const fetchCallCount = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
+    const fetchCallCount = (globalThis.fetch as ReturnType<typeof vi.fn>).mock
+      .calls.length;
 
     act(() => {
       if (result.current.loadMore) {
@@ -364,7 +368,9 @@ describe("useBooks", () => {
 
     // Should not cause additional fetch calls since we're on the last page
     await waitFor(() => {
-      expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(fetchCallCount);
+      expect(
+        (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length,
+      ).toBe(fetchCallCount);
     });
   });
 
@@ -564,11 +570,11 @@ describe("useBooks", () => {
   });
 
   it("should use page fallback when data.page is undefined in loadMore", async () => {
-    const responseWithoutPage: BookListResponse = {
+    const responseWithoutPage = {
       ...mockResponse,
-      page: undefined as any,
+      page: undefined,
       total_pages: 3,
-    };
+    } as BookListResponse;
     const mockFetchResponse = {
       ok: true,
       json: vi.fn().mockResolvedValue(responseWithoutPage),
@@ -609,11 +615,11 @@ describe("useBooks", () => {
   });
 
   it("should use page fallback when data.page is undefined in hasMore", async () => {
-    const responseWithoutPage: BookListResponse = {
+    const responseWithoutPage = {
       ...mockResponse,
-      page: undefined as any,
+      page: undefined,
       total_pages: 3,
-    };
+    } as BookListResponse;
     const mockFetchResponse = {
       ok: true,
       json: vi.fn().mockResolvedValue(responseWithoutPage),
