@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
+import { useCoverUrlUpdates } from "@/hooks/useCoverUrlUpdates";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { useLibraryBooks } from "@/hooks/useLibraryBooks";
 import type { Book } from "@/types/book";
+import { deduplicateBooks } from "@/utils/books";
 import { BookCard } from "./BookCard";
 import styles from "./BooksGrid.module.scss";
 import type { FilterValues } from "./widgets/FiltersPanel";
@@ -23,6 +25,10 @@ export interface BooksGridProps {
   sortOrder?: "asc" | "desc";
   /** Number of items per page. */
   pageSize?: number;
+  /** Ref to expose method for updating cover URL. */
+  coverUpdateRef?: React.RefObject<{
+    updateCover: (bookId: number) => void;
+  }>;
 }
 
 /**
@@ -39,8 +45,9 @@ export function BooksGrid({
   sortBy,
   sortOrder,
   pageSize = 20,
+  coverUpdateRef,
 }: BooksGridProps) {
-  // Fetch books using centralized hook to eliminate DRY violation
+  // Fetch books using centralized hook (SOC: data fetching separated)
   const { books, isLoading, error, total, loadMore, hasMore } = useLibraryBooks(
     {
       filters,
@@ -51,14 +58,17 @@ export function BooksGrid({
     },
   );
 
-  // Infinite scroll handler
+  // Manage cover URL updates (SRP: cover URL state management separated)
+  const { coverUrlOverrides } = useCoverUrlUpdates({
+    updateRef: coverUpdateRef,
+  });
+
+  // Infinite scroll handler (SRP: scroll logic separated)
   const handleLoadMore = useCallback(() => {
-    if (loadMore) {
-      loadMore();
-    }
+    loadMore?.();
   }, [loadMore]);
 
-  // Set up infinite scroll sentinel
+  // Set up infinite scroll sentinel (IOC: using hook for scroll behavior)
   const sentinelRef = useInfiniteScroll({
     onLoadMore: handleLoadMore,
     enabled: Boolean(loadMore && hasMore),
@@ -66,17 +76,11 @@ export function BooksGrid({
     hasMore,
   });
 
-  // Deduplicate books by ID as a safeguard (hooks should handle this, but defensive programming)
-  const uniqueBooks = useMemo(() => {
-    const seen = new Set<number>();
-    return books.filter((book) => {
-      if (seen.has(book.id)) {
-        return false;
-      }
-      seen.add(book.id);
-      return true;
-    });
-  }, [books]);
+  // Deduplicate books and apply cover URL overrides (DRY: using utility)
+  const uniqueBooks = useMemo(
+    () => deduplicateBooks(books, coverUrlOverrides),
+    [books, coverUrlOverrides],
+  );
 
   if (error) {
     return (

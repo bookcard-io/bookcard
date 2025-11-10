@@ -231,6 +231,14 @@ class BookService:
 
         # Calibre stores covers as cover.jpg in the book's path directory
         # Format: /api/books/{book_id}/cover
+        # Add cache-busting parameter based on cover file modification time
+        cover_path = self.get_thumbnail_path(book)
+        if cover_path and cover_path.exists():
+            # Use cover file's modification time as cache-busting parameter
+            # This ensures the URL only changes when the cover file itself changes
+            cover_mtime = int(cover_path.stat().st_mtime)
+            return f"/api/books/{book_id}/cover?v={cover_mtime}"
+
         return f"/api/books/{book_id}/cover"
 
     def get_thumbnail_path(

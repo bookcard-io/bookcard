@@ -34,6 +34,9 @@ export function MainContent() {
   const bookModalRef = useRef<{
     handleBookClick: (book: { id: number }) => void;
   } | null>(null);
+  const booksGridCoverUpdateRef = useRef<{
+    updateCover: (bookId: number) => void;
+  } | null>(null);
 
   // Search state - use ref for book click to avoid circular dependency
   const search = useLibrarySearch({
@@ -146,6 +149,7 @@ export function MainContent() {
             sortOrder={sorting.sortOrder}
             onBookClick={bookModal.handleBookClick}
             onBookEdit={bookEditModal.handleEditBook}
+            coverUpdateRef={booksGridCoverUpdateRef}
           />
         )}
       </div>
@@ -159,6 +163,10 @@ export function MainContent() {
       <BookEditModal
         bookId={bookEditModal.editingBookId}
         onClose={bookEditModal.handleCloseModal}
+        onCoverSaved={(bookId) => {
+          // Update cover in grid when cover is saved
+          booksGridCoverUpdateRef.current?.updateCover(bookId);
+        }}
       />
     </main>
   );

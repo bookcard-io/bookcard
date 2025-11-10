@@ -24,6 +24,8 @@ export interface BookEditModalProps {
   bookId: number | null;
   /** Callback when modal should be closed. */
   onClose: () => void;
+  /** Callback when cover is saved (for updating grid). */
+  onCoverSaved?: (bookId: number) => void;
 }
 
 /**
@@ -38,7 +40,11 @@ export interface BookEditModalProps {
  * props : BookEditModalProps
  *     Component props including book ID and close callback.
  */
-export function BookEditModal({ bookId, onClose }: BookEditModalProps) {
+export function BookEditModal({
+  bookId,
+  onClose,
+  onCoverSaved,
+}: BookEditModalProps) {
   const { book, isLoading, error, updateBook, isUpdating, updateError } =
     useBook({
       bookId: bookId || 0,
@@ -54,10 +60,9 @@ export function BookEditModal({ bookId, onClose }: BookEditModalProps) {
 
   const [showMetadataModal, setShowMetadataModal] = useState(false);
 
-  const { stagedCoverUrl, setStagedCoverUrl, clearStagedCoverUrl } =
-    useStagedCoverUrl({
-      bookId,
-    });
+  const { stagedCoverUrl, clearStagedCoverUrl } = useStagedCoverUrl({
+    bookId,
+  });
 
   /**
    * Handles metadata record selection and populates the form.
@@ -221,7 +226,12 @@ export function BookEditModal({ bookId, onClose }: BookEditModalProps) {
             <BookEditCoverSection
               book={book}
               stagedCoverUrl={stagedCoverUrl}
-              onCoverUrlSet={setStagedCoverUrl}
+              onCoverSaved={() => {
+                // Notify parent that cover was saved
+                if (bookId && onCoverSaved) {
+                  onCoverSaved(bookId);
+                }
+              }}
             />
             <BookEditFormFields
               book={book}

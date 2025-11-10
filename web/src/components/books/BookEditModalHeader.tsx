@@ -29,9 +29,15 @@ export function BookEditModalHeader({
 }: BookEditModalHeaderProps) {
   return (
     <div className={styles.header}>
-      <h2 className={styles.title}>
-        Editing {formTitle || book.title || "Untitled"}
-      </h2>
+      <div className={styles.titleSection}>
+        <h2 className={styles.title}>
+          Editing {formTitle || book.title || "Untitled"}
+        </h2>
+        <p className={styles.helperText}>
+          Multi-valued values like Authors, Tags, Languages: comma or enter to
+          add.
+        </p>
+      </div>
       <Button
         type="button"
         variant="success"

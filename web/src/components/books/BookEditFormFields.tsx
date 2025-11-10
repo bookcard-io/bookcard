@@ -76,7 +76,7 @@ export function BookEditFormFields({
           <div className={styles.fieldRow}>
             <MultiTextInput
               id="authors"
-              label="Author (comma or Enter to add)"
+              label="Author(s)"
               values={formData.author_names || []}
               onChange={(authors) => onFieldChange("author_names", authors)}
               placeholder="Add author names (press Enter or comma)"

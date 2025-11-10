@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useBookCoverFromUrl } from "@/hooks/useBookCoverFromUrl";
 import type { Book } from "@/types/book";
+import { getCoverUrlWithCacheBuster } from "@/utils/books";
 import { BookCoverActions } from "./BookCoverActions";
 import { BookCoverDisplay } from "./BookCoverDisplay";
 import styles from "./BookEditModal.module.scss";
@@ -17,6 +19,8 @@ export interface BookEditCoverSectionProps {
   onCoverUrlSet?: (url: string) => void;
   /** Callback when URL input visibility changes. */
   onUrlInputVisibilityChange?: (isVisible: boolean) => void;
+  /** Callback when cover is saved (for notifying parent). */
+  onCoverSaved?: () => void;
 }
 
 /**
@@ -36,16 +40,32 @@ export function BookEditCoverSection({
   stagedCoverUrl,
   onCoverUrlSet,
   onUrlInputVisibilityChange,
+  onCoverSaved,
 }: BookEditCoverSectionProps) {
+  // Local state to track cover URL with cache-busting
+  const [coverUrl, setCoverUrl] = useState<string | null>(book.thumbnail_url);
+
+  // Update cover URL when book changes
+  useEffect(() => {
+    setCoverUrl(book.thumbnail_url);
+  }, [book.thumbnail_url]);
+
   const { isLoading, error, urlInput, handleUrlChange, handleSetFromUrlClick } =
     useBookCoverFromUrl({
       bookId: book.id,
       onCoverUrlSet,
       onUrlInputVisibilityChange,
+      onCoverSaved: () => {
+        // Update cover URL with cache-busting parameter to force image refresh
+        // without refetching the entire book data (DRY: using utility)
+        setCoverUrl(getCoverUrlWithCacheBuster(book.id));
+        // Notify parent component
+        onCoverSaved?.();
+      },
     });
 
-  // Use staged cover URL if available, otherwise use book's thumbnail_url
-  const displayCoverUrl = stagedCoverUrl || book.thumbnail_url;
+  // Use staged cover URL if available, otherwise use local cover URL
+  const displayCoverUrl = stagedCoverUrl || coverUrl;
 
   return (
     <div className={styles.leftSidebar}>

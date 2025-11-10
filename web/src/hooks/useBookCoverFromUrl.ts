@@ -9,6 +9,8 @@ export interface UseBookCoverFromUrlOptions {
   onCoverUrlSet?: (url: string) => void;
   /** Callback when URL input visibility changes. */
   onUrlInputVisibilityChange?: (isVisible: boolean) => void;
+  /** Callback when cover is saved (for updating local state). */
+  onCoverSaved?: () => void | Promise<void>;
 }
 
 export interface UseBookCoverFromUrlResult {
@@ -47,7 +49,7 @@ export interface UseBookCoverFromUrlResult {
 export function useBookCoverFromUrl(
   options: UseBookCoverFromUrlOptions,
 ): UseBookCoverFromUrlResult {
-  const { bookId, onCoverUrlSet, onUrlInputVisibilityChange } = options;
+  const { bookId, onUrlInputVisibilityChange, onCoverSaved } = options;
 
   const {
     isLoading,
@@ -56,8 +58,10 @@ export function useBookCoverFromUrl(
     clearError,
   } = useCoverFromUrl({
     bookId,
-    onSuccess: (tempUrl) => {
-      onCoverUrlSet?.(tempUrl);
+    onSuccess: async () => {
+      // Cover is saved directly, no need to stage it
+      // Refresh book data after cover is saved
+      await onCoverSaved?.();
     },
   });
 

@@ -35,7 +35,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import FileResponse
 from PIL import Image
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from fundamental.api.deps import get_db_session
 from fundamental.api.schemas import (
@@ -747,11 +747,11 @@ def download_cover_from_url(
     book_id: int,
     request: CoverFromUrlRequest,
 ) -> CoverFromUrlResponse:
-    """Download cover image from URL and save to temporary location.
+    """Download cover image from URL and save directly to book.
 
     Downloads an image from the provided URL, validates it's an image,
-    saves it to a temporary location with a hash-based filename, and
-    returns a URL to access it.
+    saves it directly to the book's directory as cover.jpg, and updates
+    the database to mark the book as having a cover.
 
     Parameters
     ----------
@@ -765,7 +765,7 @@ def download_cover_from_url(
     Returns
     -------
     CoverFromUrlResponse
-        Response containing temporary URL to access the downloaded image.
+        Response containing URL to access the saved cover image.
 
     Raises
     ------
@@ -773,13 +773,67 @@ def download_cover_from_url(
         If book not found (404), URL is invalid (400), image download fails (400),
         or image validation fails (400).
     """
+    from datetime import UTC, datetime
+
     url = request.url.strip()
-    _validate_cover_url_request(session, book_id, url)
+    book_service = _get_active_library_service(session)
+    book_with_rels = book_service.get_book(book_id)
+
+    if book_with_rels is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="book_not_found",
+        )
+
+    if not url:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="url_required",
+        )
+
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="invalid_url_format",
+        )
 
     try:
-        content, image = _download_and_validate_image(url)
-        temp_url = _save_image_to_temp(content, image)
-        return CoverFromUrlResponse(temp_url=temp_url)
+        content, _image = _download_and_validate_image(url)
+
+        # Get book path
+        book_obj = book_with_rels.book
+        lib_root = getattr(book_service._library, "library_root", None)  # type: ignore[attr-defined]  # noqa: SLF001
+        if lib_root:
+            library_path = Path(lib_root)
+        else:
+            library_db_path = book_service._library.calibre_db_path  # type: ignore[attr-defined]  # noqa: SLF001
+            library_db_path_obj = Path(library_db_path)
+            if library_db_path_obj.is_dir():
+                library_path = library_db_path_obj
+            else:
+                library_path = library_db_path_obj.parent
+
+        book_path = library_path / book_obj.path
+        book_path.mkdir(parents=True, exist_ok=True)
+
+        # Save cover as cover.jpg (Calibre standard)
+        cover_path = book_path / "cover.jpg"
+        cover_path.write_bytes(content)
+
+        # Update database to mark book as having a cover
+        with book_service._book_repo._get_session() as calibre_session:  # type: ignore[attr-defined]  # noqa: SLF001
+            from fundamental.models.core import Book
+
+            book_stmt = select(Book).where(Book.id == book_id)
+            calibre_book = calibre_session.exec(book_stmt).first()
+            if calibre_book:
+                calibre_book.has_cover = True
+                calibre_book.last_modified = datetime.now(UTC)
+                calibre_session.add(calibre_book)
+                calibre_session.commit()
+
+        # Return the cover URL
+        cover_url = f"/api/books/{book_id}/cover"
     except HTTPException:
         raise
     except Exception as exc:
@@ -787,6 +841,8 @@ def download_cover_from_url(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"internal_error: {exc!s}",
         ) from exc
+    else:
+        return CoverFromUrlResponse(temp_url=cover_url)
 
 
 @router.get("/temp-covers/{hash_and_ext}", response_model=None)
