@@ -35,6 +35,7 @@ import sys
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 
 from fundamental.api.middleware.auth_middleware import AuthMiddleware
@@ -56,6 +57,10 @@ try:
 except ImportError:  # pragma: no cover - only for environments without Alembic
     _alembic_command = None  # type: ignore[assignment]
     _AlembicConfig = None  # type: ignore[assignment]
+
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 def _setup_logging() -> None:

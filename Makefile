@@ -1,41 +1,92 @@
-.PHONY: dev
+.PHONY: dev setup-uv
 
-dev:
-	@echo "Checking database connectivity at localhost:5432..."
-	@MAX_RETRIES=30; \
-	RETRY_COUNT=0; \
-	while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do \
-		if command -v pg_isready >/dev/null 2>&1; then \
-			if pg_isready -h localhost -p 5432 >/dev/null 2>&1; then \
-				echo "Database is ready!"; \
-				break; \
-			fi; \
-		elif command -v nc >/dev/null 2>&1; then \
-			if nc -z localhost 5432 >/dev/null 2>&1; then \
-				echo "Database port 5432 is open!"; \
-				break; \
-			fi; \
-		elif python3 -c "import socket; socket.create_connection(('localhost', 5432), timeout=1)" 2>/dev/null; then \
-			echo "Database port 5432 is reachable!"; \
-			break; \
+setup-uv:
+	@if command -v uv >/dev/null 2>&1; then \
+		echo "uv is already installed."; \
+	else \
+		echo "uv is not installed."; \
+		UNAME_S=$$(uname -s 2>/dev/null || echo "Unknown"); \
+		case "$$UNAME_S" in \
+			Linux|Darwin) \
+				echo "Would you like to install uv? (y/n)"; \
+				read -r answer; \
+				if [ "$$answer" = "y" ] || [ "$$answer" = "Y" ]; then \
+					echo "Installing uv..."; \
+					curl -LsSf https://astral.sh/uv/install.sh | sh; \
+					echo "uv installed successfully."; \
+					if [ -f "$$HOME/.cargo/env" ]; then \
+						. "$$HOME/.cargo/env"; \
+					fi; \
+					if [ -f "$$HOME/.local/bin/uv" ]; then \
+						export PATH="$$HOME/.local/bin:$$PATH"; \
+					fi; \
+				else \
+					echo "Installation cancelled. Please install uv manually to continue."; \
+					exit 1; \
+				fi; \
+				;; \
+			MINGW*|MSYS*|CYGWIN*) \
+				if command -v powershell >/dev/null 2>&1; then \
+					echo "Would you like to install uv? (y/n)"; \
+					read -r answer; \
+					if [ "$$answer" = "y" ] || [ "$$answer" = "Y" ]; then \
+						echo "Installing uv..."; \
+						powershell -c "irm https://astral.sh/uv/install.ps1 | iex"; \
+						echo "uv installed successfully."; \
+					else \
+						echo "Installation cancelled. Please install uv manually to continue."; \
+						exit 1; \
+					fi; \
+				else \
+					echo "Error: Windows detected but PowerShell is not available."; \
+					echo "Please run this Makefile from PowerShell or Git Bash, or install uv manually."; \
+					echo "To install manually, run: powershell -c \"irm https://astral.sh/uv/install.ps1 | iex\""; \
+					exit 1; \
+				fi; \
+				;; \
+			*) \
+				if [ "$$OS" = "Windows_NT" ] || [ -n "$$WINDIR" ]; then \
+					if command -v powershell >/dev/null 2>&1; then \
+						echo "Would you like to install uv? (y/n)"; \
+						read -r answer; \
+						if [ "$$answer" = "y" ] || [ "$$answer" = "Y" ]; then \
+							echo "Installing uv..."; \
+							powershell -c "irm https://astral.sh/uv/install.ps1 | iex"; \
+							echo "uv installed successfully."; \
+						else \
+							echo "Installation cancelled. Please install uv manually to continue."; \
+							exit 1; \
+						fi; \
+					else \
+						echo "Error: Windows detected but PowerShell is not available."; \
+						echo "Please run this Makefile from PowerShell or Git Bash, or install uv manually."; \
+						echo "To install manually, run: powershell -c \"irm https://astral.sh/uv/install.ps1 | iex\""; \
+						exit 1; \
+					fi; \
+				else \
+					echo "Unsupported operating system: $$UNAME_S"; \
+					echo "Please install uv manually."; \
+					exit 1; \
+				fi; \
+				;; \
+		esac; \
+		if [ ! -d .venv ]; then \
+			echo "Creating virtual environment..."; \
+			uv venv; \
 		fi; \
-		RETRY_COUNT=$$((RETRY_COUNT + 1)); \
-		if [ $$RETRY_COUNT -ge $$MAX_RETRIES ]; then \
-			echo "Warning: Database not reachable at localhost:5432 after $$MAX_RETRIES attempts."; \
-			echo "Make sure the database is running (e.g., docker-compose up -d db)"; \
-			exit 1; \
-		fi; \
-		echo "Waiting for database... (attempt $$RETRY_COUNT/$$MAX_RETRIES)"; \
-		sleep 1; \
-	done; \
-	echo "Starting Python API server and Next.js dev server..."; \
+		echo "Syncing dependencies..."; \
+		uv sync; \
+	fi
+
+dev: setup-uv
+	@echo "Starting Python API server and Next.js dev server..."; \
 	set -a; \
 	if [ -f .env ]; then \
 		echo "Loading environment from .env file..."; \
 		. ./.env; \
 	fi; \
 	set +a; \
-	uvicorn fundamental.api.main:app --host 0.0.0.0 --port 8000 --reload & \
+	uv run uvicorn fundamental.api.main:app --host 0.0.0.0 --port 8000 --reload & \
 	PID1=$$!; \
 	cd web && npm run dev & \
 	PID2=$$!; \
