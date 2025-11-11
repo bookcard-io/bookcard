@@ -39,6 +39,7 @@ from fundamental.api.schemas import (
     LoginResponse,
     PasswordChangeRequest,
     ProfileRead,
+    ProfileUpdate,
     TokenResponse,
     UserCreate,
     UserRead,
@@ -262,6 +263,57 @@ def get_profile(
     """
     current_user = get_current_user(request, session)
     return ProfileRead.model_validate(current_user)
+
+
+@router.patch("/profile", response_model=ProfileRead)
+def update_profile(
+    request: Request,
+    session: SessionDep,
+    payload: ProfileUpdate,
+) -> ProfileRead:
+    """Update the current user's profile information.
+
+    Allows updating username, email, and full_name. Only provided fields
+    will be updated. Password changes should use PUT /auth/password.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+    session : SessionDep
+        Database session dependency.
+    payload : ProfileUpdate
+        Request containing fields to update.
+
+    Returns
+    -------
+    ProfileRead
+        Updated user profile.
+
+    Raises
+    ------
+    HTTPException
+        If user is not found (404), username already exists (409), or
+        email already exists (409).
+    """
+    service = _auth_service(request, session)
+    current_user = get_current_user(request, session)
+    try:
+        user = service.update_profile(
+            current_user.id,  # type: ignore[arg-type]
+            username=payload.username,
+            email=payload.email,
+            full_name=payload.full_name,
+        )
+        session.commit()
+    except ValueError as exc:
+        msg = str(exc)
+        if msg == "user_not_found":
+            raise HTTPException(status_code=404, detail=msg) from exc
+        if msg in {AuthError.USERNAME_EXISTS, AuthError.EMAIL_EXISTS}:
+            raise HTTPException(status_code=409, detail=msg) from exc
+        raise
+    return ProfileRead.model_validate(user)
 
 
 @router.post("/profile-picture", response_model=ProfileRead)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface EditableTextFieldProps {
   /**
@@ -15,7 +15,7 @@ interface EditableTextFieldProps {
    * value : string
    *     The new value entered by the user.
    */
-  onSave?: (value: string) => void;
+  onSave?: (value: string) => void | Promise<void>;
   /**
    * Placeholder text for the input field.
    */
@@ -46,17 +46,56 @@ export function EditableTextField({
 }: EditableTextFieldProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [value, setValue] = useState(currentValue || "");
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = () => {
-    if (onSave) {
-      onSave(value);
+  // Sync value when currentValue changes externally (e.g., after successful update)
+  useEffect(() => {
+    if (!isEditing) {
+      setValue(currentValue || "");
     }
-    setIsEditing(false);
+  }, [currentValue, isEditing]);
+
+  const handleSave = async () => {
+    if (onSave) {
+      setIsSaving(true);
+      try {
+        await onSave(value);
+        setIsEditing(false);
+      } catch {
+        // Error handling is done by the parent component
+        // Don't close the editor on error so user can retry
+      } finally {
+        setIsSaving(false);
+      }
+    } else {
+      setIsEditing(false);
+    }
   };
 
   const handleCancel = () => {
     setValue(currentValue || "");
     setIsEditing(false);
+  };
+
+  // Validate if the current value is valid for saving
+  const isValid = () => {
+    const trimmedValue = value.trim();
+    return allowEmpty || trimmedValue.length > 0;
+  };
+
+  const isValueValid = isValid();
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      // Validate value before saving
+      if (isValueValid) {
+        void handleSave();
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      handleCancel();
+    }
   };
 
   if (!isEditing) {
@@ -89,21 +128,25 @@ export function EditableTextField({
         type="text"
         value={value}
         onChange={(e) => setValue(e.target.value)}
+        onKeyDown={handleKeyDown}
         className="rounded border border-surface-a20 bg-surface-tonal-a10 px-3 py-2 text-text-a0 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-a0"
         placeholder={placeholder}
+        disabled={isSaving}
       />
       <div className="flex gap-2">
         <button
           type="button"
           onClick={handleSave}
-          className="rounded border-0 bg-primary-a0 px-3 py-1.5 font-medium text-text-a0 text-xs transition-colors duration-200 hover:bg-primary-a10"
+          disabled={isSaving || !isValueValid}
+          className="rounded border-0 bg-primary-a0 px-3 py-1.5 font-medium text-text-a0 text-xs transition-colors duration-200 hover:bg-primary-a10 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Save
+          {isSaving ? "Saving..." : "Save"}
         </button>
         <button
           type="button"
           onClick={handleCancel}
-          className="rounded border border-surface-a20 bg-surface-tonal-a10 px-3 py-1.5 font-medium text-text-a0 text-xs transition-colors duration-200 hover:bg-surface-tonal-a20"
+          disabled={isSaving}
+          className="rounded border border-surface-a20 bg-surface-tonal-a10 px-3 py-1.5 font-medium text-text-a0 text-xs transition-colors duration-200 hover:bg-surface-tonal-a20 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Cancel
         </button>

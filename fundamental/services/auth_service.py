@@ -146,6 +146,65 @@ class AuthService:
         user.updated_at = datetime.now(UTC)
         self._session.flush()
 
+    def update_profile(
+        self,
+        user_id: int,
+        username: str | None = None,
+        email: str | None = None,
+        full_name: str | None = None,
+    ) -> User:
+        """Update a user's profile information.
+
+        Parameters
+        ----------
+        user_id : int
+            User identifier.
+        username : str | None
+            New username (optional).
+        email : str | None
+            New email address (optional).
+        full_name : str | None
+            New full name (optional).
+
+        Returns
+        -------
+        User
+            Updated user entity.
+
+        Raises
+        ------
+        ValueError
+            If user not found, username already exists, or email already exists.
+        """
+        user = self._users.get(user_id)
+        if user is None:
+            msg = "user_not_found"
+            raise ValueError(msg)
+
+        # Check for username conflicts if username is being changed
+        if username is not None and username != user.username:
+            existing_user = self._users.find_by_username(username)
+            if existing_user is not None and existing_user.id != user_id:
+                raise ValueError(AuthError.USERNAME_EXISTS)
+
+        # Check for email conflicts if email is being changed
+        if email is not None and email != user.email:
+            existing_user = self._users.find_by_email(email)
+            if existing_user is not None and existing_user.id != user_id:
+                raise ValueError(AuthError.EMAIL_EXISTS)
+
+        # Update fields if provided
+        if username is not None:
+            user.username = username
+        if email is not None:
+            user.email = email
+        if full_name is not None:
+            user.full_name = full_name
+
+        user.updated_at = datetime.now(UTC)
+        self._session.flush()
+        return user
+
     def _get_user_assets_dir(self, user_id: int) -> Path:
         """Get the assets directory path for a user.
 

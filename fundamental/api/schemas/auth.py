@@ -159,6 +159,14 @@ class ProfileRead(BaseModel):
     is_admin: bool
 
 
+class ProfileUpdate(BaseModel):
+    """Payload to update user profile information."""
+
+    username: str | None = Field(default=None, min_length=3, max_length=50)
+    email: EmailStr | None = None
+    full_name: str | None = Field(default=None, max_length=255)
+
+
 class InviteValidationResponse(BaseModel):
     """Response for invite token validation."""
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useUser } from "@/contexts/UserContext";
 
 export interface EReaderDevice {
   id: number;
@@ -23,6 +24,9 @@ export interface UserProfile {
 /**
  * Hook to fetch and manage user profile data.
  *
+ * Automatically refetches when UserContext refreshes (e.g., after profile updates).
+ * This ensures components using this hook stay in sync with the global user state.
+ *
  * Returns
  * -------
  * { user, isLoading, error }
@@ -32,6 +36,10 @@ export function useUserProfile() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+
+  // Get refreshTimestamp from UserContext to trigger refetch when context updates
+  // This ensures components using this hook stay in sync with UserContext updates
+  const { refreshTimestamp } = useUser();
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -65,7 +73,7 @@ export function useUserProfile() {
     };
 
     void fetchProfile();
-  }, []);
+  }, []); // Refetch when refreshTimestamp changes
 
   return { user, isLoading, error };
 }
