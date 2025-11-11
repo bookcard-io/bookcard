@@ -29,10 +29,10 @@ export function ProfileButton() {
         setIsMenuOpen(false);
         setCursorPosition(null);
       } else {
-        const rect = e.currentTarget.getBoundingClientRect();
+        // Capture cursor position from mouse event
         setCursorPosition({
-          x: rect.right,
-          y: rect.bottom,
+          x: e.clientX,
+          y: e.clientY,
         });
         setIsMenuOpen(true);
       }
