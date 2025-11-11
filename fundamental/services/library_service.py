@@ -35,6 +35,10 @@ if TYPE_CHECKING:
     from sqlmodel import Session
 
     from fundamental.repositories.library_repository import LibraryRepository
+else:
+    from fundamental.repositories.calibre_book_repository import (
+        CalibreBookRepository,
+    )
 
 
 class LibraryService:
@@ -241,6 +245,41 @@ class LibraryService:
             raise ValueError(msg)
 
         self._library_repo.delete(library)
+
+    def get_library_stats(self, library_id: int) -> dict[str, int | float]:
+        """Get statistics for a library.
+
+        Parameters
+        ----------
+        library_id : int
+            Library identifier.
+
+        Returns
+        -------
+        dict[str, int | float]
+            Dictionary with library statistics:
+            - 'total_books': Total number of books
+            - 'total_series': Total number of unique series
+            - 'total_authors': Total number of unique authors
+            - 'total_content_size': Total file size in bytes
+
+        Raises
+        ------
+        ValueError
+            If library not found.
+        FileNotFoundError
+            If Calibre database file does not exist.
+        """
+        library = self._library_repo.get(library_id)
+        if library is None:
+            msg = "library_not_found"
+            raise ValueError(msg)
+
+        book_repo = CalibreBookRepository(
+            calibre_db_path=library.calibre_db_path,
+            calibre_db_file=library.calibre_db_file,
+        )
+        return book_repo.get_library_stats()
 
     def _deactivate_all(self) -> None:
         """Deactivate all libraries."""

@@ -39,6 +39,7 @@ from fundamental.api.schemas import (
     EReaderDeviceUpdate,
     LibraryCreate,
     LibraryRead,
+    LibraryStats,
     LibraryUpdate,
     PermissionRead,
     RoleCreate,
@@ -1094,6 +1095,51 @@ def delete_library(
         if msg == "library_not_found":
             raise HTTPException(status_code=404, detail=msg) from exc
         raise
+
+
+@router.get(
+    "/libraries/{library_id}/stats",
+    response_model=LibraryStats,
+    dependencies=[Depends(get_admin_user)],
+)
+def get_library_stats(
+    session: SessionDep,
+    library_id: int,
+) -> LibraryStats:
+    """Get statistics for a library.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+    library_id : int
+        Library identifier.
+
+    Returns
+    -------
+    LibraryStats
+        Library statistics.
+
+    Raises
+    ------
+    HTTPException
+        If library not found (404) or database file not found (404).
+    """
+    library_repo = LibraryRepository(session)
+    library_service = LibraryService(session, library_repo)
+
+    try:
+        stats = library_service.get_library_stats(library_id)
+        return LibraryStats.model_validate(stats)
+    except ValueError as exc:
+        msg = str(exc)
+        if msg == "library_not_found":
+            raise HTTPException(status_code=404, detail=msg) from exc
+        raise
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=404, detail="calibre_database_not_found"
+        ) from exc
 
 
 @router.post(

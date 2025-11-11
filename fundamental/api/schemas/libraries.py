@@ -94,3 +94,14 @@ class LibraryUpdate(BaseModel):
     is_active: bool | None = Field(
         default=None, description="Set as the active library"
     )
+
+
+class LibraryStats(BaseModel):
+    """Library statistics representation."""
+
+    total_books: int = Field(description="Total number of books")
+    total_series: int = Field(description="Total number of unique series")
+    total_authors: int = Field(description="Total number of unique authors")
+    total_tags: int = Field(description="Total number of unique tags")
+    total_ratings: int = Field(description="Total number of books with ratings")
+    total_content_size: int = Field(description="Total file size in bytes")

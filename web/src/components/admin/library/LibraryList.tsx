@@ -1,83 +1,61 @@
+/**
+ * Library list component.
+ *
+ * Displays a list of libraries with their statistics and actions.
+ * Follows SRP by focusing solely on list composition and empty states.
+ * Follows IOC by delegating data fetching to hooks and rendering to sub-components.
+ */
+
 "use client";
 
-import { cn } from "@/libs/utils";
+import { useLibraryStats } from "./hooks/useLibraryStats";
+import { LibraryListItem } from "./LibraryListItem";
+import type { Library } from "./types";
 
-export interface Library {
-  id: number;
-  name: string;
-  calibre_db_path: string;
-  calibre_db_file: string;
-  calibre_uuid: string | null;
-  use_split_library: boolean;
-  split_library_dir: string | null;
-  auto_reconnect: boolean;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
+export type { Library };
+
+export interface LibraryListProps {
+  /** List of libraries to display. */
+  libraries: Library[];
+  /** Callback when library active state is toggled. */
+  onToggle: (library: Library) => void;
+  /** Callback when library is deleted. */
+  onDelete: (id: number) => void;
+  /** ID of library currently being deleted. */
+  deletingLibraryId: number | null;
 }
 
-type Props = {
-  libraries: Library[];
-  onToggle: (library: Library) => void;
-  onDelete: (id: number) => void;
-  deletingLibraryId: number | null;
-};
-
+/**
+ * Library list component.
+ *
+ * Renders a list of libraries with their statistics and management actions.
+ * Handles empty states and composition of library items.
+ *
+ * Parameters
+ * ----------
+ * props : LibraryListProps
+ *     Component props including libraries and callbacks.
+ */
 export function LibraryList({
   libraries,
   onToggle,
   onDelete,
   deletingLibraryId,
-}: Props) {
+}: LibraryListProps) {
+  const { stats, loadingStats } = useLibraryStats(libraries);
+
   return (
     <div className="flex flex-col gap-2">
       {libraries.map((lib) => (
-        <div
+        <LibraryListItem
           key={lib.id}
-          className="flex items-center gap-3 rounded-md border border-[var(--color-surface-a20)] bg-[var(--color-surface-a10)] p-3"
-        >
-          <div className="flex flex-1 items-center gap-3">
-            <input
-              type="checkbox"
-              checked={lib.is_active}
-              onChange={() => onToggle(lib)}
-              className="h-[18px] w-[18px] cursor-pointer accent-[var(--color-primary-a0)]"
-            />
-            <div className="flex flex-1 flex-col gap-1">
-              <div
-                className={cn(
-                  "font-medium text-sm",
-                  lib.is_active
-                    ? "text-[var(--color-primary-a0)]"
-                    : "text-[var(--color-text-a0)]",
-                )}
-              >
-                {lib.name}
-              </div>
-              <div className="break-all text-[var(--color-text-a30)] text-xs">
-                {lib.calibre_db_path}
-              </div>
-              {lib.updated_at && (
-                <div className="text-[11px] text-[var(--color-text-a40)]">
-                  Last updated: {new Date(lib.updated_at).toLocaleString()}
-                </div>
-              )}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => onDelete(lib.id)}
-            disabled={deletingLibraryId === lib.id}
-            className={cn(
-              "cursor-pointer rounded-md border border-[var(--color-danger-a20)] bg-transparent px-3 py-1.5 font-medium text-[var(--color-danger-a0)] text-xs transition-colors duration-150",
-              deletingLibraryId === lib.id
-                ? "cursor-not-allowed border-[var(--color-danger-a30)] text-[var(--color-danger-a30)] opacity-60"
-                : "hover:bg-[var(--color-danger-a20)] hover:text-[var(--color-danger-a0)]",
-            )}
-          >
-            Remove
-          </button>
-        </div>
+          library={lib}
+          stats={stats[lib.id]}
+          isLoadingStats={loadingStats[lib.id]}
+          onToggle={onToggle}
+          onDelete={onDelete}
+          deletingLibraryId={deletingLibraryId}
+        />
       ))}
       {libraries.length === 0 && (
         <div className="p-6 text-center text-[var(--color-text-a30)] text-sm italic">

@@ -70,6 +70,7 @@ from fundamental.api.schemas.books import (
 from fundamental.api.schemas.libraries import (
     LibraryCreate,
     LibraryRead,
+    LibraryStats,
     LibraryUpdate,
 )
 from fundamental.api.schemas.metadata import (
@@ -105,6 +106,7 @@ __all__ = [
     # Library schemas
     "LibraryCreate",
     "LibraryRead",
+    "LibraryStats",
     "LibraryUpdate",
     "LoginRequest",
     "LoginResponse",
