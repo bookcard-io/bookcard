@@ -1,8 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import {
-  AUTH_COOKIE_NAME,
-  BACKEND_URL,
-} from "@/constants/config";
+import { AUTH_COOKIE_NAME, BACKEND_URL } from "@/constants/config";
 
 /**
  * POST /api/auth/logout
@@ -11,12 +8,19 @@ import {
  */
 export async function POST(request: NextRequest) {
   try {
+    // Get Authorization header from request to forward to backend
+    const authHeader = request.headers.get("Authorization");
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+    };
+    if (authHeader) {
+      headers.Authorization = authHeader;
+    }
+
     // Call backend logout endpoint
     await fetch(`${BACKEND_URL}/auth/logout`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
       credentials: "include",
     });
 

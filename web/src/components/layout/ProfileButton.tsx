@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useCallback, useRef, useState } from "react";
 import { useUser } from "@/contexts/UserContext";
-import { Tooltip } from "./Tooltip";
 import { ProfileMenu } from "./ProfileMenu";
+import { Tooltip } from "./Tooltip";
 
 /**
  * Profile button component for the header action bar.
@@ -22,20 +22,23 @@ export function ProfileButton() {
     y: number;
   } | null>(null);
 
-  const handleButtonClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    if (isMenuOpen) {
-      setIsMenuOpen(false);
-      setCursorPosition(null);
-    } else {
-      const rect = e.currentTarget.getBoundingClientRect();
-      setCursorPosition({
-        x: rect.right,
-        y: rect.bottom,
-      });
-      setIsMenuOpen(true);
-    }
-  }, [isMenuOpen]);
+  const handleButtonClick = useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      e.stopPropagation();
+      if (isMenuOpen) {
+        setIsMenuOpen(false);
+        setCursorPosition(null);
+      } else {
+        const rect = e.currentTarget.getBoundingClientRect();
+        setCursorPosition({
+          x: rect.right,
+          y: rect.bottom,
+        });
+        setIsMenuOpen(true);
+      }
+    },
+    [isMenuOpen],
+  );
 
   const handleCloseMenu = useCallback(() => {
     setIsMenuOpen(false);
