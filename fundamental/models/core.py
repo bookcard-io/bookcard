@@ -24,6 +24,7 @@
 
 from datetime import UTC, datetime
 
+from sqlalchemy import Column, String
 from sqlmodel import Field, SQLModel
 
 
@@ -208,7 +209,10 @@ class Book(SQLModel, table=True):
     lccn: str = ""
     path: str = ""
     flags: int = 1
-    uuid: str | None = None
+    uuid: str | None = Field(
+        default=None,
+        sa_column=Column(String, nullable=True),
+    )
     has_cover: bool = False
     last_modified: datetime = Field(
         default_factory=lambda: datetime(2000, 1, 1, tzinfo=UTC),

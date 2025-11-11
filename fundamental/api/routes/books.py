@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Annotated
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from PIL import Image
 from sqlmodel import Session, select
@@ -43,6 +43,7 @@ from fundamental.api.schemas import (
     BookListResponse,
     BookRead,
     BookUpdate,
+    BookUploadResponse,
     CoverFromUrlRequest,
     CoverFromUrlResponse,
     FilterSuggestionsResponse,
@@ -1087,3 +1088,81 @@ def filter_books(
         page_size=page_size,
         total_pages=total_pages,
     )
+
+
+@router.post(
+    "/upload", response_model=BookUploadResponse, status_code=status.HTTP_201_CREATED
+)
+def upload_book(
+    session: SessionDep,
+    file: UploadFile,
+) -> BookUploadResponse:
+    """Upload a book file to the active library.
+
+    Accepts a book file, saves it temporarily, and adds it directly to the
+    Calibre database (following calibre-web approach). Returns the ID of the
+    newly added book.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+    file : UploadFile
+        Book file to upload.
+
+    Returns
+    -------
+    BookUploadResponse
+        Response containing the ID of the newly uploaded book.
+
+    Raises
+    ------
+    HTTPException
+        If no active library is configured (404), file is invalid (400),
+        or database operation fails (500).
+    """
+    book_service = _get_active_library_service(session)
+
+    # Validate file extension
+    file_ext = Path(file.filename or "").suffix.lower().lstrip(".")
+    if not file_ext:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="file_extension_required",
+        )
+
+    # Save file to temporary location
+    with tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=f".{file_ext}",
+        prefix="calibre_upload_",
+    ) as temp_file:
+        temp_path = Path(temp_file.name)
+        try:
+            # Read and write file content
+            content = file.file.read()
+            temp_path.write_bytes(content)
+        except Exception as exc:
+            temp_path.unlink(missing_ok=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"failed_to_save_file: {exc!s}",
+            ) from exc
+
+    try:
+        # Add book directly to database (following calibre-web approach)
+        # Extract title from filename if possible
+        filename = file.filename or "Unknown"
+        title = Path(filename).stem if filename else None
+
+        book_id = book_service.add_book(
+            file_path=temp_path,
+            file_format=file_ext,
+            title=title,
+            author_name=None,  # Will default to "Unknown"
+        )
+
+        return BookUploadResponse(book_id=book_id)
+    finally:
+        # Clean up temporary file
+        temp_path.unlink(missing_ok=True)

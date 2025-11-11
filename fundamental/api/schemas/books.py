@@ -297,3 +297,15 @@ class CoverFromUrlResponse(BaseModel):
     temp_url: str = Field(
         ..., description="Temporary URL to access the downloaded cover image"
     )
+
+
+class BookUploadResponse(BaseModel):
+    """Response for book upload operation.
+
+    Attributes
+    ----------
+    book_id : int
+        ID of the newly uploaded book.
+    """
+
+    book_id: int = Field(..., description="ID of the newly uploaded book")

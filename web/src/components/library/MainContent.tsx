@@ -8,6 +8,7 @@ import { LibraryHeader } from "@/components/library/LibraryHeader";
 import { SearchWidgetBar } from "@/components/library/SearchWidgetBar";
 import { FiltersPanel } from "@/components/library/widgets/FiltersPanel";
 import { useBookEditModal } from "@/hooks/useBookEditModal";
+import { useBookUpload } from "@/hooks/useBookUpload";
 import { useBookViewModal } from "@/hooks/useBookViewModal";
 import { useLibraryBooks } from "@/hooks/useLibraryBooks";
 import { useLibraryFilters } from "@/hooks/useLibraryFilters";
@@ -92,6 +93,19 @@ export function MainContent() {
   // Book edit modal state
   const bookEditModal = useBookEditModal();
 
+  // Book upload state - opens edit modal on success
+  const bookUpload = useBookUpload({
+    onUploadSuccess: (bookId) => {
+      // Open edit modal for the newly uploaded book
+      bookEditModal.handleEditBook(bookId);
+    },
+    onUploadError: (error) => {
+      // TODO: Show error notification to user
+      // eslint-disable-next-line no-console
+      console.error("Book upload failed:", error);
+    },
+  });
+
   // View mode state
   const viewMode = useLibraryViewMode({
     onSortToggle: sorting.handleSortToggle,
@@ -108,7 +122,13 @@ export function MainContent() {
   return (
     <>
       <div className="flex min-h-full flex-col">
-        <LibraryHeader />
+        <LibraryHeader
+          onAddBooksClick={bookUpload.openFileBrowser}
+          fileInputRef={bookUpload.fileInputRef}
+          onFileChange={bookUpload.handleFileChange}
+          accept={bookUpload.accept}
+          isUploading={bookUpload.isUploading}
+        />
         <div className="relative">
           <SearchWidgetBar
             searchValue={search.searchInputValue}

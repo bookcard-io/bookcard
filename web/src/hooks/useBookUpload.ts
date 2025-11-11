@@ -1,0 +1,141 @@
+import { useCallback, useRef, useState } from "react";
+
+export interface UseBookUploadOptions {
+  /**
+   * Callback fired when a book is successfully uploaded.
+   *
+   * Parameters
+   * ----------
+   * bookId : number
+   *     ID of the newly uploaded book.
+   */
+  onUploadSuccess?: (bookId: number) => void;
+  /**
+   * Callback fired when upload fails.
+   *
+   * Parameters
+   * ----------
+   * error : string
+   *     Error message.
+   */
+  onUploadError?: (error: string) => void;
+}
+
+export interface UseBookUploadResult {
+  /**
+   * Ref to attach to the hidden file input element.
+   */
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  /**
+   * Whether an upload is currently in progress.
+   */
+  isUploading: boolean;
+  /**
+   * Opens the file browser dialog.
+   */
+  openFileBrowser: () => void;
+  /**
+   * Handler for file input change event.
+   */
+  handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  /**
+   * Accepted file extensions for book formats.
+   */
+  accept: string;
+}
+
+/**
+ * Custom hook for book upload functionality.
+ *
+ * Handles file selection, upload to server, and success/error callbacks.
+ * Follows SRP by handling only book upload concerns.
+ * Follows IOC by accepting callbacks for upload results.
+ *
+ * Parameters
+ * ----------
+ * options : UseBookUploadOptions
+ *     Configuration options for book upload.
+ *
+ * Returns
+ * -------
+ * UseBookUploadResult
+ *     Object containing refs, state, and event handlers.
+ */
+export function useBookUpload(
+  options: UseBookUploadOptions = {},
+): UseBookUploadResult {
+  const { onUploadSuccess, onUploadError } = options;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  /**
+   * Uploads a book file to the server.
+   *
+   * Parameters
+   * ----------
+   * file : File
+   *     Book file to upload.
+   */
+  const uploadBook = useCallback(
+    async (file: File) => {
+      setIsUploading(true);
+
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await fetch("/api/books/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const data = (await response.json()) as { detail?: string };
+          const errorMessage =
+            data.detail || `Upload failed with status ${response.status}`;
+          throw new Error(errorMessage);
+        }
+
+        const data = (await response.json()) as { book_id: number };
+        onUploadSuccess?.(data.book_id);
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Upload failed";
+        onUploadError?.(errorMessage);
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [onUploadSuccess, onUploadError],
+  );
+
+  const openFileBrowser = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        void uploadBook(file);
+      }
+      // Reset input to allow selecting the same file again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    },
+    [uploadBook],
+  );
+
+  // Supported Calibre formats: AZW, AZW3, AZW4, CBZ, CBR, CB7, CBC, CHM, DJVU, DOCX, EPUB, FB2, FBZ, HTML, HTMLZ, KEPUB, LIT, LRF, MOBI, ODT, PDF, PRC, PDB, PML, RB, RTF, SNB, TCR, TXT, TXTZ
+  const accept =
+    ".epub,.mobi,.azw,.azw3,.azw4,.cbz,.cbr,.cb7,.cbc,.chm,.djvu,.docx,.fb2,.fbz,.html,.htmlz,.kepub,.lit,.lrf,.odt,.pdf,.prc,.pdb,.pml,.rb,.rtf,.snb,.tcr,.txt,.txtz";
+
+  return {
+    fileInputRef,
+    isUploading,
+    openFileBrowser,
+    handleFileChange,
+    accept,
+  };
+}

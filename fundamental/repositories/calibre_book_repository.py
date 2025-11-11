@@ -32,6 +32,7 @@ from contextlib import contextmanager, suppress
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
+from uuid import uuid4
 
 from sqlalchemy import event, func
 from sqlalchemy.orm import aliased
@@ -61,9 +62,11 @@ from fundamental.repositories.suggestions import FilterSuggestionFactory
 
 if TYPE_CHECKING:
     import sqlite3
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
     from sqlalchemy import Engine
+
+    from fundamental.services.book_metadata import BookMetadata
 
 
 class CalibreBookRepository:
@@ -206,6 +209,36 @@ class CalibreBookRepository:
                 return None
         return None
 
+    @staticmethod
+    def _get_calibre_sqlite_functions() -> list[tuple[str, int, Callable[..., object]]]:
+        """Get list of SQLite functions to register for Calibre database.
+
+        Returns
+        -------
+        list[tuple[str, int, Callable[..., object]]]
+            List of tuples containing (function_name, num_args, function_impl).
+            Each tuple defines a SQLite function to register.
+
+        Notes
+        -----
+        To add a new function, simply add a tuple to this list:
+        - function_name: Name of the SQL function (e.g., "my_function")
+        - num_args: Number of arguments the function accepts (-1 for variable)
+        - function_impl: Python callable that implements the function
+        """
+        return [
+            (
+                "title_sort",
+                1,
+                lambda x: x or "",
+            ),
+            (
+                "uuid4",
+                0,
+                lambda: str(uuid4()),
+            ),
+        ]
+
     def _get_engine(self) -> Engine:
         """Get or create SQLAlchemy engine for Calibre database.
 
@@ -225,14 +258,17 @@ class CalibreBookRepository:
         if self._engine is None:
             db_url = f"sqlite:///{self._db_path}"
 
-            def _register_title_sort(
+            def _register_calibre_functions(
                 dbapi_conn: sqlite3.Connection, connection_record: object
             ) -> None:
-                """Register title_sort SQLite function.
+                """Register SQLite functions required by Calibre database.
 
-                Calibre's database triggers reference this function, which
-                normalizes titles for sorting (removing articles, etc.).
-                This implementation returns the title as-is for simplicity.
+                Registers functions needed by Calibre's database triggers.
+                SQLite's create_function is idempotent, so it's safe to call
+                multiple times - subsequent calls simply replace the function.
+
+                To add a new function, add it to the list returned by
+                _get_calibre_sqlite_functions().
 
                 Parameters
                 ----------
@@ -243,10 +279,18 @@ class CalibreBookRepository:
                 """
                 # connection_record is required by event listener signature but unused
                 _ = connection_record
-                dbapi_conn.create_function("title_sort", 1, lambda x: x or "")
+                # Register each function
+                # Note: create_function is idempotent, so calling it multiple times
+                # is safe and has negligible overhead
+                for (
+                    func_name,
+                    num_args,
+                    func_impl,
+                ) in self._get_calibre_sqlite_functions():
+                    dbapi_conn.create_function(func_name, num_args, func_impl)
 
             self._engine = create_engine(db_url, echo=False, future=True)
-            event.listen(self._engine, "connect", _register_title_sort)
+            event.listen(self._engine, "connect", _register_calibre_functions)
         return self._engine
 
     @contextmanager
@@ -1733,6 +1777,514 @@ class CalibreBookRepository:
                 "total_ratings": total_ratings,
                 "total_content_size": int(total_content_size),
             }
+
+    @staticmethod
+    def _sanitize_filename(name: str, max_length: int = 96) -> str:
+        """Sanitize filename by removing invalid characters.
+
+        Parameters
+        ----------
+        name : str
+            Filename to sanitize.
+        max_length : int
+            Maximum length for the sanitized filename (default: 96).
+
+        Returns
+        -------
+        str
+            Sanitized filename safe for filesystem use.
+        """
+        invalid_chars = '<>:"/\\|?*'
+        sanitized = "".join(c if c not in invalid_chars else "_" for c in name)
+        if len(sanitized) > max_length:
+            sanitized = sanitized[:max_length]
+        return sanitized.strip() or "Unknown"
+
+    def _get_or_create_author(self, session: Session, author_name: str) -> Author:
+        """Get existing author or create a new one.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        author_name : str
+            Author name.
+
+        Returns
+        -------
+        Author
+            Author instance with valid ID.
+
+        Raises
+        ------
+        ValueError
+            If author creation fails.
+        """
+        author_stmt = select(Author).where(Author.name == author_name)
+        author = session.exec(author_stmt).first()
+        if author is None:
+            author = Author(name=author_name, sort=author_name)
+            session.add(author)
+            session.flush()
+
+        if author.id is None:
+            msg = "Failed to create author"
+            raise ValueError(msg)
+
+        return author
+
+    def _create_book_record(
+        self,
+        session: Session,
+        title: str,
+        author_name: str,
+        book_path_str: str,
+        pubdate: datetime | None = None,
+        series_index: float | None = None,
+    ) -> Book:
+        """Create a new book record in the database.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        title : str
+            Book title.
+        author_name : str
+            Author name for sorting.
+        book_path_str : str
+            Book path string (Author/Title format).
+        pubdate : datetime | None
+            Publication date. If None, uses current date.
+        series_index : float | None
+            Series index. If None, defaults to 1.0.
+
+        Returns
+        -------
+        Book
+            Created book instance with valid ID.
+
+        Raises
+        ------
+        ValueError
+            If book creation fails.
+        """
+        now = datetime.now(UTC)
+        book_uuid = str(uuid4())
+        db_book = Book(
+            title=title,
+            sort=title,
+            author_sort=author_name,
+            timestamp=now,
+            pubdate=pubdate if pubdate is not None else now,
+            series_index=series_index if series_index is not None else 1.0,
+            flags=1,
+            uuid=book_uuid,
+            path=book_path_str,
+            has_cover=False,
+            last_modified=now,
+        )
+        session.add(db_book)
+        session.flush()
+
+        if db_book.id is None:
+            msg = "Failed to create book"
+            raise ValueError(msg)
+
+        return db_book
+
+    def _save_book_file(
+        self,
+        file_path: Path,
+        library_path: Path,
+        book_path_str: str,
+        title_dir: str,
+        file_format: str,
+    ) -> None:
+        """Save book file to library directory structure.
+
+        Parameters
+        ----------
+        file_path : Path
+            Source file path (temporary location).
+        library_path : Path
+            Library root path.
+        book_path_str : str
+            Book path string (Author/Title format).
+        title_dir : str
+            Sanitized title directory name.
+        file_format : str
+            File format extension.
+        """
+        import shutil
+
+        book_dir = library_path / book_path_str
+        book_dir.mkdir(parents=True, exist_ok=True)
+        library_file_path = book_dir / f"{title_dir}.{file_format.lower()}"
+        shutil.copy2(file_path, library_file_path)
+
+    def add_book(
+        self,
+        file_path: Path,
+        file_format: str,
+        title: str | None = None,
+        author_name: str | None = None,
+        library_path: Path | None = None,
+    ) -> int:
+        """Add a book directly to the Calibre database.
+
+        Creates a book record, author record, and data entry for the file format.
+        Saves the file to the library directory structure.
+        Follows the same approach as calibre-web by directly manipulating the database.
+
+        Parameters
+        ----------
+        file_path : Path
+            Path to the uploaded book file (temporary location).
+        file_format : str
+            File format extension (e.g., 'epub', 'pdf', 'mobi').
+        title : str | None
+            Book title. If None, uses filename without extension.
+        author_name : str | None
+            Author name. If None, uses 'Unknown'.
+        library_path : Path | None
+            Library root path. If None, uses calibre_db_path.
+
+        Returns
+        -------
+        int
+            ID of the newly created book.
+
+        Raises
+        ------
+        ValueError
+            If file_path doesn't exist or file_format is invalid.
+        """
+        if not file_path.exists():
+            msg = f"File not found: {file_path}"
+            raise ValueError(msg)
+
+        if library_path is None:
+            library_path = self._calibre_db_path
+
+        # Extract metadata from file if not provided
+        from fundamental.services.book_metadata_extractor import (
+            BookMetadataExtractor,
+        )
+
+        extractor = BookMetadataExtractor()
+        metadata = extractor.extract_metadata(file_path, file_format, file_path.name)
+
+        # Use provided values or fall back to extracted metadata
+        if title is None:
+            title = metadata.title
+        if not title or title.strip() == "":
+            title = "Unknown"
+
+        if author_name is None or author_name.strip() == "":
+            author_name = metadata.author
+        if not author_name or author_name.strip() == "":
+            author_name = "Unknown"
+
+        file_format_upper = file_format.upper().lstrip(".")
+        author_dir = self._sanitize_filename(author_name)
+        title_dir = self._sanitize_filename(title)
+        book_path_str = f"{author_dir}/{title_dir}".replace("\\", "/")
+
+        with self._get_session() as session:
+            author = self._get_or_create_author(session, author_name)
+            # Use sort_title if available, otherwise use title
+            sort_title = metadata.sort_title or title
+
+            db_book = self._create_book_record(
+                session,
+                title,
+                author_name,
+                book_path_str,
+                pubdate=metadata.pubdate,
+                series_index=metadata.series_index,
+            )
+
+            # Update sort field if we have a sort_title
+            if metadata.sort_title and db_book.sort != sort_title:
+                db_book.sort = sort_title
+
+            if db_book.id is None:
+                msg = "Book ID is None after creation"
+                raise ValueError(msg)
+
+            book_id = db_book.id
+
+            book_author_link = BookAuthorLink(book=book_id, author=author.id)
+            session.add(book_author_link)
+
+            # Add all metadata relationships
+            self._add_book_metadata(session, book_id, metadata)
+
+            # Add file data entry
+            file_size = file_path.stat().st_size
+            db_data = Data(
+                book=book_id,
+                format=file_format_upper,
+                uncompressed_size=file_size,
+                name=title_dir,
+            )
+            session.add(db_data)
+
+            self._save_book_file(
+                file_path, library_path, book_path_str, title_dir, file_format
+            )
+
+            session.commit()
+            return book_id
+
+    def _add_book_metadata(
+        self,
+        session: Session,
+        book_id: int,
+        metadata: BookMetadata,  # type: ignore[name-defined, misc]
+    ) -> None:
+        """Add all metadata relationships to a book.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Book ID.
+        metadata : BookMetadata
+            Extracted book metadata from fundamental.services.book_metadata_extractor.
+        """
+        # Add description if available
+        if metadata.description:
+            from fundamental.models.core import Comment
+
+            comment = Comment(book=book_id, text=metadata.description)
+            session.add(comment)
+
+        # Add tags if available
+        if metadata.tags:
+            self._add_book_tags(session, book_id, metadata.tags)
+
+        # Add publisher if available
+        if metadata.publisher:
+            self._add_book_publisher(session, book_id, metadata.publisher)
+
+        # Add identifiers if available
+        if metadata.identifiers:
+            self._add_book_identifiers(session, book_id, metadata.identifiers)
+
+        # Add languages if available
+        if metadata.languages:
+            self._add_book_languages(session, book_id, metadata.languages)
+
+        # Add series if available
+        if metadata.series:
+            self._add_book_series(session, book_id, metadata.series)
+
+        # Add additional contributors
+        if metadata.contributors:
+            self._add_book_contributors(session, book_id, metadata.contributors)
+
+    def _add_book_tags(
+        self, session: Session, book_id: int, tag_names: list[str]
+    ) -> None:
+        """Add tags to a book.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Book ID.
+        tag_names : list[str]
+            List of tag names to add.
+        """
+        for tag_name in tag_names:
+            if not tag_name.strip():
+                continue
+            tag_stmt = select(Tag).where(Tag.name == tag_name)
+            tag = session.exec(tag_stmt).first()
+            if tag is None:
+                tag = Tag(name=tag_name)
+                session.add(tag)
+                session.flush()
+            if tag.id is not None:
+                link_stmt = select(BookTagLink).where(
+                    BookTagLink.book == book_id, BookTagLink.tag == tag.id
+                )
+                existing_link = session.exec(link_stmt).first()
+                if existing_link is None:
+                    link = BookTagLink(book=book_id, tag=tag.id)
+                    session.add(link)
+
+    def _add_book_publisher(
+        self, session: Session, book_id: int, publisher_name: str
+    ) -> None:
+        """Add publisher to a book.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Book ID.
+        publisher_name : str
+            Publisher name.
+        """
+        from fundamental.models.core import Publisher
+
+        pub_stmt = select(Publisher).where(Publisher.name == publisher_name)
+        publisher = session.exec(pub_stmt).first()
+        if publisher is None:
+            publisher = Publisher(name=publisher_name, sort=publisher_name)
+            session.add(publisher)
+            session.flush()
+        if publisher.id is not None:
+            link_stmt = select(BookPublisherLink).where(
+                BookPublisherLink.book == book_id,
+                BookPublisherLink.publisher == publisher.id,
+            )
+            existing_link = session.exec(link_stmt).first()
+            if existing_link is None:
+                link = BookPublisherLink(book=book_id, publisher=publisher.id)
+                session.add(link)
+
+    def _add_book_identifiers(
+        self, session: Session, book_id: int, identifiers: list[dict[str, str]]
+    ) -> None:
+        """Add identifiers to a book.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Book ID.
+        identifiers : list[dict[str, str]]
+            List of identifiers with 'type' and 'val' keys.
+        """
+        # Deduplicate by type - keep the first occurrence of each type
+        # to avoid UNIQUE constraint violations
+        # Note: Calibre allows multiple identifier types (isbn10, isbn13, asin, etc.)
+        # but only one identifier per type per book (UNIQUE constraint on book+type)
+        seen_types: set[str] = set()
+        unique_identifiers: list[dict[str, str]] = []
+        for ident_data in identifiers:
+            ident_type = ident_data.get("type", "isbn")
+            if ident_type not in seen_types:
+                seen_types.add(ident_type)
+                unique_identifiers.append(ident_data)
+
+        for ident_data in unique_identifiers:
+            ident_type = ident_data.get("type", "isbn")
+            ident_val = ident_data.get("val", "")
+            if not ident_val.strip():
+                continue
+
+            # Check if identifier with this type already exists for this book
+            # (UNIQUE constraint on book+type)
+            existing_stmt = select(Identifier).where(
+                Identifier.book == book_id, Identifier.type == ident_type
+            )
+            existing = session.exec(existing_stmt).first()
+
+            if existing is None:
+                # Create new identifier
+                ident = Identifier(book=book_id, type=ident_type, val=ident_val)
+                session.add(ident)
+            else:
+                # Update existing identifier value
+                existing.val = ident_val
+
+    def _add_book_languages(
+        self, session: Session, book_id: int, language_codes: list[str]
+    ) -> None:
+        """Add languages to a book.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Book ID.
+        language_codes : list[str]
+            List of language codes.
+        """
+        for lang_code in language_codes:
+            if not lang_code.strip():
+                continue
+            lang = self._find_or_create_language(session, lang_code)
+            if lang is None or lang.id is None:
+                continue
+            link_stmt = select(BookLanguageLink).where(
+                BookLanguageLink.book == book_id,
+                BookLanguageLink.lang_code == lang.id,
+            )
+            existing_link = session.exec(link_stmt).first()
+            if existing_link is None:
+                link = BookLanguageLink(book=book_id, lang_code=lang.id, item_order=0)
+                session.add(link)
+
+    def _add_book_series(
+        self, session: Session, book_id: int, series_name: str
+    ) -> None:
+        """Add series to a book.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Book ID.
+        series_name : str
+            Series name.
+        """
+        series_stmt = select(Series).where(Series.name == series_name)
+        series = session.exec(series_stmt).first()
+        if series is None:
+            series = Series(name=series_name, sort=series_name)
+            session.add(series)
+            session.flush()
+        if series.id is not None:
+            link_stmt = select(BookSeriesLink).where(
+                BookSeriesLink.book == book_id, BookSeriesLink.series == series.id
+            )
+            existing_link = session.exec(link_stmt).first()
+            if existing_link is None:
+                link = BookSeriesLink(book=book_id, series=series.id)
+                session.add(link)
+
+    def _add_book_contributors(
+        self, session: Session, book_id: int, contributors: list
+    ) -> None:
+        """Add additional contributors as authors.
+
+        Calibre doesn't have separate contributor roles, so we add
+        non-author contributors as additional authors.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Book ID.
+        contributors : list
+            List of Contributor objects from metadata.
+        """
+        for contributor in contributors:
+            # Skip if already added as primary author or if role is 'author'
+            if contributor.role and contributor.role != "author" and contributor.name:
+                # Add as additional author (Calibre limitation)
+                author = self._get_or_create_author(session, contributor.name)
+                # Check if link already exists
+                link_stmt = select(BookAuthorLink).where(
+                    BookAuthorLink.book == book_id, BookAuthorLink.author == author.id
+                )
+                existing_link = session.exec(link_stmt).first()
+                if existing_link is None:
+                    link = BookAuthorLink(book=book_id, author=author.id)
+                    session.add(link)
 
     @staticmethod
     def _parse_datetime(value: str | float | None) -> datetime | None:

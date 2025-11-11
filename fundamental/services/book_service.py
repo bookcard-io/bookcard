@@ -421,3 +421,52 @@ class BookService:
             language_ids=language_ids,
         )
         return books, total
+
+    def add_book(
+        self,
+        file_path: Path,
+        file_format: str,
+        title: str | None = None,
+        author_name: str | None = None,
+    ) -> int:
+        """Add a book directly to the Calibre library.
+
+        Creates a book record in the database and saves the file to the library.
+        Follows the same approach as calibre-web by directly manipulating the database.
+
+        Parameters
+        ----------
+        file_path : Path
+            Path to the uploaded book file (temporary location).
+        file_format : str
+            File format extension (e.g., 'epub', 'pdf', 'mobi').
+        title : str | None
+            Book title. If None, uses filename without extension.
+        author_name : str | None
+            Author name. If None, uses 'Unknown'.
+
+        Returns
+        -------
+        int
+            ID of the newly created book.
+
+        Raises
+        ------
+        ValueError
+            If file_path doesn't exist or file_format is invalid.
+        """
+        # Determine library path (prefer library_root if set)
+        library_path = None
+        lib_root = getattr(self._library, "library_root", None)
+        if lib_root:
+            library_path = Path(lib_root)
+        else:
+            library_path = Path(self._library.calibre_db_path)
+
+        return self._book_repo.add_book(
+            file_path=file_path,
+            file_format=file_format,
+            title=title,
+            author_name=author_name,
+            library_path=library_path,
+        )
