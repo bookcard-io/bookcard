@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangePasswordForm } from "./ChangePasswordForm";
-import { EditableNameField } from "./EditableNameField";
+import { EditableNameField, EditableTextField } from "./EditableNameField";
 import type { UserProfile } from "./hooks/useUserProfile";
 
 interface UserDetailsProps {
@@ -28,7 +28,12 @@ export function UserDetails({ user }: UserDetailsProps) {
 
         <div className="flex flex-col gap-1">
           <div className="font-medium text-sm text-text-a20">Username</div>
-          <div className="text-text-a0">{user.username}</div>
+          <EditableTextField
+            currentValue={user.username}
+            placeholder="Enter your username"
+            editLabel="Edit username"
+            allowEmpty={false}
+          />
         </div>
 
         <div className="flex flex-col gap-1">
