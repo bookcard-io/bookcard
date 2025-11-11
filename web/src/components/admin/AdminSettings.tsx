@@ -19,10 +19,6 @@ export function AdminSettings() {
 
   return (
     <div className="p-6 px-8">
-      <h1 className="m-0 mb-8 font-semibold text-[32px] text-text-a0 leading-[1.2]">
-        Admin Settings
-      </h1>
-
       <div className="flex flex-col gap-6">
         <div className="flex gap-2 border-[var(--color-surface-a20)] border-b">
           {tabs.map((tab) => (
