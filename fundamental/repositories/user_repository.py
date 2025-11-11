@@ -27,11 +27,12 @@ Typed repository for `User` entities with convenience query methods.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlmodel import Session, select
 
-from fundamental.models.auth import User
+from fundamental.models.auth import TokenBlacklist, User
 from fundamental.repositories.base import Repository
 
 if TYPE_CHECKING:
@@ -58,3 +59,49 @@ class UserRepository(Repository[User]):
         """Return all users with administrative privileges."""
         stmt = select(User).where(User.is_admin == True)  # noqa: E712
         return self._session.exec(stmt).all()
+
+
+class TokenBlacklistRepository(Repository[TokenBlacklist]):
+    """Repository for `TokenBlacklist` entities."""
+
+    def __init__(self, session: Session) -> None:
+        super().__init__(session, TokenBlacklist)
+
+    def is_blacklisted(self, jti: str) -> bool:
+        """Check if a JWT ID is blacklisted.
+
+        Parameters
+        ----------
+        jti : str
+            JWT ID to check.
+
+        Returns
+        -------
+        bool
+            True if the token is blacklisted, False otherwise.
+        """
+        stmt = select(TokenBlacklist).where(TokenBlacklist.jti == jti)
+        return self._session.exec(stmt).first() is not None
+
+    def add_to_blacklist(self, jti: str, expires_at: datetime) -> TokenBlacklist:
+        """Add a JWT ID to the blacklist.
+
+        Parameters
+        ----------
+        jti : str
+            JWT ID to blacklist.
+        expires_at : datetime
+            Token expiration timestamp.
+
+        Returns
+        -------
+        TokenBlacklist
+            Created blacklist entry.
+        """
+        blacklist_entry = TokenBlacklist(
+            jti=jti,
+            expires_at=expires_at,
+            created_at=datetime.now(UTC),
+        )
+        self._session.add(blacklist_entry)
+        return blacklist_entry

@@ -34,7 +34,10 @@ from sqlmodel import Session  # noqa: TC002
 
 from fundamental.database import get_session
 from fundamental.models.auth import User  # noqa: TC001
-from fundamental.repositories.user_repository import UserRepository
+from fundamental.repositories.user_repository import (
+    TokenBlacklistRepository,
+    UserRepository,
+)
 from fundamental.services.security import JWTManager, SecurityTokenError
 
 if TYPE_CHECKING:
@@ -77,8 +80,16 @@ def get_current_user(
         )
     token = auth_header.removeprefix("Bearer ")
     jwt_mgr = JWTManager(request.app.state.config)
+
+    # Create blacklist repository for checking
+    blacklist_repo = TokenBlacklistRepository(session)
+
     try:
-        claims = jwt_mgr.decode_token(token)
+        # Check blacklist during decode
+        claims = jwt_mgr.decode_token(
+            token,
+            is_blacklisted=lambda jti: blacklist_repo.is_blacklisted(jti),
+        )
     except SecurityTokenError as err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_token"

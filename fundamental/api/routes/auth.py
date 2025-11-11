@@ -43,9 +43,16 @@ from fundamental.api.schemas import (
     UserRead,
 )
 from fundamental.models.auth import User, UserRole
-from fundamental.repositories.user_repository import UserRepository
+from fundamental.repositories.user_repository import (
+    TokenBlacklistRepository,
+    UserRepository,
+)
 from fundamental.services.auth_service import AuthError, AuthService
-from fundamental.services.security import JWTManager, PasswordHasher
+from fundamental.services.security import (
+    JWTManager,
+    PasswordHasher,
+    SecurityTokenError,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -177,13 +184,62 @@ def change_password(
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout() -> None:
-    """Logout the current user.
+def logout(
+    request: Request,
+    session: SessionDep,
+) -> None:
+    """Logout the current user and blacklist their token.
 
-    Note: This is a stateless JWT-based system. The client should discard
-    the token after calling this endpoint.
+    Extracts the JWT token from the Authorization header, decodes it to get
+    the JWT ID (jti), and adds it to the token blacklist to prevent further use.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object containing Authorization header.
+    session : SessionDep
+        Database session dependency.
+
+    Raises
+    ------
+    HTTPException
+        If token is missing or invalid.
     """
-    return
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="missing_token"
+        )
+
+    token = auth_header.removeprefix("Bearer ")
+    jwt_mgr = JWTManager(request.app.state.config)
+
+    try:
+        # Decode token to get jti and expiration
+        claims = jwt_mgr.decode_token(token)
+    except SecurityTokenError as err:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_token"
+        ) from err
+
+    # Extract jti and expiration from token
+    jti = claims.get("jti")
+    exp_timestamp = claims.get("exp")
+
+    if not jti or not exp_timestamp:
+        # Token doesn't have jti or exp, can't blacklist it
+        # This shouldn't happen with our token creation, but handle gracefully
+        return
+
+    # Convert expiration timestamp to datetime
+    from datetime import UTC, datetime
+
+    expires_at = datetime.fromtimestamp(exp_timestamp, tz=UTC)
+
+    # Add token to blacklist
+    blacklist_repo = TokenBlacklistRepository(session)
+    blacklist_repo.add_to_blacklist(jti, expires_at)
+    session.flush()
 
 
 @router.get("/profile", response_model=ProfileRead)

@@ -390,6 +390,35 @@ class Invite(SQLModel, table=True):
     used_at: datetime | None = Field(default=None)
 
 
+class TokenBlacklist(SQLModel, table=True):
+    """Blacklisted JWT token IDs.
+
+    Stores JWT IDs (jti) of tokens that have been revoked/logged out.
+    Tokens are checked against this blacklist during validation.
+
+    Attributes
+    ----------
+    id : int | None
+        Primary key identifier.
+    jti : str
+        JWT ID (jti claim) of the blacklisted token.
+    expires_at : datetime
+        Token expiration timestamp (for cleanup purposes).
+    created_at : datetime
+        When the token was blacklisted.
+    """
+
+    __tablename__ = "token_blacklist"
+
+    id: int | None = Field(default=None, primary_key=True)
+    jti: str = Field(unique=True, index=True, max_length=255)
+    expires_at: datetime = Field(index=True)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        index=True,
+    )
+
+
 class EReaderDevice(SQLModel, table=True):
     """E-reader device email configuration.
 
