@@ -36,10 +36,10 @@ export function Tooltip({ text, children }: TooltipProps) {
   return (
     <div className="group relative inline-block">
       {children}
-      <div className="pointer-events-none invisible absolute top-full left-1/2 z-50 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[var(--color-surface-a10)] px-3 py-1.5 text-[var(--color-text-a0)] text-sm opacity-0 shadow-lg transition-opacity duration-200 group-hover:visible group-hover:opacity-100">
+      <div className="-translate-x-1/2 pointer-events-none invisible absolute top-full left-1/2 z-50 mt-2 whitespace-nowrap rounded-md bg-[var(--color-surface-a10)] px-3 py-1.5 text-[var(--color-text-a0)] text-sm opacity-0 shadow-lg transition-opacity duration-200 group-hover:visible group-hover:opacity-100">
         {text}
         {/* Arrow pointing down */}
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-[var(--color-surface-a10)]" />
+        <div className="-translate-x-1/2 absolute bottom-full left-1/2 border-4 border-transparent border-b-[var(--color-surface-a10)]" />
       </div>
     </div>
   );

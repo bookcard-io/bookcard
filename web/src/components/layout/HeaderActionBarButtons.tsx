@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
-import { useHeaderActionBar } from "@/contexts/HeaderActionBarContext";
 import { useUser } from "@/contexts/UserContext";
 import { AdminButton } from "./AdminButton";
+import { useRegisterHeaderButton } from "./hooks/useRegisterHeaderButton";
 import { ProfileButton } from "./ProfileButton";
 
 /**
@@ -16,29 +15,17 @@ import { ProfileButton } from "./ProfileButton";
  * Follows DRY by centralizing button registration logic.
  * Follows SRP by only handling button registration.
  * Follows IOC by using context for user data.
+ * Follows SOC by delegating registration lifecycle to useRegisterHeaderButton hook.
  */
 export function HeaderActionBarButtons() {
   const { user } = useUser();
-  const { registerButton, unregisterButton } = useHeaderActionBar();
 
   // Register profile button (ProfileButton uses useUser internally and will update automatically)
-  useEffect(() => {
-    registerButton({ id: "profile", element: <ProfileButton /> });
-    return () => {
-      unregisterButton("profile");
-    };
-  }, [registerButton, unregisterButton]);
+  useRegisterHeaderButton("profile", <ProfileButton />);
 
-  // Register/unregister admin button based on user permissions
-  useEffect(() => {
-    if (user?.is_admin) {
-      registerButton({ id: "admin", element: <AdminButton /> });
-    }
-    // Cleanup function handles unregistering when user is not admin or component unmounts
-    return () => {
-      unregisterButton("admin");
-    };
-  }, [user?.is_admin, registerButton, unregisterButton]);
+  // Conditionally register admin button based on user permissions
+  // Always call hook, but pass null element when user is not admin
+  useRegisterHeaderButton("admin", user?.is_admin ? <AdminButton /> : null);
 
   return null;
 }

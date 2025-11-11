@@ -68,10 +68,6 @@ export function HeaderActionBarProvider({
 
   const registerButton = useCallback((button: HeaderActionButton) => {
     setButtons((prev) => {
-      // Remove existing button with same ID if present
-      const filtered = prev.filter((b) => b.id !== button.id);
-      // Insert at the position of the first button with a higher order, or append
-      // This maintains stable insertion order
       const existingIndex = prev.findIndex((b) => b.id === button.id);
       if (existingIndex >= 0) {
         // Replace in place to maintain order
@@ -80,7 +76,7 @@ export function HeaderActionBarProvider({
         return updated;
       }
       // Append new button to maintain registration order
-      return [...filtered, button];
+      return [...prev, button];
     });
   }, []);
 
