@@ -36,7 +36,6 @@ export interface LibraryHeaderProps {
  * Follows IOC by accepting file upload handlers as props.
  */
 export function LibraryHeader({
-  onAddBooksClick,
   fileInputRef,
   onFileChange,
   accept,

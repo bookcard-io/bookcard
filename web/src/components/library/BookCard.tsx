@@ -1,9 +1,18 @@
 "use client";
 
-import { ImageWithLoading } from "@/components/common/ImageWithLoading";
+import { BookCardCheckbox } from "@/components/library/BookCardCheckbox";
+import { BookCardCover } from "@/components/library/BookCardCover";
+import { BookCardEditButton } from "@/components/library/BookCardEditButton";
+import { BookCardMenu } from "@/components/library/BookCardMenu";
+import { BookCardMenuButton } from "@/components/library/BookCardMenuButton";
+import { BookCardMetadata } from "@/components/library/BookCardMetadata";
+import { BookCardOverlay } from "@/components/library/BookCardOverlay";
 import { useSelectedBooks } from "@/contexts/SelectedBooksContext";
+import { useBookCardMenu } from "@/hooks/useBookCardMenu";
+import { useBookCardMenuActions } from "@/hooks/useBookCardMenuActions";
 import { cn } from "@/libs/utils";
 import type { Book } from "@/types/book";
+import { createEnterSpaceHandler } from "@/utils/keyboard";
 
 export interface BookCardProps {
   /** Book data to display. */
@@ -19,11 +28,11 @@ export interface BookCardProps {
 /**
  * Book card component for displaying a single book in the grid.
  *
- * Displays book cover thumbnail, title, and author(s).
- * Clicking the card opens the book view modal.
- * Selection is only available via the checkbox overlay.
- * Special overlay buttons (checkbox, edit, menu) stop event propagation.
- * Follows SRP by focusing solely on book display.
+ * Orchestrates book card display by composing specialized components.
+ * Follows SRP by delegating to specialized components and hooks.
+ * Uses IOC via hooks and component composition.
+ * Follows SOC by separating concerns into independent components.
+ * Follows DRY by reusing extracted components and utilities.
  */
 export function BookCard({
   book,
@@ -31,8 +40,13 @@ export function BookCard({
   onClick: _onClick,
   onEdit,
 }: BookCardProps) {
-  const { isSelected, handleBookClick } = useSelectedBooks();
+  const { isSelected } = useSelectedBooks();
   const selected = isSelected(book.id);
+  const menu = useBookCardMenu();
+  const menuActions = useBookCardMenuActions({
+    book,
+    onBookClick: _onClick,
+  });
 
   const handleClick = () => {
     // Open book view modal via callback
@@ -42,35 +56,7 @@ export function BookCard({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
-    // Open book view modal on Enter or Space
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      if (_onClick) {
-        _onClick(book);
-      }
-    }
-  };
-
-  const handleCheckboxClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-    // Only way to add/remove books from selection is via the checkbox.
-    // Create a synthetic event with ctrlKey set to toggle behavior.
-    const syntheticEvent = {
-      ...e,
-      ctrlKey: true,
-      metaKey: false,
-      shiftKey: false,
-    } as React.MouseEvent;
-    handleBookClick(book, allBooks, syntheticEvent);
-  };
-
-  const handleEditClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-    if (onEdit) {
-      onEdit(book.id);
-    }
-  };
+  const handleKeyDown = createEnterSpaceHandler(handleClick);
 
   const authorsText =
     book.authors.length > 0 ? book.authors.join(", ") : "Unknown Author";
@@ -92,138 +78,40 @@ export function BookCard({
       aria-label={`${book.title} by ${authorsText}${selected ? " (selected)" : ""}. Click to view details.`}
       data-book-card
     >
-      <div className="relative aspect-[2/3] w-full overflow-hidden">
-        {book.thumbnail_url ? (
-          <ImageWithLoading
-            src={book.thumbnail_url}
-            alt={`Cover for ${book.title}`}
-            width={200}
-            height={300}
-            className="h-full w-full object-cover"
-            containerClassName="w-full h-full"
-            unoptimized
+      <div className="relative">
+        <BookCardCover title={book.title} thumbnailUrl={book.thumbnail_url} />
+        <BookCardOverlay selected={selected}>
+          <BookCardCheckbox
+            book={book}
+            allBooks={allBooks}
+            selected={selected}
           />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-surface-a20 to-surface-a10">
-            <span className="text-sm text-text-a40 uppercase tracking-[0.5px]">
-              No Cover
-            </span>
-          </div>
-        )}
-        <div
-          className={cn(
-            "absolute inset-0 z-10 transition-[opacity,background-color] duration-200 ease-in-out",
-            // Default state: hidden
-            "pointer-events-none bg-black/50 opacity-0",
-            // When selected: visible but transparent, hide edit/menu buttons
-            selected && "bg-transparent opacity-100",
-            selected &&
-              "[&_.edit-button]:pointer-events-none [&_.edit-button]:opacity-0",
-            selected &&
-              "[&_.menu-button]:pointer-events-none [&_.menu-button]:opacity-0",
-            // On hover: show overlay and all buttons (using parent button's group)
-            "group-hover:bg-black/50 group-hover:opacity-100",
-            "group-hover:[&_.edit-button]:pointer-events-auto group-hover:[&_.edit-button]:opacity-100",
-            "group-hover:[&_.menu-button]:pointer-events-auto group-hover:[&_.menu-button]:opacity-100",
-            "group-hover:[&_.checkbox]:pointer-events-auto",
+          {onEdit && (
+            <BookCardEditButton
+              bookTitle={book.title}
+              onEdit={() => onEdit(book.id)}
+            />
           )}
-        >
-          {/* biome-ignore lint/a11y/useSemanticElements: Cannot use button inside button, using div with role="button" for accessibility */}
-          <div
-            className={cn(
-              "checkbox pointer-events-auto absolute top-3 left-3 flex cursor-default items-center justify-center",
-              "text-text-a0 transition-[background-color,border-color] duration-200 ease-in-out",
-              "h-6 w-6 rounded border-2 bg-transparent p-0",
-              "focus:shadow-focus-ring focus:outline-none",
-              selected
-                ? "border-primary-a0 bg-primary-a0"
-                : "border-text-a0 hover:bg-[rgba(144,170,249,0.2)]",
-              "[&_i]:block [&_i]:text-sm",
-            )}
-            onClick={handleCheckboxClick}
-            role="button"
-            tabIndex={0}
-            aria-label={selected ? "Deselect book" : "Select book"}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                handleCheckboxClick(
-                  e as unknown as React.MouseEvent<HTMLDivElement>,
-                );
-              }
-            }}
-          >
-            {selected && <i className="pi pi-check" aria-hidden="true" />}
-          </div>
-          {/* biome-ignore lint/a11y/useSemanticElements: Cannot use button inside button, using div with role="button" for accessibility */}
-          <div
-            className={cn(
-              "edit-button pointer-events-auto flex cursor-default items-center justify-center",
-              "text-text-a0 transition-[background-color,transform,opacity] duration-200 ease-in-out",
-              "focus:shadow-focus-ring focus:outline-none",
-              "absolute bottom-3 left-3 h-10 w-10 rounded-full",
-              "border-none bg-white/20 backdrop-blur-sm",
-              "hover:scale-110 hover:bg-white/30",
-              "active:scale-95",
-              "[&_i]:block [&_i]:text-lg",
-            )}
-            onClick={handleEditClick}
-            role="button"
-            tabIndex={0}
-            aria-label={`Edit ${book.title}`}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                handleEditClick(
-                  e as unknown as React.MouseEvent<HTMLDivElement>,
-                );
-              }
-            }}
-          >
-            <i className="pi pi-pencil" aria-hidden="true" />
-          </div>
-          {/* biome-ignore lint/a11y/useSemanticElements: Cannot use button inside button, using div with role="button" for accessibility */}
-          <div
-            className={cn(
-              "menu-button pointer-events-auto flex cursor-default items-center justify-center",
-              "text-text-a0 transition-[background-color,transform,opacity] duration-200 ease-in-out",
-              "focus:shadow-focus-ring focus:outline-none",
-              "absolute right-3 bottom-3 h-10 w-10 rounded-full",
-              "border-none bg-white/20 backdrop-blur-sm",
-              "hover:scale-110 hover:bg-white/30",
-              "active:scale-95",
-              "[&_i]:block [&_i]:text-lg",
-            )}
-            onClick={(e) => {
-              e.stopPropagation();
-            }}
-            role="button"
-            tabIndex={0}
-            aria-label="Menu"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-              }
-            }}
-          >
-            <i className="pi pi-ellipsis-v" aria-hidden="true" />
-          </div>
-        </div>
+          <BookCardMenuButton
+            buttonRef={menu.menuButtonRef}
+            isMenuOpen={menu.isMenuOpen}
+            onToggle={menu.handleMenuToggle}
+          />
+        </BookCardOverlay>
       </div>
-      <div className="flex min-h-16 flex-col gap-1 bg-surface-a10 p-[0.75rem]">
-        <h3
-          className="m-0 line-clamp-2 font-[500] text-[0.875rem] text-text-a0 leading-[1.3]"
-          title={book.title}
-        >
-          {book.title}
-        </h3>
-        <p
-          className="m-0 line-clamp-1 text-text-a20 text-xs leading-[1.3]"
-          title={authorsText}
-        >
-          {authorsText}
-        </p>
-      </div>
+      <BookCardMetadata title={book.title} authors={book.authors} />
+      <BookCardMenu
+        isOpen={menu.isMenuOpen}
+        onClose={menu.handleMenuClose}
+        buttonRef={menu.menuButtonRef}
+        onBookInfo={menuActions.handleBookInfo}
+        onSend={menuActions.handleSend}
+        onMoveToLibrary={menuActions.handleMoveToLibrary}
+        onMoveToShelf={menuActions.handleMoveToShelf}
+        onConvert={menuActions.handleConvert}
+        onDelete={menuActions.handleDelete}
+        onMore={menuActions.handleMore}
+      />
     </button>
   );
 }
