@@ -14,7 +14,7 @@ interface ToggleButtonProps {
   /**
    * Callback fired when button is clicked.
    */
-  onClick: () => void;
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
 /**
@@ -29,7 +29,7 @@ interface ToggleButtonProps {
  *     Button label text.
  * isSelected : boolean
  *     Whether the button is currently selected.
- * onClick : () => void
+ * onClick : (e: React.MouseEvent<HTMLButtonElement>) => void
  *     Callback fired when button is clicked.
  */
 export function ToggleButton({

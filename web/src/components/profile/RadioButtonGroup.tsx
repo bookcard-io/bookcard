@@ -1,5 +1,6 @@
 "use client";
 
+import { useBlurAfterClick } from "./BlurAfterClickContext";
 import { ToggleButton } from "./ToggleButton";
 
 interface RadioButtonGroupProps {
@@ -45,6 +46,8 @@ export function RadioButtonGroup({
   selected,
   onSelect,
 }: RadioButtonGroupProps) {
+  const { onBlurClick } = useBlurAfterClick();
+
   return (
     <div className="flex flex-col gap-3">
       <div className="font-medium text-sm text-text-a20">{label}</div>
@@ -54,7 +57,7 @@ export function RadioButtonGroup({
             key={option}
             label={option}
             isSelected={selected === option}
-            onClick={() => onSelect(option)}
+            onClick={onBlurClick(() => onSelect(option))}
           />
         ))}
       </div>

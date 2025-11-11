@@ -1,5 +1,7 @@
 "use client";
 
+import { useBlurAfterClick } from "./BlurAfterClickContext";
+
 interface RadioOption {
   /**
    * Option value.
@@ -61,6 +63,8 @@ export function RadioGroup({
   onChange,
   name,
 }: RadioGroupProps) {
+  const { onBlurChange } = useBlurAfterClick();
+
   return (
     <div className="flex flex-col gap-3">
       <div className="font-medium text-sm text-text-a20">{label}</div>
@@ -75,7 +79,7 @@ export function RadioGroup({
               name={name}
               value={option.value}
               checked={value === option.value}
-              onChange={() => onChange(option.value)}
+              onChange={onBlurChange(() => onChange(option.value))}
               className="h-4 w-4 text-primary-a0 focus:ring-2 focus:ring-primary-a0"
             />
             <span className="text-text-a0">{option.label}</span>

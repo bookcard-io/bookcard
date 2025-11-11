@@ -1,5 +1,6 @@
 "use client";
 
+import { useBlurAfterClick } from "./BlurAfterClickContext";
 import { ToggleButton } from "./ToggleButton";
 
 interface ToggleButtonGroupProps {
@@ -45,6 +46,8 @@ export function ToggleButtonGroup({
   selected,
   onToggle,
 }: ToggleButtonGroupProps) {
+  const { onBlurClick } = useBlurAfterClick();
+
   return (
     <div className="flex flex-col gap-3">
       <div className="font-medium text-sm text-text-a20">{label}</div>
@@ -54,7 +57,7 @@ export function ToggleButtonGroup({
             key={option}
             label={option}
             isSelected={selected.includes(option)}
-            onClick={() => onToggle(option)}
+            onClick={onBlurClick(() => onToggle(option))}
           />
         ))}
       </div>
