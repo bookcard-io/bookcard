@@ -114,26 +114,26 @@ export function ProfilePicture() {
           </div>
         )}
       </div>
-      {/* Delete button - top right corner, always visible when picture exists */}
-      {user?.profile_picture && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            void deleteProfilePicture();
-          }}
-          disabled={isUploading || isDeleting}
-          className="absolute top-2 right-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-danger-a-1)] text-[var(--color-danger-a0)] transition-all duration-200 hover:bg-[var(--color-danger-a0)] hover:text-text-a0 focus:outline-none focus:ring-2 focus:ring-[var(--color-danger-a-1)] active:scale-90 disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label="Delete profile picture"
-        >
-          <i
-            className={`pi ${isDeleting ? "pi-spin pi-spinner" : "pi-times"} text-lg`}
-            aria-hidden="true"
-          />
-        </button>
-      )}
-      {/* Browse button - below circle, always visible, centered */}
-      <div className="mt-4 flex justify-center">
+      {/* Action buttons - below circle, always visible, centered */}
+      <div className="mt-4 flex justify-center gap-2">
+        {user?.profile_picture && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              void deleteProfilePicture();
+            }}
+            disabled={isUploading || isDeleting}
+            className="rounded border-0 bg-[var(--color-danger-a-1)] px-4 py-2 font-medium text-sm text-text-a0 transition-colors duration-200 hover:bg-[var(--color-danger-a0)] hover:text-text-a0 focus:outline-none focus:ring-2 focus:ring-[var(--color-danger-a-1)] active:bg-[var(--color-danger-a-1)] disabled:cursor-not-allowed disabled:bg-surface-tonal-a20 disabled:text-text-a30"
+            aria-label="Delete profile picture"
+          >
+            {isDeleting ? (
+              <i className="pi pi-spin pi-spinner" aria-hidden="true" />
+            ) : (
+              "Delete"
+            )}
+          </button>
+        )}
         <button
           type="button"
           onClick={(e) => {
@@ -141,7 +141,7 @@ export function ProfilePicture() {
             handleClick();
           }}
           disabled={isUploading || isDeleting}
-          className="rounded border-0 bg-primary-a0 px-4 py-2 font-medium text-sm text-text-a0 transition-colors duration-200 hover:bg-primary-a10 focus:outline-none focus:ring-2 focus:ring-primary-a0 active:bg-primary-a20 disabled:cursor-not-allowed disabled:bg-surface-tonal-a20 disabled:text-text-a30"
+          className="rounded border-0 bg-surface-a20 px-4 py-2 font-medium text-sm text-text-a0 transition-colors duration-200 hover:bg-surface-a30 focus:outline-none focus:ring-2 focus:ring-primary-a0 active:bg-primary-a20 disabled:cursor-not-allowed disabled:bg-surface-tonal-a20 disabled:text-text-a30"
         >
           {isUploading ? "Uploading..." : "Browse"}
         </button>
