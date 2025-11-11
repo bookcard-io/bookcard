@@ -36,7 +36,7 @@ export function ProfilePicture({ pictureUrl }: ProfilePictureProps) {
       {/* biome-ignore lint/a11y/useSemanticElements: Div needed for drag-and-drop functionality */}
       <div
         className={cn(
-          "relative flex aspect-square max-h-[300px] min-h-[200px] min-w-[200px] max-w-[300px] cursor-pointer items-center justify-center overflow-hidden rounded-full border border-surface-a20 bg-surface-tonal-a10 transition-colors duration-200",
+          "relative flex aspect-square max-h-[300px] min-h-[120px] min-w-[120px] max-w-[300px] cursor-pointer items-center justify-center overflow-hidden rounded-full border border-surface-a20 bg-surface-tonal-a10 transition-colors duration-200",
           isDragging && "border-primary-a0 bg-surface-tonal-a20",
         )}
         {...dragHandlers}
