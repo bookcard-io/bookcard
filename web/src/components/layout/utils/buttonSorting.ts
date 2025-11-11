@@ -2,7 +2,11 @@
  * Defines the intended order of buttons in the header action bar.
  * Buttons are sorted by this order, with buttons not in this list appearing last.
  */
-export const BUTTON_ORDER: readonly string[] = ["admin", "profile"] as const;
+export const BUTTON_ORDER: readonly string[] = [
+  "home",
+  "admin",
+  "profile",
+] as const;
 
 /**
  * Compares two button IDs for sorting based on their position in BUTTON_ORDER.

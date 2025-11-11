@@ -2,15 +2,16 @@
 
 import { useUser } from "@/contexts/UserContext";
 import { AdminButton } from "./AdminButton";
+import { HomeButton } from "./HomeButton";
 import { useRegisterHeaderButton } from "./hooks/useRegisterHeaderButton";
 import { ProfileButton } from "./ProfileButton";
 
 /**
  * Component that registers standard header action bar buttons.
  *
- * Automatically registers ProfileButton and conditionally registers AdminButton
- * based on user permissions. This is the single place to manage which buttons
- * appear in the header action bar.
+ * Automatically registers HomeButton and ProfileButton, and conditionally registers
+ * AdminButton based on user permissions. This is the single place to manage which
+ * buttons appear in the header action bar.
  *
  * Follows DRY by centralizing button registration logic.
  * Follows SRP by only handling button registration.
@@ -19,6 +20,9 @@ import { ProfileButton } from "./ProfileButton";
  */
 export function HeaderActionBarButtons() {
   const { user } = useUser();
+
+  // Register home button
+  useRegisterHeaderButton("home", <HomeButton />);
 
   // Register profile button (ProfileButton uses useUser internally and will update automatically)
   useRegisterHeaderButton("profile", <ProfileButton />);
