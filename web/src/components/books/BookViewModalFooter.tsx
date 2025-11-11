@@ -13,20 +13,17 @@ export interface BookViewModalFooterProps {
  * Displays action buttons.
  * Follows SRP by focusing solely on footer presentation.
  */
-export function BookViewModalFooter({
-  onDelete,
-}: BookViewModalFooterProps) {
+export function BookViewModalFooter({ onDelete }: BookViewModalFooterProps) {
   const handleDelete = () => {
-    // TODO: Implement delete functionality
     if (onDelete) {
       onDelete();
     }
   };
 
   return (
-    <div className="flex justify-between items-center gap-4 px-6 pb-6 pt-4 border-t border-surface-a20 bg-surface-tonal-a10">
+    <div className="flex items-center justify-between gap-4 border-surface-a20 border-t bg-surface-tonal-a10 px-6 pt-4 pb-6">
       <div className="flex-1" />
-      <div className="flex justify-end gap-3 flex-shrink-0">
+      <div className="flex flex-shrink-0 justify-end gap-3">
         <Button
           type="button"
           variant="danger"

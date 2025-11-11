@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import type { Book } from "@/types/book";
+import { useDeleteConfirmation } from "./useDeleteConfirmation";
 
 export interface UseBookCardMenuActionsOptions {
   /** Book data. */
@@ -23,6 +24,8 @@ export interface UseBookCardMenuActionsResult {
   handleDelete: () => void;
   /** Handler for More action. */
   handleMore: () => void;
+  /** Delete confirmation modal state and controls. */
+  deleteConfirmation: ReturnType<typeof useDeleteConfirmation>;
 }
 
 /**
@@ -46,6 +49,12 @@ export function useBookCardMenuActions({
   book,
   onBookClick,
 }: UseBookCardMenuActionsOptions): UseBookCardMenuActionsResult {
+  const deleteConfirmation = useDeleteConfirmation({
+    onConfirm: () => {
+      // TODO: Implement delete functionality
+    },
+  });
+
   const handleBookInfo = useCallback(() => {
     if (onBookClick) {
       onBookClick(book);
@@ -69,8 +78,8 @@ export function useBookCardMenuActions({
   }, []);
 
   const handleDelete = useCallback(() => {
-    // TODO: Implement delete functionality
-  }, []);
+    deleteConfirmation.open();
+  }, [deleteConfirmation]);
 
   const handleMore = useCallback(() => {
     // TODO: Implement more options functionality
@@ -84,5 +93,6 @@ export function useBookCardMenuActions({
     handleConvert,
     handleDelete,
     handleMore,
+    deleteConfirmation,
   };
 }

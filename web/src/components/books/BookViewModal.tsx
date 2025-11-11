@@ -5,8 +5,10 @@ import { BookViewFormats } from "@/components/books/BookViewFormats";
 import { BookViewHeader } from "@/components/books/BookViewHeader";
 import { BookViewMetadata } from "@/components/books/BookViewMetadata";
 import { BookViewModalFooter } from "@/components/books/BookViewModalFooter";
+import { DeleteBookConfirmationModal } from "@/components/books/DeleteBookConfirmationModal";
 import { Button } from "@/components/forms/Button";
 import { useBook } from "@/hooks/useBook";
+import { useDeleteConfirmation } from "@/hooks/useDeleteConfirmation";
 import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
 import { useModal } from "@/hooks/useModal";
 import styles from "./BookViewModal.module.scss";
@@ -45,12 +47,22 @@ export function BookViewModal({
     full: true,
   });
 
+  const deleteConfirmation = useDeleteConfirmation({
+    onConfirm: () => {
+      // TODO: Implement delete functionality
+    },
+  });
+
   const handleEdit = useCallback(() => {
     if (bookId && onEdit) {
       onEdit(bookId);
       onClose();
     }
   }, [bookId, onEdit, onClose]);
+
+  const handleDelete = useCallback(() => {
+    deleteConfirmation.open();
+  }, [deleteConfirmation]);
 
   // Handle keyboard navigation
   useKeyboardNavigation({
@@ -138,47 +150,60 @@ export function BookViewModal({
   }
 
   return (
-    /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
-    <div
-      className={styles.modalOverlay}
-      onClick={handleOverlayClick}
-      onKeyDown={handleOverlayKeyDown}
-      role="presentation"
-    >
+    <>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */}
       <div
-        className={styles.modal}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Book details"
-        onMouseDown={handleModalClick}
+        className={styles.modalOverlay}
+        onClick={handleOverlayClick}
+        onKeyDown={handleOverlayKeyDown}
+        role="presentation"
       >
-        <button
-          type="button"
-          onClick={onClose}
-          className={styles.closeButton}
-          aria-label="Close"
+        <div
+          className={styles.modal}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Book details"
+          onMouseDown={handleModalClick}
         >
-          ×
-        </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className={styles.closeButton}
+            aria-label="Close"
+          >
+            ×
+          </button>
 
-        <div className={styles.content}>
-          <BookViewHeader
-            book={book}
-            showDescription={true}
-            onEdit={handleEdit}
-          />
+          <div className={styles.content}>
+            <BookViewHeader
+              book={book}
+              showDescription={true}
+              onEdit={handleEdit}
+            />
 
-          <div className={styles.mainContent}>
-            <BookViewMetadata book={book} />
+            <div className={styles.mainContent}>
+              <BookViewMetadata book={book} />
 
-            {book.formats && book.formats.length > 0 && bookId && (
-              <BookViewFormats formats={book.formats} bookId={bookId} />
-            )}
+              {book.formats && book.formats.length > 0 && bookId && (
+                <BookViewFormats formats={book.formats} bookId={bookId} />
+              )}
+            </div>
           </div>
-        </div>
 
-        <BookViewModalFooter />
+          <BookViewModalFooter onDelete={handleDelete} />
+        </div>
       </div>
-    </div>
+      {/* Render delete confirmation modal via portal, independent of BookViewModal */}
+      {bookId !== null && (
+        <DeleteBookConfirmationModal
+          isOpen={deleteConfirmation.isOpen}
+          dontShowAgain={deleteConfirmation.dontShowAgain}
+          onClose={deleteConfirmation.close}
+          onToggleDontShowAgain={deleteConfirmation.toggleDontShowAgain}
+          onConfirm={deleteConfirmation.confirm}
+          bookTitle={book?.title}
+        />
+      )}
+    </>
   );
 }

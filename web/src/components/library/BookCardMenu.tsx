@@ -120,7 +120,8 @@ export function BookCardMenu({
   }, [isOpen, cursorPosition]);
 
   const handleItemClick = useCallback(
-    (handler?: () => void) => {
+    (e: React.MouseEvent, handler?: () => void) => {
+      e.stopPropagation();
       if (handler) {
         handler();
       }
@@ -148,6 +149,7 @@ export function BookCardMenu({
       }}
       role="menu"
       aria-label="Book actions"
+      onMouseDown={(e) => e.stopPropagation()}
     >
       <div className="py-1">
         <button
@@ -159,7 +161,7 @@ export function BookCardMenu({
             "transition-colors duration-150",
             "focus:bg-surface-tonal-a20 focus:outline-none",
           )}
-          onClick={() => handleItemClick(onBookInfo)}
+          onClick={(e) => handleItemClick(e, onBookInfo)}
           role="menuitem"
         >
           <i
@@ -178,7 +180,7 @@ export function BookCardMenu({
             "transition-colors duration-150",
             "focus:bg-surface-tonal-a20 focus:outline-none",
           )}
-          onClick={() => handleItemClick(onSend)}
+          onClick={(e) => handleItemClick(e, onSend)}
           role="menuitem"
         >
           <i
@@ -197,7 +199,7 @@ export function BookCardMenu({
             "transition-colors duration-150",
             "focus:bg-surface-tonal-a20 focus:outline-none",
           )}
-          onClick={() => handleItemClick(onMoveToLibrary)}
+          onClick={(e) => handleItemClick(e, onMoveToLibrary)}
           role="menuitem"
         >
           <LibraryBuilding className="h-4 w-4 flex-shrink-0" />
@@ -213,7 +215,7 @@ export function BookCardMenu({
             "transition-colors duration-150",
             "focus:bg-surface-tonal-a20 focus:outline-none",
           )}
-          onClick={() => handleItemClick(onMoveToShelf)}
+          onClick={(e) => handleItemClick(e, onMoveToShelf)}
           role="menuitem"
         >
           <Shelf className="h-4 w-4 flex-shrink-0" />
@@ -229,7 +231,7 @@ export function BookCardMenu({
             "transition-colors duration-150",
             "focus:bg-surface-tonal-a20 focus:outline-none",
           )}
-          onClick={() => handleItemClick(onConvert)}
+          onClick={(e) => handleItemClick(e, onConvert)}
           role="menuitem"
         >
           <i
@@ -248,7 +250,7 @@ export function BookCardMenu({
             "transition-colors duration-150",
             "focus:bg-surface-tonal-a20 focus:outline-none",
           )}
-          onClick={() => handleItemClick(onDelete)}
+          onClick={(e) => handleItemClick(e, onDelete)}
           role="menuitem"
         >
           <i
@@ -269,7 +271,7 @@ export function BookCardMenu({
             "transition-colors duration-150",
             "focus:bg-surface-tonal-a20 focus:outline-none",
           )}
-          onClick={() => handleItemClick(onMore)}
+          onClick={(e) => handleItemClick(e, onMore)}
           role="menuitem"
         >
           <span>More...</span>

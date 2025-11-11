@@ -1,5 +1,6 @@
 "use client";
 
+import { DeleteBookConfirmationModal } from "@/components/books/DeleteBookConfirmationModal";
 import { BookCardCheckbox } from "@/components/library/BookCardCheckbox";
 import { BookCardCover } from "@/components/library/BookCardCover";
 import { BookCardEditButton } from "@/components/library/BookCardEditButton";
@@ -62,57 +63,69 @@ export function BookCard({
     book.authors.length > 0 ? book.authors.join(", ") : "Unknown Author";
 
   return (
-    <button
-      type="button"
-      className={cn(
-        "group flex cursor-pointer flex-col overflow-hidden rounded",
-        "w-full border-2 border-transparent bg-gradient-to-b from-surface-a0 to-surface-a10 p-0 text-left",
-        "transition-[transform,box-shadow,border-color] duration-200 ease-out",
-        "hover:-translate-y-0.5 hover:shadow-card-hover",
-        "focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2",
-        "focus:not-focus-visible:outline-none focus:outline-none",
-        selected && "border-primary-a0 shadow-primary-glow outline-none",
-      )}
-      onClick={handleClick}
-      onKeyDown={handleKeyDown}
-      aria-label={`${book.title} by ${authorsText}${selected ? " (selected)" : ""}. Click to view details.`}
-      data-book-card
-    >
-      <div className="relative">
-        <BookCardCover title={book.title} thumbnailUrl={book.thumbnail_url} />
-        <BookCardOverlay selected={selected}>
-          <BookCardCheckbox
-            book={book}
-            allBooks={allBooks}
-            selected={selected}
-          />
-          {onEdit && (
-            <BookCardEditButton
-              bookTitle={book.title}
-              onEdit={() => onEdit(book.id)}
+    <>
+      <button
+        type="button"
+        className={cn(
+          "group flex cursor-pointer flex-col overflow-hidden rounded",
+          "w-full border-2 border-transparent bg-gradient-to-b from-surface-a0 to-surface-a10 p-0 text-left",
+          "transition-[transform,box-shadow,border-color] duration-200 ease-out",
+          "hover:-translate-y-0.5 hover:shadow-card-hover",
+          "focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2",
+          "focus:not-focus-visible:outline-none focus:outline-none",
+          selected && "border-primary-a0 shadow-primary-glow outline-none",
+        )}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        aria-label={`${book.title} by ${authorsText}${selected ? " (selected)" : ""}. Click to view details.`}
+        data-book-card
+      >
+        <div className="relative">
+          <BookCardCover title={book.title} thumbnailUrl={book.thumbnail_url} />
+          <BookCardOverlay selected={selected}>
+            <BookCardCheckbox
+              book={book}
+              allBooks={allBooks}
+              selected={selected}
             />
-          )}
-          <BookCardMenuButton
-            buttonRef={menu.menuButtonRef}
-            isMenuOpen={menu.isMenuOpen}
-            onToggle={menu.handleMenuToggle}
-          />
-        </BookCardOverlay>
-      </div>
-      <BookCardMetadata title={book.title} authors={book.authors} />
-      <BookCardMenu
-        isOpen={menu.isMenuOpen}
-        onClose={menu.handleMenuClose}
-        buttonRef={menu.menuButtonRef}
-        cursorPosition={menu.cursorPosition}
-        onBookInfo={menuActions.handleBookInfo}
-        onSend={menuActions.handleSend}
-        onMoveToLibrary={menuActions.handleMoveToLibrary}
-        onMoveToShelf={menuActions.handleMoveToShelf}
-        onConvert={menuActions.handleConvert}
-        onDelete={menuActions.handleDelete}
-        onMore={menuActions.handleMore}
+            {onEdit && (
+              <BookCardEditButton
+                bookTitle={book.title}
+                onEdit={() => onEdit(book.id)}
+              />
+            )}
+            <BookCardMenuButton
+              buttonRef={menu.menuButtonRef}
+              isMenuOpen={menu.isMenuOpen}
+              onToggle={menu.handleMenuToggle}
+            />
+          </BookCardOverlay>
+        </div>
+        <BookCardMetadata title={book.title} authors={book.authors} />
+        <BookCardMenu
+          isOpen={menu.isMenuOpen}
+          onClose={menu.handleMenuClose}
+          buttonRef={menu.menuButtonRef}
+          cursorPosition={menu.cursorPosition}
+          onBookInfo={menuActions.handleBookInfo}
+          onSend={menuActions.handleSend}
+          onMoveToLibrary={menuActions.handleMoveToLibrary}
+          onMoveToShelf={menuActions.handleMoveToShelf}
+          onConvert={menuActions.handleConvert}
+          onDelete={menuActions.handleDelete}
+          onMore={menuActions.handleMore}
+        />
+      </button>
+      <DeleteBookConfirmationModal
+        isOpen={menuActions.deleteConfirmation.isOpen}
+        dontShowAgain={menuActions.deleteConfirmation.dontShowAgain}
+        onClose={menuActions.deleteConfirmation.close}
+        onToggleDontShowAgain={
+          menuActions.deleteConfirmation.toggleDontShowAgain
+        }
+        onConfirm={menuActions.deleteConfirmation.confirm}
+        bookTitle={book.title}
       />
-    </button>
+    </>
   );
 }
