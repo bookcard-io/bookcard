@@ -14,6 +14,8 @@ export interface DropdownMenuItemProps {
   rightContent?: ReactNode;
   /** Whether this item should justify content between. */
   justifyBetween?: boolean;
+  /** Optional additional className to apply to the button. */
+  className?: string;
 }
 
 /**
@@ -34,6 +36,7 @@ export function DropdownMenuItem({
   onClick,
   rightContent,
   justifyBetween = false,
+  className,
 }: DropdownMenuItemProps) {
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -55,6 +58,7 @@ export function DropdownMenuItem({
         "transition-colors duration-150",
         "focus:bg-surface-tonal-a20 focus:outline-none",
         justifyBetween && "justify-between",
+        className,
       )}
       onClick={handleClick}
       role="menuitem"

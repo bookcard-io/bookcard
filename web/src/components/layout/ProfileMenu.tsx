@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { DropdownMenu } from "@/components/common/DropdownMenu";
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
+import type { User } from "@/contexts/UserContext";
 
 export interface ProfileMenuProps {
   /** Whether the menu is open. */
@@ -13,6 +14,8 @@ export interface ProfileMenuProps {
   buttonRef: React.RefObject<HTMLElement | null>;
   /** Cursor position when menu was opened. */
   cursorPosition: { x: number; y: number } | null;
+  /** User data to display in header. */
+  user: User | null;
   /** Callback when View profile is clicked. */
   onViewProfile?: () => void;
   /** Callback when Logout is clicked. */
@@ -32,6 +35,7 @@ export function ProfileMenu({
   onClose,
   buttonRef,
   cursorPosition,
+  user,
   onViewProfile,
   onLogout,
 }: ProfileMenuProps) {
@@ -49,6 +53,8 @@ export function ProfileMenu({
     onClose();
   }, [onLogout, onClose]);
 
+  const displayName = user?.full_name ?? user?.username ?? "User";
+
   return (
     <DropdownMenu
       isOpen={isOpen}
@@ -57,15 +63,45 @@ export function ProfileMenu({
       cursorPosition={cursorPosition}
       ariaLabel="Profile actions"
     >
+      {/* Header section with profile picture and name */}
+      <div className="bg-surface-tonal-a0 px-4 py-5">
+        <div className="flex flex-col items-center gap-2">
+          {/* Profile picture or placeholder */}
+          {user?.profile_picture ? (
+            <img
+              src={user.profile_picture}
+              alt="Profile"
+              className="h-16 w-16 rounded-full object-cover"
+            />
+          ) : (
+            <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full">
+              {/* Muted, blurred circular background */}
+              <div className="absolute inset-0 rounded-full bg-surface-tonal-a30 opacity-50 blur-xl" />
+              {/* Icon - dead centered */}
+              <i
+                className="pi pi-user relative text-2xl text-text-a30"
+                aria-hidden="true"
+              />
+            </div>
+          )}
+          {/* User name */}
+          <span className="font-medium text-sm text-text-a0">
+            {displayName}
+          </span>
+        </div>
+      </div>
+      {/* Menu items */}
       <DropdownMenuItem
         icon="pi pi-id-card"
         label="View profile"
         onClick={handleViewProfileClick}
+        className="cursor-pointer"
       />
       <DropdownMenuItem
         icon="pi pi-sign-out"
         label="Logout"
         onClick={handleLogoutClick}
+        className="cursor-pointer"
       />
     </DropdownMenu>
   );

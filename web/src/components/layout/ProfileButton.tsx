@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import { useUser } from "@/contexts/UserContext";
 import { ProfileMenu } from "./ProfileMenu";
-import { Tooltip } from "./Tooltip";
 
 /**
  * Profile button component for the header action bar.
@@ -67,7 +66,7 @@ export function ProfileButton() {
 
   return (
     <>
-      <Tooltip text="View/edit profile">
+      <div className="flex items-center gap-1">
         <button
           ref={buttonRef}
           type="button"
@@ -93,12 +92,17 @@ export function ProfileButton() {
             </div>
           )}
         </button>
-      </Tooltip>
+        <i
+          className={`pi ${isMenuOpen ? "pi-chevron-up" : "pi-chevron-down"} text-sm text-text-a30 transition-transform duration-200`}
+          aria-hidden="true"
+        />
+      </div>
       <ProfileMenu
         isOpen={isMenuOpen}
         onClose={handleCloseMenu}
         buttonRef={buttonRef}
         cursorPosition={cursorPosition}
+        user={user}
         onViewProfile={handleViewProfile}
         onLogout={handleLogout}
       />
