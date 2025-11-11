@@ -198,23 +198,20 @@ def logout(
     Extracts the JWT token from the Authorization header, decodes it to get
     the JWT ID (jti), and adds it to the token blacklist to prevent further use.
 
+    This endpoint is idempotent - it will return 204 even if the token is
+    missing or invalid, as the user is effectively already logged out.
+
     Parameters
     ----------
     request : Request
         FastAPI request object containing Authorization header.
     session : SessionDep
         Database session dependency.
-
-    Raises
-    ------
-    HTTPException
-        If token is missing or invalid.
     """
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="missing_token"
-        )
+        # No token provided - user is already logged out
+        return
 
     token = auth_header.removeprefix("Bearer ")
     jwt_mgr = JWTManager(request.app.state.config)
@@ -222,10 +219,9 @@ def logout(
     try:
         # Decode token to get jti and expiration
         claims = jwt_mgr.decode_token(token)
-    except SecurityTokenError as err:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_token"
-        ) from err
+    except SecurityTokenError:
+        # Token is invalid or expired - user is already logged out
+        return
 
     # Extract jti and expiration from token
     jti = claims.get("jti")
