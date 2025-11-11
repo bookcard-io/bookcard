@@ -104,6 +104,7 @@ export function BookCard({
         isOpen={menu.isMenuOpen}
         onClose={menu.handleMenuClose}
         buttonRef={menu.menuButtonRef}
+        cursorPosition={menu.cursorPosition}
         onBookInfo={menuActions.handleBookInfo}
         onSend={menuActions.handleSend}
         onMoveToLibrary={menuActions.handleMoveToLibrary}

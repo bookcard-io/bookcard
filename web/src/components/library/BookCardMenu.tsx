@@ -6,13 +6,21 @@ import { LibraryBuilding } from "@/icons/LibraryBuilding";
 import { InterfaceContentBook2LibraryContentBooksBookShelfStack as Shelf } from "@/icons/Shelf";
 import { cn } from "@/libs/utils";
 
+/** Vertical offset for menu positioning (positive = down). */
+const MENU_OFFSET_Y = 2;
+
+/** Horizontal offset for menu positioning (negative = left, positive = right). */
+const MENU_OFFSET_X = -2;
+
 export interface BookCardMenuProps {
   /** Whether the menu is open. */
   isOpen: boolean;
   /** Callback when menu should be closed. */
   onClose: () => void;
-  /** Reference to the button element to position the menu relative to. */
+  /** Reference to the button element (for click outside detection). */
   buttonRef: React.RefObject<HTMLElement | null>;
+  /** Cursor position when menu was opened. */
+  cursorPosition: { x: number; y: number } | null;
   /** Callback when Book info is clicked. */
   onBookInfo?: () => void;
   /** Callback when Send is clicked. */
@@ -40,6 +48,7 @@ export function BookCardMenu({
   isOpen,
   onClose,
   buttonRef,
+  cursorPosition,
   onBookInfo,
   onSend,
   onMoveToLibrary,
@@ -86,16 +95,16 @@ export function BookCardMenu({
   }, []);
 
   useEffect(() => {
-    if (!isOpen || !buttonRef.current) {
+    if (!isOpen || !cursorPosition) {
       return;
     }
 
     const updatePosition = () => {
-      if (buttonRef.current) {
-        const rect = buttonRef.current.getBoundingClientRect();
+      if (cursorPosition) {
+        // Position menu so top-right corner is at cursor position with offset
         setPosition({
-          top: rect.bottom + 12, // 12px gap below button
-          right: window.innerWidth - rect.right,
+          top: cursorPosition.y + MENU_OFFSET_Y,
+          right: window.innerWidth - cursorPosition.x - MENU_OFFSET_X,
         });
       }
     };
@@ -108,7 +117,7 @@ export function BookCardMenu({
       window.removeEventListener("scroll", updatePosition, true);
       window.removeEventListener("resize", updatePosition);
     };
-  }, [isOpen, buttonRef]);
+  }, [isOpen, cursorPosition]);
 
   const handleItemClick = useCallback(
     (handler?: () => void) => {
