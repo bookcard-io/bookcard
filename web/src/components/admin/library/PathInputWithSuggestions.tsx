@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import styles from "./PathInputWithSuggestions.module.scss";
+import { cn } from "@/libs/utils";
 
 type Props = {
   value: string;
@@ -19,6 +19,7 @@ export function PathInputWithSuggestions({
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [show, setShow] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
+  const [hoveredIndex, setHoveredIndex] = useState<number>(-1);
 
   useEffect(() => {
     const q = value.trim();
@@ -26,6 +27,7 @@ export function PathInputWithSuggestions({
       setSuggestions([]);
       setShow(false);
       setSelectedIndex(-1);
+      setHoveredIndex(-1);
       return;
     }
 
@@ -49,6 +51,7 @@ export function PathInputWithSuggestions({
           setSuggestions(suggestionsList);
           setShow(suggestionsList.length > 0);
           setSelectedIndex(-1);
+          setHoveredIndex(-1);
         }
       } catch {
         // ignore suggest errors
@@ -108,7 +111,7 @@ export function PathInputWithSuggestions({
   );
 
   return (
-    <div className={styles.container}>
+    <div className="relative min-w-0 flex-1">
       <input
         type="text"
         value={value}
@@ -121,10 +124,23 @@ export function PathInputWithSuggestions({
         onFocus={() => setShow(suggestions.length > 0)}
         onBlur={() => setShow(false)}
         disabled={!!busy}
-        className={styles.input}
+        className={cn(
+          "w-full bg-surface-a10 px-3 py-2.5 text-sm text-text-a0",
+          "rounded-md border border-[var(--color-surface-a20)]",
+          "transition-colors duration-200",
+          "focus:border-[var(--color-primary-a0)] focus:outline-none",
+          "disabled:cursor-not-allowed disabled:opacity-70",
+        )}
       />
       {show && suggestions.length > 0 && (
-        <div className={styles.suggestions}>
+        <div
+          className={cn(
+            "absolute top-[calc(100%+4px)] right-0 left-0 z-10",
+            "max-h-[240px] overflow-y-auto",
+            "rounded-md border border-[var(--color-surface-a20)] bg-surface-a0",
+            "shadow-[0_4px_16px_rgba(0,0,0,0.3)]",
+          )}
+        >
           {suggestions.map((s, idx) => (
             <button
               key={s}
@@ -134,10 +150,17 @@ export function PathInputWithSuggestions({
                 onChange(s);
                 setShow(false);
               }}
-              onMouseEnter={() => setSelectedIndex(idx)}
-              className={`${styles.suggestionItem} ${
-                idx === selectedIndex ? styles.selected : ""
-              }`}
+              onMouseEnter={() => setHoveredIndex(idx)}
+              onMouseLeave={() => setHoveredIndex(-1)}
+              className={cn(
+                "block w-full bg-transparent px-3 py-2 text-text-a0",
+                "border-0 border-[var(--color-surface-a20)] border-b",
+                "cursor-pointer select-none text-left text-sm",
+                "transition-colors duration-150",
+                (idx === hoveredIndex || idx === selectedIndex) &&
+                  "bg-surface-tonal-a0",
+                idx === suggestions.length - 1 && "border-b-0",
+              )}
             >
               {s}
             </button>
