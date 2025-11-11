@@ -32,6 +32,8 @@ export interface UseLibraryBooksResult {
   hasMore?: boolean;
   /** Function to remove a book by ID from the accumulated books list. */
   removeBook?: (bookId: number) => void;
+  /** Function to add a book by ID to the accumulated books list. */
+  addBook?: (bookId: number) => Promise<void>;
 }
 
 /**
@@ -99,5 +101,6 @@ export function useLibraryBooks(
     loadMore: result.loadMore,
     hasMore: result.hasMore,
     removeBook: result.removeBook,
+    addBook: result.addBook,
   };
 }

@@ -36,6 +36,7 @@ export function MainContent() {
     updateBook: (bookId: number, bookData: Partial<Book>) => void;
     updateCover: (bookId: number) => void;
     removeBook?: (bookId: number) => void;
+    addBook?: (bookId: number) => Promise<void>;
   }>({ updateBook: () => {}, updateCover: () => {} });
 
   // Search state - use ref for book click to avoid circular dependency
@@ -94,9 +95,11 @@ export function MainContent() {
   // Book edit modal state
   const bookEditModal = useBookEditModal();
 
-  // Book upload state - opens edit modal on success
+  // Book upload state - adds book to grid and opens edit modal on success
   const bookUpload = useBookUpload({
-    onUploadSuccess: (bookId) => {
+    onUploadSuccess: async (bookId) => {
+      // Add book to grid so it appears immediately
+      await booksGridBookDataUpdateRef.current?.addBook?.(bookId);
       // Open edit modal for the newly uploaded book
       bookEditModal.handleEditBook(bookId);
     },

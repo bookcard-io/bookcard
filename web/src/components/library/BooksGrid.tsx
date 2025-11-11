@@ -24,11 +24,12 @@ export interface BooksGridProps {
   sortOrder?: "asc" | "desc";
   /** Number of items per page. */
   pageSize?: number;
-  /** Ref to expose methods for updating book data, cover, and removing books. */
+  /** Ref to expose methods for updating book data, cover, removing books, and adding books. */
   bookDataUpdateRef?: React.RefObject<{
     updateBook: (bookId: number, bookData: Partial<Book>) => void;
     updateCover: (bookId: number) => void;
     removeBook?: (bookId: number) => void;
+    addBook?: (bookId: number) => Promise<void>;
   }>;
 }
 
@@ -49,21 +50,29 @@ export function BooksGrid({
   bookDataUpdateRef,
 }: BooksGridProps) {
   // Fetch books using centralized hook (SOC: data fetching separated)
-  const { books, isLoading, error, total, loadMore, hasMore, removeBook } =
-    useLibraryBooks({
-      filters,
-      searchQuery,
-      sortBy,
-      sortOrder,
-      pageSize,
-    });
+  const {
+    books,
+    isLoading,
+    error,
+    total,
+    loadMore,
+    hasMore,
+    removeBook,
+    addBook,
+  } = useLibraryBooks({
+    filters,
+    searchQuery,
+    sortBy,
+    sortOrder,
+    pageSize,
+  });
 
   // Manage book data updates including cover (SRP: book data state management separated)
   const { bookDataOverrides } = useBookDataUpdates({
     updateRef: bookDataUpdateRef,
   });
 
-  // Expose removeBook via ref so external callers (e.g., modal) can remove from this grid instance
+  // Expose removeBook and addBook via ref so external callers can modify this grid instance
   useEffect(() => {
     if (!bookDataUpdateRef) {
       return;
@@ -77,9 +86,11 @@ export function BooksGrid({
       removeBook: (bookId: number) => {
         removeBook?.(bookId);
       },
+      addBook: async (bookId: number) => {
+        await addBook?.(bookId);
+      },
     };
-    // We only need to update when the removeBook function identity changes
-  }, [bookDataUpdateRef, removeBook]);
+  }, [bookDataUpdateRef, removeBook, addBook]);
 
   // Infinite scroll handler (SRP: scroll logic separated)
   const handleLoadMore = useCallback(() => {

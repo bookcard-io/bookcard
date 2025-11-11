@@ -43,6 +43,8 @@ export interface UseFilteredBooksResult {
   hasMore?: boolean;
   /** Function to remove a book by ID from the accumulated books list. */
   removeBook?: (bookId: number) => void;
+  /** Function to add a book by ID to the accumulated books list. */
+  addBook?: (bookId: number) => Promise<void>;
 }
 
 /**
@@ -262,6 +264,55 @@ export function useFilteredBooks(
     [infiniteScroll],
   );
 
+  const addBook = useCallback(
+    async (bookId: number) => {
+      if (!infiniteScroll) {
+        return;
+      }
+
+      try {
+        // Fetch the new book
+        const response = await fetch(`/api/books/${bookId}`, {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          const errorData = (await response.json()) as { detail?: string };
+          throw new Error(errorData.detail || "Failed to fetch book");
+        }
+
+        const newBook = (await response.json()) as Book;
+
+        // Add to accumulated books (prepend since new books typically appear first)
+        setAccumulatedBooks((prev) => {
+          // Check if book already exists to avoid duplicates
+          if (prev.some((book) => book.id === newBook.id)) {
+            return prev;
+          }
+          return [newBook, ...prev];
+        });
+
+        // Also update data if it exists
+        setData((prev) => {
+          if (!prev) return prev;
+          // Check if book already exists
+          if (prev.items.some((book) => book.id === newBook.id)) {
+            return prev;
+          }
+          return {
+            ...prev,
+            items: [newBook, ...prev.items],
+            total: prev.total + 1,
+          };
+        });
+      } catch (err) {
+        // Silently fail - book will appear on next refresh
+        console.error("Failed to add book to list:", err);
+      }
+    },
+    [infiniteScroll],
+  );
+
   return {
     books,
     total: data?.total || 0,
@@ -271,6 +322,6 @@ export function useFilteredBooks(
     isLoading,
     error,
     refetch: fetchFilteredBooks,
-    ...(infiniteScroll && { loadMore, hasMore, removeBook }),
+    ...(infiniteScroll && { loadMore, hasMore, removeBook, addBook }),
   };
 }
