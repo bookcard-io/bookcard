@@ -4,7 +4,6 @@ import { useCallback, useState } from "react";
 import { useActiveLibrary } from "@/contexts/ActiveLibraryContext";
 import { useLibraryManagement } from "./hooks/useLibraryManagement";
 import { LibraryList } from "./LibraryList";
-import styles from "./LibraryManagement.module.scss";
 import { PathInputWithSuggestions } from "./PathInputWithSuggestions";
 
 /**
@@ -60,21 +59,29 @@ export function LibraryManagement() {
   );
 
   if (isLoading) {
-    return <div className={styles.loading}>Loading libraries...</div>;
+    return (
+      <div className="py-6 text-center text-sm text-text-a30">
+        Loading libraries...
+      </div>
+    );
   }
 
   return (
-    <div className={styles.container}>
-      {error && <div className={styles.error}>{error}</div>}
+    <div className="flex flex-col gap-4">
+      {error && (
+        <div className="rounded-md bg-danger-a20 px-4 py-3 text-danger-a0 text-sm">
+          {error}
+        </div>
+      )}
 
-      <div className={styles.addSection}>
-        <div className={styles.inputGroup}>
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
           <input
             type="text"
             value={newName}
             onChange={handleNameChange}
             placeholder="Library name (optional)"
-            className={styles.nameInput}
+            className="flex-[0_0_250px] rounded-md border border-[var(--color-surface-a20)] bg-surface-a10 px-3 py-2.5 text-sm text-text-a0 transition-colors duration-200 focus:border-[var(--color-primary-a0)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
             disabled={isBusy}
           />
           <PathInputWithSuggestions
@@ -87,7 +94,7 @@ export function LibraryManagement() {
             type="button"
             onClick={handleAdd}
             disabled={!newPath.trim() || isBusy}
-            className={styles.addButton}
+            className="flex-[0_0_auto] cursor-pointer rounded-md border-none bg-primary-a0 px-5 py-2.5 font-medium text-sm text-text-a0 transition-colors duration-200 hover:bg-primary-a10 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Add
           </button>
