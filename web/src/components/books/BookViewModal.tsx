@@ -198,8 +198,12 @@ export function BookViewModal({
         <DeleteBookConfirmationModal
           isOpen={deleteConfirmation.isOpen}
           dontShowAgain={deleteConfirmation.dontShowAgain}
+          deleteFilesFromDrive={deleteConfirmation.deleteFilesFromDrive}
           onClose={deleteConfirmation.close}
           onToggleDontShowAgain={deleteConfirmation.toggleDontShowAgain}
+          onToggleDeleteFilesFromDrive={
+            deleteConfirmation.toggleDeleteFilesFromDrive
+          }
           onConfirm={deleteConfirmation.confirm}
           bookTitle={book?.title}
         />

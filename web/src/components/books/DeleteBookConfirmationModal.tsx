@@ -10,10 +10,14 @@ export interface DeleteBookConfirmationModalProps {
   isOpen: boolean;
   /** Whether the "don't show again" checkbox is checked. */
   dontShowAgain: boolean;
+  /** Whether to delete files from drive. */
+  deleteFilesFromDrive: boolean;
   /** Callback to close the modal. */
   onClose: () => void;
   /** Callback to toggle the "don't show again" checkbox. */
   onToggleDontShowAgain: () => void;
+  /** Callback to toggle the "delete files from drive" checkbox. */
+  onToggleDeleteFilesFromDrive: () => void;
   /** Callback when delete is confirmed. */
   onConfirm: () => void;
   /** Book title for display in warning message. */
@@ -35,8 +39,10 @@ export interface DeleteBookConfirmationModalProps {
 export function DeleteBookConfirmationModal({
   isOpen,
   dontShowAgain,
+  deleteFilesFromDrive,
   onClose,
   onToggleDontShowAgain,
+  onToggleDeleteFilesFromDrive,
   onConfirm,
   bookTitle,
 }: DeleteBookConfirmationModalProps) {
@@ -123,32 +129,45 @@ export function DeleteBookConfirmationModal({
           <label className="flex cursor-pointer items-center gap-2">
             <input
               type="checkbox"
-              checked={dontShowAgain}
-              onChange={onToggleDontShowAgain}
+              checked={deleteFilesFromDrive}
+              onChange={onToggleDeleteFilesFromDrive}
               className="h-4 w-4 cursor-pointer rounded border-surface-a20 text-primary-a0 accent-[var(--color-primary-a0)] focus:ring-2 focus:ring-primary-a0"
             />
-            <span className="text-[var(--color-text-a30)] text-sm">
-              Don't show this message again.
+            <span className="text-[var(--color-text-a0)] text-base">
+              Also delete files from the filesystem.
             </span>
           </label>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="medium"
-              onClick={onClose}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              size="medium"
-              onClick={onConfirm}
-            >
-              Delete
-            </Button>
+          <div className="flex items-center justify-between gap-3 pt-2">
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={dontShowAgain}
+                onChange={onToggleDontShowAgain}
+                className="h-4 w-4 cursor-pointer rounded border-surface-a20 text-primary-a0 accent-[var(--color-primary-a0)] focus:ring-2 focus:ring-primary-a0"
+              />
+              <span className="text-[var(--color-text-a50)] text-sm">
+                Don't show this message again.
+              </span>
+            </label>
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                size="medium"
+                onClick={onClose}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                size="medium"
+                onClick={onConfirm}
+              >
+                Delete
+              </Button>
+            </div>
           </div>
         </div>
       </div>

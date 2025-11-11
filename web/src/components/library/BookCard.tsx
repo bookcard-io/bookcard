@@ -119,9 +119,15 @@ export function BookCard({
       <DeleteBookConfirmationModal
         isOpen={menuActions.deleteConfirmation.isOpen}
         dontShowAgain={menuActions.deleteConfirmation.dontShowAgain}
+        deleteFilesFromDrive={
+          menuActions.deleteConfirmation.deleteFilesFromDrive
+        }
         onClose={menuActions.deleteConfirmation.close}
         onToggleDontShowAgain={
           menuActions.deleteConfirmation.toggleDontShowAgain
+        }
+        onToggleDeleteFilesFromDrive={
+          menuActions.deleteConfirmation.toggleDeleteFilesFromDrive
         }
         onConfirm={menuActions.deleteConfirmation.confirm}
         bookTitle={book.title}

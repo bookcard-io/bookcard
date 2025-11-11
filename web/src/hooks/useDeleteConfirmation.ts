@@ -10,12 +10,16 @@ export interface UseDeleteConfirmationResult {
   isOpen: boolean;
   /** Whether the "don't show again" checkbox is checked. */
   dontShowAgain: boolean;
+  /** Whether to delete files from drive. */
+  deleteFilesFromDrive: boolean;
   /** Opens the confirmation modal. */
   open: () => void;
   /** Closes the confirmation modal. */
   close: () => void;
   /** Toggles the "don't show again" checkbox. */
   toggleDontShowAgain: () => void;
+  /** Toggles the "delete files from drive" checkbox. */
+  toggleDeleteFilesFromDrive: () => void;
   /** Confirms the deletion. */
   confirm: () => void;
 }
@@ -42,6 +46,7 @@ export function useDeleteConfirmation({
 }: UseDeleteConfirmationOptions = {}): UseDeleteConfirmationResult {
   const [isOpen, setIsOpen] = useState(false);
   const [dontShowAgain, setDontShowAgain] = useState(false);
+  const [deleteFilesFromDrive, setDeleteFilesFromDrive] = useState(false);
 
   const open = useCallback(() => {
     setIsOpen(true);
@@ -50,10 +55,15 @@ export function useDeleteConfirmation({
   const close = useCallback(() => {
     setIsOpen(false);
     setDontShowAgain(false);
+    setDeleteFilesFromDrive(false);
   }, []);
 
   const toggleDontShowAgain = useCallback(() => {
     setDontShowAgain((prev) => !prev);
+  }, []);
+
+  const toggleDeleteFilesFromDrive = useCallback(() => {
+    setDeleteFilesFromDrive((prev) => !prev);
   }, []);
 
   const confirm = useCallback(() => {
@@ -66,9 +76,11 @@ export function useDeleteConfirmation({
   return {
     isOpen,
     dontShowAgain,
+    deleteFilesFromDrive,
     open,
     close,
     toggleDontShowAgain,
+    toggleDeleteFilesFromDrive,
     confirm,
   };
 }
