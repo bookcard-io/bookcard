@@ -176,22 +176,24 @@ export function MainContent() {
         onNavigateNext={bookModal.handleNavigateNext}
         onEdit={bookEditModal.handleEditBook}
       />
-      <BookEditModal
-        bookId={bookEditModal.editingBookId}
-        onClose={bookEditModal.handleCloseModal}
-        onCoverSaved={(bookId) => {
-          // Update cover in grid when cover is saved (O(1) operation)
-          booksGridBookDataUpdateRef.current?.updateCover(bookId);
-        }}
-        onBookSaved={(book) => {
-          // Update book data in grid when book is saved (O(1) operation)
-          booksGridBookDataUpdateRef.current?.updateBook(book.id, {
-            title: book.title,
-            authors: book.authors,
-            thumbnail_url: book.thumbnail_url,
-          });
-        }}
-      />
+      {bookEditModal.editingBookId !== null && (
+        <BookEditModal
+          bookId={bookEditModal.editingBookId}
+          onClose={bookEditModal.handleCloseModal}
+          onCoverSaved={(bookId) => {
+            // Update cover in grid when cover is saved (O(1) operation)
+            booksGridBookDataUpdateRef.current?.updateCover(bookId);
+          }}
+          onBookSaved={(book) => {
+            // Update book data in grid when book is saved (O(1) operation)
+            booksGridBookDataUpdateRef.current?.updateBook(book.id, {
+              title: book.title,
+              authors: book.authors,
+              thumbnail_url: book.thumbnail_url,
+            });
+          }}
+        />
+      )}
     </>
   );
 }

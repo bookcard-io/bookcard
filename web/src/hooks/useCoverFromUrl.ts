@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 export interface UseCoverFromUrlOptions {
   /** Book ID for the cover URL request. */
@@ -41,14 +41,18 @@ export function useCoverFromUrl(
   const { bookId, onSuccess } = options;
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Use ref to track loading state to avoid stale closure issues
+  const isLoadingRef = useRef(false);
 
   const downloadCover = useCallback(
     async (url: string) => {
       const trimmedUrl = url.trim();
-      if (!trimmedUrl || isLoading) {
+      if (!trimmedUrl || isLoadingRef.current) {
         return;
       }
 
+      // Set loading state immediately for immediate UI feedback
+      isLoadingRef.current = true;
       setIsLoading(true);
       setError(null);
 
@@ -82,10 +86,11 @@ export function useCoverFromUrl(
         setError(message);
         throw err;
       } finally {
+        isLoadingRef.current = false;
         setIsLoading(false);
       }
     },
-    [bookId, isLoading, onSuccess],
+    [bookId, onSuccess],
   );
 
   const clearError = useCallback(() => {

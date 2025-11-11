@@ -27,7 +27,10 @@ export interface UseBookCardMenuResult {
  */
 export function useBookCardMenu(): UseBookCardMenuResult {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
+  const [cursorPosition, setCursorPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const menuButtonRef = useRef<HTMLDivElement | null>(null);
 
   const handleMenuToggle = useCallback(

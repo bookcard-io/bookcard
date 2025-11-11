@@ -91,3 +91,30 @@ export function deduplicateBooks(
 
   return result;
 }
+
+/**
+ * Generate modal title for book edit modal.
+ *
+ * Creates an accessible title string for the book edit modal dialog.
+ *
+ * Parameters
+ * ----------
+ * book : Book
+ *     Book data to generate title from.
+ * formTitle? : string | null
+ *     Optional form title (may differ from book title if edited).
+ *
+ * Returns
+ * -------
+ * string
+ *     Modal title string.
+ */
+export function getBookEditModalTitle(
+  book: Book,
+  formTitle?: string | null,
+): string {
+  const title = formTitle || book.title;
+  const authorsText =
+    book.authors.length > 0 ? book.authors.join(", ") : "Unknown Author";
+  return `Editing book info - ${title} by ${authorsText}`;
+}

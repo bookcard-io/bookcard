@@ -1,19 +1,12 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { Button } from "@/components/forms/Button";
 import { MetadataFetchModal } from "@/components/metadata";
-import { useBook } from "@/hooks/useBook";
-import { useBookForm } from "@/hooks/useBookForm";
-import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
-import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
+import { useBookEditForm } from "@/hooks/useBookEditForm";
 import { useModal } from "@/hooks/useModal";
-import { useStagedCoverUrl } from "@/hooks/useStagedCoverUrl";
 import type { Book } from "@/types/book";
-import {
-  applyBookUpdateToForm,
-  convertMetadataRecordToBookUpdate,
-} from "@/utils/metadata";
+import { getBookEditModalTitle } from "@/utils/books";
 import { BookEditCoverSection } from "./BookEditCoverSection";
 import { BookEditFormFields } from "./BookEditFormFields";
 import styles from "./BookEditModal.module.scss";
@@ -22,7 +15,7 @@ import { BookEditModalHeader } from "./BookEditModalHeader";
 
 export interface BookEditModalProps {
   /** Book ID to edit. */
-  bookId: number | null;
+  bookId: number;
   /** Callback when modal should be closed. */
   onClose: () => void;
   /** Callback when cover is saved (for updating grid). */
@@ -35,13 +28,13 @@ export interface BookEditModalProps {
  * Book edit modal component.
  *
  * Displays a comprehensive form for editing book metadata in a modal overlay.
- * Follows SRP by delegating to specialized components.
- * Uses IOC via hooks and components.
+ * Follows SRP by delegating form logic to useBookEditForm hook.
+ * Uses IOC via hooks and components. Focused solely on UI rendering.
  *
  * Parameters
  * ----------
  * props : BookEditModalProps
- *     Component props including book ID and close callback.
+ *     Component props including book ID and callbacks.
  */
 export function BookEditModal({
   bookId,
@@ -49,81 +42,37 @@ export function BookEditModal({
   onCoverSaved,
   onBookSaved,
 }: BookEditModalProps) {
-  const { book, isLoading, error, updateBook, isUpdating, updateError } =
-    useBook({
-      bookId: bookId || 0,
-      enabled: bookId !== null,
-      full: true,
-    });
-
   const {
+    book,
+    isLoading,
+    error,
     formData,
     hasChanges,
     showSuccess,
+    isUpdating,
+    updateError,
+    stagedCoverUrl,
+    showMetadataModal,
     handleFieldChange,
     handleSubmit,
-    resetForm,
-  } = useBookForm({
-    book,
-    updateBook,
-    onUpdateSuccess: (updatedBook) => {
-      // Notify parent that book was saved
-      if (onBookSaved) {
-        onBookSaved(updatedBook);
-      }
-    },
-  });
-
-  const [showMetadataModal, setShowMetadataModal] = useState(false);
-
-  const { stagedCoverUrl, clearStagedCoverUrl } = useStagedCoverUrl({
+    handleClose,
+    handleOpenMetadataModal,
+    handleCloseMetadataModal,
+    handleSelectMetadata,
+    handleCoverSaved,
+  } = useBookEditForm({
     bookId,
-  });
-
-  /**
-   * Handles metadata record selection and populates the form.
-   *
-   * Parameters
-   * ----------
-   * record : MetadataRecord
-   *     Metadata record from external source.
-   */
-  const handleSelectMetadata = useCallback(
-    (record: MetadataRecord) => {
-      const update = convertMetadataRecordToBookUpdate(record);
-      applyBookUpdateToForm(update, handleFieldChange);
-
-      // Close the metadata modal after selection
-      setShowMetadataModal(false);
-    },
-    [handleFieldChange],
-  );
-
-  const handleClose = useCallback(() => {
-    // Reset form to initial state when closing without saving
-    // resetForm only resets if there are unsaved changes
-    resetForm();
-    // Reset staged cover URL when closing
-    // URL input state is managed internally by BookEditCoverSection
-    clearStagedCoverUrl();
-    onClose();
-  }, [resetForm, clearStagedCoverUrl, onClose]);
-
-  const handleEscape = useCallback(() => {
-    // URL input handles its own Escape key via useCoverUrlInput's handleKeyDown
-    // So we can directly close the modal
-    handleClose();
-  }, [handleClose]);
-
-  // Handle keyboard navigation
-  useKeyboardNavigation({
-    onEscape: handleEscape,
-    enabled: !isLoading && !!book && bookId !== null,
+    onClose,
+    onCoverSaved,
+    onBookSaved,
   });
 
   // Prevent body scroll when modal is open
   useModal(bookId !== null);
 
+  /**
+   * Handles overlay click to close modal.
+   */
   const handleOverlayClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (e.target === e.currentTarget) {
@@ -133,6 +82,9 @@ export function BookEditModal({
     [handleClose],
   );
 
+  /**
+   * Prevents modal content clicks from closing the modal.
+   */
   const handleModalClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       e.stopPropagation();
@@ -140,8 +92,11 @@ export function BookEditModal({
     [],
   );
 
+  /**
+   * Placeholder for overlay keydown (keyboard navigation handled by hook).
+   */
   const handleOverlayKeyDown = useCallback(() => {
-    // Keyboard navigation is handled by useKeyboardNavigation hook
+    // Keyboard navigation is handled by useBookEditForm hook
   }, []);
 
   if (!bookId) {
@@ -197,9 +152,9 @@ export function BookEditModal({
     );
   }
 
-  const authorsText =
-    book.authors.length > 0 ? book.authors.join(", ") : "Unknown Author";
-  const modalTitle = `Editing book info - ${book.title} by ${authorsText}`;
+  const modalTitle = book
+    ? getBookEditModalTitle(book, formData.title)
+    : "Editing book info";
 
   return (
     /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
@@ -229,14 +184,14 @@ export function BookEditModal({
           book={book}
           formTitle={formData.title}
           isUpdating={isUpdating}
-          onFetchMetadata={() => setShowMetadataModal(true)}
+          onFetchMetadata={handleOpenMetadataModal}
         />
 
         {showMetadataModal && (
           <MetadataFetchModal
             book={book}
             formData={formData}
-            onClose={() => setShowMetadataModal(false)}
+            onClose={handleCloseMetadataModal}
             onSelectMetadata={handleSelectMetadata}
           />
         )}
@@ -246,12 +201,7 @@ export function BookEditModal({
             <BookEditCoverSection
               book={book}
               stagedCoverUrl={stagedCoverUrl}
-              onCoverSaved={() => {
-                // Notify parent that cover was saved
-                if (bookId && onCoverSaved) {
-                  onCoverSaved(bookId);
-                }
-              }}
+              onCoverSaved={handleCoverSaved}
             />
             <BookEditFormFields
               book={book}

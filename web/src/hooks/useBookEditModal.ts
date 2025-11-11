@@ -1,18 +1,18 @@
 import { useCallback, useState } from "react";
 
 export interface UseBookEditModalOptions {
-  /** Optional callback when modal is opened. */
+  /** Callback when modal is opened. */
   onOpen?: () => void;
-  /** Optional callback when modal is closed. */
+  /** Callback when modal is closed. */
   onClose?: () => void;
 }
 
 export interface UseBookEditModalResult {
   /** Currently editing book ID (null if modal is closed). */
   editingBookId: number | null;
-  /** Handler for opening book edit modal. */
+  /** Handler for opening edit modal with a book ID. */
   handleEditBook: (bookId: number) => void;
-  /** Handler for closing book edit modal. */
+  /** Handler for closing the edit modal. */
   handleCloseModal: () => void;
 }
 
@@ -20,17 +20,18 @@ export interface UseBookEditModalResult {
  * Custom hook for managing book edit modal state.
  *
  * Manages the currently editing book ID and modal open/close actions.
- * Follows SRP by managing only book edit modal-related state and logic.
+ * Follows SRP by managing only modal state and lifecycle.
+ * Uses IOC by accepting callbacks as dependencies.
  *
  * Parameters
  * ----------
  * options : UseBookEditModalOptions
- *     Optional configuration including callbacks for open/close events.
+ *     Optional configuration including callbacks.
  *
  * Returns
  * -------
  * UseBookEditModalResult
- *     Book edit modal state and action handlers.
+ *     Modal state and action handlers.
  */
 export function useBookEditModal(
   options: UseBookEditModalOptions = {},
@@ -38,6 +39,14 @@ export function useBookEditModal(
   const { onOpen, onClose } = options;
   const [editingBookId, setEditingBookId] = useState<number | null>(null);
 
+  /**
+   * Handles opening the edit modal for a specific book.
+   *
+   * Parameters
+   * ----------
+   * bookId : number
+   *     Book ID to edit.
+   */
   const handleEditBook = useCallback(
     (bookId: number) => {
       setEditingBookId(bookId);
@@ -46,6 +55,9 @@ export function useBookEditModal(
     [onOpen],
   );
 
+  /**
+   * Handles closing the edit modal.
+   */
   const handleCloseModal = useCallback(() => {
     setEditingBookId(null);
     onClose?.();
