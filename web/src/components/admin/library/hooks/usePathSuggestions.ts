@@ -1,25 +1,78 @@
 import { useEffect, useState } from "react";
+import { useDebounce } from "@/hooks/useDebounce";
 
-export function usePathSuggestions(query: string) {
+export interface UsePathSuggestionsOptions {
+  /** Query string to search for. */
+  query: string;
+  /** Whether suggestions are enabled (default: true). */
+  enabled?: boolean;
+  /** Minimum query length to trigger search (default: 2). */
+  minQueryLength?: number;
+  /** Debounce delay in milliseconds (default: 300). */
+  debounceDelay?: number;
+  /** Maximum number of suggestions to return (default: 50). */
+  limit?: number;
+}
+
+export interface UsePathSuggestionsResult {
+  /** List of path suggestions. */
+  suggestions: string[];
+  /** Whether suggestions dropdown should be shown. */
+  show: boolean;
+  /** Set whether suggestions dropdown should be shown. */
+  setShow: (show: boolean) => void;
+}
+
+/**
+ * Custom hook for fetching path directory suggestions.
+ *
+ * Debounces the query and fetches directory suggestions from the API.
+ * Follows SRP by focusing solely on suggestion fetching logic.
+ * Uses IOC by accepting configuration options.
+ *
+ * Parameters
+ * ----------
+ * options : UsePathSuggestionsOptions
+ *     Configuration including query and options.
+ *
+ * Returns
+ * -------
+ * UsePathSuggestionsResult
+ *     Suggestions list and visibility control.
+ */
+export function usePathSuggestions(
+  options: UsePathSuggestionsOptions,
+): UsePathSuggestionsResult {
+  const {
+    query,
+    enabled = true,
+    minQueryLength = 2,
+    debounceDelay = 300,
+    limit = 50,
+  } = options;
+
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [show, setShow] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
+  const debouncedQuery = useDebounce(query.trim(), debounceDelay);
 
   useEffect(() => {
-    const q = query.trim();
-    if (q.length < 2) {
+    if (!enabled || debouncedQuery.length < minQueryLength) {
       setSuggestions([]);
       setShow(false);
-      setSelectedIndex(-1);
       return;
     }
+
     let active = true;
     const controller = new AbortController();
-    const id = window.setTimeout(async () => {
+
+    const fetchSuggestions = async () => {
       try {
         const response = await fetch(
-          `/api/fs/suggest_dirs?q=${encodeURIComponent(q)}&limit=50`,
-          { cache: "no-store", signal: controller.signal },
+          `/api/fs/suggest_dirs?q=${encodeURIComponent(debouncedQuery)}&limit=${limit}`,
+          {
+            cache: "no-store",
+            signal: controller.signal,
+          },
         );
         if (!response.ok) return;
         const data = (await response.json()) as { suggestions?: string[] };
@@ -29,24 +82,23 @@ export function usePathSuggestions(query: string) {
             : [];
           setSuggestions(suggestionsList);
           setShow(suggestionsList.length > 0);
-          setSelectedIndex(-1);
         }
       } catch {
         // Ignore suggest errors
       }
-    }, 300);
+    };
+
+    void fetchSuggestions();
+
     return () => {
       active = false;
       controller.abort();
-      window.clearTimeout(id);
     };
-  }, [query]);
+  }, [enabled, debouncedQuery, minQueryLength, limit]);
 
   return {
     suggestions,
     show,
     setShow,
-    selectedIndex,
-    setSelectedIndex,
   } as const;
 }
