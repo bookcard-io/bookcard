@@ -62,6 +62,8 @@ EXTH_RECORD_TYPE = {
     110: ("subjectCode", True),  # Array of strings
     112: ("source", True),  # Array of strings
     113: ("asin", False),
+    201: ("coverOffset", False),  # uint offset
+    202: ("thumbnailOffset", False),  # uint offset
     503: ("title", False),
     524: ("language", True),  # Array of strings
 }
