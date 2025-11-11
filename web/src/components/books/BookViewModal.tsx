@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { BookViewFormats } from "@/components/books/BookViewFormats";
 import { BookViewHeader } from "@/components/books/BookViewHeader";
 import { BookViewMetadata } from "@/components/books/BookViewMetadata";
+import { BookViewModalFooter } from "@/components/books/BookViewModalFooter";
 import { Button } from "@/components/forms/Button";
 import { useBook } from "@/hooks/useBook";
 import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
@@ -175,6 +176,8 @@ export function BookViewModal({
             )}
           </div>
         </div>
+
+        <BookViewModalFooter />
       </div>
     </div>
   );
