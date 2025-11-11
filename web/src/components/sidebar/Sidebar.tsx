@@ -7,7 +7,7 @@ import { useSidebar } from "@/contexts/SidebarContext";
 import { LibraryBuilding } from "@/icons/LibraryBuilding";
 import { LibraryOutline } from "@/icons/LibraryOutline";
 import { SharpDevicesFold } from "@/icons/SharpDevicesFold";
-import styles from "./Sidebar.module.scss";
+import { cn } from "@/libs/utils";
 
 interface NavSection {
   title: string;
@@ -73,24 +73,29 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ""}`}
+      className={cn(
+        "fixed top-0 left-0 z-[1000] flex h-screen w-[280px] flex-col overflow-hidden bg-[var(--color-surface-a10)] text-[var(--color-surface-a50)] transition-[width] duration-300 ease-in-out",
+        isCollapsed && "w-16",
+      )}
     >
-      <div className={styles.header}>
-        <div className={styles.logoContainer}>
+      <div className="flex min-h-16 items-center justify-between border-[var(--color-surface-a20)] border-b p-4">
+        <div className="flex flex-1 items-center gap-3">
           <img
             src="/logo.svg"
             alt="Fundamental Logo"
             width={24}
             height={24}
-            className={styles.logo}
+            className="h-6 min-h-6 w-6 min-w-6 shrink-0"
           />
           {!isCollapsed && (
-            <span className={styles.brandName}>Fundamental</span>
+            <span className="whitespace-nowrap font-medium text-[var(--color-text-a0)] text-lg">
+              Fundamental
+            </span>
           )}
         </div>
         <button
           type="button"
-          className={styles.menuButton}
+          className="flex cursor-pointer items-center justify-center rounded border-0 bg-transparent p-1 text-[var(--color-surface-a50)] transition-colors duration-200 hover:bg-[var(--color-surface-a20)]"
           onClick={() => setIsCollapsed(!isCollapsed)}
           aria-label="Toggle sidebar"
         >
@@ -98,55 +103,54 @@ export function Sidebar() {
         </button>
       </div>
 
-      <nav className={styles.nav}>
+      <nav className="flex-1 overflow-y-auto py-4">
         {/* MY LIBRARY Section */}
-        <div className={styles.section}>
+        <div className="mb-2">
           <button
             type="button"
-            className={styles.sectionHeader}
+            className="flex w-full cursor-pointer items-center justify-between border-0 bg-transparent px-4 py-3 text-left font-semibold text-[var(--color-surface-a50)] text-xs uppercase tracking-[0.5px] transition-colors duration-200 hover:bg-[var(--color-surface-a20)]"
             onClick={() => toggleSection("MY LIBRARY")}
           >
             {LibraryBuilding && (
               <LibraryBuilding
-                className={styles.sectionIcon}
+                className="mr-3 h-[18px] w-[18px] shrink-0 text-[var(--color-surface-a50)]"
                 aria-hidden="true"
               />
             )}
-            {!isCollapsed && (
-              <span className={styles.sectionTitle}>MY LIBRARY</span>
-            )}
+            {!isCollapsed && <span className="flex-1">MY LIBRARY</span>}
             {!isCollapsed && (
               <i
-                className={`pi ${
+                className={cn(
+                  "pi shrink-0 text-sm",
                   expandedSections.has("MY LIBRARY")
                     ? "pi-chevron-up"
-                    : "pi-chevron-down"
-                } ${styles.chevron}`}
+                    : "pi-chevron-down",
+                )}
                 aria-hidden="true"
               />
             )}
           </button>
           {expandedSections.has("MY LIBRARY") && !isCollapsed && (
-            <ul className={styles.sectionItems}>
+            <ul className="m-0 list-none p-0">
               <li>
                 <button
                   type="button"
                   onClick={handleHomeClick}
-                  className={styles.navLink}
+                  className="block w-[calc(100%-32px)] cursor-pointer rounded border-0 bg-transparent py-2.5 pr-4 pl-[46px] text-left text-[var(--color-text-a30)] text-sm no-underline transition-colors duration-200 hover:bg-[var(--color-surface-a20)] hover:text-[var(--color-text-a10)]"
                 >
                   Home
                 </button>
               </li>
               {activeLibrary && (
                 <li>
-                  <div className={styles.libraryItem}>
-                    <span className={styles.libraryName}>
+                  <div className="flex w-[calc(100%-32px)] cursor-pointer items-center justify-between rounded border-0 bg-transparent py-2.5 pr-0 pl-[46px] text-[var(--color-text-a30)] text-sm transition-colors duration-200 hover:bg-[var(--color-surface-a20)]">
+                    <span className="flex-1 text-left">
                       {activeLibrary.name}
                     </span>
                     <button
                       type="button"
                       onClick={handleLibraryMenuClick}
-                      className={styles.libraryMenuButton}
+                      className="flex items-center justify-center rounded border-0 bg-transparent text-[var(--color-text-a30)] text-base transition-colors duration-200 hover:text-[var(--color-text-a10)]"
                       aria-label="Library options"
                     >
                       <i className="pi pi-ellipsis-v" aria-hidden="true" />
@@ -162,40 +166,41 @@ export function Sidebar() {
         {navSections.map((section) => {
           const IconComponent = sectionIcons[section.title];
           return (
-            <div key={section.title} className={styles.section}>
+            <div key={section.title} className="mb-2">
               <button
                 type="button"
-                className={styles.sectionHeader}
+                className="flex w-full cursor-pointer items-center justify-between border-0 bg-transparent px-4 py-3 text-left font-semibold text-[var(--color-surface-a50)] text-xs uppercase tracking-[0.5px] transition-colors duration-200 hover:bg-[var(--color-surface-a20)]"
                 onClick={() => toggleSection(section.title)}
               >
                 {IconComponent && (
                   <IconComponent
-                    className={styles.sectionIcon}
+                    className="mr-3 h-[18px] w-[18px] shrink-0 text-[var(--color-surface-a50)]"
                     aria-hidden="true"
                   />
                 )}
                 {!isCollapsed && (
-                  <span className={styles.sectionTitle}>{section.title}</span>
+                  <span className="flex-1">{section.title}</span>
                 )}
                 {!isCollapsed && (
                   <i
-                    className={`pi ${
+                    className={cn(
+                      "pi shrink-0 text-sm",
                       expandedSections.has(section.title)
                         ? "pi-chevron-up"
-                        : "pi-chevron-down"
-                    } ${styles.chevron}`}
+                        : "pi-chevron-down",
+                    )}
                     aria-hidden="true"
                   />
                 )}
               </button>
               {expandedSections.has(section.title) && !isCollapsed && (
-                <ul className={styles.sectionItems}>
+                <ul className="m-0 list-none p-0">
                   {section.items.map((item) => (
                     <li key={item}>
                       <button
                         type="button"
                         onClick={handleLinkClick}
-                        className={styles.navLink}
+                        className="block w-[calc(100%-32px)] cursor-pointer rounded border-0 bg-transparent py-2.5 pr-4 pl-[46px] text-left text-[var(--color-text-a30)] text-sm no-underline transition-colors duration-200 hover:bg-[var(--color-surface-a20)] hover:text-[var(--color-text-a10)]"
                       >
                         {item}
                       </button>
@@ -208,11 +213,15 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className={styles.footer}>
+      <div className="border-[var(--color-surface-a20)] border-t p-4">
         <button
           type="button"
           onClick={handleAdminClick}
-          className={`${styles.settingsLink} ${isAdminActive ? styles.active : ""}`}
+          className={cn(
+            "flex w-full cursor-pointer items-center gap-3 rounded border-0 bg-transparent p-2 text-[var(--color-surface-a50)] text-sm no-underline transition-colors duration-200 hover:bg-[var(--color-surface-a20)]",
+            isAdminActive &&
+              "bg-[var(--color-surface-a20)] text-[var(--color-primary-a20)]",
+          )}
           aria-label="Admin Settings"
         >
           <i className="pi pi-cog"></i>

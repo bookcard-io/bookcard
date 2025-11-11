@@ -110,11 +110,11 @@ export function MainContent() {
 
   return (
     <main
-      className={`flex-1 bg-[var(--color-surface-a0)] transition-[margin-left] duration-300 ease-in-out overflow-y-auto h-screen ${
+      className={`h-screen flex-1 overflow-y-auto bg-[var(--color-surface-a0)] transition-[margin-left] duration-300 ease-in-out ${
         isCollapsed ? "ml-[64px]" : "ml-[280px]"
       }`}
     >
-      <div className="flex flex-col min-h-full">
+      <div className="flex min-h-full flex-col">
         <LibraryHeader />
         <div className="relative">
           <SearchWidgetBar

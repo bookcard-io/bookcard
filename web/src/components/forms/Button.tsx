@@ -40,13 +40,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         className={cn(
           // Base styles
           "inline-flex items-center justify-center gap-2 font-inherit font-medium",
-          "border-none rounded-lg cursor-pointer",
+          "cursor-pointer rounded-lg border-none",
           "transition-[background-color_0.2s,opacity_0.2s,transform_0.1s] ease-in-out",
           "leading-normal",
           // Focus styles
-          "focus:outline-none focus:shadow-[0_0_0_3px_rgba(144,170,249,0.3)]",
+          "focus:shadow-[0_0_0_3px_rgba(144,170,249,0.3)] focus:outline-none",
           // Disabled styles
-          "disabled:opacity-50 disabled:cursor-not-allowed",
+          "disabled:cursor-not-allowed disabled:opacity-50",
           // Active styles (disabled buttons won't respond to active state)
           "active:scale-[0.98]",
           // Variant styles
@@ -55,7 +55,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             "hover:bg-primary-a10",
           ],
           variant === "secondary" && [
-            "bg-surface-a10 text-text-a0 border border-surface-a20",
+            "border border-surface-a20 bg-surface-a10 text-text-a0",
             "hover:bg-surface-a20",
           ],
           variant === "danger" && [
@@ -83,7 +83,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {loading ? (
           <>
             <span
-              className="w-4 h-4 border-2 border-transparent border-t-current rounded-full animate-spin"
+              className="h-4 w-4 animate-spin rounded-full border-2 border-transparent border-t-current"
               aria-hidden="true"
             />
             <span className="opacity-80">Loading...</span>

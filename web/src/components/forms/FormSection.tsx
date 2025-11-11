@@ -29,17 +29,17 @@ export function FormSection({
   return (
     <section
       className={cn(
-        "flex flex-col gap-6 pb-6 border-b border-surface-a20",
+        "flex flex-col gap-6 border-surface-a20 border-b pb-6",
         "last:border-b-0 last:pb-0",
         className,
       )}
     >
       <div className="mb-0">
-        <h2 className="text-lg font-semibold text-text-a0 mb-2 leading-[1.4] m-0">
+        <h2 className="m-0 mb-2 font-semibold text-lg text-text-a0 leading-[1.4]">
           {title}
         </h2>
         {description && (
-          <p className="text-sm text-text-a30 m-0 leading-normal">
+          <p className="m-0 text-sm text-text-a30 leading-normal">
             {description}
           </p>
         )}

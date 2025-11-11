@@ -84,8 +84,8 @@ export function BooksGrid({
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-[400px] p-8">
-        <p className="text-danger-a10 text-base m-0">
+      <div className="flex min-h-[400px] items-center justify-center p-8">
+        <p className="m-0 text-base text-danger-a10">
           Error loading books: {error}
         </p>
       </div>
@@ -94,16 +94,16 @@ export function BooksGrid({
 
   if (isLoading && uniqueBooks.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-[400px] p-8">
-        <p className="text-text-a40 text-base m-0">Loading books...</p>
+      <div className="flex min-h-[400px] items-center justify-center p-8">
+        <p className="m-0 text-base text-text-a40">Loading books...</p>
       </div>
     );
   }
 
   if (uniqueBooks.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-[400px] p-8">
-        <p className="text-text-a40 text-base m-0">No books found</p>
+      <div className="flex min-h-[400px] items-center justify-center p-8">
+        <p className="m-0 text-base text-text-a40">No books found</p>
       </div>
     );
   }
@@ -111,7 +111,7 @@ export function BooksGrid({
   return (
     <div className="w-full py-6">
       {total > 0 && (
-        <div className="px-8 pb-4 text-text-a40 text-sm text-left">
+        <div className="px-8 pb-4 text-left text-sm text-text-a40">
           {hasMore
             ? `Scroll for more (${uniqueBooks.length} of ${total})`
             : `${uniqueBooks.length} of ${total} books`}
@@ -130,7 +130,7 @@ export function BooksGrid({
       </div>
       {hasMore && <div ref={sentinelRef as React.RefObject<HTMLDivElement>} />}
       {isLoading && uniqueBooks.length > 0 && (
-        <div className="p-4 px-8 text-text-a40 text-sm text-center">
+        <div className="p-4 px-8 text-center text-sm text-text-a40">
           Loading more books...
         </div>
       )}
