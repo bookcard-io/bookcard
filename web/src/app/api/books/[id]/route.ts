@@ -97,3 +97,48 @@ export async function PUT(
     );
   }
 }
+
+/**
+ * DELETE /api/books/[id]
+ *
+ * Proxies request to delete a book.
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { client, error } = getAuthenticatedClient(request);
+
+    if (error) {
+      return error;
+    }
+
+    const { id } = await params;
+    const body = await request.json();
+
+    const response = await client.request(`/books/${id}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      return NextResponse.json(
+        { detail: data.detail || "Failed to delete book" },
+        { status: response.status },
+      );
+    }
+
+    // 204 No Content - return empty response
+    return new NextResponse(null, { status: 204 });
+  } catch {
+    return NextResponse.json(
+      { detail: "Internal server error" },
+      { status: 500 },
+    );
+  }
+}

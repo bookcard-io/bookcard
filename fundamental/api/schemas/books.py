@@ -309,3 +309,18 @@ class BookUploadResponse(BaseModel):
     """
 
     book_id: int = Field(..., description="ID of the newly uploaded book")
+
+
+class BookDeleteRequest(BaseModel):
+    """Request to delete a book.
+
+    Attributes
+    ----------
+    delete_files_from_drive : bool
+        If True, also delete files from filesystem (default: False).
+    """
+
+    delete_files_from_drive: bool = Field(
+        default=False,
+        description="If True, also delete files from filesystem",
+    )

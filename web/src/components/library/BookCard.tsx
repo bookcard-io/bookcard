@@ -131,6 +131,8 @@ export function BookCard({
         }
         onConfirm={menuActions.deleteConfirmation.confirm}
         bookTitle={book.title}
+        isDeleting={menuActions.deleteConfirmation.isDeleting}
+        error={menuActions.deleteConfirmation.error}
       />
     </>
   );

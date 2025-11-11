@@ -19,7 +19,11 @@ export interface DeleteBookConfirmationModalProps {
   /** Callback to toggle the "delete files from drive" checkbox. */
   onToggleDeleteFilesFromDrive: () => void;
   /** Callback when delete is confirmed. */
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
+  /** Whether deletion is in progress. */
+  isDeleting?: boolean;
+  /** Error message if deletion failed. */
+  error?: string | null;
   /** Book title for display in warning message. */
   bookTitle?: string;
 }
@@ -45,6 +49,8 @@ export function DeleteBookConfirmationModal({
   onToggleDeleteFilesFromDrive,
   onConfirm,
   bookTitle,
+  isDeleting = false,
+  error = null,
 }: DeleteBookConfirmationModalProps) {
   // Prevent body scroll when modal is open
   useModal(isOpen);
@@ -156,6 +162,7 @@ export function DeleteBookConfirmationModal({
                 variant="secondary"
                 size="medium"
                 onClick={onClose}
+                disabled={isDeleting}
               >
                 Cancel
               </Button>
@@ -164,10 +171,16 @@ export function DeleteBookConfirmationModal({
                 variant="danger"
                 size="medium"
                 onClick={onConfirm}
+                disabled={isDeleting}
               >
-                Delete
+                {isDeleting ? "Deleting..." : "Delete"}
               </Button>
             </div>
+            {error && (
+              <p className="m-0 text-[var(--color-danger-a0)] text-sm">
+                {error}
+              </p>
+            )}
           </div>
         </div>
       </div>

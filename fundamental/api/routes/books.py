@@ -39,6 +39,7 @@ from sqlmodel import Session, select
 
 from fundamental.api.deps import get_db_session
 from fundamental.api.schemas import (
+    BookDeleteRequest,
     BookFilterRequest,
     BookListResponse,
     BookRead,
@@ -453,6 +454,55 @@ def update_book(
         rating=updated_book.rating,
         rating_id=updated_book.rating_id,
     )
+
+
+@router.delete("/{book_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_book(
+    session: SessionDep,
+    book_id: int,
+    delete_request: BookDeleteRequest,
+) -> None:
+    """Delete a book and all its related data.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+    book_id : int
+        Calibre book ID.
+    delete_request : BookDeleteRequest
+        Delete request payload with filesystem deletion option.
+
+    Raises
+    ------
+    HTTPException
+        If book not found (404), no active library (404), or filesystem
+        operation fails (500).
+    """
+    book_service = _get_active_library_service(session)
+
+    try:
+        book_service.delete_book(
+            book_id=book_id,
+            delete_files_from_drive=delete_request.delete_files_from_drive,
+        )
+    except ValueError as exc:
+        msg = str(exc)
+        if msg == "book_not_found":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=msg,
+            ) from exc
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=msg,
+        ) from exc
+    except OSError as exc:
+        # Filesystem operation failed - return error but don't crash worker
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete files from filesystem: {exc}",
+        ) from exc
 
 
 @router.get("/{book_id}/cover", response_model=None)

@@ -48,8 +48,15 @@ export function BookViewModal({
   });
 
   const deleteConfirmation = useDeleteConfirmation({
-    onConfirm: () => {
-      // TODO: Implement delete functionality
+    bookId: bookId || null,
+    onSuccess: () => {
+      // Close modal and refresh book list
+      onClose();
+      // TODO: Refresh book list or navigate away
+    },
+    onError: (error) => {
+      // Error is displayed in the modal via deleteConfirmation.error
+      console.error("Failed to delete book:", error);
     },
   });
 
@@ -206,6 +213,8 @@ export function BookViewModal({
           }
           onConfirm={deleteConfirmation.confirm}
           bookTitle={book?.title}
+          isDeleting={deleteConfirmation.isDeleting}
+          error={deleteConfirmation.error}
         />
       )}
     </>

@@ -57,6 +57,7 @@ from fundamental.api.schemas.auth import (
     UserRoleAssign,
 )
 from fundamental.api.schemas.books import (
+    BookDeleteRequest,
     BookFilterRequest,
     BookListResponse,
     BookRead,
@@ -93,6 +94,7 @@ __all__ = [
     "AdminUserCreate",
     "AdminUserUpdate",
     # Book schemas
+    "BookDeleteRequest",
     "BookFilterRequest",
     "BookListResponse",
     "BookRead",

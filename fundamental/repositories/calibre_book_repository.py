@@ -28,6 +28,7 @@ to query book information using SQLAlchemy ORM.
 
 from __future__ import annotations
 
+import logging
 from contextlib import contextmanager, suppress
 from datetime import UTC, datetime
 from pathlib import Path
@@ -56,6 +57,22 @@ from fundamental.models.core import (
     Tag,
 )
 from fundamental.models.media import Data
+from fundamental.repositories.command_executor import CommandExecutor
+from fundamental.repositories.delete_commands import (
+    DeleteBookAuthorLinksCommand,
+    DeleteBookCommand,
+    DeleteBookLanguageLinksCommand,
+    DeleteBookPublisherLinksCommand,
+    DeleteBookRatingLinksCommand,
+    DeleteBookSeriesLinksCommand,
+    DeleteBookShelfLinksCommand,
+    DeleteBookTagLinksCommand,
+    DeleteCommentCommand,
+    DeleteDataRecordsCommand,
+    DeleteDirectoryCommand,
+    DeleteFileCommand,
+    DeleteIdentifiersCommand,
+)
 from fundamental.repositories.filters import FilterBuilder
 from fundamental.repositories.models import BookWithFullRelations, BookWithRelations
 from fundamental.repositories.suggestions import FilterSuggestionFactory
@@ -67,6 +84,9 @@ if TYPE_CHECKING:
     from sqlalchemy import Engine
 
     from fundamental.services.book_metadata import BookMetadata
+
+
+logger = logging.getLogger(__name__)
 
 
 class CalibreBookRepository:
@@ -2037,6 +2057,311 @@ class CalibreBookRepository:
 
             session.commit()
             return book_id
+
+    def _match_files_by_extension(
+        self,
+        all_files: list[Path],
+        data_records: list[Data],
+        existing_paths: list[Path],
+        book_id: int,
+    ) -> list[Path]:
+        """Match files by extension when pattern matching fails.
+
+        Parameters
+        ----------
+        all_files : list[Path]
+            All files found in the book directory.
+        data_records : list[Data]
+            Data records from database.
+        existing_paths : list[Path]
+            Paths already matched via pattern matching.
+        book_id : int
+            Book ID for logging.
+
+        Returns
+        -------
+        list[Path]
+            Additional file paths matched by extension.
+        """
+        matched_paths: list[Path] = []
+
+        if not data_records:
+            if all_files:
+                logger.warning(
+                    "No Data records found for book_id=%d, but files exist: %s",
+                    book_id,
+                    [str(f.name) for f in all_files],
+                )
+            return matched_paths
+
+        # Collect all expected formats from Data records
+        expected_formats = {dr.format.lower() for dr in data_records}
+
+        # Match files by extension
+        for file_path in all_files:
+            file_ext = file_path.suffix.lower().lstrip(".")
+            if file_ext in expected_formats and file_path not in existing_paths:
+                matched_paths.append(file_path)
+
+        if matched_paths:
+            logger.debug(
+                "Matched %d files by extension for book_id=%d: %s",
+                len(matched_paths),
+                book_id,
+                [str(p.name) for p in matched_paths],
+            )
+
+        return matched_paths
+
+    def _collect_filesystem_paths(
+        self,
+        session: Session,
+        book_id: int,
+        book_path: str,
+        library_path: Path,
+    ) -> tuple[list[Path], Path | None]:
+        """Collect filesystem paths for book files before deletion.
+
+        Parameters
+        ----------
+        session : Session
+            Database session for querying Data records.
+        book_id : int
+            Calibre book ID.
+        book_path : str
+            Book path string from database.
+        library_path : Path
+            Library root path.
+
+        Returns
+        -------
+        tuple[list[Path], Path | None]
+            Tuple of (list of file paths to delete, book directory path).
+        """
+        filesystem_paths: list[Path] = []
+        book_dir = library_path / book_path
+
+        if not (book_dir.exists() and book_dir.is_dir()):
+            logger.warning(
+                "Book directory does not exist or is not a directory: %r",
+                book_dir,
+            )
+            return filesystem_paths, None
+
+        # Find all book files from Data table
+        data_stmt = select(Data).where(Data.book == book_id)
+        data_records = list(session.exec(data_stmt).all())
+
+        logger.debug("Found %d Data records for book_id=%d", len(data_records), book_id)
+
+        for data_record in data_records:
+            file_name = data_record.name or f"{book_id}"
+            format_lower = data_record.format.lower()
+
+            # Pattern 1: {name}.{format}
+            file_path = book_dir / f"{file_name}.{format_lower}"
+            if file_path.exists():
+                filesystem_paths.append(file_path)
+
+            # Pattern 2: {book_id}.{format}
+            alt_file_path = book_dir / f"{book_id}.{format_lower}"
+            if alt_file_path.exists() and alt_file_path not in filesystem_paths:
+                filesystem_paths.append(alt_file_path)
+
+        # List all files in directory for fallback matching
+        all_files: list[Path] = []
+        try:
+            all_files = [f for f in book_dir.iterdir() if f.is_file()]
+        except OSError as e:
+            logger.warning("Failed to list files in book_dir %r: %s", book_dir, e)
+
+        # Fallback: If we didn't find files via Data records, try matching by extension
+        # This handles cases where filenames don't match expected patterns
+        extension_matched = self._match_files_by_extension(
+            all_files, data_records, filesystem_paths, book_id
+        )
+        filesystem_paths.extend(extension_matched)
+
+        # Add cover.jpg if it exists
+        cover_path = book_dir / "cover.jpg"
+        if cover_path.exists():
+            filesystem_paths.append(cover_path)
+
+        logger.debug(
+            "Collected %d filesystem paths for book_id=%d: %s",
+            len(filesystem_paths),
+            book_id,
+            [str(p.name) for p in filesystem_paths],
+        )
+
+        return filesystem_paths, book_dir
+
+    def _execute_database_deletion_commands(
+        self,
+        session: Session,
+        book_id: int,
+        book: Book,
+    ) -> None:
+        """Execute all database deletion commands for a book.
+
+        Parameters
+        ----------
+        session : Session
+            Database session for executing commands.
+        book_id : int
+            Calibre book ID.
+        book : Book
+            Book instance to delete.
+
+        Raises
+        ------
+        Exception
+            If any command fails, all previous commands are undone.
+        """
+        executor = CommandExecutor()
+
+        # Execute deletion commands in order
+        # If any fails, all previous commands are automatically undone
+        executor.execute(DeleteBookAuthorLinksCommand(session, book_id))
+        executor.execute(DeleteBookTagLinksCommand(session, book_id))
+        executor.execute(DeleteBookPublisherLinksCommand(session, book_id))
+        executor.execute(DeleteBookLanguageLinksCommand(session, book_id))
+        executor.execute(DeleteBookRatingLinksCommand(session, book_id))
+        executor.execute(DeleteBookSeriesLinksCommand(session, book_id))
+        executor.execute(DeleteBookShelfLinksCommand(session, book_id))
+        executor.execute(DeleteCommentCommand(session, book_id))
+        executor.execute(DeleteIdentifiersCommand(session, book_id))
+        executor.execute(DeleteDataRecordsCommand(session, book_id))
+
+        # Delete the book record itself (must be last for database integrity)
+        executor.execute(DeleteBookCommand(session, book))
+
+        # Clear executor after successful execution
+        executor.clear()
+
+    def _execute_filesystem_deletion_commands(
+        self,
+        filesystem_paths: list[Path],
+        book_dir: Path | None,
+    ) -> None:
+        """Execute filesystem deletion commands for book files.
+
+        Parameters
+        ----------
+        filesystem_paths : list[Path]
+            List of file paths to delete.
+        book_dir : Path | None
+            Book directory path to delete if empty.
+
+        Raises
+        ------
+        OSError
+            If filesystem operations fail. All previous file deletions
+            are automatically undone.
+        """
+        if not filesystem_paths:
+            return
+
+        fs_executor = CommandExecutor()
+
+        # Execute file deletion commands
+        for file_path in filesystem_paths:
+            fs_executor.execute(DeleteFileCommand(file_path))
+
+        # Delete directory if empty (must be last)
+        if book_dir and book_dir.exists() and book_dir.is_dir():
+            fs_executor.execute(DeleteDirectoryCommand(book_dir))
+
+        # If any filesystem operation fails, undo all filesystem operations
+        # Database changes are already committed, so we don't undo those
+        # This is acceptable as filesystem cleanup can be done manually
+
+    def _get_book_or_raise(self, session: Session, book_id: int) -> Book:
+        """Get book by ID or raise ValueError if not found.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Calibre book ID.
+
+        Returns
+        -------
+        Book
+            Book instance.
+
+        Raises
+        ------
+        ValueError
+            If book not found.
+        """
+        book_stmt = select(Book).where(Book.id == book_id)
+        book = session.exec(book_stmt).first()
+        if book is None:
+            msg = "book_not_found"
+            raise ValueError(msg)
+        return book
+
+    def delete_book(
+        self,
+        book_id: int,
+        delete_files_from_drive: bool = False,
+        library_path: Path | None = None,
+    ) -> None:
+        """Delete a book and all its related data.
+
+        Uses command pattern with compensating undos for atomic deletion.
+        If any command fails, all previous commands are automatically undone.
+        Follows SRP by delegating to command classes.
+
+        Parameters
+        ----------
+        book_id : int
+            Calibre book ID to delete.
+        delete_files_from_drive : bool
+            If True, also delete files from filesystem (default: False).
+        library_path : Path | None
+            Library root path for filesystem operations.
+            If None, uses calibre_db_path.
+
+        Raises
+        ------
+        ValueError
+            If book not found.
+        OSError
+            If filesystem operations fail (only if delete_files_from_drive is True).
+        """
+        with self._get_session() as session:
+            try:
+                # Get book to verify it exists and get path info
+                book = self._get_book_or_raise(session, book_id)
+
+                # Collect filesystem paths BEFORE deleting Data records
+                # (We need Data records to determine which files to delete)
+                filesystem_paths: list[Path] = []
+                book_dir: Path | None = None
+                if delete_files_from_drive and library_path and book.path:
+                    filesystem_paths, book_dir = self._collect_filesystem_paths(
+                        session, book_id, book.path, library_path
+                    )
+
+                # Execute database deletion commands
+                self._execute_database_deletion_commands(session, book_id, book)
+
+                # Commit database changes after all commands succeed
+                session.commit()
+
+                # Perform filesystem operations after successful DB commit
+                if delete_files_from_drive:
+                    self._execute_filesystem_deletion_commands(
+                        filesystem_paths, book_dir
+                    )
+
+            except Exception:
+                # Rollback database session on any error
+                session.rollback()
+                raise
 
     def _add_book_metadata(
         self,

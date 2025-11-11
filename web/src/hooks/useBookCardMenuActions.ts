@@ -7,6 +7,10 @@ export interface UseBookCardMenuActionsOptions {
   book: Book;
   /** Callback for opening book view. */
   onBookClick?: (book: Book) => void;
+  /** Callback when book is deleted successfully. */
+  onBookDeleted?: () => void;
+  /** Callback when book deletion fails. */
+  onDeleteError?: (error: string) => void;
 }
 
 export interface UseBookCardMenuActionsResult {
@@ -48,10 +52,17 @@ export interface UseBookCardMenuActionsResult {
 export function useBookCardMenuActions({
   book,
   onBookClick,
+  onBookDeleted,
+  onDeleteError,
 }: UseBookCardMenuActionsOptions): UseBookCardMenuActionsResult {
   const deleteConfirmation = useDeleteConfirmation({
-    onConfirm: () => {
-      // TODO: Implement delete functionality
+    bookId: book.id,
+    onSuccess: () => {
+      // Refresh book list or navigate away
+      onBookDeleted?.();
+    },
+    onError: (error) => {
+      onDeleteError?.(error);
     },
   });
 

@@ -470,3 +470,41 @@ class BookService:
             author_name=author_name,
             library_path=library_path,
         )
+
+    def delete_book(
+        self,
+        book_id: int,
+        delete_files_from_drive: bool = False,
+    ) -> None:
+        """Delete a book and all its related data.
+
+        Performs atomic deletion with rollback on error.
+        Follows SRP by delegating to repository.
+
+        Parameters
+        ----------
+        book_id : int
+            Calibre book ID to delete.
+        delete_files_from_drive : bool
+            If True, also delete files from filesystem (default: False).
+
+        Raises
+        ------
+        ValueError
+            If book not found.
+        OSError
+            If filesystem operations fail (only if delete_files_from_drive is True).
+        """
+        # Determine library path (prefer library_root if set)
+        library_path = None
+        lib_root = getattr(self._library, "library_root", None)
+        if lib_root:
+            library_path = Path(lib_root)
+        else:
+            library_path = Path(self._library.calibre_db_path)
+
+        self._book_repo.delete_book(
+            book_id=book_id,
+            delete_files_from_drive=delete_files_from_drive,
+            library_path=library_path,
+        )
