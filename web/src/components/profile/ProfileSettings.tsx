@@ -30,14 +30,8 @@ export function ProfileSettings() {
     );
   }
 
-  const greeting = user.full_name ?? user.username;
-
   return (
     <div className="p-6 px-8">
-      <h1 className="m-0 mb-8 font-semibold text-[32px] text-text-a0 leading-[1.2]">
-        Hello {greeting}
-      </h1>
-
       <div className="flex flex-col gap-8">
         <ProfileSection user={user} />
         <DevicesSection devices={user.ereader_devices} />

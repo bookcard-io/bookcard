@@ -2,6 +2,7 @@
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PageLayout } from "@/components/layout/PageLayout";
+import { useUserProfile } from "@/components/profile/hooks/useUserProfile";
 import { ProfileSettings } from "@/components/profile/ProfileSettings";
 
 /**
@@ -12,9 +13,15 @@ import { ProfileSettings } from "@/components/profile/ProfileSettings";
  * via the HeaderActionBarButtons component in PageLayout.
  */
 export default function ProfilePage() {
+  const { user } = useUserProfile();
+
+  const greeting = user
+    ? `Hello ${user.full_name ?? user.username}`
+    : "Profile";
+
   return (
     <PageLayout>
-      <PageHeader title="Profile" />
+      <PageHeader title={greeting} />
       <ProfileSettings />
     </PageLayout>
   );
