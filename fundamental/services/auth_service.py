@@ -27,8 +27,10 @@ Handles user registration and login, separate from web layer.
 
 from __future__ import annotations
 
+from contextlib import suppress
 from datetime import UTC, datetime
 from enum import StrEnum
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fundamental.models.auth import User
@@ -61,11 +63,18 @@ class AuthService:
         user_repo: UserRepository,  # type: ignore[type-arg]
         hasher: PasswordHasher,  # type: ignore[type-arg]
         jwt: JWTManager,  # type: ignore[type-arg]
+        data_directory: str = "/data",
     ) -> None:
         self._session = session
         self._users = user_repo
         self._hasher = hasher
         self._jwt = jwt
+        self._data_directory = Path(data_directory)
+        self._ensure_data_directory_exists()
+
+    def _ensure_data_directory_exists(self) -> None:
+        """Ensure the data directory exists, creating it if necessary."""
+        self._data_directory.mkdir(parents=True, exist_ok=True)
 
     def register_user(
         self, username: str, email: str, password: str
@@ -137,6 +146,115 @@ class AuthService:
         user.updated_at = datetime.now(UTC)
         self._session.flush()
 
+    def _get_user_assets_dir(self, user_id: int) -> Path:
+        """Get the assets directory path for a user.
+
+        Parameters
+        ----------
+        user_id : int
+            User identifier.
+
+        Returns
+        -------
+        Path
+            Path to user's assets directory.
+        """
+        return self._data_directory / str(user_id) / "assets"
+
+    def _delete_profile_picture_file(self, picture_path: str | None) -> None:
+        """Delete profile picture file from disk.
+
+        Parameters
+        ----------
+        picture_path : str | None
+            Path to the profile picture file to delete.
+        """
+        if picture_path:
+            file_path = Path(picture_path)
+            if file_path.is_absolute() and file_path.exists():
+                with suppress(OSError):
+                    file_path.unlink()
+
+    def upload_profile_picture(
+        self, user_id: int, file_content: bytes, filename: str
+    ) -> User:
+        """Upload and save a user's profile picture.
+
+        Saves the file to {data_directory}/{user_id}/assets/profile_picture.{ext}
+        and updates the user's profile_picture field. Deletes any existing profile
+        picture file before saving the new one.
+
+        Parameters
+        ----------
+        user_id : int
+            User identifier.
+        file_content : bytes
+            File content to save.
+        filename : str
+            Original filename (used to determine extension).
+
+        Returns
+        -------
+        User
+            Updated user entity.
+
+        Raises
+        ------
+        ValueError
+            If user not found, invalid file extension, or file save fails.
+        """
+        user = self._users.get(user_id)
+        if user is None:
+            msg = "user_not_found"
+            raise ValueError(msg)
+
+        # Validate file extension
+        file_ext = Path(filename).suffix.lower()
+        if not file_ext or file_ext not in {
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".webp",
+            ".svg",
+        }:
+            msg = "invalid_file_type"
+            raise ValueError(msg)
+
+        # Delete old profile picture if exists
+        if user.profile_picture:
+            old_path = Path(user.profile_picture)
+            if old_path.is_absolute():
+                # Absolute path - delete directly
+                with suppress(OSError):
+                    old_path.unlink()
+            else:
+                # Relative path - construct full path
+                full_old_path = self._data_directory / user.profile_picture
+                with suppress(OSError):
+                    full_old_path.unlink()
+
+        # Create user assets directory
+        assets_dir = self._get_user_assets_dir(user_id)
+        assets_dir.mkdir(parents=True, exist_ok=True)
+
+        # Save new file
+        picture_filename = f"profile_picture{file_ext}"
+        picture_path = assets_dir / picture_filename
+        try:
+            picture_path.write_bytes(file_content)
+        except OSError as exc:
+            msg = f"failed_to_save_file: {exc!s}"
+            raise ValueError(msg) from exc
+
+        # Update user record with relative path from data_directory
+        # Store as relative path so it works if data_directory changes
+        relative_path = picture_path.relative_to(self._data_directory)
+        user.profile_picture = str(relative_path)
+        user.updated_at = datetime.now(UTC)
+        self._session.flush()
+        return user
+
     def update_profile_picture(self, user_id: int, picture_path: str) -> User:
         """Update a user's profile picture path.
 
@@ -170,6 +288,8 @@ class AuthService:
     def delete_profile_picture(self, user_id: int) -> User:
         """Remove a user's profile picture.
 
+        Deletes both the file from disk and clears the database field.
+
         Parameters
         ----------
         user_id : int
@@ -189,6 +309,18 @@ class AuthService:
         if user is None:
             msg = "user_not_found"
             raise ValueError(msg)
+
+        # Delete file from disk
+        if user.profile_picture:
+            # Handle both relative and absolute paths
+            if Path(user.profile_picture).is_absolute():
+                self._delete_profile_picture_file(user.profile_picture)
+            else:
+                # Relative path - construct full path
+                full_path = self._data_directory / user.profile_picture
+                if full_path.exists():
+                    with suppress(OSError):
+                        full_path.unlink()
 
         user.profile_picture = None
         user.updated_at = datetime.now(UTC)

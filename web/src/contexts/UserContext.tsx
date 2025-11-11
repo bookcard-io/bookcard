@@ -34,6 +34,7 @@ interface UserContextType {
   isLoading: boolean;
   error: Error | null;
   refresh: () => Promise<void>;
+  refreshTimestamp: number;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -54,6 +55,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [refreshTimestamp, setRefreshTimestamp] = useState(0);
 
   const refresh = useCallback(async () => {
     try {
@@ -78,6 +80,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         ...data,
         ereader_devices: data.ereader_devices || [],
       });
+      // Update refresh timestamp to force cache invalidation in all components
+      setRefreshTimestamp(Date.now());
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Unknown error"));
       setUser(null);
@@ -91,7 +95,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   return (
-    <UserContext.Provider value={{ user, isLoading, error, refresh }}>
+    <UserContext.Provider
+      value={{ user, isLoading, error, refresh, refreshTimestamp }}
+    >
       {children}
     </UserContext.Provider>
   );

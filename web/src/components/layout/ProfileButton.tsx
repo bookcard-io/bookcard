@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useUser } from "@/contexts/UserContext";
+import { getProfilePictureUrlWithCacheBuster } from "@/utils/profile";
 import { ProfileMenu } from "./ProfileMenu";
 
 /**
@@ -64,6 +65,17 @@ export function ProfileButton() {
     }
   }, [router]);
 
+  const { refreshTimestamp } = useUser();
+
+  // Generate profile picture URL with cache-busting
+  // Use refreshTimestamp to ensure image reloads on any user context refresh
+  const profilePictureUrl = useMemo(() => {
+    if (!user?.profile_picture) {
+      return null;
+    }
+    return getProfilePictureUrlWithCacheBuster(refreshTimestamp);
+  }, [user?.profile_picture, refreshTimestamp]);
+
   return (
     <>
       <div className="flex items-center gap-1">
@@ -74,11 +86,12 @@ export function ProfileButton() {
           className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border border-surface-a20 bg-surface-tonal-a10 transition-colors duration-200 hover:bg-surface-tonal-a20"
           aria-label="Profile menu"
         >
-          {user?.profile_picture ? (
+          {profilePictureUrl ? (
             <img
-              src={user.profile_picture}
+              src={profilePictureUrl}
               alt="Profile"
               className="h-full w-full object-cover"
+              key={profilePictureUrl}
             />
           ) : (
             <div className="relative flex h-full w-full items-center justify-center overflow-hidden">

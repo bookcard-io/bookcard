@@ -1,15 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useUser } from "@/contexts/UserContext";
+import { useProfilePictureDelete } from "@/hooks/useProfilePictureDelete";
 import { useProfilePictureUpload } from "@/hooks/useProfilePictureUpload";
 import { cn } from "@/libs/utils";
-
-interface ProfilePictureProps {
-  /**
-   * URL of the profile picture, if available.
-   */
-  pictureUrl: string | null | undefined;
-}
+import { getProfilePictureUrlWithCacheBuster } from "@/utils/profile";
 
 /**
  * Profile picture component with dropzone functionality.
@@ -17,9 +13,30 @@ interface ProfilePictureProps {
  * Displays user's profile picture or a placeholder icon.
  * Supports drag-and-drop and click-to-browse file upload.
  * Follows SRP by handling only profile picture display and upload UI.
- * Follows IOC by using useProfilePictureUpload hook for file handling.
+ * Follows IOC by using hooks for file handling operations.
  */
-export function ProfilePicture({ pictureUrl }: ProfilePictureProps) {
+export function ProfilePicture() {
+  const { user, refresh, refreshTimestamp } = useUser();
+  const [error, setError] = useState<string | null>(null);
+
+  const handleUploadSuccess = useCallback(async () => {
+    setError(null);
+    await refresh();
+  }, [refresh]);
+
+  const handleUploadError = useCallback((errorMessage: string) => {
+    setError(errorMessage);
+  }, []);
+
+  const handleDeleteSuccess = useCallback(async () => {
+    setError(null);
+    await refresh();
+  }, [refresh]);
+
+  const handleDeleteError = useCallback((errorMessage: string) => {
+    setError(errorMessage);
+  }, []);
+
   const {
     fileInputRef,
     isDragging,
@@ -28,11 +45,28 @@ export function ProfilePicture({ pictureUrl }: ProfilePictureProps) {
     handleFileChange,
     handleClick,
     handleKeyDown,
-  } = useProfilePictureUpload();
-  const [isHovered, setIsHovered] = useState(false);
+    isUploading,
+  } = useProfilePictureUpload({
+    onUploadSuccess: handleUploadSuccess,
+    onUploadError: handleUploadError,
+  });
+
+  const { isDeleting, deleteProfilePicture } = useProfilePictureDelete({
+    onDeleteSuccess: handleDeleteSuccess,
+    onDeleteError: handleDeleteError,
+  });
+
+  // Generate profile picture URL with cache-busting
+  // refreshTimestamp ensures image reloads even if path is the same
+  const profilePictureUrl = useMemo(() => {
+    if (!user?.profile_picture) {
+      return null;
+    }
+    return getProfilePictureUrlWithCacheBuster(refreshTimestamp);
+  }, [user?.profile_picture, refreshTimestamp]);
 
   return (
-    <div className="mx-auto max-w-[300px] flex-shrink-0 md:mx-0 md:w-[22%]">
+    <div className="relative mx-auto max-w-[300px] flex-shrink-0 md:mx-0 md:w-[22%]">
       {/* biome-ignore lint/a11y/useSemanticElements: Div needed for drag-and-drop functionality */}
       <div
         className={cn(
@@ -42,17 +76,26 @@ export function ProfilePicture({ pictureUrl }: ProfilePictureProps) {
         {...dragHandlers}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
         role="button"
         tabIndex={0}
         aria-label="Upload profile picture - click or drag and drop"
       >
-        {pictureUrl ? (
+        {/* File input - always in DOM for ref to work, even when dialog is open */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={accept}
+          onChange={handleFileChange}
+          className="hidden"
+          aria-label="Upload profile picture"
+          disabled={isUploading || isDeleting}
+        />
+        {profilePictureUrl ? (
           <img
-            src={pictureUrl}
+            src={profilePictureUrl}
             alt="Profile"
             className="h-full w-full object-cover"
+            key={profilePictureUrl}
           />
         ) : (
           <div className="relative flex h-full w-full items-center justify-center">
@@ -65,29 +108,43 @@ export function ProfilePicture({ pictureUrl }: ProfilePictureProps) {
             />
           </div>
         )}
-        {/* Browse button - inside circle, below icon - only visible on hover */}
-        {(isHovered || isDragging) && (
-          <div className="-translate-x-1/2 absolute bottom-8 left-1/2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={accept}
-              onChange={handleFileChange}
-              className="hidden"
-              aria-label="Upload profile picture"
-            />
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleClick();
-              }}
-              className="rounded border-0 bg-primary-a0 px-4 py-2 font-medium text-sm text-text-a0 transition-colors duration-200 hover:bg-primary-a10 focus:outline-none focus:ring-2 focus:ring-primary-a0 active:bg-primary-a20 disabled:cursor-not-allowed disabled:bg-surface-tonal-a20 disabled:text-text-a30"
-            >
-              Browse
-            </button>
+        {error && (
+          <div className="-translate-x-1/2 absolute bottom-2 left-1/2 rounded bg-[var(--color-danger-a0)] px-3 py-1 text-text-a0 text-xs">
+            {error}
           </div>
         )}
+      </div>
+      {/* Delete button - top right corner, always visible when picture exists */}
+      {user?.profile_picture && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            void deleteProfilePicture();
+          }}
+          disabled={isUploading || isDeleting}
+          className="absolute top-2 right-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-danger-a-1)] text-[var(--color-danger-a0)] transition-all duration-200 hover:bg-[var(--color-danger-a0)] hover:text-text-a0 focus:outline-none focus:ring-2 focus:ring-[var(--color-danger-a-1)] active:scale-90 disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label="Delete profile picture"
+        >
+          <i
+            className={`pi ${isDeleting ? "pi-spin pi-spinner" : "pi-times"} text-lg`}
+            aria-hidden="true"
+          />
+        </button>
+      )}
+      {/* Browse button - below circle, always visible, centered */}
+      <div className="mt-4 flex justify-center">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleClick();
+          }}
+          disabled={isUploading || isDeleting}
+          className="rounded border-0 bg-primary-a0 px-4 py-2 font-medium text-sm text-text-a0 transition-colors duration-200 hover:bg-primary-a10 focus:outline-none focus:ring-2 focus:ring-primary-a0 active:bg-primary-a20 disabled:cursor-not-allowed disabled:bg-surface-tonal-a20 disabled:text-text-a30"
+        >
+          {isUploading ? "Uploading..." : "Browse"}
+        </button>
       </div>
     </div>
   );

@@ -24,7 +24,7 @@ export function ProfileSection({ user }: ProfileSectionProps) {
       <h2 className="m-0 font-semibold text-text-a0 text-xl">Profile</h2>
 
       <div className="flex flex-col gap-6 md:flex-row">
-        <ProfilePicture pictureUrl={user.profile_picture} />
+        <ProfilePicture />
         <UserDetails user={user} />
       </div>
     </div>

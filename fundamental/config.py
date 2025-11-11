@@ -49,6 +49,10 @@ class AppConfig:
         or set to PostgreSQL (``postgresql+psycopg://...``) if needed.
     echo_sql : bool
         Whether to echo SQL statements for debugging.
+    data_directory : str
+        Base directory for user assets. User assets are organized as
+        ``{data_directory}/{user_id}/assets/``, e.g., ``/data/1/profile_picture.jpg``.
+        Can be overridden with ``DATA_DIRECTORY`` environment variable.
     """
 
     jwt_secret: str
@@ -57,6 +61,7 @@ class AppConfig:
     alembic_enabled: bool = False
     database_url: str = "sqlite:///fundamental.db"
     echo_sql: bool = False
+    data_directory: str = "/data"
 
     @staticmethod
     def _get_jwt_secret() -> str:
@@ -136,4 +141,5 @@ class AppConfig:
             alembic_enabled=AppConfig._parse_bool_env(
                 "FUNDAMENTAL_ALEMBIC_ENABLED", "false"
             ),
+            data_directory=os.getenv("DATA_DIRECTORY", "/data"),
         )

@@ -24,9 +24,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -36,7 +38,6 @@ from fundamental.api.schemas import (
     LoginRequest,
     LoginResponse,
     PasswordChangeRequest,
-    ProfilePictureUpdateRequest,
     ProfileRead,
     TokenResponse,
     UserCreate,
@@ -66,7 +67,7 @@ def _auth_service(request: Request, session: Session) -> AuthService:
     jwt = JWTManager(cfg)
     hasher = PasswordHasher()
     repo = UserRepository(session)
-    return AuthService(session, repo, hasher, jwt)
+    return AuthService(session, repo, hasher, jwt, data_directory=cfg.data_directory)
 
 
 @router.post(
@@ -263,13 +264,16 @@ def get_profile(
     return ProfileRead.model_validate(current_user)
 
 
-@router.put("/profile-picture", response_model=ProfileRead)
-def update_profile_picture(
+@router.post("/profile-picture", response_model=ProfileRead)
+def upload_profile_picture(
     request: Request,
     session: SessionDep,
-    payload: ProfilePictureUpdateRequest,
+    file: Annotated[UploadFile, File()],
 ) -> ProfileRead:
-    """Update the current user's profile picture.
+    """Upload the current user's profile picture.
+
+    Accepts an image file and saves it to {data_directory}/{user_id}/assets/.
+    Replaces any existing profile picture.
 
     Parameters
     ----------
@@ -277,10 +281,8 @@ def update_profile_picture(
         FastAPI request object.
     session : SessionDep
         Database session dependency.
-    current_user : CurrentUserDep
-        Authenticated user dependency.
-    payload : ProfilePictureUpdateRequest
-        Request containing the profile picture path.
+    file : UploadFile
+        Image file to upload (JPEG, PNG, GIF, WebP, or SVG).
 
     Returns
     -------
@@ -290,20 +292,97 @@ def update_profile_picture(
     Raises
     ------
     HTTPException
-        If user is not found (404).
+        If user is not found (404), invalid file type (400), or file save fails (500).
     """
     service = _auth_service(request, session)
     current_user = get_current_user(request, session)
-    try:
-        user = service.update_profile_picture(
-            current_user.id,  # type: ignore[arg-type]
-            payload.picture_path,
+
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="filename_required",
         )
+
+    try:
+        file_content = file.file.read()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"failed_to_read_file: {exc!s}",
+        ) from exc
+
+    try:
+        user = service.upload_profile_picture(
+            current_user.id,  # type: ignore[arg-type]
+            file_content,
+            file.filename,
+        )
+        session.commit()
     except ValueError as exc:
-        if str(exc) == "user_not_found":
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        msg = str(exc)
+        if msg == "user_not_found":
+            raise HTTPException(status_code=404, detail=msg) from exc
+        if msg == "invalid_file_type":
+            raise HTTPException(status_code=400, detail=msg) from exc
+        if msg.startswith("failed_to_save_file"):
+            raise HTTPException(status_code=500, detail=msg) from exc
         raise
     return ProfileRead.model_validate(user)
+
+
+@router.get("/profile-picture", response_model=None)
+def get_profile_picture(
+    request: Request,
+    session: SessionDep,
+) -> FileResponse | Response:
+    """Get the current user's profile picture.
+
+    Serves the profile picture file if it exists.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+    session : SessionDep
+        Database session dependency.
+    current_user : CurrentUserDep
+        Authenticated user dependency.
+
+    Returns
+    -------
+    FileResponse | Response
+        Profile picture file or 404 if not found.
+    """
+    cfg = request.app.state.config
+    current_user = get_current_user(request, session)
+
+    if not current_user.profile_picture:
+        return Response(status_code=status.HTTP_404_NOT_FOUND)
+
+    # Handle both relative and absolute paths
+    picture_path = Path(current_user.profile_picture)
+    if picture_path.is_absolute():
+        full_path = picture_path
+    else:
+        # Relative path - construct full path from data_directory
+        full_path = Path(cfg.data_directory) / current_user.profile_picture
+
+    if not full_path.exists():
+        return Response(status_code=status.HTTP_404_NOT_FOUND)
+
+    # Determine media type from extension
+    ext = full_path.suffix.lower()
+    media_types = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+        ".svg": "image/svg+xml",
+    }
+    media_type = media_types.get(ext, "image/jpeg")
+
+    return FileResponse(path=str(full_path), media_type=media_type)
 
 
 @router.delete("/profile-picture", response_model=ProfileRead)
@@ -312,6 +391,8 @@ def delete_profile_picture(
     session: SessionDep,
 ) -> ProfileRead:
     """Delete the current user's profile picture.
+
+    Removes both the file from disk and clears the database field.
 
     Parameters
     ----------
@@ -336,6 +417,7 @@ def delete_profile_picture(
     current_user = get_current_user(request, session)
     try:
         user = service.delete_profile_picture(current_user.id)  # type: ignore[arg-type]
+        session.commit()
     except ValueError as exc:
         if str(exc) == "user_not_found":
             raise HTTPException(status_code=404, detail=str(exc)) from exc

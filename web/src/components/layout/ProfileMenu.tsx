@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { DropdownMenu } from "@/components/common/DropdownMenu";
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
 import type { User } from "@/contexts/UserContext";
+import { useUser } from "@/contexts/UserContext";
+import { getProfilePictureUrlWithCacheBuster } from "@/utils/profile";
 
 export interface ProfileMenuProps {
   /** Whether the menu is open. */
@@ -54,6 +56,16 @@ export function ProfileMenu({
   }, [onLogout, onClose]);
 
   const displayName = user?.full_name ?? user?.username ?? "User";
+  const { refreshTimestamp } = useUser();
+
+  // Generate profile picture URL with cache-busting
+  // Use refreshTimestamp to ensure image reloads on any user context refresh
+  const profilePictureUrl = useMemo(() => {
+    if (!user?.profile_picture) {
+      return null;
+    }
+    return getProfilePictureUrlWithCacheBuster(refreshTimestamp);
+  }, [user?.profile_picture, refreshTimestamp]);
 
   return (
     <DropdownMenu
@@ -67,11 +79,12 @@ export function ProfileMenu({
       <div className="bg-surface-tonal-a0 px-4 py-5">
         <div className="flex flex-col items-center gap-2">
           {/* Profile picture or placeholder */}
-          {user?.profile_picture ? (
+          {profilePictureUrl ? (
             <img
-              src={user.profile_picture}
+              src={profilePictureUrl}
               alt="Profile"
               className="h-16 w-16 rounded-full object-cover"
+              key={profilePictureUrl}
             />
           ) : (
             <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full">

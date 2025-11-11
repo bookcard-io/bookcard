@@ -410,6 +410,7 @@ web/vitest-test-results/
 # media folders
 /uploads/
 /books/
+/data/
 
 # docs and various
 misc/
