@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { SettingsProvider, useSettings } from "@/contexts/SettingsContext";
 import { cn } from "@/libs/utils";
 import { BlurAfterClickProvider } from "./BlurAfterClickContext";
 import { AutoOpenBookDetailsConfiguration } from "./config/AutoOpenBookDetailsConfiguration";
@@ -17,14 +18,14 @@ import { MetadataProvidersConfiguration } from "./config/MetadataProvidersConfig
 type TabId = "display" | "sorting" | "navigation" | "deletion" | "content";
 
 /**
- * Configurations section for user preferences.
+ * Configurations section content component.
  *
- * Orchestrates display of all configuration options in tabs with logical groupings.
- * Follows SRP by delegating to specialized configuration components.
- * Follows SOC by separating each configuration concern.
+ * Rendered inside SettingsProvider to access settings context.
+ * Follows SRP by handling only UI rendering.
  */
-export function ConfigurationsSection() {
+function ConfigurationsSectionContent() {
   const [activeTab, setActiveTab] = useState<TabId>("display");
+  const { isSaving } = useSettings();
 
   const tabs: { id: TabId; label: string }[] = [
     { id: "display", label: "Display & Layout" },
@@ -36,7 +37,17 @@ export function ConfigurationsSection() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h2 className="m-0 font-semibold text-text-a0 text-xl">Configurations</h2>
+      <div className="flex items-center gap-2">
+        <h2 className="m-0 font-semibold text-text-a0 text-xl">
+          Configurations
+        </h2>
+        {isSaving && (
+          <div className="flex items-center gap-2 text-sm text-text-a30">
+            <i className="pi pi-spin pi-spinner" aria-hidden="true" />
+            <span>Saving...</span>
+          </div>
+        )}
+      </div>
 
       <BlurAfterClickProvider>
         <div className="flex flex-col gap-6">
@@ -97,5 +108,31 @@ export function ConfigurationsSection() {
         </div>
       </BlurAfterClickProvider>
     </div>
+  );
+}
+
+/**
+ * Configurations section for user preferences.
+ *
+ * Orchestrates display of all configuration options in tabs with logical groupings.
+ * Wraps content in SettingsProvider to manage settings state and persistence.
+ * Follows SRP by delegating to specialized configuration components.
+ * Follows SOC by separating each configuration concern.
+ * Follows IOC by accepting configurable debounce delay.
+ *
+ * Parameters
+ * ----------
+ * debounceMs : number
+ *     Debounce delay in milliseconds for settings updates (default: 500).
+ */
+export function ConfigurationsSection({
+  debounceMs = 300,
+}: {
+  debounceMs?: number;
+}) {
+  return (
+    <SettingsProvider debounceMs={debounceMs}>
+      <ConfigurationsSectionContent />
+    </SettingsProvider>
   );
 }

@@ -42,6 +42,10 @@ export function useUserProfile() {
   const { refreshTimestamp } = useUser();
 
   useEffect(() => {
+    // Refetch when refreshTimestamp changes (triggered by UserContext refresh)
+    // The dependency on refreshTimestamp ensures we refetch when user context updates
+    void refreshTimestamp;
+
     const fetchProfile = async () => {
       try {
         setIsLoading(true);
@@ -73,7 +77,7 @@ export function useUserProfile() {
     };
 
     void fetchProfile();
-  }, []); // Refetch when refreshTimestamp changes
+  }, [refreshTimestamp]);
 
   return { user, isLoading, error };
 }

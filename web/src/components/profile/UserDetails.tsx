@@ -21,7 +21,7 @@ interface UserDetailsProps {
  */
 export function UserDetails({ user }: UserDetailsProps) {
   const [updateError, setUpdateError] = useState<string | null>(null);
-  const { updateProfile, isUpdating } = useProfileUpdate({
+  const { updateProfile } = useProfileUpdate({
     onUpdateSuccess: () => {
       setUpdateError(null);
     },

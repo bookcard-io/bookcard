@@ -24,6 +24,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime  # noqa: TC003
+
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from fundamental.models.auth import User  # noqa: TC001
@@ -172,6 +174,30 @@ class InviteValidationResponse(BaseModel):
 
     valid: bool
     token: str
+
+
+class SettingUpdate(BaseModel):
+    """Payload to update a user setting."""
+
+    value: str = Field(max_length=1000)
+    description: str | None = Field(default=None, max_length=500)
+
+
+class SettingRead(BaseModel):
+    """User setting representation."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    key: str
+    value: str
+    description: str | None = None
+    updated_at: datetime
+
+
+class SettingsRead(BaseModel):
+    """Collection of user settings."""
+
+    settings: dict[str, SettingRead] = Field(default_factory=dict)
 
 
 class AdminUserCreate(BaseModel):

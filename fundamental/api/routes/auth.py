@@ -40,6 +40,9 @@ from fundamental.api.schemas import (
     PasswordChangeRequest,
     ProfileRead,
     ProfileUpdate,
+    SettingRead,
+    SettingsRead,
+    SettingUpdate,
     TokenResponse,
     UserCreate,
     UserRead,
@@ -515,3 +518,80 @@ def validate_invite_token(
         if msg in {AuthError.INVITE_EXPIRED, AuthError.INVITE_ALREADY_USED}:
             raise HTTPException(status_code=400, detail=msg) from exc
         raise
+
+
+@router.get("/settings", response_model=SettingsRead)
+def get_settings(
+    request: Request,
+    session: SessionDep,
+) -> SettingsRead:
+    """Get all settings for the current user.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+    session : SessionDep
+        Database session dependency.
+
+    Returns
+    -------
+    SettingsRead
+        Dictionary of user settings keyed by setting key.
+    """
+    service = _auth_service(request, session)
+    current_user = get_current_user(request, session)
+    settings = service.get_all_settings(current_user.id)  # type: ignore[arg-type]
+
+    settings_dict = {
+        setting.key: SettingRead.model_validate(setting) for setting in settings
+    }
+    return SettingsRead(settings=settings_dict)
+
+
+@router.put("/settings/{key}", response_model=SettingRead)
+def upsert_setting(
+    request: Request,
+    session: SessionDep,
+    key: str,
+    payload: SettingUpdate,
+) -> SettingRead:
+    """Create or update a user setting.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+    session : SessionDep
+        Database session dependency.
+    key : str
+        Setting key.
+    payload : SettingUpdate
+        Request containing setting value and optional description.
+
+    Returns
+    -------
+    SettingRead
+        Created or updated user setting.
+
+    Raises
+    ------
+    HTTPException
+        If user is not found (404) or key/value exceeds length limits (400).
+    """
+    service = _auth_service(request, session)
+    current_user = get_current_user(request, session)
+    try:
+        setting = service.upsert_setting(
+            current_user.id,  # type: ignore[arg-type]
+            key,
+            payload.value,
+            payload.description,
+        )
+        session.commit()
+    except ValueError as exc:
+        msg = str(exc)
+        if msg == "user_not_found":
+            raise HTTPException(status_code=404, detail=msg) from exc
+        raise
+    return SettingRead.model_validate(setting)

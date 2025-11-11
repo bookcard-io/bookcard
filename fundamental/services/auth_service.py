@@ -38,6 +38,7 @@ from fundamental.models.auth import User
 if TYPE_CHECKING:
     from sqlmodel import Session
 
+    from fundamental.models.auth import UserSetting
     from fundamental.repositories.user_repository import UserRepository
     from fundamental.services.security import JWTManager, PasswordHasher
 
@@ -204,6 +205,107 @@ class AuthService:
         user.updated_at = datetime.now(UTC)
         self._session.flush()
         return user
+
+    def upsert_setting(
+        self, user_id: int, key: str, value: str, description: str | None = None
+    ) -> UserSetting:
+        """Create or update a user setting.
+
+        Parameters
+        ----------
+        user_id : int
+            User identifier.
+        key : str
+            Setting key.
+        value : str
+            Setting value.
+        description : str | None
+            Optional setting description.
+
+        Returns
+        -------
+        UserSetting
+            Created or updated user setting entity.
+
+        Raises
+        ------
+        ValueError
+            If user not found.
+        """
+        from fundamental.models.auth import UserSetting
+
+        user = self._users.get(user_id)
+        if user is None:
+            msg = "user_not_found"
+            raise ValueError(msg)
+
+        from sqlmodel import select
+
+        # Query for existing setting directly
+        stmt = select(UserSetting).where(
+            UserSetting.user_id == user_id, UserSetting.key == key
+        )
+        existing_setting = self._session.exec(stmt).first()
+
+        if existing_setting is not None:
+            # Update existing setting
+            existing_setting.value = value
+            if description is not None:
+                existing_setting.description = description
+            existing_setting.updated_at = datetime.now(UTC)
+            self._session.flush()
+            return existing_setting
+
+        # Create new setting
+        new_setting = UserSetting(
+            user_id=user_id,
+            key=key,
+            value=value,
+            description=description,
+        )
+        self._session.add(new_setting)
+        self._session.flush()
+        return new_setting
+
+    def get_setting(self, user_id: int, key: str) -> UserSetting | None:
+        """Get a user setting by key.
+
+        Parameters
+        ----------
+        user_id : int
+            User identifier.
+        key : str
+            Setting key.
+
+        Returns
+        -------
+        UserSetting | None
+            User setting entity if found, None otherwise.
+        """
+        from fundamental.repositories.admin_repositories import SettingRepository
+
+        setting_repo = SettingRepository(self._session)
+        return setting_repo.get_by_key(user_id, key)
+
+    def get_all_settings(self, user_id: int) -> list[UserSetting]:
+        """Get all settings for a user.
+
+        Parameters
+        ----------
+        user_id : int
+            User identifier.
+
+        Returns
+        -------
+        list[UserSetting]
+            List of user setting entities.
+        """
+        from sqlmodel import select
+
+        from fundamental.models.auth import UserSetting
+
+        stmt = select(UserSetting).where(UserSetting.user_id == user_id)
+        return list(self._session.exec(stmt).all())
 
     def _get_user_assets_dir(self, user_id: int) -> Path:
         """Get the assets directory path for a user.
