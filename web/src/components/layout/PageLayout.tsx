@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { ActiveLibraryProvider } from "@/contexts/ActiveLibraryContext";
 import { SidebarProvider, useSidebar } from "@/contexts/SidebarContext";
+import { UserProvider } from "@/contexts/UserContext";
 import { cn } from "@/libs/utils";
 
 interface PageContentProps {
@@ -60,13 +61,15 @@ interface PageLayoutProps {
  */
 export function PageLayout({ children }: PageLayoutProps) {
   return (
-    <ActiveLibraryProvider>
-      <SidebarProvider>
-        <div className="flex h-screen w-full overflow-hidden">
-          <Sidebar />
-          <PageContent>{children}</PageContent>
-        </div>
-      </SidebarProvider>
-    </ActiveLibraryProvider>
+    <UserProvider>
+      <ActiveLibraryProvider>
+        <SidebarProvider>
+          <div className="flex h-screen w-full overflow-hidden">
+            <Sidebar />
+            <PageContent>{children}</PageContent>
+          </div>
+        </SidebarProvider>
+      </ActiveLibraryProvider>
+    </UserProvider>
   );
 }

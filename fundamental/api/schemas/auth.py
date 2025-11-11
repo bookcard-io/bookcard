@@ -40,6 +40,8 @@ class UserRead(BaseModel):
         Unique username.
     email : EmailStr
         Email address.
+    full_name : str | None
+        User's full name.
     profile_picture : str | None
         Optional path to user's profile picture.
     is_admin : bool
@@ -55,6 +57,7 @@ class UserRead(BaseModel):
     id: int
     username: str
     email: EmailStr
+    full_name: str | None = None
     profile_picture: str | None = None
     is_admin: bool
     default_ereader_email: str | None = None
@@ -92,6 +95,7 @@ class UserRead(BaseModel):
             id=user.id,  # type: ignore[arg-type]
             username=user.username,
             email=user.email,  # type: ignore[arg-type]
+            full_name=user.full_name,
             profile_picture=user.profile_picture,
             is_admin=user.is_admin,
             default_ereader_email=default_email,
@@ -150,6 +154,7 @@ class ProfileRead(BaseModel):
     id: int
     username: str
     email: EmailStr
+    full_name: str | None = None
     profile_picture: str | None
     is_admin: bool
 

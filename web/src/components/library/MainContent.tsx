@@ -7,7 +7,6 @@ import { BooksGrid } from "@/components/library/BooksGrid";
 import { LibraryHeader } from "@/components/library/LibraryHeader";
 import { SearchWidgetBar } from "@/components/library/SearchWidgetBar";
 import { FiltersPanel } from "@/components/library/widgets/FiltersPanel";
-import { useSidebar } from "@/contexts/SidebarContext";
 import { useBookEditModal } from "@/hooks/useBookEditModal";
 import { useBookViewModal } from "@/hooks/useBookViewModal";
 import { useLibraryBooks } from "@/hooks/useLibraryBooks";
@@ -26,8 +25,6 @@ import type { Book } from "@/types/book";
  * Follows SOC by separating concerns into independent hooks.
  */
 export function MainContent() {
-  const { isCollapsed } = useSidebar();
-
   // Use refs to store coordination methods to avoid circular dependencies
   const sortCloseRef = useRef<(() => void) | undefined>(undefined);
   const filtersCloseRef = useRef<(() => void) | undefined>(undefined);
@@ -109,11 +106,7 @@ export function MainContent() {
   );
 
   return (
-    <main
-      className={`h-screen flex-1 overflow-y-auto bg-[var(--color-surface-a0)] transition-[margin-left] duration-300 ease-in-out ${
-        isCollapsed ? "ml-[64px]" : "ml-[280px]"
-      }`}
-    >
+    <>
       <div className="flex min-h-full flex-col">
         <LibraryHeader />
         <div className="relative">
@@ -179,6 +172,6 @@ export function MainContent() {
           });
         }}
       />
-    </main>
+    </>
   );
 }
