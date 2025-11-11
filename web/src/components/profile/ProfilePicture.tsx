@@ -32,7 +32,7 @@ export function ProfilePicture({ pictureUrl }: ProfilePictureProps) {
   const [isHovered, setIsHovered] = useState(false);
 
   return (
-    <div className="mx-auto flex-shrink-0 md:mx-0 md:w-[22%]">
+    <div className="mx-auto max-w-[300px] flex-shrink-0 md:mx-0 md:w-[22%]">
       {/* biome-ignore lint/a11y/useSemanticElements: Div needed for drag-and-drop functionality */}
       <div
         className={cn(
