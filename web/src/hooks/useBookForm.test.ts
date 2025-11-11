@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Book } from "@/types/book";
+import type { Book, BookUpdate } from "@/types/book";
 import { useBookForm } from "./useBookForm";
 
 describe("useBookForm", () => {
@@ -25,10 +25,14 @@ describe("useBookForm", () => {
     rating: 4,
   };
 
-  let updateBook: ReturnType<typeof vi.fn>;
+  let updateBook: ReturnType<typeof vi.fn> &
+    ((update: BookUpdate) => Promise<Book | null>);
 
   beforeEach(() => {
-    updateBook = vi.fn().mockResolvedValue(mockBook);
+    updateBook = vi.fn().mockResolvedValue(mockBook) as ReturnType<
+      typeof vi.fn
+    > &
+      ((update: BookUpdate) => Promise<Book | null>);
   });
 
   afterEach(() => {
@@ -37,7 +41,10 @@ describe("useBookForm", () => {
 
   it("should initialize form data from book", () => {
     const { result } = renderHook(() =>
-      useBookForm({ book: mockBook, updateBook }),
+      useBookForm({
+        book: mockBook,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     expect(result.current.formData.title).toBe("Test Book");
@@ -47,7 +54,10 @@ describe("useBookForm", () => {
 
   it("should extract date part from ISO string", () => {
     const { result } = renderHook(() =>
-      useBookForm({ book: mockBook, updateBook }),
+      useBookForm({
+        book: mockBook,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     expect(result.current.formData.pubdate).toBe("2024-01-15");
@@ -55,7 +65,10 @@ describe("useBookForm", () => {
 
   it("should handle field changes", () => {
     const { result } = renderHook(() =>
-      useBookForm({ book: mockBook, updateBook }),
+      useBookForm({
+        book: mockBook,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     act(() => {
@@ -72,7 +85,11 @@ describe("useBookForm", () => {
     updateBook.mockResolvedValue(updatedBook);
 
     const { result } = renderHook(() =>
-      useBookForm({ book: mockBook, updateBook, onUpdateSuccess }),
+      useBookForm({
+        book: mockBook,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+        onUpdateSuccess,
+      }),
     );
 
     act(() => {
@@ -100,7 +117,10 @@ describe("useBookForm", () => {
 
   it("should convert date string to ISO format on submit", async () => {
     const { result } = renderHook(() =>
-      useBookForm({ book: mockBook, updateBook }),
+      useBookForm({
+        book: mockBook,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     act(() => {
@@ -124,7 +144,10 @@ describe("useBookForm", () => {
 
   it("should clean up empty arrays on submit", async () => {
     const { result } = renderHook(() =>
-      useBookForm({ book: mockBook, updateBook }),
+      useBookForm({
+        book: mockBook,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     act(() => {
@@ -150,7 +173,10 @@ describe("useBookForm", () => {
 
   it("should reset form to initial state", () => {
     const { result } = renderHook(() =>
-      useBookForm({ book: mockBook, updateBook }),
+      useBookForm({
+        book: mockBook,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     act(() => {
@@ -169,7 +195,10 @@ describe("useBookForm", () => {
 
   it("should not reset if no changes", () => {
     const { result } = renderHook(() =>
-      useBookForm({ book: mockBook, updateBook }),
+      useBookForm({
+        book: mockBook,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     const initialData = { ...result.current.formData };
@@ -186,7 +215,13 @@ describe("useBookForm", () => {
     updateBook.mockResolvedValue(updatedBook);
 
     const { result, rerender } = renderHook(
-      ({ book }) => useBookForm({ book, updateBook }),
+      ({ book }) =>
+        useBookForm({
+          book,
+          updateBook: updateBook as (
+            update: BookUpdate,
+          ) => Promise<Book | null>,
+        }),
       { initialProps: { book: mockBook } },
     );
 
@@ -211,7 +246,10 @@ describe("useBookForm", () => {
   it("should hide success message after timeout", async () => {
     vi.useFakeTimers();
     const { result } = renderHook(() =>
-      useBookForm({ book: mockBook, updateBook }),
+      useBookForm({
+        book: mockBook,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     act(() => {
@@ -239,7 +277,10 @@ describe("useBookForm", () => {
 
   it("should not submit if book is null", async () => {
     const { result } = renderHook(() =>
-      useBookForm({ book: null, updateBook }),
+      useBookForm({
+        book: null,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     const submitEvent = {
@@ -257,7 +298,13 @@ describe("useBookForm", () => {
     const book1 = { ...mockBook, id: 1 };
     const book2 = { ...mockBook, id: 2 };
     const { result, rerender } = renderHook(
-      ({ book }) => useBookForm({ book, updateBook }),
+      ({ book }) =>
+        useBookForm({
+          book,
+          updateBook: updateBook as (
+            update: BookUpdate,
+          ) => Promise<Book | null>,
+        }),
       { initialProps: { book: book1 } },
     );
 
@@ -277,7 +324,10 @@ describe("useBookForm", () => {
 
   it("should set language_codes to null when empty array", async () => {
     const { result } = renderHook(() =>
-      useBookForm({ book: mockBook, updateBook }),
+      useBookForm({
+        book: mockBook,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     act(() => {
@@ -299,7 +349,10 @@ describe("useBookForm", () => {
 
   it("should set identifiers to null when empty array", async () => {
     const { result } = renderHook(() =>
-      useBookForm({ book: mockBook, updateBook }),
+      useBookForm({
+        book: mockBook,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     act(() => {
@@ -323,7 +376,10 @@ describe("useBookForm", () => {
     updateBook.mockResolvedValue(null);
 
     const { result } = renderHook(() =>
-      useBookForm({ book: mockBook, updateBook }),
+      useBookForm({
+        book: mockBook,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     act(() => {
@@ -350,7 +406,10 @@ describe("useBookForm", () => {
     };
 
     const { result } = renderHook(() =>
-      useBookForm({ book: bookWithNullPubdate, updateBook }),
+      useBookForm({
+        book: bookWithNullPubdate,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     expect(result.current.formData.pubdate).toBeNull();
@@ -363,7 +422,10 @@ describe("useBookForm", () => {
     };
 
     const { result } = renderHook(() =>
-      useBookForm({ book: bookWithInvalidPubdate, updateBook }),
+      useBookForm({
+        book: bookWithInvalidPubdate,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     // Should handle gracefully, pubdate might be null or the original value
@@ -377,7 +439,10 @@ describe("useBookForm", () => {
     };
 
     const { result } = renderHook(() =>
-      useBookForm({ book: bookWithTime, updateBook }),
+      useBookForm({
+        book: bookWithTime,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     expect(result.current.formData.pubdate).toBe("2024-01-15");
@@ -385,7 +450,13 @@ describe("useBookForm", () => {
 
   it("should not update form when book ID hasn't changed and not just updated", () => {
     const { result, rerender } = renderHook(
-      ({ book }) => useBookForm({ book, updateBook }),
+      ({ book }) =>
+        useBookForm({
+          book,
+          updateBook: updateBook as (
+            update: BookUpdate,
+          ) => Promise<Book | null>,
+        }),
       { initialProps: { book: mockBook } },
     );
 
@@ -403,7 +474,13 @@ describe("useBookForm", () => {
     updateBook.mockResolvedValue(updatedBook);
 
     const { result, rerender } = renderHook(
-      ({ book }) => useBookForm({ book, updateBook }),
+      ({ book }) =>
+        useBookForm({
+          book,
+          updateBook: updateBook as (
+            update: BookUpdate,
+          ) => Promise<Book | null>,
+        }),
       { initialProps: { book: mockBook } },
     );
 
@@ -428,7 +505,10 @@ describe("useBookForm", () => {
 
   it("should handle pubdate that is not a YYYY-MM-DD string on submit", async () => {
     const { result } = renderHook(() =>
-      useBookForm({ book: mockBook, updateBook }),
+      useBookForm({
+        book: mockBook,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     act(() => {
@@ -452,16 +532,19 @@ describe("useBookForm", () => {
   });
 
   it("should handle book with all optional fields as null", () => {
-    const bookWithNulls = {
+    const bookWithNulls: Book = {
       ...mockBook,
       description: null,
       publisher: null,
-      languages: null,
+      languages: undefined,
       rating: null,
     };
 
     const { result } = renderHook(() =>
-      useBookForm({ book: bookWithNulls, updateBook }),
+      useBookForm({
+        book: bookWithNulls,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     expect(result.current.formData.description).toBeNull();
@@ -472,7 +555,10 @@ describe("useBookForm", () => {
 
   it("should not convert pubdate if it doesn't match YYYY-MM-DD pattern", async () => {
     const { result } = renderHook(() =>
-      useBookForm({ book: mockBook, updateBook }),
+      useBookForm({
+        book: mockBook,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     act(() => {
@@ -502,7 +588,10 @@ describe("useBookForm", () => {
     };
 
     const { result } = renderHook(() =>
-      useBookForm({ book: bookWithNullPubdate, updateBook }),
+      useBookForm({
+        book: bookWithNullPubdate,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     act(() => {
@@ -527,37 +616,46 @@ describe("useBookForm", () => {
   it("should handle book with undefined authors", () => {
     const bookWithUndefinedAuthors = {
       ...mockBook,
-      authors: undefined,
-    };
+      authors: [],
+    } as Book;
 
     const { result } = renderHook(() =>
-      useBookForm({ book: bookWithUndefinedAuthors, updateBook }),
+      useBookForm({
+        book: bookWithUndefinedAuthors,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     expect(result.current.formData.author_names).toEqual([]);
   });
 
   it("should handle book with undefined series", () => {
-    const bookWithUndefinedSeries = {
+    const bookWithUndefinedSeries: Book = {
       ...mockBook,
-      series: undefined,
+      series: null,
     };
 
     const { result } = renderHook(() =>
-      useBookForm({ book: bookWithUndefinedSeries, updateBook }),
+      useBookForm({
+        book: bookWithUndefinedSeries,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     expect(result.current.formData.series_name).toBeNull();
   });
 
   it("should handle book with undefined series_index", () => {
-    const bookWithUndefinedSeriesIndex = {
+    const bookWithUndefinedSeriesIndex: Book = {
       ...mockBook,
-      series_index: undefined,
+      series_index: null,
     };
 
     const { result } = renderHook(() =>
-      useBookForm({ book: bookWithUndefinedSeriesIndex, updateBook }),
+      useBookForm({
+        book: bookWithUndefinedSeriesIndex,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     expect(result.current.formData.series_index).toBeNull();
@@ -570,7 +668,10 @@ describe("useBookForm", () => {
     };
 
     const { result } = renderHook(() =>
-      useBookForm({ book: bookWithUndefinedTags, updateBook }),
+      useBookForm({
+        book: bookWithUndefinedTags,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     expect(result.current.formData.tag_names).toEqual([]);
@@ -578,7 +679,10 @@ describe("useBookForm", () => {
 
   it("should set identifiers to null when empty array on submit", async () => {
     const { result } = renderHook(() =>
-      useBookForm({ book: mockBook, updateBook }),
+      useBookForm({
+        book: mockBook,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     act(() => {
@@ -607,7 +711,10 @@ describe("useBookForm", () => {
     };
 
     const { result } = renderHook(() =>
-      useBookForm({ book: bookWithEmptyIdentifiers, updateBook }),
+      useBookForm({
+        book: bookWithEmptyIdentifiers,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
     );
 
     const submitEvent = {

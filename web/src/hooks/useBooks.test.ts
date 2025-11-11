@@ -126,15 +126,19 @@ describe("useBooks", () => {
   });
 
   it("should accumulate books in infinite scroll mode", async () => {
+    const firstItem = mockResponse.items[0];
+    if (!firstItem) {
+      throw new Error("mockResponse.items[0] is undefined");
+    }
     const page1Response: BookListResponse = {
       ...mockResponse,
-      items: [{ ...mockResponse.items[0], id: 1 }],
+      items: [{ ...firstItem, id: 1 }],
       page: 1,
       total_pages: 2,
     };
     const page2Response: BookListResponse = {
       ...mockResponse,
-      items: [{ ...mockResponse.items[0], id: 2 }],
+      items: [{ ...firstItem, id: 2 }],
       page: 2,
       total_pages: 2,
     };
@@ -220,14 +224,14 @@ describe("useBooks", () => {
 
     const { result, rerender } = renderHook(
       ({ sort_order }) => useBooks({ infiniteScroll: true, sort_order }),
-      { initialProps: { sort_order: "asc" as const } },
+      { initialProps: { sort_order: "asc" as "asc" | "desc" } },
     );
 
     await waitFor(() => {
       expect(result.current.books).toHaveLength(1);
     });
 
-    rerender({ sort_order: "desc" });
+    rerender({ sort_order: "desc" as "asc" | "desc" });
 
     await waitFor(() => {
       expect(result.current.books).toHaveLength(1); // Reset
@@ -385,7 +389,17 @@ describe("useBooks", () => {
 
     const { result, rerender } = renderHook(
       ({ sort_by }) => useBooks({ sort_by }),
-      { initialProps: { sort_by: "title" as const } },
+      {
+        initialProps: {
+          sort_by: "title" as
+            | "timestamp"
+            | "pubdate"
+            | "title"
+            | "author_sort"
+            | "series_index"
+            | undefined,
+        },
+      },
     );
 
     await waitFor(() => {
@@ -460,7 +474,17 @@ describe("useBooks", () => {
 
     const { result, rerender } = renderHook(
       ({ sort_by }) => useBooks({ infiniteScroll: true, sort_by }),
-      { initialProps: { sort_by: "title" as const } },
+      {
+        initialProps: {
+          sort_by: "title" as
+            | "timestamp"
+            | "pubdate"
+            | "title"
+            | "author_sort"
+            | "series_index"
+            | undefined,
+        },
+      },
     );
 
     await waitFor(() => {
@@ -468,7 +492,15 @@ describe("useBooks", () => {
     });
 
     // Change sort_by
-    rerender({ sort_by: "pubdate" as const });
+    rerender({
+      sort_by: "pubdate" as
+        | "timestamp"
+        | "pubdate"
+        | "title"
+        | "author_sort"
+        | "series_index"
+        | undefined,
+    });
 
     await waitFor(() => {
       expect(result.current.books).toHaveLength(1); // Reset
@@ -574,7 +606,7 @@ describe("useBooks", () => {
       ...mockResponse,
       page: undefined,
       total_pages: 3,
-    } as BookListResponse;
+    } as unknown as BookListResponse;
     const mockFetchResponse = {
       ok: true,
       json: vi.fn().mockResolvedValue(responseWithoutPage),
@@ -619,7 +651,7 @@ describe("useBooks", () => {
       ...mockResponse,
       page: undefined,
       total_pages: 3,
-    } as BookListResponse;
+    } as unknown as BookListResponse;
     const mockFetchResponse = {
       ok: true,
       json: vi.fn().mockResolvedValue(responseWithoutPage),

@@ -5,12 +5,12 @@ import type { UseMetadataSearchStreamResult } from "./useMetadataSearchStream";
 
 describe("useMetadataSearchActions", () => {
   let mockSearchStream: UseMetadataSearchStreamResult;
-  let setSearchQuery: ReturnType<typeof vi.fn>;
-  let onClose: ReturnType<typeof vi.fn>;
+  let setSearchQuery: (query: string) => void;
+  let onClose: () => void;
 
   beforeEach(() => {
-    setSearchQuery = vi.fn();
-    onClose = vi.fn();
+    setSearchQuery = vi.fn() as (query: string) => void;
+    onClose = vi.fn() as () => void;
     mockSearchStream = {
       state: {
         isSearching: false,

@@ -146,7 +146,7 @@ describe("HttpClient", () => {
         mockAuthProvider,
         "https://api.test",
       );
-      const headers = [["X-Custom", "value"]];
+      const headers: [string, string][] = [["X-Custom", "value"]];
       await client.request("/endpoint", { headers });
 
       expect(mockFetch).toHaveBeenCalledWith(

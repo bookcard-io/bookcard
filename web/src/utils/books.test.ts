@@ -67,9 +67,9 @@ describe("books utils", () => {
       const books = [book1, book1Duplicate, book2];
       const result = deduplicateBooks(books);
       expect(result).toHaveLength(2);
-      expect(result[0].id).toBe(1);
-      expect(result[0].title).toBe("Book 1"); // First occurrence kept
-      expect(result[1].id).toBe(2);
+      expect(result[0]?.id).toBe(1);
+      expect(result[0]?.title).toBe("Book 1"); // First occurrence kept
+      expect(result[1]?.id).toBe(2);
     });
 
     it("should apply coverUrlOverrides", () => {
@@ -77,7 +77,7 @@ describe("books utils", () => {
       const coverUrlOverrides = new Map([[1, "/new-cover.jpg"]]);
       const result = deduplicateBooks(books, coverUrlOverrides);
       expect(result).toHaveLength(1);
-      expect(result[0].thumbnail_url).toBe("/new-cover.jpg");
+      expect(result[0]?.thumbnail_url).toBe("/new-cover.jpg");
     });
 
     it("should apply bookDataOverrides", () => {
@@ -87,9 +87,9 @@ describe("books utils", () => {
       ]);
       const result = deduplicateBooks(books, undefined, bookDataOverrides);
       expect(result).toHaveLength(1);
-      expect(result[0].title).toBe("Updated Title");
-      expect(result[0].authors).toEqual(["New Author"]);
-      expect(result[0].id).toBe(1); // Other properties preserved
+      expect(result[0]?.title).toBe("Updated Title");
+      expect(result[0]?.authors).toEqual(["New Author"]);
+      expect(result[0]?.id).toBe(1); // Other properties preserved
     });
 
     it("should apply bookDataOverrides with cover URL", () => {
@@ -99,7 +99,7 @@ describe("books utils", () => {
       ]);
       const result = deduplicateBooks(books, undefined, bookDataOverrides);
       expect(result).toHaveLength(1);
-      expect(result[0].thumbnail_url).toBe("/override-cover.jpg");
+      expect(result[0]?.thumbnail_url).toBe("/override-cover.jpg");
     });
 
     it("should prioritize bookDataOverrides over coverUrlOverrides", () => {
@@ -114,7 +114,7 @@ describe("books utils", () => {
         bookDataOverrides,
       );
       expect(result).toHaveLength(1);
-      expect(result[0].thumbnail_url).toBe("/new-cover.jpg");
+      expect(result[0]?.thumbnail_url).toBe("/new-cover.jpg");
     });
 
     it("should apply coverUrlOverrides when bookDataOverrides has no thumbnail_url", () => {
@@ -127,8 +127,8 @@ describe("books utils", () => {
         bookDataOverrides,
       );
       expect(result).toHaveLength(1);
-      expect(result[0].title).toBe("New Title");
-      expect(result[0].thumbnail_url).toBe("/fallback-cover.jpg");
+      expect(result[0]?.title).toBe("New Title");
+      expect(result[0]?.thumbnail_url).toBe("/fallback-cover.jpg");
     });
 
     it("should merge bookDataOverrides with existing book data", () => {
@@ -136,9 +136,9 @@ describe("books utils", () => {
       const bookDataOverrides = new Map([[1, { title: "New Title" }]]);
       const result = deduplicateBooks(books, undefined, bookDataOverrides);
       expect(result).toHaveLength(1);
-      expect(result[0].title).toBe("New Title");
-      expect(result[0].authors).toEqual(["Author 1"]); // Preserved
-      expect(result[0].id).toBe(1); // Preserved
+      expect(result[0]?.title).toBe("New Title");
+      expect(result[0]?.authors).toEqual(["Author 1"]); // Preserved
+      expect(result[0]?.id).toBe(1); // Preserved
     });
 
     it("should handle empty array", () => {
@@ -156,8 +156,8 @@ describe("books utils", () => {
         bookDataOverrides,
       );
       expect(result).toHaveLength(2);
-      expect(result[0].thumbnail_url).toBe("/override1.jpg");
-      expect(result[1].title).toBe("Book 2 Updated");
+      expect(result[0]?.thumbnail_url).toBe("/override1.jpg");
+      expect(result[1]?.title).toBe("Book 2 Updated");
     });
 
     it("should not create new objects when no overrides", () => {

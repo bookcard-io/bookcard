@@ -38,8 +38,8 @@ export function useInfiniteScroll({
   isLoading = false,
   hasMore = true,
   rootMargin = "100px",
-}: UseInfiniteScrollOptions): React.RefObject<HTMLElement> {
-  const sentinelRef = useRef<HTMLElement>(null);
+}: UseInfiniteScrollOptions): React.RefObject<HTMLElement | null> {
+  const sentinelRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!enabled || !hasMore || isLoading) {

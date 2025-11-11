@@ -3,10 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useClickOutside } from "./useClickOutside";
 
 describe("useClickOutside", () => {
-  let handler: ReturnType<typeof vi.fn>;
+  let handler: () => void;
 
   beforeEach(() => {
-    handler = vi.fn();
+    handler = vi.fn() as () => void;
   });
 
   afterEach(() => {

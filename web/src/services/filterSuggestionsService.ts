@@ -79,7 +79,9 @@ class LanguageFilterSuggestionsService implements FilterSuggestionsService {
     const matches: SearchSuggestionItem[] = [];
 
     for (let i = 0; i < POPULAR_LANGUAGES.length; i++) {
-      const [code, name] = POPULAR_LANGUAGES[i];
+      const language = POPULAR_LANGUAGES[i];
+      if (!language) continue;
+      const [code, name] = language;
       const codeLower = code.toLowerCase();
       const nameLower = name.toLowerCase();
 

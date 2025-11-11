@@ -14,14 +14,14 @@ describe("searchSuggestionsService", () => {
     it("should return empty response for empty query", async () => {
       const result = await defaultSearchSuggestionsService.fetchSuggestions("");
 
-      expect(result).toEqual({ books: [], authors: [], tags: [] });
+      expect(result).toEqual({ books: [], authors: [], tags: [], series: [] });
     });
 
     it("should return empty response for whitespace-only query", async () => {
       const result =
         await defaultSearchSuggestionsService.fetchSuggestions("   ");
 
-      expect(result).toEqual({ books: [], authors: [], tags: [] });
+      expect(result).toEqual({ books: [], authors: [], tags: [], series: [] });
     });
 
     it("should fetch suggestions from API", async () => {
@@ -76,7 +76,7 @@ describe("searchSuggestionsService", () => {
       const result =
         await defaultSearchSuggestionsService.fetchSuggestions("test");
 
-      expect(result).toEqual({ books: [], authors: [], tags: [] });
+      expect(result).toEqual({ books: [], authors: [], tags: [], series: [] });
     });
   });
 });

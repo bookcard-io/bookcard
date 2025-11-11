@@ -11,7 +11,7 @@ export interface CoverUrlInputProps {
   /** Error message to display. */
   error?: string | null;
   /** Ref for the input element. */
-  inputRef: React.RefObject<HTMLInputElement>;
+  inputRef: React.RefObject<HTMLInputElement | null>;
   /** Handler for value changes. */
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   /** Handler for keyboard events. */

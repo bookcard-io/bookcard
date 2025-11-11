@@ -21,7 +21,7 @@ describe("useAutoSearch", () => {
     renderHook(() =>
       useAutoSearch({
         initialQuery: "test",
-        startSearch,
+        startSearch: startSearch as (overrideQuery?: string) => void,
         enabled: false,
       }),
     );
@@ -36,7 +36,7 @@ describe("useAutoSearch", () => {
     renderHook(() =>
       useAutoSearch({
         initialQuery: null,
-        startSearch,
+        startSearch: startSearch as (overrideQuery?: string) => void,
       }),
     );
 
@@ -50,7 +50,7 @@ describe("useAutoSearch", () => {
     renderHook(() =>
       useAutoSearch({
         initialQuery: "   ",
-        startSearch,
+        startSearch: startSearch as (overrideQuery?: string) => void,
       }),
     );
 
@@ -64,7 +64,7 @@ describe("useAutoSearch", () => {
     renderHook(() =>
       useAutoSearch({
         initialQuery: "test query",
-        startSearch,
+        startSearch: startSearch as (overrideQuery?: string) => void,
       }),
     );
 
@@ -78,8 +78,8 @@ describe("useAutoSearch", () => {
     renderHook(() =>
       useAutoSearch({
         initialQuery: "test query",
-        startSearch,
-        setSearchQuery,
+        startSearch: startSearch as (overrideQuery?: string) => void,
+        setSearchQuery: setSearchQuery as (query: string) => void,
       }),
     );
 
@@ -95,7 +95,7 @@ describe("useAutoSearch", () => {
       ({ initialQuery }) =>
         useAutoSearch({
           initialQuery,
-          startSearch,
+          startSearch: startSearch as (overrideQuery?: string) => void,
         }),
       { initialProps: { initialQuery: "query1" } },
     );
@@ -120,7 +120,7 @@ describe("useAutoSearch", () => {
       ({ startSearch }) =>
         useAutoSearch({
           initialQuery: "test",
-          startSearch,
+          startSearch: startSearch as (overrideQuery?: string) => void,
         }),
       { initialProps: { startSearch: startSearch1 } },
     );
@@ -138,7 +138,7 @@ describe("useAutoSearch", () => {
       ({ initialQuery }) =>
         useAutoSearch({
           initialQuery,
-          startSearch,
+          startSearch: startSearch as (overrideQuery?: string) => void,
         }),
       { initialProps: { initialQuery: "query1" } },
     );
@@ -165,7 +165,7 @@ describe("useAutoSearch", () => {
       ({ startSearch }) =>
         useAutoSearch({
           initialQuery: "test",
-          startSearch,
+          startSearch: startSearch as (overrideQuery?: string) => void,
         }),
       { initialProps: { startSearch: startSearch1 } },
     );

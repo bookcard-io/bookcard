@@ -74,7 +74,10 @@ export function useBookViewModal(
         if (pendingNavigationRef.current === "next") {
           const nextIndex = currentIndex + 1;
           if (nextIndex < bookIds.length) {
-            setViewingBookId(bookIds[nextIndex]);
+            const nextId = bookIds[nextIndex];
+            if (nextId !== undefined) {
+              setViewingBookId(nextId);
+            }
           }
         }
         // For previous, we don't load more books (infinite scroll typically only goes forward)
@@ -104,7 +107,10 @@ export function useBookViewModal(
       const currentIndex = bookIds.indexOf(viewingBookId);
       if (currentIndex > 0) {
         // Navigate to previous book in the list
-        setViewingBookId(bookIds[currentIndex - 1]);
+        const prevId = bookIds[currentIndex - 1];
+        if (prevId !== undefined) {
+          setViewingBookId(prevId);
+        }
         pendingNavigationRef.current = null;
       }
       // If at the beginning, do nothing (no navigation)
@@ -145,7 +151,10 @@ export function useBookViewModal(
     // Check if we can navigate to next book in currently loaded list
     if (currentIndex < bookIds.length - 1) {
       // Navigate to next book in the list
-      setViewingBookId(bookIds[currentIndex + 1]);
+      const nextId = bookIds[currentIndex + 1];
+      if (nextId !== undefined) {
+        setViewingBookId(nextId);
+      }
       pendingNavigationRef.current = null;
 
       // Preload more books if we're near the end

@@ -3,13 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useInfiniteScroll } from "./useInfiniteScroll";
 
 describe("useInfiniteScroll", () => {
-  let onLoadMore: ReturnType<typeof vi.fn>;
+  let onLoadMore: () => void;
   let observeFn: ReturnType<typeof vi.fn>;
   let disconnectFn: ReturnType<typeof vi.fn>;
   let IntersectionObserverMock: typeof IntersectionObserver;
 
   beforeEach(() => {
-    onLoadMore = vi.fn();
+    onLoadMore = vi.fn() as () => void;
     observeFn = vi.fn();
     disconnectFn = vi.fn();
     class IntersectionObserverMockClass {
@@ -35,7 +35,10 @@ describe("useInfiniteScroll", () => {
     const TestComponent = () => {
       const ref = useInfiniteScroll({ onLoadMore });
       return (
-        <div ref={ref} data-testid="sentinel">
+        <div
+          ref={ref as React.RefObject<HTMLDivElement | null>}
+          data-testid="sentinel"
+        >
           Sentinel
         </div>
       );
@@ -51,7 +54,10 @@ describe("useInfiniteScroll", () => {
     const TestComponent = () => {
       const ref = useInfiniteScroll({ onLoadMore, enabled: false });
       return (
-        <div ref={ref} data-testid="sentinel">
+        <div
+          ref={ref as React.RefObject<HTMLDivElement | null>}
+          data-testid="sentinel"
+        >
           Sentinel
         </div>
       );
@@ -66,7 +72,10 @@ describe("useInfiniteScroll", () => {
     const TestComponent = () => {
       const ref = useInfiniteScroll({ onLoadMore, hasMore: false });
       return (
-        <div ref={ref} data-testid="sentinel">
+        <div
+          ref={ref as React.RefObject<HTMLDivElement | null>}
+          data-testid="sentinel"
+        >
           Sentinel
         </div>
       );
@@ -81,7 +90,10 @@ describe("useInfiniteScroll", () => {
     const TestComponent = () => {
       const ref = useInfiniteScroll({ onLoadMore, isLoading: true });
       return (
-        <div ref={ref} data-testid="sentinel">
+        <div
+          ref={ref as React.RefObject<HTMLDivElement | null>}
+          data-testid="sentinel"
+        >
           Sentinel
         </div>
       );
@@ -111,7 +123,10 @@ describe("useInfiniteScroll", () => {
     const TestComponent = () => {
       const ref = useInfiniteScroll({ onLoadMore });
       return (
-        <div ref={ref} data-testid="sentinel">
+        <div
+          ref={ref as React.RefObject<HTMLDivElement | null>}
+          data-testid="sentinel"
+        >
           Sentinel
         </div>
       );
@@ -134,7 +149,10 @@ describe("useInfiniteScroll", () => {
     const TestComponent = () => {
       const ref = useInfiniteScroll({ onLoadMore, rootMargin: "200px" });
       return (
-        <div ref={ref} data-testid="sentinel">
+        <div
+          ref={ref as React.RefObject<HTMLDivElement | null>}
+          data-testid="sentinel"
+        >
           Sentinel
         </div>
       );
@@ -158,7 +176,10 @@ describe("useInfiniteScroll", () => {
     const TestComponent = () => {
       const ref = useInfiniteScroll({ onLoadMore });
       return (
-        <div ref={ref} data-testid="sentinel">
+        <div
+          ref={ref as React.RefObject<HTMLDivElement | null>}
+          data-testid="sentinel"
+        >
           Sentinel
         </div>
       );
@@ -189,7 +210,10 @@ describe("useInfiniteScroll", () => {
     const TestComponent = () => {
       const ref = useInfiniteScroll({ onLoadMore });
       return (
-        <div ref={ref} data-testid="sentinel">
+        <div
+          ref={ref as React.RefObject<HTMLDivElement | null>}
+          data-testid="sentinel"
+        >
           Sentinel
         </div>
       );

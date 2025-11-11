@@ -339,10 +339,10 @@ describe("metadata utils", () => {
       ]);
       const result = sortProviderStatuses(statuses);
       expect(result).toHaveLength(4);
-      expect(result[0].status).toBe("searching");
-      expect(result[1].status).toBe("pending");
-      expect(result[2].status).toBe("completed");
-      expect(result[3].status).toBe("failed");
+      expect(result[0]?.status).toBe("searching");
+      expect(result[1]?.status).toBe("pending");
+      expect(result[2]?.status).toBe("completed");
+      expect(result[3]?.status).toBe("failed");
     });
 
     it("should handle empty map", () => {
@@ -366,7 +366,7 @@ describe("metadata utils", () => {
       ]);
       const result = sortProviderStatuses(statuses);
       expect(result).toHaveLength(1);
-      expect(result[0].status).toBe("completed");
+      expect(result[0]?.status).toBe("completed");
     });
 
     it("should handle unknown status", () => {
@@ -384,7 +384,7 @@ describe("metadata utils", () => {
       ]);
       const result = sortProviderStatuses(statuses);
       expect(result).toHaveLength(1);
-      expect(result[0].status).toBe("unknown");
+      expect(result[0]?.status).toBe("unknown");
     });
   });
 

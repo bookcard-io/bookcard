@@ -19,7 +19,7 @@ export interface UseCoverUrlInputResult {
   /** Function to update the input value. */
   setValue: (value: string) => void;
   /** Ref for the input element. */
-  inputRef: React.RefObject<HTMLInputElement>;
+  inputRef: React.RefObject<HTMLInputElement | null>;
   /** Handler for keyboard events. */
   handleKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   /** Handler for input change events. */
@@ -49,7 +49,7 @@ export function useCoverUrlInput(
   const { onVisibilityChange, onSubmit } = options;
   const [isVisible, setIsVisible] = useState(false);
   const [value, setValue] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const show = useCallback(() => {
     setIsVisible(true);

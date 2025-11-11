@@ -3,14 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useKeyboardNavigation } from "./useKeyboardNavigation";
 
 describe("useKeyboardNavigation", () => {
-  let onEscape: ReturnType<typeof vi.fn>;
-  let onArrowLeft: ReturnType<typeof vi.fn>;
-  let onArrowRight: ReturnType<typeof vi.fn>;
+  let onEscape: (() => void) | undefined;
+  let onArrowLeft: (() => void) | undefined;
+  let onArrowRight: (() => void) | undefined;
 
   beforeEach(() => {
-    onEscape = vi.fn();
-    onArrowLeft = vi.fn();
-    onArrowRight = vi.fn();
+    onEscape = vi.fn() as () => void;
+    onArrowLeft = vi.fn() as () => void;
+    onArrowRight = vi.fn() as () => void;
   });
 
   afterEach(() => {

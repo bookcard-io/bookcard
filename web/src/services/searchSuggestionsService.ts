@@ -29,7 +29,7 @@ export interface SearchSuggestionsService {
 class ApiSearchSuggestionsService implements SearchSuggestionsService {
   async fetchSuggestions(query: string): Promise<SearchSuggestionsResponse> {
     if (!query.trim()) {
-      return { books: [], authors: [], tags: [] };
+      return { books: [], authors: [], tags: [], series: [] };
     }
 
     const response = await fetch(
@@ -40,7 +40,7 @@ class ApiSearchSuggestionsService implements SearchSuggestionsService {
     );
 
     if (!response.ok) {
-      return { books: [], authors: [], tags: [] };
+      return { books: [], authors: [], tags: [], series: [] };
     }
 
     return (await response.json()) as SearchSuggestionsResponse;

@@ -18,8 +18,8 @@ import { useEffect, useRef } from "react";
 export function useClickOutside<T extends HTMLElement = HTMLDivElement>(
   handler: () => void,
   enabled: boolean = true,
-): React.RefObject<T> {
-  const ref = useRef<T>(null);
+): React.RefObject<T | null> {
+  const ref = useRef<T | null>(null);
 
   useEffect(() => {
     if (!enabled) {

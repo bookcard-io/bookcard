@@ -96,15 +96,19 @@ describe("useFilteredBooks", () => {
   });
 
   it("should accumulate books in infinite scroll mode", async () => {
+    const firstItem = mockResponse.items[0];
+    if (!firstItem) {
+      throw new Error("mockResponse.items[0] is undefined");
+    }
     const page1Response: BookListResponse = {
       ...mockResponse,
-      items: [{ ...mockResponse.items[0], id: 1 }],
+      items: [{ ...firstItem, id: 1 }],
       page: 1,
       total_pages: 2,
     };
     const page2Response: BookListResponse = {
       ...mockResponse,
-      items: [{ ...mockResponse.items[0], id: 2 }],
+      items: [{ ...firstItem, id: 2 }],
       page: 2,
       total_pages: 2,
     };
@@ -327,7 +331,7 @@ describe("useFilteredBooks", () => {
       ...mockResponse,
       page: undefined,
       total_pages: 2,
-    } as BookListResponse;
+    } as unknown as BookListResponse;
     const mockFetchResponse = {
       ok: true,
       json: vi.fn().mockResolvedValue(responseWithoutPage),

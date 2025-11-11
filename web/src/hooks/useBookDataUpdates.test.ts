@@ -56,8 +56,24 @@ describe("useBookDataUpdates", () => {
   });
 
   it("should expose updateBook and updateCover via ref", () => {
-    const updateRef = { current: null };
-    renderHook(() => useBookDataUpdates({ updateRef }));
+    const updateRef: React.RefObject<{
+      updateBook: (
+        bookId: number,
+        bookData: Partial<import("@/types/book").Book>,
+      ) => void;
+      updateCover: (bookId: number) => void;
+    } | null> = { current: null };
+    renderHook(() =>
+      useBookDataUpdates({
+        updateRef: updateRef as React.RefObject<{
+          updateBook: (
+            bookId: number,
+            bookData: Partial<import("@/types/book").Book>,
+          ) => void;
+          updateCover: (bookId: number) => void;
+        }>,
+      }),
+    );
 
     expect(updateRef.current).toBeDefined();
     expect(updateRef.current?.updateBook).toBeDefined();
@@ -65,8 +81,24 @@ describe("useBookDataUpdates", () => {
   });
 
   it("should allow external updates via ref", () => {
-    const updateRef = { current: null };
-    const { result } = renderHook(() => useBookDataUpdates({ updateRef }));
+    const updateRef: React.RefObject<{
+      updateBook: (
+        bookId: number,
+        bookData: Partial<import("@/types/book").Book>,
+      ) => void;
+      updateCover: (bookId: number) => void;
+    } | null> = { current: null };
+    const { result } = renderHook(() =>
+      useBookDataUpdates({
+        updateRef: updateRef as React.RefObject<{
+          updateBook: (
+            bookId: number,
+            bookData: Partial<import("@/types/book").Book>,
+          ) => void;
+          updateCover: (bookId: number) => void;
+        }>,
+      }),
+    );
 
     act(() => {
       updateRef.current?.updateBook(1, { title: "External Update" });

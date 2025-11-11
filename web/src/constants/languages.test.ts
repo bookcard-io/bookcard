@@ -25,9 +25,12 @@ describe("languages", () => {
 
     it("should find language name from POPULAR_LANGUAGES", () => {
       if (POPULAR_LANGUAGES.length > 0) {
-        const [code, expectedName] = POPULAR_LANGUAGES[0];
-        const name = getLanguageName(code);
-        expect(name).toBe(expectedName);
+        const language = POPULAR_LANGUAGES[0];
+        if (language) {
+          const [code, expectedName] = language;
+          const name = getLanguageName(code);
+          expect(name).toBe(expectedName);
+        }
       }
     });
   });
@@ -47,7 +50,9 @@ describe("languages", () => {
     it("should return ISO codes only (first element of each tuple)", () => {
       const codes = getAllLanguageCodes();
       codes.forEach((code, index) => {
-        expect(code).toBe(POPULAR_LANGUAGES[index][0]);
+        const language = POPULAR_LANGUAGES[index];
+        expect(language).toBeDefined();
+        expect(code).toBe(language?.[0]);
       });
     });
   });

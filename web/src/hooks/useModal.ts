@@ -19,5 +19,6 @@ export function useModal(isOpen: boolean): void {
         document.body.style.overflow = "auto";
       };
     }
+    return undefined;
   }, [isOpen]);
 }
