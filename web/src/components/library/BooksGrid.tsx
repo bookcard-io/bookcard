@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useBookDataUpdates } from "@/hooks/useBookDataUpdates";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { useLibraryBooks } from "@/hooks/useLibraryBooks";
@@ -24,10 +24,11 @@ export interface BooksGridProps {
   sortOrder?: "asc" | "desc";
   /** Number of items per page. */
   pageSize?: number;
-  /** Ref to expose methods for updating book data and cover. */
+  /** Ref to expose methods for updating book data, cover, and removing books. */
   bookDataUpdateRef?: React.RefObject<{
     updateBook: (bookId: number, bookData: Partial<Book>) => void;
     updateCover: (bookId: number) => void;
+    removeBook?: (bookId: number) => void;
   }>;
 }
 
@@ -48,20 +49,37 @@ export function BooksGrid({
   bookDataUpdateRef,
 }: BooksGridProps) {
   // Fetch books using centralized hook (SOC: data fetching separated)
-  const { books, isLoading, error, total, loadMore, hasMore } = useLibraryBooks(
-    {
+  const { books, isLoading, error, total, loadMore, hasMore, removeBook } =
+    useLibraryBooks({
       filters,
       searchQuery,
       sortBy,
       sortOrder,
       pageSize,
-    },
-  );
+    });
 
   // Manage book data updates including cover (SRP: book data state management separated)
   const { bookDataOverrides } = useBookDataUpdates({
     updateRef: bookDataUpdateRef,
   });
+
+  // Expose removeBook via ref so external callers (e.g., modal) can remove from this grid instance
+  useEffect(() => {
+    if (!bookDataUpdateRef) {
+      return;
+    }
+    const current = bookDataUpdateRef.current ?? {
+      updateBook: () => {},
+      updateCover: () => {},
+    };
+    bookDataUpdateRef.current = {
+      ...current,
+      removeBook: (bookId: number) => {
+        removeBook?.(bookId);
+      },
+    };
+    // We only need to update when the removeBook function identity changes
+  }, [bookDataUpdateRef, removeBook]);
 
   // Infinite scroll handler (SRP: scroll logic separated)
   const handleLoadMore = useCallback(() => {
@@ -80,6 +98,14 @@ export function BooksGrid({
   const uniqueBooks = useMemo(
     () => deduplicateBooks(books, undefined, bookDataOverrides),
     [books, bookDataOverrides],
+  );
+
+  // Handle deletion initiated from a card: remove locally from grid
+  const handleBookDeleted = useCallback(
+    (bookId: number) => {
+      removeBook?.(bookId);
+    },
+    [removeBook],
   );
 
   if (error) {
@@ -125,6 +151,7 @@ export function BooksGrid({
             allBooks={uniqueBooks}
             onClick={onBookClick}
             onEdit={onBookEdit}
+            onBookDeleted={handleBookDeleted}
           />
         ))}
       </div>

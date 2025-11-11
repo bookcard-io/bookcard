@@ -24,6 +24,8 @@ export interface BookCardProps {
   onClick?: (book: Book) => void;
   /** Callback fired when edit button is clicked. */
   onEdit?: (bookId: number) => void;
+  /** Callback fired when book is deleted. */
+  onBookDeleted?: (bookId: number) => void;
 }
 
 /**
@@ -40,6 +42,7 @@ export function BookCard({
   allBooks,
   onClick: _onClick,
   onEdit,
+  onBookDeleted,
 }: BookCardProps) {
   const { isSelected } = useSelectedBooks();
   const selected = isSelected(book.id);
@@ -47,6 +50,7 @@ export function BookCard({
   const menuActions = useBookCardMenuActions({
     book,
     onBookClick: _onClick,
+    onBookDeleted: () => onBookDeleted?.(book.id),
   });
 
   const handleClick = () => {

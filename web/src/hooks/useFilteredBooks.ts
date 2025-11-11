@@ -41,6 +41,8 @@ export interface UseFilteredBooksResult {
   loadMore?: () => void;
   /** Whether there are more pages to load (only available when infiniteScroll is enabled). */
   hasMore?: boolean;
+  /** Function to remove a book by ID from the accumulated books list. */
+  removeBook?: (bookId: number) => void;
 }
 
 /**
@@ -240,6 +242,26 @@ export function useFilteredBooks(
 
   const books = infiniteScroll ? accumulatedBooks : data?.items || [];
 
+  const removeBook = useCallback(
+    (bookId: number) => {
+      if (infiniteScroll) {
+        setAccumulatedBooks((prev) =>
+          prev.filter((book) => book.id !== bookId),
+        );
+      }
+      // Also update data if it exists
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          items: prev.items.filter((book) => book.id !== bookId),
+          total: Math.max(0, prev.total - 1),
+        };
+      });
+    },
+    [infiniteScroll],
+  );
+
   return {
     books,
     total: data?.total || 0,
@@ -249,6 +271,6 @@ export function useFilteredBooks(
     isLoading,
     error,
     refetch: fetchFilteredBooks,
-    ...(infiniteScroll && { loadMore, hasMore }),
+    ...(infiniteScroll && { loadMore, hasMore, removeBook }),
   };
 }

@@ -35,6 +35,7 @@ export function MainContent() {
   const booksGridBookDataUpdateRef = useRef<{
     updateBook: (bookId: number, bookData: Partial<Book>) => void;
     updateCover: (bookId: number) => void;
+    removeBook?: (bookId: number) => void;
   }>({ updateBook: () => {}, updateCover: () => {} });
 
   // Search state - use ref for book click to avoid circular dependency
@@ -175,6 +176,9 @@ export function MainContent() {
         onNavigatePrevious={bookModal.handleNavigatePrevious}
         onNavigateNext={bookModal.handleNavigateNext}
         onEdit={bookEditModal.handleEditBook}
+        onBookDeleted={(bookId) => {
+          booksGridBookDataUpdateRef.current?.removeBook?.(bookId);
+        }}
       />
       {bookEditModal.editingBookId !== null && (
         <BookEditModal

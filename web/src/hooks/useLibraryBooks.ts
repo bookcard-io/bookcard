@@ -30,6 +30,8 @@ export interface UseLibraryBooksResult {
   loadMore?: () => void;
   /** Whether there are more pages to load (only available when infiniteScroll is enabled). */
   hasMore?: boolean;
+  /** Function to remove a book by ID from the accumulated books list. */
+  removeBook?: (bookId: number) => void;
 }
 
 /**
@@ -96,5 +98,6 @@ export function useLibraryBooks(
     error: result.error,
     loadMore: result.loadMore,
     hasMore: result.hasMore,
+    removeBook: result.removeBook,
   };
 }

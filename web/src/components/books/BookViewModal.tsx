@@ -24,6 +24,8 @@ export interface BookViewModalProps {
   onNavigateNext?: () => void;
   /** Callback when edit button is clicked. Should open edit modal and close view modal. */
   onEdit?: (bookId: number) => void;
+  /** Callback when book is deleted. */
+  onBookDeleted?: (bookId: number) => void;
 }
 
 /**
@@ -40,6 +42,7 @@ export function BookViewModal({
   onNavigatePrevious,
   onNavigateNext,
   onEdit,
+  onBookDeleted,
 }: BookViewModalProps) {
   const { book, isLoading, error } = useBook({
     bookId: bookId || 0,
@@ -50,9 +53,12 @@ export function BookViewModal({
   const deleteConfirmation = useDeleteConfirmation({
     bookId: bookId || null,
     onSuccess: () => {
-      // Close modal and refresh book list
+      // Notify parent that book was deleted
+      if (bookId !== null) {
+        onBookDeleted?.(bookId);
+      }
+      // Close modal
       onClose();
-      // TODO: Refresh book list or navigate away
     },
     onError: (error) => {
       // Error is displayed in the modal via deleteConfirmation.error
