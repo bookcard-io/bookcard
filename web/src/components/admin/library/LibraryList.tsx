@@ -1,6 +1,6 @@
 "use client";
 
-import styles from "./LibraryList.module.scss";
+import { cn } from "@/libs/utils";
 
 export interface Library {
   id: number;
@@ -30,27 +30,35 @@ export function LibraryList({
   deletingLibraryId,
 }: Props) {
   return (
-    <div className={styles.container}>
+    <div className="flex flex-col gap-2">
       {libraries.map((lib) => (
-        <div key={lib.id} className={styles.libraryItem}>
-          <div className={styles.checkboxLabel}>
+        <div
+          key={lib.id}
+          className="flex items-center gap-3 rounded-md border border-[var(--color-surface-a20)] bg-[var(--color-surface-a10)] p-3"
+        >
+          <div className="flex flex-1 items-center gap-3">
             <input
               type="checkbox"
               checked={lib.is_active}
               onChange={() => onToggle(lib)}
-              className={styles.checkbox}
+              className="h-[18px] w-[18px] cursor-pointer accent-[var(--color-primary-a0)]"
             />
-            <div className={styles.libraryInfo}>
+            <div className="flex flex-1 flex-col gap-1">
               <div
-                className={`${styles.libraryName} ${
-                  lib.is_active ? styles.active : ""
-                }`}
+                className={cn(
+                  "font-medium text-sm",
+                  lib.is_active
+                    ? "text-[var(--color-primary-a0)]"
+                    : "text-[var(--color-text-a0)]",
+                )}
               >
                 {lib.name}
               </div>
-              <div className={styles.libraryPath}>{lib.calibre_db_path}</div>
+              <div className="break-all text-[var(--color-text-a30)] text-xs">
+                {lib.calibre_db_path}
+              </div>
               {lib.updated_at && (
-                <div className={styles.updatedAt}>
+                <div className="text-[11px] text-[var(--color-text-a40)]">
                   Last updated: {new Date(lib.updated_at).toLocaleString()}
                 </div>
               )}
@@ -60,19 +68,24 @@ export function LibraryList({
             type="button"
             onClick={() => onDelete(lib.id)}
             disabled={deletingLibraryId === lib.id}
-            className={`${styles.deleteButton} ${
-              deletingLibraryId === lib.id ? styles.deleting : ""
-            }`}
+            className={cn(
+              "cursor-pointer rounded-md border border-[var(--color-danger-a20)] bg-transparent px-3 py-1.5 font-medium text-[var(--color-danger-a0)] text-xs transition-colors duration-150",
+              deletingLibraryId === lib.id
+                ? "cursor-not-allowed border-[var(--color-danger-a30)] text-[var(--color-danger-a30)] opacity-60"
+                : "hover:bg-[var(--color-danger-a20)] hover:text-[var(--color-danger-a0)]",
+            )}
           >
             Remove
           </button>
         </div>
       ))}
       {libraries.length === 0 && (
-        <div className={styles.empty}>No libraries configured yet.</div>
+        <div className="p-6 text-center text-[var(--color-text-a30)] text-sm italic">
+          No libraries configured yet.
+        </div>
       )}
       {libraries.length > 0 && !libraries.some((lib) => lib.is_active) && (
-        <div className={styles.empty}>
+        <div className="p-6 text-center text-[var(--color-text-a30)] text-sm italic">
           Please activate a library to begin using the app.
         </div>
       )}

@@ -1,7 +1,6 @@
 "use client";
 
 import type { SearchSuggestion } from "@/types/search";
-import styles from "./SearchWidgetBar.module.scss";
 import { FiltersButton } from "./widgets/FiltersButton";
 import type { FilterValues } from "./widgets/FiltersPanel";
 import { SearchInput } from "./widgets/SearchInput";
@@ -92,7 +91,7 @@ export function SearchWidgetBar({
   onViewModeChange,
 }: SearchWidgetBarProps) {
   return (
-    <div className={styles.widgetBar}>
+    <div className="flex items-center gap-3 px-8 pb-4">
       <SearchInput
         value={searchValue}
         onChange={onSearchChange}
@@ -101,7 +100,7 @@ export function SearchWidgetBar({
       />
       <FiltersButton onClick={onFiltersClick} filters={filters} />
       <WithSelectedDropdown onClick={onWithSelectedClick} />
-      <div className={styles.sortByWrapper}>
+      <div className="relative">
         <SortByDropdown sortBy={sortBy} onClick={onSortByClick} />
         {showSortPanel && (
           <SortPanel
