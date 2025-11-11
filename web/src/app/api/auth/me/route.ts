@@ -1,0 +1,41 @@
+import { type NextRequest, NextResponse } from "next/server";
+import { getAuthenticatedClient } from "@/services/http/routeHelpers";
+
+/**
+ * GET /api/auth/me
+ *
+ * Proxies request to the backend /auth/me endpoint.
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const { client, error } = getAuthenticatedClient(request);
+
+    if (error) {
+      return error;
+    }
+
+    const response = await client.request("/auth/me", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return NextResponse.json(
+        { detail: data.detail || "Failed to fetch user profile" },
+        { status: response.status },
+      );
+    }
+
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("Error in GET /api/auth/me:", error);
+    return NextResponse.json(
+      { detail: "Internal server error" },
+      { status: 500 },
+    );
+  }
+}

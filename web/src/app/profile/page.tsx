@@ -1,17 +1,17 @@
 "use client";
 
-import { AdminSettings } from "@/components/admin/AdminSettings";
 import { PageLayout } from "@/components/layout/PageLayout";
+import { ProfileSettings } from "@/components/profile/ProfileSettings";
 
 /**
- * Admin settings page.
+ * User profile and settings page.
  *
  * Uses PageLayout for consistent sidebar and context provider setup.
  */
-export default function AdminPage() {
+export default function ProfilePage() {
   return (
     <PageLayout>
-      <AdminSettings />
+      <ProfileSettings />
     </PageLayout>
   );
 }
