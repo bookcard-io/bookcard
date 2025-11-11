@@ -38,6 +38,7 @@ from fundamental.api.schemas import (
     LoginRequest,
     LoginResponse,
     PasswordChangeRequest,
+    ProfilePictureUpdateRequest,
     ProfileRead,
     ProfileUpdate,
     SettingRead,
@@ -377,6 +378,52 @@ def upload_profile_picture(
             raise HTTPException(status_code=400, detail=msg) from exc
         if msg.startswith("failed_to_save_file"):
             raise HTTPException(status_code=500, detail=msg) from exc
+        raise
+    return ProfileRead.model_validate(user)
+
+
+@router.patch("/profile-picture", response_model=ProfileRead)
+def update_profile_picture(
+    request: Request,
+    session: SessionDep,
+    payload: ProfilePictureUpdateRequest,
+) -> ProfileRead:
+    """Update the current user's profile picture path.
+
+    Updates the profile picture path in the database without uploading a new file.
+    Use POST /auth/profile-picture to upload a new file.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+    session : SessionDep
+        Database session dependency.
+    payload : ProfilePictureUpdateRequest
+        Request containing the profile picture path.
+
+    Returns
+    -------
+    ProfileRead
+        Updated user profile.
+
+    Raises
+    ------
+    HTTPException
+        If user is not found (404).
+    """
+    service = _auth_service(request, session)
+    current_user = get_current_user(request, session)
+    try:
+        user = service.update_profile_picture(
+            current_user.id,  # type: ignore[arg-type]
+            payload.picture_path,
+        )
+        session.commit()
+    except ValueError as exc:
+        msg = str(exc)
+        if msg == "user_not_found":
+            raise HTTPException(status_code=404, detail=msg) from exc
         raise
     return ProfileRead.model_validate(user)
 

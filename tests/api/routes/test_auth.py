@@ -6,6 +6,7 @@ import pytest
 from fastapi import HTTPException
 
 import fundamental.api.routes.auth as auth
+from fundamental.api.schemas import ProfilePictureUpdateRequest
 from fundamental.models.auth import User
 from tests.conftest import DummySession
 
@@ -39,9 +40,21 @@ class FakeService:
 
 class DummyRequest:
     def __init__(self) -> None:
+        import tempfile
+
+        temp_dir = tempfile.mkdtemp()
+
+        class DummyConfig:
+            jwt_secret = "test-secret"
+            jwt_algorithm = "HS256"
+            jwt_expires_minutes = 15
+            data_directory = temp_dir
+
         self.app = type(
-            "App", (), {"state": type("State", (), {"config": object()})()}
+            "App", (), {"state": type("State", (), {"config": DummyConfig()})()}
         )()
+        # Add headers attribute for logout endpoint
+        self.headers = {}
 
 
 class _StubAuthService:
@@ -309,12 +322,17 @@ def test_login_raises_other_valueerror(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_auth_service_constructs_service(monkeypatch: pytest.MonkeyPatch) -> None:
+    import tempfile
     from types import SimpleNamespace
+
+    # Create a temporary directory for testing
+    temp_dir = tempfile.mkdtemp()
 
     class DummyConfig:
         jwt_secret = "test-secret"
         jwt_algorithm = "HS256"
         jwt_expires_minutes = 15
+        data_directory = temp_dir
 
     request = SimpleNamespace(
         app=SimpleNamespace(state=SimpleNamespace(config=DummyConfig()))
@@ -452,7 +470,7 @@ def test_change_password_unexpected_error(monkeypatch: pytest.MonkeyPatch) -> No
 
 def test_logout_returns_none() -> None:
     """Test logout returns None (204 No Content)."""
-    result = auth.logout()
+    result = auth.logout(DummyRequest(), DummySession())
     assert result is None
 
 
@@ -521,7 +539,7 @@ def test_update_profile_picture_success(monkeypatch: pytest.MonkeyPatch) -> None
 
     monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
     monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
-    payload = auth.ProfilePictureUpdateRequest(picture_path="/new/path.jpg")
+    payload = ProfilePictureUpdateRequest(picture_path="/new/path.jpg")
     session = DummySession()
     resp = auth.update_profile_picture(DummyRequest(), session, payload)
     assert resp.profile_picture == "/new/path.jpg"
@@ -551,7 +569,7 @@ def test_update_profile_picture_user_not_found(
 
     monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
     monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
-    payload = auth.ProfilePictureUpdateRequest(picture_path="/path.jpg")
+    payload = ProfilePictureUpdateRequest(picture_path="/path.jpg")
     session = DummySession()
 
     with pytest.raises(HTTPException) as exc_info:
@@ -584,7 +602,7 @@ def test_update_profile_picture_unexpected_error(
 
     monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
     monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
-    payload = auth.ProfilePictureUpdateRequest(picture_path="/path.jpg")
+    payload = ProfilePictureUpdateRequest(picture_path="/path.jpg")
     session = DummySession()
 
     with pytest.raises(ValueError, match="unexpected_error"):

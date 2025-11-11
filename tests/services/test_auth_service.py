@@ -56,8 +56,35 @@ def auth_service(
     user_repo: InMemoryUserRepository,
     fake_hasher: FakeHasher,
     fake_jwt: FakeJWTManager,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> AuthService:
-    return AuthService(session, user_repo, fake_hasher, fake_jwt)  # type: ignore[arg-type]
+    """Create AuthService with mocked directory creation."""
+    import tempfile
+
+    # Create a temporary directory for testing
+    temp_dir = tempfile.mkdtemp()
+
+    # Mock _ensure_data_directory_exists to avoid permission errors
+    original_ensure = AuthService._ensure_data_directory_exists
+
+    def mock_ensure(self: AuthService) -> None:
+        """No-op implementation to skip directory creation."""
+
+    monkeypatch.setattr(AuthService, "_ensure_data_directory_exists", mock_ensure)
+
+    # type: ignore[invalid-argument-type]
+    service = AuthService(
+        session,  # type: ignore[arg-type]
+        user_repo,  # type: ignore[arg-type]
+        fake_hasher,  # type: ignore[arg-type]
+        fake_jwt,  # type: ignore[arg-type]
+        data_directory=temp_dir,
+    )
+
+    # Restore original method
+    monkeypatch.setattr(AuthService, "_ensure_data_directory_exists", original_ensure)
+
+    return service
 
 
 def test_register_user_success(
