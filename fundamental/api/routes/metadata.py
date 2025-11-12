@@ -73,7 +73,7 @@ def _parse_comma_separated_list(value: str | None) -> list[str] | None:
     list[str] | None
         List of trimmed strings, or None if input is None.
     """
-    if not value:
+    if not value or not isinstance(value, str):
         return None
     return [item.strip() for item in value.split(",")]
 
@@ -326,13 +326,8 @@ def search_metadata_get(
     --------
     >>> GET /metadata/search?query=The+Great+Gatsby&locale=en&enable_providers=Google Books,Amazon
     """
-    provider_id_list = None
-    if provider_ids:
-        provider_id_list = [pid.strip() for pid in provider_ids.split(",")]
-
-    enable_providers_list = None
-    if enable_providers:
-        enable_providers_list = [name.strip() for name in enable_providers.split(",")]
+    provider_id_list = _parse_comma_separated_list(provider_ids)
+    enable_providers_list = _parse_comma_separated_list(enable_providers)
 
     request = MetadataSearchRequest(
         query=query,

@@ -63,6 +63,7 @@ class MockMetadataService:
         locale: str = "en",
         max_results_per_provider: int = 10,
         provider_ids: list[str] | None = None,
+        enable_providers: list[str] | None = None,
         request_id: str | None = None,
         event_callback: callable | None = None,  # type: ignore[type-arg]
     ) -> list[MetadataRecord]:
@@ -411,6 +412,7 @@ def test_search_metadata_stream_event_callback_serialization_error(
         locale: str = "en",
         max_results_per_provider: int = 10,
         provider_ids: list[str] | None = None,
+        enable_providers: list[str] | None = None,
         request_id: str | None = None,
         event_callback: callable | None = None,  # type: ignore[type-arg]
     ) -> list[MetadataRecord]:
@@ -439,6 +441,7 @@ def test_search_metadata_stream_event_callback_serialization_error(
             locale,
             max_results_per_provider,
             provider_ids,
+            enable_providers,
             request_id,
             event_callback,
         )
