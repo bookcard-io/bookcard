@@ -749,7 +749,9 @@ class CalibreBookRepository:
                 .where(BookAuthorLink.book == book_id)
                 .order_by(BookAuthorLink.id)
             )
-            authors = list(session.exec(authors_stmt).all())
+            # Ensure we get a list[str] even if backend returns row tuples
+            author_rows = session.exec(authors_stmt).all()
+            authors = [row[0] if isinstance(row, tuple) else row for row in author_rows]
 
             return BookWithRelations(
                 book=book,
@@ -808,7 +810,8 @@ class CalibreBookRepository:
                 .where(BookAuthorLink.book == book_id)
                 .order_by(BookAuthorLink.id)
             )
-            authors = list(session.exec(authors_stmt).all())
+            author_rows = session.exec(authors_stmt).all()
+            authors = [row[0] if isinstance(row, tuple) else row for row in author_rows]
 
             # Get tags
             tags_stmt = (
@@ -983,6 +986,8 @@ class CalibreBookRepository:
         existing_links = session.exec(delete_links_stmt).all()
         for link in existing_links:
             session.delete(link)
+        # Flush deletions so subsequent selects/insert logic sees a clean state
+        session.flush()
 
         # Create or get authors and create links
         for author_name in author_names:
@@ -997,15 +1002,9 @@ class CalibreBookRepository:
                 session.flush()
             if author.id is None:
                 continue
-            # Create link if doesn't exist
-            link_stmt = select(BookAuthorLink).where(
-                BookAuthorLink.book == book_id,
-                BookAuthorLink.author == author.id,
-            )
-            existing_link = session.exec(link_stmt).first()
-            if existing_link is None:
-                link = BookAuthorLink(book=book_id, author=author.id)
-                session.add(link)
+            # Recreate link (we removed all links above)
+            link = BookAuthorLink(book=book_id, author=author.id)
+            session.add(link)
 
     def _update_book_series(
         self,
