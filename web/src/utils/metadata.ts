@@ -292,3 +292,31 @@ export function hasFailedProviders(
 export function normalizeProviderName(providerName: string): string {
   return providerName.toLowerCase().replace(/\s+/g, "-");
 }
+
+/**
+ * Calculate providers to send to backend for search.
+ *
+ * Returns preferred providers that are also enabled (intersection).
+ * Only enabled providers are visible in the UI, and only preferred
+ * providers should be searched.
+ *
+ * Parameters
+ * ----------
+ * preferredProviders : Set<string>
+ *     Set of preferred provider names.
+ * enabledProviders : Set<string>
+ *     Set of enabled provider names.
+ *
+ * Returns
+ * -------
+ * string[]
+ *     Array of provider names to send to backend (preferred AND enabled).
+ */
+export function calculateProvidersForBackend(
+  preferredProviders: Set<string>,
+  enabledProviders: Set<string>,
+): string[] {
+  return Array.from(preferredProviders).filter((name) =>
+    enabledProviders.has(name),
+  );
+}

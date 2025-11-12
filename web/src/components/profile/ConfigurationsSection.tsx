@@ -14,6 +14,7 @@ import { DefaultViewModeConfiguration } from "./config/DefaultViewModeConfigurat
 import { DeleteSettingsGroup } from "./config/DeleteSettingsGroup";
 import { DisplayModeConfiguration } from "./config/DisplayModeConfiguration";
 import { LanguagesConfiguration } from "./config/LanguagesConfiguration";
+import { EnabledMetadataProvidersConfiguration } from "./config/EnabledMetadataProvidersConfiguration";
 import { MetadataProvidersConfiguration } from "./config/MetadataProvidersConfiguration";
 import { ReplaceCoverOnMetadataSelectionConfiguration } from "./config/ReplaceCoverOnMetadataSelectionConfiguration";
 import {
@@ -96,6 +97,7 @@ function ConfigurationsSectionContent() {
         ];
       case "content":
         return [
+          <EnabledMetadataProvidersConfiguration key="enabled-metadata-providers" />,
           <MetadataProvidersConfiguration key="metadata-providers" />,
           <ReplaceCoverOnMetadataSelectionConfiguration key="replace-cover-on-metadata-select" />,
           <AutoDismissBookEditModalConfiguration key="auto-dismiss-modal" />,

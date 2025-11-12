@@ -8,8 +8,10 @@ export interface ProviderItem {
   name: string;
   /** Current provider status. */
   status: ProviderStatus;
-  /** Whether provider is enabled. */
+  /** Whether provider is enabled (visible in modal). */
   enabled: boolean;
+  /** Whether provider is preferred (sent to backend). */
+  preferred: boolean;
 }
 
 /**
@@ -65,8 +67,10 @@ function findProviderStatus(
 export interface UseProviderItemsOptions {
   /** Map of provider statuses from search stream. */
   providerStatuses: Map<string, ProviderStatus>;
-  /** Set of enabled provider names. */
+  /** Set of enabled provider names (controls visibility). */
   enabledProviders: Set<string>;
+  /** Set of preferred provider names (controls backend search). */
+  preferredProviders: Set<string>;
 }
 
 /**
@@ -90,9 +94,13 @@ export interface UseProviderItemsOptions {
 export function useProviderItems({
   providerStatuses,
   enabledProviders,
+  preferredProviders,
 }: UseProviderItemsOptions): Array<ProviderItem> {
   return useMemo(() => {
-    return AVAILABLE_METADATA_PROVIDERS.map((providerName) => {
+    // Only show providers that are enabled
+    return AVAILABLE_METADATA_PROVIDERS.filter((providerName) =>
+      enabledProviders.has(providerName),
+    ).map((providerName) => {
       // Find matching status by name
       const status =
         findProviderStatus(providerStatuses, providerName) ||
@@ -102,7 +110,8 @@ export function useProviderItems({
         name: providerName,
         status,
         enabled: enabledProviders.has(providerName),
+        preferred: preferredProviders.has(providerName),
       };
     });
-  }, [providerStatuses, enabledProviders]);
+  }, [providerStatuses, enabledProviders, preferredProviders]);
 }

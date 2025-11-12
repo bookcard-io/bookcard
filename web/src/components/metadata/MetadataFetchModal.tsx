@@ -1,18 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Button } from "@/components/forms/Button";
 import { useAutoSearch } from "@/hooks/useAutoSearch";
+import { useCollapsibleSection } from "@/hooks/useCollapsibleSection";
 import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
 import { useMetadataSearchActions } from "@/hooks/useMetadataSearchActions";
 import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
 import { useMetadataSearchStream } from "@/hooks/useMetadataSearchStream";
 import { useModal } from "@/hooks/useModal";
 import { useModalInteractions } from "@/hooks/useModalInteractions";
+import { usePreferredProviders } from "@/hooks/usePreferredProviders";
 import { useProviderItems } from "@/hooks/useProviderItems";
 import { useProviderSettings } from "@/hooks/useProviderSettings";
 import type { Book, BookUpdate } from "@/types/book";
-import { hasFailedProviders } from "@/utils/metadata";
+import { calculateProvidersForBackend, hasFailedProviders } from "@/utils/metadata";
 import { scrollToProviderResults } from "@/utils/metadataScroll";
 import { getInitialSearchQuery } from "./getInitialSearchQuery";
 import { MetadataProviderStatus } from "./MetadataProviderStatus";
@@ -60,18 +62,22 @@ export function MetadataFetchModal({
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const [isProvidersExpanded, setIsProvidersExpanded] = useState(true);
+  // Manage provider settings
+  const { enabledProviders } = useProviderSettings();
+  const { preferredProviders, togglePreferred } = usePreferredProviders();
 
-  // Manage provider settings (enabled/disabled state)
-  const { enabledProviders, enabledProviderNames, toggleProvider } =
-    useProviderSettings();
+  // Calculate providers to send to backend: preferred AND enabled
+  const providersForBackend = useMemo(
+    () => calculateProvidersForBackend(preferredProviders, enabledProviders),
+    [preferredProviders, enabledProviders],
+  );
 
   const searchStream = useMetadataSearchStream({
     query: searchQuery,
     locale,
     maxResultsPerProvider,
     providerIds,
-    enableProviders: enabledProviderNames,
+    enableProviders: providersForBackend,
     enabled: false, // Manual trigger
   });
 
@@ -85,11 +91,19 @@ export function MetadataFetchModal({
     enabled: true,
   });
 
-  // Check if there are any failed providers to determine default expanded state
+  // Check if there are any failed providers for auto-expansion
   const hasFailed = useMemo(
     () => hasFailedProviders(state.providerStatuses),
     [state.providerStatuses],
   );
+
+  // Manage collapsible providers section
+  const { isExpanded: isProvidersExpanded, toggle: toggleProvidersExpanded } =
+    useCollapsibleSection({
+      initialExpanded: true,
+      autoExpandOnCondition: true,
+      condition: hasFailed,
+    });
 
   // Handle keyboard navigation
   useKeyboardNavigation({
@@ -115,14 +129,8 @@ export function MetadataFetchModal({
   const providerItems = useProviderItems({
     providerStatuses: state.providerStatuses,
     enabledProviders,
+    preferredProviders,
   });
-
-  // Update expanded state when failed providers appear
-  useEffect(() => {
-    if (hasFailed && !isProvidersExpanded) {
-      setIsProvidersExpanded(true);
-    }
-  }, [hasFailed, isProvidersExpanded]);
 
   return (
     /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
@@ -207,7 +215,7 @@ export function MetadataFetchModal({
             <button
               type="button"
               className="flex cursor-pointer items-center justify-between gap-2 border-0 bg-transparent p-0 transition-opacity duration-200 hover:opacity-80 focus:rounded focus:outline-none focus:outline-2 focus:outline-primary-a0 focus:outline-offset-2"
-              onClick={() => setIsProvidersExpanded(!isProvidersExpanded)}
+              onClick={toggleProvidersExpanded}
               aria-expanded={isProvidersExpanded}
               aria-controls="providers-list"
             >
@@ -228,8 +236,8 @@ export function MetadataFetchModal({
                   <MetadataProviderStatus
                     key={providerItem.name}
                     status={providerItem.status}
-                    enabled={providerItem.enabled}
-                    onToggle={() => toggleProvider(providerItem.name)}
+                    enabled={providerItem.preferred}
+                    onToggle={() => togglePreferred(providerItem.name)}
                     onScrollToResults={() =>
                       scrollToProviderResults(providerItem.name)
                     }

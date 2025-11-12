@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { AVAILABLE_METADATA_PROVIDERS } from "@/components/profile/config/configurationConstants";
 import { useUser } from "@/contexts/UserContext";
 
-const SETTING_KEY = "preferred_metadata_providers";
+const SETTING_KEY = "enabled_metadata_providers";
+const DEFAULT_ENABLED_PROVIDERS = ["Google Books", "Amazon"];
 
 /**
  * Parse enabled providers from setting value.
@@ -21,8 +22,8 @@ function parseEnabledProviders(
   settingValue: string | null | undefined,
 ): Set<string> {
   if (!settingValue) {
-    // If no setting, all providers are enabled by default
-    return new Set(AVAILABLE_METADATA_PROVIDERS);
+    // If no setting, use default enabled providers
+    return new Set(DEFAULT_ENABLED_PROVIDERS);
   }
   try {
     const parsed = JSON.parse(settingValue) as string[];
@@ -34,11 +35,11 @@ function parseEnabledProviders(
       // If setting has values, only those providers are enabled
       return new Set(parsed);
     }
-    // Not an array, default to all enabled
-    return new Set(AVAILABLE_METADATA_PROVIDERS);
+    // Not an array, default to default enabled providers
+    return new Set(DEFAULT_ENABLED_PROVIDERS);
   } catch {
-    // Invalid JSON, default to all enabled
-    return new Set(AVAILABLE_METADATA_PROVIDERS);
+    // Invalid JSON, default to default enabled providers
+    return new Set(DEFAULT_ENABLED_PROVIDERS);
   }
 }
 

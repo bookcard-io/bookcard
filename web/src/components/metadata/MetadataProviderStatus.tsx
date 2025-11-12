@@ -5,9 +5,9 @@ import type { ProviderStatus } from "@/hooks/useMetadataSearchStream";
 export interface MetadataProviderStatusProps {
   /** Provider status information. */
   status: ProviderStatus;
-  /** Whether the provider is enabled. */
+  /** Whether the provider is preferred (sent to backend). */
   enabled: boolean;
-  /** Callback when enable/disable toggle is clicked. */
+  /** Callback when preferred toggle is clicked. */
   onToggle: () => void;
   /** Callback to scroll to provider's first result. */
   onScrollToResults?: () => void;
@@ -107,10 +107,10 @@ export function MetadataProviderStatus({
             className="flex cursor-pointer items-center justify-center border-0 bg-transparent p-0 transition-transform duration-200 hover:scale-110 active:scale-95"
             onClick={onToggle}
             aria-label={
-              enabled ? `Disable ${status.name}` : `Enable ${status.name}`
+              enabled ? `Unmark ${status.name} as preferred` : `Mark ${status.name} as preferred`
             }
             aria-pressed={enabled}
-            title={enabled ? "Disable provider" : "Enable provider"}
+            title={enabled ? "Unmark as preferred" : "Mark as preferred"}
           >
             <i
               className={`pi ${enabled ? "pi-check-circle" : "pi-circle"} text-sm transition-colors duration-200 ${enabled ? "text-success-a0" : "text-text-a30"}`}
