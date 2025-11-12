@@ -77,7 +77,12 @@ export function ProfileMenu({
     >
       {/* Header section with profile picture and name */}
       <div className="bg-surface-tonal-a0 px-4 py-5">
-        <div className="flex flex-col items-center gap-2">
+        <button
+          type="button"
+          className="flex w-full cursor-pointer flex-col items-center gap-2 border-0 bg-transparent p-0 text-center"
+          onClick={handleViewProfileClick}
+          aria-label="View profile"
+        >
           {/* Profile picture or placeholder */}
           {profilePictureUrl ? (
             <img
@@ -101,7 +106,7 @@ export function ProfileMenu({
           <span className="font-medium text-sm text-text-a0">
             {displayName}
           </span>
-        </div>
+        </button>
       </div>
       {/* Menu items */}
       <DropdownMenuItem
