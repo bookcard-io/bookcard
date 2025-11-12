@@ -28,8 +28,8 @@ import { DefaultSortOrderConfiguration } from "./config/DefaultSortOrderConfigur
 import { DefaultViewModeConfiguration } from "./config/DefaultViewModeConfiguration";
 import { DeleteSettingsGroup } from "./config/DeleteSettingsGroup";
 import { DisplayModeConfiguration } from "./config/DisplayModeConfiguration";
-import { LanguagesConfiguration } from "./config/LanguagesConfiguration";
 import { EnabledMetadataProvidersConfiguration } from "./config/EnabledMetadataProvidersConfiguration";
+import { LanguagesConfiguration } from "./config/LanguagesConfiguration";
 import { MetadataProvidersConfiguration } from "./config/MetadataProvidersConfiguration";
 import { ReplaceCoverOnMetadataSelectionConfiguration } from "./config/ReplaceCoverOnMetadataSelectionConfiguration";
 import {

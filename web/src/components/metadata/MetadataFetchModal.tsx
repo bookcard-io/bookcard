@@ -29,7 +29,10 @@ import { usePreferredProviders } from "@/hooks/usePreferredProviders";
 import { useProviderItems } from "@/hooks/useProviderItems";
 import { useProviderSettings } from "@/hooks/useProviderSettings";
 import type { Book, BookUpdate } from "@/types/book";
-import { calculateProvidersForBackend, hasFailedProviders } from "@/utils/metadata";
+import {
+  calculateProvidersForBackend,
+  hasFailedProviders,
+} from "@/utils/metadata";
 import { scrollToProviderResults } from "@/utils/metadataScroll";
 import { getInitialSearchQuery } from "./getInitialSearchQuery";
 import { MetadataProviderStatus } from "./MetadataProviderStatus";

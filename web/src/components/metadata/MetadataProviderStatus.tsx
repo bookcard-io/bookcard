@@ -122,7 +122,9 @@ export function MetadataProviderStatus({
             className="flex cursor-pointer items-center justify-center border-0 bg-transparent p-0 transition-transform duration-200 hover:scale-110 active:scale-95"
             onClick={onToggle}
             aria-label={
-              enabled ? `Unmark ${status.name} as preferred` : `Mark ${status.name} as preferred`
+              enabled
+                ? `Unmark ${status.name} as preferred`
+                : `Mark ${status.name} as preferred`
             }
             aria-pressed={enabled}
             title={enabled ? "Unmark as preferred" : "Mark as preferred"}

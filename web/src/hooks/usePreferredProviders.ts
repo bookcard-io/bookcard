@@ -17,7 +17,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useUser } from "@/contexts/UserContext";
 
 const SETTING_KEY = "preferred_metadata_providers";
-const DEFAULT_VALUE: string[] = [];
+const _DEFAULT_VALUE: string[] = [];
 
 /**
  * Parse preferred providers from setting value.
