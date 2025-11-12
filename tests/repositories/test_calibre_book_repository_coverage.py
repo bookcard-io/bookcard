@@ -371,13 +371,10 @@ def test_add_book_with_metadata(temp_repo: CalibreBookRepository) -> None:
             series="Test Series",
         )
 
-        with patch(
-            "fundamental.services.book_metadata_extractor.BookMetadataExtractor"
-        ) as mock_extractor_class:
-            mock_extractor = MagicMock()
-            mock_extractor.extract_metadata.return_value = mock_metadata
-            mock_extractor_class.return_value = mock_extractor
-
+        # Mock _extract_book_data to avoid needing a real EPUB file
+        with patch.object(
+            repo, "_extract_book_data", return_value=(mock_metadata, None)
+        ):
             book_id = repo.add_book(test_file, "epub", library_path=library_path)
 
             assert book_id is not None
