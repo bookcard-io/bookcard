@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Web app for browsing, reading, and downloading ebooks stored in a calibre database."
 readme = "README.md"
 requires-python = ">=3.12"
-license = "MIT"
+license = "GPL-3.0-or-later"
 license-files = [ "LICENSE" ]
 dependencies = [
     "alembic>=1.17.1",
@@ -115,6 +115,7 @@ select = [
     "PERF",
     "C901",
     "ANN",
+    "CPY",
     # "FBT", # use named arguments for boolean flags
     # "TD", # todos
     # "FIX", # fixme
