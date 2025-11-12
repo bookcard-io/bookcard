@@ -2,7 +2,6 @@
 
 import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
 import { MetadataResultItem } from "./MetadataResultItem";
-import styles from "./MetadataResultsList.module.scss";
 
 export interface MetadataResultsListProps {
   results: MetadataRecord[];
@@ -22,7 +21,7 @@ export function MetadataResultsList({
   const seenSourceIds = new Set<string>();
 
   return (
-    <div className={styles.container}>
+    <div className="mt-2 flex flex-col gap-3">
       {results.map((r, idx) => {
         const isFirstForProvider = !seenSourceIds.has(r.source_id);
         if (isFirstForProvider) {
