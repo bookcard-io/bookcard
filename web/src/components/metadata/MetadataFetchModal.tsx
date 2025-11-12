@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/forms/Button";
 import { AVAILABLE_METADATA_PROVIDERS } from "@/components/profile/config/configurationConstants";
 import { useUser } from "@/contexts/UserContext";
@@ -17,7 +17,6 @@ import { useModalInteractions } from "@/hooks/useModalInteractions";
 import type { Book, BookUpdate } from "@/types/book";
 import { hasFailedProviders } from "@/utils/metadata";
 import { getInitialSearchQuery } from "./getInitialSearchQuery";
-import styles from "./MetadataFetchModal.module.scss";
 import { MetadataProviderStatus } from "./MetadataProviderStatus";
 import { MetadataResultsList } from "./MetadataResultsList";
 import { MetadataSearchInput } from "./MetadataSearchInput";
@@ -238,16 +237,46 @@ export function MetadataFetchModal({
     }
   }, [hasFailed, isProvidersExpanded]);
 
+  // Scroll to first result of a provider
+  const handleScrollToProviderResults = useCallback((providerName: string) => {
+    // First, scroll to the results section container
+    const resultsSection = document.getElementById("metadata-results-section");
+    if (resultsSection) {
+      resultsSection.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+
+    // Then, after a short delay, scroll to the specific provider's first result
+    // This ensures the results section is visible first
+    setTimeout(() => {
+      // Normalize provider name to match source_id format
+      // e.g., "Google Books" -> "google-books"
+      const sourceId = providerName.toLowerCase().replace(/\s+/g, "-");
+      const elementId = `result-${sourceId}`;
+      const element = document.getElementById(elementId);
+
+      if (element) {
+        // Scroll to the element with smooth behavior
+        element.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }
+    }, 100);
+  }, []);
+
   return (
     /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
     <div
-      className={styles.modalOverlay}
+      className="fixed inset-0 z-[1000] flex animate-[fadeIn_0.2s_ease-out] items-center justify-center overflow-y-auto bg-black/70 p-4 md:p-2"
       onClick={handleOverlayClick}
       onKeyDown={handleOverlayKeyDown}
       role="presentation"
     >
       <div
-        className={styles.modal}
+        className="relative flex max-h-[95vh] min-h-[95vh] w-full min-w-[850px] max-w-[60vw] animate-[slideUp_0.3s_ease-out] flex-col overflow-y-auto rounded-2xl bg-surface-a10 shadow-[0_20px_60px_rgba(0,0,0,0.5)] md:max-h-[98vh] md:min-h-[98vh] md:rounded-xl"
         role="dialog"
         aria-modal="true"
         aria-label="Fetch metadata"
@@ -256,23 +285,25 @@ export function MetadataFetchModal({
         <button
           type="button"
           onClick={handleClose}
-          className={styles.closeButton}
+          className="absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border-0 bg-transparent p-2 text-3xl text-text-a30 leading-none transition-all duration-200 hover:bg-surface-a20 hover:text-text-a0 focus:outline-none focus:outline-2 focus:outline-primary-a0 focus:outline-offset-2"
           aria-label="Close"
         >
           ×
         </button>
 
-        <div className={styles.content}>
-          <div className={styles.header}>
-            <h2 className={styles.title}>Fetch Metadata</h2>
-            <p className={styles.subtitle}>
+        <div className="flex min-h-0 flex-1 flex-col gap-6 p-6 md:gap-4 md:p-4">
+          <div className="flex flex-col gap-2">
+            <h2 className="m-0 font-bold text-2xl text-text-a0 md:text-xl">
+              Fetch Metadata
+            </h2>
+            <p className="m-0 text-sm text-text-a30">
               Search external sources for book metadata. Click the cover to load
               metadata to the form.
             </p>
           </div>
 
-          <div className={styles.searchSection}>
-            <div className={styles.searchInputWrapper}>
+          <div className="flex flex-row items-start gap-3">
+            <div className="min-w-0 flex-1">
               <MetadataSearchInput
                 ref={searchInputRef}
                 value={searchQuery}
@@ -305,7 +336,10 @@ export function MetadataFetchModal({
           </div>
 
           {state.error && (
-            <div className={styles.error} role="alert">
+            <div
+              className="rounded-lg border border-danger-a0 bg-[rgba(156,33,33,0.15)] px-3 py-3 text-danger-a10 text-sm"
+              role="alert"
+            >
               <strong>Error:</strong> {state.error}
             </div>
           )}
@@ -314,28 +348,36 @@ export function MetadataFetchModal({
             <MetadataSearchProgress state={state} />
           )}
 
-          <div className={styles.providersSection}>
+          <div className="flex flex-col gap-2">
             <button
               type="button"
-              className={styles.providersHeader}
+              className="flex cursor-pointer items-center justify-between gap-2 border-0 bg-transparent p-0 transition-opacity duration-200 hover:opacity-80 focus:rounded focus:outline-none focus:outline-2 focus:outline-primary-a0 focus:outline-offset-2"
               onClick={() => setIsProvidersExpanded(!isProvidersExpanded)}
               aria-expanded={isProvidersExpanded}
               aria-controls="providers-list"
             >
-              <h3 className={styles.providersTitle}>Providers</h3>
+              <h3 className="m-0 font-semibold text-[0.9rem] text-text-a0">
+                Providers
+              </h3>
               <span
-                className={`pi ${isProvidersExpanded ? "pi-chevron-up" : "pi-chevron-down"} ${styles.chevronIcon}`}
+                className={`pi flex-shrink-0 text-sm text-text-a30 transition-transform duration-200 ${isProvidersExpanded ? "pi-chevron-up" : "pi-chevron-down"}`}
                 aria-hidden="true"
               />
             </button>
             {isProvidersExpanded && (
-              <div id="providers-list" className={styles.providersList}>
+              <div
+                id="providers-list"
+                className="scrollbar-custom grid max-h-80 grid-cols-3 gap-1.5 overflow-y-auto pr-1 md:max-h-60 [&>*:last-child:nth-child(3n+1):nth-child(n+4)]:col-span-full"
+              >
                 {providerItems.map((providerItem) => (
                   <MetadataProviderStatus
                     key={providerItem.name}
                     status={providerItem.status}
                     enabled={providerItem.enabled}
                     onToggle={() => handleProviderToggle(providerItem.name)}
+                    onScrollToResults={() =>
+                      handleScrollToProviderResults(providerItem.name)
+                    }
                   />
                 ))}
               </div>
@@ -343,8 +385,10 @@ export function MetadataFetchModal({
           </div>
 
           {state.results?.length > 0 && (
-            <div className={styles.resultsSection}>
-              <h3 className={styles.resultsTitle}>Results</h3>
+            <div id="metadata-results-section" className="flex flex-col gap-2">
+              <h3 className="m-0 font-semibold text-[0.9rem] text-text-a0">
+                Results
+              </h3>
               <MetadataResultsList
                 results={state.results}
                 onSelectMetadata={onSelectMetadata}
@@ -356,7 +400,7 @@ export function MetadataFetchModal({
             state.totalProviders > 0 &&
             state.providersCompleted + state.providersFailed ===
               state.totalProviders && (
-              <div className={styles.completedMessage}>
+              <div className="rounded-lg border border-success-a0 bg-[rgba(34,148,110,0.15)] px-3 py-3 text-center text-sm text-success-a10">
                 Search completed. Found {state.totalResults} result
                 {state.totalResults !== 1 ? "s" : ""} from{" "}
                 {state.providersCompleted} provider

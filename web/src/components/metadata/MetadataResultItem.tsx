@@ -9,18 +9,21 @@ export interface MetadataResultItemProps {
   record: MetadataRecord;
   /** Callback when this item is selected. */
   onSelect?: (record: MetadataRecord) => void;
+  /** Optional ID for scrolling to this item. */
+  id?: string;
 }
 
 export function MetadataResultItem({
   record,
   onSelect,
+  id,
 }: MetadataResultItemProps) {
   const handleClick = useCallback(() => {
     onSelect?.(record);
   }, [onSelect, record]);
 
   return (
-    <div className={styles.container}>
+    <div id={id} className={styles.container}>
       <div className={styles.coverWrap}>
         {record.cover_url ? (
           <button

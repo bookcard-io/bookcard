@@ -104,3 +104,25 @@
     transform: translateY(0);
   }
 }
+
+@layer utilities {
+  .scrollbar-custom {
+    &::-webkit-scrollbar {
+      width: 0.5rem;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: var(--color-surface-a10);
+      border-radius: 0.25rem;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--color-surface-a30);
+      border-radius: 0.25rem;
+
+      &:hover {
+        background: var(--color-surface-a40);
+      }
+    }
+  }
+}

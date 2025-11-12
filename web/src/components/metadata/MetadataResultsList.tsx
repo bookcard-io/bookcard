@@ -17,15 +17,26 @@ export function MetadataResultsList({
   if (!results || results.length === 0) {
     return null;
   }
+
+  // Track first occurrence of each source_id to add IDs for scrolling
+  const seenSourceIds = new Set<string>();
+
   return (
     <div className={styles.container}>
-      {results.map((r, idx) => (
-        <MetadataResultItem
-          key={`${r.source_id}:${r.external_id}:${idx}`}
-          record={r}
-          onSelect={onSelectMetadata}
-        />
-      ))}
+      {results.map((r, idx) => {
+        const isFirstForProvider = !seenSourceIds.has(r.source_id);
+        if (isFirstForProvider) {
+          seenSourceIds.add(r.source_id);
+        }
+        return (
+          <MetadataResultItem
+            key={`${r.source_id}:${r.external_id}:${idx}`}
+            record={r}
+            onSelect={onSelectMetadata}
+            id={isFirstForProvider ? `result-${r.source_id}` : undefined}
+          />
+        );
+      })}
     </div>
   );
 }
