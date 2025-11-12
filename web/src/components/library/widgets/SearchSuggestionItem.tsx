@@ -15,7 +15,6 @@
 
 import type { SearchSuggestion } from "@/types/search";
 import { highlightText } from "@/utils/textHighlight";
-import styles from "./SearchInput.module.scss";
 
 export interface SearchSuggestionItemProps {
   /**
@@ -50,12 +49,18 @@ export function SearchSuggestionItem({
   return (
     <button
       type="button"
-      className={styles.suggestionItem}
+      className="flex w-full cursor-pointer items-center gap-3 border-none bg-transparent px-4 py-2.5 text-left transition-colors duration-150 first:border-t-0 hover:bg-surface-tonal-a20 focus:bg-surface-tonal-a20 focus:outline-none"
       onClick={handleClick}
     >
-      <span className={styles.suggestionPill}>{suggestion.type}</span>
-      <span className={styles.suggestionText}>
-        {highlightText(suggestion.name, query, styles.highlight as string)}
+      <span className="inline-block min-w-[60px] shrink-0 rounded-full bg-surface-tonal-a50 px-2 py-1 text-center font-medium text-[11px] text-surface-a0 uppercase tracking-[0.5px]">
+        {suggestion.type}
+      </span>
+      <span className="flex-1 text-sm text-text-a0 leading-[1.4]">
+        {highlightText(
+          suggestion.name,
+          query,
+          "bg-[#9b59b6] text-text-a0 px-0.5 rounded-sm font-medium",
+        )}
       </span>
     </button>
   );

@@ -21,7 +21,6 @@ import { useClickOutside } from "@/hooks/useClickOutside";
 import { useSearchSuggestions } from "@/hooks/useSearchSuggestions";
 import { Search } from "@/icons/Search";
 import type { SearchSuggestion } from "@/types/search";
-import styles from "./SearchInput.module.scss";
 import { SearchSuggestionsDropdown } from "./SearchSuggestionsDropdown";
 
 export interface SearchInputProps {
@@ -148,14 +147,17 @@ export function SearchInput({
     showSuggestions && (suggestions.length > 0 || isLoading);
 
   return (
-    <div className={styles.searchWrapper} ref={containerRef}>
-      <form className={styles.searchForm} onSubmit={handleSubmit}>
-        <div className={styles.searchContainer}>
-          <Search className={styles.searchIcon} aria-hidden="true" />
+    <div className="relative min-w-0 flex-1" ref={containerRef}>
+      <form className="min-w-0 flex-1" onSubmit={handleSubmit}>
+        <div className="relative flex w-full items-center">
+          <Search
+            className="pointer-events-none absolute left-3 z-[1] h-[18px] w-[18px] text-text-a30"
+            aria-hidden="true"
+          />
           <input
             ref={inputRef}
             type="text"
-            className={styles.searchInput}
+            className="w-full rounded-lg border border-surface-a20 bg-surface-tonal-a10 py-2.5 pr-4 pl-10 font-inherit text-sm text-text-a0 transition-[border-color,background-color] duration-200 placeholder:text-text-a40 hover:border-surface-a30 focus:border-primary-a0 focus:bg-surface-tonal-a0 focus:outline-none"
             placeholder={placeholder}
             value={query}
             onChange={handleChange}

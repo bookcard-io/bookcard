@@ -14,7 +14,6 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import type { SearchSuggestion } from "@/types/search";
-import styles from "./SearchInput.module.scss";
 import { SearchSuggestionItem } from "./SearchSuggestionItem";
 
 export interface SearchSuggestionsDropdownProps {
@@ -50,8 +49,10 @@ export function SearchSuggestionsDropdown({
 }: SearchSuggestionsDropdownProps) {
   if (isLoading) {
     return (
-      <div className={styles.suggestionsDropdown}>
-        <div className={styles.suggestionItem}>Loading...</div>
+      <div className="absolute top-[calc(100%+4px)] right-0 left-0 z-[1000] mt-1 max-h-[400px] min-w-[400px] overflow-y-auto rounded-lg border border-surface-a20 bg-surface-tonal-a10 shadow-[0_4px_12px_rgba(0,0,0,0.15)]">
+        <div className="flex w-full cursor-pointer items-center gap-3 border-none bg-transparent px-4 py-2.5 text-left transition-colors duration-150">
+          Loading...
+        </div>
       </div>
     );
   }
@@ -61,8 +62,8 @@ export function SearchSuggestionsDropdown({
   }
 
   return (
-    <div className={styles.suggestionsDropdown}>
-      <div className={styles.suggestionsHeader}>
+    <div className="absolute top-[calc(100%+4px)] right-0 left-0 z-[1000] mt-1 max-h-[400px] min-w-[400px] overflow-y-auto rounded-lg border border-surface-a20 bg-surface-tonal-a10 shadow-[0_4px_12px_rgba(0,0,0,0.15)]">
+      <div className="border-surface-a20 border-b px-4 py-3 text-[13px] text-text-a30">
         All books containing {query}
       </div>
       {suggestions.map((suggestion) => (
