@@ -76,6 +76,8 @@ from fundamental.repositories.delete_commands import (
 from fundamental.repositories.filters import FilterBuilder
 from fundamental.repositories.models import BookWithFullRelations, BookWithRelations
 from fundamental.repositories.suggestions import FilterSuggestionFactory
+from fundamental.services.book_cover_extractor import BookCoverExtractor
+from fundamental.services.book_metadata_extractor import BookMetadataExtractor
 
 if TYPE_CHECKING:
     import sqlite3
@@ -1943,6 +1945,186 @@ class CalibreBookRepository:
         library_file_path = book_dir / f"{title_dir}.{file_format.lower()}"
         shutil.copy2(file_path, library_file_path)
 
+    def _save_book_cover(
+        self,
+        cover_data: bytes,
+        library_path: Path,
+        book_path_str: str,
+    ) -> bool:
+        """Save book cover image to library directory structure.
+
+        Saves cover as cover.jpg in the book's directory. Converts image
+        to JPEG format if necessary.
+
+        Parameters
+        ----------
+        cover_data : bytes
+            Cover image data as bytes.
+        library_path : Path
+            Library root path.
+        book_path_str : str
+            Book path string (Author/Title format).
+
+        Returns
+        -------
+        bool
+            True if cover was saved successfully, False otherwise.
+        """
+        from io import BytesIO
+
+        from PIL import Image
+
+        try:
+            # Load image from bytes
+            img = Image.open(BytesIO(cover_data))
+
+            # Convert to RGB if necessary (for JPEG compatibility)
+            if img.mode != "RGB":
+                img = img.convert("RGB")
+
+            # Save as JPEG
+            book_dir = library_path / book_path_str
+            book_dir.mkdir(parents=True, exist_ok=True)
+            cover_path = book_dir / "cover.jpg"
+
+            # Save with quality 85 (good balance of size and quality)
+            img.save(cover_path, format="JPEG", quality=85)
+        except (OSError, ValueError, TypeError, AttributeError):
+            # If image processing fails, return False
+            # This allows the book to be added even if cover extraction fails
+            return False
+        else:
+            return True
+
+    def _extract_book_data(
+        self, file_path: Path, file_format: str
+    ) -> tuple[BookMetadata, bytes | None]:
+        """Extract metadata and cover art from book file.
+
+        Parameters
+        ----------
+        file_path : Path
+            Path to the book file.
+        file_format : str
+            File format extension.
+
+        Returns
+        -------
+        tuple[BookMetadata, bytes | None]
+            Tuple of (BookMetadata, cover_data).
+        """
+        extractor = BookMetadataExtractor()
+        metadata = extractor.extract_metadata(file_path, file_format, file_path.name)
+
+        cover_extractor = BookCoverExtractor()
+        cover_data = cover_extractor.extract_cover(file_path, file_format)
+
+        return metadata, cover_data
+
+    def _normalize_book_info(
+        self, title: str | None, author_name: str | None, metadata: BookMetadata
+    ) -> tuple[str, str]:
+        """Normalize title and author name from provided values or metadata.
+
+        Parameters
+        ----------
+        title : str | None
+            Provided title.
+        author_name : str | None
+            Provided author name.
+        metadata : object
+            Extracted BookMetadata.
+
+        Returns
+        -------
+        tuple[str, str]
+            Tuple of (normalized_title, normalized_author_name).
+        """
+        if title is None:
+            title = metadata.title
+        if not title or title.strip() == "":
+            title = "Unknown"
+
+        if author_name is None or author_name.strip() == "":
+            author_name = metadata.author
+        if not author_name or author_name.strip() == "":
+            author_name = "Unknown"
+
+        return title, author_name
+
+    def _create_book_database_records(
+        self,
+        session: Session,
+        title: str,
+        author_name: str,
+        book_path_str: str,
+        metadata: BookMetadata,
+        file_format_upper: str,
+        title_dir: str,
+        file_size: int,
+    ) -> tuple[Book, int]:
+        """Create all database records for a new book.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        title : str
+            Book title.
+        author_name : str
+            Author name.
+        book_path_str : str
+            Book path string.
+        metadata : BookMetadata
+            Extracted BookMetadata.
+        file_format_upper : str
+            File format in uppercase.
+        title_dir : str
+            Sanitized title directory name.
+        file_size : int
+            File size in bytes.
+
+        Returns
+        -------
+        tuple[Book, int]
+            Tuple of (created Book, book_id).
+        """
+        author = self._get_or_create_author(session, author_name)
+        sort_title = metadata.sort_title or title
+
+        db_book = self._create_book_record(
+            session,
+            title,
+            author_name,
+            book_path_str,
+            pubdate=metadata.pubdate,
+            series_index=metadata.series_index,
+        )
+
+        if metadata.sort_title and db_book.sort != sort_title:
+            db_book.sort = sort_title
+
+        if db_book.id is None:
+            msg = "Book ID is None after creation"
+            raise ValueError(msg)
+
+        book_id = db_book.id
+
+        book_author_link = BookAuthorLink(book=book_id, author=author.id)
+        session.add(book_author_link)
+
+        self._add_book_metadata(session, book_id, metadata)
+
+        db_data = Data(
+            book=book_id,
+            format=file_format_upper,
+            uncompressed_size=file_size,
+            name=title_dir,
+        )
+        session.add(db_data)
+
+        return db_book, book_id
+
     def add_book(
         self,
         file_path: Path,
@@ -1987,24 +2169,8 @@ class CalibreBookRepository:
         if library_path is None:
             library_path = self._calibre_db_path
 
-        # Extract metadata from file if not provided
-        from fundamental.services.book_metadata_extractor import (
-            BookMetadataExtractor,
-        )
-
-        extractor = BookMetadataExtractor()
-        metadata = extractor.extract_metadata(file_path, file_format, file_path.name)
-
-        # Use provided values or fall back to extracted metadata
-        if title is None:
-            title = metadata.title
-        if not title or title.strip() == "":
-            title = "Unknown"
-
-        if author_name is None or author_name.strip() == "":
-            author_name = metadata.author
-        if not author_name or author_name.strip() == "":
-            author_name = "Unknown"
+        metadata, cover_data = self._extract_book_data(file_path, file_format)
+        title, author_name = self._normalize_book_info(title, author_name, metadata)
 
         file_format_upper = file_format.upper().lstrip(".")
         author_dir = self._sanitize_filename(author_name)
@@ -2012,48 +2178,29 @@ class CalibreBookRepository:
         book_path_str = f"{author_dir}/{title_dir}".replace("\\", "/")
 
         with self._get_session() as session:
-            author = self._get_or_create_author(session, author_name)
-            # Use sort_title if available, otherwise use title
-            sort_title = metadata.sort_title or title
-
-            db_book = self._create_book_record(
+            file_size = file_path.stat().st_size
+            db_book, book_id = self._create_book_database_records(
                 session,
                 title,
                 author_name,
                 book_path_str,
-                pubdate=metadata.pubdate,
-                series_index=metadata.series_index,
+                metadata,
+                file_format_upper,
+                title_dir,
+                file_size,
             )
-
-            # Update sort field if we have a sort_title
-            if metadata.sort_title and db_book.sort != sort_title:
-                db_book.sort = sort_title
-
-            if db_book.id is None:
-                msg = "Book ID is None after creation"
-                raise ValueError(msg)
-
-            book_id = db_book.id
-
-            book_author_link = BookAuthorLink(book=book_id, author=author.id)
-            session.add(book_author_link)
-
-            # Add all metadata relationships
-            self._add_book_metadata(session, book_id, metadata)
-
-            # Add file data entry
-            file_size = file_path.stat().st_size
-            db_data = Data(
-                book=book_id,
-                format=file_format_upper,
-                uncompressed_size=file_size,
-                name=title_dir,
-            )
-            session.add(db_data)
 
             self._save_book_file(
                 file_path, library_path, book_path_str, title_dir, file_format
             )
+
+            if cover_data:
+                cover_saved = self._save_book_cover(
+                    cover_data, library_path, book_path_str
+                )
+                if cover_saved:
+                    db_book.has_cover = True
+                    session.add(db_book)
 
             session.commit()
             return book_id
