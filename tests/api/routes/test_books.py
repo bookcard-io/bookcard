@@ -55,6 +55,9 @@ class MockBookService:
         | None = None,
         update_book_result: BookWithFullRelations | None = None,
     ) -> None:
+        # Allow dynamic assignment of methods for testing
+        self.delete_book: object | None = None
+        self.add_book: object | None = None
         self._list_books_result = list_books_result or ([], 0)
         self._get_book_result = get_book_result
         self._get_book_full_result = get_book_full_result
@@ -1108,3 +1111,195 @@ def test_update_book_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 500
     assert exc_info.value.detail == "book_missing_id"
+
+
+def test_delete_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test delete_book succeeds (covers lines 482-489)."""
+    session = DummySession()
+
+    mock_service = MockBookService()
+    mock_service.delete_book = MagicMock(return_value=None)  # type: ignore[assignment]
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    delete_request = books.BookDeleteRequest(delete_files_from_drive=True)
+    result = books.delete_book(session, book_id=1, delete_request=delete_request)
+    assert result is None
+    mock_service.delete_book.assert_called_once_with(
+        book_id=1, delete_files_from_drive=True
+    )
+
+
+def test_delete_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test delete_book raises 404 when book not found (covers lines 489-495)."""
+    session = DummySession()
+
+    mock_service = MockBookService()
+    mock_service.delete_book = MagicMock(side_effect=ValueError("book_not_found"))  # type: ignore[assignment]
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    delete_request = books.BookDeleteRequest(delete_files_from_drive=False)
+
+    with pytest.raises(HTTPException) as exc_info:
+        books.delete_book(session, book_id=999, delete_request=delete_request)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "book_not_found"
+
+
+def test_delete_book_other_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test delete_book raises 500 for other ValueError (covers lines 496-499)."""
+    session = DummySession()
+
+    mock_service = MockBookService()
+    # Use a ValueError that's not "book_not_found" to trigger the else branch
+    mock_service.delete_book = MagicMock(side_effect=ValueError("other_error"))  # type: ignore[assignment]
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    delete_request = books.BookDeleteRequest(delete_files_from_drive=False)
+
+    with pytest.raises(HTTPException) as exc_info:
+        books.delete_book(session, book_id=1, delete_request=delete_request)
+    # This should execute line 496-499 (the else branch for ValueError)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.detail == "other_error"
+
+
+def test_delete_book_os_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test delete_book handles OSError (covers lines 500-504)."""
+    session = DummySession()
+
+    mock_service = MockBookService()
+    mock_service.delete_book = MagicMock(side_effect=OSError("Permission denied"))  # type: ignore[assignment]
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    delete_request = books.BookDeleteRequest(delete_files_from_drive=True)
+
+    with pytest.raises(HTTPException) as exc_info:
+        books.delete_book(session, book_id=1, delete_request=delete_request)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 500
+    assert "Failed to delete files from filesystem" in exc_info.value.detail
+
+
+def test_upload_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test upload_book succeeds (covers lines 1174-1218)."""
+    import tempfile
+    from pathlib import Path
+    from unittest.mock import MagicMock
+
+    session = DummySession()
+
+    mock_service = MockBookService()
+    mock_service.add_book = MagicMock(return_value=1)  # type: ignore[assignment]
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    # Create a real temporary file to test the actual code path
+    with tempfile.NamedTemporaryFile(
+        delete=False, suffix=".epub", prefix="calibre_upload_"
+    ) as temp_file:
+        temp_path = Path(temp_file.name)
+        temp_path.write_bytes(b"fake epub content")
+
+        mock_file = MagicMock()
+        mock_file.filename = "test.epub"
+        mock_file.file = MagicMock()
+        mock_file.file.read.return_value = b"fake epub content"
+
+        try:
+            # This should execute lines 1174-1218
+            result = books.upload_book(session, file=mock_file)
+            assert result.book_id == 1
+        finally:
+            # Clean up
+            if temp_path.exists():
+                temp_path.unlink(missing_ok=True)
+
+
+def test_upload_book_no_extension(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test upload_book raises 400 when file has no extension (covers lines 1177-1182)."""
+    from unittest.mock import MagicMock
+
+    session = DummySession()
+
+    mock_service = MockBookService()
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    mock_file = MagicMock()
+    mock_file.filename = "test"  # No extension
+
+    with pytest.raises(HTTPException) as exc_info:
+        books.upload_book(session, file=mock_file)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "file_extension_required"
+
+
+def test_upload_book_save_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test upload_book handles file save error (covers lines 1195-1200)."""
+    from unittest.mock import MagicMock
+
+    session = DummySession()
+
+    mock_service = MockBookService()
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    mock_file = MagicMock()
+    mock_file.filename = "test.epub"
+    mock_file.file = MagicMock()
+    mock_file.file.read.side_effect = OSError("Read error")
+
+    with patch("tempfile.NamedTemporaryFile") as mock_temp:
+        mock_temp_file = MagicMock()
+        mock_temp_file.name = "/tmp/test_upload.epub"
+        mock_temp_file.__enter__.return_value = mock_temp_file
+        mock_temp.return_value = mock_temp_file
+
+        with patch("pathlib.Path.unlink"):
+            with pytest.raises(HTTPException) as exc_info:
+                books.upload_book(session, file=mock_file)
+            assert isinstance(exc_info.value, HTTPException)
+            assert exc_info.value.status_code == 500
+            assert "failed_to_save_file" in exc_info.value.detail

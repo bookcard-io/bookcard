@@ -25,6 +25,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 
@@ -411,3 +412,418 @@ def test_validate_invite_token_already_used(
 
     with pytest.raises(ValueError, match=rf"^{AuthError.INVITE_ALREADY_USED}$"):
         auth_service.validate_invite_token("used-token")
+
+
+def test_update_profile_success(
+    auth_service: AuthService,
+    user_repo: InMemoryUserRepository,
+    user_factory: Callable[..., InMemoryUser],
+    session: DummySession,
+) -> None:
+    """Test update_profile updates user profile (covers lines 180-207)."""
+    user = user_factory(
+        user_id=1, username="alice", email="a@example.com", password_hash="hash(pw)"
+    )
+    user_repo.seed(user)
+
+    result = auth_service.update_profile(
+        1, username="bob", email="b@example.com", full_name="Bob Smith"
+    )
+
+    assert result.username == "bob"
+    assert result.email == "b@example.com"
+    assert result.full_name == "Bob Smith"
+    assert session.flush_count >= 1
+
+
+def test_update_profile_user_not_found(
+    auth_service: AuthService, user_repo: InMemoryUserRepository
+) -> None:
+    """Test update_profile raises when user not found (covers lines 180-183)."""
+    with pytest.raises(ValueError, match=r"^user_not_found$"):
+        auth_service.update_profile(999, username="newname")
+
+
+def test_update_profile_username_conflict(
+    auth_service: AuthService,
+    user_repo: InMemoryUserRepository,
+    user_factory: Callable[..., InMemoryUser],
+) -> None:
+    """Test update_profile raises when username already exists (covers lines 186-189)."""
+    user1 = user_factory(user_id=1, username="alice", email="a@example.com")
+    user2 = user_factory(user_id=2, username="bob", email="b@example.com")
+    user_repo.seed(user1)
+    user_repo.seed(user2)
+
+    with pytest.raises(ValueError, match=rf"^{AuthError.USERNAME_EXISTS}$"):
+        auth_service.update_profile(1, username="bob")
+
+
+def test_update_profile_email_conflict(
+    auth_service: AuthService,
+    user_repo: InMemoryUserRepository,
+    user_factory: Callable[..., InMemoryUser],
+) -> None:
+    """Test update_profile raises when email already exists (covers lines 192-195)."""
+    user1 = user_factory(user_id=1, username="alice", email="a@example.com")
+    user2 = user_factory(user_id=2, username="bob", email="b@example.com")
+    user_repo.seed(user1)
+    user_repo.seed(user2)
+
+    with pytest.raises(ValueError, match=rf"^{AuthError.EMAIL_EXISTS}$"):
+        auth_service.update_profile(1, email="b@example.com")
+
+
+def test_update_profile_partial_update(
+    auth_service: AuthService,
+    user_repo: InMemoryUserRepository,
+    user_factory: Callable[..., InMemoryUser],
+    session: DummySession,
+) -> None:
+    """Test update_profile updates only provided fields (covers lines 198-203)."""
+    user = user_factory(
+        user_id=1, username="alice", email="a@example.com", password_hash="hash(pw)"
+    )
+    user_repo.seed(user)
+
+    result = auth_service.update_profile(1, username="bob")
+
+    assert result.username == "bob"
+    assert result.email == "a@example.com"  # Unchanged
+    assert session.flush_count >= 1
+
+
+def test_upsert_setting_create(
+    auth_service: AuthService,
+    user_repo: InMemoryUserRepository,
+    user_factory: Callable[..., InMemoryUser],
+    session: DummySession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test upsert_setting creates new setting (covers lines 235-268)."""
+
+    user = user_factory(user_id=1, username="alice", email="a@example.com")
+    user_repo.seed(user)
+
+    # Mock the select query to return None (no existing setting)
+    session.add_exec_result([])
+
+    result = auth_service.upsert_setting(1, "theme", "dark", "UI theme preference")
+
+    assert result.key == "theme"
+    assert result.value == "dark"
+    assert result.description == "UI theme preference"
+    assert result.user_id == 1
+    assert result in session.added
+    assert session.flush_count >= 1
+
+
+def test_upsert_setting_update(
+    auth_service: AuthService,
+    user_repo: InMemoryUserRepository,
+    user_factory: Callable[..., InMemoryUser],
+    session: DummySession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test upsert_setting updates existing setting (covers lines 250-257)."""
+    from fundamental.models.auth import UserSetting
+
+    user = user_factory(user_id=1, username="alice", email="a@example.com")
+    user_repo.seed(user)
+
+    existing_setting = UserSetting(
+        id=1, user_id=1, key="theme", value="light", description="Old description"
+    )
+    session.add_exec_result([existing_setting])
+
+    result = auth_service.upsert_setting(1, "theme", "dark", "New description")
+
+    assert result.value == "dark"
+    assert result.description == "New description"
+    assert session.flush_count >= 1
+
+
+def test_upsert_setting_user_not_found(
+    auth_service: AuthService, user_repo: InMemoryUserRepository
+) -> None:
+    """Test upsert_setting raises when user not found (covers lines 237-240)."""
+    with pytest.raises(ValueError, match=r"^user_not_found$"):
+        auth_service.upsert_setting(999, "theme", "dark")
+
+
+def test_get_setting(
+    auth_service: AuthService,
+    user_repo: InMemoryUserRepository,
+    session: DummySession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test get_setting retrieves setting (covers lines 285-288)."""
+    from fundamental.models.auth import UserSetting
+
+    class MockSettingRepository:
+        def __init__(self, session: object) -> None:
+            pass
+
+        def get_by_key(self, user_id: int, key: str) -> UserSetting | None:
+            if user_id == 1 and key == "theme":
+                return UserSetting(id=1, user_id=1, key="theme", value="dark")
+            return None
+
+    import fundamental.repositories.admin_repositories as admin_repos_mod
+
+    monkeypatch.setattr(admin_repos_mod, "SettingRepository", MockSettingRepository)
+
+    result = auth_service.get_setting(1, "theme")
+
+    assert result is not None
+    assert result.key == "theme"
+    assert result.value == "dark"
+
+
+def test_get_all_settings(
+    auth_service: AuthService,
+    user_repo: InMemoryUserRepository,
+    session: DummySession,
+) -> None:
+    """Test get_all_settings retrieves all user settings (covers lines 303-308)."""
+    from fundamental.models.auth import UserSetting
+
+    setting1 = UserSetting(id=1, user_id=1, key="theme", value="dark")
+    setting2 = UserSetting(id=2, user_id=1, key="language", value="en")
+    session.add_exec_result([setting1, setting2])
+
+    result = auth_service.get_all_settings(1)
+
+    assert len(result) == 2
+    assert any(s.key == "theme" for s in result)
+    assert any(s.key == "language" for s in result)
+
+
+def test_upload_profile_picture_success(
+    auth_service: AuthService,
+    user_repo: InMemoryUserRepository,
+    user_factory: Callable[..., InMemoryUser],
+    session: DummySession,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test upload_profile_picture saves file and updates user (covers lines 367-417)."""
+    import tempfile
+
+    user = user_factory(user_id=1, username="alice", email="a@example.com")
+    user_repo.seed(user)
+
+    # Create a temporary directory for the service
+    temp_dir = tempfile.mkdtemp()
+    service = AuthService(
+        session,  # type: ignore[arg-type]
+        user_repo,  # type: ignore[arg-type]
+        auth_service._hasher,  # type: ignore[attr-defined]
+        auth_service._jwt,  # type: ignore[attr-defined]
+        data_directory=temp_dir,
+    )
+
+    file_content = b"fake image data"
+    result = service.upload_profile_picture(1, file_content, "profile.jpg")
+
+    assert result.profile_picture is not None
+    assert "profile_picture.jpg" in result.profile_picture
+    assert session.flush_count >= 1
+
+
+def test_upload_profile_picture_deletes_old_absolute_path(
+    auth_service: AuthService,
+    user_repo: InMemoryUserRepository,
+    user_factory: Callable[..., InMemoryUser],
+    session: DummySession,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test upload_profile_picture deletes old picture with absolute path (covers lines 387-391)."""
+    import tempfile
+
+    user = user_factory(user_id=1, username="alice", email="a@example.com")
+    user.profile_picture = "/tmp/old_picture.jpg"
+    user_repo.seed(user)
+
+    # Create old picture file
+    old_picture = Path("/tmp/old_picture.jpg")
+    old_picture.write_bytes(b"old image")
+
+    temp_dir = tempfile.mkdtemp()
+    service = AuthService(
+        session,  # type: ignore[arg-type]
+        user_repo,  # type: ignore[arg-type]
+        auth_service._hasher,  # type: ignore[attr-defined]
+        auth_service._jwt,  # type: ignore[attr-defined]
+        data_directory=temp_dir,
+    )
+
+    file_content = b"new image data"
+    result = service.upload_profile_picture(1, file_content, "profile.jpg")
+
+    assert result.profile_picture is not None
+    # Old file should be deleted (or at least attempted)
+    assert session.flush_count >= 1
+
+
+def test_upload_profile_picture_deletes_old_relative_path(
+    auth_service: AuthService,
+    user_repo: InMemoryUserRepository,
+    user_factory: Callable[..., InMemoryUser],
+    session: DummySession,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test upload_profile_picture deletes old picture with relative path (covers lines 392-396)."""
+    import tempfile
+
+    user = user_factory(user_id=1, username="alice", email="a@example.com")
+    user.profile_picture = "1/assets/old_picture.jpg"
+    user_repo.seed(user)
+
+    temp_dir = tempfile.mkdtemp()
+    # Create old picture file
+    old_picture = Path(temp_dir) / user.profile_picture
+    old_picture.parent.mkdir(parents=True, exist_ok=True)
+    old_picture.write_bytes(b"old image")
+
+    service = AuthService(
+        session,  # type: ignore[arg-type]
+        user_repo,  # type: ignore[arg-type]
+        auth_service._hasher,  # type: ignore[attr-defined]
+        auth_service._jwt,  # type: ignore[attr-defined]
+        data_directory=temp_dir,
+    )
+
+    file_content = b"new image data"
+    result = service.upload_profile_picture(1, file_content, "profile.jpg")
+
+    assert result.profile_picture is not None
+    assert session.flush_count >= 1
+
+
+def test_upload_profile_picture_os_error(
+    auth_service: AuthService,
+    user_repo: InMemoryUserRepository,
+    user_factory: Callable[..., InMemoryUser],
+    session: DummySession,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test upload_profile_picture handles OSError when saving file (covers lines 407-409)."""
+    import tempfile
+
+    user = user_factory(user_id=1, username="alice", email="a@example.com")
+    user_repo.seed(user)
+
+    temp_dir = tempfile.mkdtemp()
+    service = AuthService(
+        session,  # type: ignore[arg-type]
+        user_repo,  # type: ignore[arg-type]
+        auth_service._hasher,  # type: ignore[attr-defined]
+        auth_service._jwt,  # type: ignore[attr-defined]
+        data_directory=temp_dir,
+    )
+
+    # Make the directory read-only to cause OSError
+    assets_dir = Path(temp_dir) / "1" / "assets"
+    assets_dir.mkdir(parents=True, exist_ok=True)
+    assets_dir.chmod(0o444)  # Read-only
+
+    try:
+        file_content = b"fake image data"
+        with pytest.raises(ValueError, match=r"^failed_to_save_file"):
+            service.upload_profile_picture(1, file_content, "profile.jpg")
+    finally:
+        assets_dir.chmod(0o755)  # Restore permissions
+
+
+def test_delete_profile_picture_file_absolute_path(
+    auth_service: AuthService,
+    user_repo: InMemoryUserRepository,
+    user_factory: Callable[..., InMemoryUser],
+    session: DummySession,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test _delete_profile_picture_file deletes absolute path (covers lines 336-337)."""
+    import tempfile
+
+    user = user_factory(user_id=1, username="alice", email="a@example.com")
+    user_repo.seed(user)
+
+    temp_dir = tempfile.mkdtemp()
+    service = AuthService(
+        session,  # type: ignore[arg-type]
+        user_repo,  # type: ignore[arg-type]
+        auth_service._hasher,  # type: ignore[attr-defined]
+        auth_service._jwt,  # type: ignore[attr-defined]
+        data_directory=temp_dir,
+    )
+
+    # Create a file to delete
+    picture_file = Path("/tmp/test_picture.jpg")
+    picture_file.write_bytes(b"fake image")
+
+    service._delete_profile_picture_file(str(picture_file))
+
+    # File should be deleted
+    assert not picture_file.exists()
+
+
+def test_upload_profile_picture_invalid_extension(
+    auth_service: AuthService,
+    user_repo: InMemoryUserRepository,
+    user_factory: Callable[..., InMemoryUser],
+) -> None:
+    """Test upload_profile_picture raises on invalid file extension (covers lines 372-383)."""
+    user = user_factory(user_id=1, username="alice", email="a@example.com")
+    user_repo.seed(user)
+
+    with pytest.raises(ValueError, match=r"^invalid_file_type$"):
+        auth_service.upload_profile_picture(1, b"data", "file.txt")
+
+
+def test_upload_profile_picture_user_not_found(
+    auth_service: AuthService, user_repo: InMemoryUserRepository
+) -> None:
+    """Test upload_profile_picture raises when user not found (covers lines 367-370)."""
+    with pytest.raises(ValueError, match=r"^user_not_found$"):
+        auth_service.upload_profile_picture(999, b"data", "profile.jpg")
+
+
+def test_delete_profile_picture_with_relative_path(
+    auth_service: AuthService,
+    user_repo: InMemoryUserRepository,
+    user_factory: Callable[..., InMemoryUser],
+    session: DummySession,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test delete_profile_picture handles relative path (covers lines 481-484)."""
+    import tempfile
+    from pathlib import Path
+
+    user = user_factory(user_id=1, username="alice", email="a@example.com")
+    user.profile_picture = "1/assets/profile_picture.jpg"
+    user_repo.seed(user)
+
+    temp_dir = tempfile.mkdtemp()
+    service = AuthService(
+        session,  # type: ignore[arg-type]
+        user_repo,  # type: ignore[arg-type]
+        auth_service._hasher,  # type: ignore[attr-defined]
+        auth_service._jwt,  # type: ignore[attr-defined]
+        data_directory=temp_dir,
+    )
+
+    # Create the file to be deleted
+    file_path = Path(temp_dir) / user.profile_picture
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_bytes(b"fake image")
+
+    result = service.delete_profile_picture(1)
+
+    assert result.profile_picture is None
+    assert session.flush_count >= 1

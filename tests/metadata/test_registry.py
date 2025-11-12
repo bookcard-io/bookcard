@@ -288,6 +288,50 @@ def test_registry_get_enabled_providers() -> None:
         assert len(providers) >= 0  # At least test provider should be enabled
 
 
+def test_registry_get_enabled_providers_with_filter() -> None:
+    """Test get_enabled_providers filters by provider names (covers lines 202-215)."""
+    registry = MetadataProviderRegistry.__new__(MetadataProviderRegistry)
+    registry._providers = {"test": MockTestProvider, "test2": MockTestProvider2}
+
+    # Test with enable_providers list
+    providers = list(registry.get_enabled_providers(enable_providers=["Test Provider"]))
+    # Should only return providers matching the name
+    assert len(providers) >= 0
+    # All returned providers should have name "Test Provider"
+    for provider in providers:
+        assert provider.get_source_info().name == "Test Provider"
+
+
+def test_registry_get_enabled_providers_with_multiple_names() -> None:
+    """Test get_enabled_providers with multiple provider names (covers lines 202-215)."""
+    registry = MetadataProviderRegistry.__new__(MetadataProviderRegistry)
+    registry._providers = {"test": MockTestProvider, "test2": MockTestProvider2}
+
+    # Test with multiple provider names
+    providers = list(
+        registry.get_enabled_providers(
+            enable_providers=["Test Provider", "Test Provider 2"]
+        )
+    )
+    # Should return providers matching either name
+    assert len(providers) >= 0
+    provider_names = {p.get_source_info().name for p in providers}
+    assert "Test Provider" in provider_names or "Test Provider 2" in provider_names
+
+
+def test_registry_get_enabled_providers_with_unknown_name() -> None:
+    """Test get_enabled_providers ignores unknown provider names (covers lines 202-215)."""
+    registry = MetadataProviderRegistry.__new__(MetadataProviderRegistry)
+    registry._providers = {"test": MockTestProvider}
+
+    # Test with unknown provider name
+    providers = list(
+        registry.get_enabled_providers(enable_providers=["Unknown Provider"])
+    )
+    # Should return empty list since name doesn't match
+    assert len(providers) == 0
+
+
 def test_registry_list_providers() -> None:
     """Test list_providers returns provider IDs (covers line 195)."""
     registry = MetadataProviderRegistry.__new__(MetadataProviderRegistry)

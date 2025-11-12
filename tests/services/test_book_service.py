@@ -24,6 +24,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from fundamental.models.config import Library
@@ -676,3 +677,135 @@ def test_get_thumbnail_path_with_book_with_full_relations() -> None:
 
         assert result is not None
         assert str(result).endswith("cover.jpg")
+
+
+def test_get_thumbnail_path_with_library_root() -> None:
+    """Test get_thumbnail_path uses library_root when available (covers line 268)."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/tmp/test_library",
+        calibre_db_file="metadata.db",
+    )
+    library.library_root = "/custom/library/root"  # type: ignore[attr-defined]
+
+    book = Book(
+        id=123,
+        title="Test Book",
+        uuid="test-uuid",
+        has_cover=True,
+        path="Author Name/Test Book (123)",
+    )
+
+    with (
+        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("pathlib.Path.exists", return_value=True),
+    ):
+        service = BookService(library)
+        result = service.get_thumbnail_path(book)
+
+        assert result is not None
+        assert "/custom/library/root" in str(result)
+        assert str(result).endswith("cover.jpg")
+
+
+def test_add_book_with_library_root() -> None:
+    """Test add_book uses library_root when available (covers lines 459-465)."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+    library.library_root = "/custom/library/root"  # type: ignore[attr-defined]
+
+    with patch(
+        "fundamental.services.book_service.CalibreBookRepository"
+    ) as mock_repo_class:
+        mock_repo = MagicMock()
+        mock_repo.add_book.return_value = 123
+        mock_repo_class.return_value = mock_repo
+
+        service = BookService(library)
+        result = service.add_book(
+            file_path=Path("/tmp/test.epub"),
+            file_format="epub",
+            title="Test Book",
+        )
+
+        assert result == 123
+        call_kwargs = mock_repo.add_book.call_args[1]
+        assert call_kwargs["library_path"] == Path("/custom/library/root")
+
+
+def test_add_book_without_library_root() -> None:
+    """Test add_book uses calibre_db_path when library_root not available (covers lines 459-464)."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+
+    with patch(
+        "fundamental.services.book_service.CalibreBookRepository"
+    ) as mock_repo_class:
+        mock_repo = MagicMock()
+        mock_repo.add_book.return_value = 123
+        mock_repo_class.return_value = mock_repo
+
+        service = BookService(library)
+        result = service.add_book(
+            file_path=Path("/tmp/test.epub"),
+            file_format="epub",
+            title="Test Book",
+        )
+
+        assert result == 123
+        call_kwargs = mock_repo.add_book.call_args[1]
+        assert call_kwargs["library_path"] == Path("/path/to/library")
+
+
+def test_delete_book_with_library_root() -> None:
+    """Test delete_book uses library_root when available (covers lines 499-505)."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+    library.library_root = "/custom/library/root"  # type: ignore[attr-defined]
+
+    with patch(
+        "fundamental.services.book_service.CalibreBookRepository"
+    ) as mock_repo_class:
+        mock_repo = MagicMock()
+        mock_repo_class.return_value = mock_repo
+
+        service = BookService(library)
+        service.delete_book(book_id=123, delete_files_from_drive=True)
+
+        call_kwargs = mock_repo.delete_book.call_args[1]
+        assert call_kwargs["library_path"] == Path("/custom/library/root")
+
+
+def test_delete_book_without_library_root() -> None:
+    """Test delete_book uses calibre_db_path when library_root not available (covers lines 499-504)."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+
+    with patch(
+        "fundamental.services.book_service.CalibreBookRepository"
+    ) as mock_repo_class:
+        mock_repo = MagicMock()
+        mock_repo_class.return_value = mock_repo
+
+        service = BookService(library)
+        service.delete_book(book_id=123, delete_files_from_drive=True)
+
+        call_kwargs = mock_repo.delete_book.call_args[1]
+        assert call_kwargs["library_path"] == Path("/path/to/library")

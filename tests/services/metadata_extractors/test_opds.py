@@ -422,3 +422,34 @@ def test_parse_date(extractor: OpdsMetadataExtractor) -> None:
 
     result = extractor._parse_date("")
     assert result is None
+
+
+def test_extract_pubdate_with_parsable_date(extractor: OpdsMetadataExtractor) -> None:
+    """Test _extract_pubdate with date that successfully parses (covers lines 405-407)."""
+    from datetime import UTC
+    from unittest.mock import patch
+
+    parser = etree.XMLParser(resolve_entities=False, no_network=True)
+    # Use dc:date which is checked in the loop and should be found
+    entry = etree.fromstring(
+        '<entry xmlns="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:date>2023-01-15</dc:date></entry>',
+        parser=parser,
+    )
+
+    ns = {"dc": "http://purl.org/dc/elements/1.1/"}
+
+    # Mock _parse_date to return a datetime to ensure lines 405-407 execute
+    with patch.object(
+        extractor, "_parse_date", return_value=datetime(2023, 1, 15, tzinfo=UTC)
+    ):
+        pubdate = extractor._extract_pubdate(
+            entry, "http://purl.org/dc/elements/1.1/", "http://purl.org/dc/terms/", ns
+        )
+        # This should execute lines 405-407:
+        # Line 405: date_text = self._get_text_content(date_elem)
+        # Line 406: if date_text: (should be True)
+        # Line 407: return self._parse_date(date_text) (should return a datetime)
+        assert isinstance(pubdate, datetime)
+        assert pubdate.year == 2023
+        assert pubdate.month == 1
+        assert pubdate.day == 15

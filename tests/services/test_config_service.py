@@ -516,3 +516,56 @@ def test_deactivate_all_libraries_no_active() -> None:
     session.add_exec_result([])
 
     service._deactivate_all_libraries()  # Should not raise
+
+
+def test_get_library_stats_success() -> None:
+    """Test get_library_stats returns statistics (covers lines 404-413)."""
+    from unittest.mock import MagicMock, patch
+
+    session = DummySession()
+    repo = LibraryRepository(session)  # type: ignore[arg-type]
+    service = LibraryService(session, repo)  # type: ignore[arg-type]
+
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+
+    session.add(library)  # Add to session for get() lookup
+
+    mock_stats = {
+        "total_books": 100,
+        "total_series": 20,
+        "total_authors": 50,
+        "total_content_size": 1024000,
+    }
+
+    with patch(
+        "fundamental.services.config_service.CalibreBookRepository"
+    ) as mock_repo_class:
+        mock_repo = MagicMock()
+        mock_repo.get_library_stats.return_value = mock_stats
+        mock_repo_class.return_value = mock_repo
+
+        result = service.get_library_stats(1)
+
+        assert result == mock_stats
+        mock_repo_class.assert_called_once_with(
+            calibre_db_path="/path/to/library",
+            calibre_db_file="metadata.db",
+        )
+        mock_repo.get_library_stats.assert_called_once()
+
+
+def test_get_library_stats_not_found() -> None:
+    """Test get_library_stats raises when library not found (covers lines 404-407)."""
+    session = DummySession()
+    repo = LibraryRepository(session)  # type: ignore[arg-type]
+    service = LibraryService(session, repo)  # type: ignore[arg-type]
+
+    # No entity added, so get() will return None
+
+    with pytest.raises(ValueError, match="library_not_found"):
+        service.get_library_stats(999)

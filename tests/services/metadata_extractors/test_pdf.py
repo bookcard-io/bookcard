@@ -149,8 +149,40 @@ def test_extract_with_xmp_metadata(extractor: PdfMetadataExtractor) -> None:
             mock_reader2 = ReaderWithException()
             mock_reader_class.return_value = mock_reader2
             # This should handle the exception gracefully (lines 76-77)
+            # Line 74: hasattr check passes
+            # Line 75: accessing xmp_metadata raises AttributeError
+            # Line 76: exception is caught
+            # Line 77: pass (continue execution)
             metadata2 = extractor.extract(file_path, "test2.pdf")
             assert metadata2.title == "Test" or metadata2.title == "test2.pdf"
+
+            # Test with KeyError exception (covers lines 76-77)
+            class ReaderWithKeyError:
+                def __init__(self) -> None:
+                    self.metadata = {"/Title": "Test"}
+
+                @property
+                def xmp_metadata(self) -> None:
+                    raise KeyError("test")
+
+            mock_reader3 = ReaderWithKeyError()
+            mock_reader_class.return_value = mock_reader3
+            metadata3 = extractor.extract(file_path, "test3.pdf")
+            assert metadata3.title == "Test" or metadata3.title == "test3.pdf"
+
+            # Test with TypeError exception (covers lines 76-77)
+            class ReaderWithTypeError:
+                def __init__(self) -> None:
+                    self.metadata = {"/Title": "Test"}
+
+                @property
+                def xmp_metadata(self) -> None:
+                    raise TypeError("test")
+
+            mock_reader4 = ReaderWithTypeError()
+            mock_reader_class.return_value = mock_reader4
+            metadata4 = extractor.extract(file_path, "test4.pdf")
+            assert metadata4.title == "Test" or metadata4.title == "test4.pdf"
     finally:
         file_path.unlink()
 
@@ -200,8 +232,56 @@ def test_get_xmp_field_none(extractor: PdfMetadataExtractor) -> None:
 
     bad_xmp = BadXMP()
     result = extractor._get_xmp_field(bad_xmp, "dc:title")
-    # Should handle exception gracefully (lines 180-183)
+    # Should handle exception gracefully (lines 180-181)
     assert result is None
+
+
+def test_get_xmp_field_exception(extractor: PdfMetadataExtractor) -> None:
+    """Test _get_xmp_field exception handling (covers lines 180-181)."""
+
+    # Test with AttributeError when accessing attribute
+    class XmpWithAttributeError:
+        def __getattr__(self, name: str) -> None:
+            raise AttributeError("test")
+
+    mock_xmp1 = XmpWithAttributeError()
+    # This should execute lines 169-171, then catch AttributeError at line 180
+    result = extractor._get_xmp_field(mock_xmp1, "dc:title")
+    assert result is None
+
+    # Test with KeyError when accessing as dict
+    class XmpDictWithKeyError:
+        def __init__(self) -> None:
+            pass
+
+        def __getattr__(self, name: str) -> None:
+            # hasattr will return False, so we'll try dict access
+            raise AttributeError("test")
+
+        def __getitem__(self, key: str) -> None:
+            raise KeyError("test")
+
+    # Test with KeyError when accessing as dict - use a real dict that raises on access
+    class DictWithKeyError(dict):
+        def __getitem__(self, key: str) -> None:
+            raise KeyError("test")
+
+    mock_xmp2 = DictWithKeyError()
+    # This should execute lines 174-178, then catch KeyError at line 180
+    result2 = extractor._get_xmp_field(mock_xmp2, "dc:title")
+    assert result2 is None
+
+    # Test with TypeError
+    class XmpWithTypeError:
+        def __init__(self) -> None:
+            pass
+
+        def __getattr__(self, name: str) -> None:
+            raise TypeError("test")
+
+    mock_xmp3 = XmpWithTypeError()
+    result3 = extractor._get_xmp_field(mock_xmp3, "dc:title")
+    assert result3 is None
 
 
 def test_normalize_xmp_value(extractor: PdfMetadataExtractor) -> None:
@@ -313,6 +393,10 @@ def test_extract_modified(extractor: PdfMetadataExtractor) -> None:
 
 def test_parse_pdf_date(extractor: PdfMetadataExtractor) -> None:
     """Test _parse_pdf_date (covers lines 306-341)."""
+    # Test with empty string (covers line 313)
+    result = extractor._parse_pdf_date("")
+    assert result is None
+
     # Test with D: prefix
     result = extractor._parse_pdf_date("D:20230115")
     assert result is None or isinstance(result, datetime)
@@ -325,19 +409,57 @@ def test_parse_pdf_date(extractor: PdfMetadataExtractor) -> None:
     result = extractor._parse_pdf_date("2023-01-15")
     assert result is None or isinstance(result, datetime)
 
-    # Test ISO format with timezone (covers lines 337-339)
-    result = extractor._parse_pdf_date("2023-01-15T10:00:00+00:00")
-    assert result is None or isinstance(result, datetime)
+    # Test with date that works with first format
+    result = extractor._parse_pdf_date("20230115")  # This should work with first format
+    assert isinstance(result, datetime)
+    assert result.year == 2023
+    assert result.month == 1
+    assert result.day == 15
 
     # Test with invalid format that raises ValueError in strptime (covers lines 337-339)
     # Use a date string that will pass the length check but fail strptime
     result = extractor._parse_pdf_date("2023-13-45")  # Invalid month/day
     assert result is None
 
-    # Test with TypeError (covers lines 337-339)
-    # Pass something that will cause TypeError in split or strptime
+    # Test with ValueError in strptime (covers lines 337-339)
+    # Create a date string that passes len check but strptime fails
+    result = extractor._parse_pdf_date("2023-01-45")  # Invalid day
+    assert result is None
+
+    # Test with TypeError in split (covers lines 337-339)
+    # Pass something that will cause TypeError in split
     result = extractor._parse_pdf_date(None)  # type: ignore[arg-type]
     assert result is None
+
+    # Test with TypeError in split (covers lines 337-339)
+    # Create a string-like object that passes lstrip but fails in split
+    class BadDateStr:
+        def lstrip(self, chars: str | None = None) -> BadDateStr:
+            return self
+
+        def split(self, *args: object) -> None:
+            # Raise TypeError to trigger exception handler at line 338
+            raise TypeError("split error")
+
+        def __len__(self) -> int:
+            return 10
+
+        def __getitem__(self, key: object) -> object:
+            if isinstance(key, slice):
+                return "2023-01-15"
+            return "2"
+
+        def __bool__(self) -> bool:
+            return True
+
+    bad_date = BadDateStr()
+    # This should cause TypeError in split (line 335), caught at line 338
+    result = extractor._parse_pdf_date(bad_date)  # type: ignore[arg-type]
+    assert result is None
+
+    # Test with TypeError in split (covers line 338)
+    # The BadDateStr above already covers TypeError in split at line 338
+    # For TypeError in strptime, it's hard to trigger naturally, but ValueError is covered above
 
     # Test invalid
     result = extractor._parse_pdf_date("")

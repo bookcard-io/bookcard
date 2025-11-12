@@ -1819,3 +1819,73 @@ def test_activate_library_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == "library_not_found"
+
+
+def test_get_library_stats_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test get_library_stats returns statistics (covers lines 1128-1133)."""
+    session = DummySession()
+
+    mock_stats = {
+        "total_books": 100,
+        "total_series": 20,
+        "total_authors": 50,
+        "total_tags": 30,
+        "total_ratings": 10,
+        "total_content_size": 1024000,
+    }
+
+    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+        mock_service = MagicMock()
+        mock_service.get_library_stats.return_value = mock_stats
+        mock_service_class.return_value = mock_service
+
+        result = admin.get_library_stats(session, library_id=1)
+        assert result.total_books == 100
+        assert result.total_series == 20
+
+
+def test_get_library_stats_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test get_library_stats raises 404 when library not found (covers lines 1134-1138)."""
+    session = DummySession()
+
+    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+        mock_service = MagicMock()
+        mock_service.get_library_stats.side_effect = ValueError("library_not_found")
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.get_library_stats(session, library_id=999)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == "library_not_found"
+
+
+def test_get_library_stats_other_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test get_library_stats re-raises other ValueError (covers line 1138)."""
+    session = DummySession()
+
+    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+        mock_service = MagicMock()
+        mock_service.get_library_stats.side_effect = ValueError("other_error")
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(ValueError, match="other_error"):
+            admin.get_library_stats(session, library_id=1)
+
+
+def test_get_library_stats_file_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test get_library_stats raises 404 when database file not found (covers lines 1139-1142)."""
+    session = DummySession()
+
+    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+        mock_service = MagicMock()
+        mock_service.get_library_stats.side_effect = FileNotFoundError(
+            "Database not found"
+        )
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.get_library_stats(session, library_id=1)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == "calibre_database_not_found"

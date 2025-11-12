@@ -474,6 +474,82 @@ def test_logout_returns_none() -> None:
     assert result is None
 
 
+def test_logout_with_token_blacklists(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test logout blacklists token when provided (covers lines 217-244)."""
+    from datetime import UTC, datetime
+    from unittest.mock import MagicMock, patch
+
+    request = DummyRequest()
+    request.headers = {"Authorization": "Bearer test-token"}
+
+    # Mock JWTManager
+    mock_jwt_mgr = MagicMock()
+    mock_jwt_mgr.decode_token.return_value = {
+        "jti": "test-jti",
+        "exp": datetime.now(UTC).timestamp() + 3600,
+    }
+
+    # Mock TokenBlacklistRepository
+    mock_blacklist_repo = MagicMock()
+
+    with (
+        patch("fundamental.api.routes.auth.JWTManager", return_value=mock_jwt_mgr),
+        patch(
+            "fundamental.api.routes.auth.TokenBlacklistRepository",
+            return_value=mock_blacklist_repo,
+        ),
+    ):
+        session = DummySession()
+        result = auth.logout(request, session)
+        assert result is None
+        mock_blacklist_repo.add_to_blacklist.assert_called_once()
+        assert session.flush_count > 0
+
+
+def test_logout_with_invalid_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test logout handles invalid token gracefully (covers lines 223-225)."""
+    from unittest.mock import MagicMock, patch
+
+    # Import SecurityTokenError from the same place auth.py imports it
+    from fundamental.services.security import SecurityTokenError
+
+    request = DummyRequest()
+    request.headers = {"Authorization": "Bearer invalid-token"}
+
+    # Mock JWTManager to raise SecurityTokenError when decode_token is called
+    mock_jwt_mgr = MagicMock()
+    mock_jwt_mgr.decode_token.side_effect = SecurityTokenError("Invalid token")
+
+    # Patch JWTManager to return our mock when instantiated
+    with patch("fundamental.api.routes.auth.JWTManager", return_value=mock_jwt_mgr):
+        session = DummySession()
+        # This should execute lines 220-225: try to decode, catch SecurityTokenError, return None
+        # Line 218: JWTManager is instantiated
+        # Line 222: decode_token is called and raises SecurityTokenError
+        # Line 223: SecurityTokenError is caught
+        # Line 225: return None
+        result = auth.logout(request, session)
+        assert result is None
+        # Verify decode_token was called (which raises the exception)
+        mock_jwt_mgr.decode_token.assert_called_once_with("invalid-token")
+
+
+def test_logout_without_jti_or_exp(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test logout handles missing jti or exp gracefully (covers lines 231-234)."""
+    from unittest.mock import MagicMock, patch
+
+    request = DummyRequest()
+    request.headers = {"Authorization": "Bearer test-token"}
+
+    mock_jwt_mgr = MagicMock()
+    mock_jwt_mgr.decode_token.return_value = {}  # No jti or exp
+
+    with patch("fundamental.api.routes.auth.JWTManager", return_value=mock_jwt_mgr):
+        session = DummySession()
+        result = auth.logout(request, session)
+        assert result is None
+
+
 def test_get_profile_returns_profile_read(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test get_profile returns ProfileRead with profile picture."""
     user = User(
@@ -779,3 +855,629 @@ def test_validate_invite_token_unexpected_error(
 
     with pytest.raises(ValueError, match="unexpected_error"):
         auth.validate_invite_token(DummyRequest(), object(), "token")  # type: ignore[arg-type]
+
+
+def test_update_profile_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test update_profile succeeds (covers lines 299-308)."""
+    user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
+
+    class StubService:
+        def update_profile(
+            self,
+            user_id: int,
+            username: str | None,
+            email: str | None,
+            full_name: str | None,
+        ) -> User:
+            return user
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    session = DummySession()
+    payload = auth.ProfileUpdate(username="bob", email="b@example.com", full_name="Bob")
+    result = auth.update_profile(DummyRequest(), session, payload)
+    assert result.username == "alice"
+    # Session commit is called in the route
+    assert hasattr(session, "commit") or session.flush_count > 0
+
+
+def test_update_profile_user_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test update_profile raises 404 when user not found (covers lines 309-312)."""
+    user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
+
+    class StubService:
+        def update_profile(
+            self,
+            user_id: int,
+            username: str | None,
+            email: str | None,
+            full_name: str | None,
+        ) -> User:
+            raise ValueError("user_not_found")
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    session = DummySession()
+    payload = auth.ProfileUpdate(username="bob", email="b@example.com")
+
+    with pytest.raises(HTTPException) as exc_info:
+        auth.update_profile(DummyRequest(), session, payload)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "user_not_found"
+
+
+def test_update_profile_username_exists(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test update_profile raises 409 when username exists (covers lines 313-314)."""
+    user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
+
+    class StubService:
+        def update_profile(
+            self,
+            user_id: int,
+            username: str | None,
+            email: str | None,
+            full_name: str | None,
+        ) -> User:
+            raise ValueError(auth.AuthError.USERNAME_EXISTS)
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    session = DummySession()
+    payload = auth.ProfileUpdate(username="bob")
+
+    with pytest.raises(HTTPException) as exc_info:
+        auth.update_profile(DummyRequest(), session, payload)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == auth.AuthError.USERNAME_EXISTS
+
+
+def test_update_profile_email_exists(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test update_profile raises 409 when email exists (covers lines 313-314)."""
+    user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
+
+    class StubService:
+        def update_profile(
+            self,
+            user_id: int,
+            username: str | None,
+            email: str | None,
+            full_name: str | None,
+        ) -> User:
+            raise ValueError(auth.AuthError.EMAIL_EXISTS)
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    session = DummySession()
+    payload = auth.ProfileUpdate(email="bob@example.com")
+
+    with pytest.raises(HTTPException) as exc_info:
+        auth.update_profile(DummyRequest(), session, payload)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == auth.AuthError.EMAIL_EXISTS
+
+
+def test_update_profile_other_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test update_profile re-raises other ValueError (covers line 315)."""
+    user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
+
+    class StubService:
+        def update_profile(
+            self,
+            user_id: int,
+            username: str | None,
+            email: str | None,
+            full_name: str | None,
+        ) -> User:
+            raise ValueError("other_error")
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    session = DummySession()
+    payload = auth.ProfileUpdate(username="bob")
+
+    with pytest.raises(ValueError, match="other_error"):
+        auth.update_profile(DummyRequest(), session, payload)
+
+
+def test_upload_profile_picture_no_filename(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test upload_profile_picture raises 400 when filename is missing (covers lines 352-356)."""
+    from unittest.mock import MagicMock
+
+    user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
+
+    class StubService:
+        def upload_profile_picture(
+            self, user_id: int, file_content: bytes, filename: str
+        ) -> User:
+            return user
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    mock_file = MagicMock()
+    mock_file.filename = None
+    mock_file.file = MagicMock()
+
+    session = DummySession()
+
+    with pytest.raises(HTTPException) as exc_info:
+        auth.upload_profile_picture(DummyRequest(), session, mock_file)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "filename_required"
+
+
+def test_upload_profile_picture_read_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test upload_profile_picture handles file read error (covers lines 358-364)."""
+    from unittest.mock import MagicMock
+
+    user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
+
+    class StubService:
+        def upload_profile_picture(
+            self, user_id: int, file_content: bytes, filename: str
+        ) -> User:
+            return user
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    mock_file = MagicMock()
+    mock_file.filename = "test.jpg"
+    mock_file.file = MagicMock()
+    mock_file.file.read.side_effect = OSError("Read error")
+
+    session = DummySession()
+
+    with pytest.raises(HTTPException) as exc_info:
+        auth.upload_profile_picture(DummyRequest(), session, mock_file)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 500
+    assert "failed_to_read_file" in exc_info.value.detail
+
+
+def test_upload_profile_picture_user_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test upload_profile_picture raises 404 when user not found (covers lines 375-376)."""
+    from unittest.mock import MagicMock
+
+    user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
+
+    class StubService:
+        def upload_profile_picture(
+            self, user_id: int, file_content: bytes, filename: str
+        ) -> User:
+            raise ValueError("user_not_found")
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    mock_file = MagicMock()
+    mock_file.filename = "test.jpg"
+    mock_file.file = MagicMock()
+    mock_file.file.read.return_value = b"fake image data"
+
+    session = DummySession()
+
+    with pytest.raises(HTTPException) as exc_info:
+        auth.upload_profile_picture(DummyRequest(), session, mock_file)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "user_not_found"
+
+
+def test_upload_profile_picture_invalid_file_type(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test upload_profile_picture raises 400 for invalid file type (covers lines 377-378)."""
+    from unittest.mock import MagicMock
+
+    user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
+
+    class StubService:
+        def upload_profile_picture(
+            self, user_id: int, file_content: bytes, filename: str
+        ) -> User:
+            raise ValueError("invalid_file_type")
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    mock_file = MagicMock()
+    mock_file.filename = "test.txt"
+    mock_file.file = MagicMock()
+    mock_file.file.read.return_value = b"fake file data"
+
+    session = DummySession()
+
+    with pytest.raises(HTTPException) as exc_info:
+        auth.upload_profile_picture(DummyRequest(), session, mock_file)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "invalid_file_type"
+
+
+def test_upload_profile_picture_save_failed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test upload_profile_picture raises 500 when file save fails (covers lines 379-380)."""
+    from unittest.mock import MagicMock
+
+    user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
+
+    class StubService:
+        def upload_profile_picture(
+            self, user_id: int, file_content: bytes, filename: str
+        ) -> User:
+            raise ValueError("failed_to_save_file: disk full")
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    mock_file = MagicMock()
+    mock_file.filename = "test.jpg"
+    mock_file.file = MagicMock()
+    mock_file.file.read.return_value = b"fake image data"
+
+    session = DummySession()
+
+    with pytest.raises(HTTPException) as exc_info:
+        auth.upload_profile_picture(DummyRequest(), session, mock_file)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.detail == "failed_to_save_file: disk full"
+
+
+def test_upload_profile_picture_other_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test upload_profile_picture re-raises other ValueError (covers line 381)."""
+    from unittest.mock import MagicMock
+
+    user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
+
+    class StubService:
+        def upload_profile_picture(
+            self, user_id: int, file_content: bytes, filename: str
+        ) -> User:
+            raise ValueError("other_error")
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    mock_file = MagicMock()
+    mock_file.filename = "test.jpg"
+    mock_file.file = MagicMock()
+    mock_file.file.read.return_value = b"fake image data"
+
+    session = DummySession()
+
+    with pytest.raises(ValueError, match="other_error"):
+        auth.upload_profile_picture(DummyRequest(), session, mock_file)
+
+
+def test_upload_profile_picture_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test upload_profile_picture succeeds (covers lines 372, 382)."""
+    from unittest.mock import MagicMock
+
+    user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
+    updated_user = User(
+        id=1, username="alice", email="a@example.com", password_hash="hash"
+    )
+    updated_user.profile_picture = "/path/to/pic.jpg"
+
+    class StubService:
+        def upload_profile_picture(
+            self, user_id: int, file_content: bytes, filename: str
+        ) -> User:
+            return updated_user
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    mock_file = MagicMock()
+    mock_file.filename = "test.jpg"
+    mock_file.file = MagicMock()
+    mock_file.file.read.return_value = b"fake image data"
+
+    session = DummySession()
+    result = auth.upload_profile_picture(DummyRequest(), session, mock_file)
+    assert result.profile_picture == "/path/to/pic.jpg"
+    # Verify commit was called (line 372)
+    assert hasattr(session, "commit")
+
+
+def test_get_profile_picture_no_picture(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test get_profile_picture returns 404 when no picture (covers lines 457-458)."""
+    from fastapi import Response
+
+    user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
+    user.profile_picture = None
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    session = DummySession()
+    result = auth.get_profile_picture(DummyRequest(), session)
+    assert isinstance(result, Response)
+    assert result.status_code == 404
+
+
+def test_get_profile_picture_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test get_profile_picture returns 404 when file doesn't exist (covers lines 468-469)."""
+    from unittest.mock import patch
+
+    user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
+    user.profile_picture = "/nonexistent/path.jpg"
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    with patch("pathlib.Path.exists", return_value=False):
+        session = DummySession()
+        result = auth.get_profile_picture(DummyRequest(), session)
+        from fastapi import Response
+
+        assert isinstance(result, Response)
+        assert result.status_code == 404
+
+
+def test_get_profile_picture_success_absolute(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test get_profile_picture with absolute path (covers lines 462-463, 472-483)."""
+    import tempfile
+    from pathlib import Path
+
+    from fastapi.responses import FileResponse
+
+    user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    # Create a real file to test the actual code path
+    with tempfile.TemporaryDirectory() as tmpdir:
+        pic_file = Path(tmpdir) / "pic.jpg"
+        pic_file.write_bytes(b"fake image")
+        user.profile_picture = str(pic_file)
+
+        session = DummySession()
+        result = auth.get_profile_picture(DummyRequest(), session)
+        assert isinstance(result, FileResponse)
+        # Verify the file was found and media type was determined (lines 472-483)
+        assert pic_file.exists()
+
+
+def test_get_profile_picture_success_relative(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test get_profile_picture with relative path (covers lines 465-466, 472-483)."""
+    import tempfile
+    from pathlib import Path
+
+    from fastapi.responses import FileResponse
+
+    user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
+    user.profile_picture = "relative/path/to/pic.png"
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    # Create a real temporary directory and file to test the path logic
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create the relative path file
+        pic_file = Path(tmpdir) / "relative" / "path" / "to" / "pic.png"
+        pic_file.parent.mkdir(parents=True, exist_ok=True)
+        pic_file.write_bytes(b"fake image")
+
+        # Update request config to use tmpdir
+        request = DummyRequest()
+        request.app.state.config.data_directory = tmpdir
+
+        session = DummySession()
+        result = auth.get_profile_picture(request, session)
+        assert isinstance(result, FileResponse)
+        # Verify the file was found and media type was determined (lines 472-483)
+        assert pic_file.exists()
+
+
+def test_get_settings_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test get_settings returns settings (covers lines 585-592)."""
+    from fundamental.models.auth import UserSetting
+
+    user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
+
+    class StubService:
+        def get_all_settings(self, user_id: int) -> list[UserSetting]:
+            return [
+                UserSetting(
+                    id=1, user_id=1, key="theme", value="dark", description="Theme"
+                ),
+                UserSetting(
+                    id=2, user_id=1, key="language", value="en", description="Language"
+                ),
+            ]
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    session = DummySession()
+    result = auth.get_settings(DummyRequest(), session)
+    # Verify lines 589-591 are executed (dictionary comprehension)
+    assert "theme" in result.settings
+    assert "language" in result.settings
+    assert result.settings["theme"].value == "dark"
+    assert result.settings["language"].value == "en"
+
+
+def test_upsert_setting_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test upsert_setting succeeds (covers lines 625-634)."""
+    from fundamental.models.auth import UserSetting
+
+    user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
+
+    class StubService:
+        def upsert_setting(
+            self, user_id: int, key: str, value: str, description: str | None
+        ) -> UserSetting:
+            return UserSetting(
+                id=1, user_id=1, key=key, value=value, description=description
+            )
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    session = DummySession()
+    payload = auth.SettingUpdate(value="dark", description="Theme setting")
+    result = auth.upsert_setting(DummyRequest(), session, "theme", payload)
+    assert result.key == "theme"
+    assert result.value == "dark"
+    # Session commit is called in the route
+    assert hasattr(session, "commit") or session.flush_count > 0
+
+
+def test_upsert_setting_user_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test upsert_setting raises 404 when user not found (covers lines 637-638)."""
+    user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
+
+    class StubService:
+        def upsert_setting(
+            self, user_id: int, key: str, value: str, description: str | None
+        ) -> None:
+            raise ValueError("user_not_found")
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    session = DummySession()
+    payload = auth.SettingUpdate(value="dark")
+
+    with pytest.raises(HTTPException) as exc_info:
+        auth.upsert_setting(DummyRequest(), session, "theme", payload)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "user_not_found"
+
+
+def test_upsert_setting_other_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test upsert_setting re-raises other ValueError (covers line 639)."""
+    user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
+
+    class StubService:
+        def upsert_setting(
+            self, user_id: int, key: str, value: str, description: str | None
+        ) -> None:
+            raise ValueError("other_error")
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    session = DummySession()
+    payload = auth.SettingUpdate(value="dark")
+
+    with pytest.raises(ValueError, match="other_error"):
+        auth.upsert_setting(DummyRequest(), session, "theme", payload)

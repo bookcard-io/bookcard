@@ -27,6 +27,7 @@ from enum import StrEnum
 from typing import Any, ClassVar
 from uuid import uuid4
 
+from pydantic import ConfigDict
 from sqlalchemy import JSON, Column
 from sqlalchemy import Enum as SQLEnum
 from sqlmodel import Field, Relationship, SQLModel
@@ -144,12 +145,10 @@ class UserSetting(SQLModel, table=True):
     # Relationships
     user: User = Relationship(back_populates="settings")
 
-    class Config:
-        """SQLModel configuration."""
-
-        indexes: ClassVar[list[tuple[str, ...]]] = [
-            ("user_id", "key"),  # Composite unique index
-        ]
+    model_config = ConfigDict()
+    indexes: ClassVar[list[tuple[str, ...]]] = [
+        ("user_id", "key"),  # Composite unique index
+    ]
 
 
 class Role(SQLModel, table=True):
@@ -243,12 +242,10 @@ class UserRole(SQLModel, table=True):
     user: User = Relationship(back_populates="roles")
     role: Role = Relationship(back_populates="users")
 
-    class Config:
-        """SQLModel configuration."""
-
-        indexes: ClassVar[list[tuple[str, ...]]] = [
-            ("user_id", "role_id"),  # Composite unique index
-        ]
+    model_config = ConfigDict()
+    indexes: ClassVar[list[tuple[str, ...]]] = [
+        ("user_id", "role_id"),  # Composite unique index
+    ]
 
 
 class RolePermission(SQLModel, table=True):
@@ -297,12 +294,10 @@ class RolePermission(SQLModel, table=True):
     role: Role = Relationship(back_populates="permissions")
     permission: Permission = Relationship(back_populates="roles")
 
-    class Config:
-        """SQLModel configuration."""
-
-        indexes: ClassVar[list[tuple[str, ...]]] = [
-            ("role_id", "permission_id"),  # Composite unique index
-        ]
+    model_config = ConfigDict()
+    indexes: ClassVar[list[tuple[str, ...]]] = [
+        ("role_id", "permission_id"),  # Composite unique index
+    ]
 
 
 class RefreshToken(SQLModel, table=True):
