@@ -25,17 +25,11 @@ export async function POST(request: NextRequest) {
       return error;
     }
 
-    // Convert File to Blob to avoid stream locking issues
-    // This creates a fresh copy that can be safely reused
-    const fileBlob = await file.arrayBuffer();
-    const fileCopy = new File([fileBlob], file.name, {
-      type: file.type,
-      lastModified: file.lastModified,
-    });
-
     // Create FormData for backend request
+    // Note: The frontend already creates a fresh file copy to avoid stream locking,
+    // but we keep this simple to ensure compatibility
     const backendFormData = new FormData();
-    backendFormData.append("file", fileCopy);
+    backendFormData.append("file", file);
 
     // Don't set Content-Type header for FormData - fetch will set it with boundary
     const response = await client.request("/books/upload", {
@@ -44,15 +38,31 @@ export async function POST(request: NextRequest) {
       body: backendFormData,
     });
 
-    // Clone response before reading to avoid "body already consumed" errors
-    // This ensures the response body can be read safely
-    const clonedResponse = response.clone();
-    const data = await clonedResponse.json();
+    // Read response body as text first, then parse JSON manually
+    // This avoids Next.js response body locking issues that occur when using
+    // response.json() directly, especially when the same file is uploaded multiple times
+    const responseText = await response.text();
 
     if (!response.ok) {
+      let errorData: { detail?: string };
+      try {
+        errorData = JSON.parse(responseText) as { detail?: string };
+      } catch {
+        errorData = { detail: "Failed to upload book" };
+      }
       return NextResponse.json(
-        { detail: data.detail || "Failed to upload book" },
+        { detail: errorData.detail || "Failed to upload book" },
         { status: response.status },
+      );
+    }
+
+    let data: { book_id: number };
+    try {
+      data = JSON.parse(responseText) as { book_id: number };
+    } catch {
+      return NextResponse.json(
+        { detail: "Invalid response from server" },
+        { status: 500 },
       );
     }
 
