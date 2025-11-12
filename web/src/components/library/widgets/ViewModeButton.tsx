@@ -15,7 +15,7 @@
 
 "use client";
 
-import styles from "./ViewModeButton.module.scss";
+import { cn } from "@/libs/utils";
 
 export interface ViewModeButtonProps {
   /**
@@ -55,12 +55,15 @@ export function ViewModeButton({
   return (
     <button
       type="button"
-      className={`${styles.viewModeButton} ${isActive ? styles.active : ""}`}
+      className={cn(
+        "flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-surface-a20 bg-surface-tonal-a10 p-0 text-text-a30 transition-[background-color,border-color,color] duration-200 hover:border-surface-a30 hover:bg-surface-tonal-a20 hover:text-text-a0 active:bg-surface-tonal-a30",
+        isActive && "border-surface-a30 bg-surface-tonal-a20 text-text-a0",
+      )}
       onClick={handleClick}
       aria-label={ariaLabel}
       aria-pressed={isActive}
     >
-      <i className={`pi ${iconClass} ${styles.icon}`} aria-hidden="true" />
+      <i className={`pi ${iconClass} shrink-0`} aria-hidden="true" />
     </button>
   );
 }

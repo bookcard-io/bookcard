@@ -16,7 +16,6 @@
 "use client";
 
 import { ViewModeButton } from "./ViewModeButton";
-import styles from "./ViewModeButtons.module.scss";
 
 export type ViewMode = "sort" | "grid" | "list";
 
@@ -55,8 +54,13 @@ export function ViewModeButtons({
     sortOrder === "asc" ? "pi-sort-amount-down-alt" : "pi-sort-amount-up";
 
   return (
-    <fieldset className={styles.viewModeButtons} aria-label="View mode options">
-      <legend className={styles.legend}>View mode options</legend>
+    <fieldset
+      className="m-0 flex items-center gap-1 border-none p-0"
+      aria-label="View mode options"
+    >
+      <legend className="-m-px clip-[rect(0,0,0,0)] absolute h-px w-px overflow-hidden whitespace-nowrap border-0 p-0">
+        View mode options
+      </legend>
       <ViewModeButton
         iconClass={sortIconClass}
         isActive={activeMode === "sort"}
