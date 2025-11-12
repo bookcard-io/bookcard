@@ -65,7 +65,7 @@ export function BookCardCheckbox({
     <div
       className={cn(
         "checkbox pointer-events-auto absolute top-3 left-3 flex cursor-default items-center justify-center",
-        "text-text-a0 transition-[background-color,border-color] duration-200 ease-in-out",
+        "text-[var(--color-white)] transition-[background-color,border-color] duration-200 ease-in-out",
         "h-6 w-6 rounded border-2 bg-transparent p-0",
         "focus:shadow-focus-ring focus:outline-none",
         selected

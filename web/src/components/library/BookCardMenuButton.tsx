@@ -50,7 +50,7 @@ export function BookCardMenuButton({
         ref={buttonRef}
         className={cn(
           "menu-button pointer-events-auto flex cursor-default items-center justify-center",
-          "text-text-a0 transition-[background-color,transform,opacity] duration-200 ease-in-out",
+          "text-[var(--color-white)] transition-[background-color,transform,opacity] duration-200 ease-in-out",
           "focus:shadow-focus-ring focus:outline-none",
           "h-10 w-10 rounded-full",
           "border-none bg-white/20 backdrop-blur-sm",
