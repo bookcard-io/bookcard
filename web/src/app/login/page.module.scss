@@ -97,6 +97,16 @@
   line-height: 1.5;
 }
 
+.successMessage {
+  background-color: get-theme-color("success", "a20");
+  border: 1px solid get-theme-color("success", "a0");
+  color: get-theme-color("success", "a0");
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
 .formGroup {
   display: flex;
   flex-direction: column;

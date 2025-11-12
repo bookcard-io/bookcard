@@ -21,6 +21,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const referrer = searchParams.get("referrer");
+  const showPasswordChangeSuccess = referrer === "password-change";
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -80,6 +82,12 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} className={styles.loginForm}>
+          {showPasswordChangeSuccess && (
+            <output className={styles.successMessage}>
+              Password changed successfully! Please sign in again to continue
+              using the app.
+            </output>
+          )}
           {error && (
             <div className={styles.errorMessage} role="alert">
               {error}
