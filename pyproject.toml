@@ -34,6 +34,17 @@ dependencies = [
 [tool.hatch.build.targets.wheel]
 packages = ["fundamental"]
 
+[project.scripts]
+test-cov = "scripts.scripts:test_coverage"
+test = "scripts.scripts:test"
+lint = "scripts.scripts:lint"
+lint-unsafe = "scripts.scripts:lint_unsafe"
+format = "scripts.scripts:format_code"
+type-check = "scripts.scripts:type_check"
+serve = "scripts.scripts:serve"
+migrate = "scripts.scripts:migrate"
+migrate-create = "scripts.scripts:migrate_create"
+
 [dependency-groups]
 dev = [
     "pre-commit>=4.3.0",
@@ -123,6 +134,7 @@ select = [
     "TRY003", # long exception messages in raise
     "S108",   # insecure usage of directory
 ]
+"scripts/scripts.py" = ["S603", "S404"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
