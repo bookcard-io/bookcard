@@ -2,7 +2,6 @@
 
 import { forwardRef } from "react";
 import { TextInput } from "@/components/forms/TextInput";
-import styles from "./MetadataSearchInput.module.scss";
 
 export interface MetadataSearchInputProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "onSubmit"> {
@@ -34,7 +33,7 @@ export const MetadataSearchInput = forwardRef<
   };
 
   return (
-    <div className={styles.container}>
+    <div className="relative w-full">
       <TextInput
         ref={ref}
         {...props}
@@ -44,8 +43,11 @@ export const MetadataSearchInput = forwardRef<
         aria-label="Metadata search query"
       />
       {isSearching && (
-        <div className={styles.searchingIndicator} aria-hidden="true">
-          <div className={styles.spinner} />
+        <div
+          className="-translate-y-1/2 pointer-events-none absolute top-1/2 right-3 flex items-center"
+          aria-hidden="true"
+        >
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-transparent border-t-primary-a0" />
         </div>
       )}
     </div>
