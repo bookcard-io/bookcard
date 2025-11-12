@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useUser } from "@/contexts/UserContext";
+import { type User, useUser } from "@/contexts/UserContext";
 
 export interface ProfileUpdatePayload {
   username?: string;
@@ -42,7 +42,7 @@ export function useProfileUpdate(options: UseProfileUpdateOptions = {}): {
   error: string | null;
 } {
   const { onUpdateSuccess, onUpdateError } = options;
-  const { refresh } = useUser();
+  const { updateUser } = useUser();
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,8 +68,21 @@ export function useProfileUpdate(options: UseProfileUpdateOptions = {}): {
           throw new Error(errorMessage);
         }
 
-        // Refresh user context to get updated data
-        await refresh();
+        // Get updated user data from response
+        const updatedUser = (await response.json()) as User;
+
+        // Optimistically update user state without full refresh
+        // This prevents remounts and jitters in other components
+        // Only update fields that were potentially changed
+        updateUser({
+          username: updatedUser.username,
+          email: updatedUser.email,
+          full_name: updatedUser.full_name,
+          profile_picture: updatedUser.profile_picture,
+          is_admin: updatedUser.is_admin,
+          ereader_devices: updatedUser.ereader_devices || [],
+        });
+
         onUpdateSuccess?.();
       } catch (err) {
         const errorMessage =
@@ -80,7 +93,7 @@ export function useProfileUpdate(options: UseProfileUpdateOptions = {}): {
         setIsUpdating(false);
       }
     },
-    [refresh, onUpdateSuccess, onUpdateError],
+    [updateUser, onUpdateSuccess, onUpdateError],
   );
 
   return { updateProfile, isUpdating, error };

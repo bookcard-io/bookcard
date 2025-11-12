@@ -6,8 +6,15 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
+  useRef,
   useState,
 } from "react";
+import {
+  fetchSettings as apiFetchSettings,
+  saveSetting as apiSaveSetting,
+  type Setting,
+} from "@/services/settingsApi";
 
 export interface EReaderDevice {
   id: number;
@@ -35,6 +42,13 @@ interface UserContextType {
   error: Error | null;
   refresh: () => Promise<void>;
   refreshTimestamp: number;
+  // Optimistically update user without full refresh (avoids remounts)
+  updateUser: (userData: Partial<User>) => void;
+  // Settings as part of the single source of truth
+  settings: Record<string, Setting>;
+  isSaving: boolean;
+  getSetting: (key: string) => string | null;
+  updateSetting: (key: string, value: string) => void;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -43,6 +57,7 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
  * User context provider.
  *
  * Manages the current authenticated user's profile data.
+ * Also manages user settings to act as the single source of truth for both.
  * Fetches user information from the backend and provides it to child components.
  * Follows SRP by handling only user profile data management.
  *
@@ -56,50 +71,185 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [refreshTimestamp, setRefreshTimestamp] = useState(0);
+  const [settings, setSettings] = useState<Record<string, Setting>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const hasInitialRefetchRunRef = useRef(false);
+
+  // Queue for debounced settings updates
+  const pendingUpdatesRef = useRef<Map<string, string>>(new Map());
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const DEFAULT_DEBOUNCE_MS = 300;
 
   const refresh = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch("/api/auth/me", {
+      // Fetch profile and settings concurrently
+      const profilePromise = fetch("/api/auth/me", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
       });
+      const settingsPromise = apiFetchSettings();
 
-      if (!response.ok) {
+      const [profileResponse, settingsResponse] = await Promise.all([
+        profilePromise,
+        settingsPromise,
+      ]);
+
+      if (!profileResponse.ok) {
         throw new Error("Failed to fetch user profile");
       }
 
-      const data = await response.json();
+      const data = await profileResponse.json();
       // Ensure ereader_devices is always an array
       setUser({
         ...data,
         ereader_devices: data.ereader_devices || [],
       });
+      setSettings(settingsResponse.settings || {});
       // Update refresh timestamp to force cache invalidation in all components
       setRefreshTimestamp(Date.now());
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Unknown error"));
       setUser(null);
+      setSettings({});
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void refresh();
+    // Avoid duplicate fetch in React 18 StrictMode development double-invoke
+    if (!hasInitialRefetchRunRef.current) {
+      hasInitialRefetchRunRef.current = true;
+      void refresh();
+    }
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
   }, [refresh]);
 
+  // Debounced save of pending settings updates
+  const savePendingSettings = useCallback(async () => {
+    const updates = pendingUpdatesRef.current;
+    if (updates.size === 0) {
+      return;
+    }
+    const updatesToSave = new Map(updates);
+    pendingUpdatesRef.current.clear();
+    setIsSaving(true);
+    try {
+      const promises = Array.from(updatesToSave.entries()).map(
+        async ([key, value]) => {
+          const setting = await apiSaveSetting(key, value);
+          return { key, setting };
+        },
+      );
+      const results = await Promise.all(promises);
+      setSettings((prev) => {
+        const updated = { ...prev };
+        for (const { key, setting } of results) {
+          updated[key] = setting;
+        }
+        return updated;
+      });
+    } catch (saveError) {
+      // Re-queue on failure for retry; surface in console rather than breaking UX
+      for (const [key, value] of updatesToSave.entries()) {
+        pendingUpdatesRef.current.set(key, value);
+      }
+      // Preserve original error policy: do not throw here
+      // eslint-disable-next-line no-console
+      console.error("Failed to save settings:", saveError);
+    } finally {
+      setIsSaving(false);
+    }
+  }, []);
+
+  const scheduleSettingsSave = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      void savePendingSettings();
+    }, DEFAULT_DEBOUNCE_MS);
+  }, [savePendingSettings]);
+
+  const updateSetting = useCallback(
+    (key: string, value: string) => {
+      // Optimistically update local SSOT
+      setSettings((prev) => ({
+        ...prev,
+        [key]: {
+          key,
+          value,
+          description: prev[key]?.description,
+          updated_at: new Date().toISOString(),
+        },
+      }));
+      // Queue persistence
+      pendingUpdatesRef.current.set(key, value);
+      scheduleSettingsSave();
+    },
+    [scheduleSettingsSave],
+  );
+
+  const getSetting = useCallback(
+    (key: string): string | null => {
+      return settings[key]?.value ?? null;
+    },
+    [settings],
+  );
+
+  /**
+   * Optimistically update user state without triggering full refresh.
+   * Prevents unnecessary remounts when only user profile data changes.
+   * Does not update refreshTimestamp or refetch settings.
+   */
+  const updateUser = useCallback((userData: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return { ...prev, ...userData };
+    });
+  }, []);
+
+  const contextValue = useMemo(
+    () => ({
+      user,
+      isLoading,
+      error,
+      refresh,
+      refreshTimestamp,
+      updateUser,
+      settings,
+      isSaving,
+      getSetting,
+      updateSetting,
+    }),
+    [
+      user,
+      isLoading,
+      error,
+      refresh,
+      refreshTimestamp,
+      updateUser,
+      settings,
+      isSaving,
+      getSetting,
+      updateSetting,
+    ],
+  );
+
   return (
-    <UserContext.Provider
-      value={{ user, isLoading, error, refresh, refreshTimestamp }}
-    >
-      {children}
-    </UserContext.Provider>
+    <UserContext.Provider value={contextValue}>{children}</UserContext.Provider>
   );
 }
 

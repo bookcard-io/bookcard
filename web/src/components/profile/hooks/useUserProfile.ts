@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import type { User } from "@/contexts/UserContext";
 import { useUser } from "@/contexts/UserContext";
 
 export interface EReaderDevice {
@@ -24,8 +24,8 @@ export interface UserProfile {
 /**
  * Hook to fetch and manage user profile data.
  *
- * Automatically refetches when UserContext refreshes (e.g., after profile updates).
- * This ensures components using this hook stay in sync with the global user state.
+ * Delegates to UserContext, the single source of truth for user data.
+ * Automatically reflects updates when the context refreshes.
  *
  * Returns
  * -------
@@ -33,59 +33,10 @@ export interface UserProfile {
  *     User profile data, loading state, and error state.
  */
 export function useUserProfile() {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const isInitialLoadRef = useRef(true);
-
-  // Get refreshTimestamp from UserContext to trigger refetch when context updates
-  // This ensures components using this hook stay in sync with UserContext updates
-  const { refreshTimestamp } = useUser();
-
-  useEffect(() => {
-    // Refetch when refreshTimestamp changes (triggered by UserContext refresh)
-    // The dependency on refreshTimestamp ensures we refetch when user context updates
-    void refreshTimestamp;
-
-    const fetchProfile = async () => {
-      // Only show loading state on initial load, not during refreshes
-      const isInitialLoad = isInitialLoadRef.current;
-      try {
-        if (isInitialLoad) {
-          setIsLoading(true);
-          isInitialLoadRef.current = false;
-        }
-        setError(null);
-
-        const response = await fetch("/api/auth/me", {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch profile");
-        }
-
-        const data = await response.json();
-        // Ensure ereader_devices is always an array
-        setUser({
-          ...data,
-          ereader_devices: data.ereader_devices || [],
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error("Unknown error"));
-      } finally {
-        if (isInitialLoad) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    void fetchProfile();
-  }, [refreshTimestamp]);
-
-  return { user, isLoading, error };
+  const { user, isLoading, error } = useUser();
+  return {
+    user: user as unknown as UserProfile | User | null,
+    isLoading,
+    error,
+  };
 }
