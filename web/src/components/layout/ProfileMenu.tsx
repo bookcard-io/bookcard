@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { DropdownMenu } from "@/components/common/DropdownMenu";
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
 import type { User } from "@/contexts/UserContext";
 import { useUser } from "@/contexts/UserContext";
-import { getProfilePictureUrlWithCacheBuster } from "@/utils/profile";
 
 export interface ProfileMenuProps {
   /** Whether the menu is open. */
@@ -56,16 +55,8 @@ export function ProfileMenu({
   }, [onLogout, onClose]);
 
   const displayName = user?.full_name ?? user?.username ?? "User";
-  const { refreshTimestamp } = useUser();
-
-  // Generate profile picture URL with cache-busting
-  // Use refreshTimestamp to ensure image reloads on any user context refresh
-  const profilePictureUrl = useMemo(() => {
-    if (!user?.profile_picture) {
-      return null;
-    }
-    return getProfilePictureUrlWithCacheBuster(refreshTimestamp);
-  }, [user?.profile_picture, refreshTimestamp]);
+  // Use shared profile picture URL from context (fetched once globally)
+  const { profilePictureUrl } = useUser();
 
   return (
     <DropdownMenu

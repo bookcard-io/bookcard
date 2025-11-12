@@ -15,6 +15,7 @@ import {
   saveSetting as apiSaveSetting,
   type Setting,
 } from "@/services/settingsApi";
+import { getProfilePictureUrlWithCacheBuster } from "@/utils/profile";
 
 export interface EReaderDevice {
   id: number;
@@ -44,6 +45,10 @@ interface UserContextType {
   refreshTimestamp: number;
   // Optimistically update user without full refresh (avoids remounts)
   updateUser: (userData: Partial<User>) => void;
+  // Shared profile picture URL (computed once, shared across all components)
+  profilePictureUrl: string | null;
+  // Invalidate profile picture cache (call after upload/delete)
+  invalidateProfilePictureCache: () => void;
   // Settings as part of the single source of truth
   settings: Record<string, Setting>;
   isSaving: boolean;
@@ -73,7 +78,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [refreshTimestamp, setRefreshTimestamp] = useState(0);
   const [settings, setSettings] = useState<Record<string, Setting>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [profilePictureCacheBuster, setProfilePictureCacheBuster] = useState(
+    Date.now(),
+  );
   const hasInitialRefetchRunRef = useRef(false);
+  const previousPicturePathRef = useRef<string | null>(null);
 
   // Queue for debounced settings updates
   const pendingUpdatesRef = useRef<Map<string, string>>(new Map());
@@ -106,11 +115,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
       const data = await profileResponse.json();
       // Ensure ereader_devices is always an array
-      setUser({
+      const updatedUser = {
         ...data,
         ereader_devices: data.ereader_devices || [],
-      });
+      };
+      setUser(updatedUser);
       setSettings(settingsResponse.settings || {});
+
+      // Update profile picture cache buster if picture path changed
+      const currentPath = updatedUser.profile_picture ?? null;
+      if (currentPath !== previousPicturePathRef.current) {
+        setProfilePictureCacheBuster(Date.now());
+        previousPicturePathRef.current = currentPath;
+      }
+
       // Update refresh timestamp to force cache invalidation in all components
       setRefreshTimestamp(Date.now());
     } catch (err) {
@@ -217,9 +235,32 @@ export function UserProvider({ children }: { children: ReactNode }) {
       if (!prev) {
         return prev;
       }
-      return { ...prev, ...userData };
+      const updated = { ...prev, ...userData };
+      // Update profile picture cache buster if picture path changed
+      const currentPath = updated.profile_picture ?? null;
+      if (currentPath !== previousPicturePathRef.current) {
+        setProfilePictureCacheBuster(Date.now());
+        previousPicturePathRef.current = currentPath;
+      }
+      return updated;
     });
   }, []);
+
+  /**
+   * Invalidate profile picture cache.
+   * Call this after uploading or deleting a profile picture to force reload.
+   */
+  const invalidateProfilePictureCache = useCallback(() => {
+    setProfilePictureCacheBuster(Date.now());
+  }, []);
+
+  // Compute shared profile picture URL once
+  const profilePictureUrl = useMemo(() => {
+    if (!user?.profile_picture) {
+      return null;
+    }
+    return getProfilePictureUrlWithCacheBuster(profilePictureCacheBuster);
+  }, [user?.profile_picture, profilePictureCacheBuster]);
 
   const contextValue = useMemo(
     () => ({
@@ -229,6 +270,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
       refresh,
       refreshTimestamp,
       updateUser,
+      profilePictureUrl,
+      invalidateProfilePictureCache,
       settings,
       isSaving,
       getSetting,
@@ -241,6 +284,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
       refresh,
       refreshTimestamp,
       updateUser,
+      profilePictureUrl,
+      invalidateProfilePictureCache,
       settings,
       isSaving,
       getSetting,

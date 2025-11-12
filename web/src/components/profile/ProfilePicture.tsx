@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { useUser } from "@/contexts/UserContext";
 import { useProfilePictureDelete } from "@/hooks/useProfilePictureDelete";
 import { useProfilePictureUpload } from "@/hooks/useProfilePictureUpload";
 import { cn } from "@/libs/utils";
-import { getProfilePictureUrlWithCacheBuster } from "@/utils/profile";
 
 /**
  * Profile picture component with dropzone functionality.
@@ -16,29 +15,16 @@ import { getProfilePictureUrlWithCacheBuster } from "@/utils/profile";
  * Follows IOC by using hooks for file handling operations.
  */
 export function ProfilePicture() {
-  const { user, refresh } = useUser();
+  const { user, refresh, profilePictureUrl, invalidateProfilePictureCache } =
+    useUser();
   const [error, setError] = useState<string | null>(null);
-  const [pictureCacheBuster, setPictureCacheBuster] = useState(Date.now());
-  const previousPicturePathRef = useRef<string | null>(null);
-
-  // Track when profile picture path actually changes
-  useEffect(() => {
-    const currentPath = user?.profile_picture ?? null;
-    const previousPath = previousPicturePathRef.current;
-
-    // Only update cache buster if the profile picture path actually changed
-    if (currentPath !== previousPath) {
-      setPictureCacheBuster(Date.now());
-      previousPicturePathRef.current = currentPath;
-    }
-  }, [user?.profile_picture]);
 
   const handleUploadSuccess = useCallback(async () => {
     setError(null);
-    // Update cache buster when upload succeeds
-    setPictureCacheBuster(Date.now());
+    // Invalidate cache and refresh user data
+    invalidateProfilePictureCache();
     await refresh();
-  }, [refresh]);
+  }, [refresh, invalidateProfilePictureCache]);
 
   const handleUploadError = useCallback((errorMessage: string) => {
     setError(errorMessage);
@@ -46,10 +32,10 @@ export function ProfilePicture() {
 
   const handleDeleteSuccess = useCallback(async () => {
     setError(null);
-    // Update cache buster when delete succeeds
-    setPictureCacheBuster(Date.now());
+    // Invalidate cache and refresh user data
+    invalidateProfilePictureCache();
     await refresh();
-  }, [refresh]);
+  }, [refresh, invalidateProfilePictureCache]);
 
   const handleDeleteError = useCallback((errorMessage: string) => {
     setError(errorMessage);
@@ -73,15 +59,6 @@ export function ProfilePicture() {
     onDeleteSuccess: handleDeleteSuccess,
     onDeleteError: handleDeleteError,
   });
-
-  // Generate profile picture URL with cache-busting
-  // Only updates when profile picture path actually changes
-  const profilePictureUrl = useMemo(() => {
-    if (!user?.profile_picture) {
-      return null;
-    }
-    return getProfilePictureUrlWithCacheBuster(pictureCacheBuster);
-  }, [user?.profile_picture, pictureCacheBuster]);
 
   return (
     <div className="relative mx-auto max-w-[300px] flex-shrink-0 md:mx-0 md:w-[22%]">

@@ -1,9 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useUser } from "@/contexts/UserContext";
-import { getProfilePictureUrlWithCacheBuster } from "@/utils/profile";
 import { ProfileMenu } from "./ProfileMenu";
 
 /**
@@ -65,16 +64,8 @@ export function ProfileButton() {
     }
   }, [router]);
 
-  const { refreshTimestamp } = useUser();
-
-  // Generate profile picture URL with cache-busting
-  // Use refreshTimestamp to ensure image reloads on any user context refresh
-  const profilePictureUrl = useMemo(() => {
-    if (!user?.profile_picture) {
-      return null;
-    }
-    return getProfilePictureUrlWithCacheBuster(refreshTimestamp);
-  }, [user?.profile_picture, refreshTimestamp]);
+  // Use shared profile picture URL from context (fetched once globally)
+  const { profilePictureUrl } = useUser();
 
   return (
     <>
