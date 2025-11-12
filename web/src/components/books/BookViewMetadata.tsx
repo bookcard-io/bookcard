@@ -15,7 +15,6 @@
 
 import type { Book } from "@/types/book";
 import { formatDate, formatYear } from "@/utils/format";
-import styles from "./BookViewMetadata.module.scss";
 
 export interface BookViewMetadataProps {
   /** Book data to display. */
@@ -30,34 +29,36 @@ export interface BookViewMetadataProps {
  */
 export function BookViewMetadata({ book }: BookViewMetadataProps) {
   return (
-    <div className={styles.metadataGrid}>
+    <div className="grid grid-cols-1 gap-5 md:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
       {/* Publication Info */}
-      <section className={styles.metadataSection}>
-        <h3 className={styles.metadataTitle}>Publication</h3>
-        <div className={styles.metadataItem}>
-          <span className={styles.metadataLabel}>Published:</span>
-          <span className={styles.metadataValue}>
+      <section className="flex flex-col gap-3">
+        <h3 className="m-0 border-[var(--color-surface-a20)] border-b pb-1.5 font-semibold text-[var(--color-text-a0)] text-base">
+          Publication
+        </h3>
+        <div className="flex flex-col gap-0.5">
+          <span className="font-medium text-[var(--color-text-a30)] text-sm">
+            Published:
+          </span>
+          <span className="text-[var(--color-text-a0)] text-base">
             {formatDate(book.pubdate)}
           </span>
         </div>
-        {book.pubdate && (
-          <div className={styles.metadataItem}>
-            <span className={styles.metadataLabel}>Year:</span>
-            <span className={styles.metadataValue}>
-              {formatYear(book.pubdate)}
+        {book.publisher && (
+          <div className="flex flex-col gap-0.5">
+            <span className="font-medium text-[var(--color-text-a30)] text-sm">
+              Publisher:
+            </span>
+            <span className="text-[var(--color-text-a0)] text-base">
+              {book.publisher}
             </span>
           </div>
         )}
-        {book.publisher && (
-          <div className={styles.metadataItem}>
-            <span className={styles.metadataLabel}>Publisher:</span>
-            <span className={styles.metadataValue}>{book.publisher}</span>
-          </div>
-        )}
         {book.languages && book.languages.length > 0 && (
-          <div className={styles.metadataItem}>
-            <span className={styles.metadataLabel}>Languages:</span>
-            <span className={styles.metadataValue}>
+          <div className="flex flex-col gap-0.5">
+            <span className="font-medium text-[var(--color-text-a30)] text-sm">
+              Languages:
+            </span>
+            <span className="text-[var(--color-text-a0)] text-base">
               {book.languages.map((lang) => lang.toUpperCase()).join(", ")}
             </span>
           </div>
@@ -65,14 +66,21 @@ export function BookViewMetadata({ book }: BookViewMetadataProps) {
       </section>
 
       {/* Classification */}
-      <section className={styles.metadataSection}>
-        <h3 className={styles.metadataTitle}>Classification</h3>
+      <section className="flex flex-col gap-3">
+        <h3 className="m-0 border-[var(--color-surface-a20)] border-b pb-1.5 font-semibold text-[var(--color-text-a0)] text-base">
+          Classification
+        </h3>
         {book.tags && book.tags.length > 0 && (
-          <div className={styles.metadataItem}>
-            <span className={styles.metadataLabel}>Tags:</span>
-            <div className={styles.tags}>
+          <div className="flex flex-col gap-0.5">
+            <span className="font-medium text-[var(--color-text-a30)] text-sm">
+              Tags:
+            </span>
+            <div className="mt-1 flex flex-wrap gap-2">
               {book.tags.map((tag) => (
-                <span key={tag} className={styles.tag}>
+                <span
+                  key={tag}
+                  className="inline-block rounded-full border border-[var(--color-surface-a20)] bg-[var(--color-surface-tonal-a10)] px-3 py-1 text-[var(--color-text-a20)] text-sm"
+                >
                   {tag}
                 </span>
               ))}
@@ -83,17 +91,21 @@ export function BookViewMetadata({ book }: BookViewMetadataProps) {
 
       {/* Identifiers */}
       {book.identifiers && book.identifiers.length > 0 && (
-        <section className={styles.metadataSection}>
-          <h3 className={styles.metadataTitle}>Identifiers</h3>
+        <section className="flex flex-col gap-3">
+          <h3 className="m-0 border-[var(--color-surface-a20)] border-b pb-1.5 font-semibold text-[var(--color-text-a0)] text-base">
+            Identifiers
+          </h3>
           {book.identifiers.map((ident) => (
             <div
               key={`${ident.type}-${ident.val}`}
-              className={styles.metadataItem}
+              className="flex flex-col gap-0.5"
             >
-              <span className={styles.metadataLabel}>
+              <span className="font-medium text-[var(--color-text-a30)] text-sm">
                 {ident.type.toUpperCase()}:
               </span>
-              <span className={styles.metadataValue}>{ident.val}</span>
+              <span className="text-[var(--color-text-a0)] text-base">
+                {ident.val}
+              </span>
             </div>
           ))}
         </section>
