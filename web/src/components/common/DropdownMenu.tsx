@@ -2,13 +2,9 @@
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useDropdownClickOutside } from "@/hooks/useDropdownClickOutside";
+import { useDropdownPosition } from "@/hooks/useDropdownPosition";
 import { cn } from "@/libs/utils";
-
-/** Vertical offset for menu positioning (positive = down). */
-const MENU_OFFSET_Y = 2;
-
-/** Horizontal offset for menu positioning (negative = left, positive = right). */
-const MENU_OFFSET_X = -2;
 
 export interface DropdownMenuProps {
   /** Whether the menu is open. */
@@ -30,9 +26,10 @@ export interface DropdownMenuProps {
 /**
  * Base dropdown menu component.
  *
- * Handles positioning, click outside detection, and portal rendering.
+ * Handles portal rendering and menu display.
  * Follows DRY by centralizing common dropdown menu functionality.
- * Follows SRP by handling only menu display mechanics.
+ * Follows SRP by handling only menu presentation.
+ * Uses IOC via hooks for positioning and click outside detection.
  *
  * Parameters
  * ----------
@@ -49,66 +46,24 @@ export function DropdownMenu({
   minWidth = 180,
 }: DropdownMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ top: 0, right: 0 });
   const [mounted, setMounted] = useState(false);
 
-  // Custom click outside handler that excludes the button
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
+  const { position } = useDropdownPosition({
+    isOpen,
+    buttonRef,
+    cursorPosition,
+  });
 
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-
-      // Don't close if clicking on the menu itself
-      if (menuRef.current?.contains(target)) {
-        return;
-      }
-
-      // Don't close if clicking on the button
-      if (buttonRef.current?.contains(target)) {
-        return;
-      }
-
-      // Close if clicking outside both menu and button
-      onClose();
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isOpen, buttonRef, onClose]);
+  useDropdownClickOutside({
+    isOpen,
+    buttonRef,
+    menuRef,
+    onClose,
+  });
 
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  useEffect(() => {
-    if (!isOpen || !cursorPosition) {
-      return;
-    }
-
-    const updatePosition = () => {
-      if (cursorPosition) {
-        // Position menu so top-right corner is at cursor position with offset
-        setPosition({
-          top: cursorPosition.y + MENU_OFFSET_Y,
-          right: window.innerWidth - cursorPosition.x - MENU_OFFSET_X,
-        });
-      }
-    };
-
-    updatePosition();
-    window.addEventListener("scroll", updatePosition, true);
-    window.addEventListener("resize", updatePosition);
-
-    return () => {
-      window.removeEventListener("scroll", updatePosition, true);
-      window.removeEventListener("resize", updatePosition);
-    };
-  }, [isOpen, cursorPosition]);
 
   if (!isOpen || !mounted) {
     return null;
