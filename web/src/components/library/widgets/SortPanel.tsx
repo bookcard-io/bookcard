@@ -16,7 +16,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import styles from "./SortPanel.module.scss";
+import { cn } from "@/libs/utils";
 
 export type SortField =
   | "title"
@@ -105,14 +105,19 @@ export function SortPanel({
   };
 
   return (
-    <div className={styles.sortPanel} ref={panelRef}>
+    <div
+      className="absolute top-[calc(100%+8px)] left-0 z-[100] flex min-w-[200px] flex-col rounded-lg border border-surface-a20 bg-surface-tonal-a10 p-1 shadow-[0_4px_12px_rgba(0,0,0,0.15)]"
+      ref={panelRef}
+    >
       {SORT_OPTIONS.map((option) => (
         <button
           key={option.value}
           type="button"
-          className={`${styles.sortOption} ${
-            sortBy === option.value ? styles.active : ""
-          }`}
+          className={cn(
+            "cursor-pointer rounded-md border-none bg-transparent px-4 py-2.5 text-left font-inherit text-sm text-text-a0 transition-[background-color,color] duration-150 hover:bg-surface-tonal-a20 active:bg-surface-tonal-a30",
+            sortBy === option.value &&
+              "bg-primary-a20 font-medium text-text-a0",
+          )}
           onClick={() => handleOptionClick(option)}
           aria-label={`Sort by ${option.label}`}
           aria-pressed={sortBy === option.value}
