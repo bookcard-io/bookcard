@@ -45,7 +45,7 @@ export function HeaderActionButton({
     <Tooltip text={tooltipText}>
       <Link
         href={href}
-        className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border border-surface-a20 bg-surface-tonal-a10 transition-colors duration-200 hover:bg-surface-tonal-a20"
+        className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border border-surface-a20 bg-surface-tonal-a10 transition-[colors,transform] duration-200 hover:bg-surface-tonal-a20 active:scale-[0.98]"
         aria-label={ariaLabel}
       >
         {children}
