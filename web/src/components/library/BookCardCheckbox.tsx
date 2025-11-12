@@ -70,7 +70,7 @@ export function BookCardCheckbox({
         "focus:shadow-focus-ring focus:outline-none",
         selected
           ? "border-primary-a0 bg-primary-a0"
-          : "border-text-a0 hover:bg-[rgba(144,170,249,0.2)]",
+          : "border-[var(--color-white)] hover:bg-[rgba(144,170,249,0.2)]",
         "[&_i]:block [&_i]:text-sm",
       )}
       onClick={handleClick}
