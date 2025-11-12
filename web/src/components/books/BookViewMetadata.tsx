@@ -14,7 +14,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import type { Book } from "@/types/book";
-import { formatDate, formatYear } from "@/utils/format";
+import { formatDate } from "@/utils/format";
 
 export interface BookViewMetadataProps {
   /** Book data to display. */
