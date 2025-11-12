@@ -25,9 +25,17 @@ export async function POST(request: NextRequest) {
       return error;
     }
 
+    // Convert File to Blob to avoid stream locking issues
+    // This creates a fresh copy that can be safely reused
+    const fileBlob = await file.arrayBuffer();
+    const fileCopy = new File([fileBlob], file.name, {
+      type: file.type,
+      lastModified: file.lastModified,
+    });
+
     // Create FormData for backend request
     const backendFormData = new FormData();
-    backendFormData.append("file", file);
+    backendFormData.append("file", fileCopy);
 
     // Don't set Content-Type header for FormData - fetch will set it with boundary
     const response = await client.request("/books/upload", {
@@ -36,8 +44,10 @@ export async function POST(request: NextRequest) {
       body: backendFormData,
     });
 
-    // Read response body once
-    const data = await response.json();
+    // Clone response before reading to avoid "body already consumed" errors
+    // This ensures the response body can be read safely
+    const clonedResponse = response.clone();
+    const data = await clonedResponse.json();
 
     if (!response.ok) {
       return NextResponse.json(
