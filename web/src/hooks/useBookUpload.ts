@@ -71,6 +71,9 @@ export function useBookUpload(
   /**
    * Uploads a book file to the server.
    *
+   * Creates a fresh copy of the file to avoid stream locking issues
+   * when the same file is selected multiple times.
+   *
    * Parameters
    * ----------
    * file : File
@@ -81,8 +84,17 @@ export function useBookUpload(
       setIsUploading(true);
 
       try {
+        // Create a fresh copy of the file to avoid stream locking issues
+        // This is especially important when the same file is selected multiple times
+        // The browser may reuse the File object with a locked stream
+        const fileBuffer = await file.arrayBuffer();
+        const freshFile = new File([fileBuffer], file.name, {
+          type: file.type,
+          lastModified: file.lastModified,
+        });
+
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append("file", freshFile);
 
         const response = await fetch("/api/books/upload", {
           method: "POST",
