@@ -75,7 +75,8 @@ export function ProfileButton() {
           type="button"
           onClick={handleButtonClick}
           className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border border-surface-a20 bg-surface-tonal-a10 transition-colors duration-200 hover:bg-surface-tonal-a20"
-          aria-label="Profile menu"
+          aria-label="Account menu"
+          title="Account menu"
         >
           {profilePictureUrl ? (
             <img
