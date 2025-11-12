@@ -344,9 +344,7 @@ export function MetadataFetchModal({
             </div>
           )}
 
-          {state.isSearching && state.totalProviders > 0 && (
-            <MetadataSearchProgress state={state} />
-          )}
+          {state.totalProviders > 0 && <MetadataSearchProgress state={state} />}
 
           <div className="flex flex-col gap-2">
             <button
