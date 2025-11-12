@@ -983,11 +983,8 @@ class CalibreBookRepository:
 
         # Authors are changing - delete existing author links
         delete_links_stmt = select(BookAuthorLink).where(BookAuthorLink.book == book_id)
-        existing_links = session.exec(delete_links_stmt).all()
-        for link in existing_links:
-            session.delete(link)
-        # Flush deletions so subsequent selects/insert logic sees a clean state
-        session.flush()
+        existing_links = list(session.exec(delete_links_stmt).all())
+        self._delete_links_and_flush(session, existing_links)
 
         # Create or get authors and create links
         for author_name in author_names:
@@ -1037,8 +1034,9 @@ class CalibreBookRepository:
 
         if should_remove:
             # Remove series - delete link if present
-            if current_link is not None:
-                session.delete(current_link)
+            self._delete_links_and_flush(
+                session, [current_link] if current_link is not None else []
+            )
             return
 
         # Determine target series ID
@@ -1061,8 +1059,9 @@ class CalibreBookRepository:
             return
 
         # Series is changing - delete existing link if present
-        if current_link is not None:
-            session.delete(current_link)
+        self._delete_links_and_flush(
+            session, [current_link] if current_link is not None else []
+        )
 
         # Add new link if target series is specified
         if target_series_id is not None:
@@ -1103,9 +1102,8 @@ class CalibreBookRepository:
 
         # Tags are changing - delete existing tag links
         delete_tags_stmt = select(BookTagLink).where(BookTagLink.book == book_id)
-        existing_tag_links = session.exec(delete_tags_stmt).all()
-        for link in existing_tag_links:
-            session.delete(link)
+        existing_tag_links = list(session.exec(delete_tags_stmt).all())
+        self._delete_links_and_flush(session, existing_tag_links)
 
         # Create or get tags and create links
         for tag_name in tag_names:
@@ -1161,8 +1159,7 @@ class CalibreBookRepository:
             return
 
         # Identifiers are changing - delete existing identifiers
-        for ident in current_identifiers:
-            session.delete(ident)
+        self._delete_links_and_flush(session, list(current_identifiers))
 
         # Create new identifiers
         for ident_data in identifiers:
@@ -1193,6 +1190,29 @@ class CalibreBookRepository:
             session.add(comment)
         else:
             comment.text = description
+
+    def _delete_links_and_flush(self, session: Session, links: list[object]) -> None:
+        """Delete multiple links and flush the session.
+
+        Helper method to delete multiple link relationships and immediately flush
+        the session to ensure the deletes are processed before inserting new links.
+        This prevents UNIQUE constraint violations when updating relationships.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        links : list[object]
+            List of link objects to delete. Can be empty.
+
+        Notes
+        -----
+        This method is idempotent - if links is empty, it does nothing.
+        """
+        if links:
+            for link in links:
+                session.delete(link)
+            session.flush()
 
     def _update_book_publisher(
         self,
@@ -1240,8 +1260,9 @@ class CalibreBookRepository:
             return
 
         # Publisher is changing - delete existing link if present
-        if current_link is not None:
-            session.delete(current_link)
+        self._delete_links_and_flush(
+            session, [current_link] if current_link is not None else []
+        )
 
         # Add new link if target publisher is specified
         if target_publisher_id is not None:
@@ -1477,8 +1498,9 @@ class CalibreBookRepository:
             return
 
         # Rating is changing - delete existing link if present
-        if current_link is not None:
-            session.delete(current_link)
+        self._delete_links_and_flush(
+            session, [current_link] if current_link is not None else []
+        )
 
         # Add new link if target rating is specified
         if target_rating_id is not None:

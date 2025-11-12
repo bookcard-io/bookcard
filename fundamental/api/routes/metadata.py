@@ -44,7 +44,7 @@ from fundamental.metadata.base import MetadataProviderError
 from fundamental.services.metadata_service import MetadataService
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
 router = APIRouter(prefix="/metadata", tags=["metadata"])
 
@@ -58,6 +58,154 @@ def _get_metadata_service() -> MetadataService:
         Metadata service instance.
     """
     return MetadataService()
+
+
+def _parse_comma_separated_list(value: str | None) -> list[str] | None:
+    """Parse comma-separated string into list of trimmed strings.
+
+    Parameters
+    ----------
+    value : str | None
+        Comma-separated string to parse.
+
+    Returns
+    -------
+    list[str] | None
+        List of trimmed strings, or None if input is None.
+    """
+    if not value:
+        return None
+    return [item.strip() for item in value.split(",")]
+
+
+def _create_event_callback(
+    event_queue: queue.Queue[str | None],
+    request_id: str,
+) -> Callable[[MetadataSearchEvent], None]:
+    """Create event callback for metadata search.
+
+    Parameters
+    ----------
+    event_queue : queue.Queue[str | None]
+        Thread-safe queue for event payloads.
+    request_id : str
+        Request correlation ID.
+
+    Returns
+    -------
+    Callable[[MetadataSearchEvent], None]
+        Event callback function.
+    """
+
+    def _event_callback(event: MetadataSearchEvent) -> None:
+        # Pydantic model -> dict -> json
+        try:
+            payload = json.dumps(event.model_dump())
+        except (TypeError, ValueError, AttributeError) as e:
+            # Fallback to string repr to avoid breaking the stream
+            # These are the specific exceptions that json.dumps and model_dump can raise
+            payload = json.dumps({
+                "event": getattr(event, "event", "unknown"),
+                "request_id": getattr(event, "request_id", request_id),
+                "timestamp_ms": int(time.time() * 1000),
+                "message": f"Failed to serialize event payload: {e}",
+            })
+        # Put event payload
+        event_queue.put(payload)
+        # Close after overall completion
+        if getattr(event, "event", "") == "search.completed":
+            event_queue.put(None)
+
+    return _event_callback
+
+
+def _create_search_worker(
+    service: MetadataService,
+    query: str,
+    locale: str,
+    max_results_per_provider: int,
+    provider_id_list: list[str] | None,
+    enable_providers_list: list[str] | None,
+    request_id: str,
+    event_queue: queue.Queue[str | None],
+) -> Callable[[], None]:
+    """Create worker function for metadata search.
+
+    Parameters
+    ----------
+    service : MetadataService
+        Metadata service instance.
+    query : str
+        Search query.
+    locale : str
+        Locale code.
+    max_results_per_provider : int
+        Maximum results per provider.
+    provider_id_list : list[str] | None
+        List of provider IDs to search.
+    enable_providers_list : list[str] | None
+        List of provider names to enable.
+    request_id : str
+        Request correlation ID.
+    event_queue : queue.Queue[str | None]
+        Thread-safe queue for event payloads.
+
+    Returns
+    -------
+    Callable[[], None]
+        Worker function.
+    """
+
+    def _worker() -> None:
+        try:
+            service.search(
+                query=query,
+                locale=locale,
+                max_results_per_provider=max_results_per_provider,
+                provider_ids=provider_id_list,
+                enable_providers=enable_providers_list,
+                request_id=request_id,
+                event_callback=_create_event_callback(event_queue, request_id),
+            )
+        except (MetadataProviderError, ValueError, RuntimeError, OSError) as e:
+            # Emit a terminal failure event and close
+            # Catch specific exceptions that can occur during search
+            fail_payload = json.dumps({
+                "event": "search.failed",
+                "request_id": request_id,
+                "timestamp_ms": int(time.time() * 1000),
+                "error_type": type(e).__name__,
+                "message": str(e),
+            })
+            event_queue.put(fail_payload)
+            event_queue.put(None)
+
+    return _worker
+
+
+def _create_sse_generator(
+    event_queue: queue.Queue[str | None],
+) -> Iterator[str]:
+    """Create SSE generator for streaming events.
+
+    Parameters
+    ----------
+    event_queue : queue.Queue[str | None]
+        Thread-safe queue for event payloads.
+
+    Yields
+    ------
+    str
+        SSE-formatted event data.
+    """
+    # Optional: initial retry directive
+    yield "retry: 2000\n\n"
+    while True:
+        item = event_queue.get()
+        if item is None:
+            break
+        # SSE format: data: <json>\n\n
+        yield f"data: {item}\n\n"
 
 
 @router.get("/providers", response_model=MetadataProvidersResponse)
@@ -113,7 +261,8 @@ def search_metadata(request: MetadataSearchRequest) -> MetadataSearchResponse:
     {
         "query": "The Great Gatsby",
         "locale": "en",
-        "max_results_per_provider": 10
+        "max_results_per_provider": 10,
+        "enable_providers": ["Google Books", "Amazon"]
     }
     """
     try:
@@ -123,6 +272,7 @@ def search_metadata(request: MetadataSearchRequest) -> MetadataSearchResponse:
             locale=request.locale,
             max_results_per_provider=request.max_results_per_provider,
             provider_ids=request.provider_ids,
+            enable_providers=request.enable_providers,
         )
         return MetadataSearchResponse(results=results)
     except Exception as e:
@@ -142,6 +292,9 @@ def search_metadata_get(
     provider_ids: str | None = Query(
         default=None, description="Comma-separated list of provider IDs"
     ),
+    enable_providers: str | None = Query(
+        default=None, description="Comma-separated list of provider names to enable"
+    ),
 ) -> MetadataSearchResponse:
     """Search for book metadata (GET endpoint for convenience).
 
@@ -155,6 +308,9 @@ def search_metadata_get(
         Maximum results per provider (default: 10, max: 50).
     provider_ids : str | None
         Comma-separated list of provider IDs to search.
+    enable_providers : str | None
+        Comma-separated list of provider names to enable. If empty or None,
+        all available providers are enabled. Unknown provider names are ignored.
 
     Returns
     -------
@@ -168,17 +324,22 @@ def search_metadata_get(
 
     Examples
     --------
-    >>> GET /metadata/search?query=The+Great+Gatsby&locale=en
+    >>> GET /metadata/search?query=The+Great+Gatsby&locale=en&enable_providers=Google Books,Amazon
     """
     provider_id_list = None
     if provider_ids:
         provider_id_list = [pid.strip() for pid in provider_ids.split(",")]
+
+    enable_providers_list = None
+    if enable_providers:
+        enable_providers_list = [name.strip() for name in enable_providers.split(",")]
 
     request = MetadataSearchRequest(
         query=query,
         locale=locale,
         max_results_per_provider=max_results_per_provider,
         provider_ids=provider_id_list,
+        enable_providers=enable_providers_list,
     )
 
     return search_metadata(request)
@@ -193,6 +354,9 @@ def search_metadata_stream(
     ),
     provider_ids: str | None = Query(
         default=None, description="Comma-separated list of provider IDs"
+    ),
+    enable_providers: str | None = Query(
+        default=None, description="Comma-separated list of provider names to enable"
     ),
     request_id: str | None = Query(
         default=None, description="Client-provided correlation ID for events"
@@ -210,6 +374,9 @@ def search_metadata_stream(
         Maximum results per provider (1-50).
     provider_ids : str | None
         Comma-separated provider IDs to search; if omitted searches all enabled.
+    enable_providers : str | None
+        Comma-separated list of provider names to enable. If empty or None,
+        all available providers are enabled. Unknown provider names are ignored.
     request_id : str | None
         Optional correlation ID; if omitted a UUIDv4 is generated.
 
@@ -219,76 +386,33 @@ def search_metadata_stream(
         SSE stream of JSON-encoded progress events.
     """
     service = _get_metadata_service()
-
-    provider_id_list = None
-    if provider_ids:
-        provider_id_list = [pid.strip() for pid in provider_ids.split(",")]
-
+    provider_id_list = _parse_comma_separated_list(provider_ids)
+    enable_providers_list = _parse_comma_separated_list(enable_providers)
     rid = request_id or str(uuid.uuid4())
 
     # Thread-safe queue for events (str for serialized JSON) and sentinel None
     event_queue: queue.Queue[str | None] = queue.Queue()
 
-    def _event_callback(event: MetadataSearchEvent) -> None:
-        # Pydantic model -> dict -> json
-        try:
-            payload = json.dumps(event.model_dump())
-        except (TypeError, ValueError, AttributeError) as e:
-            # Fallback to string repr to avoid breaking the stream
-            # These are the specific exceptions that json.dumps and model_dump can raise
-            payload = json.dumps({
-                "event": getattr(event, "event", "unknown"),
-                "request_id": getattr(event, "request_id", rid),
-                "timestamp_ms": int(time.time() * 1000),
-                "message": f"Failed to serialize event payload: {e}",
-            })
-        # Put event payload
-        event_queue.put(payload)
-        # Close after overall completion
-        if getattr(event, "event", "") == "search.completed":
-            event_queue.put(None)
-
-    def _worker() -> None:
-        try:
-            service.search(
-                query=query,
-                locale=locale,
-                max_results_per_provider=max_results_per_provider,
-                provider_ids=provider_id_list,
-                request_id=rid,
-                event_callback=_event_callback,
-            )
-        except (MetadataProviderError, ValueError, RuntimeError, OSError) as e:
-            # Emit a terminal failure event and close
-            # Catch specific exceptions that can occur during search
-            fail_payload = json.dumps({
-                "event": "search.failed",
-                "request_id": rid,
-                "timestamp_ms": int(time.time() * 1000),
-                "error_type": type(e).__name__,
-                "message": str(e),
-            })
-            event_queue.put(fail_payload)
-            event_queue.put(None)
-
     # Start search in background thread
-    t = threading.Thread(target=_worker, name="metadata-search-stream", daemon=True)
+    worker = _create_search_worker(
+        service=service,
+        query=query,
+        locale=locale,
+        max_results_per_provider=max_results_per_provider,
+        provider_id_list=provider_id_list,
+        enable_providers_list=enable_providers_list,
+        request_id=rid,
+        event_queue=event_queue,
+    )
+    t = threading.Thread(target=worker, name="metadata-search-stream", daemon=True)
     t.start()
-
-    def _sse_generator() -> Iterator[str]:
-        # Optional: initial retry directive
-        yield "retry: 2000\n\n"
-        while True:
-            item = event_queue.get()
-            if item is None:
-                break
-            # SSE format: data: <json>\n\n
-            yield f"data: {item}\n\n"
 
     headers = {
         "Cache-Control": "no-cache, no-transform",
         "X-Accel-Buffering": "no",
     }
     return StreamingResponse(
-        _sse_generator(), media_type="text/event-stream", headers=headers
+        _create_sse_generator(event_queue),
+        media_type="text/event-stream",
+        headers=headers,
     )

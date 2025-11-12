@@ -45,12 +45,16 @@ class MetadataSearchRequest(BaseModel):
         Maximum results per provider (default: 10).
     provider_ids : list[str] | None
         List of provider IDs to search. If None, searches all enabled providers.
+    enable_providers : list[str] | None
+        List of provider names to enable. If empty or None, all available providers
+        are enabled. Unknown provider names are ignored.
     """
 
     query: str = Field(..., min_length=1)
     locale: str = "en"
     max_results_per_provider: int = Field(default=10, ge=1, le=50)
     provider_ids: list[str] | None = None
+    enable_providers: list[str] | None = None
 
 
 class MetadataSearchResponse(BaseModel):

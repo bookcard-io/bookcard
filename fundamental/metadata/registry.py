@@ -172,16 +172,46 @@ class MetadataProviderRegistry:
         for provider_class in self._providers.values():
             yield provider_class()
 
-    def get_enabled_providers(self) -> Iterator[MetadataProvider]:
-        """Get all enabled provider instances.
+    def get_enabled_providers(
+        self, enable_providers: list[str] | None = None
+    ) -> Iterator[MetadataProvider]:
+        """Get enabled provider instances.
+
+        Parameters
+        ----------
+        enable_providers : list[str] | None
+            List of provider names to enable. If None or empty, all available
+            providers are enabled. Unknown provider names are ignored.
 
         Yields
         ------
         MetadataProvider
             Enabled provider instance.
         """
-        for provider in self.get_all_providers():
-            if provider.is_enabled():
+        all_providers = list(self.get_all_providers())
+
+        # If enable_providers is None or empty, return all providers that are enabled
+        if not enable_providers:
+            for provider in all_providers:
+                if provider.is_enabled():
+                    yield provider
+            return
+
+        # Filter by provider names
+        # Get all available provider names for matching
+        available_names = {
+            provider.get_source_info().name for provider in all_providers
+        }
+
+        # Filter to only include providers whose names are in enable_providers
+        # and that are also enabled by their is_enabled() method
+        enabled_names_set = set(enable_providers)
+        matching_names = enabled_names_set & available_names
+
+        # Yield providers that match the enabled names and are also enabled
+        for provider in all_providers:
+            provider_name = provider.get_source_info().name
+            if provider_name in matching_names and provider.is_enabled():
                 yield provider
 
     def list_providers(self) -> list[str]:

@@ -129,6 +129,8 @@ export interface UseMetadataSearchStreamOptions {
   maxResultsPerProvider?: number;
   /** Provider IDs to search (default: all enabled). */
   providerIds?: string[];
+  /** Provider names to enable (default: all available). */
+  enableProviders?: string[];
   /** Whether to automatically start search. */
   enabled?: boolean;
   /** Request ID for correlation. */
@@ -164,6 +166,7 @@ export function useMetadataSearchStream(
     locale = "en",
     maxResultsPerProvider = 20,
     providerIds,
+    enableProviders,
     requestId,
   } = options;
 
@@ -245,6 +248,9 @@ export function useMetadataSearchStream(
       );
       if (providerIds && providerIds.length > 0) {
         url.searchParams.set("provider_ids", providerIds.join(","));
+      }
+      if (enableProviders && enableProviders.length > 0) {
+        url.searchParams.set("enable_providers", enableProviders.join(","));
       }
       url.searchParams.set("request_id", reqId);
 
@@ -472,6 +478,7 @@ export function useMetadataSearchStream(
       locale,
       maxResultsPerProvider,
       providerIds,
+      enableProviders,
       requestId,
       cancelSearch,
       reset,

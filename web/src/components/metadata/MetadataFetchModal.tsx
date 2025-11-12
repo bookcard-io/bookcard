@@ -63,30 +63,6 @@ export function MetadataFetchModal({
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const searchStream = useMetadataSearchStream({
-    query: searchQuery,
-    locale,
-    maxResultsPerProvider,
-    providerIds,
-    enabled: false, // Manual trigger
-  });
-
-  const { state, startSearch } = searchStream;
-
-  // Auto-start search when modal opens with initial query
-  useAutoSearch({
-    initialQuery,
-    startSearch,
-    setSearchQuery,
-    enabled: true,
-  });
-
-  // Check if there are any failed providers to determine default expanded state
-  const hasFailed = useMemo(
-    () => hasFailedProviders(state.providerStatuses),
-    [state.providerStatuses],
-  );
-
   const [isProvidersExpanded, setIsProvidersExpanded] = useState(true);
 
   // Access user context for settings
@@ -105,11 +81,15 @@ export function MetadataFetchModal({
     }
     try {
       const parsed = JSON.parse(settingValue) as string[];
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
+        if (parsed.length === 0) {
+          // Empty array means user explicitly disabled all providers
+          return new Set<string>();
+        }
         // If setting has values, only those providers are enabled
         return new Set(parsed);
       }
-      // Empty array means all providers enabled
+      // Not an array, default to all enabled
       return new Set(AVAILABLE_METADATA_PROVIDERS);
     } catch {
       // Invalid JSON, default to all enabled
@@ -128,6 +108,36 @@ export function MetadataFetchModal({
       setEnabledProviders(enabledProvidersFromSetting);
     }
   }, [enabledProvidersFromSetting, isSettingsLoading]);
+
+  // Get enabled provider names from state
+  const enabledProviderNames = useMemo(() => {
+    return Array.from(enabledProviders);
+  }, [enabledProviders]);
+
+  const searchStream = useMetadataSearchStream({
+    query: searchQuery,
+    locale,
+    maxResultsPerProvider,
+    providerIds,
+    enableProviders: enabledProviderNames,
+    enabled: false, // Manual trigger
+  });
+
+  const { state, startSearch } = searchStream;
+
+  // Auto-start search when modal opens with initial query
+  useAutoSearch({
+    initialQuery,
+    startSearch,
+    setSearchQuery,
+    enabled: true,
+  });
+
+  // Check if there are any failed providers to determine default expanded state
+  const hasFailed = useMemo(
+    () => hasFailedProviders(state.providerStatuses),
+    [state.providerStatuses],
+  );
 
   // Handle keyboard navigation
   useKeyboardNavigation({
@@ -194,8 +204,10 @@ export function MetadataFetchModal({
     setEnabledProviders(next);
 
     // Update backend setting
-    // If all providers are enabled, store empty array (means all enabled)
-    // Otherwise, store the array of enabled provider names
+    // Store the array of enabled provider names
+    // Empty array means user explicitly disabled all providers
+    // Non-empty array means only those providers are enabled
+    // (We don't store a special value for "all enabled" - that's the default when setting doesn't exist)
     const enabledArray = Array.from(next);
     const enabledSet = new Set(enabledArray);
     const allEnabled =
@@ -203,10 +215,18 @@ export function MetadataFetchModal({
       AVAILABLE_METADATA_PROVIDERS.every((p) => enabledSet.has(p));
 
     if (allEnabled) {
-      // All providers enabled, store empty array
-      updateSetting(SETTING_KEY, JSON.stringify([]));
+      // All providers enabled, delete the setting (default behavior)
+      // This distinguishes "all enabled by default" from "user explicitly enabled all"
+      // But since we can't delete settings easily, we'll store empty array for now
+      // and handle it in the read logic
+      // Actually, let's store a special marker or just store all provider names
+      // For simplicity, store all provider names when all are enabled
+      updateSetting(
+        SETTING_KEY,
+        JSON.stringify(Array.from(AVAILABLE_METADATA_PROVIDERS)),
+      );
     } else {
-      // Store the enabled providers array
+      // Store the enabled providers array (can be empty if none enabled)
       updateSetting(SETTING_KEY, JSON.stringify(enabledArray));
     }
   };

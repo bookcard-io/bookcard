@@ -250,6 +250,7 @@ class MetadataService:
     def _initialize_providers(
         self,
         provider_ids: list[str] | None,
+        enable_providers: list[str] | None = None,
     ) -> list[MetadataProvider]:
         """Get list of providers to search.
 
@@ -257,6 +258,9 @@ class MetadataService:
         ----------
         provider_ids : list[str] | None
             List of provider IDs to search, or None for all enabled.
+        enable_providers : list[str] | None
+            List of provider names to enable. If None or empty, all available
+            providers are enabled. Unknown provider names are ignored.
 
         Returns
         -------
@@ -270,7 +274,7 @@ class MetadataService:
                 if self.registry.get_provider(pid) is not None
             ]
         else:
-            providers = list(self.registry.get_enabled_providers())
+            providers = list(self.registry.get_enabled_providers(enable_providers))
         return providers
 
     def _start_provider_searches(
@@ -347,6 +351,7 @@ class MetadataService:
         locale: str = "en",
         max_results_per_provider: int = 10,
         provider_ids: list[str] | None = None,
+        enable_providers: list[str] | None = None,
         *,
         request_id: str | None = None,
         event_callback: Callable[[MetadataSearchEvent], None] | None = None,
@@ -363,6 +368,9 @@ class MetadataService:
             Maximum results per provider (default: 10).
         provider_ids : list[str] | None
             List of provider IDs to search. If None, searches all enabled providers.
+        enable_providers : list[str] | None
+            List of provider names to enable. If None or empty, all available
+            providers are enabled. Unknown provider names are ignored.
         request_id : str | None
             Optional correlation ID to include in emitted events.
         event_callback : Callable[[MetadataSearchEvent], None] | None
@@ -377,7 +385,7 @@ class MetadataService:
             return []
 
         # Get providers to search
-        providers = self._initialize_providers(provider_ids)
+        providers = self._initialize_providers(provider_ids, enable_providers)
         if not providers:
             logger.warning("No metadata providers available for search")
             return []

@@ -5,7 +5,7 @@ import { getAuthenticatedClient } from "@/services/http/routeHelpers";
  * GET /api/metadata/search/stream
  *
  * Proxies SSE stream for live metadata search progress.
- * Query params: query, locale, max_results_per_provider, provider_ids, request_id
+ * Query params: query, locale, max_results_per_provider, provider_ids, enable_providers, request_id
  */
 export async function GET(request: NextRequest) {
   const { client, error } = getAuthenticatedClient(request);
@@ -32,6 +32,8 @@ export async function GET(request: NextRequest) {
   if (maxResults) queryParams.max_results_per_provider = maxResults;
   const providerIds = searchParams.get("provider_ids");
   if (providerIds) queryParams.provider_ids = providerIds;
+  const enableProviders = searchParams.get("enable_providers");
+  if (enableProviders) queryParams.enable_providers = enableProviders;
   const requestId = searchParams.get("request_id");
   if (requestId) queryParams.request_id = requestId;
 
@@ -55,15 +57,19 @@ export async function GET(request: NextRequest) {
   }
 
   // Pipe backend SSE to client
+  let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
   const stream = new ReadableStream({
     start(controller) {
-      const reader = backendResponse.body?.getReader();
+      reader = backendResponse.body?.getReader() ?? null;
       if (!reader) {
         controller.close();
         return;
       }
-      const pump = (): Promise<void> =>
-        reader.read().then(({ done, value }) => {
+      const pump = (): Promise<void> => {
+        if (!reader) {
+          return Promise.resolve();
+        }
+        return reader.read().then(({ done, value }) => {
           if (done) {
             controller.close();
             return Promise.resolve();
@@ -71,6 +77,7 @@ export async function GET(request: NextRequest) {
           if (value) controller.enqueue(value);
           return pump();
         });
+      };
       pump().catch(() => {
         try {
           controller.close();
@@ -80,10 +87,20 @@ export async function GET(request: NextRequest) {
       });
     },
     cancel() {
-      try {
-        backendResponse.body?.cancel();
-      } catch {
-        // ignore
+      // Cancel the reader instead of the stream, since the stream is locked once we get a reader
+      if (reader) {
+        reader.cancel().catch(() => {
+          // ignore cancellation errors
+        });
+      } else if (backendResponse.body && !backendResponse.body.locked) {
+        // Only try to cancel the stream if it's not locked and we don't have a reader
+        try {
+          backendResponse.body.cancel().catch(() => {
+            // ignore cancellation errors
+          });
+        } catch {
+          // ignore
+        }
       }
     },
   });
