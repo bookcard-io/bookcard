@@ -15,7 +15,6 @@
 
 "use client";
 
-import styles from "./SortByDropdown.module.scss";
 import type { SortField } from "./SortPanel";
 import { SORT_OPTIONS } from "./SortPanel";
 
@@ -50,15 +49,15 @@ export function SortByDropdown({
   return (
     <button
       type="button"
-      className={styles.dropdown}
+      className="group flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg border border-surface-a20 bg-surface-tonal-a10 px-4 py-2.5 font-inherit text-sm text-text-a0 transition-[background-color,border-color] duration-200 hover:border-surface-a30 hover:bg-surface-tonal-a20 active:bg-surface-tonal-a30"
       onClick={handleClick}
       aria-label="Sort options"
       aria-haspopup="true"
       data-sort-button
     >
-      <span className={styles.dropdownText}>{displayText}</span>
+      <span className="leading-none">{displayText}</span>
       <i
-        className={`pi pi-chevron-down ${styles.chevronIcon}`}
+        className="pi pi-chevron-down h-4 w-4 shrink-0 text-text-a30 transition-[color,transform] duration-200 group-hover:text-text-a0"
         aria-hidden="true"
       />
     </button>
