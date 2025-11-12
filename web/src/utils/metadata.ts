@@ -272,3 +272,23 @@ export function hasFailedProviders(
     (status) => status.status === "failed",
   );
 }
+
+/**
+ * Normalize provider name to source ID format.
+ *
+ * Converts provider display name to the format used in source_id fields.
+ * Example: "Google Books" -> "google-books"
+ *
+ * Parameters
+ * ----------
+ * providerName : string
+ *     Provider display name to normalize.
+ *
+ * Returns
+ * -------
+ * string
+ *     Normalized provider name in source ID format.
+ */
+export function normalizeProviderName(providerName: string): string {
+  return providerName.toLowerCase().replace(/\s+/g, "-");
+}

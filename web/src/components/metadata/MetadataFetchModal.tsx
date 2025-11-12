@@ -1,21 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/forms/Button";
-import { AVAILABLE_METADATA_PROVIDERS } from "@/components/profile/config/configurationConstants";
-import { useUser } from "@/contexts/UserContext";
 import { useAutoSearch } from "@/hooks/useAutoSearch";
 import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
 import { useMetadataSearchActions } from "@/hooks/useMetadataSearchActions";
-import type {
-  MetadataRecord,
-  ProviderStatus,
-} from "@/hooks/useMetadataSearchStream";
+import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
 import { useMetadataSearchStream } from "@/hooks/useMetadataSearchStream";
 import { useModal } from "@/hooks/useModal";
 import { useModalInteractions } from "@/hooks/useModalInteractions";
+import { useProviderItems } from "@/hooks/useProviderItems";
+import { useProviderSettings } from "@/hooks/useProviderSettings";
 import type { Book, BookUpdate } from "@/types/book";
 import { hasFailedProviders } from "@/utils/metadata";
+import { scrollToProviderResults } from "@/utils/metadataScroll";
 import { getInitialSearchQuery } from "./getInitialSearchQuery";
 import { MetadataProviderStatus } from "./MetadataProviderStatus";
 import { MetadataResultsList } from "./MetadataResultsList";
@@ -64,54 +62,9 @@ export function MetadataFetchModal({
 
   const [isProvidersExpanded, setIsProvidersExpanded] = useState(true);
 
-  // Access user context for settings
-  const { getSetting, updateSetting, isLoading: isSettingsLoading } = useUser();
-
-  // Load enabled providers from backend setting
-  const SETTING_KEY = "preferred_metadata_providers";
-  const enabledProvidersFromSetting = useMemo(() => {
-    if (isSettingsLoading) {
-      return new Set<string>();
-    }
-    const settingValue = getSetting(SETTING_KEY);
-    if (!settingValue) {
-      // If no setting, all providers are enabled by default
-      return new Set(AVAILABLE_METADATA_PROVIDERS);
-    }
-    try {
-      const parsed = JSON.parse(settingValue) as string[];
-      if (Array.isArray(parsed)) {
-        if (parsed.length === 0) {
-          // Empty array means user explicitly disabled all providers
-          return new Set<string>();
-        }
-        // If setting has values, only those providers are enabled
-        return new Set(parsed);
-      }
-      // Not an array, default to all enabled
-      return new Set(AVAILABLE_METADATA_PROVIDERS);
-    } catch {
-      // Invalid JSON, default to all enabled
-      return new Set(AVAILABLE_METADATA_PROVIDERS);
-    }
-  }, [getSetting, isSettingsLoading]);
-
-  // Track enabled providers state
-  const [enabledProviders, setEnabledProviders] = useState<Set<string>>(
-    enabledProvidersFromSetting,
-  );
-
-  // Sync with setting when it loads or changes
-  useEffect(() => {
-    if (!isSettingsLoading) {
-      setEnabledProviders(enabledProvidersFromSetting);
-    }
-  }, [enabledProvidersFromSetting, isSettingsLoading]);
-
-  // Get enabled provider names from state
-  const enabledProviderNames = useMemo(() => {
-    return Array.from(enabledProviders);
-  }, [enabledProviders]);
+  // Manage provider settings (enabled/disabled state)
+  const { enabledProviders, enabledProviderNames, toggleProvider } =
+    useProviderSettings();
 
   const searchStream = useMetadataSearchStream({
     query: searchQuery,
@@ -159,76 +112,10 @@ export function MetadataFetchModal({
   });
 
   // Create provider items with status from backend, matching by name
-  const providerItems = useMemo(() => {
-    return AVAILABLE_METADATA_PROVIDERS.map((providerName) => {
-      // Find matching status by name
-      let status: ProviderStatus | undefined;
-      for (const providerStatus of state.providerStatuses.values()) {
-        if (providerStatus.name === providerName) {
-          status = providerStatus;
-          break;
-        }
-      }
-
-      // If no status found, create a default pending status
-      if (!status) {
-        status = {
-          id: providerName.toLowerCase().replace(/\s+/g, "-"),
-          name: providerName,
-          status: "pending",
-          resultCount: 0,
-          discovered: 0,
-        };
-      }
-
-      return {
-        name: providerName,
-        status,
-        enabled: enabledProviders.has(providerName),
-      };
-    });
-  }, [state.providerStatuses, enabledProviders]);
-
-  // Handle provider enable/disable toggle
-  const handleProviderToggle = (providerName: string) => {
-    // Calculate new state first
-    const next = new Set(enabledProviders);
-    if (next.has(providerName)) {
-      next.delete(providerName);
-    } else {
-      next.add(providerName);
-    }
-
-    // Update local state
-    setEnabledProviders(next);
-
-    // Update backend setting
-    // Store the array of enabled provider names
-    // Empty array means user explicitly disabled all providers
-    // Non-empty array means only those providers are enabled
-    // (We don't store a special value for "all enabled" - that's the default when setting doesn't exist)
-    const enabledArray = Array.from(next);
-    const enabledSet = new Set(enabledArray);
-    const allEnabled =
-      enabledArray.length === AVAILABLE_METADATA_PROVIDERS.length &&
-      AVAILABLE_METADATA_PROVIDERS.every((p) => enabledSet.has(p));
-
-    if (allEnabled) {
-      // All providers enabled, delete the setting (default behavior)
-      // This distinguishes "all enabled by default" from "user explicitly enabled all"
-      // But since we can't delete settings easily, we'll store empty array for now
-      // and handle it in the read logic
-      // Actually, let's store a special marker or just store all provider names
-      // For simplicity, store all provider names when all are enabled
-      updateSetting(
-        SETTING_KEY,
-        JSON.stringify(Array.from(AVAILABLE_METADATA_PROVIDERS)),
-      );
-    } else {
-      // Store the enabled providers array (can be empty if none enabled)
-      updateSetting(SETTING_KEY, JSON.stringify(enabledArray));
-    }
-  };
+  const providerItems = useProviderItems({
+    providerStatuses: state.providerStatuses,
+    enabledProviders,
+  });
 
   // Update expanded state when failed providers appear
   useEffect(() => {
@@ -236,36 +123,6 @@ export function MetadataFetchModal({
       setIsProvidersExpanded(true);
     }
   }, [hasFailed, isProvidersExpanded]);
-
-  // Scroll to first result of a provider
-  const handleScrollToProviderResults = useCallback((providerName: string) => {
-    // First, scroll to the results section container
-    const resultsSection = document.getElementById("metadata-results-section");
-    if (resultsSection) {
-      resultsSection.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }
-
-    // Then, after a short delay, scroll to the specific provider's first result
-    // This ensures the results section is visible first
-    setTimeout(() => {
-      // Normalize provider name to match source_id format
-      // e.g., "Google Books" -> "google-books"
-      const sourceId = providerName.toLowerCase().replace(/\s+/g, "-");
-      const elementId = `result-${sourceId}`;
-      const element = document.getElementById(elementId);
-
-      if (element) {
-        // Scroll to the element with smooth behavior
-        element.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }
-    }, 100);
-  }, []);
 
   return (
     /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
@@ -372,9 +229,9 @@ export function MetadataFetchModal({
                     key={providerItem.name}
                     status={providerItem.status}
                     enabled={providerItem.enabled}
-                    onToggle={() => handleProviderToggle(providerItem.name)}
+                    onToggle={() => toggleProvider(providerItem.name)}
                     onScrollToResults={() =>
-                      handleScrollToProviderResults(providerItem.name)
+                      scrollToProviderResults(providerItem.name)
                     }
                   />
                 ))}
