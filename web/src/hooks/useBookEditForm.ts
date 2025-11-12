@@ -2,10 +2,12 @@ import { useCallback, useRef, useState } from "react";
 import { useUser } from "@/contexts/UserContext";
 import { useBook } from "@/hooks/useBook";
 import { useBookForm } from "@/hooks/useBookForm";
+import { useCoverFromUrl } from "@/hooks/useCoverFromUrl";
 import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
 import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
 import { useStagedCoverUrl } from "@/hooks/useStagedCoverUrl";
 import type { Book } from "@/types/book";
+import { getCoverUrlWithCacheBuster } from "@/utils/books";
 import {
   applyBookUpdateToForm,
   convertMetadataRecordToBookUpdate,
@@ -108,6 +110,9 @@ export function useBookEditForm({
       if (onBookSaved) {
         onBookSaved(updatedBook);
       }
+      // Clear staged cover after book data is refreshed
+      // This prevents the flash of old cover
+      clearStagedCoverUrl();
       // Check if auto-dismiss is enabled
       const autoDismiss = getSetting("auto_dismiss_book_edit_modal");
       if (autoDismiss !== "false") {
@@ -119,8 +124,32 @@ export function useBookEditForm({
 
   const [showMetadataModal, setShowMetadataModal] = useState(false);
 
-  const { stagedCoverUrl, clearStagedCoverUrl } = useStagedCoverUrl({
-    bookId,
+  const { stagedCoverUrl, setStagedCoverUrl, clearStagedCoverUrl } =
+    useStagedCoverUrl({
+      bookId,
+    });
+
+  /**
+   * Handles cover save completion.
+   */
+  const handleCoverSaved = useCallback(() => {
+    if (bookId && onCoverSaved) {
+      onCoverSaved(bookId);
+    }
+  }, [bookId, onCoverSaved]);
+
+  const { downloadCover: downloadCoverFromUrl } = useCoverFromUrl({
+    bookId: bookId || 0,
+    onSuccess: (tempUrl) => {
+      // Update staged cover to the new cover URL to prevent flash
+      // The staged cover will be cleared after book data is refreshed
+      if (bookId !== null) {
+        // Use the temp URL from API, or generate cache-busted URL
+        const newCoverUrl = tempUrl || getCoverUrlWithCacheBuster(bookId);
+        setStagedCoverUrl(newCoverUrl);
+      }
+      handleCoverSaved();
+    },
   });
 
   /**
@@ -136,8 +165,19 @@ export function useBookEditForm({
       const update = convertMetadataRecordToBookUpdate(record);
       applyBookUpdateToForm(update, handleFieldChange);
       setShowMetadataModal(false);
+
+      // Check if cover replacement is enabled
+      const replaceCoverSetting = getSetting(
+        "replace_cover_on_metadata_selection",
+      );
+      const shouldReplaceCover = replaceCoverSetting === "true";
+      if (shouldReplaceCover && record.cover_url && bookId !== null) {
+        // Stage the cover URL without saving to backend
+        // User can cancel to discard the staged cover
+        setStagedCoverUrl(record.cover_url);
+      }
     },
-    [handleFieldChange],
+    [handleFieldChange, getSetting, bookId, setStagedCoverUrl],
   );
 
   /**
@@ -180,22 +220,40 @@ export function useBookEditForm({
   }, []);
 
   /**
-   * Handles cover save completion.
-   */
-  const handleCoverSaved = useCallback(() => {
-    if (bookId && onCoverSaved) {
-      onCoverSaved(bookId);
-    }
-  }, [bookId, onCoverSaved]);
-
-  /**
-   * Wraps form submit to ensure proper typing.
+   * Wraps form submit to handle staged cover URL before submission.
+   *
+   * If there's a staged cover URL (from metadata selection), download it
+   * before submitting the form. This ensures the cover is saved when the
+   * user clicks Save, not when they select the metadata.
    */
   const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
-      return handleFormSubmit(e);
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+
+      // If there's a staged cover URL, download it first
+      // Check if it's an external URL (not a temp URL from backend)
+      if (
+        stagedCoverUrl &&
+        bookId !== null &&
+        !stagedCoverUrl.startsWith("/api/books/temp-covers/") &&
+        !stagedCoverUrl.startsWith("/api/books/") &&
+        (stagedCoverUrl.startsWith("http://") ||
+          stagedCoverUrl.startsWith("https://"))
+      ) {
+        try {
+          await downloadCoverFromUrl(stagedCoverUrl);
+        } catch (err) {
+          // Error is handled by useCoverFromUrl hook
+          // Continue with form submission even if cover download fails
+          // eslint-disable-next-line no-console
+          console.error("Failed to download staged cover:", err);
+        }
+      }
+
+      // Submit the form after cover is downloaded (or if no staged cover)
+      await handleFormSubmit(e);
     },
-    [handleFormSubmit],
+    [handleFormSubmit, stagedCoverUrl, bookId, downloadCoverFromUrl],
   );
 
   return {

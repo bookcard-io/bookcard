@@ -16,6 +16,7 @@ import { DeleteWarningConfiguration } from "./config/DeleteWarningConfiguration"
 import { DisplayModeConfiguration } from "./config/DisplayModeConfiguration";
 import { LanguagesConfiguration } from "./config/LanguagesConfiguration";
 import { MetadataProvidersConfiguration } from "./config/MetadataProvidersConfiguration";
+import { ReplaceCoverOnMetadataSelectionConfiguration } from "./config/ReplaceCoverOnMetadataSelectionConfiguration";
 import {
   CONFIGURATION_TABS,
   DEFAULT_TAB_ID,
@@ -97,6 +98,7 @@ function ConfigurationsSectionContent() {
       case "content":
         return [
           <MetadataProvidersConfiguration key="metadata-providers" />,
+          <ReplaceCoverOnMetadataSelectionConfiguration key="replace-cover-on-metadata-select" />,
           <AutoDismissBookEditModalConfiguration key="auto-dismiss-modal" />,
         ];
       case "navigation":
