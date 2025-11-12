@@ -17,7 +17,6 @@
 
 import { useCallback } from "react";
 import { formatFileSize } from "@/utils/format";
-import styles from "./BookViewFormats.module.scss";
 
 export interface BookFormat {
   /** File format (e.g., 'EPUB', 'PDF'). */
@@ -85,30 +84,32 @@ export function BookViewFormats({ formats, bookId }: BookViewFormatsProps) {
   }
 
   return (
-    <section className={styles.metadataSection}>
-      <h3 className={styles.metadataTitle}>Available Formats</h3>
-      <div className={styles.formats}>
+    <section className="flex flex-col gap-3">
+      <h3 className="m-0 border-[var(--color-surface-a20)] border-b pb-1.5 font-semibold text-[var(--color-text-a0)] text-base">
+        Available Formats
+      </h3>
+      <div className="mt-1 flex flex-col gap-2">
         {formats.map((file) => (
           <div
             key={`${file.format}-${file.size}`}
-            className={styles.formatItem}
+            className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-surface-a20)] bg-[var(--color-surface-tonal-a10)] px-3 py-2"
           >
-            <div className={styles.formatInfo}>
-              <span className={styles.formatName}>
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <span className="font-semibold text-[var(--color-text-a0)] text-sm">
                 {file.format.toUpperCase()}
               </span>
-              <span className={styles.formatSize}>
+              <span className="text-[var(--color-text-a30)] text-sm">
                 {formatFileSize(file.size)}
               </span>
             </div>
             <button
               type="button"
               onClick={() => handleDownload(file.format)}
-              className={styles.downloadButton}
+              className="flex flex-shrink-0 items-center justify-center rounded border-none bg-transparent p-2 text-[var(--color-text-a30)] transition-all duration-200 hover:bg-[var(--color-surface-a20)] hover:text-[var(--color-primary-a0)] focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 active:scale-95"
               aria-label={`Download ${file.format.toUpperCase()} format`}
               title={`Download ${file.format.toUpperCase()}`}
             >
-              <i className="pi pi-download" aria-hidden="true" />
+              <i className="pi pi-download text-base" aria-hidden="true" />
             </button>
           </div>
         ))}
