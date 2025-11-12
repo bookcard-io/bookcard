@@ -3,7 +3,6 @@
 import { useCallback } from "react";
 import { ImageWithLoading } from "@/components/common/ImageWithLoading";
 import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
-import styles from "./MetadataResultItem.module.scss";
 
 export interface MetadataResultItemProps {
   record: MetadataRecord;
@@ -23,13 +22,16 @@ export function MetadataResultItem({
   }, [onSelect, record]);
 
   return (
-    <div id={id} className={styles.container}>
-      <div className={styles.coverWrap}>
+    <div
+      id={id}
+      className="flex gap-3 rounded-lg border border-surface-a20 bg-surface-a10 p-3"
+    >
+      <div className="shrink-0">
         {record.cover_url ? (
           <button
             type="button"
             onClick={handleClick}
-            className={styles.coverButton}
+            className="cursor-pointer border-0 bg-transparent p-0 transition-[transform,box-shadow] duration-200 ease-in-out hover:scale-105 active:scale-[0.98]"
             aria-label={`Load metadata for ${record.title}`}
             title="Click to load metadata to form"
           >
@@ -38,38 +40,46 @@ export function MetadataResultItem({
               alt={`Cover for ${record.title}`}
               width={60}
               height={90}
-              className={styles.cover}
+              className="block rounded border object-cover shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
               unoptimized
             />
           </button>
         ) : (
-          <div className={styles.coverPlaceholder} aria-hidden="true" />
+          <div
+            className="h-[90px] w-[60px] rounded border bg-surface-a20"
+            aria-hidden="true"
+          />
         )}
       </div>
-      <div className={styles.content}>
-        <div className={styles.header}>
-          <div className={styles.title}>{record.title}</div>
+      <div className="flex min-w-0 flex-col gap-[0.35rem]">
+        <div className="flex items-baseline gap-2">
+          <div className="min-w-0 flex-1 font-semibold text-[0.95rem] text-text-a0 leading-[1.3]">
+            {record.title}
+          </div>
           {record.publisher && (
-            <div className={styles.publisher}>{record.publisher}</div>
+            <div className="whitespace-nowrap text-text-a30 text-xs">
+              {record.publisher}
+            </div>
           )}
         </div>
         {record.authors && record.authors.length > 0 && (
-          <div className={styles.metaRow}>
-            <span className={styles.metaLabel}>Author</span>
-            <span className={styles.metaValue}>
-              {record.authors.join(", ")}
-            </span>
+          <div className="flex gap-2 text-[0.8rem]">
+            <span className="text-text-a30">Author</span>
+            <span className="text-text-a0">{record.authors.join(", ")}</span>
           </div>
         )}
         {record.description && (
-          <div className={styles.description} title={record.description}>
+          <div
+            className="line-clamp-3 text-[0.85rem] text-text-a20 leading-[1.4]"
+            title={record.description}
+          >
             {record.description}
           </div>
         )}
-        <div className={styles.footer}>
+        <div className="mt-1">
           <a
             href={record.url}
-            className={styles.sourceLink}
+            className="text-primary-a0 no-underline hover:underline"
             target="_blank"
             rel="noreferrer"
           >
