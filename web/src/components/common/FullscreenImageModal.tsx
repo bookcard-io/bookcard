@@ -19,7 +19,6 @@ import { useCallback } from "react";
 import { ImageWithLoading } from "@/components/common/ImageWithLoading";
 import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
 import { useModal } from "@/hooks/useModal";
-import styles from "./FullscreenImageModal.module.scss";
 
 export interface FullscreenImageModalProps {
   /** Image source URL. */
@@ -67,30 +66,32 @@ export function FullscreenImageModal({
   return (
     /* biome-ignore lint/a11y/noStaticElementInteractions: modal pattern */
     <div
-      className={styles.overlay}
+      className="fixed inset-0 z-[1000] flex cursor-zoom-out items-center justify-center bg-black/85"
       onClick={handleOverlayClick}
       role="presentation"
     >
       <div
-        className={styles.dialog}
+        className="relative flex h-full w-full items-center justify-center outline-none"
         role="dialog"
         aria-modal="true"
         aria-label="Fullscreen image"
       >
         <button
           type="button"
-          className={styles.buttonArea}
+          className="m-0 flex h-full w-full cursor-zoom-out items-center justify-center border-none bg-transparent p-0"
           aria-label="Close fullscreen image"
           onClick={onClose}
         >
-          <span className={styles.srOnly}>Click anywhere to close</span>
+          <span className="-m-px clip-[rect(0,0,0,0)] absolute h-px w-px overflow-hidden whitespace-nowrap border-0 p-0">
+            Click anywhere to close
+          </span>
           <ImageWithLoading
             src={src}
             alt={alt}
             fill={false}
             width={1600}
             height={1600}
-            className={styles.image}
+            className="h-auto max-h-[95vh] w-auto max-w-[95vw] cursor-zoom-out rounded-md object-contain shadow-[0_8px_24px_rgba(0,0,0,0.5)]"
             unoptimized
           />
         </button>
