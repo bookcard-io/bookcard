@@ -69,7 +69,7 @@ export function FilterSuggestionsDropdown({
           }}
           onClick={() => onSuggestionClick(suggestion)}
         >
-          {suggestion.name}
+          {suggestion.displayName ?? suggestion.name}
         </button>
       ))}
     </div>

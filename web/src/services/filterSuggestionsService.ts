@@ -96,15 +96,24 @@ class LanguageFilterSuggestionsService implements FilterSuggestionsService {
     for (let i = 0; i < POPULAR_LANGUAGES.length; i++) {
       const language = POPULAR_LANGUAGES[i];
       if (!language) continue;
-      const [code, name] = language;
-      const codeLower = code.toLowerCase();
-      const nameLower = name.toLowerCase();
 
-      // Match if query matches code or name
-      if (codeLower.includes(queryLower) || nameLower.includes(queryLower)) {
+      // Extract ISO-639-1 base code (part before the dash) for backend use
+      const baseCode = language.code.split("-")[0] as string;
+
+      const codeLower = baseCode.toLowerCase();
+      const nameLower = language.name.toLowerCase();
+      const englishNameLower = language.englishName.toLowerCase();
+
+      // Match if query matches base code, name, or english name
+      if (
+        codeLower.includes(queryLower) ||
+        nameLower.includes(queryLower) ||
+        englishNameLower.includes(queryLower)
+      ) {
         matches.push({
-          id: i + 1, // Use index + 1 as ID
-          name: code, // Return the ISO code as the name
+          id: matches.length + 1, // Use sequential ID
+          name: baseCode, // ISO-639-1 base code for backend use (maps all variants to same code)
+          displayName: language.englishName || language.name, // Friendly name for display (shows all variants)
         });
       }
 

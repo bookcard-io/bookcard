@@ -24,6 +24,8 @@ export interface SearchSuggestionItem {
   id: number;
   /** Display name for the suggestion. */
   name: string;
+  /** Optional display name for UI (e.g., friendly language name). Falls back to `name` if not provided. */
+  displayName?: string;
 }
 
 export interface SearchSuggestionsResponse {

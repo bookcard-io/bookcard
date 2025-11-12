@@ -16,20 +16,36 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { POPULAR_LANGUAGES } from "@/constants/languages";
 import { useSettings } from "@/contexts/SettingsContext";
 import { RadioButtonGroup } from "../RadioButtonGroup";
 
 const SETTING_KEY = "preferred_language";
 const DEFAULT_ISO_CODE = "en"; // English
 
-// Top 12 languages from POPULAR_LANGUAGES
-const TOP_LANGUAGES = POPULAR_LANGUAGES.slice(0, 12);
+// Top 12 most popular languages by global usage
+const TOP_LANGUAGES: Array<{ baseCode: string; name: string }> = [
+  { baseCode: "en", name: "English" },
+  { baseCode: "zh", name: "Chinese (Simplified)" },
+  { baseCode: "es", name: "Spanish (Spain)" },
+  { baseCode: "hi", name: "Hindi" },
+  { baseCode: "ar", name: "Arabic" },
+  { baseCode: "pt", name: "Portuguese" },
+  { baseCode: "bn", name: "Bengali" },
+  { baseCode: "ru", name: "Russian" },
+  { baseCode: "ja", name: "Japanese" },
+  { baseCode: "de", name: "German" },
+  { baseCode: "fr", name: "French" },
+  { baseCode: "ko", name: "Korean" },
+];
 
 // Create mapping: ISO code -> Friendly name
-const ISO_TO_NAME = new Map(TOP_LANGUAGES);
+const ISO_TO_NAME = new Map(
+  TOP_LANGUAGES.map((lang) => [lang.baseCode, lang.name]),
+);
 // Create reverse mapping: Friendly name -> ISO code
-const NAME_TO_ISO = new Map(TOP_LANGUAGES.map(([iso, name]) => [name, iso]));
+const NAME_TO_ISO = new Map(
+  TOP_LANGUAGES.map((lang) => [lang.name, lang.baseCode]),
+);
 // Array of friendly names for display
 const LANGUAGE_NAMES = Array.from(ISO_TO_NAME.values());
 
