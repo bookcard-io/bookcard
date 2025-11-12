@@ -42,6 +42,21 @@ export function UserDetails({ user }: UserDetailsProps) {
     await updateProfile({ username: username.trim() });
   };
 
+  const handleEmailSave = async (email: string) => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setUpdateError("Email cannot be empty");
+      return;
+    }
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setUpdateError("Please enter a valid email address");
+      return;
+    }
+    await updateProfile({ email: trimmedEmail });
+  };
+
   return (
     <div className="flex flex-1 flex-col gap-4">
       {updateError && (
@@ -71,7 +86,13 @@ export function UserDetails({ user }: UserDetailsProps) {
 
         <div className="flex flex-col gap-1">
           <div className="font-medium text-sm text-text-a20">Email</div>
-          <div className="text-text-a0">{user.email}</div>
+          <EditableTextField
+            currentValue={user.email}
+            placeholder="Enter your email"
+            editLabel="Edit email"
+            allowEmpty={false}
+            onSave={handleEmailSave}
+          />
         </div>
       </div>
 

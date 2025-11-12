@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useUser } from "@/contexts/UserContext";
 
 export interface EReaderDevice {
@@ -36,6 +36,7 @@ export function useUserProfile() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const isInitialLoadRef = useRef(true);
 
   // Get refreshTimestamp from UserContext to trigger refetch when context updates
   // This ensures components using this hook stay in sync with UserContext updates
@@ -47,8 +48,13 @@ export function useUserProfile() {
     void refreshTimestamp;
 
     const fetchProfile = async () => {
+      // Only show loading state on initial load, not during refreshes
+      const isInitialLoad = isInitialLoadRef.current;
       try {
-        setIsLoading(true);
+        if (isInitialLoad) {
+          setIsLoading(true);
+          isInitialLoadRef.current = false;
+        }
         setError(null);
 
         const response = await fetch("/api/auth/me", {
@@ -72,7 +78,9 @@ export function useUserProfile() {
       } catch (err) {
         setError(err instanceof Error ? err : new Error("Unknown error"));
       } finally {
-        setIsLoading(false);
+        if (isInitialLoad) {
+          setIsLoading(false);
+        }
       }
     };
 
