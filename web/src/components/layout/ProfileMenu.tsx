@@ -20,6 +20,7 @@ import { DropdownMenu } from "@/components/common/DropdownMenu";
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
 import type { User } from "@/contexts/UserContext";
 import { useUser } from "@/contexts/UserContext";
+import { useTheme } from "@/hooks/useTheme";
 
 export interface ProfileMenuProps {
   /** Whether the menu is open. */
@@ -72,6 +73,12 @@ export function ProfileMenu({
   const displayName = user?.full_name ?? user?.username ?? "User";
   // Use shared profile picture URL from context (fetched once globally)
   const { profilePictureUrl } = useUser();
+  const { theme, toggleTheme } = useTheme();
+
+  const handleThemeToggle = useCallback(() => {
+    toggleTheme();
+    onClose();
+  }, [toggleTheme, onClose]);
 
   return (
     <DropdownMenu
@@ -119,6 +126,14 @@ export function ProfileMenu({
         icon="pi pi-id-card"
         label="View profile"
         onClick={handleViewProfileClick}
+        className="cursor-pointer"
+      />
+      <DropdownMenuItem
+        icon={theme === "dark" ? "pi pi-sun" : "pi pi-moon"}
+        label={
+          theme === "dark" ? "Switch to Light Theme" : "Switch to Dark Theme"
+        }
+        onClick={handleThemeToggle}
         className="cursor-pointer"
       />
       <DropdownMenuItem

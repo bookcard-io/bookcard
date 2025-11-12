@@ -18,6 +18,7 @@
 @use "typography" as *;
 @use "tailwindcss";
 
+/* Default dark theme - applied when data-theme="dark" or no attribute */
 @theme {
   /* Primary colors (dark theme) */
   --color-primary-a0: #90aaf9;
@@ -51,7 +52,7 @@
   --color-surface-tonal-a40: #76787f;
   --color-surface-tonal-a50: #909197;
 
-  /* Semantic colors */
+  /* Semantic colors (dark theme) */
   --color-success-a0: #22946e;
   --color-success-a10: #47d5a6;
   --color-success-a20: #9ae8ce;
@@ -77,15 +78,12 @@
 
   /* Layout dimensions */
   --sidebar-width: 250px;
-}
 
-/* Light theme colors */
-@theme {
-  /* Base colors (light theme) */
+  /* Base colors */
   --clr-dark-a0: #000000;
   --clr-light-a0: #ffffff;
 
-  /* Primary colors (light theme) */
+  /* Legacy light theme variables (for backward compatibility) */
   --clr-primary-a0: #90aaf9;
   --clr-primary-a10: #7f95da;
   --clr-primary-a20: #6f81bc;
@@ -93,7 +91,6 @@
   --clr-primary-a40: #4f5b82;
   --clr-primary-a50: #404967;
 
-  /* Surface colors (light theme) */
   --clr-surface-a0: #ffffff;
   --clr-surface-a10: #f0f0f0;
   --clr-surface-a20: #e1e1e1;
@@ -101,7 +98,6 @@
   --clr-surface-a40: #c5c5c5;
   --clr-surface-a50: #b6b6b6;
 
-  /* Surface tonal colors (light theme) */
   --clr-surface-tonal-a0: #f5f6ff;
   --clr-surface-tonal-a10: #e7e8f0;
   --clr-surface-tonal-a20: #dadbe1;
@@ -109,25 +105,95 @@
   --clr-surface-tonal-a40: #bfc0c5;
   --clr-surface-tonal-a50: #b2b3b6;
 
-  /* Success colors (light theme) */
   --clr-success-a0: #1b7f5c;
   --clr-success-a10: #28be8a;
   --clr-success-a20: #58dbad;
 
-  /* Warning colors (light theme) */
   --clr-warning-a0: #b8871f;
   --clr-warning-a10: #dfae44;
   --clr-warning-a20: #ebca85;
 
-  /* Danger colors (light theme) */
   --clr-danger-a0: #b13535;
   --clr-danger-a10: #d06262;
   --clr-danger-a20: #e29d9d;
 
-  /* Info colors (light theme) */
   --clr-info-a0: #1e56a3;
   --clr-info-a10: #347ada;
   --clr-info-a20: #74a4e6;
+}
+
+/* Light theme - applied when data-theme="light" */
+html[data-theme="light"] {
+  /* Primary colors (light theme) */
+  --color-primary-a0: #90aaf9;
+  --color-primary-a10: #7f95da;
+  --color-primary-a20: #6f81bc;
+  --color-primary-a30: #5f6e9f;
+  --color-primary-a40: #4f5b82;
+  --color-primary-a50: #404967;
+
+  /* Text colors (light theme) */
+  --color-text-a0: #000000;
+  --color-text-a10: #1a1a1a;
+  --color-text-a20: #333333;
+  --color-text-a30: #4d4d4d;
+  --color-text-a40: #666666;
+  --color-text-a50: #808080;
+
+  /* Surface colors (light theme) */
+  --color-surface-a0: #f1f1f1;
+  --color-surface-a10: #e4e4e4;
+  --color-surface-a20: #d7d7d7;
+  --color-surface-a30: #cacaca;
+  --color-surface-a40: #bdbdbd;
+  --color-surface-a50: #b1b1b1;
+
+  /* Surface tonal colors (light theme) */
+  --color-surface-tonal-a0: #e8eaf2;
+  --color-surface-tonal-a10: #dcdee5;
+  --color-surface-tonal-a20: #d0d1d8;
+  --color-surface-tonal-a30: #c4c5cb;
+  --color-surface-tonal-a40: #b8b9be;
+  --color-surface-tonal-a50: #adaeb1;
+
+  /* Semantic colors (light theme) */
+  --color-success-a0: #1b7f5c;
+  --color-success-a10: #28be8a;
+  --color-success-a20: #58dbad;
+
+  --color-warning-a0: #b8871f;
+  --color-warning-a10: #dfae44;
+  --color-warning-a20: #ebca85;
+
+  --color-danger-a-1: #8b2525;
+  --color-danger-a0: #b13535;
+  --color-danger-a10: #d06262;
+  --color-danger-a20: #e29d9d;
+
+  --color-info-a0: #1e56a3;
+  --color-info-a10: #347ada;
+  --color-info-a20: #74a4e6;
+
+  /* Custom box shadows (light theme) */
+  --shadow-focus-ring: 0 0 0 3px rgba(144, 170, 249, 0.2);
+  --shadow-focus-ring-danger: 0 0 0 3px rgba(177, 53, 53, 0.1);
+  --shadow-primary-glow: 0 0 0 2px rgba(144, 170, 249, 0.15);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+  /* Legacy variables for backward compatibility */
+  --clr-surface-a0: #ffffff;
+  --clr-surface-a10: #f0f0f0;
+  --clr-surface-a20: #e1e1e1;
+  --clr-surface-a30: #d3d3d3;
+  --clr-surface-a40: #c5c5c5;
+  --clr-surface-a50: #b6b6b6;
+
+  --clr-surface-tonal-a0: #f5f6ff;
+  --clr-surface-tonal-a10: #e7e8f0;
+  --clr-surface-tonal-a20: #dadbe1;
+  --clr-surface-tonal-a30: #cccdd3;
+  --clr-surface-tonal-a40: #bfc0c5;
+  --clr-surface-tonal-a50: #b2b3b6;
 }
 
 @layer base {
@@ -145,8 +211,8 @@
   }
 
   body {
-    background-color: get-theme-color("surface", "a0");
-    color: get-theme-color("surface", "a50");
+    background-color: var(--color-surface-a0);
+    color: var(--color-text-a0);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }

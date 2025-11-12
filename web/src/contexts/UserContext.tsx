@@ -71,7 +71,9 @@ interface UserContextType {
   updateSetting: (key: string, value: string) => void;
 }
 
-const UserContext = createContext<UserContextType | undefined>(undefined);
+export const UserContext = createContext<UserContextType | undefined>(
+  undefined,
+);
 
 /**
  * User context provider.

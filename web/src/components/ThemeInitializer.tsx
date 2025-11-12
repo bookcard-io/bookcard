@@ -13,26 +13,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import type { Metadata } from "next";
-import "primeicons/primeicons.css";
-import "../styles/globals.scss";
-import { ThemeInitializer } from "@/components/ThemeInitializer";
+"use client";
 
-export const metadata: Metadata = {
-  title: "Fundamental - Ebook Library",
-  description: "Self-hosted ebook management and reading application",
-};
+import { useTheme } from "@/hooks/useTheme";
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html lang="en">
-      <body>
-        <ThemeInitializer>{children}</ThemeInitializer>
-      </body>
-    </html>
-  );
+/**
+ * Theme initializer component.
+ *
+ * Initializes theme on mount to prevent flash of wrong theme.
+ * Follows SRP by handling only theme initialization.
+ */
+export function ThemeInitializer({ children }: { children: React.ReactNode }) {
+  // This hook will apply the theme to the HTML element
+  useTheme();
+  return <>{children}</>;
 }
