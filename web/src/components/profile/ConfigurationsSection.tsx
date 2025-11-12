@@ -7,12 +7,11 @@ import { cn } from "@/libs/utils";
 import { BlurAfterClickProvider } from "./BlurAfterClickContext";
 import { AutoDismissBookEditModalConfiguration } from "./config/AutoDismissBookEditModalConfiguration";
 import { AutoOpenBookDetailsConfiguration } from "./config/AutoOpenBookDetailsConfiguration";
-import { DefaultDeleteFilesFromDriveConfiguration } from "./config/DefaultDeleteFilesFromDriveConfiguration";
 import { DefaultPageSizeConfiguration } from "./config/DefaultPageSizeConfiguration";
 import { DefaultSortFieldConfiguration } from "./config/DefaultSortFieldConfiguration";
 import { DefaultSortOrderConfiguration } from "./config/DefaultSortOrderConfiguration";
 import { DefaultViewModeConfiguration } from "./config/DefaultViewModeConfiguration";
-import { DeleteWarningConfiguration } from "./config/DeleteWarningConfiguration";
+import { DeleteSettingsGroup } from "./config/DeleteSettingsGroup";
 import { DisplayModeConfiguration } from "./config/DisplayModeConfiguration";
 import { LanguagesConfiguration } from "./config/LanguagesConfiguration";
 import { MetadataProvidersConfiguration } from "./config/MetadataProvidersConfiguration";
@@ -104,10 +103,7 @@ function ConfigurationsSectionContent() {
       case "navigation":
         return [<AutoOpenBookDetailsConfiguration key="auto-open" />];
       case "deletion":
-        return [
-          <DeleteWarningConfiguration key="delete-warning" />,
-          <DefaultDeleteFilesFromDriveConfiguration key="delete-files" />,
-        ];
+        return [<DeleteSettingsGroup key="delete-settings" />];
       default:
         return [];
     }

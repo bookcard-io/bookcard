@@ -1,4 +1,5 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useUser } from "@/contexts/UserContext";
 
 export interface UseDeleteConfirmationOptions {
   /** Book ID to delete. */
@@ -55,16 +56,22 @@ export function useDeleteConfirmation({
   onSuccess,
   onError,
 }: UseDeleteConfirmationOptions): UseDeleteConfirmationResult {
+  const { getSetting, updateSetting } = useUser();
   const [isOpen, setIsOpen] = useState(false);
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [deleteFilesFromDrive, setDeleteFilesFromDrive] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const open = useCallback(() => {
-    setIsOpen(true);
-    setError(null);
-  }, []);
+  // Initialize deleteFilesFromDrive from setting when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const defaultDeleteFiles = getSetting("default_delete_files_from_drive");
+      const shouldDeleteFiles =
+        defaultDeleteFiles !== null ? defaultDeleteFiles === "true" : false;
+      setDeleteFilesFromDrive(shouldDeleteFiles);
+    }
+  }, [isOpen, getSetting]);
 
   const close = useCallback(() => {
     setIsOpen(false);
@@ -72,6 +79,69 @@ export function useDeleteConfirmation({
     setDeleteFilesFromDrive(false);
     setError(null);
   }, []);
+
+  /**
+   * Performs the actual deletion API call.
+   */
+  const performDelete = useCallback(
+    async (id: number, deleteFiles: boolean) => {
+      setIsDeleting(true);
+      setError(null);
+
+      try {
+        const response = await fetch(`/api/books/${id}`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            delete_files_from_drive: deleteFiles,
+          }),
+        });
+
+        if (!response.ok) {
+          const data = (await response.json()) as { detail?: string };
+          const errorMsg = data.detail || "Failed to delete book";
+          setError(errorMsg);
+          onError?.(errorMsg);
+          return;
+        }
+
+        // Success - close modal and call success callback
+        setIsOpen(false);
+        setDontShowAgain(false);
+        setDeleteFilesFromDrive(false);
+        setError(null);
+        onSuccess?.();
+      } catch (err) {
+        const errorMsg =
+          err instanceof Error ? err.message : "Failed to delete book";
+        setError(errorMsg);
+        onError?.(errorMsg);
+      } finally {
+        setIsDeleting(false);
+      }
+    },
+    [onSuccess, onError],
+  );
+
+  const open = useCallback(() => {
+    // Check if warning should be shown
+    const alwaysWarn = getSetting("always_warn_on_delete");
+    const shouldWarn = alwaysWarn === null || alwaysWarn === "true";
+
+    if (!shouldWarn && bookId) {
+      // Skip modal and delete directly using default setting
+      const defaultDeleteFiles = getSetting("default_delete_files_from_drive");
+      const shouldDeleteFiles =
+        defaultDeleteFiles !== null ? defaultDeleteFiles === "true" : false;
+      void performDelete(bookId, shouldDeleteFiles);
+      return;
+    }
+
+    setIsOpen(true);
+    setError(null);
+  }, [getSetting, bookId, performDelete]);
 
   const toggleDontShowAgain = useCallback(() => {
     setDontShowAgain((prev) => !prev);
@@ -89,40 +159,20 @@ export function useDeleteConfirmation({
       return;
     }
 
-    setIsDeleting(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/books/${bookId}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          delete_files_from_drive: deleteFilesFromDrive,
-        }),
-      });
-
-      if (!response.ok) {
-        const data = (await response.json()) as { detail?: string };
-        const errorMsg = data.detail || "Failed to delete book";
-        setError(errorMsg);
-        onError?.(errorMsg);
-        return;
-      }
-
-      // Success - close modal and call success callback
-      close();
-      onSuccess?.();
-    } catch (err) {
-      const errorMsg =
-        err instanceof Error ? err.message : "Failed to delete book";
-      setError(errorMsg);
-      onError?.(errorMsg);
-    } finally {
-      setIsDeleting(false);
+    // If "don't show again" is checked, update the setting
+    if (dontShowAgain) {
+      updateSetting("always_warn_on_delete", "false");
     }
-  }, [bookId, deleteFilesFromDrive, onSuccess, onError, close]);
+
+    await performDelete(bookId, deleteFilesFromDrive);
+  }, [
+    bookId,
+    deleteFilesFromDrive,
+    dontShowAgain,
+    updateSetting,
+    performDelete,
+    onError,
+  ]);
 
   return {
     isOpen,
