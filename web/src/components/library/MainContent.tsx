@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { BookEditModal } from "@/components/books/BookEditModal";
 import { BookViewModal } from "@/components/books/BookViewModal";
 import { BooksGrid } from "@/components/library/BooksGrid";
@@ -10,7 +10,6 @@ import { FiltersPanel } from "@/components/library/widgets/FiltersPanel";
 import { useBookEditModal } from "@/hooks/useBookEditModal";
 import { useBookUpload } from "@/hooks/useBookUpload";
 import { useBookViewModal } from "@/hooks/useBookViewModal";
-import { useLibraryBooks } from "@/hooks/useLibraryBooks";
 import { useLibraryFilters } from "@/hooks/useLibraryFilters";
 import { useLibrarySearch } from "@/hooks/useLibrarySearch";
 import { useLibrarySorting } from "@/hooks/useLibrarySorting";
@@ -69,24 +68,23 @@ export function MainContent() {
   });
   filtersCloseRef.current = filters.closeFiltersPanel;
 
-  // Fetch books using centralized hook to eliminate DRY violation
-  const { books, loadMore, hasMore, isLoading } = useLibraryBooks({
-    filters: filters.filters,
-    searchQuery: search.filterQuery,
-    sortBy: sorting.sortBy,
-    sortOrder: sorting.sortOrder,
-    pageSize: 20,
+  // Store book navigation data from BooksGrid (to avoid duplicate fetch)
+  const [booksNavigationData, setBooksNavigationData] = useState<{
+    bookIds: number[];
+    loadMore?: () => void;
+    hasMore?: boolean;
+    isLoading: boolean;
+  }>({
+    bookIds: [],
+    isLoading: false,
   });
-
-  // Extract book IDs for navigation
-  const bookIds = useMemo(() => books.map((book) => book.id), [books]);
 
   // Book view modal state with book IDs and infinite scroll support for navigation
   const bookModal = useBookViewModal({
-    bookIds,
-    loadMore,
-    hasMore,
-    isLoading,
+    bookIds: booksNavigationData.bookIds,
+    loadMore: booksNavigationData.loadMore,
+    hasMore: booksNavigationData.hasMore,
+    isLoading: booksNavigationData.isLoading,
   });
 
   // Update ref so search can access book modal
@@ -170,6 +168,7 @@ export function MainContent() {
             onBookClick={bookModal.handleBookClick}
             onBookEdit={bookEditModal.handleEditBook}
             bookDataUpdateRef={booksGridBookDataUpdateRef}
+            onBooksDataChange={setBooksNavigationData}
           />
         )}
       </div>

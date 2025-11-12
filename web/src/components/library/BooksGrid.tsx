@@ -31,6 +31,13 @@ export interface BooksGridProps {
     removeBook?: (bookId: number) => void;
     addBook?: (bookId: number) => Promise<void>;
   }>;
+  /** Callback to expose book navigation data (bookIds, loadMore, hasMore, isLoading) for modal navigation. */
+  onBooksDataChange?: (data: {
+    bookIds: number[];
+    loadMore?: () => void;
+    hasMore?: boolean;
+    isLoading: boolean;
+  }) => void;
 }
 
 /**
@@ -48,6 +55,7 @@ export function BooksGrid({
   sortOrder,
   pageSize = 20,
   bookDataUpdateRef,
+  onBooksDataChange,
 }: BooksGridProps) {
   // Fetch books using centralized hook (SOC: data fetching separated)
   const {
@@ -110,6 +118,19 @@ export function BooksGrid({
     () => deduplicateBooks(books, undefined, bookDataOverrides),
     [books, bookDataOverrides],
   );
+
+  // Expose book navigation data to parent component for modal navigation
+  useEffect(() => {
+    if (onBooksDataChange) {
+      const bookIds = uniqueBooks.map((book) => book.id);
+      onBooksDataChange({
+        bookIds,
+        loadMore,
+        hasMore,
+        isLoading,
+      });
+    }
+  }, [onBooksDataChange, uniqueBooks, loadMore, hasMore, isLoading]);
 
   // Handle deletion initiated from a card: remove locally from grid
   const handleBookDeleted = useCallback(
