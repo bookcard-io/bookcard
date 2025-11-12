@@ -4,6 +4,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useActiveLibrary } from "@/contexts/ActiveLibraryContext";
 import { useSidebar } from "@/contexts/SidebarContext";
+import { BurgerArrowLeft } from "@/icons/BurgerArrowLeft";
+import { BurgerArrowRight } from "@/icons/BurgerArrowRight";
 import { LibraryBuilding } from "@/icons/LibraryBuilding";
 import { LibraryOutline } from "@/icons/LibraryOutline";
 import { SharpDevicesFold } from "@/icons/SharpDevicesFold";
@@ -74,7 +76,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "fixed top-0 left-0 z-[1000] flex h-screen w-[280px] flex-col overflow-hidden bg-[var(--color-surface-a10)] text-[var(--color-surface-a50)] transition-[width] duration-300 ease-in-out",
+        "fixed top-0 left-0 z-[1000] flex h-screen w-[var(--sidebar-width)] flex-col overflow-hidden bg-[var(--color-surface-a10)] text-[var(--color-surface-a50)] transition-[width] duration-300 ease-in-out",
         isCollapsed && "w-16",
       )}
     >
@@ -99,7 +101,11 @@ export function Sidebar() {
           onClick={() => setIsCollapsed(!isCollapsed)}
           aria-label="Toggle sidebar"
         >
-          <i className="pi pi-bars" aria-hidden="true" />
+          {isCollapsed ? (
+            <BurgerArrowRight className="h-5 w-5" aria-hidden="true" />
+          ) : (
+            <BurgerArrowLeft className="h-5 w-5" aria-hidden="true" />
+          )}
         </button>
       </div>
 

@@ -27,7 +27,7 @@ function PageContent({ children }: PageContentProps) {
     <main
       className={cn(
         "flex-1 overflow-y-auto bg-surface-a0 transition-[margin-left] duration-300 ease-in-out",
-        isCollapsed ? "ml-16" : "ml-[280px]",
+        isCollapsed ? "ml-16" : "ml-[var(--sidebar-width)]",
       )}
     >
       {children}

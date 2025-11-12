@@ -58,6 +58,9 @@
   --shadow-focus-ring-danger: 0 0 0 3px rgba(156, 33, 33, 0.1);
   --shadow-primary-glow: 0 0 0 2px rgba(144, 170, 249, 0.2);
   --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.3);
+
+  /* Layout dimensions */
+  --sidebar-width: 250px;
 }
 
 @layer base {
