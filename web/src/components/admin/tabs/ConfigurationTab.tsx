@@ -16,37 +16,44 @@
 "use client";
 
 import { LibraryManagement } from "../library/LibraryManagement";
-import styles from "./ConfigurationTab.module.scss";
 
 export function ConfigurationTab() {
   return (
-    <div className={styles.container}>
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>Library Management</h2>
-        <p className={styles.helpText}>
+    <div className="flex flex-col gap-6">
+      <div className="rounded-lg border border-surface-a20 bg-surface-tonal-a0 p-6">
+        <h2 className="mb-4 font-semibold text-text-a0 text-xl">
+          Library Management
+        </h2>
+        <p className="mb-4 text-sm text-text-a30 leading-relaxed">
           Manage multiple Calibre libraries. Only one library can be active at a
           time. The active library is used for all book operations.
         </p>
         <LibraryManagement />
       </div>
 
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>Email Server Settings</h2>
-        <p className={styles.placeholder}>
+      <div className="rounded-lg border border-surface-a20 bg-surface-tonal-a0 p-6">
+        <h2 className="mb-4 font-semibold text-text-a0 text-xl">
+          Email Server Settings
+        </h2>
+        <p className="text-sm text-text-a30">
           Email server configuration will be implemented here.
         </p>
       </div>
 
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>Basic Configuration</h2>
-        <p className={styles.placeholder}>
+      <div className="rounded-lg border border-surface-a20 bg-surface-tonal-a0 p-6">
+        <h2 className="mb-4 font-semibold text-text-a0 text-xl">
+          Basic Configuration
+        </h2>
+        <p className="text-sm text-text-a30">
           Basic system configuration will be implemented here.
         </p>
       </div>
 
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>UI Configuration</h2>
-        <p className={styles.placeholder}>
+      <div className="rounded-lg border border-surface-a20 bg-surface-tonal-a0 p-6">
+        <h2 className="mb-4 font-semibold text-text-a0 text-xl">
+          UI Configuration
+        </h2>
+        <p className="text-sm text-text-a30">
           UI settings and preferences will be implemented here.
         </p>
       </div>
