@@ -24,6 +24,10 @@
     border-color: get-theme-color("danger", "a0");
     background-color: rgba(156, 33, 33, 0.1);
   }
+
+  &[data-enabled="false"] {
+    opacity: 0.6;
+  }
 }
 
 .header {
@@ -34,10 +38,11 @@
 
 .iconContainer {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 0.25rem;
   width: 2rem;
-  height: 2rem;
   flex-shrink: 0;
 }
 
@@ -84,6 +89,38 @@
   font-size: 0.75rem;
   color: get-theme-color("text", "a30");
   white-space: nowrap;
+}
+
+.enableIndicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  transition: transform 0.2s;
+
+  &:hover {
+    transform: scale(1.1);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+.enableIcon {
+  font-size: 0.875rem;
+  transition: color 0.2s;
+}
+
+.enableIndicator[aria-pressed="true"] .enableIcon {
+  color: get-theme-color("success", "a0");
+}
+
+.enableIndicator[aria-pressed="false"] .enableIcon {
+  color: get-theme-color("text", "a30");
 }
 
 .error {

@@ -6,6 +6,10 @@ import styles from "./MetadataProviderStatus.module.scss";
 export interface MetadataProviderStatusProps {
   /** Provider status information. */
   status: ProviderStatus;
+  /** Whether the provider is enabled. */
+  enabled: boolean;
+  /** Callback when enable/disable toggle is clicked. */
+  onToggle: () => void;
 }
 
 /**
@@ -15,6 +19,8 @@ export interface MetadataProviderStatusProps {
  */
 export function MetadataProviderStatus({
   status,
+  enabled,
+  onToggle,
 }: MetadataProviderStatusProps) {
   const getStatusIcon = () => {
     switch (status.status) {
@@ -69,9 +75,30 @@ export function MetadataProviderStatus({
   };
 
   return (
-    <div className={styles.container} data-status={status.status}>
+    <div
+      className={styles.container}
+      data-status={status.status}
+      data-enabled={enabled}
+    >
       <div className={styles.header}>
-        <div className={styles.iconContainer}>{getStatusIcon()}</div>
+        <div className={styles.iconContainer}>
+          {getStatusIcon()}
+          <button
+            type="button"
+            className={styles.enableIndicator}
+            onClick={onToggle}
+            aria-label={
+              enabled ? `Disable ${status.name}` : `Enable ${status.name}`
+            }
+            aria-pressed={enabled}
+            title={enabled ? "Disable provider" : "Enable provider"}
+          >
+            <i
+              className={`pi ${enabled ? "pi-check-circle" : "pi-circle"} ${styles.enableIcon}`}
+              aria-hidden="true"
+            />
+          </button>
+        </div>
         <div className={styles.info}>
           <div className={styles.name}>{status.name}</div>
           <div className={styles.statusText}>{getStatusText()}</div>
