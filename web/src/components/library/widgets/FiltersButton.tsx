@@ -16,7 +16,6 @@
 "use client";
 
 import { countActiveFilterTypes } from "@/utils/filters";
-import styles from "./FiltersButton.module.scss";
 import type { FilterValues } from "./FiltersPanel";
 
 export interface FiltersButtonProps {
@@ -50,17 +49,20 @@ export function FiltersButton({ onClick, filters }: FiltersButtonProps) {
   return (
     <button
       type="button"
-      className={styles.filtersButton}
+      className="relative flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg border border-surface-a20 bg-surface-tonal-a10 px-4 py-2.5 font-inherit text-sm text-text-a0 transition-[background-color,border-color] duration-200 hover:border-surface-a30 hover:bg-surface-tonal-a20 active:bg-surface-tonal-a30"
       onClick={handleClick}
       aria-label={ariaLabel}
       data-filters-button
     >
-      <div className={styles.buttonContent}>
+      <div className="flex items-center gap-2">
         <i className="pi pi-filter" aria-hidden="true" />
-        <span className={styles.buttonText}>Filters</span>
+        <span className="leading-none">Filters</span>
       </div>
       {activeFilterCount > 0 && (
-        <span className={styles.badge} aria-hidden="true">
+        <span
+          className="-right-1.5 -top-1.5 absolute flex h-[18px] min-w-[18px] items-center justify-center whitespace-nowrap rounded-full bg-primary-a0 px-[5px] font-semibold text-[11px] text-text-a0 leading-none"
+          aria-hidden="true"
+        >
           {activeFilterCount}
         </span>
       )}
