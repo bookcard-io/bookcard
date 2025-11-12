@@ -5,6 +5,7 @@ import { SettingsProvider, useSettings } from "@/contexts/SettingsContext";
 import { useTabScroll } from "@/hooks/useTabScroll";
 import { cn } from "@/libs/utils";
 import { BlurAfterClickProvider } from "./BlurAfterClickContext";
+import { AutoDismissBookEditModalConfiguration } from "./config/AutoDismissBookEditModalConfiguration";
 import { AutoOpenBookDetailsConfiguration } from "./config/AutoOpenBookDetailsConfiguration";
 import { DefaultDeleteFilesFromDriveConfiguration } from "./config/DefaultDeleteFilesFromDriveConfiguration";
 import { DefaultPageSizeConfiguration } from "./config/DefaultPageSizeConfiguration";
@@ -94,7 +95,10 @@ function ConfigurationsSectionContent() {
           <DefaultSortOrderConfiguration key="sort-order" />,
         ];
       case "content":
-        return [<MetadataProvidersConfiguration key="metadata-providers" />];
+        return [
+          <MetadataProvidersConfiguration key="metadata-providers" />,
+          <AutoDismissBookEditModalConfiguration key="auto-dismiss-modal" />,
+        ];
       case "navigation":
         return [<AutoOpenBookDetailsConfiguration key="auto-open" />];
       case "deletion":

@@ -1,4 +1,5 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { useUser } from "@/contexts/UserContext";
 import { useBook } from "@/hooks/useBook";
 import { useBookForm } from "@/hooks/useBookForm";
 import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
@@ -88,6 +89,11 @@ export function useBookEditForm({
       full: true,
     });
 
+  const { getSetting } = useUser();
+
+  // Use ref to store close handler so it can be accessed in onUpdateSuccess
+  const handleCloseRef = useRef<(() => void) | null>(null);
+
   const {
     formData,
     hasChanges,
@@ -101,6 +107,12 @@ export function useBookEditForm({
     onUpdateSuccess: (updatedBook) => {
       if (onBookSaved) {
         onBookSaved(updatedBook);
+      }
+      // Check if auto-dismiss is enabled
+      const autoDismiss = getSetting("auto_dismiss_book_edit_modal");
+      if (autoDismiss !== "false") {
+        // Default to true if setting is not set
+        handleCloseRef.current?.();
       }
     },
   });
@@ -136,6 +148,9 @@ export function useBookEditForm({
     clearStagedCoverUrl();
     onClose();
   }, [resetForm, clearStagedCoverUrl, onClose]);
+
+  // Update ref whenever handleClose changes
+  handleCloseRef.current = handleClose;
 
   /**
    * Handles Escape key press to close modal.

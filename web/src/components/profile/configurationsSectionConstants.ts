@@ -43,7 +43,7 @@ export const CONFIGURATION_TABS: readonly TabConfig[] = [
   },
   {
     id: "content",
-    label: "Content & Metadata",
+    label: "Uploads & Metadata",
   },
   {
     id: "navigation",
