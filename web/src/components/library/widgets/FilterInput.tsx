@@ -20,7 +20,6 @@ import { useEffect, useRef, useState } from "react";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { useFilterSuggestions } from "@/hooks/useFilterSuggestions";
 import type { SearchSuggestionItem } from "@/types/search";
-import styles from "./FilterInput.module.scss";
 import { FilterSuggestionsDropdown } from "./FilterSuggestionsDropdown";
 
 export interface FilterInputProps {
@@ -149,16 +148,16 @@ export function FilterInput({
   const inputId = `filter-input-${filterType}-${label.toLowerCase().replace(/\s+/g, "-")}`;
 
   return (
-    <div className={styles.filterInputWrapper} ref={containerRef}>
-      <label htmlFor={inputId} className={styles.filterLabel}>
+    <div className="relative flex flex-col gap-2" ref={containerRef}>
+      <label htmlFor={inputId} className="font-medium text-[13px] text-text-a0">
         {label}
       </label>
-      <div className={styles.inputContainer}>
+      <div className="relative flex flex-col gap-2">
         <input
           id={inputId}
           ref={inputRef}
           type="text"
-          className={styles.filterInput}
+          className="w-full rounded-lg border border-surface-a20 bg-surface-tonal-a10 px-4 py-2.5 font-inherit text-sm text-text-a0 transition-[border-color,background-color] duration-200 placeholder:text-text-a40 hover:border-surface-a30 focus:border-primary-a0 focus:bg-surface-tonal-a0 focus:outline-none"
           placeholder={placeholder}
           value={query}
           onChange={handleChange}
@@ -167,7 +166,7 @@ export function FilterInput({
           aria-label={`Filter by ${label}`}
         />
         {value.length > 0 && (
-          <div className={styles.selectedValues}>
+          <div className="flex flex-wrap gap-1.5">
             {value.map((id) => {
               // Find the suggestion name for this ID
               const suggestion =
@@ -175,11 +174,14 @@ export function FilterInput({
                 suggestions.find((s) => s.id === id);
               const displayName = suggestion?.name || `ID: ${id}`;
               return (
-                <span key={id} className={styles.selectedValue}>
+                <span
+                  key={id}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-primary-a0 px-2 py-1 text-text-a0 text-xs"
+                >
                   {displayName}
                   <button
                     type="button"
-                    className={styles.removeButton}
+                    className="flex h-4 w-4 items-center justify-center rounded-full border-none bg-transparent p-0 text-base text-text-a0 leading-none transition-colors duration-150 hover:bg-black/10"
                     onClick={() => handleRemoveValue(id)}
                     aria-label={`Remove ${displayName}`}
                   >

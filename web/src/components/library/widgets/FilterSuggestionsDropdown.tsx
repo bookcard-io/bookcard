@@ -14,7 +14,6 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import type { SearchSuggestionItem } from "@/types/search";
-import styles from "./FilterInput.module.scss";
 
 export interface FilterSuggestionsDropdownProps {
   /**
@@ -44,8 +43,10 @@ export function FilterSuggestionsDropdown({
 }: FilterSuggestionsDropdownProps) {
   if (isLoading) {
     return (
-      <div className={styles.suggestionsDropdown}>
-        <div className={styles.suggestionItem}>Loading...</div>
+      <div className="absolute top-[calc(100%+4px)] right-0 left-0 z-[1000] mt-1 max-h-[300px] overflow-y-auto rounded-lg border border-surface-a20 bg-surface-tonal-a10 shadow-[0_4px_12px_rgba(0,0,0,0.15)]">
+        <div className="flex w-full cursor-pointer items-center border-none bg-transparent px-4 py-2.5 text-left text-sm text-text-a0 transition-colors duration-150 first:border-t-0 hover:bg-surface-tonal-a20 focus:bg-surface-tonal-a20 focus:outline-none">
+          Loading...
+        </div>
       </div>
     );
   }
@@ -55,12 +56,12 @@ export function FilterSuggestionsDropdown({
   }
 
   return (
-    <div className={styles.suggestionsDropdown}>
+    <div className="absolute top-[calc(100%+4px)] right-0 left-0 z-[1000] mt-1 max-h-[300px] overflow-y-auto rounded-lg border border-surface-a20 bg-surface-tonal-a10 shadow-[0_4px_12px_rgba(0,0,0,0.15)]">
       {suggestions.map((suggestion) => (
         <button
           key={suggestion.id}
           type="button"
-          className={styles.suggestionItem}
+          className="flex w-full cursor-pointer items-center border-none bg-transparent px-4 py-2.5 text-left text-sm text-text-a0 transition-colors duration-150 first:border-t-0 hover:bg-surface-tonal-a20 focus:bg-surface-tonal-a20 focus:outline-none"
           onMouseDown={(e) => {
             // Prevent input blur from firing before we handle selection
             e.preventDefault();
