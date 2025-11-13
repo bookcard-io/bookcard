@@ -34,6 +34,10 @@ export interface ViewModeButtonProps {
    * Accessible label for the button.
    */
   ariaLabel: string;
+  /**
+   * Position in a segmented control group.
+   */
+  position?: "first" | "last";
 }
 
 /**
@@ -47,6 +51,7 @@ export function ViewModeButton({
   isActive = false,
   onClick,
   ariaLabel,
+  position,
 }: ViewModeButtonProps) {
   const handleClick = () => {
     onClick?.();
@@ -56,8 +61,23 @@ export function ViewModeButton({
     <button
       type="button"
       className={cn(
-        "flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-surface-a20 bg-surface-tonal-a10 p-0 text-text-a30 transition-[background-color,border-color,color] duration-200 hover:border-surface-a30 hover:bg-surface-tonal-a20 hover:text-text-a0 active:bg-surface-tonal-a30",
-        isActive && "border-surface-a30 bg-surface-tonal-a20 text-text-a0",
+        // Base styles
+        "flex h-9 w-9 cursor-pointer items-center justify-center p-0",
+        "transition-[background-color,color,border-color,box-shadow] duration-200",
+        // Rounded corners based on position
+        position === "first" && "rounded-r-none rounded-l-lg",
+        position === "last" && "-ml-px rounded-r-lg rounded-l-none",
+        !position && "rounded-lg",
+        // Border - full border for all buttons, creates visible separator when touching
+        "border border-surface-a20",
+        // Active state: lighter background with darker icon
+        isActive && ["bg-primary-a20", "text-surface-a20"],
+        // Inactive state: darker background with lighter icon
+        !isActive && ["bg-surface-a20", "text-primary-a20"],
+        // Hover states
+        "hover:bg-surface-tonal-a20 hover:text-primary-a20",
+        "hover:border-primary-a20 hover:shadow-[var(--shadow-primary-glow)]",
+        "active:bg-surface-tonal-a30",
       )}
       onClick={handleClick}
       aria-label={ariaLabel}

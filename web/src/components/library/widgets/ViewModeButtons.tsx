@@ -67,18 +67,22 @@ export function ViewModeButtons({
         onClick={() => handleModeChange("sort")}
         ariaLabel="Sort view"
       />
-      <ViewModeButton
-        iconClass="pi-th-large"
-        isActive={activeMode === "grid"}
-        onClick={() => handleModeChange("grid")}
-        ariaLabel="Grid view"
-      />
-      <ViewModeButton
-        iconClass="pi-list"
-        isActive={activeMode === "list"}
-        onClick={() => handleModeChange("list")}
-        ariaLabel="List view"
-      />
+      <div className="flex items-center">
+        <ViewModeButton
+          iconClass="pi-th-large"
+          isActive={activeMode === "grid"}
+          onClick={() => handleModeChange("grid")}
+          ariaLabel="Grid view"
+          position="first"
+        />
+        <ViewModeButton
+          iconClass="pi-list"
+          isActive={activeMode === "list"}
+          onClick={() => handleModeChange("list")}
+          ariaLabel="List view"
+          position="last"
+        />
+      </div>
     </fieldset>
   );
 }
