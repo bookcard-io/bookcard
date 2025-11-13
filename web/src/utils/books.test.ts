@@ -15,7 +15,11 @@
 
 import { describe, expect, it } from "vitest";
 import type { Book } from "@/types/book";
-import { deduplicateBooks, getCoverUrlWithCacheBuster } from "./books";
+import {
+  deduplicateBooks,
+  getBookEditModalTitle,
+  getCoverUrlWithCacheBuster,
+} from "./books";
 
 describe("books utils", () => {
   describe("getCoverUrlWithCacheBuster", () => {
@@ -181,6 +185,71 @@ describe("books utils", () => {
       // When no overrides, should return same book objects
       expect(result[0]).toBe(books[0]);
       expect(result[1]).toBe(books[1]);
+    });
+  });
+
+  describe("getBookEditModalTitle", () => {
+    const bookWithAuthors: Book = {
+      id: 1,
+      title: "Test Book",
+      authors: ["Author One", "Author Two"],
+      author_sort: "One, Author",
+      pubdate: null,
+      timestamp: null,
+      series: null,
+      series_id: null,
+      series_index: null,
+      isbn: null,
+      uuid: "test-uuid",
+      thumbnail_url: null,
+      has_cover: false,
+    };
+
+    const bookWithoutAuthors: Book = {
+      id: 2,
+      title: "Another Book",
+      authors: [],
+      author_sort: "",
+      pubdate: null,
+      timestamp: null,
+      series: null,
+      series_id: null,
+      series_index: null,
+      isbn: null,
+      uuid: "test-uuid-2",
+      thumbnail_url: null,
+      has_cover: false,
+    };
+
+    it("should use book title when formTitle is not provided", () => {
+      const result = getBookEditModalTitle(bookWithAuthors);
+      expect(result).toBe(
+        "Editing book info - Test Book by Author One, Author Two",
+      );
+    });
+
+    it("should use formTitle when provided", () => {
+      const result = getBookEditModalTitle(bookWithAuthors, "Updated Title");
+      expect(result).toBe(
+        "Editing book info - Updated Title by Author One, Author Two",
+      );
+    });
+
+    it("should use formTitle when null", () => {
+      const result = getBookEditModalTitle(bookWithAuthors, null);
+      expect(result).toBe(
+        "Editing book info - Test Book by Author One, Author Two",
+      );
+    });
+
+    it("should use 'Unknown Author' when book has no authors", () => {
+      const result = getBookEditModalTitle(bookWithoutAuthors);
+      expect(result).toBe("Editing book info - Another Book by Unknown Author");
+    });
+
+    it("should use 'Unknown Author' with formTitle when book has no authors", () => {
+      const result = getBookEditModalTitle(bookWithoutAuthors, "New Title");
+      expect(result).toBe("Editing book info - New Title by Unknown Author");
     });
   });
 });
