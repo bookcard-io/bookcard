@@ -74,7 +74,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             "hover:bg-surface-a20",
           ],
           variant === "danger" && [
-            "bg-danger-a0 text-text-a0",
+            "bg-danger-a0 text-[var(--color-white)]",
             "hover:bg-danger-a10",
           ],
           variant === "ghost" && [
@@ -82,7 +82,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             "hover:bg-surface-a10 hover:text-text-a0",
           ],
           variant === "success" && [
-            "bg-success-a0 text-text-a0",
+            "bg-success-a0 text-[var(--color-white)]",
             "hover:bg-success-a10",
             "active:bg-success-a0",
           ],
