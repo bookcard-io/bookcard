@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FilterValues } from "@/components/library/widgets/FiltersPanel";
 import type { Book, BookListResponse } from "@/types/book";
+import { deduplicateFetch, generateFetchKey } from "@/utils/fetch";
 import { filtersToApiBody, hasActiveFilters } from "@/utils/filters";
 
 export interface UseFilteredBooksOptions {
@@ -190,25 +191,30 @@ export function useFilteredBooks(
       }
 
       const filterBody = filtersToApiBody(filters);
+      const url = `/api/books/filter?${queryParams.toString()}`;
+      const fetchKey = generateFetchKey(url, {
+        method: "POST",
+        body: JSON.stringify(filterBody),
+      });
 
-      const response = await fetch(
-        `/api/books/filter?${queryParams.toString()}`,
-        {
+      const result = await deduplicateFetch(fetchKey, async () => {
+        const response = await fetch(url, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(filterBody),
           cache: "no-store",
-        },
-      );
+        });
 
-      if (!response.ok) {
-        const errorData = (await response.json()) as { detail?: string };
-        throw new Error(errorData.detail || "Failed to fetch filtered books");
-      }
+        if (!response.ok) {
+          const errorData = (await response.json()) as { detail?: string };
+          throw new Error(errorData.detail || "Failed to fetch filtered books");
+        }
 
-      const result = (await response.json()) as BookListResponse;
+        return (await response.json()) as BookListResponse;
+      });
+
       setData(result);
 
       // Accumulate books for infinite scroll

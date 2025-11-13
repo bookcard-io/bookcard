@@ -17,6 +17,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Book, BookListResponse, BooksQueryParams } from "@/types/book";
+import { deduplicateFetch, generateFetchKey } from "@/utils/fetch";
 
 export interface UseBooksOptions extends BooksQueryParams {
   /** Whether to automatically fetch on mount. */
@@ -166,16 +167,24 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
         queryParams.append("full", "true");
       }
 
-      const response = await fetch(`/api/books?${queryParams.toString()}`, {
-        cache: "no-store",
+      const url = `/api/books?${queryParams.toString()}`;
+      const fetchKey = generateFetchKey(url, {
+        method: "GET",
       });
 
-      if (!response.ok) {
-        const errorData = (await response.json()) as { detail?: string };
-        throw new Error(errorData.detail || "Failed to fetch books");
-      }
+      const result = await deduplicateFetch(fetchKey, async () => {
+        const response = await fetch(url, {
+          cache: "no-store",
+        });
 
-      const result = (await response.json()) as BookListResponse;
+        if (!response.ok) {
+          const errorData = (await response.json()) as { detail?: string };
+          throw new Error(errorData.detail || "Failed to fetch books");
+        }
+
+        return (await response.json()) as BookListResponse;
+      });
+
       setData(result);
 
       // Accumulate books for infinite scroll
