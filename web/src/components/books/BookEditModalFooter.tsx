@@ -16,7 +16,6 @@
 "use client";
 
 import { Button } from "@/components/forms/Button";
-import styles from "./BookEditModal.module.scss";
 
 export interface BookEditModalFooterProps {
   /** Error message from update attempt. */
@@ -45,21 +44,24 @@ export function BookEditModalFooter({
   onCancel,
 }: BookEditModalFooterProps) {
   return (
-    <div className={styles.footer}>
-      <div className={styles.statusMessages}>
+    <div className="flex flex-col gap-4 p-4 bg-surface-tonal-a10 border-t border-surface-a20 md:flex-row md:items-center md:justify-between md:gap-4 md:pt-4 md:pb-6 md:px-6">
+      <div className="flex flex-1 flex-col gap-2 w-full">
         {updateError && (
-          <div className={styles.errorBanner} role="alert">
+          <div
+            className="rounded-md bg-danger-a20 px-4 py-3 text-sm text-danger-a0"
+            role="alert"
+          >
             {updateError}
           </div>
         )}
 
         {showSuccess && (
-          <div className={styles.successBanner}>
+          <div className="rounded-md bg-success-a20 px-4 py-3 text-sm text-success-a0 animate-[slideIn_0.3s_ease-out]">
             Book metadata updated successfully!
           </div>
         )}
       </div>
-      <div className={styles.footerActions}>
+      <div className="flex flex-shrink-0 justify-end gap-3 w-full md:w-auto md:flex-row flex-col-reverse">
         <Button
           type="button"
           variant="ghost"

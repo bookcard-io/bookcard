@@ -55,7 +55,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         className={cn(
           // Base styles
           "inline-flex items-center justify-center gap-2 font-inherit font-medium",
-          "cursor-pointer rounded-lg border-none",
+          "cursor-pointer rounded-lg border border-solid",
           "transition-[background-color_0.2s,opacity_0.2s,transform_0.1s] ease-in-out",
           "leading-normal",
           // Focus styles
@@ -67,22 +67,26 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           // Variant styles
           variant === "primary" && [
             "bg-primary-a0 text-text-a0",
+            "border-primary-a20",
             "hover:bg-primary-a10",
           ],
           variant === "secondary" && [
-            "border border-surface-a20 bg-surface-a10 text-text-a0",
+            "border-surface-a20 bg-surface-a10 text-text-a0",
             "hover:bg-surface-a20",
           ],
           variant === "danger" && [
             "bg-danger-a0 text-[var(--color-white)]",
+            "border-danger-a10",
             "hover:bg-danger-a10",
           ],
           variant === "ghost" && [
             "bg-transparent text-text-a20",
+            "border-primary-a0",
             "hover:bg-surface-a10 hover:text-text-a0",
           ],
           variant === "success" && [
             "bg-success-a0 text-[var(--color-white)]",
+            "border-success-a10",
             "hover:bg-success-a10",
             "active:bg-success-a0",
           ],
