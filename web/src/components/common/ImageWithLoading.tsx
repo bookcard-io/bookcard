@@ -17,7 +17,6 @@
 
 import Image, { type ImageProps } from "next/image";
 import { useEffect, useRef, useState } from "react";
-import styles from "./ImageWithLoading.module.scss";
 
 /**
  * Props for ImageWithLoading component.
@@ -73,18 +72,24 @@ export function ImageWithLoading({
   }, [externalIsLoading]);
 
   return (
-    <div className={`${styles.container} ${containerClassName || ""}`}>
+    <div
+      className={`relative inline-block overflow-hidden ${containerClassName || ""}`}
+    >
       <Image
         {...imageProps}
         ref={imgRef}
-        className={`${styles.image} ${className || ""}`}
+        className={`block object-cover ${className || ""}`}
         onLoad={handleLoad}
       />
       <div
-        className={`${styles.curtain} ${!isLoading ? styles.curtainHidden : ""}`}
+        className={`absolute inset-0 z-10 flex items-center justify-center bg-black/50 transition-[opacity,visibility] duration-300 ease-out ${
+          !isLoading
+            ? "pointer-events-none invisible opacity-0"
+            : "visible opacity-100"
+        }`}
       >
         <i
-          className="pi pi-spin pi-spinner"
+          className="pi pi-spin pi-spinner text-[var(--color-primary-a0)]"
           style={{ fontSize: "2rem" }}
           aria-hidden="true"
         />
