@@ -73,7 +73,7 @@ export function ViewModeButton({
         // Active state: lighter background with darker icon
         isActive && ["bg-primary-a20", "text-surface-a20"],
         // Inactive state: darker background with lighter icon
-        !isActive && ["bg-surface-a20", "text-primary-a20"],
+        !isActive && ["bg-surface-a20", "text-text-a0"],
         // Hover states
         "hover:bg-surface-tonal-a20 hover:text-primary-a20",
         "hover:border-primary-a20 hover:shadow-[var(--shadow-primary-glow)]",
