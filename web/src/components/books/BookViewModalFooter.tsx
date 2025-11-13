@@ -44,7 +44,7 @@ export function BookViewModalFooter({ onDelete }: BookViewModalFooterProps) {
           variant="danger"
           size="medium"
           onClick={handleDelete}
-          className="bg-[var(--color-danger-a-1)] hover:bg-[var(--color-danger-a0)]"
+          className="bg-[var(--color-danger-a-1)] text-[var(--color-white)] hover:bg-[var(--color-danger-a0)]"
         >
           Delete
         </Button>
