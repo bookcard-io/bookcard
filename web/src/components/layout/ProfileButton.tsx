@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import { useUser } from "@/contexts/UserContext";
 import { ProfileMenu } from "./ProfileMenu";
+import { Tooltip } from "./Tooltip";
 
 /**
  * Profile button component for the header action bar.
@@ -85,33 +86,34 @@ export function ProfileButton() {
   return (
     <>
       <div className="flex items-center gap-1">
-        <button
-          ref={buttonRef}
-          type="button"
-          onClick={handleButtonClick}
-          className="flex h-[34px] w-[34px] shrink-0 cursor-pointer items-center justify-center rounded-full border border-surface-a20 bg-surface-tonal-a10 transition-colors duration-200 hover:bg-surface-tonal-a20"
-          aria-label="Account menu"
-          title="Account menu"
-        >
-          {profilePictureUrl ? (
-            <img
-              src={profilePictureUrl}
-              alt="Profile"
-              className="h-full w-full rounded-full object-cover"
-              key={profilePictureUrl}
-            />
-          ) : (
-            <div className="relative flex h-full w-full items-center justify-center overflow-hidden">
-              {/* Muted, blurred circular background */}
-              <div className="absolute inset-0 rounded-full bg-surface-tonal-a20 opacity-50 blur-xl" />
-              {/* Icon - dead centered */}
-              <i
-                className="pi pi-user relative text-text-a30 text-xl"
-                aria-hidden="true"
+        <Tooltip text="Account menu">
+          <button
+            ref={buttonRef}
+            type="button"
+            onClick={handleButtonClick}
+            className="flex h-[34px] w-[34px] shrink-0 cursor-pointer items-center justify-center rounded-full border border-surface-a20 bg-surface-tonal-a10 transition-colors duration-200 hover:bg-surface-tonal-a20"
+            aria-label="Account menu"
+          >
+            {profilePictureUrl ? (
+              <img
+                src={profilePictureUrl}
+                alt="Profile"
+                className="h-full w-full rounded-full object-cover"
+                key={profilePictureUrl}
               />
-            </div>
-          )}
-        </button>
+            ) : (
+              <div className="relative flex h-full w-full items-center justify-center overflow-hidden">
+                {/* Muted, blurred circular background */}
+                <div className="absolute inset-0 rounded-full bg-surface-tonal-a20 opacity-50 blur-xl" />
+                {/* Icon - dead centered */}
+                <i
+                  className="pi pi-user relative text-text-a30 text-xl"
+                  aria-hidden="true"
+                />
+              </div>
+            )}
+          </button>
+        </Tooltip>
         <i
           className={`pi ${isMenuOpen ? "pi-chevron-up" : "pi-chevron-down"} text-sm text-text-a30 transition-transform duration-200`}
           aria-hidden="true"

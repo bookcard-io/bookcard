@@ -130,9 +130,7 @@ export function ProfileMenu({
       />
       <DropdownMenuItem
         icon={theme === "dark" ? "pi pi-sun" : "pi pi-moon"}
-        label={
-          theme === "dark" ? "Light Theme" : "Dark Theme"
-        }
+        label={theme === "dark" ? "Light Theme" : "Dark Theme"}
         onClick={handleThemeToggle}
         className="cursor-pointer"
       />
