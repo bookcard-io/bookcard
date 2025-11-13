@@ -18,7 +18,7 @@
 import { forwardRef, useEffect, useRef, useState } from "react";
 import { FilterSuggestionsDropdown } from "@/components/library/widgets/FilterSuggestionsDropdown";
 import { useFilterSuggestions } from "@/hooks/useFilterSuggestions";
-import styles from "./TextInput.module.scss";
+import { cn } from "@/libs/utils";
 
 export interface AutocompleteTextInputProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> {
@@ -84,9 +84,12 @@ export const AutocompleteTextInput = forwardRef<
       (isLoading || suggestions.length > 0);
 
     return (
-      <div className={styles.container} ref={containerRef}>
+      <div className="relative flex w-full flex-col gap-2" ref={containerRef}>
         {label && (
-          <label htmlFor={id} className={styles.label}>
+          <label
+            htmlFor={id}
+            className="font-medium text-sm text-text-a10 leading-normal"
+          >
             {label}
           </label>
         )}
@@ -94,7 +97,21 @@ export const AutocompleteTextInput = forwardRef<
           ref={ref}
           id={id}
           type="text"
-          className={`${styles.input} ${error ? styles.inputError : ""} ${className || ""}`}
+          className={cn(
+            "w-full rounded-lg border border-surface-a20 bg-surface-a0 px-4 py-3",
+            "font-inherit text-base text-text-a0 leading-normal",
+            "transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s]",
+            "placeholder:text-text-a40",
+            "hover:not(:focus):border-surface-a30",
+            "focus:border-primary-a0 focus:bg-surface-a10 focus:outline-none",
+            "focus:shadow-[var(--shadow-focus-ring)]",
+            "disabled:cursor-not-allowed disabled:opacity-50",
+            error && [
+              "border-danger-a0",
+              "focus:border-danger-a0 focus:shadow-[var(--shadow-focus-ring-danger)]",
+            ],
+            className,
+          )}
           value={query}
           onChange={handleChange}
           onFocus={() => setIsFocused(true)}
@@ -108,12 +125,19 @@ export const AutocompleteTextInput = forwardRef<
           {...props}
         />
         {error && (
-          <span id={`${id}-error`} className={styles.error} role="alert">
+          <span
+            id={`${id}-error`}
+            className="text-danger-a10 text-sm leading-normal"
+            role="alert"
+          >
             {error}
           </span>
         )}
         {helperText && !error && (
-          <span id={`${id}-helper`} className={styles.helperText}>
+          <span
+            id={`${id}-helper`}
+            className="text-sm text-text-a30 leading-normal"
+          >
             {helperText}
           </span>
         )}
