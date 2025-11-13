@@ -16,7 +16,8 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { INSPIRING_QUOTES } from "@/constants/inspiring_quotes";
 import { Eye } from "@/icons/Eye";
 import { EyeSlash } from "@/icons/EyeSlash";
 
@@ -35,8 +36,47 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [randomQuote, setRandomQuote] = useState<
+    (typeof INSPIRING_QUOTES)[number] | null
+  >(null);
   const referrer = searchParams.get("referrer");
   const showPasswordChangeSuccess = referrer === "password-change";
+
+  // Select a random quote on client-side mount only
+  useEffect(() => {
+    const randomIndex = Math.floor(Math.random() * INSPIRING_QUOTES.length);
+    const quote = INSPIRING_QUOTES[randomIndex];
+    if (quote) {
+      setRandomQuote(quote);
+    }
+  }, []);
+
+  // Determine font size classes based on quote length
+  const getQuoteFontSizeClasses = (quote: string) => {
+    const length = quote.length;
+    // Very long quotes (>400 chars) - smallest base, minimal scaling
+    if (length > 400) {
+      return "text-sm sm:text-base md:text-lg lg:text-xl";
+    }
+    // Long quotes (300-400 chars) - very small base, very conservative scaling
+    if (length > 300) {
+      return "text-sm sm:text-base md:text-lg lg:text-xl";
+    }
+    // Medium-long quotes (250-300 chars) - small base, conservative scaling
+    if (length > 250) {
+      return "text-base sm:text-lg md:text-xl lg:text-2xl";
+    }
+    // Medium-long quotes (200-250 chars) - moderate base, moderate scaling
+    if (length > 200) {
+      return "text-base sm:text-lg md:text-xl lg:text-2xl";
+    }
+    // Medium quotes (120-200 chars) - standard scaling
+    if (length > 120) {
+      return "text-lg sm:text-xl md:text-2xl lg:text-3xl";
+    }
+    // Short quotes (<120 chars) - larger, more prominent but still constrained
+    return "text-xl sm:text-2xl md:text-3xl lg:text-4xl";
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -87,6 +127,26 @@ export default function LoginPage() {
 
   return (
     <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[var(--color-surface-a0)] p-8 before:pointer-events-none before:absolute before:top-0 before:right-0 before:z-0 before:h-full before:w-full before:bg-[radial-gradient(ellipse_80%_60%_at_top_right,rgba(144,170,249,0.18)_0%,rgba(144,170,249,0.10)_30%,transparent_70%)] before:content-[''] after:pointer-events-none after:absolute after:top-0 after:right-0 after:z-0 after:h-full after:w-full after:bg-[linear-gradient(135deg,transparent_0%,transparent_40%,rgba(144,170,249,0.06)_60%,transparent_100%)] after:content-['']">
+      {/* Quote display - positioned absolutely to not affect form centering */}
+      {randomQuote && (
+        <div className="-translate-x-1/2 pointer-events-none absolute top-4 left-1/2 z-[1] w-full max-w-4xl px-4 text-center sm:top-6 sm:px-8">
+          <blockquote
+            className={`mb-2 max-h-[12rem] overflow-hidden font-medium text-[var(--color-text-a10)] leading-relaxed sm:mb-3 sm:max-h-[14rem] ${getQuoteFontSizeClasses(randomQuote.quote)}`}
+          >
+            "{randomQuote.quote}"
+          </blockquote>
+          <cite className="text-[var(--color-text-a30)] text-sm italic sm:text-base md:text-lg">
+            — {randomQuote.author}
+            {randomQuote.source && (
+              <span className="text-[var(--color-text-a40)] not-italic">
+                {" "}
+                ({randomQuote.source})
+              </span>
+            )}
+          </cite>
+        </div>
+      )}
+
       <div className="relative z-[1] w-full max-w-[28rem] rounded-xl bg-[var(--color-surface-tonal-a0)] p-10 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-1px_rgba(0,0,0,0.06)]">
         <div className="mb-8">
           <h1 className="mb-2 font-bold text-[1.875rem] text-[var(--color-text-a0)] leading-tight">
