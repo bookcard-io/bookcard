@@ -18,7 +18,7 @@
 import { type KeyboardEvent, useState } from "react";
 import { FilterSuggestionsDropdown } from "@/components/library/widgets/FilterSuggestionsDropdown";
 import { useFilterSuggestions } from "@/hooks/useFilterSuggestions";
-import styles from "./MultiTextInput.module.scss";
+import { cn } from "@/libs/utils";
 
 export interface MultiTextInputProps {
   /** Label text for the input. */
@@ -102,20 +102,40 @@ export function MultiTextInput({
     (isLoading || suggestions.length > 0);
 
   return (
-    <div className={styles.container}>
+    <div className="relative flex w-full flex-col gap-2">
       {label && (
-        <label htmlFor={id} className={styles.label}>
+        <label
+          htmlFor={id}
+          className="font-medium text-sm text-text-a10 leading-normal"
+        >
           {label}
         </label>
       )}
-      <div className={styles.inputWrapper}>
-        <div className={styles.valuesContainer}>
+      <div className="w-full">
+        <div
+          className={cn(
+            "flex min-h-[2.75rem] flex-wrap items-center gap-2 rounded-lg border bg-surface-a0 p-2",
+            "transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s]",
+            "focus-within:border-primary-a0 focus-within:bg-surface-a10",
+            "focus-within:shadow-[var(--shadow-focus-ring)]",
+            "hover:not(:focus-within):border-surface-a30",
+            error && [
+              "border-danger-a0",
+              "focus-within:border-danger-a0",
+              "focus-within:shadow-[var(--shadow-focus-ring-danger)]",
+            ],
+            !error && "border-surface-a20",
+          )}
+        >
           {values.map((value) => (
-            <span key={value} className={styles.value}>
+            <span
+              key={value}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary-a0 px-3 py-1.5 text-sm text-text-a0 leading-normal"
+            >
               {value}
               <button
                 type="button"
-                className={styles.removeButton}
+                className="flex h-4 w-4 items-center justify-center rounded-full border-none bg-transparent p-0 text-text-a0 text-xl leading-none transition-[background-color_0.15s] hover:bg-black/15 focus:bg-black/20 focus:outline-none"
                 onClick={() => removeValue(value)}
                 aria-label={`Remove ${value}`}
               >
@@ -126,7 +146,7 @@ export function MultiTextInput({
           <input
             id={id}
             type="text"
-            className={`${styles.input} ${error ? styles.inputError : ""}`}
+            className="min-w-[120px] flex-1 border-none bg-transparent py-1 font-inherit text-base text-text-a0 leading-normal placeholder:text-text-a40 focus:outline-none"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -149,12 +169,19 @@ export function MultiTextInput({
         )}
       </div>
       {error && (
-        <span id={`${id}-error`} className={styles.error} role="alert">
+        <span
+          id={`${id}-error`}
+          className="text-danger-a10 text-sm leading-normal"
+          role="alert"
+        >
           {error}
         </span>
       )}
       {helperText && !error && (
-        <span id={`${id}-helper`} className={styles.helperText}>
+        <span
+          id={`${id}-helper`}
+          className="text-sm text-text-a30 leading-normal"
+        >
           {helperText}
         </span>
       )}
