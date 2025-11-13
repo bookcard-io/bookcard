@@ -186,7 +186,7 @@ export function BooksGrid({
   }
 
   return (
-    <div className="w-full py-6">
+    <div className="w-full">
       {total > 0 && (
         <div className="px-8 pb-4 text-left text-sm text-text-a40">
           {hasMore

@@ -224,7 +224,7 @@ export function BooksList({
   }
 
   return (
-    <div className="w-full py-6">
+    <div className="w-full">
       {total > 0 && (
         <div className="flex items-center justify-between px-8 pb-4">
           <div className="text-left text-sm text-text-a40">
