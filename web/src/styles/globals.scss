@@ -83,6 +83,9 @@
   --clr-dark-a0: #000000;
   --clr-light-a0: #ffffff;
 
+  /* Primary button text color */
+  --color-text-primary-a0: #131620;
+
   /* Legacy light theme variables (for backward compatibility) */
   --clr-primary-a0: #90aaf9;
   --clr-primary-a10: #7f95da;
@@ -179,6 +182,9 @@ html[data-theme="light"] {
   --shadow-focus-ring-danger: 0 0 0 3px rgba(177, 53, 53, 0.1);
   --shadow-primary-glow: 0 0 0 2px rgba(144, 170, 249, 0.15);
   --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+  /* Primary button text color */
+  --color-text-primary-a0: #131620;
 
   /* Legacy variables for backward compatibility */
   --clr-surface-a0: #ffffff;

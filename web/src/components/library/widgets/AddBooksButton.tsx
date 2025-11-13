@@ -15,6 +15,8 @@
 
 "use client";
 
+import { cn } from "@/libs/utils";
+
 export interface AddBooksButtonProps {
   /**
    * Ref to attach to the hidden file input element.
@@ -64,13 +66,30 @@ export function AddBooksButton({
       />
       <button
         type="button"
-        className="flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg border-none bg-primary-a0 px-5 py-2.5 font-inherit font-medium text-sm text-text-a0 transition-[background-color_0.2s,opacity_0.2s,transform_0.1s] hover:bg-primary-a10 active:scale-[0.98] active:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        className={cn(
+          // Layout
+          "flex cursor-pointer items-center gap-2 whitespace-nowrap",
+          // Shape & spacing
+          "rounded-lg border-none px-5 py-2.5",
+          // Colors
+          "bg-primary-a0 text-[var(--color-text-primary-a0)]",
+          // Typography
+          "font-inherit font-medium text-sm",
+          // Transitions
+          "transition-[background-color_0.2s,opacity_0.2s,transform_0.1s]",
+          // Hover - darker, more blue
+          "hover:bg-[var(--clr-primary-a10)]",
+          // Active
+          "active:scale-[0.98] active:opacity-90",
+          // Disabled
+          "disabled:cursor-not-allowed disabled:opacity-50",
+        )}
         onClick={handleClick}
         disabled={isUploading}
         aria-label="Add books"
       >
         <i
-          className="pi pi-plus flex-shrink-0 text-text-a0"
+          className="pi pi-plus flex-shrink-0 text-[var(--color-text-primary-a0)]"
           aria-hidden="true"
         />
         <span className="leading-none">
