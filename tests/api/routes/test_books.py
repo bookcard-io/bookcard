@@ -37,14 +37,17 @@ class MockBookService:
     def __init__(
         self,
         *,
-        list_books_result: tuple[list[BookWithRelations], int] | None = None,
+        list_books_result: tuple[list[BookWithRelations | BookWithFullRelations], int]
+        | None = None,
         get_book_result: BookWithRelations | None = None,
         get_book_full_result: BookWithFullRelations | None = None,
         get_thumbnail_url_result: str | None = None,
         get_thumbnail_path_result: Path | None = None,
         search_suggestions_result: dict[str, list[dict[str, str | int]]] | None = None,
         filter_suggestions_result: list[dict[str, str | int]] | None = None,
-        list_books_with_filters_result: tuple[list[BookWithRelations], int]
+        list_books_with_filters_result: tuple[
+            list[BookWithRelations | BookWithFullRelations], int
+        ]
         | None = None,
         update_book_result: BookWithFullRelations | None = None,
     ) -> None:
@@ -74,7 +77,7 @@ class MockBookService:
         sort_by: str = "timestamp",
         sort_order: str = "desc",
         full: bool = False,
-    ) -> tuple[list[BookWithRelations], int]:
+    ) -> tuple[list[BookWithRelations | BookWithFullRelations], int]:
         """Mock list_books method."""
         return self._list_books_result
 
@@ -134,7 +137,7 @@ class MockBookService:
         sort_by: str = "timestamp",
         sort_order: str = "desc",
         full: bool = False,
-    ) -> tuple[list[BookWithRelations], int]:
+    ) -> tuple[list[BookWithRelations | BookWithFullRelations], int]:
         """Mock list_books_with_filters method."""
         return self._list_books_with_filters_result
 
@@ -327,6 +330,69 @@ def test_list_books_skips_books_without_id(monkeypatch: pytest.MonkeyPatch) -> N
     # Should only include book with ID
     assert len(result.items) == 1
     assert result.items[0].id == 2
+
+
+def test_list_books_with_full_true(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test list_books with full=True returns full details (covers lines 263-276)."""
+    session = DummySession()
+
+    book = Book(
+        id=1,
+        title="Test Book",
+        author_sort="Author, Test",
+        pubdate="2024-01-01",
+        timestamp="2024-01-01T00:00:00",
+        series_index=1.0,
+        isbn="1234567890",
+        uuid="test-uuid",
+        has_cover=True,
+        path="test/path",
+    )
+    book_with_full_rels = BookWithFullRelations(
+        book=book,
+        authors=["Test Author"],
+        series="Test Series",
+        series_id=1,
+        tags=["Fiction", "Adventure"],
+        identifiers=[{"type": "isbn", "val": "1234567890"}],
+        description="Test description",
+        publisher="Test Publisher",
+        publisher_id=1,
+        languages=["en"],
+        language_ids=[1],
+        rating=5,
+        rating_id=1,
+        formats=[],
+    )
+
+    mock_service = MockBookService(
+        list_books_result=([book_with_full_rels], 1),
+        get_thumbnail_url_result="/api/books/1/cover",
+    )
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    result = books.list_books(session, page=1, page_size=20, full=True)
+    assert result.total == 1
+    assert len(result.items) == 1
+    assert result.items[0].id == 1
+    assert result.items[0].title == "Test Book"
+    assert result.items[0].tags == ["Fiction", "Adventure"]
+    assert result.items[0].identifiers == [{"type": "isbn", "val": "1234567890"}]
+    assert result.items[0].description == "Test description"
+    assert result.items[0].publisher == "Test Publisher"
+    assert result.items[0].publisher_id == 1
+    assert result.items[0].languages == ["en"]
+    assert result.items[0].language_ids == [1]
+    assert result.items[0].rating == 5
+    assert result.items[0].rating_id == 1
+    assert result.items[0].series_id == 1
+    assert result.items[0].formats == []
 
 
 def test_get_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -805,6 +871,86 @@ def test_filter_books_skips_books_without_id(monkeypatch: pytest.MonkeyPatch) ->
     # Should only include book with ID
     assert len(result.items) == 1
     assert result.items[0].id == 2
+
+
+def test_filter_books_with_full_true(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test filter_books with full=True returns full details (covers lines 1149-1162)."""
+    from fundamental.api.schemas import BookFilterRequest
+
+    session = DummySession()
+
+    book = Book(
+        id=1,
+        title="Test Book",
+        author_sort="Author, Test",
+        pubdate="2024-01-01",
+        timestamp="2024-01-01T00:00:00",
+        series_index=1.0,
+        isbn="1234567890",
+        uuid="test-uuid",
+        has_cover=True,
+        path="test/path",
+    )
+    book_with_full_rels = BookWithFullRelations(
+        book=book,
+        authors=["Test Author"],
+        series="Test Series",
+        series_id=1,
+        tags=["Fiction", "Adventure"],
+        identifiers=[{"type": "isbn", "val": "1234567890"}],
+        description="Test description",
+        publisher="Test Publisher",
+        publisher_id=1,
+        languages=["en"],
+        language_ids=[1],
+        rating=5,
+        rating_id=1,
+        formats=[],
+    )
+
+    mock_service = MockBookService(
+        list_books_with_filters_result=([book_with_full_rels], 1),
+        get_thumbnail_url_result="/api/books/1/cover",
+    )
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+
+    filter_request = BookFilterRequest(
+        author_ids=[1, 2],
+        title_ids=[3, 4],
+        genre_ids=[5, 6],
+    )
+
+    result = books.filter_books(
+        session,
+        filter_request=filter_request,
+        page=1,
+        page_size=20,
+        sort_by="timestamp",
+        sort_order="desc",
+        full=True,
+    )
+
+    assert result.total == 1
+    assert len(result.items) == 1
+    assert result.items[0].id == 1
+    assert result.items[0].title == "Test Book"
+    assert result.items[0].tags == ["Fiction", "Adventure"]
+    assert result.items[0].identifiers == [{"type": "isbn", "val": "1234567890"}]
+    assert result.items[0].description == "Test description"
+    assert result.items[0].publisher == "Test Publisher"
+    assert result.items[0].publisher_id == 1
+    assert result.items[0].languages == ["en"]
+    assert result.items[0].language_ids == [1]
+    assert result.items[0].rating == 5
+    assert result.items[0].rating_id == 1
+    assert result.items[0].series_id == 1
+    assert result.items[0].formats == []
 
 
 def test_get_book_with_full_true(monkeypatch: pytest.MonkeyPatch) -> None:

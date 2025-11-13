@@ -200,6 +200,53 @@ def test_jwt_manager_decode_token_expired() -> None:
         jwt_mgr.decode_token(expired_token)
 
 
+def test_jwt_manager_decode_token_blacklisted() -> None:
+    """Test JWT token decoding with blacklisted token (covers lines 122-124)."""
+    config = AppConfig(
+        jwt_secret="test-secret-key",
+        jwt_algorithm="HS256",
+        jwt_expires_minutes=15,
+    )
+    jwt_mgr = JWTManager(config)
+    token = jwt_mgr.create_access_token("user123")
+
+    # Decode to get the jti
+    decoded = jwt.decode(token, "test-secret-key", algorithms=["HS256"])
+    jti = decoded["jti"]
+
+    # Create a blacklist that includes this jti
+    blacklist = {jti}
+
+    def is_blacklisted(token_jti: str) -> bool:
+        return token_jti in blacklist
+
+    # Should raise SecurityTokenError when token is blacklisted
+    with pytest.raises(SecurityTokenError) as exc_info:
+        jwt_mgr.decode_token(token, is_blacklisted=is_blacklisted)
+    assert str(exc_info.value) == SecurityTokenError.BLACKLISTED_MESSAGE
+
+
+def test_jwt_manager_decode_token_not_blacklisted() -> None:
+    """Test JWT token decoding with non-blacklisted token."""
+    config = AppConfig(
+        jwt_secret="test-secret-key",
+        jwt_algorithm="HS256",
+        jwt_expires_minutes=15,
+    )
+    jwt_mgr = JWTManager(config)
+    token = jwt_mgr.create_access_token("user123")
+
+    # Create a blacklist that doesn't include this token's jti
+    blacklist = {"different-jti"}
+
+    def is_blacklisted(token_jti: str) -> bool:
+        return token_jti in blacklist
+
+    # Should succeed when token is not blacklisted
+    claims = jwt_mgr.decode_token(token, is_blacklisted=is_blacklisted)
+    assert claims["sub"] == "user123"
+
+
 def test_security_token_error() -> None:
     """Test SecurityTokenError exception."""
     error = SecurityTokenError()
