@@ -127,23 +127,28 @@ export default function LoginPage() {
 
   return (
     <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[var(--color-surface-a0)] p-8 before:pointer-events-none before:absolute before:top-0 before:right-0 before:z-0 before:h-full before:w-full before:bg-[radial-gradient(ellipse_80%_60%_at_top_right,rgba(144,170,249,0.18)_0%,rgba(144,170,249,0.10)_30%,transparent_70%)] before:content-[''] after:pointer-events-none after:absolute after:top-0 after:right-0 after:z-0 after:h-full after:w-full after:bg-[linear-gradient(135deg,transparent_0%,transparent_40%,rgba(144,170,249,0.06)_60%,transparent_100%)] after:content-['']">
-      {/* Quote display - positioned absolutely to not affect form centering */}
+      {/* Quote display - positioned between top of viewport and middle of form's top edge */}
       {randomQuote && (
-        <div className="-translate-x-1/2 pointer-events-none absolute top-4 left-1/2 z-[1] w-full max-w-4xl px-4 text-center sm:top-6 sm:px-8">
-          <blockquote
-            className={`mb-2 max-h-[12rem] overflow-hidden font-medium text-[var(--color-text-a10)] leading-relaxed sm:mb-3 sm:max-h-[14rem] ${getQuoteFontSizeClasses(randomQuote.quote)}`}
-          >
-            "{randomQuote.quote}"
-          </blockquote>
-          <cite className="text-[var(--color-text-a30)] text-sm italic sm:text-base md:text-lg">
-            — {randomQuote.author}
-            {randomQuote.source && (
-              <span className="text-[var(--color-text-a40)] not-italic">
-                {" "}
-                ({randomQuote.source})
-              </span>
-            )}
-          </cite>
+        <div
+          className="pointer-events-none absolute top-0 right-0 left-0 z-[1] flex items-center justify-center px-4 sm:px-8"
+          style={{ bottom: "calc(50vh + 14rem)" }}
+        >
+          <div className="w-full max-w-4xl text-center">
+            <blockquote
+              className={`mb-2 max-h-[12rem] overflow-hidden font-medium text-[var(--color-text-a10)] leading-relaxed sm:mb-3 sm:max-h-[14rem] ${getQuoteFontSizeClasses(randomQuote.quote)}`}
+            >
+              "{randomQuote.quote}"
+            </blockquote>
+            <cite className="text-[var(--color-text-a30)] text-sm italic sm:text-base md:text-lg">
+              — {randomQuote.author}
+              {randomQuote.source && (
+                <span className="text-[var(--color-text-a40)] not-italic">
+                  {" "}
+                  ({randomQuote.source})
+                </span>
+              )}
+            </cite>
+          </div>
         </div>
       )}
 
