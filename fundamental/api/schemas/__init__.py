@@ -85,6 +85,14 @@ from fundamental.api.schemas.metadata import (
     MetadataSearchResponse,
     MetadataSearchStartedEvent,
 )
+from fundamental.api.schemas.shelves import (
+    BookShelfLinkRead,
+    ShelfCreate,
+    ShelfListResponse,
+    ShelfRead,
+    ShelfReorderRequest,
+    ShelfUpdate,
+)
 
 __all__ = [
     # Auth schemas
@@ -95,6 +103,8 @@ __all__ = [
     "BookFilterRequest",
     "BookListResponse",
     "BookRead",
+    # Shelf schemas
+    "BookShelfLinkRead",
     "BookUpdate",
     "BookUploadResponse",
     "CoverFromUrlRequest",
@@ -136,6 +146,11 @@ __all__ = [
     "SettingRead",
     "SettingUpdate",
     "SettingsRead",
+    "ShelfCreate",
+    "ShelfListResponse",
+    "ShelfRead",
+    "ShelfReorderRequest",
+    "ShelfUpdate",
     "TokenResponse",
     "UserCreate",
     "UserRead",

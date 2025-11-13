@@ -23,16 +23,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from fundamental.models.config import Library
+from fundamental.repositories.calibre_book_repository import (
+    CalibreBookRepository,
+)
+from fundamental.repositories.shelf_repository import ShelfRepository
 
 if TYPE_CHECKING:
     from sqlmodel import Session
 
     from fundamental.repositories.config_repository import (
         LibraryRepository,
-    )
-else:
-    from fundamental.repositories.calibre_book_repository import (
-        CalibreBookRepository,
     )
 
 
@@ -151,6 +151,9 @@ class LibraryService:
         )
         self._library_repo.add(library)
         self._session.flush()
+        # If library is created as active, sync any existing shelves (though unlikely)
+        if is_active and library.id is not None:
+            self._sync_shelves_for_library(library.id, True)
         return library
 
     def update_library(
@@ -367,6 +370,8 @@ class LibraryService:
 
         # Activate the selected library
         library.is_active = True
+        # Sync shelf statuses for the newly activated library
+        self._sync_shelves_for_library(library_id, True)
         self._session.flush()
         return library
 
@@ -406,9 +411,29 @@ class LibraryService:
         return book_repo.get_library_stats()
 
     def _deactivate_all_libraries(self) -> None:
-        """Deactivate all libraries."""
+        """Deactivate all libraries and sync shelf statuses."""
         libraries = self._library_repo.list_all()
         for lib in libraries:
             if lib.is_active:
                 lib.is_active = False
+                # Sync shelf statuses for this library
+                if lib.id is not None:
+                    self._sync_shelves_for_library(lib.id, False)
         self._session.flush()
+
+    def _sync_shelves_for_library(
+        self,
+        library_id: int,
+        is_active: bool,
+    ) -> None:
+        """Sync shelf active status with library active status.
+
+        Parameters
+        ----------
+        library_id : int
+            Library ID whose shelves should be synced.
+        is_active : bool
+            Active status to set for all shelves in the library.
+        """
+        shelf_repo = ShelfRepository(self._session)
+        shelf_repo.sync_active_status_for_library(library_id, is_active)

@@ -37,6 +37,7 @@ from fundamental.api.routes.auth import router as auth_router
 from fundamental.api.routes.books import router as books_router
 from fundamental.api.routes.fs import router as fs_router
 from fundamental.api.routes.metadata import router as metadata_router
+from fundamental.api.routes.shelves import router as shelves_router
 from fundamental.config import AppConfig
 from fundamental.database import create_db_engine
 
@@ -97,6 +98,7 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(books_router)
     app.include_router(fs_router)
     app.include_router(metadata_router)
+    app.include_router(shelves_router)
 
 
 def create_app(config: AppConfig | None = None) -> FastAPI:

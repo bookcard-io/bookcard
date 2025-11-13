@@ -149,6 +149,11 @@ def upgrade() -> None:
         ("books:read", "Read book information", "books", "read"),
         ("books:write", "Create and update books", "books", "write"),
         ("books:delete", "Delete books", "books", "delete"),
+        # Shelf management permissions
+        ("shelves:create", "Create shelves", "shelves", "create"),
+        ("shelves:read", "Read shelf information", "shelves", "read"),
+        ("shelves:edit", "Edit any shelf", "shelves", "edit"),
+        ("shelves:delete", "Delete shelves", "shelves", "delete"),
         # Role management permissions
         ("roles:read", "Read role information", "roles", "read"),
         ("roles:write", "Create and update roles", "roles", "write"),
@@ -208,6 +213,8 @@ def upgrade() -> None:
         permission_ids["users:read"],
         permission_ids["books:read"],
         permission_ids["books:write"],
+        permission_ids["shelves:create"],
+        permission_ids["shelves:read"],
     ]
     for perm_id in user_permissions:
         conn.execute(
@@ -229,6 +236,7 @@ def upgrade() -> None:
     viewer_permissions = [
         permission_ids["users:read"],
         permission_ids["books:read"],
+        permission_ids["shelves:read"],
     ]
     for perm_id in viewer_permissions:
         conn.execute(
@@ -304,6 +312,7 @@ def downgrade() -> None:
             WHERE name IN (
                 'users:read', 'users:write', 'users:delete',
                 'books:read', 'books:write', 'books:delete',
+                'shelves:create', 'shelves:read', 'shelves:edit', 'shelves:delete',
                 'roles:read', 'roles:write', 'roles:delete',
                 'permissions:read', 'permissions:write', 'permissions:delete',
                 'system:admin'

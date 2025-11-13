@@ -33,6 +33,8 @@ else:
         CalibreBookRepository,
     )
 
+from fundamental.repositories.shelf_repository import ShelfRepository
+
 
 class LibraryService:
     """Operations for managing Calibre libraries.
@@ -216,6 +218,8 @@ class LibraryService:
 
         self._deactivate_all()
         library.is_active = True
+        # Sync shelf statuses for the newly activated library
+        self._sync_shelves_for_library(library_id, True)
         self._session.flush()
         return library
 
@@ -275,10 +279,30 @@ class LibraryService:
         return book_repo.get_library_stats()
 
     def _deactivate_all(self) -> None:
-        """Deactivate all libraries."""
+        """Deactivate all libraries and sync shelf statuses."""
         from sqlmodel import select
 
         stmt = select(Library).where(Library.is_active == True)  # noqa: E712
         active_libraries = self._session.exec(stmt).all()
         for lib in active_libraries:
             lib.is_active = False
+            # Sync shelf statuses for this library
+            if lib.id is not None:
+                self._sync_shelves_for_library(lib.id, False)
+
+    def _sync_shelves_for_library(
+        self,
+        library_id: int,
+        is_active: bool,
+    ) -> None:
+        """Sync shelf active status with library active status.
+
+        Parameters
+        ----------
+        library_id : int
+            Library ID whose shelves should be synced.
+        is_active : bool
+            Active status to set for all shelves in the library.
+        """
+        shelf_repo = ShelfRepository(self._session)
+        shelf_repo.sync_active_status_for_library(library_id, is_active)

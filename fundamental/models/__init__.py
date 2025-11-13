@@ -63,6 +63,11 @@ from fundamental.models.reading import (
     AnnotationDirtied,
     LastReadPosition,
 )
+from fundamental.models.shelves import (
+    BookShelfLink,
+    Shelf,
+    ShelfArchive,
+)
 from fundamental.models.system import (
     BookPluginData,
     CustomColumn,
@@ -84,6 +89,7 @@ __all__ = [
     "BookPublisherLink",
     "BookRatingLink",
     "BookSeriesLink",
+    "BookShelfLink",
     "BookTagLink",
     "Comment",
     "ContentRestrictionsConfig",
@@ -115,6 +121,8 @@ __all__ = [
     "ScheduledTasksConfig",
     "SecurityConfig",
     "Series",
+    "Shelf",
+    "ShelfArchive",
     "Tag",
     "UIConfig",
     "User",
