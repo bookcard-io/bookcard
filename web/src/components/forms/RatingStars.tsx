@@ -15,7 +15,7 @@
 
 "use client";
 
-import styles from "./RatingStars.module.scss";
+import { cn } from "@/libs/utils";
 
 export interface RatingStarsProps {
   /** Current rating value (0-5). */
@@ -56,7 +56,20 @@ export function RatingStars({
 
   const starElements = [1, 2, 3, 4, 5].map((star) => {
     const isFilled = value !== null && star <= value;
-    const starClassName = `${styles.star} ${isFilled ? styles.starFilled : ""} ${styles[size]}`;
+
+    const baseStarClasses = cn(
+      "border-none bg-transparent leading-none text-surface-a30 transition-[color_0.2s,transform_0.1s]",
+      size === "small" && "p-0.5 text-base",
+      size === "medium" && "p-1 text-2xl",
+      size === "large" && "p-1.5 text-[2rem]",
+      isFilled && "text-warning-a10",
+    );
+
+    const interactiveClasses = interactive
+      ? "cursor-pointer hover:text-warning-a10 hover:scale-110 focus:text-warning-a10 focus:outline-none"
+      : "";
+
+    const starClassName = cn(baseStarClasses, interactiveClasses);
 
     if (interactive) {
       return (
@@ -81,10 +94,10 @@ export function RatingStars({
   });
 
   return (
-    <div className={`${styles.starsContainer} ${className || ""}`}>
+    <div className={cn("flex items-center gap-2", className)}>
       {starElements}
       {showText && value !== null && (
-        <span className={styles.ratingText}>{value} / 5</span>
+        <span className="ml-2 text-sm text-text-a20">{value} / 5</span>
       )}
     </div>
   );
