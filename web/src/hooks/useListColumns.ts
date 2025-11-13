@@ -184,7 +184,9 @@ export function useListColumns(): UseListColumnsResult {
 
       const newColumns = [...prev];
       const [movedColumn] = newColumns.splice(fromIndex, 1);
-      newColumns.splice(toIndex, 0, movedColumn);
+      if (movedColumn !== undefined) {
+        newColumns.splice(toIndex, 0, movedColumn);
+      }
 
       return newColumns;
     });
