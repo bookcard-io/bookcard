@@ -42,7 +42,8 @@ describe("languages", () => {
       if (POPULAR_LANGUAGES.length > 0) {
         const language = POPULAR_LANGUAGES[0];
         if (language) {
-          const [code, expectedName] = language;
+          const code = language.code;
+          const expectedName = language.name;
           const name = getLanguageName(code);
           expect(name).toBe(expectedName);
         }
@@ -57,17 +58,25 @@ describe("languages", () => {
       expect(codes.length).toBeGreaterThan(0);
     });
 
-    it("should return all codes from POPULAR_LANGUAGES", () => {
+    it("should return unique base codes from POPULAR_LANGUAGES", () => {
       const codes = getAllLanguageCodes();
-      expect(codes.length).toBe(POPULAR_LANGUAGES.length);
+      // getAllLanguageCodes returns deduplicated base codes (part before dash)
+      // So the length should be less than or equal to POPULAR_LANGUAGES.length
+      expect(codes.length).toBeLessThanOrEqual(POPULAR_LANGUAGES.length);
+      // Verify all codes are unique
+      expect(codes.length).toBe(new Set(codes).size);
     });
 
-    it("should return ISO codes only (first element of each tuple)", () => {
+    it("should return ISO base codes only (part before dash)", () => {
       const codes = getAllLanguageCodes();
-      codes.forEach((code, index) => {
-        const language = POPULAR_LANGUAGES[index];
-        expect(language).toBeDefined();
-        expect(code).toBe(language?.[0]);
+      // Verify each code is a base code (no dashes) and exists in POPULAR_LANGUAGES
+      codes.forEach((code) => {
+        expect(code).not.toContain("-");
+        // Find at least one language entry that has this base code
+        const hasMatchingLanguage = POPULAR_LANGUAGES.some(
+          (lang) => lang.code.split("-")[0] === code,
+        );
+        expect(hasMatchingLanguage).toBe(true);
       });
     });
   });
