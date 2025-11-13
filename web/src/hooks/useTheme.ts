@@ -16,9 +16,9 @@
 "use client";
 
 import { useContext, useEffect, useState } from "react";
+import { THEME_PREFERENCE_SETTING_KEY } from "@/components/profile/config/configurationConstants";
 import { UserContext } from "@/contexts/UserContext";
 
-const THEME_SETTING_KEY = "theme";
 const THEME_LOCALSTORAGE_KEY = "theme-preference";
 const DEFAULT_THEME = "dark";
 
@@ -93,21 +93,31 @@ export function useTheme() {
   const userContext = useContext(UserContext);
 
   // Load theme from backend settings when UserProvider becomes available
+  // Also watch for setting changes to sync theme when updated from other components
   useEffect(() => {
     if (userContext && !userContext.isLoading) {
-      const savedTheme = userContext.getSetting(THEME_SETTING_KEY);
+      const savedTheme = userContext.getSetting(THEME_PREFERENCE_SETTING_KEY);
       if (savedTheme === "dark" || savedTheme === "light") {
-        setTheme(savedTheme);
-        saveThemeToLocalStorage(savedTheme);
+        // Only update if different to avoid unnecessary re-renders
+        if (savedTheme !== theme) {
+          setTheme(savedTheme);
+          saveThemeToLocalStorage(savedTheme);
+        }
       } else {
         // Backend doesn't have theme, sync localStorage to backend
         const localTheme = getThemeFromLocalStorage();
         if (localTheme) {
-          userContext.updateSetting(THEME_SETTING_KEY, localTheme);
+          userContext.updateSetting(THEME_PREFERENCE_SETTING_KEY, localTheme);
         }
       }
     }
-  }, [userContext?.isLoading, userContext?.getSetting, userContext]);
+  }, [
+    userContext?.isLoading,
+    userContext?.getSetting,
+    userContext,
+    userContext?.settings,
+    theme,
+  ]);
 
   // Apply theme to HTML element immediately
   useEffect(() => {
@@ -126,7 +136,7 @@ export function useTheme() {
     saveThemeToLocalStorage(newTheme);
     // Sync with backend if available
     if (userContext) {
-      userContext.updateSetting(THEME_SETTING_KEY, newTheme);
+      userContext.updateSetting(THEME_PREFERENCE_SETTING_KEY, newTheme);
     }
   };
 

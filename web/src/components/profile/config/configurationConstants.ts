@@ -76,3 +76,10 @@ export const BOOK_DETAILS_OPEN_MODE_OPTIONS = [
   { value: "modal", label: "Open in Modal" },
   { value: "page", label: "Navigate to Page" },
 ] as const;
+
+export const THEME_PREFERENCE_OPTIONS = [
+  { value: "dark", label: "Dark Theme" },
+  { value: "light", label: "Light Theme" },
+] as const;
+
+export const THEME_PREFERENCE_SETTING_KEY = "theme_preference";

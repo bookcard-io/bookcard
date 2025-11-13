@@ -17,31 +17,35 @@
 
 import { useSetting } from "@/hooks/useSetting";
 import { RadioGroup } from "../RadioGroup";
-import { DISPLAY_MODE_OPTIONS } from "./configurationConstants";
+import {
+  THEME_PREFERENCE_OPTIONS,
+  THEME_PREFERENCE_SETTING_KEY,
+} from "./configurationConstants";
 
-const SETTING_KEY = "books_grid_display";
-const DEFAULT_VALUE = "pagination";
+const DEFAULT_VALUE = "dark";
 
 /**
- * Display mode configuration component.
+ * Theme preference configuration component.
  *
- * Manages books display preference (pagination vs infinite scroll).
- * Follows SRP by handling only display mode preference.
+ * Manages theme preference (dark vs light).
+ * Follows SRP by handling only theme preference.
  * Follows IOC by using useSetting hook for persistence.
+ * Theme changes are automatically applied by useTheme hook which watches
+ * the setting value.
  */
-export function DisplayModeConfiguration() {
+export function ThemePreferenceConfiguration() {
   const { value, setValue } = useSetting({
-    key: SETTING_KEY,
+    key: THEME_PREFERENCE_SETTING_KEY,
     defaultValue: DEFAULT_VALUE,
   });
 
   return (
     <RadioGroup
-      label="Books Display"
-      options={[...DISPLAY_MODE_OPTIONS]}
+      label="Theme Preference"
+      options={[...THEME_PREFERENCE_OPTIONS]}
       value={value}
       onChange={setValue}
-      name="display-mode"
+      name="theme-preference"
     />
   );
 }

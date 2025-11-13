@@ -32,6 +32,7 @@ import { EnabledMetadataProvidersConfiguration } from "./config/EnabledMetadataP
 import { LanguagesConfiguration } from "./config/LanguagesConfiguration";
 import { MetadataProvidersConfiguration } from "./config/MetadataProvidersConfiguration";
 import { ReplaceCoverOnMetadataSelectionConfiguration } from "./config/ReplaceCoverOnMetadataSelectionConfiguration";
+import { ThemePreferenceConfiguration } from "./config/ThemePreferenceConfiguration";
 import {
   CONFIGURATION_TABS,
   DEFAULT_TAB_ID,
@@ -100,6 +101,7 @@ function ConfigurationsSectionContent() {
     switch (activeTab) {
       case "display":
         return [
+          <ThemePreferenceConfiguration key="theme-preference" />,
           <DisplayModeConfiguration key="display-mode" />,
           <DefaultViewModeConfiguration key="view-mode" />,
           <DefaultPageSizeConfiguration key="page-size" />,
