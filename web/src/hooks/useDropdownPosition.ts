@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 /** Vertical offset for menu positioning (positive = down). */
 const MENU_OFFSET_Y = 2;
@@ -28,6 +28,8 @@ export interface UseDropdownPositionOptions {
   buttonRef: React.RefObject<HTMLElement | null>;
   /** Cursor position when menu was opened. */
   cursorPosition: { x: number; y: number } | null;
+  /** Optional ref to the menu element to allow measuring height for auto-flip. */
+  menuRef?: React.RefObject<HTMLElement | null>;
 }
 
 export interface UseDropdownPositionResult {
@@ -57,11 +59,14 @@ export function useDropdownPosition({
   isOpen,
   buttonRef,
   cursorPosition,
+  menuRef,
 }: UseDropdownPositionOptions): UseDropdownPositionResult {
   const [position, setPosition] = useState({ top: 0, right: 0 });
   const cursorOffsetRef = useRef<{ x: number; y: number } | null>(null);
 
-  useEffect(() => {
+  // Use layout effect so the first measurement/position happens before paint,
+  // preventing a visible jump from down->up when the menu would overflow.
+  useLayoutEffect(() => {
     if (!isOpen || !cursorPosition) {
       cursorOffsetRef.current = null;
       return;
@@ -83,14 +88,33 @@ export function useDropdownPosition({
         const buttonRect = buttonRef.current.getBoundingClientRect();
         const menuX = buttonRect.left + cursorOffsetRef.current.x;
         const menuY = buttonRect.top + cursorOffsetRef.current.y;
+        // Auto-flip up if menu would overflow the bottom edge
+        const measuredHeight =
+          (menuRef?.current &&
+            (menuRef.current as HTMLElement).getBoundingClientRect().height) ||
+          0;
+        const downTop = menuY + MENU_OFFSET_Y;
+        const wouldOverflow = downTop + measuredHeight > window.innerHeight;
+        const top = wouldOverflow
+          ? Math.max(0, buttonRect.bottom - measuredHeight)
+          : downTop;
         setPosition({
-          top: menuY + MENU_OFFSET_Y,
+          top,
           right: window.innerWidth - menuX - MENU_OFFSET_X,
         });
       } else if (cursorPosition) {
         // Fallback to cursor position if button ref is not available
+        const measuredHeight =
+          (menuRef?.current &&
+            (menuRef.current as HTMLElement).getBoundingClientRect().height) ||
+          0;
+        const downTop = cursorPosition.y + MENU_OFFSET_Y;
+        const wouldOverflow = downTop + measuredHeight > window.innerHeight;
+        const top = wouldOverflow
+          ? Math.max(0, cursorPosition.y - measuredHeight)
+          : downTop;
         setPosition({
-          top: cursorPosition.y + MENU_OFFSET_Y,
+          top,
           right: window.innerWidth - cursorPosition.x - MENU_OFFSET_X,
         });
       }
@@ -104,7 +128,7 @@ export function useDropdownPosition({
       window.removeEventListener("scroll", updatePosition, true);
       window.removeEventListener("resize", updatePosition);
     };
-  }, [isOpen, buttonRef, cursorPosition]);
+  }, [isOpen, buttonRef, cursorPosition, menuRef]);
 
   return { position };
 }

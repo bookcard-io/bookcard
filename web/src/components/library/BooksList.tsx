@@ -15,7 +15,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useBookDataUpdates } from "@/hooks/useBookDataUpdates";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { useLibraryBooks } from "@/hooks/useLibraryBooks";
@@ -23,6 +23,7 @@ import type { Book } from "@/types/book";
 import { deduplicateBooks } from "@/utils/books";
 import { BookListItem } from "./BookListItem";
 import { ListHeader } from "./ListHeader";
+import { ShelfFilterInfoBox } from "./ShelfFilterInfoBox";
 import { ColumnSelectorButton } from "./widgets/ColumnSelectorButton";
 import type { FilterValues } from "./widgets/FiltersPanel";
 
@@ -144,17 +145,44 @@ export function BooksList({
   );
 
   // Expose book navigation data to parent component for modal navigation
+  // Use ref to avoid infinite loops from callback dependency changes
+  const onBooksDataChangeRef = useRef(onBooksDataChange);
   useEffect(() => {
-    if (onBooksDataChange) {
-      const bookIds = uniqueBooks.map((book) => book.id);
-      onBooksDataChange({
-        bookIds,
-        loadMore,
-        hasMore,
-        isLoading,
-      });
+    onBooksDataChangeRef.current = onBooksDataChange;
+  }, [onBooksDataChange]);
+
+  // Memoize the data to avoid unnecessary updates
+  const booksData = useMemo(
+    () => ({
+      bookIds: uniqueBooks.map((book) => book.id),
+      loadMore,
+      hasMore,
+      isLoading,
+    }),
+    [uniqueBooks, loadMore, hasMore, isLoading],
+  );
+
+  // Store previous data to compare and only update if changed
+  const prevBooksDataRef = useRef<typeof booksData | null>(null);
+  useEffect(() => {
+    const prev = prevBooksDataRef.current;
+    const current = booksData;
+
+    // Only call callback if data actually changed (or on first render)
+    if (
+      !prev ||
+      prev.bookIds.length !== current.bookIds.length ||
+      prev.bookIds.some((id, idx) => id !== current.bookIds[idx]) ||
+      prev.hasMore !== current.hasMore ||
+      prev.isLoading !== current.isLoading ||
+      prev.loadMore !== current.loadMore
+    ) {
+      prevBooksDataRef.current = current;
+      if (onBooksDataChangeRef.current) {
+        onBooksDataChangeRef.current(current);
+      }
     }
-  }, [onBooksDataChange, uniqueBooks, loadMore, hasMore, isLoading]);
+  }, [booksData]);
 
   // Handle deletion initiated from an item: remove locally from list
   const handleBookDeleted = useCallback(
@@ -237,6 +265,7 @@ export function BooksList({
           </div>
         </div>
       )}
+      {shelfId && <ShelfFilterInfoBox />}
       <div className="flex flex-col px-8">
         <ListHeader allBooks={uniqueBooks} />
         {uniqueBooks.map((book) => (

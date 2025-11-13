@@ -157,7 +157,6 @@ export function BookListItem({
         onBookInfo={menuActions.handleBookInfo}
         onSend={menuActions.handleSend}
         onMoveToLibrary={menuActions.handleMoveToLibrary}
-        onAddToShelf={shelfCreation.openCreateModal}
         onConvert={menuActions.handleConvert}
         onDelete={menuActions.handleDelete}
         onMore={menuActions.handleMore}

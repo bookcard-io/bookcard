@@ -16,16 +16,19 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useCallback, useState } from "react";
 import { BookEditModal } from "@/components/books/BookEditModal";
 import { BookViewModal } from "@/components/books/BookViewModal";
 import { LibraryHeader } from "@/components/library/LibraryHeader";
 import { LibraryTabs } from "@/components/library/LibraryTabs";
 import { SearchWidgetBar } from "@/components/library/SearchWidgetBar";
 import { FiltersPanel } from "@/components/library/widgets/FiltersPanel";
+import { ShelfSelectionBar } from "@/components/shelves/ShelfSelectionBar";
 import { ShelvesGrid } from "@/components/shelves/ShelvesGrid";
-import { ShelvesList } from "@/components/shelves/ShelvesList";
 import { useSelectedShelf } from "@/contexts/SelectedShelfContext";
+import { useShelvesContext } from "@/contexts/ShelvesContext";
 import { useMainContent } from "@/hooks/useMainContent";
+import { deleteShelf } from "@/services/shelfService";
 
 // Lazily load views to ensure only the active one mounts and fetches on first paint
 const BooksGrid = dynamic(
@@ -62,7 +65,40 @@ export function MainContent() {
     handleViewModeChange,
   } = useMainContent();
 
-  const { selectedShelfId } = useSelectedShelf();
+  const { selectedShelfId, setSelectedShelfId } = useSelectedShelf();
+  const [selectedShelfIds, setSelectedShelfIds] = useState<Set<number>>(
+    new Set(),
+  );
+  const { refresh: refreshShelvesContext } = useShelvesContext();
+
+  // Handle shelf card click (navigate to library tab and filter)
+  const handleShelfClick = useCallback(
+    (shelfId: number) => {
+      setSelectedShelfId(shelfId);
+      handleTabChange("library");
+    },
+    [setSelectedShelfId, handleTabChange],
+  );
+
+  // Handle bulk delete from selection bar
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedShelfIds.size > 0) {
+      const idsToDelete = Array.from(selectedShelfIds);
+      try {
+        await Promise.all(idsToDelete.map((id) => deleteShelf(id)));
+        setSelectedShelfIds(new Set());
+        // Refresh context to sync with Sidebar and ShelvesGrid
+        await refreshShelvesContext();
+      } catch (error) {
+        console.error("Failed to delete shelf(s):", error);
+      }
+    }
+  }, [selectedShelfIds, refreshShelvesContext]);
+
+  // Handle deselect all
+  const handleDeselectAll = useCallback(() => {
+    setSelectedShelfIds(new Set());
+  }, []);
 
   return (
     <>
@@ -106,7 +142,19 @@ export function MainContent() {
             </>
           )}
         </div>
-        <LibraryTabs activeTab={activeTab} onTabChange={handleTabChange} />
+        <div className="relative">
+          <LibraryTabs activeTab={activeTab} onTabChange={handleTabChange} />
+          {activeTab === "shelves" && selectedShelfIds.size > 0 && (
+            <ShelfSelectionBar
+              selectedCount={selectedShelfIds.size}
+              onMerge={() => {
+                // No-op for now
+              }}
+              onDelete={handleBulkDelete}
+              onDeselectAll={handleDeselectAll}
+            />
+          )}
+        </div>
         {activeTab === "library" && (
           <>
             {viewMode.isReady && viewMode.viewMode === "grid" && (
@@ -138,14 +186,10 @@ export function MainContent() {
           </>
         )}
         {activeTab === "shelves" && (
-          <>
-            {viewMode.isReady && viewMode.viewMode === "grid" && (
-              <ShelvesGrid />
-            )}
-            {viewMode.isReady && viewMode.viewMode === "list" && (
-              <ShelvesList />
-            )}
-          </>
+          <ShelvesGrid
+            onSelectionChange={setSelectedShelfIds}
+            onShelfClick={handleShelfClick}
+          />
         )}
       </div>
       <BookViewModal

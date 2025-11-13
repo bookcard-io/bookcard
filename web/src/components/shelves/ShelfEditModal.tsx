@@ -15,7 +15,7 @@
 
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/forms/Button";
 import { TextArea } from "@/components/forms/TextArea";
 import { TextInput } from "@/components/forms/TextInput";
@@ -31,10 +31,18 @@ import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
 export interface ShelfEditModalProps {
   /** Shelf to edit (null for create mode). */
   shelf: Shelf | null;
+  /** Initial name for create mode (overrides shelf name if shelf is null). */
+  initialName?: string;
+  /** Initial cover file for create mode (e.g., from book cover). */
+  initialCoverFile?: File | null;
   /** Callback when modal should be closed. */
   onClose: () => void;
   /** Callback when shelf is saved. Returns the created/updated shelf. */
   onSave: (data: ShelfCreate | ShelfUpdate) => Promise<Shelf>;
+  /** Callback when cover picture is uploaded. Receives updated shelf with new cover. */
+  onCoverSaved?: (shelf: Shelf) => void;
+  /** Callback when cover picture is deleted. Receives updated shelf without cover. */
+  onCoverDeleted?: (shelf: Shelf) => void;
 }
 
 /**
@@ -44,8 +52,12 @@ export interface ShelfEditModalProps {
  */
 export function ShelfEditModal({
   shelf,
+  initialName,
+  initialCoverFile,
   onClose,
   onSave,
+  onCoverSaved,
+  onCoverDeleted,
 }: ShelfEditModalProps) {
   const isEditMode = shelf !== null;
   const {
@@ -60,7 +72,7 @@ export function ShelfEditModal({
     handleSubmit: validateAndSubmit,
     reset,
   } = useShelfForm({
-    initialName: shelf?.name ?? "",
+    initialName: shelf?.name ?? initialName ?? "",
     initialDescription: shelf?.description ?? null,
     initialIsPublic: shelf?.is_public ?? false,
     onSubmit: async () => {
@@ -71,11 +83,36 @@ export function ShelfEditModal({
     },
   });
 
-  const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [coverFile, setCoverFile] = useState<File | null>(
+    initialCoverFile || null,
+  );
   const [coverError, setCoverError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCoverDeleteStaged, setIsCoverDeleteStaged] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
+  const hasUserTouchedCoverRef = useRef(false);
+
+  // Create object URL for cover preview and clean up on unmount or file change
+  useEffect(() => {
+    if (coverFile && !isEditMode) {
+      const objectUrl = URL.createObjectURL(coverFile);
+      setCoverPreviewUrl(objectUrl);
+      return () => {
+        URL.revokeObjectURL(objectUrl);
+      };
+    }
+    setCoverPreviewUrl(null);
+    return () => {};
+  }, [coverFile, isEditMode]);
+
+  // Keep coverFile in sync with initialCoverFile for create mode,
+  // but do not overwrite if the user has already interacted with the cover input.
+  useEffect(() => {
+    if (!isEditMode && initialCoverFile && !hasUserTouchedCoverRef.current) {
+      setCoverFile((prev) => prev ?? initialCoverFile);
+    }
+  }, [initialCoverFile, isEditMode]);
 
   // Prevent body scroll when modal is open
   useModal(true);
@@ -107,6 +144,9 @@ export function ShelfEditModal({
 
   const handleCancel = useCallback(() => {
     reset();
+    setIsCoverDeleteStaged(false);
+    setCoverFile(null);
+    setCoverError(null);
     onClose();
   }, [reset, onClose]);
 
@@ -135,6 +175,9 @@ export function ShelfEditModal({
         }
         setCoverFile(file);
         setCoverError(null);
+        hasUserTouchedCoverRef.current = true;
+        // Clear staged deletion if a new file is selected
+        setIsCoverDeleteStaged(false);
       }
     },
     [],
@@ -143,52 +186,23 @@ export function ShelfEditModal({
   const handleClearCoverFile = useCallback(() => {
     setCoverFile(null);
     setCoverError(null);
+    setIsCoverDeleteStaged(false);
+    hasUserTouchedCoverRef.current = true;
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   }, []);
 
-  const handleCoverUpload = useCallback(async () => {
-    if (!coverFile || !shelf) return;
-
-    setIsUploadingCover(true);
+  const handleCoverDelete = useCallback(() => {
+    // Stage the deletion - actual deletion happens on Save
+    setIsCoverDeleteStaged(true);
+    setCoverFile(null);
     setCoverError(null);
-
-    try {
-      await uploadShelfCoverPicture(shelf.id, coverFile);
-      setCoverFile(null);
-      // Refresh shelf data by closing and reopening or triggering a refresh
-      onClose();
-    } catch (error) {
-      setCoverError(
-        error instanceof Error
-          ? error.message
-          : "Failed to upload cover picture",
-      );
-    } finally {
-      setIsUploadingCover(false);
+    hasUserTouchedCoverRef.current = true;
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
-  }, [coverFile, shelf, onClose]);
-
-  const handleCoverDelete = useCallback(async () => {
-    if (!shelf) return;
-
-    setIsUploadingCover(true);
-    setCoverError(null);
-
-    try {
-      await deleteShelfCoverPicture(shelf.id);
-      onClose();
-    } catch (error) {
-      setCoverError(
-        error instanceof Error
-          ? error.message
-          : "Failed to delete cover picture",
-      );
-    } finally {
-      setIsUploadingCover(false);
-    }
-  }, [shelf, onClose]);
+  }, []);
 
   const handleFormSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -212,12 +226,45 @@ export function ShelfEditModal({
         // Save the shelf and get the result
         const savedShelf = await onSave(data);
 
-        // Upload cover picture if one was selected
-        if (coverFile && savedShelf) {
-          try {
-            await uploadShelfCoverPicture(savedShelf.id, coverFile);
-          } catch (error) {
-            console.error("Failed to upload cover picture:", error);
+        // Handle cover operations after shelf is saved
+        if (savedShelf) {
+          // Delete cover if deletion is staged
+          if (isCoverDeleteStaged) {
+            try {
+              const updatedShelf = await deleteShelfCoverPicture(savedShelf.id);
+              // Notify parent to refresh cover with updated shelf data
+              onCoverDeleted?.(updatedShelf);
+            } catch (error) {
+              console.error("Failed to delete cover picture:", error);
+              setCoverError(
+                error instanceof Error
+                  ? error.message
+                  : "Failed to delete cover picture",
+              );
+              setIsSaving(false);
+              return;
+            }
+          }
+
+          // Upload cover picture if one was selected
+          if (coverFile) {
+            try {
+              const updatedShelf = await uploadShelfCoverPicture(
+                savedShelf.id,
+                coverFile,
+              );
+              // Notify parent to refresh cover with updated shelf data
+              onCoverSaved?.(updatedShelf);
+            } catch (error) {
+              console.error("Failed to upload cover picture:", error);
+              setCoverError(
+                error instanceof Error
+                  ? error.message
+                  : "Failed to upload cover picture",
+              );
+              setIsSaving(false);
+              return;
+            }
           }
         }
 
@@ -236,6 +283,9 @@ export function ShelfEditModal({
       isPublic,
       onSave,
       coverFile,
+      isCoverDeleteStaged,
+      onCoverSaved,
+      onCoverDeleted,
       onClose,
     ],
   );
@@ -299,7 +349,10 @@ export function ShelfEditModal({
               <div className="font-medium text-sm text-text-a10">
                 Cover picture (optional)
               </div>
-              {isEditMode && shelf && shelf.cover_picture ? (
+              {isEditMode &&
+              shelf &&
+              shelf.cover_picture &&
+              !isCoverDeleteStaged ? (
                 <div className="space-y-4">
                   <img
                     src={getShelfCoverPictureUrl(shelf.id)}
@@ -312,9 +365,47 @@ export function ShelfEditModal({
                       variant="secondary"
                       size="medium"
                       onClick={handleCoverDelete}
-                      disabled={isUploadingCover}
+                      disabled={isSaving}
                     >
-                      {isUploadingCover ? "Deleting..." : "Delete Cover"}
+                      Delete Cover
+                    </Button>
+                  </div>
+                </div>
+              ) : isEditMode && isCoverDeleteStaged ? (
+                <div className="space-y-4">
+                  <div className="flex h-32 w-32 items-center justify-center rounded-lg border-2 border-surface-a30 border-dashed bg-surface-a20">
+                    <span className="text-sm text-text-a40">
+                      Cover will be deleted
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="medium"
+                      onClick={() => setIsCoverDeleteStaged(false)}
+                      disabled={isSaving}
+                    >
+                      Cancel Delete
+                    </Button>
+                  </div>
+                </div>
+              ) : coverPreviewUrl ? (
+                <div className="space-y-4">
+                  <img
+                    src={coverPreviewUrl}
+                    alt="Cover preview"
+                    className="h-32 w-32 rounded-lg object-cover"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="medium"
+                      onClick={handleClearCoverFile}
+                      disabled={isSaving}
+                    >
+                      Clear
                     </Button>
                   </div>
                 </div>
@@ -327,40 +418,6 @@ export function ShelfEditModal({
                     onChange={handleCoverFileChange}
                     className="block w-full rounded-lg border border-surface-a20 bg-surface-a0 px-4 py-3 font-inherit text-base text-text-a0 leading-normal transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s] file:mr-4 file:cursor-pointer file:rounded file:border-0 file:bg-surface-a20 file:px-4 file:py-2 file:font-semibold file:text-sm file:text-text-a0 hover:file:bg-surface-a30 focus:border-primary-a0 focus:bg-surface-a10 focus:shadow-[var(--shadow-focus-ring)] focus:outline-none hover:not(:focus):border-surface-a30"
                   />
-                  {coverFile && isEditMode && shelf && (
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="medium"
-                        onClick={handleCoverUpload}
-                        disabled={isUploadingCover}
-                      >
-                        {isUploadingCover ? "Uploading..." : "Upload Cover"}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="medium"
-                        onClick={handleClearCoverFile}
-                        disabled={isUploadingCover}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  )}
-                  {coverFile && !isEditMode && (
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="medium"
-                        onClick={handleClearCoverFile}
-                      >
-                        Clear
-                      </Button>
-                    </div>
-                  )}
                 </div>
               )}
               {coverError && (

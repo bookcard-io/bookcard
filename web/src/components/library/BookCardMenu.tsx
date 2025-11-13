@@ -15,9 +15,10 @@
 
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { DropdownMenu } from "@/components/common/DropdownMenu";
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
+import { AddToShelfModal } from "@/components/library/AddToShelfModal";
 import { useFlyoutMenu } from "@/hooks/useFlyoutMenu";
 import { LibraryBuilding } from "@/icons/LibraryBuilding";
 import { cn } from "@/libs/utils";
@@ -41,8 +42,6 @@ export interface BookCardMenuProps {
   onSend?: () => void;
   /** Callback when Move to library is clicked. */
   onMoveToLibrary?: () => void;
-  /** Callback when "Add to shelf..." is clicked (to open create modal). */
-  onAddToShelf?: () => void;
   /** Callback when Convert is clicked. */
   onConvert?: () => void;
   /** Callback when Delete is clicked. */
@@ -68,12 +67,12 @@ export function BookCardMenu({
   onBookInfo,
   onSend,
   onMoveToLibrary,
-  onAddToShelf,
   onConvert,
   onDelete,
   onMore,
 }: BookCardMenuProps) {
   const flyoutMenu = useFlyoutMenu({ parentMenuOpen: isOpen });
+  const [showAddToShelfModal, setShowAddToShelfModal] = useState(false);
 
   /**
    * Handle menu item click.
@@ -92,16 +91,6 @@ export function BookCardMenu({
     },
     [onClose],
   );
-
-  /**
-   * Handle "Add to shelf..." click in flyout menu.
-   */
-  const handleAddToShelfClick = useCallback(() => {
-    if (onAddToShelf) {
-      onAddToShelf();
-      onClose();
-    }
-  }, [onAddToShelf, onClose]);
 
   /**
    * Handle "Add to..." menu item click.
@@ -170,10 +159,22 @@ export function BookCardMenu({
         isOpen={flyoutMenu.isFlyoutOpen && isOpen}
         parentItemRef={flyoutMenu.parentItemRef}
         bookId={bookId}
-        onAddToShelf={handleAddToShelfClick}
+        onOpenModal={() => {
+          setShowAddToShelfModal(true);
+          flyoutMenu.handleFlyoutClose();
+          onClose();
+        }}
         onClose={flyoutMenu.handleFlyoutClose}
         onMouseEnter={flyoutMenu.handleFlyoutMouseEnter}
+        onSuccess={onClose}
       />
+      {showAddToShelfModal && (
+        <AddToShelfModal
+          bookId={bookId}
+          onClose={() => setShowAddToShelfModal(false)}
+          onSuccess={onClose}
+        />
+      )}
     </>
   );
 }

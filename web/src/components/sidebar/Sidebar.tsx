@@ -69,6 +69,7 @@ export function Sidebar() {
     new Set(["MY LIBRARY", "MY SHELVES", "DEVICES"]),
   );
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [shakingShelfId, setShakingShelfId] = useState<number | null>(null);
 
   // Get top 5 shelves ordered by created_at desc
   const topShelves = useRecentCreatedShelves(shelves);
@@ -93,11 +94,26 @@ export function Sidebar() {
   };
 
   const handleShelfClick = (shelfId: number) => {
+    // Find the shelf to check book count
+    const shelf = shelves.find((s) => s.id === shelfId);
+
+    if (shelf && shelf.book_count === 0) {
+      // Empty shelf: trigger shake animation and no-op
+      setShakingShelfId(shelfId);
+      // Reset shake after animation completes
+      setTimeout(() => {
+        setShakingShelfId(null);
+      }, 500);
+      return;
+    }
+
+    // Shelf has books: proceed with normal behavior
     setSelectedShelfId(shelfId);
   };
 
   const handleAddShelfClick = () => {
-    setShowCreateModal(true);
+    // Navigate to home page and activate Shelves tab
+    router.push("/?tab=shelves");
   };
 
   const handleCreateShelf = async (
@@ -260,6 +276,8 @@ export function Sidebar() {
                         "block w-[calc(100%-32px)] cursor-pointer rounded border-0 bg-transparent py-2.5 pr-4 pl-[46px] text-left text-[var(--color-text-a30)] text-sm no-underline transition-colors duration-200 hover:bg-[var(--color-surface-a20)] hover:text-[var(--color-text-a10)]",
                         selectedShelfId === shelf.id &&
                           "bg-[var(--color-surface-a20)] text-[var(--color-text-a10)]",
+                        shakingShelfId === shelf.id &&
+                          "animate-[shake_0.5s_ease-in-out]",
                       )}
                     >
                       {shelf.name}
@@ -273,7 +291,7 @@ export function Sidebar() {
                   onClick={handleAddShelfClick}
                   className="block w-[calc(100%-32px)] cursor-pointer rounded border-0 bg-transparent py-2.5 pr-4 pl-[46px] text-left text-[var(--color-text-a30)] text-sm no-underline transition-colors duration-200 hover:bg-[var(--color-surface-a20)] hover:text-[var(--color-text-a10)]"
                 >
-                  Add shelf
+                  Manage shelves
                 </button>
               </li>
             </ul>

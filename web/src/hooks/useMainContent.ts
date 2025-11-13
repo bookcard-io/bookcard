@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LibraryTabId } from "@/components/library/LibraryTabs";
 import type { Book } from "@/types/book";
@@ -88,8 +89,48 @@ export interface UseMainContentResult {
  *     All state and handlers needed for MainContent component rendering.
  */
 export function useMainContent(): UseMainContentResult {
-  // Active tab state - default to "library"
-  const [activeTab, setActiveTab] = useState<LibraryTabId>("library");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Get initial tab from URL query parameter, default to "library"
+  const getInitialTab = (): LibraryTabId => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "shelves" || tabParam === "library") {
+      return tabParam;
+    }
+    return "library";
+  };
+
+  // Active tab state - initialize from URL query parameter
+  const [activeTab, setActiveTab] = useState<LibraryTabId>(getInitialTab);
+
+  // Sync tab state with URL query parameter changes (only when URL changes externally)
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    const newTab: LibraryTabId = tabParam === "shelves" ? "shelves" : "library";
+    // Only update if different from current state to avoid unnecessary updates
+    if (newTab !== activeTab) {
+      setActiveTab(newTab);
+    }
+  }, [searchParams, activeTab]);
+
+  // Handle tab change with URL sync
+  const handleTabChange = useCallback(
+    (tabId: LibraryTabId) => {
+      setActiveTab(tabId);
+      // Update URL query parameter
+      const params = new URLSearchParams(searchParams.toString());
+      if (tabId === "library") {
+        // Remove tab param for library (default)
+        params.delete("tab");
+      } else {
+        params.set("tab", tabId);
+      }
+      const newUrl = params.toString() ? `/?${params.toString()}` : "/";
+      router.push(newUrl, { scroll: false });
+    },
+    [searchParams, router],
+  );
 
   // Use refs to store coordination methods to avoid circular dependencies
   const sortCloseRef = useRef<(() => void) | undefined>(undefined);
@@ -191,7 +232,7 @@ export function useMainContent(): UseMainContentResult {
 
   return {
     activeTab,
-    handleTabChange: setActiveTab,
+    handleTabChange,
     search,
     sorting,
     filters,

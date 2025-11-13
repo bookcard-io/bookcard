@@ -55,6 +55,8 @@ export function BookCardMenuButton({
       {/* biome-ignore lint/a11y/useSemanticElements: Cannot use button inside button, using div with role="button" for accessibility */}
       <div
         ref={buttonRef}
+        data-book-menu
+        data-shelf-menu
         className={cn(
           "menu-button pointer-events-auto flex cursor-default items-center justify-center",
           "transition-[background-color,transform,opacity] duration-200 ease-in-out",

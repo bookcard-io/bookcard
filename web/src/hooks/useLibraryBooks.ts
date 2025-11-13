@@ -125,14 +125,23 @@ export function useLibraryBooks(
     full,
   });
 
-  // When shelf filter is active, fetch all books and filter by shelf IDs
+  // When shelf filter is active, fetch books and filter by shelf IDs
+  // Note: We disable infinite scroll since we already know the total count from shelf
+  // We fetch enough books to cover the shelf's book count, but use a reasonable max
+  // to avoid fetching too many books unnecessarily
+  const shelfBookCount = shelfBooksResult.total || 0;
+  const initialPageSizeForShelf = Math.max(
+    pageSize,
+    Math.min(shelfBookCount * 2, 100), // Fetch at least 2x shelf count, but max 100
+  );
+
   const allBooksForShelfResult = useBooks({
     enabled: hasShelfFilter,
-    infiniteScroll: true,
+    infiniteScroll: false, // Disable infinite scroll for shelf filtering
     search: hasActiveSearch ? searchQuery : undefined,
     sort_by: sortBy,
     sort_order: sortOrder,
-    page_size: 1000, // Fetch more to have enough for filtering
+    page_size: initialPageSizeForShelf,
     full,
   });
 
@@ -169,8 +178,9 @@ export function useLibraryBooks(
         isLoading:
           shelfBooksResult.isLoading || allBooksForShelfResult.isLoading,
         error: shelfBooksResult.error || allBooksForShelfResult.error,
-        loadMore: allBooksForShelfResult.loadMore,
-        hasMore: allBooksForShelfResult.hasMore,
+        // Disable infinite scroll for shelf filtering since we know the exact count
+        loadMore: undefined,
+        hasMore: false,
         removeBook: allBooksForShelfResult.removeBook,
         addBook: allBooksForShelfResult.addBook,
       }

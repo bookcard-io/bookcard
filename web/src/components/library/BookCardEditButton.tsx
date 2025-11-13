@@ -53,6 +53,8 @@ export function BookCardEditButton({
   return (
     /* biome-ignore lint/a11y/useSemanticElements: Cannot use button inside button, using div with role="button" for accessibility */
     <div
+      data-book-edit
+      data-shelf-edit
       className={cn(
         "edit-button pointer-events-auto flex cursor-default items-center justify-center",
         "transition-[background-color,transform,opacity] duration-200 ease-in-out",

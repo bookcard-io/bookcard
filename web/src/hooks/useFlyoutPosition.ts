@@ -85,9 +85,12 @@ export function useFlyoutPosition({
       }
 
       const parentRect = parentItemRef.current.getBoundingClientRect();
+      const menuRect = menuRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
       const viewportWidth = window.innerWidth;
       const spaceOnRight = viewportWidth - parentRect.right;
       const spaceOnLeft = parentRect.left;
+      const menuHeight = menuRect.height || 0;
 
       // Determine direction based on available space
       const shouldFlyLeft =
@@ -96,14 +99,21 @@ export function useFlyoutPosition({
 
       setDirection(flyDirection);
 
+      // Base top aligns to parent's top; adjust to fly up if overflowing bottom edge
+      let top = parentRect.top;
+      const wouldOverflowBottom = parentRect.top + menuHeight > viewportHeight;
+      if (wouldOverflowBottom) {
+        top = Math.max(0, parentRect.bottom - menuHeight);
+      }
+
       if (flyDirection === "right") {
         setPosition({
-          top: parentRect.top,
+          top,
           left: parentRect.right - FLYOUT_OVERLAP,
         });
       } else {
         setPosition({
-          top: parentRect.top,
+          top,
           right: viewportWidth - parentRect.left - FLYOUT_OVERLAP,
         });
       }

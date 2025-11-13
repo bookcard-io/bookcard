@@ -35,12 +35,14 @@ export interface AddToShelfFlyoutMenuProps {
   parentItemRef: React.RefObject<HTMLElement | null>;
   /** Book ID to add to shelf. */
   bookId: number;
-  /** Callback when "Add to shelf" is clicked (to open create modal). */
-  onAddToShelf: () => void;
+  /** Callback when "Add to shelf..." is clicked to open the modal. */
+  onOpenModal: () => void;
   /** Callback when menu should be closed. */
   onClose: () => void;
   /** Callback when mouse enters the flyout (to keep parent menu item hovered). */
   onMouseEnter?: () => void;
+  /** Callback when book is successfully added to shelf (to close parent menu). */
+  onSuccess?: () => void;
 }
 
 /**
@@ -60,13 +62,14 @@ export function AddToShelfFlyoutMenu({
   isOpen,
   parentItemRef,
   bookId,
-  onAddToShelf,
+  onOpenModal,
   onClose,
   onMouseEnter,
+  onSuccess,
 }: AddToShelfFlyoutMenuProps) {
   const [mounted, setMounted] = useState(false);
 
-  const { shelves } = useShelvesContext();
+  const { shelves, refresh: refreshShelvesContext } = useShelvesContext();
   const { addBook, isProcessing } = useShelfActions();
   const { addRecentShelf } = useRecentShelves();
   const recentShelves = useRecentCreatedShelves(shelves);
@@ -98,7 +101,14 @@ export function AddToShelfFlyoutMenu({
   }, [onMouseEnter]);
 
   /**
-   * Handle adding book to a shelf.
+   * Handle "Add to shelf..." menu item click - open the modal.
+   */
+  const handleAddToShelfClick = useCallback(() => {
+    onOpenModal();
+  }, [onOpenModal]);
+
+  /**
+   * Handle adding book to a shelf (from recent shelves in flyout).
    *
    * Parameters
    * ----------
@@ -110,13 +120,36 @@ export function AddToShelfFlyoutMenu({
       try {
         await addBook(shelfId, bookId);
         addRecentShelf(shelfId);
+        // Refresh shelves context to update book counts
+        await refreshShelvesContext();
         onClose();
+        // Close parent menu on success
+        onSuccess?.();
       } catch (error) {
-        // Error is handled by useShelfActions hook
+        // If book is already in shelf, treat as success (no-op) and close menu
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        if (
+          errorMessage.toLowerCase().includes("already in shelf") ||
+          errorMessage.toLowerCase().includes("already exists")
+        ) {
+          // Silently no-op and close menus
+          onClose();
+          onSuccess?.();
+          return;
+        }
+        // For other errors, log and don't close menu
         console.error("Failed to add book to shelf:", error);
       }
     },
-    [addBook, bookId, addRecentShelf, onClose],
+    [
+      addBook,
+      bookId,
+      addRecentShelf,
+      refreshShelvesContext,
+      onClose,
+      onSuccess,
+    ],
   );
 
   if (!isOpen || !mounted) {
@@ -142,7 +175,7 @@ export function AddToShelfFlyoutMenu({
       <div className="py-1">
         <DropdownMenuItem
           label="Add to shelf..."
-          onClick={onAddToShelf}
+          onClick={handleAddToShelfClick}
           disabled={isProcessing}
         />
         <RecentShelvesSection

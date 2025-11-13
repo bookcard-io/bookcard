@@ -15,38 +15,243 @@
 
 "use client";
 
-import Link from "next/link";
-import type { Shelf } from "@/types/shelf";
+import { useCallback, useRef, useState } from "react";
+import { BookCardOverlay } from "@/components/library/BookCardOverlay";
+import { ShelfCardCheckbox } from "@/components/shelves/ShelfCardCheckbox";
+import { ShelfCardCover } from "@/components/shelves/ShelfCardCover";
+import { ShelfCardEditButton } from "@/components/shelves/ShelfCardEditButton";
+import { ShelfCardMenu } from "@/components/shelves/ShelfCardMenu";
+import { ShelfCardMenuButton } from "@/components/shelves/ShelfCardMenuButton";
+import { ShelfCardMetadata } from "@/components/shelves/ShelfCardMetadata";
+import { ShelfEditModal } from "@/components/shelves/ShelfEditModal";
+import { useBookCardMenu } from "@/hooks/useBookCardMenu";
+import { useShelfCardMenuActions } from "@/hooks/useShelfCardMenuActions";
+import { cn } from "@/libs/utils";
+import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
+import { createEnterSpaceHandler } from "@/utils/keyboard";
 
 export interface ShelfCardProps {
   /** Shelf data to display. */
   shelf: Shelf;
+  /** All shelves in the grid (needed for range selection). */
+  allShelves: Shelf[];
+  /** Whether the shelf is selected. */
+  selected: boolean;
+  /** Handler for shelf selection. */
+  onShelfSelect: (
+    shelf: Shelf,
+    allShelves: Shelf[],
+    event: React.MouseEvent,
+  ) => void;
+  /** Callback fired when edit button is clicked. */
+  onEdit?: (shelfId: number) => void;
+  /** Handler for shelf update. */
+  onShelfUpdate?: (shelf: Shelf) => Promise<void>;
+  /** Handler for cover update (to refresh cover after upload/delete). */
+  onCoverUpdate?: (shelfId: number, updatedShelf?: Shelf) => void;
+  /** Handler for shelf deletion. */
+  onShelfDelete?: (shelfIds: number | number[]) => Promise<void>;
+  /** Set of selected shelf IDs (for bulk operations). */
+  selectedShelfIds?: Set<number>;
+  /** Callback when shelf card is clicked (to navigate to library tab and filter). */
+  onShelfClick?: (shelfId: number) => void;
 }
 
 /**
- * Shelf card component.
+ * Shelf card component for displaying a single shelf in the grid.
  *
- * Displays a shelf as a card with name, book count, and public status.
+ * Orchestrates shelf card display by composing specialized components.
+ * Follows SRP by delegating to specialized components and hooks.
+ * Uses IOC via hooks and component composition.
+ * Follows SOC by separating concerns into independent components.
+ * Follows DRY by reusing extracted components and utilities.
  */
-export function ShelfCard({ shelf }: ShelfCardProps) {
+export function ShelfCard({
+  shelf,
+  allShelves,
+  selected,
+  onShelfSelect,
+  onEdit,
+  onShelfUpdate,
+  onCoverUpdate,
+  onShelfDelete,
+  selectedShelfIds,
+  onShelfClick,
+}: ShelfCardProps) {
+  const menu = useBookCardMenu();
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [isShaking, setIsShaking] = useState(false);
+  const [isGlowing, setIsGlowing] = useState(false);
+  const cardRef = useRef<HTMLButtonElement>(null);
+
+  const menuActions = useShelfCardMenuActions({
+    shelf,
+    onShelfDeleted: async () => {
+      if (onShelfDelete) {
+        // If multiple shelves are selected, delete all selected shelves
+        // Otherwise, delete just this shelf
+        const idsToDelete =
+          selectedShelfIds && selectedShelfIds.size > 1
+            ? Array.from(selectedShelfIds)
+            : shelf.id;
+        await onShelfDelete(idsToDelete);
+      }
+    },
+  });
+
+  /**
+   * Handle shelf card click.
+   */
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      // Don't trigger if clicking on overlay buttons (checkbox, edit, menu)
+      const target = e.target as HTMLElement;
+      if (
+        target.closest("[data-shelf-checkbox]") ||
+        target.closest("[data-shelf-edit]") ||
+        target.closest("[data-shelf-menu]")
+      ) {
+        return;
+      }
+
+      if (shelf.book_count === 0) {
+        // Empty shelf: trigger shake and red glow animation
+        setIsShaking(true);
+        setIsGlowing(true);
+        // Reset shake after animation completes
+        setTimeout(() => {
+          setIsShaking(false);
+        }, 500);
+        // Fade out red glow after shake completes
+        setTimeout(() => {
+          setIsGlowing(false);
+        }, 1000);
+      } else {
+        // Shelf has books: navigate to library tab and filter
+        onShelfClick?.(shelf.id);
+      }
+    },
+    [shelf.book_count, shelf.id, onShelfClick],
+  );
+
+  const handleKeyDown = createEnterSpaceHandler(() => {
+    // For keyboard interactions, we don't need to check for overlay buttons
+    // since keyboard focus won't be on those elements
+    if (shelf.book_count === 0) {
+      // Empty shelf: trigger shake and red glow animation
+      setIsShaking(true);
+      setIsGlowing(true);
+      // Reset shake after animation completes
+      setTimeout(() => {
+        setIsShaking(false);
+      }, 500);
+      // Fade out red glow after shake completes
+      setTimeout(() => {
+        setIsGlowing(false);
+      }, 1000);
+    } else {
+      // Shelf has books: navigate to library tab and filter
+      onShelfClick?.(shelf.id);
+    }
+  });
+
+  const handleEditClick = useCallback(() => {
+    if (onEdit) {
+      onEdit(shelf.id);
+    } else {
+      setShowEditModal(true);
+    }
+  }, [onEdit, shelf.id]);
+
+  const handleShelfSave = useCallback(
+    async (data: ShelfCreate | ShelfUpdate): Promise<Shelf> => {
+      if (onShelfUpdate) {
+        const updatedShelf = { ...shelf, ...data } as Shelf;
+        await onShelfUpdate(updatedShelf);
+        setShowEditModal(false);
+        return updatedShelf;
+      }
+      setShowEditModal(false);
+      return shelf;
+    },
+    [onShelfUpdate, shelf],
+  );
+
   return (
-    <Link
-      href={`/shelves/${shelf.id}`}
-      className="block rounded-lg border border-gray-200 bg-bg-primary p-4 shadow-sm transition-shadow hover:shadow-md"
-    >
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <h3 className="font-semibold text-lg">{shelf.name}</h3>
-          <p className="mt-1 text-gray-600 text-sm">
-            {shelf.book_count} {shelf.book_count === 1 ? "book" : "books"}
-          </p>
-        </div>
-        {shelf.is_public && (
-          <span className="rounded-full bg-blue-100 px-2 py-1 text-blue-800 text-xs">
-            Public
-          </span>
+    <>
+      <button
+        ref={cardRef}
+        type="button"
+        className={cn(
+          "group flex cursor-pointer flex-col overflow-hidden rounded",
+          "w-full max-w-[200px] border-2 bg-gradient-to-b from-surface-a0 to-surface-a10 p-0 text-left",
+          "transition-[transform,box-shadow,border-color] duration-500 ease-out",
+          "hover:-translate-y-0.5 hover:shadow-card-hover",
+          "focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2",
+          "focus:not-focus-visible:outline-none focus:outline-none",
+          selected && "border-primary-a0 shadow-primary-glow outline-none",
+          !selected && !isGlowing && "border-transparent",
+          isShaking && "animate-[shake_0.5s_ease-in-out]",
+          isGlowing && "border-warning-a10",
+          isGlowing && "shadow-[var(--shadow-warning-glow)]",
         )}
-      </div>
-    </Link>
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        aria-label={`Shelf: ${shelf.name}`}
+        data-shelf-card
+      >
+        <div className="relative">
+          <ShelfCardCover
+            shelfName={shelf.name}
+            shelfId={shelf.id}
+            hasCoverPicture={Boolean(shelf.cover_picture)}
+          />
+          <BookCardOverlay selected={selected}>
+            <ShelfCardCheckbox
+              shelf={shelf}
+              allShelves={allShelves}
+              selected={selected}
+              onShelfSelect={onShelfSelect}
+            />
+            <ShelfCardEditButton
+              shelfName={shelf.name}
+              onEdit={handleEditClick}
+            />
+            <ShelfCardMenuButton
+              buttonRef={menu.menuButtonRef}
+              isMenuOpen={menu.isMenuOpen}
+              onToggle={menu.handleMenuToggle}
+            />
+          </BookCardOverlay>
+        </div>
+        <ShelfCardMetadata
+          name={shelf.name}
+          bookCount={shelf.book_count}
+          isPublic={shelf.is_public}
+        />
+      </button>
+      <ShelfCardMenu
+        isOpen={menu.isMenuOpen}
+        onClose={menu.handleMenuClose}
+        buttonRef={menu.menuButtonRef}
+        cursorPosition={menu.cursorPosition}
+        onDelete={menuActions.handleDelete}
+      />
+      {showEditModal && (
+        <ShelfEditModal
+          shelf={shelf}
+          onClose={() => setShowEditModal(false)}
+          onSave={handleShelfSave}
+          onCoverSaved={(updatedShelf) => {
+            // Update cover in grid when cover is saved (O(1) operation)
+            onCoverUpdate?.(updatedShelf.id, updatedShelf);
+          }}
+          onCoverDeleted={(updatedShelf) => {
+            // Update cover in grid when cover is deleted (O(1) operation)
+            onCoverUpdate?.(updatedShelf.id, updatedShelf);
+          }}
+        />
+      )}
+    </>
   );
 }

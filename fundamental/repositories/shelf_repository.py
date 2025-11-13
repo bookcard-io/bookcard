@@ -21,6 +21,7 @@ Shelves are stored in the application database (fundamental.db), not Calibre's m
 
 from __future__ import annotations
 
+from sqlalchemy import desc
 from sqlmodel import Session, select
 
 from fundamental.models.shelves import BookShelfLink, Shelf
@@ -94,23 +95,32 @@ class ShelfRepository:
         -------
         list[Shelf]
             List of shelves in the library owned by the user, optionally including public shelves.
+            Sorted by created_at descending (newest first).
         """
         from sqlmodel import or_
 
         if include_public:
-            stmt = select(Shelf).where(
-                Shelf.library_id == library_id,
-                Shelf.is_active == True,  # noqa: E712
-                or_(
-                    Shelf.user_id == user_id,
-                    Shelf.is_public == True,  # noqa: E712
-                ),
+            stmt = (
+                select(Shelf)
+                .where(
+                    Shelf.library_id == library_id,
+                    Shelf.is_active == True,  # noqa: E712
+                    or_(
+                        Shelf.user_id == user_id,
+                        Shelf.is_public == True,  # noqa: E712
+                    ),
+                )
+                .order_by(desc(Shelf.created_at))
             )
         else:
-            stmt = select(Shelf).where(
-                Shelf.library_id == library_id,
-                Shelf.is_active == True,  # noqa: E712
-                Shelf.user_id == user_id,
+            stmt = (
+                select(Shelf)
+                .where(
+                    Shelf.library_id == library_id,
+                    Shelf.is_active == True,  # noqa: E712
+                    Shelf.user_id == user_id,
+                )
+                .order_by(desc(Shelf.created_at))
             )
         return list(self._session.exec(stmt).all())
 

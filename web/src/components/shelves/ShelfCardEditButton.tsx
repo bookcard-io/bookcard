@@ -15,17 +15,28 @@
 
 "use client";
 
+import { BookCardEditButton } from "@/components/library/BookCardEditButton";
+
+export interface ShelfCardEditButtonProps {
+  /** Shelf name for accessibility. */
+  shelfName: string;
+  /** Handler for edit action. */
+  onEdit: () => void;
+}
+
 /**
- * Shelves list component for displaying shelves in list view.
+ * Edit button overlay for shelf card.
  *
- * Placeholder component - to be implemented.
+ * Handles edit button interaction.
+ * Follows SRP by focusing solely on edit button UI and behavior.
+ * Uses IOC via callback prop.
+ * Follows DRY by reusing BookCardEditButton component.
  */
-export function ShelvesList() {
+export function ShelfCardEditButton({
+  shelfName,
+  onEdit,
+}: ShelfCardEditButtonProps) {
   return (
-    <div className="flex min-h-[400px] items-center justify-center p-8">
-      <p className="m-0 text-base text-text-a40">
-        Shelves list view - coming soon
-      </p>
-    </div>
+    <BookCardEditButton bookTitle={shelfName} onEdit={onEdit} variant="grid" />
   );
 }

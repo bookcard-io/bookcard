@@ -67,6 +67,7 @@ export function DropdownMenu({
     isOpen,
     buttonRef,
     cursorPosition,
+    menuRef,
   });
 
   useDropdownClickOutside({

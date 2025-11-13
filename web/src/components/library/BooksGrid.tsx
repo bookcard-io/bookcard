@@ -15,13 +15,14 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useBookDataUpdates } from "@/hooks/useBookDataUpdates";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { useLibraryBooks } from "@/hooks/useLibraryBooks";
 import type { Book } from "@/types/book";
 import { deduplicateBooks } from "@/utils/books";
 import { BookCard } from "./BookCard";
+import { ShelfFilterInfoBox } from "./ShelfFilterInfoBox";
 import type { FilterValues } from "./widgets/FiltersPanel";
 
 export interface BooksGridProps {
@@ -139,17 +140,44 @@ export function BooksGrid({
   );
 
   // Expose book navigation data to parent component for modal navigation
+  // Use ref to avoid infinite loops from callback dependency changes
+  const onBooksDataChangeRef = useRef(onBooksDataChange);
   useEffect(() => {
-    if (onBooksDataChange) {
-      const bookIds = uniqueBooks.map((book) => book.id);
-      onBooksDataChange({
-        bookIds,
-        loadMore,
-        hasMore,
-        isLoading,
-      });
+    onBooksDataChangeRef.current = onBooksDataChange;
+  }, [onBooksDataChange]);
+
+  // Memoize the data to avoid unnecessary updates
+  const booksData = useMemo(
+    () => ({
+      bookIds: uniqueBooks.map((book) => book.id),
+      loadMore,
+      hasMore,
+      isLoading,
+    }),
+    [uniqueBooks, loadMore, hasMore, isLoading],
+  );
+
+  // Store previous data to compare and only update if changed
+  const prevBooksDataRef = useRef<typeof booksData | null>(null);
+  useEffect(() => {
+    const prev = prevBooksDataRef.current;
+    const current = booksData;
+
+    // Only call callback if data actually changed (or on first render)
+    if (
+      !prev ||
+      prev.bookIds.length !== current.bookIds.length ||
+      prev.bookIds.some((id, idx) => id !== current.bookIds[idx]) ||
+      prev.hasMore !== current.hasMore ||
+      prev.isLoading !== current.isLoading ||
+      prev.loadMore !== current.loadMore
+    ) {
+      prevBooksDataRef.current = current;
+      if (onBooksDataChangeRef.current) {
+        onBooksDataChangeRef.current(current);
+      }
     }
-  }, [onBooksDataChange, uniqueBooks, loadMore, hasMore, isLoading]);
+  }, [booksData]);
 
   // Handle deletion initiated from a card: remove locally from grid
   const handleBookDeleted = useCallback(
@@ -194,6 +222,7 @@ export function BooksGrid({
             : `${uniqueBooks.length} of ${total} books`}
         </div>
       )}
+      {shelfId && <ShelfFilterInfoBox />}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-6 px-8 md:grid-cols-[repeat(auto-fit,minmax(160px,1fr))] md:gap-8 lg:grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
         {uniqueBooks.map((book) => (
           <BookCard
