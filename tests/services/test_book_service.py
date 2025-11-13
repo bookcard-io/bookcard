@@ -73,6 +73,7 @@ def test_list_books_calculates_offset() -> None:
             search_query=None,
             sort_by="timestamp",
             sort_order="desc",
+            full=False,
         )
         mock_repo.count_books.assert_called_once_with(search_query=None)
         assert books == []
@@ -463,6 +464,7 @@ def test_list_books_with_filters_calculates_offset() -> None:
             language_ids=None,
             sort_by="timestamp",
             sort_order="desc",
+            full=False,
         )
         mock_repo.count_books_with_filters.assert_called_once_with(
             author_ids=[1, 2],

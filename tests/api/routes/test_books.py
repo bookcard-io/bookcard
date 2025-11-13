@@ -73,6 +73,7 @@ class MockBookService:
         search_query: str | None = None,
         sort_by: str = "timestamp",
         sort_order: str = "desc",
+        full: bool = False,
     ) -> tuple[list[BookWithRelations], int]:
         """Mock list_books method."""
         return self._list_books_result
@@ -132,6 +133,7 @@ class MockBookService:
         language_ids: list[int] | None = None,
         sort_by: str = "timestamp",
         sort_order: str = "desc",
+        full: bool = False,
     ) -> tuple[list[BookWithRelations], int]:
         """Mock list_books_with_filters method."""
         return self._list_books_with_filters_result
