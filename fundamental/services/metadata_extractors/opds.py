@@ -391,9 +391,9 @@ class OpdsMetadataExtractor(MetadataExtractionStrategy):
             Publication date or None.
         """
         for _prefix, uri in [("dcterms", dcterms_ns), (None, dc_ns), ("dc", dc_ns)]:
-            date_elem = entry.find(f"{{{uri}}}issued", ns) or entry.find(
-                f"{{{uri}}}date", ns
-            )
+            date_elem = entry.find(f"{{{uri}}}issued", ns)
+            if date_elem is None:
+                date_elem = entry.find(f"{{{uri}}}date", ns)
             if date_elem is not None:
                 date_text = self._get_text_content(date_elem)
                 if date_text:
