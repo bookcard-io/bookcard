@@ -1,4 +1,4 @@
-.PHONY: dev setup-uv
+.PHONY: dev setup-uv kill-ports
 
 setup-uv:
 	@if command -v uv >/dev/null 2>&1; then \
@@ -95,3 +95,18 @@ dev: setup-uv
 	echo "Next.js: http://localhost:3000 (PID: $$PID2)"; \
 	echo "Press Ctrl+C to stop both servers."; \
 	wait $$PID1 $$PID2 || true
+
+kill-ports:
+	@echo "Killing processes on ports 3000 and 8000..."; \
+	for port in 3000 8000; do \
+		PIDS=$$(lsof -ti:$$port 2>/dev/null || true); \
+		if [ -n "$$PIDS" ]; then \
+			echo "Killing processes on port $$port: $$PIDS"; \
+			for pid in $$PIDS; do \
+				kill -9 $$pid 2>/dev/null || true; \
+			done; \
+		else \
+			echo "No processes found on port $$port"; \
+		fi; \
+	done; \
+	echo "Done."
