@@ -28,6 +28,7 @@ describe("useProfilePictureUpload", () => {
 
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
+    vi.clearAllMocks();
     mockFileDropzone = {
       fileInputRef: { current: null },
       isDragging: false,
@@ -90,10 +91,10 @@ describe("useProfilePictureUpload", () => {
 
     renderHook(() => useProfilePictureUpload({ onUploadError }));
 
-    // Extract the onFileSelect callback from the mock call
-    const mockCall = (useFileDropzone as ReturnType<typeof vi.fn>).mock
-      .calls[0];
-    const onFileSelect = mockCall?.[0]?.onFileSelect;
+    // Extract the onFileSelect callback from the most recent mock call
+    const mockCalls = (useFileDropzone as ReturnType<typeof vi.fn>).mock.calls;
+    const lastCall = mockCalls[mockCalls.length - 1];
+    const onFileSelect = lastCall?.[0]?.onFileSelect;
 
     expect(onFileSelect).toBeDefined();
 
@@ -121,9 +122,9 @@ describe("useProfilePictureUpload", () => {
       useProfilePictureUpload({ onUploadSuccess }),
     );
 
-    const mockCall = (useFileDropzone as ReturnType<typeof vi.fn>).mock
-      .calls[0];
-    const onFileSelect = mockCall?.[0]?.onFileSelect;
+    const mockCalls = (useFileDropzone as ReturnType<typeof vi.fn>).mock.calls;
+    const lastCall = mockCalls[mockCalls.length - 1];
+    const onFileSelect = lastCall?.[0]?.onFileSelect;
 
     expect(onFileSelect).toBeDefined();
 
@@ -161,9 +162,9 @@ describe("useProfilePictureUpload", () => {
       useProfilePictureUpload({ onUploadError }),
     );
 
-    const mockCall = (useFileDropzone as ReturnType<typeof vi.fn>).mock
-      .calls[0];
-    const onFileSelect = mockCall?.[0]?.onFileSelect;
+    const mockCalls = (useFileDropzone as ReturnType<typeof vi.fn>).mock.calls;
+    const lastCall = mockCalls[mockCalls.length - 1];
+    const onFileSelect = lastCall?.[0]?.onFileSelect;
 
     expect(onFileSelect).toBeDefined();
 
@@ -190,9 +191,9 @@ describe("useProfilePictureUpload", () => {
       useProfilePictureUpload({ onUploadError }),
     );
 
-    const mockCall = (useFileDropzone as ReturnType<typeof vi.fn>).mock
-      .calls[0];
-    const onFileSelect = mockCall?.[0]?.onFileSelect;
+    const mockCalls = (useFileDropzone as ReturnType<typeof vi.fn>).mock.calls;
+    const lastCall = mockCalls[mockCalls.length - 1];
+    const onFileSelect = lastCall?.[0]?.onFileSelect;
 
     expect(onFileSelect).toBeDefined();
 
@@ -219,9 +220,9 @@ describe("useProfilePictureUpload", () => {
       useProfilePictureUpload({ onUploadError }),
     );
 
-    const mockCall = (useFileDropzone as ReturnType<typeof vi.fn>).mock
-      .calls[0];
-    const onFileSelect = mockCall?.[0]?.onFileSelect;
+    const mockCalls = (useFileDropzone as ReturnType<typeof vi.fn>).mock.calls;
+    const lastCall = mockCalls[mockCalls.length - 1];
+    const onFileSelect = lastCall?.[0]?.onFileSelect;
 
     expect(onFileSelect).toBeDefined();
 
@@ -250,9 +251,9 @@ describe("useProfilePictureUpload", () => {
 
     const { result } = renderHook(() => useProfilePictureUpload());
 
-    const mockCall = (useFileDropzone as ReturnType<typeof vi.fn>).mock
-      .calls[0];
-    const onFileSelect = mockCall?.[0]?.onFileSelect;
+    const mockCalls = (useFileDropzone as ReturnType<typeof vi.fn>).mock.calls;
+    const lastCall = mockCalls[mockCalls.length - 1];
+    const onFileSelect = lastCall?.[0]?.onFileSelect;
 
     expect(onFileSelect).toBeDefined();
 
