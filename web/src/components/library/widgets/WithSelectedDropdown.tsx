@@ -15,8 +15,6 @@
 
 "use client";
 
-import styles from "./WithSelectedDropdown.module.scss";
-
 export interface WithSelectedDropdownProps {
   /**
    * Callback fired when the dropdown is clicked.
@@ -37,14 +35,14 @@ export function WithSelectedDropdown({ onClick }: WithSelectedDropdownProps) {
   return (
     <button
       type="button"
-      className={styles.dropdown}
+      className="group flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg border border-surface-a20 bg-surface-tonal-a10 px-4 py-2.5 font-inherit text-sm text-text-a0 transition-[background-color,border-color] duration-200 hover:border-surface-a30 hover:bg-surface-tonal-a20 active:bg-surface-tonal-a30"
       onClick={handleClick}
       aria-label="Actions with selected items"
       aria-haspopup="true"
     >
-      <span className={styles.dropdownText}>With selected</span>
+      <span className="leading-none">With selected</span>
       <i
-        className={`pi pi-chevron-down ${styles.chevronIcon}`}
+        className="pi pi-chevron-down h-4 w-4 flex-shrink-0 text-text-a30 transition-[color,transform] duration-200 group-hover:text-text-a0"
         aria-hidden="true"
       />
     </button>
