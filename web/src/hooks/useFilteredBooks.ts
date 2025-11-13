@@ -33,6 +33,8 @@ export interface UseFilteredBooksOptions {
   sort_by?: "timestamp" | "pubdate" | "title" | "author_sort" | "series_index";
   /** Sort order. */
   sort_order?: "asc" | "desc";
+  /** Whether to fetch full book details with all metadata. */
+  full?: boolean;
 }
 
 export interface UseFilteredBooksResult {
@@ -89,6 +91,7 @@ export function useFilteredBooks(
     page_size: initialPageSize = 20,
     sort_by: initialSortBy = "timestamp",
     sort_order: initialSortOrder = "desc",
+    full = false,
   } = options;
 
   const [data, setData] = useState<BookListResponse | null>(null);
@@ -182,6 +185,10 @@ export function useFilteredBooks(
         sort_order: currentSortOrder,
       });
 
+      if (full) {
+        queryParams.append("full", "true");
+      }
+
       const filterBody = filtersToApiBody(filters);
 
       const response = await fetch(
@@ -235,6 +242,7 @@ export function useFilteredBooks(
     currentPageSize,
     currentSortBy,
     currentSortOrder,
+    full,
   ]);
 
   useEffect(() => {

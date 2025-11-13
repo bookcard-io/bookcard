@@ -49,7 +49,7 @@ export function SortByDropdown({
   return (
     <button
       type="button"
-      className="group flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg border border-surface-a20 bg-surface-tonal-a10 px-4 py-2.5 font-inherit text-sm text-text-a0 transition-[background-color,border-color] duration-200 hover:border-surface-a30 hover:bg-surface-tonal-a20 active:bg-surface-tonal-a30"
+      className="btn-tonal group flex cursor-pointer items-center gap-2 whitespace-nowrap px-4 py-2.5 font-inherit"
       onClick={handleClick}
       aria-label="Sort options"
       aria-haspopup="true"

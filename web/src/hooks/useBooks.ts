@@ -23,6 +23,8 @@ export interface UseBooksOptions extends BooksQueryParams {
   enabled?: boolean;
   /** Whether to enable infinite scroll mode (accumulates books across pages). */
   infiniteScroll?: boolean;
+  /** Whether to fetch full book details with all metadata. */
+  full?: boolean;
 }
 
 export interface UseBooksResult {
@@ -72,6 +74,7 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
     search: initialSearch,
     sort_by: initialSortBy = "timestamp",
     sort_order: initialSortOrder = "desc",
+    full = false,
   } = options;
 
   const [page, setPage] = useState(initialPage);
@@ -159,6 +162,9 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
       if (search.trim()) {
         queryParams.append("search", search.trim());
       }
+      if (full) {
+        queryParams.append("full", "true");
+      }
 
       const response = await fetch(`/api/books?${queryParams.toString()}`, {
         cache: "no-store",
@@ -195,7 +201,16 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
     } finally {
       setIsLoading(false);
     }
-  }, [enabled, infiniteScroll, page, pageSize, search, sortBy, sortOrder]);
+  }, [
+    enabled,
+    infiniteScroll,
+    page,
+    pageSize,
+    search,
+    sortBy,
+    sortOrder,
+    full,
+  ]);
 
   useEffect(() => {
     void fetchBooks();

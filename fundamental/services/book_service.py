@@ -59,7 +59,8 @@ class BookService:
         search_query: str | None = None,
         sort_by: str = "timestamp",
         sort_order: str = "desc",
-    ) -> tuple[list[BookWithRelations], int]:
+        full: bool = False,
+    ) -> tuple[list[BookWithRelations | BookWithFullRelations], int]:
         """List books with pagination.
 
         Parameters
@@ -74,10 +75,12 @@ class BookService:
             Field to sort by (default: 'timestamp').
         sort_order : str
             Sort order: 'asc' or 'desc' (default: 'desc').
+        full : bool
+            If True, return full book details with all metadata (default: False).
 
         Returns
         -------
-        tuple[list[BookWithRelations], int]
+        tuple[list[BookWithRelations | BookWithFullRelations], int]
             Tuple of (books with relations list, total count).
         """
         offset = (page - 1) * page_size
@@ -87,6 +90,7 @@ class BookService:
             search_query=search_query,
             sort_by=sort_by,
             sort_order=sort_order,
+            full=full,
         )
         total = self._book_repo.count_books(search_query=search_query)
         return books, total
@@ -349,7 +353,8 @@ class BookService:
         language_ids: list[int] | None = None,
         sort_by: str = "timestamp",
         sort_order: str = "desc",
-    ) -> tuple[list[BookWithRelations], int]:
+        full: bool = False,
+    ) -> tuple[list[BookWithRelations | BookWithFullRelations], int]:
         """List books with multiple filter criteria using OR conditions.
 
         Parameters
@@ -380,10 +385,12 @@ class BookService:
             Field to sort by (default: 'timestamp').
         sort_order : str
             Sort order: 'asc' or 'desc' (default: 'desc').
+        full : bool
+            If True, return full book details with all metadata (default: False).
 
         Returns
         -------
-        tuple[list[BookWithRelations], int]
+        tuple[list[BookWithRelations | BookWithFullRelations], int]
             Tuple of (books with relations list, total count).
         """
         offset = (page - 1) * page_size
@@ -401,6 +408,7 @@ class BookService:
             language_ids=language_ids,
             sort_by=sort_by,
             sort_order=sort_order,
+            full=full,
         )
         total = self._book_repo.count_books_with_filters(
             author_ids=author_ids,

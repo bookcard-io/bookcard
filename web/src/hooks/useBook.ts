@@ -18,6 +18,9 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Book, BookUpdate } from "@/types/book";
 
+// Deduplicate concurrent fetches for the same bookId/full key across component instances.
+const inflightBookFetches = new Map<string, Promise<Book>>();
+
 export interface UseBookOptions {
   /** Book ID to fetch. */
   bookId: number;
@@ -71,27 +74,47 @@ export function useBook(options: UseBookOptions): UseBookResult {
     setError(null);
 
     try {
-      const url = new URL(`/api/books/${bookId}`, window.location.origin);
-      if (full) {
-        url.searchParams.set("full", "true");
+      const key = `${bookId}:${full ? "full" : "basic"}`;
+      let promise = inflightBookFetches.get(key);
+      if (!promise) {
+        promise = (async () => {
+          const url = new URL(`/api/books/${bookId}`, window.location.origin);
+          if (full) {
+            url.searchParams.set("full", "true");
+          }
+          const response = await fetch(url.toString(), {
+            cache: "no-store",
+          });
+          if (!response.ok) {
+            const errorData = (await response.json()) as { detail?: string };
+            throw new Error(errorData.detail || "Failed to fetch book");
+          }
+          const data = (await response.json()) as Book;
+          return data;
+        })();
+        inflightBookFetches.set(key, promise);
       }
 
-      const response = await fetch(url.toString(), {
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
-        const errorData = (await response.json()) as { detail?: string };
-        throw new Error(errorData.detail || "Failed to fetch book");
-      }
-
-      const result = (await response.json()) as Book;
+      const result = await promise;
       setBook(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       setError(message);
       setBook(null);
     } finally {
+      // Clear inflight cache for this key if this caller created it
+      const key = `${bookId}:${full ? "full" : "basic"}`;
+      const promise = inflightBookFetches.get(key);
+      // Only delete when the promise has settled (we're in finally) to allow sharing
+      if (
+        promise &&
+        (await Promise.resolve(promise).then(
+          () => true,
+          () => true,
+        ))
+      ) {
+        inflightBookFetches.delete(key);
+      }
       setIsLoading(false);
     }
   }, [enabled, bookId, full]);

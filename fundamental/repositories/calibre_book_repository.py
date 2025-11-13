@@ -375,7 +375,8 @@ class CalibreBookRepository:
         search_query: str | None = None,
         sort_by: str = "timestamp",
         sort_order: str = "desc",
-    ) -> list[BookWithRelations]:
+        full: bool = False,
+    ) -> list[BookWithRelations | BookWithFullRelations]:
         """List books with pagination and optional search.
 
         Parameters
@@ -390,11 +391,13 @@ class CalibreBookRepository:
             Field to sort by (default: 'timestamp').
         sort_order : str
             Sort order: 'asc' or 'desc' (default: 'desc').
+        full : bool
+            If True, return full book details with all metadata (default: False).
 
         Returns
         -------
-        list[BookWithRelations]
-            List of books with authors and series.
+        list[BookWithRelations | BookWithFullRelations]
+            List of books with authors and series. If full=True, includes all metadata.
         """
         # Validate sort_by to prevent SQL injection
         valid_sort_fields = {
@@ -480,6 +483,10 @@ class CalibreBookRepository:
                     )
                 )
 
+            # Enrich with full details if requested
+            if full:
+                return self._enrich_books_with_full_details(session, books)  # type: ignore[invalid-return-type]
+
             return books
 
     def _build_book_with_relations(
@@ -556,7 +563,8 @@ class CalibreBookRepository:
         language_ids: list[int] | None = None,
         sort_by: str = "timestamp",
         sort_order: str = "desc",
-    ) -> list[BookWithRelations]:
+        full: bool = False,
+    ) -> list[BookWithRelations | BookWithFullRelations]:
         """List books with multiple filter criteria using OR conditions.
 
         Each filter type uses OR conditions (e.g., multiple authors = OR).
@@ -591,10 +599,13 @@ class CalibreBookRepository:
         sort_order : str
             Sort order: 'asc' or 'desc' (default: 'desc').
 
+        full : bool
+            If True, return full book details with all metadata (default: False).
+
         Returns
         -------
-        list[BookWithRelations]
-            List of books with authors and series.
+        list[BookWithRelations | BookWithFullRelations]
+            List of books with authors and series. If full=True, includes all metadata.
         """
         sort_field = self._get_sort_field(sort_by)
         if sort_order.lower() not in {"asc", "desc"}:
@@ -635,6 +646,10 @@ class CalibreBookRepository:
                 book_with_rels = self._build_book_with_relations(session, result)
                 if book_with_rels:
                     books.append(book_with_rels)
+
+            # Enrich with full details if requested
+            if full:
+                return self._enrich_books_with_full_details(session, books)  # type: ignore[invalid-return-type]
 
             return books
 
@@ -897,6 +912,350 @@ class CalibreBookRepository:
                 rating_id=rating_id,
                 formats=formats,
             )
+
+    def _fetch_tags_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, list[str]]:
+        """Fetch tags map for given book IDs.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_ids : list[int]
+            List of book IDs.
+
+        Returns
+        -------
+        dict[int, list[str]]
+            Map of book_id to list of tag names.
+        """
+        tags_stmt = (
+            select(BookTagLink.book, Tag.name)
+            .join(Tag, BookTagLink.tag == Tag.id)
+            .where(BookTagLink.book.in_(book_ids))  # type: ignore[attr-defined]
+            .order_by(BookTagLink.book, BookTagLink.id)
+        )
+        tags_map: dict[int, list[str]] = {}
+        for book_id, tag_name in session.exec(tags_stmt).all():
+            if book_id not in tags_map:
+                tags_map[book_id] = []
+            tags_map[book_id].append(tag_name)
+        return tags_map
+
+    def _fetch_identifiers_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, list[dict[str, str]]]:
+        """Fetch identifiers map for given book IDs.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_ids : list[int]
+            List of book IDs.
+
+        Returns
+        -------
+        dict[int, list[dict[str, str]]]
+            Map of book_id to list of identifier dicts.
+        """
+        identifiers_stmt = (
+            select(Identifier.book, Identifier.type, Identifier.val)
+            .where(Identifier.book.in_(book_ids))  # type: ignore[attr-defined]
+            .order_by(Identifier.book, Identifier.id)
+        )
+        identifiers_map: dict[int, list[dict[str, str]]] = {}
+        for book_id, ident_type, ident_val in session.exec(identifiers_stmt).all():
+            if book_id not in identifiers_map:
+                identifiers_map[book_id] = []
+            identifiers_map[book_id].append({"type": ident_type, "val": ident_val})
+        return identifiers_map
+
+    def _fetch_descriptions_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, str | None]:
+        """Fetch descriptions map for given book IDs.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_ids : list[int]
+            List of book IDs.
+
+        Returns
+        -------
+        dict[int, str | None]
+            Map of book_id to description text.
+        """
+        comments_stmt = select(Comment.book, Comment.text).where(
+            Comment.book.in_(book_ids)  # type: ignore[attr-defined]
+        )
+        return dict(session.exec(comments_stmt).all())
+
+    def _fetch_publishers_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, tuple[str | None, int | None]]:
+        """Fetch publishers map for given book IDs.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_ids : list[int]
+            List of book IDs.
+
+        Returns
+        -------
+        dict[int, tuple[str | None, int | None]]
+            Map of book_id to (publisher_name, publisher_id).
+        """
+        publishers_stmt = (
+            select(BookPublisherLink.book, Publisher.name, Publisher.id)
+            .join(Publisher, BookPublisherLink.publisher == Publisher.id)
+            .where(BookPublisherLink.book.in_(book_ids))  # type: ignore[attr-defined]
+        )
+        publishers_map: dict[int, tuple[str | None, int | None]] = {}
+        for book_id, pub_name, pub_id in session.exec(publishers_stmt).all():
+            publishers_map[book_id] = (pub_name, pub_id)
+        return publishers_map
+
+    def _fetch_languages_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, tuple[list[str], list[int]]]:
+        """Fetch languages map for given book IDs.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_ids : list[int]
+            List of book IDs.
+
+        Returns
+        -------
+        dict[int, tuple[list[str], list[int]]]
+            Map of book_id to (list[lang_code], list[lang_id]).
+        """
+        languages_stmt = (
+            select(BookLanguageLink.book, Language.lang_code, Language.id)
+            .join(Language, Language.id == BookLanguageLink.lang_code)
+            .where(BookLanguageLink.book.in_(book_ids))  # type: ignore[attr-defined]
+            .order_by(BookLanguageLink.book, BookLanguageLink.item_order)
+        )
+        languages_map: dict[int, tuple[list[str], list[int]]] = {}
+        for book_id, lang_code, lang_id in session.exec(languages_stmt).all():
+            if book_id not in languages_map:
+                languages_map[book_id] = ([], [])
+            languages_map[book_id][0].append(lang_code)
+            if lang_id is not None:
+                languages_map[book_id][1].append(lang_id)
+        return languages_map
+
+    def _fetch_ratings_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, tuple[int | None, int | None]]:
+        """Fetch ratings map for given book IDs.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_ids : list[int]
+            List of book IDs.
+
+        Returns
+        -------
+        dict[int, tuple[int | None, int | None]]
+            Map of book_id to (rating, rating_id).
+        """
+        ratings_stmt = (
+            select(BookRatingLink.book, Rating.rating, Rating.id)
+            .join(Rating, BookRatingLink.rating == Rating.id)
+            .where(BookRatingLink.book.in_(book_ids))  # type: ignore[attr-defined]
+        )
+        ratings_map: dict[int, tuple[int | None, int | None]] = {}
+        for book_id, rating, rating_id in session.exec(ratings_stmt).all():
+            ratings_map[book_id] = (rating, rating_id)
+        return ratings_map
+
+    def _fetch_formats_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, list[dict[str, str | int]]]:
+        """Fetch formats map for given book IDs.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_ids : list[int]
+            List of book IDs.
+
+        Returns
+        -------
+        dict[int, list[dict[str, str | int]]]
+            Map of book_id to list of format dicts.
+        """
+        formats_stmt = (
+            select(Data.book, Data.format, Data.uncompressed_size, Data.name)
+            .where(Data.book.in_(book_ids))  # type: ignore[attr-defined]
+            .order_by(Data.book, Data.format)
+        )
+        formats_map: dict[int, list[dict[str, str | int]]] = {}
+        for book_id, fmt, size, name in session.exec(formats_stmt).all():
+            if book_id not in formats_map:
+                formats_map[book_id] = []
+            formats_map[book_id].append({
+                "format": fmt,
+                "size": size,
+                "name": name or "",
+            })
+        return formats_map
+
+    def _fetch_series_ids_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, int | None]:
+        """Fetch series IDs map for given book IDs.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_ids : list[int]
+            List of book IDs.
+
+        Returns
+        -------
+        dict[int, int | None]
+            Map of book_id to series_id.
+        """
+        series_ids_stmt = (
+            select(BookSeriesLink.book, Series.id)
+            .join(Series, BookSeriesLink.series == Series.id)
+            .where(BookSeriesLink.book.in_(book_ids))  # type: ignore[attr-defined]
+        )
+        return dict(session.exec(series_ids_stmt).all())
+
+    def _build_enriched_book(
+        self,
+        book_with_rels: BookWithRelations,
+        tags_map: dict[int, list[str]],
+        identifiers_map: dict[int, list[dict[str, str]]],
+        descriptions_map: dict[int, str | None],
+        publishers_map: dict[int, tuple[str | None, int | None]],
+        languages_map: dict[int, tuple[list[str], list[int]]],
+        ratings_map: dict[int, tuple[int | None, int | None]],
+        formats_map: dict[int, list[dict[str, str | int]]],
+        series_ids_map: dict[int, int | None],
+    ) -> BookWithFullRelations | None:
+        """Build BookWithFullRelations from BookWithRelations and metadata maps.
+
+        Parameters
+        ----------
+        book_with_rels : BookWithRelations
+            Book with basic relations.
+        tags_map : dict[int, list[str]]
+            Map of book_id to tags.
+        identifiers_map : dict[int, list[dict[str, str]]]
+            Map of book_id to identifiers.
+        descriptions_map : dict[int, str | None]
+            Map of book_id to description.
+        publishers_map : dict[int, tuple[str | None, int | None]]
+            Map of book_id to (publisher_name, publisher_id).
+        languages_map : dict[int, tuple[list[str], list[int]]]
+            Map of book_id to (languages, language_ids).
+        ratings_map : dict[int, tuple[int | None, int | None]]
+            Map of book_id to (rating, rating_id).
+        formats_map : dict[int, list[dict[str, str | int]]]
+            Map of book_id to formats.
+        series_ids_map : dict[int, int | None]
+            Map of book_id to series_id.
+
+        Returns
+        -------
+        BookWithFullRelations | None
+            Enriched book or None if book_id is missing.
+        """
+        book_id = book_with_rels.book.id
+        if book_id is None:
+            return None
+
+        publisher_data = publishers_map.get(book_id, (None, None))
+        languages_data = languages_map.get(book_id, ([], []))
+        ratings_data = ratings_map.get(book_id, (None, None))
+
+        return BookWithFullRelations(
+            book=book_with_rels.book,
+            authors=book_with_rels.authors,
+            series=book_with_rels.series,
+            series_id=series_ids_map.get(book_id),
+            tags=tags_map.get(book_id, []),
+            identifiers=identifiers_map.get(book_id, []),
+            description=descriptions_map.get(book_id),
+            publisher=publisher_data[0],
+            publisher_id=publisher_data[1],
+            languages=languages_data[0],
+            language_ids=languages_data[1],
+            rating=ratings_data[0],
+            rating_id=ratings_data[1],
+            formats=formats_map.get(book_id, []),
+        )
+
+    def _enrich_books_with_full_details(
+        self,
+        session: Session,
+        books: list[BookWithRelations],
+    ) -> list[BookWithFullRelations]:
+        """Enrich a list of BookWithRelations with full details.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        books : list[BookWithRelations]
+            List of books with basic relations.
+
+        Returns
+        -------
+        list[BookWithFullRelations]
+            List of books with all metadata.
+        """
+        if not books:
+            return []
+
+        book_ids = [book.book.id for book in books if book.book.id is not None]
+        if not book_ids:
+            return []
+
+        # Fetch all metadata maps using helper methods
+        tags_map = self._fetch_tags_map(session, book_ids)
+        identifiers_map = self._fetch_identifiers_map(session, book_ids)
+        descriptions_map = self._fetch_descriptions_map(session, book_ids)
+        publishers_map = self._fetch_publishers_map(session, book_ids)
+        languages_map = self._fetch_languages_map(session, book_ids)
+        ratings_map = self._fetch_ratings_map(session, book_ids)
+        formats_map = self._fetch_formats_map(session, book_ids)
+        series_ids_map = self._fetch_series_ids_map(session, book_ids)
+
+        # Build enriched books
+        enriched_books: list[BookWithFullRelations] = []
+        for book_with_rels in books:
+            enriched_book = self._build_enriched_book(
+                book_with_rels,
+                tags_map,
+                identifiers_map,
+                descriptions_map,
+                publishers_map,
+                languages_map,
+                ratings_map,
+                formats_map,
+                series_ids_map,
+            )
+            if enriched_book is not None:
+                enriched_books.append(enriched_book)
+
+        return enriched_books
 
     def _normalize_string_set(self, strings: list[str]) -> set[str]:
         """Normalize a list of strings for comparison.

@@ -19,6 +19,7 @@ import { useCallback, useRef, useState } from "react";
 import { BookEditModal } from "@/components/books/BookEditModal";
 import { BookViewModal } from "@/components/books/BookViewModal";
 import { BooksGrid } from "@/components/library/BooksGrid";
+import { BooksList } from "@/components/library/BooksList";
 import { LibraryHeader } from "@/components/library/LibraryHeader";
 import { SearchWidgetBar } from "@/components/library/SearchWidgetBar";
 import { FiltersPanel } from "@/components/library/widgets/FiltersPanel";
@@ -176,6 +177,18 @@ export function MainContent() {
         </div>
         {viewMode.viewMode === "grid" && (
           <BooksGrid
+            searchQuery={search.filterQuery}
+            filters={filters.filters}
+            sortBy={sorting.sortBy}
+            sortOrder={sorting.sortOrder}
+            onBookClick={bookModal.handleBookClick}
+            onBookEdit={bookEditModal.handleEditBook}
+            bookDataUpdateRef={booksGridBookDataUpdateRef}
+            onBooksDataChange={setBooksNavigationData}
+          />
+        )}
+        {viewMode.viewMode === "list" && (
+          <BooksList
             searchQuery={search.filterQuery}
             filters={filters.filters}
             sortBy={sorting.sortBy}

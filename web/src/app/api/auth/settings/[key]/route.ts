@@ -17,6 +17,51 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedClient } from "@/services/http/routeHelpers";
 
 /**
+ * GET /api/auth/settings/[key]
+ *
+ * Proxies request to get all user settings (backend doesn't support single setting GET).
+ * The frontend filters client-side.
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ key: string }> },
+) {
+  try {
+    const { key: _key } = await params;
+
+    const { client, error } = getAuthenticatedClient(request);
+
+    if (error) {
+      return error;
+    }
+
+    const response = await client.request("/auth/settings", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return NextResponse.json(
+        { detail: data.detail || "Failed to fetch settings" },
+        { status: response.status },
+      );
+    }
+
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("Error in GET /api/auth/settings/[key]:", error);
+    return NextResponse.json(
+      { detail: "Internal server error" },
+      { status: 500 },
+    );
+  }
+}
+
+/**
  * PUT /api/auth/settings/[key]
  *
  * Proxies request to upsert a user setting.

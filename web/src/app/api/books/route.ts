@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search") || "";
     const sortBy = searchParams.get("sort_by") || "timestamp";
     const sortOrder = searchParams.get("sort_order") || "desc";
+    const full = searchParams.get("full") === "true";
 
     const queryParams: Record<string, string> = {
       page,
@@ -46,6 +47,9 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       queryParams.search = search;
+    }
+    if (full) {
+      queryParams.full = "true";
     }
 
     const response = await client.request("/books", {

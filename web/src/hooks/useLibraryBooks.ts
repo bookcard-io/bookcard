@@ -30,6 +30,8 @@ export interface UseLibraryBooksOptions {
   sortOrder?: "asc" | "desc";
   /** Number of items per page. */
   pageSize?: number;
+  /** Whether to fetch full book details with all metadata. */
+  full?: boolean;
 }
 
 export interface UseLibraryBooksResult {
@@ -79,6 +81,7 @@ export function useLibraryBooks(
     sortBy = "timestamp",
     sortOrder = "desc",
     pageSize = 20,
+    full = false,
   } = options;
 
   // Determine which filtering mechanism is active
@@ -94,6 +97,7 @@ export function useLibraryBooks(
     sort_by: sortBy,
     sort_order: sortOrder,
     page_size: pageSize,
+    full,
   });
 
   const regularBooksResult = useBooks({
@@ -103,6 +107,7 @@ export function useLibraryBooks(
     sort_by: sortBy,
     sort_order: sortOrder,
     page_size: pageSize,
+    full,
   });
 
   // Use filtered books if filters are active, otherwise use regular books

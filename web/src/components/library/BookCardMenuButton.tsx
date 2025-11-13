@@ -25,6 +25,8 @@ export interface BookCardMenuButtonProps {
   isMenuOpen: boolean;
   /** Handler for menu toggle. */
   onToggle: (e: React.MouseEvent<HTMLDivElement>) => void;
+  /** Variant style: 'grid' for overlay on cover, 'list' for inline. */
+  variant?: "grid" | "list";
 }
 
 /**
@@ -38,25 +40,37 @@ export function BookCardMenuButton({
   buttonRef,
   isMenuOpen,
   onToggle,
+  variant = "grid",
 }: BookCardMenuButtonProps) {
   const handleKeyDown = createEnterSpaceHandler(() => {
     onToggle({} as React.MouseEvent<HTMLDivElement>);
   });
 
+  const isList = variant === "list";
+
   return (
-    <div className="absolute right-3 bottom-3 z-20">
+    <div
+      className={isList ? "relative z-20" : "absolute right-3 bottom-3 z-20"}
+    >
       {/* biome-ignore lint/a11y/useSemanticElements: Cannot use button inside button, using div with role="button" for accessibility */}
       <div
         ref={buttonRef}
         className={cn(
           "menu-button pointer-events-auto flex cursor-default items-center justify-center",
-          "text-[var(--color-white)] transition-[background-color,transform,opacity] duration-200 ease-in-out",
+          "transition-[background-color,transform,opacity] duration-200 ease-in-out",
           "focus:shadow-focus-ring focus:outline-none",
-          "h-10 w-10 rounded-full",
-          "border-none bg-white/20 backdrop-blur-sm",
-          "hover:scale-110 hover:bg-white/30",
           "active:scale-95",
-          "[&_i]:block [&_i]:text-lg",
+          "[&_i]:block",
+          isList
+            ? [
+                "h-8 w-8 rounded border border-surface-a20 bg-surface-a10 text-text-a0",
+                "hover:bg-surface-a20 [&_i]:text-sm",
+              ]
+            : [
+                "h-10 w-10 rounded-full text-[var(--color-white)]",
+                "border-none bg-white/20 backdrop-blur-sm",
+                "hover:scale-110 hover:bg-white/30 [&_i]:text-lg",
+              ],
         )}
         onClick={onToggle}
         role="button"
@@ -66,7 +80,10 @@ export function BookCardMenuButton({
         aria-expanded={isMenuOpen}
         onKeyDown={handleKeyDown}
       >
-        <i className="pi pi-ellipsis-v" aria-hidden="true" />
+        <i
+          className={isList ? "pi pi-ellipsis-h" : "pi pi-ellipsis-v"}
+          aria-hidden="true"
+        />
       </div>
     </div>
   );

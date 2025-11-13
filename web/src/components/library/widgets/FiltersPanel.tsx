@@ -196,7 +196,7 @@ export function FiltersPanel({
 
   return (
     <div
-      className="absolute top-[calc(100%-8px)] right-8 left-8 z-[100] flex flex-col rounded-xl border border-surface-a20 bg-surface-tonal-a10 shadow-[var(--shadow-card-hover)]"
+      className="panel-tonal absolute top-[calc(100%-8px)] right-8 left-8 z-[100] flex flex-col rounded-xl shadow-[var(--shadow-card-hover)]"
       ref={panelRef}
     >
       <div className="flex items-center justify-between border-surface-a30 border-b p-4 px-6">

@@ -36,18 +36,25 @@ export async function POST(request: NextRequest) {
     const pageSize = searchParams.get("page_size") || "20";
     const sortBy = searchParams.get("sort_by") || "timestamp";
     const sortOrder = searchParams.get("sort_order") || "desc";
+    const full = searchParams.get("full") === "true";
+
+    const queryParams: Record<string, string> = {
+      page,
+      page_size: pageSize,
+      sort_by: sortBy,
+      sort_order: sortOrder,
+    };
+
+    if (full) {
+      queryParams.full = "true";
+    }
 
     const response = await client.request("/books/filter", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      queryParams: {
-        page,
-        page_size: pageSize,
-        sort_by: sortBy,
-        sort_order: sortOrder,
-      },
+      queryParams,
       body: JSON.stringify(body),
     });
 

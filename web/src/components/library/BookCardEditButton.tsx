@@ -23,6 +23,8 @@ export interface BookCardEditButtonProps {
   bookTitle: string;
   /** Handler for edit action. */
   onEdit: () => void;
+  /** Variant style: 'grid' for overlay on cover, 'list' for inline. */
+  variant?: "grid" | "list";
 }
 
 /**
@@ -35,6 +37,7 @@ export interface BookCardEditButtonProps {
 export function BookCardEditButton({
   bookTitle,
   onEdit,
+  variant = "grid",
 }: BookCardEditButtonProps) {
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
@@ -45,18 +48,27 @@ export function BookCardEditButton({
     handleClick({} as React.MouseEvent<HTMLDivElement>);
   });
 
+  const isList = variant === "list";
+
   return (
     /* biome-ignore lint/a11y/useSemanticElements: Cannot use button inside button, using div with role="button" for accessibility */
     <div
       className={cn(
         "edit-button pointer-events-auto flex cursor-default items-center justify-center",
-        "text-[var(--color-white)] transition-[background-color,transform,opacity] duration-200 ease-in-out",
+        "transition-[background-color,transform,opacity] duration-200 ease-in-out",
         "focus:shadow-focus-ring focus:outline-none",
-        "absolute bottom-3 left-3 h-10 w-10 rounded-full",
-        "border-none bg-white/20 backdrop-blur-sm",
-        "hover:scale-110 hover:bg-white/30",
         "active:scale-95",
-        "[&_i]:block [&_i]:text-lg",
+        "[&_i]:block",
+        isList
+          ? [
+              "relative h-8 w-8 rounded border border-surface-a20 bg-surface-a10 text-text-a0",
+              "hover:bg-surface-a20 [&_i]:text-sm",
+            ]
+          : [
+              "absolute bottom-3 left-3 h-10 w-10 rounded-full text-[var(--color-white)]",
+              "border-none bg-white/20 backdrop-blur-sm",
+              "hover:scale-110 hover:bg-white/30 [&_i]:text-lg",
+            ],
       )}
       onClick={handleClick}
       role="button"

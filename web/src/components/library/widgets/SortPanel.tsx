@@ -106,7 +106,7 @@ export function SortPanel({
 
   return (
     <div
-      className="absolute top-[calc(100%+8px)] left-0 z-[100] flex min-w-[200px] flex-col rounded-lg border border-surface-a20 bg-surface-tonal-a10 p-1 shadow-[0_4px_12px_rgba(0,0,0,0.15)]"
+      className="panel-tonal absolute top-[calc(100%+8px)] left-0 z-[100] flex min-w-[200px] flex-col rounded-lg p-1 shadow-[0_4px_12px_rgba(0,0,0,0.15)]"
       ref={panelRef}
     >
       {SORT_OPTIONS.map((option) => (
@@ -114,7 +114,7 @@ export function SortPanel({
           key={option.value}
           type="button"
           className={cn(
-            "cursor-pointer rounded-md border-none bg-transparent px-4 py-2.5 text-left font-inherit text-sm text-text-a0 transition-[background-color,color] duration-150 hover:bg-surface-tonal-a20 active:bg-surface-tonal-a30",
+            "menu-item-tonal cursor-pointer rounded-md border-none bg-transparent px-4 py-2.5 text-left font-inherit text-sm",
             sortBy === option.value &&
               "bg-primary-a20 font-medium text-text-a0",
           )}

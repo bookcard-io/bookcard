@@ -125,6 +125,24 @@
   --clr-info-a20: #74a4e6;
 }
 
+@layer components {
+  .btn-tonal {
+    @apply rounded-lg border border-surface-a20 bg-surface-tonal-a10 text-sm text-text-a0 transition-[background-color,border-color] duration-200 hover:border-surface-a30 hover:bg-surface-tonal-a20 active:bg-surface-tonal-a30 focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2 focus:not-focus-visible:outline-none focus:outline-none;
+  }
+
+  .input-tonal {
+    @apply h-9 w-full rounded-lg border border-surface-a20 bg-surface-tonal-a10 text-sm text-text-a0 transition-[border-color,background-color] duration-200 placeholder:text-text-a40 hover:border-surface-a30 focus:border-primary-a0 focus:bg-surface-tonal-a0 focus:outline-none;
+  }
+
+  .panel-tonal {
+    @apply border border-surface-a20 bg-surface-tonal-a10;
+  }
+
+  .menu-item-tonal {
+    @apply text-text-a0 transition-[background-color,color] duration-150 hover:bg-surface-tonal-a20 active:bg-surface-tonal-a30;
+  }
+}
+
 /* Light theme - applied when data-theme="light" */
 html[data-theme="light"] {
   /* Primary colors (light theme) */

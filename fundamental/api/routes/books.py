@@ -187,6 +187,7 @@ def list_books(
     search: str | None = None,
     sort_by: str = "timestamp",
     sort_order: str = "desc",
+    full: bool = False,
 ) -> BookListResponse:
     """List books with pagination and optional search.
 
@@ -205,6 +206,8 @@ def list_books(
         'series_index' (default: 'timestamp').
     sort_order : str
         Sort order: 'asc' or 'desc' (default: 'desc').
+    full : bool
+        If True, return full book details with all metadata (default: False).
 
     Returns
     -------
@@ -230,6 +233,7 @@ def list_books(
         search_query=search,
         sort_by=sort_by,
         sort_order=sort_order,
+        full=full,
     )
 
     # Convert to BookRead with thumbnail URLs
@@ -254,6 +258,22 @@ def list_books(
             thumbnail_url=thumbnail_url,
             has_cover=book.has_cover,
         )
+        # Add full details if available
+        if full and hasattr(book_with_rels, "tags"):
+            from fundamental.repositories.models import BookWithFullRelations
+
+            if isinstance(book_with_rels, BookWithFullRelations):
+                book_read.tags = book_with_rels.tags
+                book_read.identifiers = book_with_rels.identifiers
+                book_read.description = book_with_rels.description
+                book_read.publisher = book_with_rels.publisher
+                book_read.publisher_id = book_with_rels.publisher_id
+                book_read.languages = book_with_rels.languages
+                book_read.language_ids = book_with_rels.language_ids
+                book_read.rating = book_with_rels.rating
+                book_read.rating_id = book_with_rels.rating_id
+                book_read.series_id = book_with_rels.series_id
+                book_read.formats = book_with_rels.formats
         book_reads.append(book_read)
 
     total_pages = math.ceil(total / page_size) if page_size > 0 else 0
@@ -1042,6 +1062,7 @@ def filter_books(
     page_size: int = 20,
     sort_by: str = "timestamp",
     sort_order: str = "desc",
+    full: bool = False,
 ) -> BookListResponse:
     """Filter books with multiple criteria using OR conditions.
 
@@ -1063,6 +1084,8 @@ def filter_books(
         'series_index' (default: 'timestamp').
     sort_order : str
         Sort order: 'asc' or 'desc' (default: 'desc').
+    full : bool
+        If True, return full book details with all metadata (default: False).
 
     Returns
     -------
@@ -1096,6 +1119,7 @@ def filter_books(
         language_ids=filter_request.language_ids,
         sort_by=sort_by,
         sort_order=sort_order,
+        full=full,
     )
 
     # Convert to BookRead with thumbnail URLs
@@ -1120,6 +1144,22 @@ def filter_books(
             thumbnail_url=thumbnail_url,
             has_cover=book.has_cover,
         )
+        # Add full details if available
+        if full and hasattr(book_with_rels, "tags"):
+            from fundamental.repositories.models import BookWithFullRelations
+
+            if isinstance(book_with_rels, BookWithFullRelations):
+                book_read.tags = book_with_rels.tags
+                book_read.identifiers = book_with_rels.identifiers
+                book_read.description = book_with_rels.description
+                book_read.publisher = book_with_rels.publisher
+                book_read.publisher_id = book_with_rels.publisher_id
+                book_read.languages = book_with_rels.languages
+                book_read.language_ids = book_with_rels.language_ids
+                book_read.rating = book_with_rels.rating
+                book_read.rating_id = book_with_rels.rating_id
+                book_read.series_id = book_with_rels.series_id
+                book_read.formats = book_with_rels.formats
         book_reads.append(book_read)
 
     total_pages = math.ceil(total / page_size) if page_size > 0 else 0
