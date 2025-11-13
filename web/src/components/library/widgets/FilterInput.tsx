@@ -19,6 +19,7 @@ import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { useFilterSuggestions } from "@/hooks/useFilterSuggestions";
+import { cn } from "@/libs/utils";
 import type { SearchSuggestionItem } from "@/types/search";
 import { FilterSuggestionsDropdown } from "./FilterSuggestionsDropdown";
 
@@ -157,7 +158,24 @@ export function FilterInput({
           id={inputId}
           ref={inputRef}
           type="text"
-          className="w-full rounded-lg border border-surface-a30 bg-surface-tonal-a10 px-4 py-2.5 font-inherit text-sm text-text-a0 transition-[border-color,background-color] duration-200 placeholder:text-text-a40 hover:border-surface-a30 focus:border-primary-a0 focus:bg-surface-tonal-a0 focus:outline-none"
+          className={cn(
+            // Layout
+            "w-full",
+            // Shape & spacing
+            "rounded-lg border border-surface-a30 px-4 py-2.5",
+            // Colors
+            "bg-surface-tonal-a10 text-text-a0",
+            // Typography
+            "font-inherit text-sm",
+            // Placeholder
+            "placeholder:text-text-a40",
+            // Transitions
+            "transition-[border-color,background-color] duration-200",
+            // Hover
+            "hover:border-primary-a40",
+            // Focus
+            "focus:border-primary-a0 focus:bg-surface-tonal-a0 focus:outline-none",
+          )}
           placeholder={placeholder}
           value={query}
           onChange={handleChange}
