@@ -157,7 +157,7 @@ export function SearchInput({
           <input
             ref={inputRef}
             type="text"
-            className="w-full rounded-lg border border-surface-a20 bg-surface-tonal-a10 py-2.5 pr-4 pl-10 font-inherit text-sm text-text-a0 transition-[border-color,background-color] duration-200 placeholder:text-text-a40 hover:border-surface-a30 focus:border-primary-a0 focus:bg-surface-tonal-a0 focus:outline-none"
+            className="h-9 w-full rounded-lg border border-surface-a20 bg-surface-tonal-a10 pr-4 pl-10 font-inherit text-sm text-text-a0 transition-[border-color,background-color] duration-200 placeholder:text-text-a40 hover:border-surface-a30 focus:border-primary-a0 focus:bg-surface-tonal-a0 focus:outline-none"
             placeholder={placeholder}
             value={query}
             onChange={handleChange}
