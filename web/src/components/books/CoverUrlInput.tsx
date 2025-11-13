@@ -16,7 +16,6 @@
 "use client";
 
 import { TextInput } from "@/components/forms/TextInput";
-import styles from "./BookEditModal.module.scss";
 
 export interface CoverUrlInputProps {
   /** Input value. */
@@ -53,7 +52,7 @@ export function CoverUrlInput({
   onKeyDown,
 }: CoverUrlInputProps) {
   return (
-    <div className={styles.urlInputContainer}>
+    <div className="mt-2">
       <TextInput
         ref={inputRef}
         id="cover-url-input"

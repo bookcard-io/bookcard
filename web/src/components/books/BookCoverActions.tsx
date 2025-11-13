@@ -16,7 +16,6 @@
 "use client";
 
 import { Button } from "@/components/forms/Button";
-import styles from "./BookEditModal.module.scss";
 
 export interface BookCoverActionsProps {
   /** Whether URL input is visible. */
@@ -44,24 +43,27 @@ export function BookCoverActions({
   urlInput,
 }: BookCoverActionsProps) {
   return (
-    <div className={styles.coverActions}>
+    <div className="flex flex-col gap-2">
       <Button
         type="button"
         variant="ghost"
         size="small"
-        className={styles.coverAction}
+        className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 focus:!shadow-none w-full justify-start rounded-lg hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
       >
-        <span className="pi pi-image" aria-hidden="true" />
+        <span
+          className="pi pi-image mr-2 text-primary-a20"
+          aria-hidden="true"
+        />
         Select cover
       </Button>
       <Button
         type="button"
         variant="ghost"
         size="small"
-        className={styles.coverAction}
+        className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 focus:!shadow-none w-full justify-start rounded-lg hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
         onClick={onSetFromUrlClick}
       >
-        <span className="pi pi-link" aria-hidden="true" />
+        <span className="pi pi-link mr-2 text-primary-a20" aria-hidden="true" />
         Set cover from URL
       </Button>
       {isUrlInputVisible && urlInput}
@@ -69,18 +71,24 @@ export function BookCoverActions({
         type="button"
         variant="ghost"
         size="small"
-        className={styles.coverAction}
+        className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 focus:!shadow-none w-full justify-start rounded-lg hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
       >
-        <span className="pi pi-download" aria-hidden="true" />
+        <span
+          className="pi pi-download mr-2 text-primary-a20"
+          aria-hidden="true"
+        />
         Download cover
       </Button>
       <Button
         type="button"
         variant="ghost"
         size="small"
-        className={styles.coverAction}
+        className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 focus:!shadow-none w-full justify-start rounded-lg hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
       >
-        <span className="pi pi-sparkles" aria-hidden="true" />
+        <span
+          className="pi pi-sparkles mr-2 text-primary-a20"
+          aria-hidden="true"
+        />
         Generate cover
       </Button>
     </div>

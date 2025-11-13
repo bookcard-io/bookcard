@@ -27,7 +27,6 @@ import { TextArea } from "@/components/forms/TextArea";
 import { TextInput } from "@/components/forms/TextInput";
 import { languageFilterSuggestionsService } from "@/services/filterSuggestionsService";
 import type { Book, BookUpdate } from "@/types/book";
-import styles from "./BookEditModal.module.scss";
 
 export interface BookEditFormFieldsProps {
   /** Current book being edited. */
@@ -53,11 +52,11 @@ export function BookEditFormFields({
   onFieldChange,
 }: BookEditFormFieldsProps) {
   return (
-    <div className={styles.mainContent}>
-      <div className={styles.formGrid}>
+    <div className="flex min-w-0 flex-col gap-6">
+      <div className="grid grid-cols-3 gap-4 sm:grid-cols-1">
         {/* Row 1: Title and Title Sort */}
-        <div className={styles.spanningRow}>
-          <div className={styles.fieldRow}>
+        <div className="col-span-full grid grid-cols-[1fr_1fr] items-start gap-4">
+          <div className="grid min-w-0 grid-cols-[1fr_auto] items-end gap-3">
             <TextInput
               id="title"
               label="Title"
@@ -66,11 +65,11 @@ export function BookEditFormFields({
                 onFieldChange("title", e.target.value)
               }
               required
-              className={styles.field}
+              className="min-w-0"
             />
             <button
               type="button"
-              className={styles.arrowButton}
+              className="mb-2 flex items-center justify-center self-end border-none bg-transparent p-2 text-text-a30 text-xl transition-[transform,color] duration-200 hover:translate-x-0.5 hover:text-primary-a0 focus:rounded focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
               aria-label="Copy to title sort"
               title="Copy to title sort"
             >
@@ -82,13 +81,13 @@ export function BookEditFormFields({
             label="Title Sort"
             value={book.title || ""}
             disabled
-            className={styles.field}
+            className="min-w-0"
           />
         </div>
 
         {/* Row 2: Author(s) and Author(s) Sort */}
-        <div className={styles.spanningRow}>
-          <div className={styles.fieldRow}>
+        <div className="col-span-full grid grid-cols-[1fr_1fr] items-start gap-4">
+          <div className="grid min-w-0 grid-cols-[1fr_auto] items-end gap-3">
             <MultiTextInput
               id="authors"
               label="Author(s)"
@@ -99,7 +98,7 @@ export function BookEditFormFields({
             />
             <button
               type="button"
-              className={styles.arrowButton}
+              className="mb-2 flex items-center justify-center self-end border-none bg-transparent p-2 text-text-a30 text-xl transition-[transform,color] duration-200 hover:translate-x-0.5 hover:text-primary-a0 focus:rounded focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
               aria-label="Copy to author sort"
               title="Copy to author sort"
             >
@@ -111,12 +110,12 @@ export function BookEditFormFields({
             label="Author(s)"
             value={book.author_sort || ""}
             disabled
-            className={styles.field}
+            className="min-w-0"
           />
         </div>
 
         {/* Row 3: Series, Number, Rating */}
-        <div className={styles.seriesRow}>
+        <div className="col-span-full grid grid-cols-[2fr_1fr_1fr] items-end gap-4">
           <AutocompleteTextInput
             id="series_name"
             label="Series"
@@ -129,7 +128,7 @@ export function BookEditFormFields({
             }
             placeholder="Enter series name"
             filterType="series"
-            className={styles.seriesField}
+            className="min-w-0"
           />
           <NumberInput
             id="series_index"
@@ -143,9 +142,9 @@ export function BookEditFormFields({
             }
             step={0.1}
             min={0}
-            className={styles.numberField}
+            className="min-w-0"
           />
-          <div className={styles.ratingField}>
+          <div className="flex min-w-0 flex-col">
             <RatingInput
               id="rating"
               label="Rating"
@@ -156,7 +155,7 @@ export function BookEditFormFields({
         </div>
 
         {/* Row 4: Tags and Manage Tags button */}
-        <div className={styles.spanningRow}>
+        <div className="col-span-full grid grid-cols-[1fr_1fr] items-start gap-4">
           <TagInput
             id="tags"
             label="Tags"
@@ -165,13 +164,15 @@ export function BookEditFormFields({
             placeholder="Add tags (press Enter or comma)"
             filterType="genre"
           />
-          <div className={styles.tagActionsColumn}>
-            <div className={styles.tagActionsLabel}>&nbsp;</div>
+          <div className="flex w-full flex-col gap-2">
+            <div className="h-[1.3125rem] font-medium text-sm text-text-a10 leading-6">
+              &nbsp;
+            </div>
             <Button
               type="button"
               variant="primary"
               size="medium"
-              className={styles.tagActionsButton}
+              className="h-11 self-start"
               onClick={() => {
                 // TODO: Implement manage tags
               }}
@@ -182,7 +183,7 @@ export function BookEditFormFields({
         </div>
 
         {/* Row 5: Identifiers and Languages */}
-        <div className={styles.spanningRow}>
+        <div className="col-span-full grid grid-cols-[1fr_1fr] items-start gap-4">
           <IdentifierInput
             id="identifiers"
             label="Identifiers"
@@ -208,7 +209,7 @@ export function BookEditFormFields({
         </div>
 
         {/* Row 6: Publisher and Publish date */}
-        <div className={styles.spanningRow}>
+        <div className="col-span-full grid grid-cols-[1fr_1fr] items-start gap-4">
           <AutocompleteTextInput
             id="publisher"
             label="Publisher"
@@ -234,7 +235,7 @@ export function BookEditFormFields({
       </div>
 
       {/* Full-width Description */}
-      <div className={styles.descriptionSection}>
+      <div className="mt-2 flex flex-col gap-3">
         <TextArea
           id="description"
           label="Description"

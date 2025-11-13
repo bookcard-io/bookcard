@@ -66,7 +66,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           "active:scale-[0.98]",
           // Variant styles
           variant === "primary" && [
-            "bg-primary-a0 text-text-a0",
+            "bg-primary-a0 text-surface-a0",
             "border-primary-a20",
             "hover:bg-primary-a10",
           ],

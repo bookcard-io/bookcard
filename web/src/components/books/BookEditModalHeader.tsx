@@ -17,7 +17,6 @@
 
 import { Button } from "@/components/forms/Button";
 import type { Book } from "@/types/book";
-import styles from "./BookEditModal.module.scss";
 
 export interface BookEditModalHeaderProps {
   /** Current book being edited. */
@@ -43,12 +42,12 @@ export function BookEditModalHeader({
   onFetchMetadata,
 }: BookEditModalHeaderProps) {
   return (
-    <div className={styles.header}>
-      <div className={styles.titleSection}>
-        <h2 className={styles.title}>
+    <div className="flex items-start justify-between gap-4 border-surface-a20 border-b pt-6 pr-16 pb-4 pl-6">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <h2 className="m-0 truncate font-bold text-2xl text-text-a0 leading-[1.4]">
           Editing {formTitle || book.title || "Untitled"}
         </h2>
-        <p className={styles.helperText}>
+        <p className="m-0 text-sm text-text-a30 leading-6">
           Multi-valued values like Authors, Tags, Languages: comma or enter to
           add.
         </p>

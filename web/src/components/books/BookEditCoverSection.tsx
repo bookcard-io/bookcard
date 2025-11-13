@@ -21,7 +21,6 @@ import type { Book } from "@/types/book";
 import { getCoverUrlWithCacheBuster } from "@/utils/books";
 import { BookCoverActions } from "./BookCoverActions";
 import { BookCoverDisplay } from "./BookCoverDisplay";
-import styles from "./BookEditModal.module.scss";
 import { BookFormatsSection } from "./BookFormatsSection";
 import { CoverUrlInput } from "./CoverUrlInput";
 
@@ -83,8 +82,8 @@ export function BookEditCoverSection({
   const displayCoverUrl = stagedCoverUrl || coverUrl;
 
   return (
-    <div className={styles.leftSidebar}>
-      <div className={styles.coverContainer}>
+    <div className="flex flex-col">
+      <div className="flex flex-col gap-4">
         <BookCoverDisplay
           book={book}
           coverUrl={displayCoverUrl}

@@ -18,7 +18,6 @@
 import { Button } from "@/components/forms/Button";
 import type { Book } from "@/types/book";
 import { formatFileSize } from "@/utils/format";
-import styles from "./BookEditModal.module.scss";
 
 export interface BookFormatsSectionProps {
   /** Book data containing formats. */
@@ -38,30 +37,30 @@ export interface BookFormatsSectionProps {
  */
 export function BookFormatsSection({ book }: BookFormatsSectionProps) {
   return (
-    <div className={styles.formatsSection}>
-      <h3 className={styles.formatsTitle}>Formats</h3>
+    <div className="mt-6 flex flex-col gap-4">
+      <h3 className="m-0 font-bold text-text-a0 text-xl">Formats</h3>
       {book.formats && book.formats.length > 0 ? (
-        <div className={styles.formatsList}>
+        <div className="flex flex-col gap-2">
           {book.formats.map((file) => (
             <div
               key={`${file.format}-${file.size}`}
-              className={styles.formatItem}
+              className="flex items-center justify-between gap-3 rounded-md border border-primary-a20 bg-surface-tonal-a10 p-3"
             >
-              <div className={styles.formatIcon}>
+              <div className="flex h-10 w-10 min-w-10 items-center justify-center rounded-lg border border-primary-a20 bg-surface-a20 font-semibold text-text-a0 text-xs">
                 {file.format.toUpperCase()}
               </div>
-              <div className={styles.formatInfo}>
-                <span className={styles.formatName}>
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="font-semibold text-sm text-text-a0">
                   {file.format.toUpperCase()}
                 </span>
-                <span className={styles.formatSize}>
+                <span className="text-sm text-text-a30">
                   {formatFileSize(file.size)}
                 </span>
               </div>
-              <div className={styles.formatActions}>
+              <div className="flex gap-1">
                 <button
                   type="button"
-                  className={styles.formatActionButton}
+                  className="flex flex-shrink-0 items-center justify-center rounded bg-transparent p-1.5 text-text-a30 transition-[transform,color,background-color] duration-200 hover:bg-surface-a20 hover:text-primary-a0 focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 active:scale-95"
                   aria-label={`Info for ${file.format.toUpperCase()}`}
                   title={`Info for ${file.format.toUpperCase()}`}
                 >
@@ -69,7 +68,7 @@ export function BookFormatsSection({ book }: BookFormatsSectionProps) {
                 </button>
                 <button
                   type="button"
-                  className={styles.formatActionButton}
+                  className="flex flex-shrink-0 items-center justify-center rounded bg-transparent p-1.5 text-text-a30 transition-[transform,color,background-color] duration-200 hover:bg-surface-a20 hover:text-primary-a0 focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 active:scale-95"
                   aria-label={`Copy ${file.format.toUpperCase()}`}
                   title={`Copy ${file.format.toUpperCase()}`}
                 >
@@ -77,7 +76,7 @@ export function BookFormatsSection({ book }: BookFormatsSectionProps) {
                 </button>
                 <button
                   type="button"
-                  className={styles.formatActionButton}
+                  className="flex flex-shrink-0 items-center justify-center rounded bg-transparent p-1.5 text-text-a30 transition-[transform,color,background-color] duration-200 hover:bg-surface-a20 hover:text-primary-a0 focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 active:scale-95"
                   aria-label={`Delete ${file.format.toUpperCase()}`}
                   title={`Delete ${file.format.toUpperCase()}`}
                 >
@@ -88,25 +87,31 @@ export function BookFormatsSection({ book }: BookFormatsSectionProps) {
           ))}
         </div>
       ) : (
-        <div className={styles.noFormats}>No formats available</div>
+        <div className="py-2 text-sm text-text-a30">No formats available</div>
       )}
-      <div className={styles.formatButtons}>
+      <div className="flex flex-col gap-2">
         <Button
           type="button"
           variant="ghost"
           size="small"
-          className={styles.formatAction}
+          className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 w-full justify-start rounded-lg hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
         >
-          <span className="pi pi-plus" aria-hidden="true" />
+          <span
+            className="pi pi-plus mr-2 text-primary-a20"
+            aria-hidden="true"
+          />
           Add new format
         </Button>
         <Button
           type="button"
           variant="ghost"
           size="small"
-          className={styles.formatAction}
+          className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 w-full justify-start rounded-lg hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
         >
-          <span className="pi pi-arrow-right-arrow-left" aria-hidden="true" />
+          <span
+            className="pi pi-arrow-right-arrow-left mr-2 text-primary-a20"
+            aria-hidden="true"
+          />
           Convert
         </Button>
       </div>
