@@ -15,7 +15,7 @@
 
 "use client";
 
-import styles from "./RatingDisplay.module.scss";
+import { cn } from "@/libs/utils";
 import { RatingStars } from "./RatingStars";
 
 export interface RatingDisplayProps {
@@ -47,7 +47,7 @@ export function RatingDisplay({
   }
 
   return (
-    <div className={`${styles.container} ${className || ""}`}>
+    <div className={cn("flex items-center", className)}>
       <RatingStars
         value={value}
         interactive={false}
