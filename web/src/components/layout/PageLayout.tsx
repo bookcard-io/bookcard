@@ -20,6 +20,8 @@ import { HeaderActionBarButtons } from "@/components/layout/HeaderActionBarButto
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { ActiveLibraryProvider } from "@/contexts/ActiveLibraryContext";
 import { HeaderActionBarProvider } from "@/contexts/HeaderActionBarContext";
+import { SelectedShelfProvider } from "@/contexts/SelectedShelfContext";
+import { ShelvesProvider } from "@/contexts/ShelvesContext";
 import { SidebarProvider, useSidebar } from "@/contexts/SidebarContext";
 import { UserProvider } from "@/contexts/UserContext";
 import { cn } from "@/libs/utils";
@@ -80,15 +82,19 @@ export function PageLayout({ children }: PageLayoutProps) {
   return (
     <UserProvider>
       <ActiveLibraryProvider>
-        <SidebarProvider>
-          <HeaderActionBarProvider>
-            <HeaderActionBarButtons />
-            <div className="flex h-screen w-full overflow-hidden">
-              <Sidebar />
-              <PageContent>{children}</PageContent>
-            </div>
-          </HeaderActionBarProvider>
-        </SidebarProvider>
+        <ShelvesProvider>
+          <SelectedShelfProvider>
+            <SidebarProvider>
+              <HeaderActionBarProvider>
+                <HeaderActionBarButtons />
+                <div className="flex h-screen w-full overflow-hidden">
+                  <Sidebar />
+                  <PageContent>{children}</PageContent>
+                </div>
+              </HeaderActionBarProvider>
+            </SidebarProvider>
+          </SelectedShelfProvider>
+        </ShelvesProvider>
       </ActiveLibraryProvider>
     </UserProvider>
   );

@@ -33,6 +33,8 @@ export interface BooksGridProps {
   searchQuery?: string;
   /** Filter values for advanced filtering. */
   filters?: FilterValues;
+  /** Shelf ID to filter books by shelf. */
+  shelfId?: number;
   /** Sort field. */
   sortBy?: "timestamp" | "pubdate" | "title" | "author_sort" | "series_index";
   /** Sort order. */
@@ -66,6 +68,7 @@ export function BooksGrid({
   onBookEdit,
   searchQuery,
   filters,
+  shelfId,
   sortBy,
   sortOrder,
   pageSize = 20,
@@ -85,6 +88,7 @@ export function BooksGrid({
   } = useLibraryBooks({
     filters,
     searchQuery,
+    shelfId,
     sortBy,
     sortOrder,
     pageSize,

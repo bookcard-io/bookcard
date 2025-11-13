@@ -22,6 +22,7 @@ import { BookViewModal } from "@/components/books/BookViewModal";
 import { LibraryHeader } from "@/components/library/LibraryHeader";
 import { SearchWidgetBar } from "@/components/library/SearchWidgetBar";
 import { FiltersPanel } from "@/components/library/widgets/FiltersPanel";
+import { useSelectedShelf } from "@/contexts/SelectedShelfContext";
 import { useBookEditModal } from "@/hooks/useBookEditModal";
 import { useBookUpload } from "@/hooks/useBookUpload";
 import { useBookViewModal } from "@/hooks/useBookViewModal";
@@ -138,6 +139,9 @@ export function MainContent() {
     onSortToggle: sorting.handleSortToggle,
   });
 
+  // Selected shelf state
+  const { selectedShelfId } = useSelectedShelf();
+
   // Combined view mode change handler
   const handleViewModeChange = useCallback(
     (mode: string) => {
@@ -188,6 +192,7 @@ export function MainContent() {
           <BooksGrid
             searchQuery={search.filterQuery}
             filters={filters.filters}
+            shelfId={selectedShelfId}
             sortBy={sorting.sortBy}
             sortOrder={sorting.sortOrder}
             onBookClick={bookModal.handleBookClick}
@@ -200,6 +205,7 @@ export function MainContent() {
           <BooksList
             searchQuery={search.filterQuery}
             filters={filters.filters}
+            shelfId={selectedShelfId}
             sortBy={sorting.sortBy}
             sortOrder={sorting.sortOrder}
             onBookClick={bookModal.handleBookClick}

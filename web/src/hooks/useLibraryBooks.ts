@@ -13,9 +13,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import { useMemo } from "react";
 import type { FilterValues } from "@/components/library/widgets/FiltersPanel";
 import { useBooks } from "@/hooks/useBooks";
 import { useFilteredBooks } from "@/hooks/useFilteredBooks";
+import { useShelfBooks } from "@/hooks/useShelfBooks";
 import type { Book } from "@/types/book";
 import { hasActiveFilters } from "@/utils/filters";
 
@@ -24,6 +26,8 @@ export interface UseLibraryBooksOptions {
   filters?: FilterValues;
   /** Search query to filter books. */
   searchQuery?: string;
+  /** Shelf ID to filter books by shelf. */
+  shelfId?: number;
   /** Sort field. */
   sortBy?: "timestamp" | "pubdate" | "title" | "author_sort" | "series_index";
   /** Sort order. */
@@ -78,20 +82,31 @@ export function useLibraryBooks(
   const {
     filters,
     searchQuery,
+    shelfId,
     sortBy = "timestamp",
     sortOrder = "desc",
     pageSize = 20,
     full = false,
   } = options;
 
+  // Get shelf book IDs if shelfId is provided
+  // Note: useShelfBooks doesn't support conditional execution, so we pass 0 when shelfId is undefined
+  // and check the result in the useMemo
+  const shelfBooksResult = useShelfBooks({
+    shelfId: shelfId ?? 0,
+    page: 1,
+    sortBy: "order",
+  });
+
   // Determine which filtering mechanism is active
-  // Priority: filters > search > all books
+  // Priority: shelf > filters > search > all books
   const filtersActive = hasActiveFilters(filters);
   const hasActiveSearch = searchQuery && searchQuery.trim().length > 0;
+  const hasShelfFilter = shelfId !== undefined;
 
   // Use filtered books if filters are active, otherwise use regular books
   const filteredBooksResult = useFilteredBooks({
-    enabled: filtersActive,
+    enabled: filtersActive && !hasShelfFilter,
     infiniteScroll: true,
     filters: filtersActive ? filters : undefined,
     sort_by: sortBy,
@@ -101,7 +116,7 @@ export function useLibraryBooks(
   });
 
   const regularBooksResult = useBooks({
-    enabled: !filtersActive,
+    enabled: !filtersActive && !hasShelfFilter,
     infiniteScroll: true,
     search: hasActiveSearch ? searchQuery : undefined,
     sort_by: sortBy,
@@ -110,8 +125,56 @@ export function useLibraryBooks(
     full,
   });
 
-  // Use filtered books if filters are active, otherwise use regular books
-  const result = filtersActive ? filteredBooksResult : regularBooksResult;
+  // When shelf filter is active, fetch all books and filter by shelf IDs
+  const allBooksForShelfResult = useBooks({
+    enabled: hasShelfFilter,
+    infiniteScroll: true,
+    search: hasActiveSearch ? searchQuery : undefined,
+    sort_by: sortBy,
+    sort_order: sortOrder,
+    page_size: 1000, // Fetch more to have enough for filtering
+    full,
+  });
+
+  // Base result: use filtered books if filters are active, otherwise use regular books
+  const baseResult = filtersActive ? filteredBooksResult : regularBooksResult;
+
+  // If shelf filter is active, filter books by shelf IDs
+  const shelfFilteredBooks = useMemo(() => {
+    if (!hasShelfFilter || shelfId === undefined || shelfId === 0) {
+      return [];
+    }
+    if (shelfBooksResult.isLoading || shelfBooksResult.error) {
+      return [];
+    }
+
+    const shelfBookIds = new Set(shelfBooksResult.bookIds);
+    return allBooksForShelfResult.books.filter((book) =>
+      shelfBookIds.has(book.id),
+    );
+  }, [
+    hasShelfFilter,
+    shelfId,
+    shelfBooksResult.bookIds,
+    shelfBooksResult.isLoading,
+    shelfBooksResult.error,
+    allBooksForShelfResult.books,
+  ]);
+
+  // Determine which result to use
+  const result = hasShelfFilter
+    ? {
+        books: shelfFilteredBooks,
+        total: shelfBooksResult.total,
+        isLoading:
+          shelfBooksResult.isLoading || allBooksForShelfResult.isLoading,
+        error: shelfBooksResult.error || allBooksForShelfResult.error,
+        loadMore: allBooksForShelfResult.loadMore,
+        hasMore: allBooksForShelfResult.hasMore,
+        removeBook: allBooksForShelfResult.removeBook,
+        addBook: allBooksForShelfResult.addBook,
+      }
+    : baseResult;
 
   return {
     books: result.books,

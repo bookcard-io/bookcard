@@ -16,9 +16,13 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { ShelfEditModal } from "@/components/shelves/ShelfEditModal";
 import { useActiveLibrary } from "@/contexts/ActiveLibraryContext";
+import { useSelectedShelf } from "@/contexts/SelectedShelfContext";
+import { useShelvesContext } from "@/contexts/ShelvesContext";
 import { useSidebar } from "@/contexts/SidebarContext";
+import { useShelves } from "@/hooks/useShelves";
 import { BurgerArrowLeft } from "@/icons/BurgerArrowLeft";
 import { BurgerArrowRight } from "@/icons/BurgerArrowRight";
 import { LibraryBuilding } from "@/icons/LibraryBuilding";
@@ -32,10 +36,6 @@ interface NavSection {
 }
 
 const navSections: NavSection[] = [
-  {
-    title: "MY SHELVES",
-    items: ["To-read", "DNF", "Estonian Sci-Fi", "Recommended", "Add shelf"],
-  },
   {
     title: "DEVICES",
     items: ["My Kindle", "iPad Air"],
@@ -54,11 +54,30 @@ const sectionIcons: Record<
 export function Sidebar() {
   const { isCollapsed, setIsCollapsed } = useSidebar();
   const { activeLibrary } = useActiveLibrary();
+  const {
+    shelves,
+    isLoading: shelvesLoading,
+    refresh: refreshShelvesContext,
+  } = useShelvesContext();
+  const { selectedShelfId, setSelectedShelfId } = useSelectedShelf();
+  const { createShelf } = useShelves();
   const router = useRouter();
   const pathname = usePathname();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(["MY LIBRARY", "MY SHELVES", "DEVICES"]),
   );
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  // Get top 5 shelves ordered by created_at desc
+  const topShelves = useMemo(() => {
+    return [...shelves]
+      .sort((a, b) => {
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        return dateB - dateA; // Descending order
+      })
+      .slice(0, 5);
+  }, [shelves]);
 
   const toggleSection = (title: string) => {
     const newExpanded = new Set(expandedSections);
@@ -71,11 +90,38 @@ export function Sidebar() {
   };
 
   const handleHomeClick = () => {
+    setSelectedShelfId(undefined);
     router.push("/");
   };
 
   const handleLibraryMenuClick = () => {
     // Placeholder for now
+  };
+
+  const handleShelfClick = (shelfId: number) => {
+    setSelectedShelfId(shelfId);
+  };
+
+  const handleAddShelfClick = () => {
+    setShowCreateModal(true);
+  };
+
+  const handleCreateShelf = async (data: {
+    name?: string | null;
+    description?: string | null;
+    is_public?: boolean | null;
+  }) => {
+    // In create mode, we only accept ShelfCreate (all required fields)
+    if (!data.name) {
+      return;
+    }
+    await createShelf({
+      name: data.name,
+      description: data.description ?? null,
+      is_public: data.is_public ?? false,
+    });
+    setShowCreateModal(false);
+    await refreshShelvesContext();
   };
 
   const handleLinkClick = () => {
@@ -183,6 +229,72 @@ export function Sidebar() {
           )}
         </div>
 
+        {/* MY SHELVES Section */}
+        <div className="mb-2">
+          <button
+            type="button"
+            className="flex w-full cursor-pointer items-center justify-between border-0 bg-transparent px-4 py-3 text-left font-semibold text-[var(--color-surface-a50)] text-xs uppercase tracking-[0.5px] transition-colors duration-200 hover:bg-[var(--color-surface-a20)]"
+            onClick={() => toggleSection("MY SHELVES")}
+          >
+            {LibraryOutline && (
+              <LibraryOutline
+                className="mr-3 h-[18px] w-[18px] shrink-0 text-[var(--color-surface-a50)]"
+                aria-hidden="true"
+              />
+            )}
+            {!isCollapsed && <span className="flex-1">MY SHELVES</span>}
+            {!isCollapsed && (
+              <i
+                className={cn(
+                  "pi shrink-0 text-sm",
+                  expandedSections.has("MY SHELVES")
+                    ? "pi-chevron-up"
+                    : "pi-chevron-down",
+                )}
+                aria-hidden="true"
+              />
+            )}
+          </button>
+          {expandedSections.has("MY SHELVES") && !isCollapsed && (
+            <ul className="m-0 list-none p-0">
+              {shelvesLoading ? (
+                <li className="px-[46px] py-2.5 text-[var(--color-text-a30)] text-sm">
+                  Loading...
+                </li>
+              ) : topShelves.length === 0 ? (
+                <li className="px-[46px] py-2.5 text-[var(--color-text-a30)] text-sm">
+                  No shelves yet
+                </li>
+              ) : (
+                topShelves.map((shelf) => (
+                  <li key={shelf.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleShelfClick(shelf.id)}
+                      className={cn(
+                        "block w-[calc(100%-32px)] cursor-pointer rounded border-0 bg-transparent py-2.5 pr-4 pl-[46px] text-left text-[var(--color-text-a30)] text-sm no-underline transition-colors duration-200 hover:bg-[var(--color-surface-a20)] hover:text-[var(--color-text-a10)]",
+                        selectedShelfId === shelf.id &&
+                          "bg-[var(--color-surface-a20)] text-[var(--color-text-a10)]",
+                      )}
+                    >
+                      {shelf.name}
+                    </button>
+                  </li>
+                ))
+              )}
+              <li>
+                <button
+                  type="button"
+                  onClick={handleAddShelfClick}
+                  className="block w-[calc(100%-32px)] cursor-pointer rounded border-0 bg-transparent py-2.5 pr-4 pl-[46px] text-left text-[var(--color-text-a30)] text-sm no-underline transition-colors duration-200 hover:bg-[var(--color-surface-a20)] hover:text-[var(--color-text-a10)]"
+                >
+                  Add shelf
+                </button>
+              </li>
+            </ul>
+          )}
+        </div>
+
         {/* Other Sections */}
         {navSections.map((section) => {
           const IconComponent = sectionIcons[section.title];
@@ -249,6 +361,14 @@ export function Sidebar() {
           {!isCollapsed && <span>Admin Settings</span>}
         </button>
       </div>
+
+      {showCreateModal && (
+        <ShelfEditModal
+          shelf={null}
+          onClose={() => setShowCreateModal(false)}
+          onSave={handleCreateShelf}
+        />
+      )}
     </aside>
   );
 }

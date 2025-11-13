@@ -35,6 +35,8 @@ export interface BooksListProps {
   searchQuery?: string;
   /** Filter values for advanced filtering. */
   filters?: FilterValues;
+  /** Shelf ID to filter books by shelf. */
+  shelfId?: number;
   /** Sort field. */
   sortBy?: "timestamp" | "pubdate" | "title" | "author_sort" | "series_index";
   /** Sort order. */
@@ -68,6 +70,7 @@ export function BooksList({
   onBookEdit,
   searchQuery,
   filters,
+  shelfId,
   sortBy,
   sortOrder,
   pageSize = 20,
@@ -87,6 +90,7 @@ export function BooksList({
   } = useLibraryBooks({
     filters,
     searchQuery,
+    shelfId,
     sortBy,
     sortOrder,
     pageSize,

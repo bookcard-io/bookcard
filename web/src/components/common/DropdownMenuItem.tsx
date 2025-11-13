@@ -31,6 +31,8 @@ export interface DropdownMenuItemProps {
   justifyBetween?: boolean;
   /** Optional additional className to apply to the button. */
   className?: string;
+  /** Whether the item is disabled. */
+  disabled?: boolean;
 }
 
 /**
@@ -52,15 +54,17 @@ export function DropdownMenuItem({
   rightContent,
   justifyBetween = false,
   className,
+  disabled = false,
 }: DropdownMenuItemProps) {
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (onClick) {
-        onClick();
+      if (disabled || !onClick) {
+        return;
       }
+      onClick();
     },
-    [onClick],
+    [onClick, disabled],
   );
 
   return (
@@ -69,13 +73,16 @@ export function DropdownMenuItem({
       className={cn(
         "flex w-full items-center gap-3 px-4 py-2.5 text-left",
         "text-sm text-text-a0",
-        "hover:bg-surface-tonal-a20",
+        disabled
+          ? "cursor-not-allowed opacity-50"
+          : "hover:bg-surface-tonal-a20",
         "transition-colors duration-150",
         "focus:bg-surface-tonal-a20 focus:outline-none",
         justifyBetween && "justify-between",
         className,
       )}
       onClick={handleClick}
+      disabled={disabled}
       role="menuitem"
     >
       <div className="flex items-center gap-3">

@@ -66,14 +66,22 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("uuid", sqlmodel.AutoString(length=36), nullable=False),
         sa.Column("name", sqlmodel.AutoString(length=255), nullable=False),
+        sa.Column("description", sqlmodel.AutoString(length=5000), nullable=True),
+        sa.Column("cover_picture", sqlmodel.AutoString(length=500), nullable=True),
         sa.Column("is_public", sa.Boolean(), nullable=False),
+        sa.Column("is_active", sa.Boolean(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("library_id", sa.Integer(), nullable=False),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.Column("last_modified", sa.DateTime(), nullable=False),
         sa.ForeignKeyConstraint(
             ["user_id"],
             ["users.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["library_id"],
+            ["libraries.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -83,9 +91,27 @@ def upgrade() -> None:
     op.create_index(
         op.f("ix_shelves_is_public"), "shelves", ["is_public"], unique=False
     )
+    op.create_index(
+        op.f("ix_shelves_is_active"), "shelves", ["is_active"], unique=False
+    )
     op.create_index(op.f("ix_shelves_name"), "shelves", ["name"], unique=False)
     op.create_index(op.f("ix_shelves_user_id"), "shelves", ["user_id"], unique=False)
+    op.create_index(
+        op.f("ix_shelves_library_id"), "shelves", ["library_id"], unique=False
+    )
     op.create_index(op.f("ix_shelves_uuid"), "shelves", ["uuid"], unique=True)
+    op.create_index(
+        "ix_shelves_library_id_user_id_is_public",
+        "shelves",
+        ["library_id", "user_id", "is_public"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_shelves_library_id_name_is_public",
+        "shelves",
+        ["library_id", "name", "is_public"],
+        unique=False,
+    )
     op.create_table(
         "book_shelf_links",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -131,9 +157,13 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_book_shelf_links_date_added"), table_name="book_shelf_links")
     op.drop_index(op.f("ix_book_shelf_links_book_id"), table_name="book_shelf_links")
     op.drop_table("book_shelf_links")
+    op.drop_index("ix_shelves_library_id_name_is_public", table_name="shelves")
+    op.drop_index("ix_shelves_library_id_user_id_is_public", table_name="shelves")
     op.drop_index(op.f("ix_shelves_uuid"), table_name="shelves")
+    op.drop_index(op.f("ix_shelves_library_id"), table_name="shelves")
     op.drop_index(op.f("ix_shelves_user_id"), table_name="shelves")
     op.drop_index(op.f("ix_shelves_name"), table_name="shelves")
+    op.drop_index(op.f("ix_shelves_is_active"), table_name="shelves")
     op.drop_index(op.f("ix_shelves_is_public"), table_name="shelves")
     op.drop_index(op.f("ix_shelves_created_at"), table_name="shelves")
     op.drop_table("shelves")
