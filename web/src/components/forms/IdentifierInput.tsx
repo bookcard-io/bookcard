@@ -16,7 +16,7 @@
 "use client";
 
 import { type KeyboardEvent, useState } from "react";
-import styles from "./IdentifierInput.module.scss";
+import { cn } from "@/libs/utils";
 
 export interface Identifier {
   type: string;
@@ -85,23 +85,30 @@ export function IdentifierInput({
   };
 
   return (
-    <div className={styles.container}>
+    <div className="flex w-full flex-col gap-2">
       {label && (
-        <label htmlFor={`${id}-val`} className={styles.label}>
+        <label
+          htmlFor={`${id}-val`}
+          className="font-medium text-sm text-text-a10 leading-normal"
+        >
           {label}
         </label>
       )}
-      <div className={styles.inputWrapper}>
+      <div className="flex w-full flex-col gap-2">
         {identifiers.map((identifier, index) => (
           <div
             key={`${identifier.type}-${identifier.val}-${index}`}
-            className={styles.identifierRow}
+            className="flex items-center gap-3 rounded-lg border border-surface-a20 bg-surface-a10 px-3 py-2"
           >
-            <span className={styles.identifierType}>{identifier.type}</span>
-            <span className={styles.identifierVal}>{identifier.val}</span>
+            <span className="min-w-16 font-semibold text-primary-a0 text-xs uppercase">
+              {identifier.type}
+            </span>
+            <span className="flex-1 text-sm text-text-a0">
+              {identifier.val}
+            </span>
             <button
               type="button"
-              className={styles.removeButton}
+              className="flex h-6 w-6 items-center justify-center rounded-full border-none bg-transparent p-1 text-text-a30 text-xl transition-[background-color_0.15s,color_0.15s] hover:bg-danger-a20 hover:text-danger-a10 focus:bg-danger-a20 focus:text-danger-a10 focus:outline-none"
               onClick={() => removeIdentifier(index)}
               aria-label={`Remove ${identifier.type} ${identifier.val}`}
             >
@@ -109,10 +116,16 @@ export function IdentifierInput({
             </button>
           </div>
         ))}
-        <div className={styles.addRow}>
+        <div className="flex items-center gap-2">
           <select
             id={`${id}-type`}
-            className={styles.typeSelect}
+            className={cn(
+              "flex-[0_0_8rem] cursor-pointer rounded-lg border border-surface-a20 bg-surface-a0 px-4 py-3",
+              "font-inherit text-base text-text-a0 leading-normal",
+              "transition-[border-color_0.2s,background-color_0.2s]",
+              "focus:border-primary-a0 focus:bg-surface-a10 focus:outline-none",
+              "hover:not(:focus):border-surface-a30",
+            )}
             value={typeValue}
             onChange={(e) => setTypeValue(e.target.value)}
           >
@@ -127,7 +140,21 @@ export function IdentifierInput({
           <input
             id={`${id}-val`}
             type="text"
-            className={`${styles.valInput} ${error ? styles.inputError : ""}`}
+            className={cn(
+              "flex-1 rounded-lg border bg-surface-a0 px-4 py-3",
+              "font-inherit text-base text-text-a0 leading-normal",
+              "transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s]",
+              "placeholder:text-text-a40",
+              "focus:border-primary-a0 focus:bg-surface-a10 focus:outline-none",
+              "focus:shadow-[var(--shadow-focus-ring)]",
+              "hover:not(:focus):border-surface-a30",
+              error && [
+                "border-danger-a0",
+                "focus:border-danger-a0",
+                "focus:shadow-[var(--shadow-focus-ring-danger)]",
+              ],
+              !error && "border-surface-a20",
+            )}
             value={valValue}
             onChange={(e) => setValValue(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -143,12 +170,19 @@ export function IdentifierInput({
         </div>
       </div>
       {error && (
-        <span id={`${id}-error`} className={styles.error} role="alert">
+        <span
+          id={`${id}-error`}
+          className="text-danger-a10 text-sm leading-normal"
+          role="alert"
+        >
           {error}
         </span>
       )}
       {helperText && !error && (
-        <span id={`${id}-helper`} className={styles.helperText}>
+        <span
+          id={`${id}-helper`}
+          className="text-sm text-text-a30 leading-normal"
+        >
           {helperText}
         </span>
       )}

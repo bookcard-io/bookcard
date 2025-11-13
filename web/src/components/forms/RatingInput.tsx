@@ -59,7 +59,10 @@ export function RatingInput({
   return (
     <div className="flex w-full flex-col gap-2">
       {label && (
-        <label htmlFor={id} className="text-sm font-medium text-text-a10 leading-normal">
+        <label
+          htmlFor={id}
+          className="font-medium text-sm text-text-a10 leading-normal"
+        >
           {label}
         </label>
       )}
@@ -81,12 +84,19 @@ export function RatingInput({
         />
       </div>
       {error && (
-        <span id={`${id}-error`} className="text-sm text-danger-a10 leading-normal" role="alert">
+        <span
+          id={`${id}-error`}
+          className="text-danger-a10 text-sm leading-normal"
+          role="alert"
+        >
           {error}
         </span>
       )}
       {helperText && !error && (
-        <span id={`${id}-helper`} className="text-sm text-text-a30 leading-normal">
+        <span
+          id={`${id}-helper`}
+          className="text-sm text-text-a30 leading-normal"
+        >
           {helperText}
         </span>
       )}

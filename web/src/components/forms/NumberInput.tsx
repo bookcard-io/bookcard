@@ -16,7 +16,7 @@
 "use client";
 
 import { forwardRef } from "react";
-import styles from "./NumberInput.module.scss";
+import { cn } from "@/libs/utils";
 
 export interface NumberInputProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> {
@@ -43,16 +43,34 @@ export interface NumberInputProps
 export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
   ({ label, error, helperText, className, ...props }, ref) => {
     return (
-      <div className={styles.container}>
+      <div className="relative flex w-full flex-col gap-2">
         {label && (
-          <label htmlFor={props.id} className={styles.label}>
+          <label
+            htmlFor={props.id}
+            className="font-medium text-sm text-text-a10 leading-normal"
+          >
             {label}
           </label>
         )}
         <input
           ref={ref}
           type="number"
-          className={`${styles.input} ${error ? styles.inputError : ""} ${className || ""}`}
+          className={cn(
+            "w-full rounded-lg border border-surface-a20 bg-surface-a0 px-4 py-3",
+            "font-inherit text-base text-text-a0 leading-normal",
+            "transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s]",
+            "placeholder:text-text-a40",
+            "focus:border-primary-a0 focus:bg-surface-a10 focus:outline-none",
+            "focus:shadow-[var(--shadow-focus-ring)]",
+            "hover:not(:focus):border-surface-a30",
+            "disabled:cursor-not-allowed disabled:opacity-50",
+            "[&::-webkit-inner-spin-button]:opacity-100 [&::-webkit-outer-spin-button]:opacity-100",
+            error && [
+              "border-danger-a0",
+              "focus:border-danger-a0 focus:shadow-[var(--shadow-focus-ring-danger)]",
+            ],
+            className,
+          )}
           aria-invalid={error ? "true" : "false"}
           aria-describedby={
             error || helperText
@@ -62,12 +80,19 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
           {...props}
         />
         {error && (
-          <span id={`${props.id}-error`} className={styles.error} role="alert">
+          <span
+            id={`${props.id}-error`}
+            className="text-danger-a10 text-sm leading-normal"
+            role="alert"
+          >
             {error}
           </span>
         )}
         {helperText && !error && (
-          <span id={`${props.id}-helper`} className={styles.helperText}>
+          <span
+            id={`${props.id}-helper`}
+            className="text-sm text-text-a30 leading-normal"
+          >
             {helperText}
           </span>
         )}
