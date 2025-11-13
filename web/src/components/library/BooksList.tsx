@@ -94,9 +94,11 @@ export function BooksList({
   });
 
   // Manage book data updates including cover (SRP: book data state management separated)
-  const { bookDataOverrides } = useBookDataUpdates({
-    updateRef: bookDataUpdateRef,
-  });
+  const { bookDataOverrides, updateBook: updateBookLocal } = useBookDataUpdates(
+    {
+      updateRef: bookDataUpdateRef,
+    },
+  );
 
   // Expose removeBook and addBook via ref so external callers can modify this list instance
   useEffect(() => {
@@ -158,6 +160,39 @@ export function BooksList({
     [removeBook],
   );
 
+  // Handle rating change: update via API and local state
+  const handleRatingChange = useCallback(
+    async (bookId: number, rating: number | null) => {
+      // Optimistically update local state
+      updateBookLocal(bookId, { rating });
+
+      // Update via API
+      try {
+        const response = await fetch(`/api/books/${bookId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            rating_value: rating,
+          }),
+        });
+
+        if (!response.ok) {
+          // Revert on error - could be enhanced with error handling
+          const errorData = (await response.json()) as { detail?: string };
+          console.error(
+            "Failed to update rating:",
+            errorData.detail || "Unknown error",
+          );
+        }
+      } catch (error) {
+        console.error("Error updating rating:", error);
+      }
+    },
+    [updateBookLocal],
+  );
+
   if (error) {
     return (
       <div className="flex min-h-[400px] items-center justify-center p-8">
@@ -208,6 +243,7 @@ export function BooksList({
             onClick={onBookClick}
             onEdit={onBookEdit}
             onBookDeleted={handleBookDeleted}
+            onRatingChange={handleRatingChange}
           />
         ))}
       </div>

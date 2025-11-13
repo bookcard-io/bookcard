@@ -20,6 +20,7 @@ import { BookCardCover } from "@/components/library/BookCardCover";
 import { BookCardEditButton } from "@/components/library/BookCardEditButton";
 import { BookCardMenu } from "@/components/library/BookCardMenu";
 import { BookCardMenuButton } from "@/components/library/BookCardMenuButton";
+import { ColumnCellRenderer } from "@/components/library/cells/ColumnCellRenderer";
 import { ListCheckbox } from "@/components/library/ListCheckbox";
 import { useSelectedBooks } from "@/contexts/SelectedBooksContext";
 import { useBookCardMenu } from "@/hooks/useBookCardMenu";
@@ -27,7 +28,6 @@ import { useBookCardMenuActions } from "@/hooks/useBookCardMenuActions";
 import { useListColumns } from "@/hooks/useListColumns";
 import { cn } from "@/libs/utils";
 import type { Book } from "@/types/book";
-import { formatDate } from "@/utils/format";
 import { createEnterSpaceHandler } from "@/utils/keyboard";
 
 export interface BookListItemProps {
@@ -41,6 +41,8 @@ export interface BookListItemProps {
   onEdit?: (bookId: number) => void;
   /** Callback fired when book is deleted. */
   onBookDeleted?: (bookId: number) => void;
+  /** Callback fired when rating changes. */
+  onRatingChange?: (bookId: number, rating: number | null) => void;
 }
 
 /**
@@ -58,6 +60,7 @@ export function BookListItem({
   onClick: _onClick,
   onEdit,
   onBookDeleted,
+  onRatingChange,
 }: BookListItemProps) {
   const { isSelected } = useSelectedBooks();
   const selected = isSelected(book.id);
@@ -82,50 +85,19 @@ export function BookListItem({
   const authorsText =
     book.authors.length > 0 ? book.authors.join(", ") : "Unknown Author";
 
-  // Render cell content for a column
+  // Render cell content for a column using specialized renderer
   const renderCell = (columnId: string) => {
     const column = allColumns[columnId as keyof typeof allColumns];
     if (!column) {
       return null;
     }
 
-    const value = column.getValue(book);
-    if (value === null) {
-      return <span className="text-text-a40">—</span>;
-    }
-
-    // Special rendering for rating
-    if (columnId === "rating") {
-      if (book.rating === null || book.rating === undefined) {
-        return <span className="text-text-a40">—</span>;
-      }
-      const rating = book.rating;
-      return (
-        <div className="flex items-center gap-1">
-          <div className="flex">
-            {Array.from({ length: 5 }, (_, i) => i).map((starIndex) => (
-              <i
-                key={`star-${starIndex}`}
-                className={`pi ${
-                  starIndex < rating ? "pi-star-fill" : "pi-star"
-                } text-warning-a0 text-xs`}
-                aria-hidden="true"
-              />
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    // Format dates
-    if (columnId === "pubdate" || columnId === "timestamp") {
-      return <span>{formatDate(value)}</span>;
-    }
-
     return (
-      <span className="truncate" title={value}>
-        {value}
-      </span>
+      <ColumnCellRenderer
+        column={column}
+        book={book}
+        onRatingChange={onRatingChange}
+      />
     );
   };
 

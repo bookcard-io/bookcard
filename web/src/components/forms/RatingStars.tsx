@@ -15,6 +15,7 @@
 
 "use client";
 
+import { useState } from "react";
 import { cn } from "@/libs/utils";
 
 export interface RatingStarsProps {
@@ -48,6 +49,8 @@ export function RatingStars({
   size = "medium",
   className,
 }: RatingStarsProps) {
+  const [hoveredStar, setHoveredStar] = useState<number | null>(null);
+
   const handleStarClick = (rating: number) => {
     if (interactive && onStarClick) {
       onStarClick(rating);
@@ -56,17 +59,20 @@ export function RatingStars({
 
   const starElements = [1, 2, 3, 4, 5].map((star) => {
     const isFilled = value !== null && star <= value;
+    const isHovered =
+      interactive && hoveredStar !== null && star <= hoveredStar;
 
     const baseStarClasses = cn(
       "border-none bg-transparent leading-none text-surface-a30 transition-[color_0.2s,transform_0.1s]",
-      size === "small" && "p-0.5 text-base",
+      size === "small" && "p-0 text-base",
       size === "medium" && "p-1 text-2xl",
       size === "large" && "p-1.5 text-[2rem]",
       isFilled && "text-warning-a10",
+      isHovered && "text-warning-a20",
     );
 
     const interactiveClasses = interactive
-      ? "cursor-pointer hover:text-warning-a10 hover:scale-110 focus:text-warning-a10 focus:outline-none"
+      ? "cursor-pointer hover:scale-120 focus:text-warning-a10 focus:outline-none"
       : "";
 
     const starClassName = cn(baseStarClasses, interactiveClasses);
@@ -78,6 +84,8 @@ export function RatingStars({
           type="button"
           className={starClassName}
           onClick={() => handleStarClick(star)}
+          onMouseEnter={() => setHoveredStar(star)}
+          onMouseLeave={() => setHoveredStar(null)}
           aria-label={`Rate ${star} out of 5`}
           aria-pressed={isFilled}
         >
@@ -93,8 +101,22 @@ export function RatingStars({
     );
   });
 
+  const containerProps = interactive
+    ? {
+        role: "radiogroup" as const,
+        onMouseLeave: () => setHoveredStar(null),
+      }
+    : {};
+
   return (
-    <div className={cn("flex items-center gap-2", className)}>
+    <div
+      className={cn(
+        "flex items-center",
+        size === "small" ? "gap-0.5" : "gap-2",
+        className,
+      )}
+      {...containerProps}
+    >
       {starElements}
       {showText && value !== null && (
         <span className="ml-2 text-sm text-text-a20">{value} / 5</span>
