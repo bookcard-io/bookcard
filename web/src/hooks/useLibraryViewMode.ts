@@ -28,6 +28,8 @@ export interface UseLibraryViewModeOptions {
 export interface UseLibraryViewModeResult {
   /** Current view mode. */
   viewMode: ViewMode;
+  /** Whether view mode has initialized from user settings. */
+  isReady: boolean;
   /** Handler for view mode change. */
   handleViewModeChange: (mode: ViewMode) => void;
 }
@@ -90,6 +92,7 @@ export function useLibraryViewMode(
 
   return {
     viewMode,
+    isReady: !isSettingsLoading,
     handleViewModeChange,
   };
 }

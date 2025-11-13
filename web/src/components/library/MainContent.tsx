@@ -15,11 +15,10 @@
 
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useRef, useState } from "react";
 import { BookEditModal } from "@/components/books/BookEditModal";
 import { BookViewModal } from "@/components/books/BookViewModal";
-import { BooksGrid } from "@/components/library/BooksGrid";
-import { BooksList } from "@/components/library/BooksList";
 import { LibraryHeader } from "@/components/library/LibraryHeader";
 import { SearchWidgetBar } from "@/components/library/SearchWidgetBar";
 import { FiltersPanel } from "@/components/library/widgets/FiltersPanel";
@@ -31,6 +30,16 @@ import { useLibrarySearch } from "@/hooks/useLibrarySearch";
 import { useLibrarySorting } from "@/hooks/useLibrarySorting";
 import { useLibraryViewMode } from "@/hooks/useLibraryViewMode";
 import type { Book } from "@/types/book";
+
+// Lazily load views to ensure only the active one mounts and fetches on first paint
+const BooksGrid = dynamic(
+  () => import("@/components/library/BooksGrid").then((m) => m.BooksGrid),
+  { ssr: false },
+);
+const BooksList = dynamic(
+  () => import("@/components/library/BooksList").then((m) => m.BooksList),
+  { ssr: false },
+);
 
 /**
  * Main content area for the library view.
@@ -175,7 +184,7 @@ export function MainContent() {
             />
           )}
         </div>
-        {viewMode.viewMode === "grid" && (
+        {viewMode.isReady && viewMode.viewMode === "grid" && (
           <BooksGrid
             searchQuery={search.filterQuery}
             filters={filters.filters}
@@ -187,7 +196,7 @@ export function MainContent() {
             onBooksDataChange={setBooksNavigationData}
           />
         )}
-        {viewMode.viewMode === "list" && (
+        {viewMode.isReady && viewMode.viewMode === "list" && (
           <BooksList
             searchQuery={search.filterQuery}
             filters={filters.filters}
