@@ -20,12 +20,15 @@ Business logic for creating, updating, and managing shelves and book-shelf assoc
 
 from __future__ import annotations
 
+import logging
 from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fundamental.models.shelves import BookShelfLink, Shelf
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from sqlmodel import Session
@@ -463,6 +466,111 @@ class ShelfService:
         """
         self._shelf_repo.sync_active_status_for_library(library_id, is_active)
 
+    def _validate_cover_picture_file(self, filename: str) -> None:
+        """Validate that the filename has a supported image extension.
+
+        Parameters
+        ----------
+        filename : str
+            Filename to validate.
+
+        Raises
+        ------
+        ValueError
+            If file extension is invalid.
+        """
+        valid_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"}
+        file_ext = Path(filename).suffix.lower()
+
+        if not file_ext or file_ext not in valid_extensions:
+            msg = "invalid_file_type"
+            raise ValueError(msg)
+
+    def _delete_old_cover_picture(self, cover_picture_path: str) -> None:
+        """Delete an existing cover picture file.
+
+        Parameters
+        ----------
+        cover_picture_path : str
+            Path to the old cover picture (absolute or relative).
+        """
+        if not cover_picture_path:
+            return
+
+        old_path = Path(cover_picture_path)
+        if old_path.is_absolute():
+            # Absolute path - delete directly
+            with suppress(OSError):
+                old_path.unlink()
+        else:
+            # Relative path - construct full path
+            full_old_path = self._data_directory / cover_picture_path
+            with suppress(OSError):
+                full_old_path.unlink()
+
+    def _save_cover_picture_file(
+        self,
+        shelf_dir: Path,
+        filename: str,
+        file_content: bytes,
+    ) -> Path:
+        """Save cover picture file to disk.
+
+        Parameters
+        ----------
+        shelf_dir : Path
+            Directory where the file should be saved.
+        filename : str
+            Name of the file to save.
+        file_content : bytes
+            File content to write.
+
+        Returns
+        -------
+        Path
+            Path to the saved file.
+
+        Raises
+        ------
+        ValueError
+            If file cannot be written or doesn't exist after writing.
+        """
+        cover_path = shelf_dir / filename
+        logger.info(
+            "Writing file to: %s (absolute: %s)",
+            cover_path,
+            cover_path.absolute(),
+        )
+
+        try:
+            cover_path.write_bytes(file_content)
+        except OSError as exc:
+            logger.exception("Failed to write file %s", cover_path)
+            msg = f"failed_to_save_file: {exc!s}"
+            raise ValueError(msg) from exc
+
+        # Verify file was written successfully
+        if not cover_path.exists():
+            dir_contents = list(shelf_dir.iterdir()) if shelf_dir.exists() else "N/A"
+            logger.error(
+                "File %s does not exist after write_bytes call. "
+                "Directory exists: %s, Directory contents: %s",
+                cover_path,
+                shelf_dir.exists(),
+                dir_contents,
+            )
+            msg = f"failed_to_save_file: File was not created at {cover_path}"
+            raise ValueError(msg)
+
+        file_size = cover_path.stat().st_size
+        logger.info(
+            "File written successfully. File exists: %s, size: %s bytes",
+            cover_path.exists(),
+            file_size,
+        )
+
+        return cover_path
+
     def upload_cover_picture(
         self,
         shelf_id: int,
@@ -500,6 +608,7 @@ class ShelfService:
         PermissionError
             If user doesn't have permission to update the shelf.
         """
+        # Validate shelf exists and user has permission
         shelf = self._shelf_repo.get(shelf_id)
         if shelf is None:
             msg = "shelf_not_found"
@@ -509,50 +618,28 @@ class ShelfService:
             msg = "permission_denied"
             raise PermissionError(msg)
 
-        # Validate file extension
-        file_ext = Path(filename).suffix.lower()
-        if not file_ext or file_ext not in {
-            ".jpg",
-            ".jpeg",
-            ".png",
-            ".gif",
-            ".webp",
-            ".svg",
-        }:
-            msg = "invalid_file_type"
-            raise ValueError(msg)
+        # Validate file type
+        self._validate_cover_picture_file(filename)
 
-        # Delete old cover picture if exists
+        # Delete old cover picture if it exists
         if shelf.cover_picture:
-            old_path = Path(shelf.cover_picture)
-            if old_path.is_absolute():
-                # Absolute path - delete directly
-                with suppress(OSError):
-                    old_path.unlink()
-            else:
-                # Relative path - construct full path
-                full_old_path = self._data_directory / shelf.cover_picture
-                with suppress(OSError):
-                    full_old_path.unlink()
+            self._delete_old_cover_picture(shelf.cover_picture)
 
-        # Create shelf directory
+        # Ensure shelf directory exists
         shelf_dir = self._get_shelf_directory(shelf_id)
         shelf_dir.mkdir(parents=True, exist_ok=True)
 
-        # Save new file (use original filename)
-        cover_path = shelf_dir / filename
-        try:
-            cover_path.write_bytes(file_content)
-        except OSError as exc:
-            msg = f"failed_to_save_file: {exc!s}"
-            raise ValueError(msg) from exc
+        # Save new cover picture file
+        cover_path = self._save_cover_picture_file(shelf_dir, filename, file_content)
 
         # Update shelf record with relative path from data_directory
         # Store as relative path so it works if data_directory changes
         relative_path = cover_path.relative_to(self._data_directory)
+        logger.info("Updating shelf record with cover_picture: %s", relative_path)
         shelf.cover_picture = str(relative_path)
         shelf.updated_at = datetime.now(UTC)
         self._session.flush()
+
         return shelf
 
     def delete_cover_picture(

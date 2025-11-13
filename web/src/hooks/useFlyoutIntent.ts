@@ -50,8 +50,12 @@ export function useFlyoutIntent({
       return;
     }
 
-    const handlePointerMove = (event: PointerEvent) => {
-      pendingEventRef.current = event;
+    const handlePointerMove = (event: Event) => {
+      // Only process PointerEvent for pointermove, but accept Event for scroll/resize
+      const pointerEvent = event instanceof PointerEvent ? event : null;
+      if (pointerEvent) {
+        pendingEventRef.current = pointerEvent;
+      }
 
       if (rafIdRef.current !== null) {
         return;
@@ -98,7 +102,10 @@ export function useFlyoutIntent({
     window.addEventListener("resize", handlePointerMove);
 
     return () => {
-      window.removeEventListener("pointermove", handlePointerMove as any);
+      // Options are not needed for removeEventListener, but we include them for type matching
+      window.removeEventListener("pointermove", handlePointerMove, {
+        passive: true,
+      } as AddEventListenerOptions);
       window.removeEventListener("scroll", handlePointerMove, true);
       window.removeEventListener("resize", handlePointerMove);
       if (rafIdRef.current !== null) {

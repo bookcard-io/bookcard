@@ -18,7 +18,7 @@
 import { useState } from "react";
 import { Button } from "@/components/forms/Button";
 import { useShelves } from "@/hooks/useShelves";
-import type { ShelfCreate, ShelfUpdate } from "@/types/shelf";
+import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
 import { ShelfCard } from "./ShelfCard";
 import { ShelfEditModal } from "./ShelfEditModal";
 
@@ -32,16 +32,23 @@ export function ShelfList() {
   const [editingShelf, setEditingShelf] = useState<number | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const handleCreate = async (data: ShelfCreate | ShelfUpdate) => {
-    await createShelf(data as ShelfCreate);
+  const handleCreate = async (
+    data: ShelfCreate | ShelfUpdate,
+  ): Promise<Shelf> => {
+    const newShelf = await createShelf(data as ShelfCreate);
     setShowCreateModal(false);
+    return newShelf;
   };
 
-  const handleEdit = async (data: ShelfCreate | ShelfUpdate) => {
+  const handleEdit = async (
+    data: ShelfCreate | ShelfUpdate,
+  ): Promise<Shelf> => {
     if (editingShelf !== null) {
-      await updateShelf(editingShelf, data as ShelfUpdate);
+      const updatedShelf = await updateShelf(editingShelf, data as ShelfUpdate);
       setEditingShelf(null);
+      return updatedShelf;
     }
+    throw new Error("No shelf selected for editing");
   };
 
   if (isLoading) {

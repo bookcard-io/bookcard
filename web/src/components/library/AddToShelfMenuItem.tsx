@@ -20,7 +20,7 @@ import { InterfaceContentBook2LibraryContentBooksBookShelfStack as Shelf } from 
 
 export interface AddToShelfMenuItemProps {
   /** Reference to the menu item element. */
-  itemRef: React.RefObject<HTMLButtonElement>;
+  itemRef: React.RefObject<HTMLButtonElement | null>;
   /** Callback when mouse enters the item. */
   onMouseEnter: () => void;
   /** Callback when mouse leaves the item. */

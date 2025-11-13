@@ -45,7 +45,7 @@ export interface UseFlyoutPositionResult {
   /** Direction the flyout should fly (left or right). */
   direction: "left" | "right";
   /** Reference to the flyout menu element. */
-  menuRef: React.RefObject<HTMLDivElement>;
+  menuRef: React.RefObject<HTMLDivElement | null>;
 }
 
 /**

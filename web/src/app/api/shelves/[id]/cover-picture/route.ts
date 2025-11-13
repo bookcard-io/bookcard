@@ -86,9 +86,16 @@ export async function POST(
       return NextResponse.json({ detail: "No file provided" }, { status: 400 });
     }
 
-    // Create FormData for backend
+    if (!file.name) {
+      return NextResponse.json(
+        { detail: "File must have a filename" },
+        { status: 400 },
+      );
+    }
+
+    // Create FormData for backend - explicitly preserve filename
     const backendFormData = new FormData();
-    backendFormData.append("file", file);
+    backendFormData.append("file", file, file.name);
 
     const response = await client.request(`/shelves/${id}/cover-picture`, {
       method: "POST",

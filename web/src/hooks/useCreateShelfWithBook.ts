@@ -18,7 +18,7 @@ import { useShelvesContext } from "@/contexts/ShelvesContext";
 import { useRecentShelves } from "@/hooks/useRecentShelves";
 import { useShelfActions } from "@/hooks/useShelfActions";
 import { createShelf as createShelfService } from "@/services/shelfService";
-import type { ShelfCreate, ShelfUpdate } from "@/types/shelf";
+import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
 
 export interface UseCreateShelfWithBookOptions {
   /** Book ID to add to the newly created shelf. */
@@ -37,7 +37,7 @@ export interface UseCreateShelfWithBookReturn {
   /** Close the create shelf modal. */
   closeCreateModal: () => void;
   /** Handle shelf creation with book addition. */
-  handleCreateShelf: (data: ShelfCreate | ShelfUpdate) => Promise<void>;
+  handleCreateShelf: (data: ShelfCreate | ShelfUpdate) => Promise<Shelf>;
 }
 
 /**
@@ -91,7 +91,7 @@ export function useCreateShelfWithBook({
    *     Shelf creation data.
    */
   const handleCreateShelf = useCallback(
-    async (data: ShelfCreate | ShelfUpdate) => {
+    async (data: ShelfCreate | ShelfUpdate): Promise<Shelf> => {
       try {
         const newShelf = await createShelfService(data as ShelfCreate);
         // Add book to the newly created shelf
@@ -102,10 +102,12 @@ export function useCreateShelfWithBook({
         await refreshShelvesContext();
         setShowCreateModal(false);
         onSuccess?.();
+        return newShelf;
       } catch (error) {
         console.error("Failed to create shelf and add book:", error);
         onError?.(error);
         // Modal will stay open to show error
+        throw error;
       }
     },
     [

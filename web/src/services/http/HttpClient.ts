@@ -131,6 +131,13 @@ export class DefaultHttpClient implements HttpClient {
       requestHeaders.Authorization = authHeader;
     }
 
+    // Don't set Content-Type for FormData - fetch will set it with boundary
+    // If we set it manually, it won't include the boundary and the request will fail
+    if (body instanceof FormData) {
+      delete requestHeaders["Content-Type"];
+      delete requestHeaders["content-type"];
+    }
+
     // Make the request
     return fetch(url, {
       method,

@@ -30,6 +30,7 @@ import { LibraryBuilding } from "@/icons/LibraryBuilding";
 import { LibraryOutline } from "@/icons/LibraryOutline";
 import { SharpDevicesFold } from "@/icons/SharpDevicesFold";
 import { cn } from "@/libs/utils";
+import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
 
 interface NavSection {
   title: string;
@@ -99,22 +100,13 @@ export function Sidebar() {
     setShowCreateModal(true);
   };
 
-  const handleCreateShelf = async (data: {
-    name?: string | null;
-    description?: string | null;
-    is_public?: boolean | null;
-  }) => {
-    // In create mode, we only accept ShelfCreate (all required fields)
-    if (!data.name) {
-      return;
-    }
-    await createShelf({
-      name: data.name,
-      description: data.description ?? null,
-      is_public: data.is_public ?? false,
-    });
+  const handleCreateShelf = async (
+    data: ShelfCreate | ShelfUpdate,
+  ): Promise<Shelf> => {
+    const newShelf = await createShelf(data as ShelfCreate);
     setShowCreateModal(false);
     await refreshShelvesContext();
+    return newShelf;
   };
 
   const handleLinkClick = () => {
