@@ -19,7 +19,6 @@ import { useEffect, useRef, useState } from "react";
 import type { SearchSuggestionItem } from "@/types/search";
 import { createEmptyFilters } from "@/utils/filters";
 import { FilterInput } from "./FilterInput";
-import styles from "./FiltersPanel.module.scss";
 
 export interface FilterValues {
   authorIds: number[];
@@ -196,13 +195,16 @@ export function FiltersPanel({
   };
 
   return (
-    <div className={styles.filtersPanel} ref={panelRef}>
-      <div className={styles.panelHeader}>
-        <h2 className={styles.panelTitle}>Filters</h2>
+    <div
+      className="absolute top-[calc(100%-8px)] right-8 left-8 z-[100] flex flex-col rounded-xl border border-surface-a20 bg-surface-tonal-a10 shadow-[var(--shadow-card-hover)]"
+      ref={panelRef}
+    >
+      <div className="flex items-center justify-between border-surface-a20 border-b p-4 px-6">
+        <h2 className="m-0 font-semibold text-base text-text-a0">Filters</h2>
         {onClose && (
           <button
             type="button"
-            className={styles.closeButton}
+            className="flex h-8 w-8 items-center justify-center rounded-md border-none bg-transparent p-0 text-2xl text-text-a30 leading-none transition-[background-color_0.15s,color_0.15s] hover:bg-surface-tonal-a20 hover:text-text-a0"
             onClick={onClose}
             aria-label="Close filters"
           >
@@ -210,7 +212,7 @@ export function FiltersPanel({
           </button>
         )}
       </div>
-      <div className={styles.filtersGrid}>
+      <div className="grid grid-cols-3 gap-5 p-5 px-6">
         <FilterInput
           label="Author"
           filterType="author"
@@ -355,21 +357,21 @@ export function FiltersPanel({
           }}
         />
       </div>
-      <div className={styles.panelFooter}>
-        <div className={styles.footerInfo}>
+      <div className="flex items-center justify-between gap-3 border-surface-a20 border-t p-4 px-6">
+        <div className="text-text-a30 text-xs leading-[1.4]">
           Format, Rating, and Language use AND conditions; others use OR.
         </div>
-        <div className={styles.footerActions}>
+        <div className="flex gap-3">
           <button
             type="button"
-            className={styles.clearButton}
+            className="cursor-pointer rounded-lg border border-surface-a20 bg-transparent px-6 py-2.5 font-medium text-sm text-text-a30 transition-[background-color_0.2s,color_0.2s,border-color_0.2s] hover:border-surface-a30 hover:bg-surface-tonal-a20 hover:text-text-a0 active:bg-surface-tonal-a30"
             onClick={handleClear}
           >
             Clear Filters
           </button>
           <button
             type="button"
-            className={styles.applyButton}
+            className="cursor-pointer rounded-lg border-none bg-primary-a0 px-6 py-2.5 font-medium text-sm text-text-a0 transition-[opacity_0.2s] hover:opacity-90 active:opacity-80"
             onClick={handleApply}
           >
             Apply Filter
