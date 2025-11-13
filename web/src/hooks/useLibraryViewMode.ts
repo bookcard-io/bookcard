@@ -13,8 +13,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ViewMode } from "@/components/library/widgets/ViewModeButtons";
+import { useUser } from "@/contexts/UserContext";
+
+const SETTING_KEY = "default_view_mode";
+const DEFAULT_VIEW_MODE: ViewMode = "grid";
 
 export interface UseLibraryViewModeOptions {
   /** Callback for sort toggle (when mode is "sort"). */
@@ -32,8 +36,10 @@ export interface UseLibraryViewModeResult {
  * Custom hook for managing library view mode state.
  *
  * Manages the current view mode (grid, list, etc.).
+ * Initializes from user settings (default_view_mode).
  * Follows SRP by managing only view mode state.
  * Follows IOC by accepting optional callbacks for coordination.
+ * Follows SOC by using UserContext for settings persistence.
  *
  * Parameters
  * ----------
@@ -49,7 +55,26 @@ export function useLibraryViewMode(
   options: UseLibraryViewModeOptions = {},
 ): UseLibraryViewModeResult {
   const { onSortToggle } = options;
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const { getSetting, isLoading: isSettingsLoading } = useUser();
+
+  // Initialize from settings using lazy initializer (only runs once)
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const settingValue = getSetting(SETTING_KEY);
+    if (settingValue === "grid" || settingValue === "list") {
+      return settingValue;
+    }
+    return DEFAULT_VIEW_MODE;
+  });
+
+  // Sync with settings when they load or change
+  useEffect(() => {
+    if (!isSettingsLoading) {
+      const settingValue = getSetting(SETTING_KEY);
+      if (settingValue === "grid" || settingValue === "list") {
+        setViewMode(settingValue);
+      }
+    }
+  }, [getSetting, isSettingsLoading]);
 
   const handleViewModeChange = useCallback(
     (mode: ViewMode) => {
