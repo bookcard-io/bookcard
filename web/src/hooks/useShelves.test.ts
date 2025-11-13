@@ -196,8 +196,14 @@ describe("useShelves", () => {
 
   it("should update shelf and refresh list", async () => {
     const mockShelves = [createMockShelf(1)];
-    const [originalShelf] = mockShelves;
-    const updatedShelf: Shelf = { ...originalShelf, name: "Updated Shelf" };
+    const originalShelf = mockShelves[0];
+    if (!originalShelf) {
+      throw new Error("originalShelf is undefined");
+    }
+    const updatedShelf: Shelf = {
+      ...originalShelf,
+      name: "Updated Shelf",
+    };
     vi.mocked(listShelves)
       .mockResolvedValueOnce({
         shelves: mockShelves,

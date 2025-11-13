@@ -14,6 +14,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { act, renderHook } from "@testing-library/react";
+import type React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useFlyoutPosition } from "./useFlyoutPosition";
 
@@ -27,10 +28,10 @@ import { useFlyoutPosition } from "./useFlyoutPosition";
  *
  * Returns
  * -------
- * HTMLElement
+ * HTMLDivElement
  *     Mock element.
  */
-function createMockElement(rect: DOMRect): HTMLElement {
+function createMockElement(rect: DOMRect): HTMLDivElement {
   const element = document.createElement("div");
   element.getBoundingClientRect = vi.fn(() => rect);
   return element;
@@ -136,7 +137,10 @@ describe("useFlyoutPosition", () => {
     result.current.menuRef.current = menuEl;
 
     // Trigger position update manually
-    const updatePosition = mockAddEventListener.mock.calls[0][1];
+    const updatePosition = mockAddEventListener.mock.calls[0]?.[1];
+    if (!updatePosition) {
+      throw new Error("updatePosition not found");
+    }
     act(() => {
       updatePosition();
     });
@@ -171,7 +175,10 @@ describe("useFlyoutPosition", () => {
     result.current.menuRef.current = menuEl;
 
     // Trigger position update manually
-    const updatePosition = mockAddEventListener.mock.calls[0][1];
+    const updatePosition = mockAddEventListener.mock.calls[0]?.[1];
+    if (!updatePosition) {
+      throw new Error("updatePosition not found");
+    }
     act(() => {
       updatePosition();
     });
@@ -200,7 +207,10 @@ describe("useFlyoutPosition", () => {
     result.current.menuRef.current = menuEl;
 
     // Trigger position update manually
-    const updatePosition = mockAddEventListener.mock.calls[0][1];
+    const updatePosition = mockAddEventListener.mock.calls[0]?.[1];
+    if (!updatePosition) {
+      throw new Error("updatePosition not found");
+    }
     act(() => {
       updatePosition();
     });
@@ -226,7 +236,10 @@ describe("useFlyoutPosition", () => {
     result.current.menuRef.current = menuEl;
 
     // Trigger position update manually
-    const updatePosition = mockAddEventListener.mock.calls[0][1];
+    const updatePosition = mockAddEventListener.mock.calls[0]?.[1];
+    if (!updatePosition) {
+      throw new Error("updatePosition not found");
+    }
     act(() => {
       updatePosition();
     });
@@ -267,7 +280,10 @@ describe("useFlyoutPosition", () => {
       }),
     );
 
-    const updatePosition = mockAddEventListener.mock.calls[0][1];
+    const updatePosition = mockAddEventListener.mock.calls[0]?.[1];
+    if (!updatePosition) {
+      throw new Error("updatePosition not found");
+    }
 
     unmount();
 
@@ -299,7 +315,10 @@ describe("useFlyoutPosition", () => {
 
     result.current.menuRef.current = menuEl;
 
-    const updatePosition = mockAddEventListener.mock.calls[0][1];
+    const updatePosition = mockAddEventListener.mock.calls[0]?.[1];
+    if (!updatePosition) {
+      throw new Error("updatePosition not found");
+    }
 
     const newParentRect = new DOMRect(200, 200, 150, 50);
     parentEl.getBoundingClientRect = vi.fn(() => newParentRect);
@@ -329,7 +348,10 @@ describe("useFlyoutPosition", () => {
     result.current.menuRef.current = menuEl;
 
     // Initial position should be right
-    const updatePosition1 = mockAddEventListener.mock.calls[0][1];
+    const updatePosition1 = mockAddEventListener.mock.calls[0]?.[1];
+    if (!updatePosition1) {
+      throw new Error("updatePosition1 not found");
+    }
     act(() => {
       updatePosition1();
     });
@@ -342,7 +364,10 @@ describe("useFlyoutPosition", () => {
       value: 300,
     });
 
-    const updatePosition2 = mockAddEventListener.mock.calls[1][1];
+    const updatePosition2 = mockAddEventListener.mock.calls[1]?.[1];
+    if (!updatePosition2) {
+      throw new Error("updatePosition2 not found");
+    }
     act(() => {
       updatePosition2();
     });
@@ -365,8 +390,10 @@ describe("useFlyoutPosition", () => {
 
     result.current.menuRef.current = null;
 
-    const updatePosition = mockAddEventListener.mock.calls[0][1];
-    updatePosition();
+    const updatePosition = mockAddEventListener.mock.calls[0]?.[1];
+    if (updatePosition) {
+      updatePosition();
+    }
 
     expect(result.current.position.top).toBe(0);
   });
@@ -376,7 +403,9 @@ describe("useFlyoutPosition", () => {
     const menuRect = new DOMRect(0, 0, 200, 300);
     const parentEl = createMockElement(parentRect);
     const menuEl = createMockElement(menuRect);
-    const parentItemRef = { current: parentEl };
+    const parentItemRef: React.RefObject<HTMLElement | null> = {
+      current: parentEl,
+    };
 
     const { result } = renderHook(() =>
       useFlyoutPosition({
@@ -389,8 +418,10 @@ describe("useFlyoutPosition", () => {
     result.current.menuRef.current = menuEl;
     parentItemRef.current = null;
 
-    const updatePosition = mockAddEventListener.mock.calls[0][1];
-    updatePosition();
+    const updatePosition = mockAddEventListener.mock.calls[0]?.[1];
+    if (updatePosition) {
+      updatePosition();
+    }
 
     expect(result.current.position.top).toBe(0);
   });
@@ -423,7 +454,6 @@ describe("useFlyoutPosition", () => {
       const parentEl = createMockElement(parentRect);
       const menuEl = createMockElement(menuRect);
       const parentItemRef = { current: parentEl };
-      const _menuRef = { current: menuEl };
 
       const { result } = renderHook(() =>
         useFlyoutPosition({
@@ -436,7 +466,10 @@ describe("useFlyoutPosition", () => {
       result.current.menuRef.current = menuEl;
 
       // Trigger position update manually
-      const updatePosition = mockAddEventListener.mock.calls[0][1];
+      const updatePosition = mockAddEventListener.mock.calls[0]?.[1];
+      if (!updatePosition) {
+        throw new Error("updatePosition not found");
+      }
       act(() => {
         updatePosition();
       });
