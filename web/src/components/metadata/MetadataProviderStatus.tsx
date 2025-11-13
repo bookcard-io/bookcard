@@ -150,7 +150,7 @@ export function MetadataProviderStatus({
                 e.stopPropagation();
                 onScrollToResults();
               }}
-              className="rounded-full border border-surface-a30 bg-surface-a20 px-2 py-0.5 font-medium text-[0.65rem] text-text-a20 uppercase leading-none transition-colors duration-200 hover:border-primary-a0 hover:bg-primary-a0/20 hover:text-primary-a0 focus:outline-none focus:outline-2 focus:outline-primary-a0 focus:outline-offset-2"
+              className="cursor-pointer rounded-full border border-surface-a30 bg-surface-a20 px-2 py-0.5 font-medium text-[0.65rem] text-text-a20 uppercase leading-none transition-colors duration-200 hover:border-primary-a0 hover:bg-primary-a0/20 hover:text-primary-a0 focus:outline-none focus:outline-2 focus:outline-primary-a0 focus:outline-offset-2"
               title={`Scroll to ${status.name} results`}
             >
               Results
