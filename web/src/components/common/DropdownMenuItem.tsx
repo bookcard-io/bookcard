@@ -15,7 +15,7 @@
 
 "use client";
 
-import { type ReactNode, useCallback } from "react";
+import { forwardRef, type ReactNode, useCallback } from "react";
 import { cn } from "@/libs/utils";
 
 export interface DropdownMenuItemProps {
@@ -47,15 +47,21 @@ export interface DropdownMenuItemProps {
  * props : DropdownMenuItemProps
  *     Component props including icon, label, and click handler.
  */
-export function DropdownMenuItem({
-  icon,
-  label,
-  onClick,
-  rightContent,
-  justifyBetween = false,
-  className,
-  disabled = false,
-}: DropdownMenuItemProps) {
+export const DropdownMenuItem = forwardRef<
+  HTMLButtonElement,
+  DropdownMenuItemProps
+>(function DropdownMenuItem(
+  {
+    icon,
+    label,
+    onClick,
+    rightContent,
+    justifyBetween = false,
+    className,
+    disabled = false,
+  },
+  ref,
+) {
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -69,6 +75,7 @@ export function DropdownMenuItem({
 
   return (
     <button
+      ref={ref}
       type="button"
       className={cn(
         "flex w-full items-center gap-3 px-4 py-2.5 text-left",
@@ -100,4 +107,4 @@ export function DropdownMenuItem({
       {rightContent && <div className="flex-shrink-0">{rightContent}</div>}
     </button>
   );
-}
+});

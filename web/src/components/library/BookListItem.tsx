@@ -15,20 +15,23 @@
 
 "use client";
 
+import { useCallback } from "react";
 import { DeleteBookConfirmationModal } from "@/components/books/DeleteBookConfirmationModal";
 import { BookCardCover } from "@/components/library/BookCardCover";
 import { BookCardEditButton } from "@/components/library/BookCardEditButton";
 import { BookCardMenu } from "@/components/library/BookCardMenu";
 import { BookCardMenuButton } from "@/components/library/BookCardMenuButton";
-import { ColumnCellRenderer } from "@/components/library/cells/ColumnCellRenderer";
 import { ListCheckbox } from "@/components/library/ListCheckbox";
+import { ShelfEditModal } from "@/components/shelves/ShelfEditModal";
 import { useSelectedBooks } from "@/contexts/SelectedBooksContext";
 import { useBookCardMenu } from "@/hooks/useBookCardMenu";
 import { useBookCardMenuActions } from "@/hooks/useBookCardMenuActions";
+import { useCreateShelfWithBook } from "@/hooks/useCreateShelfWithBook";
 import { useListColumns } from "@/hooks/useListColumns";
 import { cn } from "@/libs/utils";
 import type { Book } from "@/types/book";
-import { createEnterSpaceHandler } from "@/utils/keyboard";
+import { BookListItemTitleSection } from "./BookListItemTitleSection";
+import { ListColumnsSection } from "./ListColumnsSection";
 
 export interface BookListItemProps {
   /** Book data to display. */
@@ -72,34 +75,20 @@ export function BookListItem({
   });
   const { visibleColumns, allColumns } = useListColumns();
 
-  const handleClick = () => {
+  const shelfCreation = useCreateShelfWithBook({
+    bookId: book.id,
+  });
+
+  /**
+   * Handle book list item click.
+   */
+  const handleClick = useCallback(() => {
     // Open book view modal via callback
     // Special overlay buttons (checkbox, edit, menu) stop propagation
     if (_onClick) {
       _onClick(book);
     }
-  };
-
-  const handleKeyDown = createEnterSpaceHandler(handleClick);
-
-  const authorsText =
-    book.authors.length > 0 ? book.authors.join(", ") : "Unknown Author";
-
-  // Render cell content for a column using specialized renderer
-  const renderCell = (columnId: string) => {
-    const column = allColumns[columnId as keyof typeof allColumns];
-    if (!column) {
-      return null;
-    }
-
-    return (
-      <ColumnCellRenderer
-        column={column}
-        book={book}
-        onRatingChange={onRatingChange}
-      />
-    );
-  };
+  }, [_onClick, book]);
 
   return (
     <>
@@ -128,72 +117,19 @@ export function BookListItem({
         </div>
 
         {/* Title and Author (always visible) */}
-        <div className="flex min-w-0 flex-1 flex-col gap-1 self-center">
-          <button
-            type="button"
-            className={cn(
-              "flex min-w-0 flex-1 items-start gap-2 text-left",
-              "focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2",
-              "focus:not-focus-visible:outline-none focus:outline-none",
-            )}
-            onClick={handleClick}
-            onKeyDown={handleKeyDown}
-            aria-label={`${book.title} by ${authorsText}${selected ? " (selected)" : ""}. Click to view details.`}
-          >
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <h3
-                className="m-0 truncate font-medium text-sm text-text-a0 leading-normal"
-                title={book.title}
-              >
-                {book.title}
-              </h3>
-              <p
-                className="m-0 truncate text-text-a20 text-xs leading-normal"
-                title={authorsText}
-              >
-                {authorsText}
-              </p>
-            </div>
-          </button>
-        </div>
+        <BookListItemTitleSection
+          book={book}
+          selected={selected}
+          onClick={handleClick}
+        />
 
         {/* Other columns */}
-        {visibleColumns
-          .filter((id) => id !== "title" && id !== "authors")
-          .map((columnId) => {
-            const column = allColumns[columnId];
-            if (!column) {
-              return null;
-            }
-
-            const align = column.align ?? "center";
-            const alignClass =
-              align === "left"
-                ? "justify-start text-left"
-                : align === "right"
-                  ? "justify-end text-right"
-                  : "justify-center text-center";
-
-            return (
-              <div
-                key={columnId}
-                className="flex min-w-0 items-center self-center"
-                style={{
-                  // Lock column width so rows align regardless of content length
-                  width: column.minWidth,
-                  minWidth: column.minWidth,
-                  maxWidth: column.minWidth,
-                  flexGrow: 0,
-                  flexShrink: 0,
-                  flexBasis: column.minWidth,
-                }}
-              >
-                <div className={cn("flex min-w-0 flex-1", alignClass)}>
-                  {renderCell(columnId)}
-                </div>
-              </div>
-            );
-          })}
+        <ListColumnsSection
+          visibleColumns={visibleColumns}
+          allColumns={allColumns}
+          book={book}
+          onRatingChange={onRatingChange}
+        />
 
         {/* Action buttons */}
         <div className="relative flex w-[72px] flex-shrink-0 items-center gap-2">
@@ -217,10 +153,11 @@ export function BookListItem({
         onClose={menu.handleMenuClose}
         buttonRef={menu.menuButtonRef}
         cursorPosition={menu.cursorPosition}
+        bookId={book.id}
         onBookInfo={menuActions.handleBookInfo}
         onSend={menuActions.handleSend}
         onMoveToLibrary={menuActions.handleMoveToLibrary}
-        onMoveToShelf={menuActions.handleMoveToShelf}
+        onAddToShelf={shelfCreation.openCreateModal}
         onConvert={menuActions.handleConvert}
         onDelete={menuActions.handleDelete}
         onMore={menuActions.handleMore}
@@ -243,6 +180,13 @@ export function BookListItem({
         isDeleting={menuActions.deleteConfirmation.isDeleting}
         error={menuActions.deleteConfirmation.error}
       />
+      {shelfCreation.showCreateModal && (
+        <ShelfEditModal
+          shelf={null}
+          onClose={shelfCreation.closeCreateModal}
+          onSave={shelfCreation.handleCreateShelf}
+        />
+      )}
     </>
   );
 }

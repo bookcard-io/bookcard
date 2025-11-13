@@ -18,9 +18,11 @@
 import { useCallback } from "react";
 import { DropdownMenu } from "@/components/common/DropdownMenu";
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
+import { useFlyoutMenu } from "@/hooks/useFlyoutMenu";
 import { LibraryBuilding } from "@/icons/LibraryBuilding";
-import { InterfaceContentBook2LibraryContentBooksBookShelfStack as Shelf } from "@/icons/Shelf";
 import { cn } from "@/libs/utils";
+import { AddToShelfFlyoutMenu } from "./AddToShelfFlyoutMenu";
+import { AddToShelfMenuItem } from "./AddToShelfMenuItem";
 
 export interface BookCardMenuProps {
   /** Whether the menu is open. */
@@ -31,14 +33,16 @@ export interface BookCardMenuProps {
   buttonRef: React.RefObject<HTMLElement | null>;
   /** Cursor position when menu was opened. */
   cursorPosition: { x: number; y: number } | null;
+  /** Book ID for shelf operations. */
+  bookId: number;
   /** Callback when Book info is clicked. */
   onBookInfo?: () => void;
   /** Callback when Send is clicked. */
   onSend?: () => void;
   /** Callback when Move to library is clicked. */
   onMoveToLibrary?: () => void;
-  /** Callback when Move to shelf is clicked. */
-  onMoveToShelf?: () => void;
+  /** Callback when "Add to shelf..." is clicked (to open create modal). */
+  onAddToShelf?: () => void;
   /** Callback when Convert is clicked. */
   onConvert?: () => void;
   /** Callback when Delete is clicked. */
@@ -60,14 +64,25 @@ export function BookCardMenu({
   onClose,
   buttonRef,
   cursorPosition,
+  bookId,
   onBookInfo,
   onSend,
   onMoveToLibrary,
-  onMoveToShelf,
+  onAddToShelf,
   onConvert,
   onDelete,
   onMore,
 }: BookCardMenuProps) {
+  const flyoutMenu = useFlyoutMenu({ parentMenuOpen: isOpen });
+
+  /**
+   * Handle menu item click.
+   *
+   * Parameters
+   * ----------
+   * handler : (() => void) | undefined
+   *     Optional handler to execute before closing menu.
+   */
   const handleItemClick = useCallback(
     (handler?: () => void) => {
       if (handler) {
@@ -78,56 +93,87 @@ export function BookCardMenu({
     [onClose],
   );
 
+  /**
+   * Handle "Add to shelf..." click in flyout menu.
+   */
+  const handleAddToShelfClick = useCallback(() => {
+    if (onAddToShelf) {
+      onAddToShelf();
+      onClose();
+    }
+  }, [onAddToShelf, onClose]);
+
+  /**
+   * Handle "Add to..." menu item click.
+   *
+   * Note: The flyout menu opens on hover, so clicking the parent item
+   * doesn't need to do anything. The actual functionality is in the flyout.
+   */
+  const handleAddToClick = useCallback(() => {
+    // No-op: flyout opens on hover, functionality is in flyout menu
+  }, []);
+
   return (
-    <DropdownMenu
-      isOpen={isOpen}
-      onClose={onClose}
-      buttonRef={buttonRef}
-      cursorPosition={cursorPosition}
-      ariaLabel="Book actions"
-    >
-      <DropdownMenuItem
-        icon="pi pi-info-circle"
-        label="Book info"
-        onClick={() => handleItemClick(onBookInfo)}
+    <>
+      <DropdownMenu
+        isOpen={isOpen}
+        onClose={onClose}
+        buttonRef={buttonRef}
+        cursorPosition={cursorPosition}
+        ariaLabel="Book actions"
+      >
+        <DropdownMenuItem
+          icon="pi pi-info-circle"
+          label="Book info"
+          onClick={() => handleItemClick(onBookInfo)}
+        />
+        <DropdownMenuItem
+          icon="pi pi-send"
+          label="Send"
+          onClick={() => handleItemClick(onSend)}
+        />
+        <DropdownMenuItem
+          icon={<LibraryBuilding className="h-4 w-4" />}
+          label="Move to library"
+          onClick={() => handleItemClick(onMoveToLibrary)}
+        />
+        <AddToShelfMenuItem
+          itemRef={flyoutMenu.parentItemRef}
+          onMouseEnter={flyoutMenu.handleParentMouseEnter}
+          onMouseLeave={flyoutMenu.handleParentMouseLeave}
+          onClick={handleAddToClick}
+        />
+        <DropdownMenuItem
+          icon="pi pi-arrow-right-arrow-left"
+          label="Convert format"
+          onClick={() => handleItemClick(onConvert)}
+        />
+        <DropdownMenuItem
+          icon="pi pi-trash"
+          label="Delete"
+          onClick={() => handleItemClick(onDelete)}
+        />
+        <hr className={cn("my-1 h-px border-0 bg-surface-tonal-a20")} />
+        <DropdownMenuItem
+          label="More..."
+          onClick={() => handleItemClick(onMore)}
+          rightContent={
+            <i
+              className="pi pi-chevron-right flex-shrink-0 text-xs"
+              aria-hidden="true"
+            />
+          }
+          justifyBetween
+        />
+      </DropdownMenu>
+      <AddToShelfFlyoutMenu
+        isOpen={flyoutMenu.isFlyoutOpen && isOpen}
+        parentItemRef={flyoutMenu.parentItemRef}
+        bookId={bookId}
+        onAddToShelf={handleAddToShelfClick}
+        onClose={flyoutMenu.handleFlyoutClose}
+        onMouseEnter={flyoutMenu.handleFlyoutMouseEnter}
       />
-      <DropdownMenuItem
-        icon="pi pi-send"
-        label="Send"
-        onClick={() => handleItemClick(onSend)}
-      />
-      <DropdownMenuItem
-        icon={<LibraryBuilding className="h-4 w-4" />}
-        label="Move to library"
-        onClick={() => handleItemClick(onMoveToLibrary)}
-      />
-      <DropdownMenuItem
-        icon={<Shelf className="h-4 w-4" />}
-        label="Add to shelf"
-        onClick={() => handleItemClick(onMoveToShelf)}
-      />
-      <DropdownMenuItem
-        icon="pi pi-arrow-right-arrow-left"
-        label="Convert format"
-        onClick={() => handleItemClick(onConvert)}
-      />
-      <DropdownMenuItem
-        icon="pi pi-trash"
-        label="Delete"
-        onClick={() => handleItemClick(onDelete)}
-      />
-      <hr className={cn("my-1 h-px border-0 bg-surface-tonal-a20")} />
-      <DropdownMenuItem
-        label="More..."
-        onClick={() => handleItemClick(onMore)}
-        rightContent={
-          <i
-            className="pi pi-chevron-right flex-shrink-0 text-xs"
-            aria-hidden="true"
-          />
-        }
-        justifyBetween
-      />
-    </DropdownMenu>
+    </>
   );
 }

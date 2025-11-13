@@ -16,12 +16,13 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { ShelfEditModal } from "@/components/shelves/ShelfEditModal";
 import { useActiveLibrary } from "@/contexts/ActiveLibraryContext";
 import { useSelectedShelf } from "@/contexts/SelectedShelfContext";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
 import { useSidebar } from "@/contexts/SidebarContext";
+import { useRecentCreatedShelves } from "@/hooks/useRecentCreatedShelves";
 import { useShelves } from "@/hooks/useShelves";
 import { BurgerArrowLeft } from "@/icons/BurgerArrowLeft";
 import { BurgerArrowRight } from "@/icons/BurgerArrowRight";
@@ -69,15 +70,7 @@ export function Sidebar() {
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Get top 5 shelves ordered by created_at desc
-  const topShelves = useMemo(() => {
-    return [...shelves]
-      .sort((a, b) => {
-        const dateA = new Date(a.created_at).getTime();
-        const dateB = new Date(b.created_at).getTime();
-        return dateB - dateA; // Descending order
-      })
-      .slice(0, 5);
-  }, [shelves]);
+  const topShelves = useRecentCreatedShelves(shelves);
 
   const toggleSection = (title: string) => {
     const newExpanded = new Set(expandedSections);

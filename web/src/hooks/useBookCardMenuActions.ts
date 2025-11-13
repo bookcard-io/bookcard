@@ -35,8 +35,6 @@ export interface UseBookCardMenuActionsResult {
   handleSend: () => void;
   /** Handler for Move to library action. */
   handleMoveToLibrary: () => void;
-  /** Handler for Move to shelf action. */
-  handleMoveToShelf: () => void;
   /** Handler for Convert action. */
   handleConvert: () => void;
   /** Handler for Delete action. */
@@ -95,10 +93,6 @@ export function useBookCardMenuActions({
     // TODO: Implement move to library functionality
   }, []);
 
-  const handleMoveToShelf = useCallback(() => {
-    // TODO: Implement add to shelf functionality
-  }, []);
-
   const handleConvert = useCallback(() => {
     // TODO: Implement convert functionality
   }, []);
@@ -115,7 +109,6 @@ export function useBookCardMenuActions({
     handleBookInfo,
     handleSend,
     handleMoveToLibrary,
-    handleMoveToShelf,
     handleConvert,
     handleDelete,
     handleMore,

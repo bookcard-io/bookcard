@@ -15,6 +15,7 @@
 
 "use client";
 
+import { useCallback } from "react";
 import { DeleteBookConfirmationModal } from "@/components/books/DeleteBookConfirmationModal";
 import { BookCardCheckbox } from "@/components/library/BookCardCheckbox";
 import { BookCardCover } from "@/components/library/BookCardCover";
@@ -23,11 +24,14 @@ import { BookCardMenu } from "@/components/library/BookCardMenu";
 import { BookCardMenuButton } from "@/components/library/BookCardMenuButton";
 import { BookCardMetadata } from "@/components/library/BookCardMetadata";
 import { BookCardOverlay } from "@/components/library/BookCardOverlay";
+import { ShelfEditModal } from "@/components/shelves/ShelfEditModal";
 import { useSelectedBooks } from "@/contexts/SelectedBooksContext";
 import { useBookCardMenu } from "@/hooks/useBookCardMenu";
 import { useBookCardMenuActions } from "@/hooks/useBookCardMenuActions";
+import { useCreateShelfWithBook } from "@/hooks/useCreateShelfWithBook";
 import { cn } from "@/libs/utils";
 import type { Book } from "@/types/book";
+import { getBookCardAriaLabel } from "@/utils/book";
 import { createEnterSpaceHandler } from "@/utils/keyboard";
 
 export interface BookCardProps {
@@ -68,18 +72,22 @@ export function BookCard({
     onBookDeleted: () => onBookDeleted?.(book.id),
   });
 
-  const handleClick = () => {
+  const shelfCreation = useCreateShelfWithBook({
+    bookId: book.id,
+  });
+
+  /**
+   * Handle book card click.
+   */
+  const handleClick = useCallback(() => {
     // Open book view modal via callback
     // Special overlay buttons (checkbox, edit, menu) stop propagation
     if (_onClick) {
       _onClick(book);
     }
-  };
+  }, [_onClick, book]);
 
   const handleKeyDown = createEnterSpaceHandler(handleClick);
-
-  const authorsText =
-    book.authors.length > 0 ? book.authors.join(", ") : "Unknown Author";
 
   return (
     <>
@@ -96,7 +104,7 @@ export function BookCard({
         )}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
-        aria-label={`${book.title} by ${authorsText}${selected ? " (selected)" : ""}. Click to view details.`}
+        aria-label={getBookCardAriaLabel(book, selected)}
         data-book-card
       >
         <div className="relative">
@@ -126,10 +134,11 @@ export function BookCard({
           onClose={menu.handleMenuClose}
           buttonRef={menu.menuButtonRef}
           cursorPosition={menu.cursorPosition}
+          bookId={book.id}
           onBookInfo={menuActions.handleBookInfo}
           onSend={menuActions.handleSend}
           onMoveToLibrary={menuActions.handleMoveToLibrary}
-          onMoveToShelf={menuActions.handleMoveToShelf}
+          onAddToShelf={shelfCreation.openCreateModal}
           onConvert={menuActions.handleConvert}
           onDelete={menuActions.handleDelete}
           onMore={menuActions.handleMore}
@@ -153,6 +162,13 @@ export function BookCard({
         isDeleting={menuActions.deleteConfirmation.isDeleting}
         error={menuActions.deleteConfirmation.error}
       />
+      {shelfCreation.showCreateModal && (
+        <ShelfEditModal
+          shelf={null}
+          onClose={shelfCreation.closeCreateModal}
+          onSave={shelfCreation.handleCreateShelf}
+        />
+      )}
     </>
   );
 }
