@@ -14,17 +14,23 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { act, renderHook } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { UserProvider } from "@/contexts/UserContext";
 import { useLibraryViewMode } from "./useLibraryViewMode";
+
+const wrapper = ({ children }: { children: ReactNode }) => (
+  <UserProvider>{children}</UserProvider>
+);
 
 describe("useLibraryViewMode", () => {
   it("should initialize with grid view mode", () => {
-    const { result } = renderHook(() => useLibraryViewMode());
+    const { result } = renderHook(() => useLibraryViewMode(), { wrapper });
     expect(result.current.viewMode).toBe("grid");
   });
 
   it("should change view mode", () => {
-    const { result } = renderHook(() => useLibraryViewMode());
+    const { result } = renderHook(() => useLibraryViewMode(), { wrapper });
     act(() => {
       result.current.handleViewModeChange("list");
     });
@@ -33,7 +39,9 @@ describe("useLibraryViewMode", () => {
 
   it("should call onSortToggle when mode is sort", () => {
     const onSortToggle = vi.fn();
-    const { result } = renderHook(() => useLibraryViewMode({ onSortToggle }));
+    const { result } = renderHook(() => useLibraryViewMode({ onSortToggle }), {
+      wrapper,
+    });
     act(() => {
       result.current.handleViewModeChange("sort");
     });
@@ -43,7 +51,9 @@ describe("useLibraryViewMode", () => {
 
   it("should not call onSortToggle for other modes", () => {
     const onSortToggle = vi.fn();
-    const { result } = renderHook(() => useLibraryViewMode({ onSortToggle }));
+    const { result } = renderHook(() => useLibraryViewMode({ onSortToggle }), {
+      wrapper,
+    });
     act(() => {
       result.current.handleViewModeChange("list");
     });
@@ -52,7 +62,7 @@ describe("useLibraryViewMode", () => {
   });
 
   it("should handle multiple view mode changes", () => {
-    const { result } = renderHook(() => useLibraryViewMode());
+    const { result } = renderHook(() => useLibraryViewMode(), { wrapper });
     act(() => {
       result.current.handleViewModeChange("list");
     });
