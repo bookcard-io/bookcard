@@ -34,6 +34,8 @@ from fundamental.repositories import (
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from sqlmodel import Session
+
     from fundamental.models.auth import EReaderDevice
     from fundamental.models.config import Library
     from fundamental.services.email_service import EmailService
@@ -48,10 +50,14 @@ class BookService:
     ----------
     library : Library
         Active Calibre library configuration.
+    session : Session | None
+        Optional database session for device lookups.
+        Required for send_book method that needs to resolve devices by email.
     """
 
-    def __init__(self, library: Library) -> None:
+    def __init__(self, library: Library, session: Session | None = None) -> None:  # type: ignore[type-arg]
         self._library = library
+        self._session = session
         self._book_repo = CalibreBookRepository(
             calibre_db_path=library.calibre_db_path,
             calibre_db_file=library.calibre_db_file,
@@ -586,6 +592,154 @@ class BookService:
             preferred_format=format_to_send,
         )
         logger.info("Book sent successfully to %s", device.email)
+
+    def send_book(
+        self,
+        *,
+        book_id: int,
+        user_id: int,
+        email_service: EmailService,
+        to_email: str | None = None,
+        file_format: str | None = None,
+    ) -> None:
+        """Send a book via email with intelligent device resolution.
+
+        Handles three use cases:
+        1. Generic email (to_email provided, not a known device) - sends without preferred format
+        2. Known device email (to_email provided, matches a device) - uses device's preferred_format
+        3. No email specified - uses default device or first device
+
+        Parameters
+        ----------
+        book_id : int
+            Calibre book ID.
+        user_id : int
+            User ID for device lookups.
+        email_service : EmailService
+            Email service instance.
+        to_email : str | None
+            Optional email address to send to.
+            If None, uses default device or first device.
+        file_format : str | None
+            Optional file format to send (e.g., 'EPUB', 'MOBI').
+            If not provided, uses device's preferred format or first available format.
+
+        Raises
+        ------
+        ValueError
+            If book not found, no devices available when to_email is None,
+            no formats available, format not found, or file not found.
+        """
+        if to_email:
+            # Case 1 & 2: Email provided - check if it belongs to a device
+            device = self._find_device_by_email(user_id, to_email)
+            if device:
+                # Case 2: Known device - use device's preferred_format
+                logger.info(
+                    "Sending book %d to known device %s (%s)",
+                    book_id,
+                    device.email,
+                    device.device_name or "unnamed",
+                )
+                self.send_book_to_device(
+                    book_id=book_id,
+                    device=device,
+                    email_service=email_service,
+                    file_format=file_format,
+                )
+            else:
+                # Case 1: Generic email - send without preferred format
+                logger.info("Sending book %d to generic email %s", book_id, to_email)
+                self.send_book_to_email(
+                    book_id=book_id,
+                    to_email=to_email,
+                    email_service=email_service,
+                    file_format=file_format,
+                )
+        else:
+            # Case 3: No email specified - use default device or first device
+            device = self._get_user_device(user_id)
+            if device is None:
+                msg = "no_device_available"
+                raise ValueError(msg)
+            logger.info(
+                "Sending book %d to device %s (%s)",
+                book_id,
+                device.email,
+                device.device_name or "unnamed",
+            )
+            self.send_book_to_device(
+                book_id=book_id,
+                device=device,
+                email_service=email_service,
+                file_format=file_format,
+            )
+
+    def _find_device_by_email(self, user_id: int, email: str) -> EReaderDevice | None:
+        """Find a device by email address for a user.
+
+        Parameters
+        ----------
+        user_id : int
+            User ID.
+        email : str
+            Email address to search for.
+
+        Returns
+        -------
+        EReaderDevice | None
+            Device if found, None otherwise.
+        """
+        if self._session is None:
+            logger.debug("No session available for device lookup")
+            return None
+
+        from fundamental.repositories.ereader_repository import EReaderRepository
+
+        device_repo = EReaderRepository(self._session)
+        device = device_repo.find_by_email(user_id, email)
+        if device:
+            logger.debug(
+                "Found device for email %s: %s", email, device.device_name or "unnamed"
+            )
+        else:
+            logger.debug("No device found for email %s", email)
+        return device
+
+    def _get_user_device(self, user_id: int) -> EReaderDevice | None:
+        """Get user's device: default device, or first device if no default.
+
+        Parameters
+        ----------
+        user_id : int
+            User ID.
+
+        Returns
+        -------
+        EReaderDevice | None
+            Default device if found, otherwise first device, or None if no devices.
+        """
+        if self._session is None:
+            logger.debug("No session available for device lookup")
+            return None
+
+        from fundamental.repositories.ereader_repository import EReaderRepository
+
+        device_repo = EReaderRepository(self._session)
+        # Try default device first
+        device = device_repo.find_default(user_id)
+        if device:
+            logger.debug("Using default device: %s", device.email)
+            return device
+
+        # Fallback to first device
+        devices = list(device_repo.find_by_user(user_id))
+        if devices:
+            logger.debug("Using first device: %s", devices[0].email)
+            return devices[0]
+
+        logger.debug("No devices found for user %d", user_id)
+        return None
 
     def send_book_to_email(
         self,

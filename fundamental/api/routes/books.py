@@ -22,7 +22,7 @@ import io
 import math
 import tempfile
 from pathlib import Path
-from typing import Annotated, cast
+from typing import Annotated
 
 import httpx
 from fastapi import (
@@ -53,7 +53,7 @@ from fundamental.api.schemas import (
     SearchSuggestionItem,
     SearchSuggestionsResponse,
 )
-from fundamental.models.auth import EReaderDevice, User  # noqa: TC001
+from fundamental.models.auth import User  # noqa: TC001
 from fundamental.repositories.config_repository import LibraryRepository
 from fundamental.services.book_service import BookService
 from fundamental.services.config_service import LibraryService
@@ -209,7 +209,7 @@ def _get_active_library_service(
             detail="no_active_library",
         )
 
-    return BookService(library)
+    return BookService(library, session=session)
 
 
 @router.get("", response_model=BookListResponse)
@@ -762,37 +762,25 @@ def send_book_to_device(
     book_service = _get_active_library_service(session)
     email_service = EmailService(email_config)
 
-    try:
-        if send_request.to_email:
-            # Send to specified email address
-            book_service.send_book_to_email(
-                book_id=book_id,
-                to_email=send_request.to_email,
-                email_service=email_service,
-                file_format=send_request.file_format,
-            )
-        else:
-            # Send to default device
-            if current_user.id is None:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="user_missing_id",
-                )
-            default_device = _get_user_default_device(session, current_user.id)
-            if default_device is None:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="no_default_device_configured",
-                )
+    # Validate user ID
+    if current_user.id is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="user_missing_id",
+        )
 
-            # Type cast: default_device is guaranteed to be non-None after check above
-            device = cast("EReaderDevice", default_device)
-            book_service.send_book_to_device(
-                book_id=book_id,
-                device=device,
-                email_service=email_service,
-                file_format=send_request.file_format,
-            )
+    try:
+        # Unified send method handles all three cases:
+        # 1. Generic email (not a device)
+        # 2. Known device email (uses preferred_format)
+        # 3. No email (uses default/first device)
+        book_service.send_book(
+            book_id=book_id,
+            user_id=current_user.id,
+            email_service=email_service,
+            to_email=send_request.to_email,
+            file_format=send_request.file_format,
+        )
     except ValueError as exc:
         error_msg = str(exc)
         if "book_not_found" in error_msg or "book_missing_id" in error_msg:
@@ -810,6 +798,11 @@ def send_book_to_device(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=error_msg,
             ) from exc
+        if "no_device_available" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_msg,
+            ) from exc
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=error_msg,
@@ -819,37 +812,6 @@ def send_book_to_device(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         ) from exc
-
-
-def _get_user_default_device(session: Session, user_id: int) -> object | None:
-    """Get user's default e-reader device.
-
-    Parameters
-    ----------
-    session : Session
-        Database session.
-    user_id : int
-        User ID.
-
-    Returns
-    -------
-    EReaderDevice | None
-        Default device if found, None otherwise.
-    """
-    from sqlalchemy.orm import selectinload
-
-    from fundamental.models.auth import User
-
-    stmt = (
-        select(User)
-        .where(User.id == user_id)
-        .options(selectinload(User.ereader_devices))
-    )
-    user_with_devices = session.exec(stmt).first()
-    if user_with_devices is None or not user_with_devices.ereader_devices:
-        return None
-
-    return next((d for d in user_with_devices.ereader_devices if d.is_default), None)
 
 
 # Temporary cover storage (in-memory for now, could be moved to disk/DB)
