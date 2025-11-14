@@ -51,6 +51,7 @@ function createWrapper(mockContext: Partial<UserContextValue> = {}) {
     isSaving: false,
     getSetting: vi.fn(() => null),
     updateSetting: vi.fn(),
+    defaultDevice: null,
     ...mockContext,
   };
 

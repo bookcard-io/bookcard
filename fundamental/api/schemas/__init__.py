@@ -60,6 +60,7 @@ from fundamental.api.schemas.books import (
     BookFilterRequest,
     BookListResponse,
     BookRead,
+    BookSendRequest,
     BookUpdate,
     BookUploadResponse,
     CoverFromUrlRequest,
@@ -105,6 +106,7 @@ __all__ = [
     "BookFilterRequest",
     "BookListResponse",
     "BookRead",
+    "BookSendRequest",
     # Shelf schemas
     "BookShelfLinkRead",
     "BookUpdate",

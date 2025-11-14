@@ -13,7 +13,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
+import { useUser } from "@/contexts/UserContext";
+import { sendBookToDevice } from "@/services/bookService";
 import type { Book } from "@/types/book";
 import { useDeleteConfirmation } from "./useDeleteConfirmation";
 
@@ -43,6 +45,8 @@ export interface UseBookCardMenuActionsResult {
   handleMore: () => void;
   /** Delete confirmation modal state and controls. */
   deleteConfirmation: ReturnType<typeof useDeleteConfirmation>;
+  /** Whether Send action is disabled (no devices available). */
+  isSendDisabled: boolean;
 }
 
 /**
@@ -68,6 +72,7 @@ export function useBookCardMenuActions({
   onBookDeleted,
   onDeleteError,
 }: UseBookCardMenuActionsOptions): UseBookCardMenuActionsResult {
+  const { user } = useUser();
   const deleteConfirmation = useDeleteConfirmation({
     bookId: book.id,
     onSuccess: () => {
@@ -79,15 +84,42 @@ export function useBookCardMenuActions({
     },
   });
 
+  // Get device to use: default device, or first device if no default
+  const deviceToUse = useMemo(() => {
+    if (!user?.ereader_devices || user.ereader_devices.length === 0) {
+      return null;
+    }
+    // Try to find default device
+    const defaultDevice = user.ereader_devices.find(
+      (device) => device.is_default,
+    );
+    // Use default if found, otherwise use first device
+    return defaultDevice || user.ereader_devices[0] || null;
+  }, [user?.ereader_devices]);
+
+  const isSendDisabled = deviceToUse === null;
+
   const handleBookInfo = useCallback(() => {
     if (onBookClick) {
       onBookClick(book);
     }
   }, [onBookClick, book]);
 
-  const handleSend = useCallback(() => {
-    // TODO: Implement send functionality
-  }, []);
+  const handleSend = useCallback(async () => {
+    if (!deviceToUse) {
+      return;
+    }
+    try {
+      await sendBookToDevice(book.id, {
+        toEmail: deviceToUse.email,
+      });
+      // Optionally show success message or notification
+    } catch (error) {
+      console.error("Failed to send book:", error);
+      // Optionally show error message or notification
+      alert(error instanceof Error ? error.message : "Failed to send book");
+    }
+  }, [book.id, deviceToUse]);
 
   const handleMoveToLibrary = useCallback(() => {
     // TODO: Implement move to library functionality
@@ -113,5 +145,6 @@ export function useBookCardMenuActions({
     handleDelete,
     handleMore,
     deleteConfirmation,
+    isSendDisabled,
   };
 }

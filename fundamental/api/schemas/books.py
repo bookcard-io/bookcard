@@ -317,3 +317,25 @@ class BookDeleteRequest(BaseModel):
         default=False,
         description="If True, also delete files from filesystem",
     )
+
+
+class BookSendRequest(BaseModel):
+    """Request to send a book via email.
+
+    Attributes
+    ----------
+    to_email : str | None
+        Email address to send to. If not provided, sends to user's default device.
+    file_format : str | None
+        Optional file format to send (e.g., 'EPUB', 'MOBI').
+        If not provided, uses device's preferred format or first available format.
+    """
+
+    to_email: str | None = Field(
+        default=None,
+        description="Email address to send to. If not provided, sends to user's default device",
+    )
+    file_format: str | None = Field(
+        default=None,
+        description="Optional file format to send (e.g., 'EPUB', 'MOBI')",
+    )

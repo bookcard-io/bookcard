@@ -142,6 +142,7 @@ describe("useBookEditForm", () => {
       isSaving: false,
       getSetting: mockGetSetting,
       updateSetting: vi.fn(),
+      defaultDevice: null,
     });
 
     vi.mocked(useBook).mockReturnValue({

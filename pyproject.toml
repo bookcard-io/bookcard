@@ -30,6 +30,7 @@ dependencies = [
     "uvicorn[standard]>=0.38.0",
     "python-multipart>=0.0.20",
     "pypdf>=6.2.0",
+    "py-ezmail>=2.3.5",
 ]
 
 [tool.hatch.build.targets.wheel]

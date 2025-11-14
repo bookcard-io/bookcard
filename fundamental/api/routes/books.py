@@ -22,20 +22,29 @@ import io
 import math
 import tempfile
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse
 from PIL import Image
 from sqlmodel import Session, select
 
-from fundamental.api.deps import get_db_session
+from fundamental.api.deps import get_current_user, get_db_session
 from fundamental.api.schemas import (
     BookDeleteRequest,
     BookFilterRequest,
     BookListResponse,
     BookRead,
+    BookSendRequest,
     BookUpdate,
     BookUploadResponse,
     CoverFromUrlRequest,
@@ -44,9 +53,13 @@ from fundamental.api.schemas import (
     SearchSuggestionItem,
     SearchSuggestionsResponse,
 )
+from fundamental.models.auth import EReaderDevice, User  # noqa: TC001
 from fundamental.repositories.config_repository import LibraryRepository
 from fundamental.services.book_service import BookService
 from fundamental.services.config_service import LibraryService
+from fundamental.services.email_config_service import EmailConfigService
+from fundamental.services.email_service import EmailService, EmailServiceError
+from fundamental.services.security import DataEncryptor
 
 router = APIRouter(prefix="/books", tags=["books"])
 
@@ -144,6 +157,26 @@ def _get_media_type(format_upper: str) -> str:
         Media type string.
     """
     return FILE_FORMAT_MEDIA_TYPES.get(format_upper, "application/octet-stream")
+
+
+def _email_config_service(request: Request, session: Session) -> EmailConfigService:
+    """Get email configuration service.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+    session : Session
+        Database session.
+
+    Returns
+    -------
+    EmailConfigService
+        Email configuration service instance.
+    """
+    cfg = request.app.state.config
+    encryptor = DataEncryptor(cfg.encryption_key)
+    return EmailConfigService(session, encryptor=encryptor)
 
 
 def _get_active_library_service(
@@ -676,6 +709,147 @@ def download_book_file(
         media_type=media_type,
         filename=filename,
     )
+
+
+@router.post("/{book_id}/send", status_code=status.HTTP_204_NO_CONTENT)
+def send_book_to_device(
+    request: Request,
+    session: SessionDep,
+    book_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    send_request: BookSendRequest,
+) -> None:
+    """Send a book via email.
+
+    Sends to the specified email address, or to the user's default device
+    if no email is provided.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+    session : SessionDep
+        Database session dependency.
+    book_id : int
+        Calibre book ID.
+    current_user : User
+        Current authenticated user.
+    send_request : BookSendRequest
+        Send request containing optional email and file format.
+
+    Returns
+    -------
+    None
+        Success response (204 No Content).
+
+    Raises
+    ------
+    HTTPException
+        If book not found (404), no default device when email not provided (400),
+        email server not configured (400), format not found (404),
+        or email sending fails (500).
+    """
+    # Get email configuration
+    email_config_service = _email_config_service(request, session)
+    email_config = email_config_service.get_config(decrypt=True)
+    if email_config is None or not email_config.enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="email_server_not_configured_or_disabled",
+        )
+
+    # Get book service
+    book_service = _get_active_library_service(session)
+    email_service = EmailService(email_config)
+
+    try:
+        if send_request.to_email:
+            # Send to specified email address
+            book_service.send_book_to_email(
+                book_id=book_id,
+                to_email=send_request.to_email,
+                email_service=email_service,
+                file_format=send_request.file_format,
+            )
+        else:
+            # Send to default device
+            if current_user.id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="user_missing_id",
+                )
+            default_device = _get_user_default_device(session, current_user.id)
+            if default_device is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="no_default_device_configured",
+                )
+
+            # Type cast: default_device is guaranteed to be non-None after check above
+            device = cast("EReaderDevice", default_device)
+            book_service.send_book_to_device(
+                book_id=book_id,
+                device=device,
+                email_service=email_service,
+                file_format=send_request.file_format,
+            )
+    except ValueError as exc:
+        error_msg = str(exc)
+        if "book_not_found" in error_msg or "book_missing_id" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=error_msg,
+            ) from exc
+        if "format_not_found" in error_msg or "no_formats_available" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=error_msg,
+            ) from exc
+        if "file_not_found" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=error_msg,
+            ) from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_msg,
+        ) from exc
+    except EmailServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+
+def _get_user_default_device(session: Session, user_id: int) -> object | None:
+    """Get user's default e-reader device.
+
+    Parameters
+    ----------
+    session : Session
+        Database session.
+    user_id : int
+        User ID.
+
+    Returns
+    -------
+    EReaderDevice | None
+        Default device if found, None otherwise.
+    """
+    from sqlalchemy.orm import selectinload
+
+    from fundamental.models.auth import User
+
+    stmt = (
+        select(User)
+        .where(User.id == user_id)
+        .options(selectinload(User.ereader_devices))
+    )
+    user_with_devices = session.exec(stmt).first()
+    if user_with_devices is None or not user_with_devices.ereader_devices:
+        return None
+
+    return next((d for d in user_with_devices.ereader_devices if d.is_default), None)
 
 
 # Temporary cover storage (in-memory for now, could be moved to disk/DB)

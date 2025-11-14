@@ -19,6 +19,7 @@ import { useCallback, useState } from "react";
 import { FullscreenImageModal } from "@/components/common/FullscreenImageModal";
 import { ImageWithLoading } from "@/components/common/ImageWithLoading";
 import { RatingDisplay } from "@/components/forms/RatingDisplay";
+import { sendBookToDevice } from "@/services/bookService";
 import type { Book } from "@/types/book";
 
 export interface BookViewHeaderProps {
@@ -42,8 +43,23 @@ export function BookViewHeader({
   onEdit,
 }: BookViewHeaderProps) {
   const [isCoverOpen, setIsCoverOpen] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const openCover = useCallback(() => setIsCoverOpen(true), []);
   const closeCover = useCallback(() => setIsCoverOpen(false), []);
+
+  const handleSend = useCallback(async () => {
+    try {
+      setIsSending(true);
+      await sendBookToDevice(book.id);
+      // Optionally show success message
+    } catch (error) {
+      console.error("Failed to send book:", error);
+      // Optionally show error message
+      alert(error instanceof Error ? error.message : "Failed to send book");
+    } finally {
+      setIsSending(false);
+    }
+  }, [book.id]);
 
   return (
     <div className="flex flex-col items-center gap-4 border-[var(--color-surface-a20)] border-b pb-4 text-center md:flex-row md:items-start md:gap-6 md:pb-6 md:text-left">
@@ -86,12 +102,14 @@ export function BookViewHeader({
             </button>
             <button
               type="button"
-              className="group flex min-h-8 min-w-8 items-center justify-center rounded-full p-2 transition hover:scale-110 hover:bg-white/20 hover:backdrop-blur-sm focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 active:scale-95"
+              onClick={handleSend}
+              disabled={isSending}
+              className="group flex min-h-8 min-w-8 items-center justify-center rounded-full p-2 transition hover:scale-110 hover:bg-white/20 hover:backdrop-blur-sm focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Send book"
-              title="Send book"
+              title={isSending ? "Sending..." : "Send book"}
             >
               <i
-                className="pi pi-send text-[1.25rem] text-[var(--color-text-a30)] transition-colors group-hover:text-[var(--color-text-a0)]"
+                className={`pi ${isSending ? "pi-spin pi-spinner" : "pi-send"} text-[1.25rem] text-[var(--color-text-a30)] transition-colors group-hover:text-[var(--color-text-a0)]`}
                 aria-hidden="true"
               />
             </button>

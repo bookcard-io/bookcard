@@ -554,7 +554,9 @@ imagesize==1.4.1 \
 jinja2==3.1.6 \
     --hash=sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d \
     --hash=sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67
-    # via sphinx
+    # via
+    #   py-ezmail
+    #   sphinx
 lxml==6.0.2 \
     --hash=sha256:058027e261afed589eddcfe530fcc6f3402d7fd7e89bfd0532df82ebc1563dba \
     --hash=sha256:063eccf89df5b24e361b123e257e437f9e9878f425ee9aae3144c77faf6da6d8 \
@@ -971,6 +973,10 @@ psycopg-binary==3.2.12 ; implementation_name != 'pypy' \
     --hash=sha256:f8107968a9eadb451cfa6cf86036006fdde32a83cd39c26c9ca46765e653b547 \
     --hash=sha256:f821e0c8a8fdfddfa71acb4f462d7a4c5aae1655f3f5e078970dbe9f19027386
     # via psycopg
+py-ezmail==2.3.5 \
+    --hash=sha256:7a23614d8513ce267e07c5b317395499bdada53b7867548b692c066f78e2e1b5 \
+    --hash=sha256:ea2088c9a645a4980c871a1bf27dff203fe48470188428712679596b6c00a034
+    # via calibre-fundamental (pyproject.toml)
 pycparser==2.23 ; (implementation_name != 'PyPy' and implementation_name != 'pypy' and os_name == 'nt') or (implementation_name != 'PyPy' and platform_python_implementation != 'PyPy') \
     --hash=sha256:78816d4f24add8f10a06d6f05b4d424ad9e96cfebf68a4ddc99c65c0720d00c2 \
     --hash=sha256:e5c6e8d3fbad53479cab09ac03729e0a9faf2bee3db8208a550daf5af81a5934

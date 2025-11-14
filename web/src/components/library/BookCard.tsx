@@ -141,6 +141,7 @@ export function BookCard({
           onConvert={menuActions.handleConvert}
           onDelete={menuActions.handleDelete}
           onMore={menuActions.handleMore}
+          isSendDisabled={menuActions.isSendDisabled}
         />
       </button>
       <DeleteBookConfirmationModal

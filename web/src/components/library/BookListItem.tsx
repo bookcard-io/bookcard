@@ -177,6 +177,7 @@ export function BookListItem({
         onConvert={menuActions.handleConvert}
         onDelete={menuActions.handleDelete}
         onMore={menuActions.handleMore}
+        isSendDisabled={menuActions.isSendDisabled}
       />
       <DeleteBookConfirmationModal
         isOpen={menuActions.deleteConfirmation.isOpen}

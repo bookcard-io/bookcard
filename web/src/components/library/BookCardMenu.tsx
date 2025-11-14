@@ -40,6 +40,8 @@ export interface BookCardMenuProps {
   onBookInfo?: () => void;
   /** Callback when Send is clicked. */
   onSend?: () => void;
+  /** Whether Send action is disabled. */
+  isSendDisabled?: boolean;
   /** Callback when Move to library is clicked. */
   onMoveToLibrary?: () => void;
   /** Callback when Convert is clicked. */
@@ -70,6 +72,7 @@ export function BookCardMenu({
   onConvert,
   onDelete,
   onMore,
+  isSendDisabled = false,
 }: BookCardMenuProps) {
   const flyoutMenu = useFlyoutMenu({ parentMenuOpen: isOpen });
   const [showAddToShelfModal, setShowAddToShelfModal] = useState(false);
@@ -120,6 +123,7 @@ export function BookCardMenu({
           icon="pi pi-send"
           label="Send"
           onClick={() => handleItemClick(onSend)}
+          disabled={isSendDisabled}
         />
         <DropdownMenuItem
           icon={<LibraryBuilding className="h-4 w-4" />}

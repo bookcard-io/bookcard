@@ -20,6 +20,7 @@ Business logic for querying and serving book data from Calibre libraries.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -33,7 +34,11 @@ from fundamental.repositories import (
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from fundamental.models.auth import EReaderDevice
     from fundamental.models.config import Library
+    from fundamental.services.email_service import EmailService
+
+logger = logging.getLogger(__name__)
 
 
 class BookService:
@@ -509,3 +514,351 @@ class BookService:
             delete_files_from_drive=delete_files_from_drive,
             library_path=library_path,
         )
+
+    def send_book_to_device(
+        self,
+        *,
+        book_id: int,
+        device: EReaderDevice,
+        email_service: EmailService,
+        file_format: str | None = None,
+    ) -> None:
+        """Send a book to an e-reader device via email.
+
+        Parameters
+        ----------
+        book_id : int
+            Calibre book ID.
+        device : EReaderDevice
+            E-reader device to send to.
+        email_service : EmailService
+            Email service instance.
+        file_format : str | None
+            Optional file format to send (e.g., 'EPUB', 'MOBI').
+            If not provided, uses device's preferred format or first available format.
+
+        Raises
+        ------
+        ValueError
+            If book not found, no formats available, format not found,
+            or file not found.
+        """
+        logger.info("Sending book %d to device %s", book_id, device.email)
+        logger.debug(
+            "Device: %s, requested format: %s", device.device_name, file_format
+        )
+
+        # Get book data
+        book_with_rels = self.get_book_full(book_id)
+        if book_with_rels is None:
+            msg = "book_not_found"
+            raise ValueError(msg)
+
+        book = book_with_rels.book
+        if book.id is None:
+            msg = "book_missing_id"
+            raise ValueError(msg)
+
+        logger.debug("Book found: %s (ID: %d)", book.title, book_id)
+
+        # Determine format to send
+        format_to_send = self._determine_format_to_send(
+            book_with_rels, device, file_format
+        )
+        logger.debug("Format determined: %s", format_to_send)
+
+        # Find format data
+        format_data = self._find_format_in_book(book_with_rels.formats, format_to_send)
+        if format_data is None:
+            available = [str(f.get("format", "")) for f in book_with_rels.formats]
+            msg = f"format_not_found: requested '{format_to_send}', available: {available}"
+            raise ValueError(msg)
+
+        # Get file path
+        file_path = self._get_book_file_path(book, book_id, format_data, format_to_send)
+        logger.info("Sending file: %s", file_path)
+
+        # Send email
+        email_service.send_ebook(
+            to_email=device.email,
+            book_title=book.title,
+            book_file_path=file_path,
+            preferred_format=format_to_send,
+        )
+        logger.info("Book sent successfully to %s", device.email)
+
+    def send_book_to_email(
+        self,
+        *,
+        book_id: int,
+        to_email: str,
+        email_service: EmailService,
+        file_format: str | None = None,
+        preferred_format: str | None = None,
+    ) -> None:
+        """Send a book to an email address.
+
+        Parameters
+        ----------
+        book_id : int
+            Calibre book ID.
+        to_email : str
+            Email address to send to.
+        email_service : EmailService
+            Email service instance.
+        file_format : str | None
+            Optional file format to send (e.g., 'EPUB', 'MOBI').
+            If not provided, uses preferred_format or first available format.
+        preferred_format : str | None
+            Optional preferred format name (e.g., 'EPUB', 'MOBI').
+            Used if file_format is not provided.
+
+        Raises
+        ------
+        ValueError
+            If book not found, no formats available, format not found,
+            or file not found.
+        """
+        logger.info("Sending book %d to email %s", book_id, to_email)
+        logger.debug(
+            "Requested format: %s, preferred format: %s", file_format, preferred_format
+        )
+
+        # Get book data
+        book_with_rels = self.get_book_full(book_id)
+        if book_with_rels is None:
+            msg = "book_not_found"
+            raise ValueError(msg)
+
+        book = book_with_rels.book
+        if book.id is None:
+            msg = "book_missing_id"
+            raise ValueError(msg)
+
+        logger.debug("Book found: %s (ID: %d)", book.title, book_id)
+
+        # Determine format to send
+        format_to_send = file_format
+        if format_to_send is None:
+            format_to_send = preferred_format
+        if format_to_send is None:
+            # Use first available format
+            if book_with_rels.formats:
+                format_str = str(book_with_rels.formats[0].get("format", ""))
+                if format_str:
+                    format_to_send = format_str.upper()
+                else:
+                    msg = "no_formats_available"
+                    raise ValueError(msg)
+            else:
+                msg = "no_formats_available"
+                raise ValueError(msg)
+        else:
+            format_to_send = format_to_send.upper()
+
+        logger.debug("Format determined: %s", format_to_send)
+
+        # Find format data
+        format_data = self._find_format_in_book(book_with_rels.formats, format_to_send)
+        if format_data is None:
+            available = [str(f.get("format", "")) for f in book_with_rels.formats]
+            msg = f"format_not_found: requested '{format_to_send}', available: {available}"
+            raise ValueError(msg)
+
+        # Get file path
+        file_path = self._get_book_file_path(book, book_id, format_data, format_to_send)
+        logger.info("Sending file: %s", file_path)
+
+        # Send email
+        email_service.send_ebook(
+            to_email=to_email,
+            book_title=book.title,
+            book_file_path=file_path,
+            preferred_format=format_to_send,
+        )
+        logger.info("Book sent successfully to %s", to_email)
+
+    def _determine_format_to_send(
+        self,
+        book_with_rels: BookWithFullRelations,
+        device: EReaderDevice,
+        requested_format: str | None,
+    ) -> str:
+        """Determine which format to send.
+
+        Parameters
+        ----------
+        book_with_rels : BookWithFullRelations
+            Book with all relations.
+        device : EReaderDevice
+            E-reader device.
+        requested_format : str | None
+            Requested format, if any.
+
+        Returns
+        -------
+        str
+            Format to send (uppercase).
+
+        Raises
+        ------
+        ValueError
+            If no formats are available.
+        """
+        if requested_format:
+            return requested_format.upper()
+
+        # Use device's preferred format if available
+        if device.preferred_format:
+            return device.preferred_format.value.upper()
+
+        # Use first available format
+        if book_with_rels.formats:
+            format_str = str(book_with_rels.formats[0].get("format", ""))
+            if format_str:
+                return format_str.upper()
+
+        msg = "no_formats_available"
+        raise ValueError(msg)
+
+    def _find_format_in_book(
+        self,
+        formats: list[dict[str, str | int]],
+        requested_format: str,
+    ) -> dict[str, str | int] | None:
+        """Find format data matching the requested format.
+
+        Parameters
+        ----------
+        formats : list[dict[str, str | int]]
+            List of format dictionaries from book data.
+        requested_format : str
+            Requested file format (e.g., 'EPUB', 'PDF').
+
+        Returns
+        -------
+        dict[str, str | int] | None
+            Format data if found, None otherwise.
+        """
+        format_upper = requested_format.upper()
+        for fmt in formats:
+            fmt_format = fmt.get("format", "")
+            if isinstance(fmt_format, str) and fmt_format.upper() == format_upper:
+                return fmt
+        return None
+
+    def _get_book_file_path(
+        self,
+        book: Book,
+        book_id: int,
+        format_data: dict[str, str | int],
+        file_format: str,
+    ) -> Path:
+        """Get the file path for a book format.
+
+        Parameters
+        ----------
+        book : Book
+            Book model.
+        book_id : int
+            Book ID.
+        format_data : dict[str, str | int]
+            Format data dictionary.
+        file_format : str
+            File format (e.g., 'EPUB', 'MOBI').
+
+        Returns
+        -------
+        Path
+            Path to the book file.
+
+        Raises
+        ------
+        ValueError
+            If file is not found.
+        """
+        # Determine library path
+        lib_root = getattr(self._library, "library_root", None)
+        if lib_root:
+            library_path = Path(lib_root)
+        else:
+            library_db_path = Path(self._library.calibre_db_path)
+            if library_db_path.is_dir():
+                library_path = library_db_path
+            else:
+                library_path = library_db_path.parent
+
+        book_path = library_path / book.path
+        logger.debug("Book path: %s", book_path)
+        file_name = self._get_file_name(format_data, book_id, file_format)
+        file_path = book_path / file_name
+        logger.debug("Trying file path: %s", file_path)
+
+        if file_path.exists():
+            logger.debug("File found at primary path: %s", file_path)
+            return file_path
+
+        # Try alternative: just the format extension
+        format_lower = file_format.lower()
+        alt_file_name = f"{book_id}.{format_lower}"
+        alt_file_path = book_path / alt_file_name
+        logger.debug("Trying alternative path: %s", alt_file_path)
+        if alt_file_path.exists():
+            logger.debug("File found at alternative path: %s", alt_file_path)
+            return alt_file_path
+
+        # Try to find file by extension in the directory
+        if book_path.exists() and book_path.is_dir():
+            logger.debug("Searching directory for %s files", format_lower)
+            for file_in_dir in book_path.iterdir():
+                if (
+                    file_in_dir.is_file()
+                    and file_in_dir.suffix.lower() == f".{format_lower}"
+                ):
+                    logger.debug("File found by directory search: %s", file_in_dir)
+                    return file_in_dir
+
+        msg = f"file_not_found: tried {file_path} and {alt_file_path}"
+        logger.error(msg)
+        raise ValueError(msg)
+
+    def _get_file_name(
+        self,
+        format_data: dict[str, str | int],
+        book_id: int,
+        file_format: str,
+    ) -> str:
+        """Get filename for the book file.
+
+        Parameters
+        ----------
+        format_data : dict[str, str | int]
+            Format data dictionary, may contain 'name' field.
+        book_id : int
+            Calibre book ID.
+        file_format : str
+            File format (e.g., 'EPUB', 'PDF').
+
+        Returns
+        -------
+        str
+            Filename for the book file.
+        """
+        format_lower = file_format.lower()
+        if format_data.get("name"):
+            name = str(format_data["name"]).strip()
+            if not name:
+                logger.debug(
+                    "Format name is empty, using book_id: %d.%s", book_id, format_lower
+                )
+                return f"{book_id}.{format_lower}"
+            # Check if name already has the extension
+            if name.lower().endswith(f".{format_lower}"):
+                logger.debug("Using format name with extension: %s", name)
+                return name
+            # Append extension if not present
+            filename = f"{name}.{format_lower}"
+            logger.debug("Appended extension to format name: %s -> %s", name, filename)
+            return filename
+        logger.debug("No format name, using book_id: %d.%s", book_id, format_lower)
+        return f"{book_id}.{format_lower}"

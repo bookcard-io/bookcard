@@ -69,6 +69,8 @@ interface UserContextType {
   isSaving: boolean;
   getSetting: (key: string) => string | null;
   updateSetting: (key: string, value: string) => void;
+  // Get default e-reader device
+  defaultDevice: EReaderDevice | null;
 }
 
 export const UserContext = createContext<UserContextType | undefined>(
@@ -279,6 +281,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return getProfilePictureUrlWithCacheBuster(profilePictureCacheBuster);
   }, [user?.profile_picture, profilePictureCacheBuster]);
 
+  // Get default e-reader device
+  const defaultDevice = useMemo(() => {
+    if (!user?.ereader_devices || user.ereader_devices.length === 0) {
+      return null;
+    }
+    return user.ereader_devices.find((device) => device.is_default) || null;
+  }, [user?.ereader_devices]);
+
   const contextValue = useMemo(
     () => ({
       user,
@@ -293,6 +303,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       isSaving,
       getSetting,
       updateSetting,
+      defaultDevice,
     }),
     [
       user,
@@ -307,6 +318,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       isSaving,
       getSetting,
       updateSetting,
+      defaultDevice,
     ],
   );
 
