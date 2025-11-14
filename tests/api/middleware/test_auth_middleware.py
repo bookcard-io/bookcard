@@ -22,6 +22,7 @@ import pytest
 from fundamental.api.middleware.auth_middleware import AuthMiddleware
 from fundamental.config import AppConfig
 from fundamental.services.security import SecurityTokenError
+from tests.conftest import TEST_ENCRYPTION_KEY
 
 
 @pytest.mark.asyncio
@@ -44,6 +45,7 @@ async def test_auth_middleware_dispatch(
         jwt_secret="test-secret",
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
     )
     request.state.user = None
     request.state.user_claims = None
@@ -77,6 +79,7 @@ async def test_auth_middleware_invalid_token() -> None:
         jwt_secret="test-secret",
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
     )
     request.state.user = None
     request.state.user_claims = None

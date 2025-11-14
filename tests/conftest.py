@@ -21,6 +21,9 @@ from typing import Any
 
 import pytest
 
+# Test constants
+TEST_ENCRYPTION_KEY = "EifxhGYj-u0JolSrDhBLqyIZSnoZCVKOAFQbuv70T08="
+
 # Ensure required application environment variables are available during test import
 os.environ.setdefault("FUNDAMENTAL_JWT_SECRET", "test-secret")
 os.environ.setdefault("FUNDAMENTAL_JWT_ALG", "HS256")

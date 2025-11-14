@@ -28,6 +28,7 @@ from fastapi.testclient import TestClient
 
 from fundamental.api.main import _register_routers, _setup_logging, create_app
 from fundamental.config import AppConfig
+from tests.conftest import TEST_ENCRYPTION_KEY
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -114,6 +115,7 @@ def test_create_app_lifespan_with_alembic_enabled() -> None:
         jwt_secret="test-secret",
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
         database_url="sqlite:///:memory:",
         echo_sql=False,
         alembic_enabled=True,
@@ -165,6 +167,7 @@ def test_create_app_lifespan_without_alembic() -> None:
         jwt_secret="test-secret",
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
         database_url="sqlite:///:memory:",
         echo_sql=False,
         alembic_enabled=False,
@@ -208,6 +211,7 @@ def test_create_app_with_config(config_provided: bool, use_env: bool) -> None:
             jwt_secret="test-secret",
             jwt_algorithm="HS256",
             jwt_expires_minutes=15,
+            encryption_key=TEST_ENCRYPTION_KEY,
             database_url="sqlite:///:memory:",
             echo_sql=False,
         )
@@ -218,6 +222,7 @@ def test_create_app_with_config(config_provided: bool, use_env: bool) -> None:
                 jwt_secret="env-secret",
                 jwt_algorithm="HS256",
                 jwt_expires_minutes=15,
+                encryption_key=TEST_ENCRYPTION_KEY,
                 database_url="sqlite:///:memory:",
                 echo_sql=False,
             )
@@ -235,6 +240,7 @@ def test_create_app_sets_state() -> None:
         jwt_secret="test-secret",
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
         database_url="sqlite:///:memory:",
         echo_sql=False,
     )
@@ -251,6 +257,7 @@ def test_create_app_registers_routers() -> None:
         jwt_secret="test-secret",
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
         database_url="sqlite:///:memory:",
         echo_sql=False,
     )
@@ -269,6 +276,7 @@ def test_create_app_adds_middleware() -> None:
         jwt_secret="test-secret",
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
         database_url="sqlite:///:memory:",
         echo_sql=False,
     )
@@ -286,6 +294,7 @@ def test_create_app_calls_setup_logging() -> None:
         jwt_secret="test-secret",
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
         database_url="sqlite:///:memory:",
         echo_sql=False,
     )
@@ -300,6 +309,7 @@ def test_create_app_creates_engine() -> None:
         jwt_secret="test-secret",
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
         database_url="sqlite:///:memory:",
         echo_sql=False,
     )
@@ -326,6 +336,7 @@ def test_app_endpoints_accessible() -> None:
         jwt_secret="test-secret",
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
         database_url="sqlite:///:memory:",
         echo_sql=False,
     )

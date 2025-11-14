@@ -27,7 +27,7 @@ from fundamental.config import AppConfig
 from fundamental.database import create_db_engine
 from fundamental.models.auth import User
 from fundamental.services.security import SecurityTokenError
-from tests.conftest import DummySession
+from tests.conftest import TEST_ENCRYPTION_KEY, DummySession
 
 
 def test_get_db_session() -> None:
@@ -36,6 +36,7 @@ def test_get_db_session() -> None:
         jwt_secret="test-secret",
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
         database_url="sqlite:///:memory:",
         echo_sql=False,
     )
@@ -79,6 +80,7 @@ def test_get_current_user_invalid_token() -> None:
         jwt_secret="test-secret",
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
     )
     session = DummySession()
     with patch("fundamental.api.deps.JWTManager") as mock_jwt_class:
@@ -101,6 +103,7 @@ def test_get_current_user_user_not_found() -> None:
         jwt_secret="test-secret",
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
     )
     session = DummySession()
     with patch("fundamental.api.deps.JWTManager") as mock_jwt_class:
@@ -127,6 +130,7 @@ def test_get_current_user_success() -> None:
         jwt_secret="test-secret",
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
     )
     session = DummySession()
     user = User(

@@ -26,6 +26,7 @@ from fundamental.services.security import (
     PasswordHasher,
     SecurityTokenError,
 )
+from tests.conftest import TEST_ENCRYPTION_KEY
 
 
 @pytest.mark.parametrize(
@@ -87,6 +88,7 @@ def test_jwt_manager_create_access_token(
         jwt_secret="test-secret-key",
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
     )
     jwt_mgr = JWTManager(config)
     token = jwt_mgr.create_access_token(subject, extra_claims)
@@ -101,6 +103,7 @@ def test_jwt_manager_create_access_token_contains_claims() -> None:
         jwt_secret="test-secret-key",
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
     )
     jwt_mgr = JWTManager(config)
     token = jwt_mgr.create_access_token("user123", {"username": "testuser"})
@@ -117,6 +120,7 @@ def test_jwt_manager_create_access_token_expiration() -> None:
         jwt_secret="test-secret-key",
         jwt_algorithm="HS256",
         jwt_expires_minutes=30,
+        encryption_key=TEST_ENCRYPTION_KEY,
     )
     jwt_mgr = JWTManager(config)
     token = jwt_mgr.create_access_token("user123")
@@ -141,6 +145,7 @@ def test_jwt_manager_decode_token_success(algorithm: str, secret: str) -> None:
         jwt_secret=secret,
         jwt_algorithm=algorithm,
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
     )
     jwt_mgr = JWTManager(config)
     token = jwt_mgr.create_access_token("user123", {"username": "testuser"})
@@ -155,6 +160,7 @@ def test_jwt_manager_decode_token_invalid() -> None:
         jwt_secret="test-secret-key",
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
     )
     jwt_mgr = JWTManager(config)
     with pytest.raises(SecurityTokenError):
@@ -167,11 +173,13 @@ def test_jwt_manager_decode_token_wrong_secret() -> None:
         jwt_secret="secret1",
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
     )
     config2 = AppConfig(
         jwt_secret="secret2",
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
     )
     jwt_mgr1 = JWTManager(config1)
     jwt_mgr2 = JWTManager(config2)
@@ -186,6 +194,7 @@ def test_jwt_manager_decode_token_expired() -> None:
         jwt_secret="test-secret-key",
         jwt_algorithm="HS256",
         jwt_expires_minutes=-1,  # Negative expiration for testing
+        encryption_key=TEST_ENCRYPTION_KEY,
     )
     jwt_mgr = JWTManager(config)
     # Create token with past expiration
@@ -206,6 +215,7 @@ def test_jwt_manager_decode_token_blacklisted() -> None:
         jwt_secret="test-secret-key",
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
     )
     jwt_mgr = JWTManager(config)
     token = jwt_mgr.create_access_token("user123")
@@ -232,6 +242,7 @@ def test_jwt_manager_decode_token_not_blacklisted() -> None:
         jwt_secret="test-secret-key",
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
     )
     jwt_mgr = JWTManager(config)
     token = jwt_mgr.create_access_token("user123")

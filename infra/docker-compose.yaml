@@ -8,7 +8,6 @@ services:
     environment:
       # backend authentication settings
       FUNDAMENTAL_JWT_SECRET: ${FUNDAMENTAL_JWT_SECRET:-youShouldChangeThis}
-      FUNDAMENTAL_FERNET_KEY: ${FUNDAMENTAL_FERNET_KEY:-youShouldChangeThis}
       FUNDAMENTAL_JWT_ALG: ${FUNDAMENTAL_JWT_ALG:-HS256}
       FUNDAMENTAL_JWT_EXPIRES_MIN: ${FUNDAMENTAL_JWT_EXPIRES_MIN:-131400} # 3 months
       FUNDAMENTAL_ALEMBIC_ENABLED: ${FUNDAMENTAL_ALEMBIC_ENABLED:-true}
@@ -17,6 +16,13 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+
+      # Key used for storing user-provided passwords and tokens.
+      # You should change this.  DO NOT use this key in production.
+      # Get a key from: https://fernet.utils.com/
+      # Or generate a key with: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
+      FUNDAMENTAL_FERNET_KEY: ${FUNDAMENTAL_FERNET_KEY:-EifxhGYj-u0JolSrDhBLqyIZSnoZCVKOAFQbuv70T08=}
+      # !!! One more time: DO NOT USE THIS KEY IN PRODUCTION. !!!
     env_file:
       - .env
     ports:

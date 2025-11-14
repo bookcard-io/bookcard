@@ -23,7 +23,7 @@ from fastapi import HTTPException
 import fundamental.api.routes.auth as auth
 from fundamental.api.schemas import ProfilePictureUpdateRequest
 from fundamental.models.auth import User
-from tests.conftest import DummySession
+from tests.conftest import TEST_ENCRYPTION_KEY, DummySession
 
 
 @dataclass
@@ -63,6 +63,7 @@ class DummyRequest:
             jwt_secret = "test-secret"
             jwt_algorithm = "HS256"
             jwt_expires_minutes = 15
+            encryption_key = TEST_ENCRYPTION_KEY
             data_directory = temp_dir
 
         self.app = type(
@@ -347,6 +348,7 @@ def test_auth_service_constructs_service(monkeypatch: pytest.MonkeyPatch) -> Non
         jwt_secret = "test-secret"
         jwt_algorithm = "HS256"
         jwt_expires_minutes = 15
+        encryption_key = TEST_ENCRYPTION_KEY
         data_directory = temp_dir
 
     request = SimpleNamespace(
