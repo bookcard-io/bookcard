@@ -17,7 +17,7 @@ import { useMemo } from "react";
 import type { Shelf } from "@/types/shelf";
 
 /** Maximum number of recent shelves to return. */
-const MAX_RECENT_SHELVES = 5;
+const MAX_RECENT_SHELVES = 3;
 
 /**
  * Hook for getting recently created shelves.
@@ -34,7 +34,7 @@ const MAX_RECENT_SHELVES = 5;
  * Returns
  * -------
  * Shelf[]
- *     Top 5 most recently created shelves (most recent first).
+ *     Top 3 most recently created shelves (most recent first).
  */
 export function useRecentCreatedShelves(shelves: Shelf[]): Shelf[] {
   return useMemo(() => {

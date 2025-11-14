@@ -147,7 +147,7 @@ export function DevicesSection({ devices }: DevicesSectionProps) {
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div id="manage-devices" className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h2
           className={cn(
@@ -163,7 +163,7 @@ export function DevicesSection({ devices }: DevicesSectionProps) {
 
       <div className="w-full">
         {deviceList.length > 0 && (
-          <div className="px-8 pb-4 text-left text-sm text-text-a40">
+          <div className="pb-4 text-left text-sm text-text-a40">
             {deviceList.length} {deviceList.length === 1 ? "device" : "devices"}
           </div>
         )}

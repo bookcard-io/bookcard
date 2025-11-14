@@ -20,6 +20,7 @@
  * Follows SRP by focusing solely on individual library item rendering.
  */
 
+import { Button } from "@/components/forms/Button";
 import { cn } from "@/libs/utils";
 import type { LibraryStats } from "@/services/libraryStatsService";
 import { LibraryStatsPills } from "./LibraryStatsPills";
@@ -94,19 +95,16 @@ export function LibraryListItem({
           Loading stats...
         </div>
       )}
-      <button
+      <Button
         type="button"
+        variant="danger"
+        size="small"
         onClick={() => onDelete(library.id)}
         disabled={deletingLibraryId === library.id}
-        className={cn(
-          "cursor-pointer rounded-md border border-[var(--color-danger-a20)] bg-transparent px-3 py-1.5 font-medium text-[var(--color-danger-a0)] text-xs transition-colors duration-150",
-          deletingLibraryId === library.id
-            ? "cursor-not-allowed border-[var(--color-danger-a30)] text-[var(--color-danger-a30)] opacity-60"
-            : "hover:bg-[var(--color-danger-a20)] hover:text-[var(--color-danger-a0)]",
-        )}
+        className="bg-[var(--color-danger-a-1)] text-[var(--color-white)] hover:bg-[var(--color-danger-a0)]"
       >
         Remove
-      </button>
+      </Button>
     </div>
   );
 }

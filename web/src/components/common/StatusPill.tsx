@@ -14,6 +14,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 export type StatusPillVariant = "success" | "warning" | "danger" | "info";
+export type StatusPillSize = "default" | "tiny";
 
 export interface StatusPillProps {
   /** Text to display in the pill. */
@@ -26,6 +27,8 @@ export interface StatusPillProps {
   variant?: StatusPillVariant;
   /** Custom background color (overrides variant). */
   bgColor?: string;
+  /** Size variant for the pill. */
+  size?: StatusPillSize;
 }
 
 /**
@@ -46,6 +49,7 @@ export function StatusPill({
   iconBgColor,
   variant = "success",
   bgColor,
+  size = "default",
 }: StatusPillProps) {
   // Get background color from variant or use custom
   const getBackgroundColor = () => {
@@ -81,21 +85,43 @@ export function StatusPill({
     }
   };
 
+  // Get size-specific classes
+  const getSizeClasses = () => {
+    if (size === "tiny") {
+      return {
+        container: "gap-1 rounded-full px-1.5 py-0.5",
+        icon: "h-3 w-3",
+        iconText: "text-[8px]",
+        label: "font-medium text-[10px]",
+      };
+    }
+    return {
+      container: "gap-2 rounded-full px-3 py-1.5",
+      icon: "h-5 w-5",
+      iconText: "text-xs",
+      label: "font-medium text-sm",
+    };
+  };
+
+  const sizeClasses = getSizeClasses();
+
   return (
     <div
-      className="flex items-center gap-2 rounded-full px-3 py-1.5"
+      className={`flex items-center ${sizeClasses.container}`}
       style={{ backgroundColor: getBackgroundColor() }}
     >
       {icon && (
         <div
-          className="flex h-5 w-5 items-center justify-center rounded-full"
+          className={`flex ${sizeClasses.icon} items-center justify-center rounded-full`}
           style={{ backgroundColor: getIconBackgroundColor() }}
         >
-          <i className={`${icon} text-[var(--color-white)] text-xs`} />
+          <i
+            className={`${icon} text-[var(--color-white)] ${sizeClasses.iconText}`}
+          />
         </div>
       )}
       <span
-        className="font-medium text-sm"
+        className={sizeClasses.label}
         style={{ color: "var(--color-black)" }}
       >
         {label}

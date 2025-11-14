@@ -13,25 +13,24 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"use client";
-
-import { HeaderActionButton } from "./HeaderActionButton";
+import type { EReaderDevice } from "@/contexts/UserContext";
 
 /**
- * Admin button component for the header action bar.
+ * Get display name for a device.
  *
- * Displays admin settings button.
- * Follows SRP by only handling admin-specific rendering logic.
- * Follows DRY by using HeaderActionButton for common structure.
+ * Returns device_name if available, otherwise falls back to email.
+ * Follows SRP by handling only device name formatting.
+ *
+ * Parameters
+ * ----------
+ * device : EReaderDevice
+ *     Device to get display name for.
+ *
+ * Returns
+ * -------
+ * string
+ *     Display name for the device.
  */
-export function AdminButton() {
-  return (
-    <HeaderActionButton
-      href="/admin"
-      tooltipText="Admin settings"
-      ariaLabel="Go to admin settings"
-    >
-      <i className="pi pi-wrench text-text-a30 text-xl" aria-hidden="true" />
-    </HeaderActionButton>
-  );
+export function getDeviceDisplayName(device: EReaderDevice): string {
+  return device.device_name || device.email;
 }
