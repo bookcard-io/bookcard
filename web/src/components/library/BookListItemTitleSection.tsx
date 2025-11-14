@@ -53,7 +53,7 @@ export function BookListItemTitleSection({
       <button
         type="button"
         className={cn(
-          "flex min-w-0 flex-1 items-start gap-2 text-left",
+          "flex min-w-0 flex-1 cursor-pointer items-start gap-2 text-left",
           "focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2",
           "focus:not-focus-visible:outline-none focus:outline-none",
         )}

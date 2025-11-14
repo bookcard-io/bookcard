@@ -30,6 +30,8 @@ import { useCreateShelfWithBook } from "@/hooks/useCreateShelfWithBook";
 import { useListColumns } from "@/hooks/useListColumns";
 import { cn } from "@/libs/utils";
 import type { Book } from "@/types/book";
+import { getBookListItemAriaLabel } from "@/utils/book";
+import { createEnterSpaceHandler } from "@/utils/keyboard";
 import { BookListItemTitleSection } from "./BookListItemTitleSection";
 import { ListColumnsSection } from "./ListColumnsSection";
 
@@ -90,6 +92,8 @@ export function BookListItem({
     }
   }, [_onClick, book]);
 
+  const handleCoverKeyDown = createEnterSpaceHandler(handleClick);
+
   return (
     <>
       <div
@@ -108,12 +112,25 @@ export function BookListItem({
 
         {/* Cover art */}
         <div className="relative flex-shrink-0">
-          <div className="relative w-8">
+          <button
+            type="button"
+            className={cn(
+              "relative w-8 cursor-pointer",
+              "focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2",
+              "focus:not-focus-visible:outline-none focus:outline-none",
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleClick();
+            }}
+            onKeyDown={handleCoverKeyDown}
+            aria-label={getBookListItemAriaLabel(book, selected)}
+          >
             <BookCardCover
               title={book.title}
               thumbnailUrl={book.thumbnail_url}
             />
-          </div>
+          </button>
         </div>
 
         {/* Title and Author (always visible) */}
