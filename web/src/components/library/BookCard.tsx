@@ -136,7 +136,6 @@ export function BookCard({
           cursorPosition={menu.cursorPosition}
           bookId={book.id}
           onBookInfo={menuActions.handleBookInfo}
-          onSend={menuActions.handleSend}
           onMoveToLibrary={menuActions.handleMoveToLibrary}
           onConvert={menuActions.handleConvert}
           onDelete={menuActions.handleDelete}
