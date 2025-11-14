@@ -15,7 +15,7 @@
 
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CreateShelfCard } from "@/components/shelves/CreateShelfCard";
 import { ShelfCard } from "@/components/shelves/ShelfCard";
 import { ShelfEditModal } from "@/components/shelves/ShelfEditModal";
@@ -31,6 +31,10 @@ export interface ShelvesGridProps {
   onSelectionChange?: (selectedIds: Set<number>) => void;
   /** Callback when shelf is clicked (to navigate to library tab and filter). */
   onShelfClick?: (shelfId: number) => void;
+  /** Ref to expose selection control methods to parent. */
+  selectionControlRef?: React.MutableRefObject<{
+    clearSelection: () => void;
+  } | null>;
 }
 
 /**
@@ -45,6 +49,7 @@ export interface ShelvesGridProps {
 export function ShelvesGrid({
   onSelectionChange,
   onShelfClick,
+  selectionControlRef,
 }: ShelvesGridProps = {}) {
   // Use global context for shelves data (syncs with Sidebar automatically)
   const { shelves, isLoading, error } = useShelvesContext();
@@ -69,9 +74,20 @@ export function ShelvesGrid({
     isShelfSelected,
     handleShelfSelect,
     removeFromSelection,
+    clearSelection,
   } = useShelfSelection({
     onSelectionChange,
   });
+
+  // Expose clearSelection via ref so external callers can clear selection
+  useEffect(() => {
+    if (!selectionControlRef) {
+      return;
+    }
+    selectionControlRef.current = {
+      clearSelection,
+    };
+  }, [selectionControlRef, clearSelection]);
 
   // Handle shelf operations (CRUD)
   const {

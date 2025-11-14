@@ -34,6 +34,8 @@ export interface UseShelfSelectionResult {
   ) => void;
   /** Remove shelves from selection (e.g., after deletion). */
   removeFromSelection: (shelfIds: number[]) => void;
+  /** Clear all selections. */
+  clearSelection: () => void;
 }
 
 /**
@@ -107,10 +109,15 @@ export function useShelfSelection(
     [selectedShelfIds],
   );
 
+  const clearSelection = useCallback(() => {
+    setSelectedShelfIds(new Set());
+  }, []);
+
   return {
     selectedShelfIds,
     isShelfSelected,
     handleShelfSelect,
     removeFromSelection,
+    clearSelection,
   };
 }

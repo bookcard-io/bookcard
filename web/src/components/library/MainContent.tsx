@@ -16,7 +16,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { BookEditModal } from "@/components/books/BookEditModal";
 import { BookViewModal } from "@/components/books/BookViewModal";
 import { LibraryHeader } from "@/components/library/LibraryHeader";
@@ -70,6 +70,9 @@ export function MainContent() {
     new Set(),
   );
   const { refresh: refreshShelvesContext } = useShelvesContext();
+  const shelvesGridSelectionControlRef = useRef<{
+    clearSelection: () => void;
+  } | null>(null);
 
   // Handle shelf card click (navigate to library tab and filter)
   const handleShelfClick = useCallback(
@@ -97,7 +100,7 @@ export function MainContent() {
 
   // Handle deselect all
   const handleDeselectAll = useCallback(() => {
-    setSelectedShelfIds(new Set());
+    shelvesGridSelectionControlRef.current?.clearSelection();
   }, []);
 
   return (
@@ -189,6 +192,7 @@ export function MainContent() {
           <ShelvesGrid
             onSelectionChange={setSelectedShelfIds}
             onShelfClick={handleShelfClick}
+            selectionControlRef={shelvesGridSelectionControlRef}
           />
         )}
       </div>
