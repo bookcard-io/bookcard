@@ -18,7 +18,6 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { ShelfEditModal } from "@/components/shelves/ShelfEditModal";
-import { useActiveLibrary } from "@/contexts/ActiveLibraryContext";
 import { useSelectedShelf } from "@/contexts/SelectedShelfContext";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
 import { useSidebar } from "@/contexts/SidebarContext";
@@ -55,7 +54,6 @@ const sectionIcons: Record<
 
 export function Sidebar() {
   const { isCollapsed, setIsCollapsed } = useSidebar();
-  const { activeLibrary } = useActiveLibrary();
   const {
     shelves,
     isLoading: shelvesLoading,
@@ -87,10 +85,6 @@ export function Sidebar() {
   const handleHomeClick = () => {
     setSelectedShelfId(undefined);
     router.push("/");
-  };
-
-  const handleLibraryMenuClick = () => {
-    // Placeholder for now
   };
 
   const handleShelfClick = (shelfId: number) => {
@@ -209,23 +203,42 @@ export function Sidebar() {
                   Home
                 </button>
               </li>
-              {activeLibrary && (
-                <li>
-                  <div className="flex w-[calc(100%-32px)] cursor-pointer items-center justify-between rounded border-0 bg-transparent py-2.5 pr-0 pl-[46px] text-[var(--color-text-a30)] text-sm transition-colors duration-200 hover:bg-[var(--color-surface-a20)]">
-                    <span className="flex-1 text-left">
-                      {activeLibrary.name}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleLibraryMenuClick}
-                      className="flex items-center justify-center rounded border-0 bg-transparent text-[var(--color-text-a30)] text-base transition-colors duration-200 hover:text-[var(--color-text-a10)]"
-                      aria-label="Library options"
-                    >
-                      <i className="pi pi-ellipsis-v" aria-hidden="true" />
-                    </button>
-                  </div>
-                </li>
-              )}
+              <li>
+                <button
+                  type="button"
+                  onClick={handleLinkClick}
+                  className="block w-[calc(100%-32px)] cursor-pointer rounded border-0 bg-transparent py-2.5 pr-4 pl-[46px] text-left text-[var(--color-text-a30)] text-sm no-underline transition-colors duration-200 hover:bg-[var(--color-surface-a20)] hover:text-[var(--color-text-a10)]"
+                >
+                  Authors
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={handleLinkClick}
+                  className="block w-[calc(100%-32px)] cursor-pointer rounded border-0 bg-transparent py-2.5 pr-4 pl-[46px] text-left text-[var(--color-text-a30)] text-sm no-underline transition-colors duration-200 hover:bg-[var(--color-surface-a20)] hover:text-[var(--color-text-a10)]"
+                >
+                  Series
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={handleLinkClick}
+                  className="block w-[calc(100%-32px)] cursor-pointer rounded border-0 bg-transparent py-2.5 pr-4 pl-[46px] text-left text-[var(--color-text-a30)] text-sm no-underline transition-colors duration-200 hover:bg-[var(--color-surface-a20)] hover:text-[var(--color-text-a10)]"
+                >
+                  Genres
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={handleLinkClick}
+                  className="block w-[calc(100%-32px)] cursor-pointer rounded border-0 bg-transparent py-2.5 pr-4 pl-[46px] text-left text-[var(--color-text-a30)] text-sm no-underline transition-colors duration-200 hover:bg-[var(--color-surface-a20)] hover:text-[var(--color-text-a10)]"
+                >
+                  Publishers
+                </button>
+              </li>
             </ul>
           )}
         </div>
