@@ -13,8 +13,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import type { FilterValues } from "@/components/library/widgets/FiltersPanel";
+import { useLibraryLoading } from "@/contexts/LibraryLoadingContext";
 import { useBooks } from "@/hooks/useBooks";
 import { useFilteredBooks } from "@/hooks/useFilteredBooks";
 import { useShelfBooks } from "@/hooks/useShelfBooks";
@@ -185,6 +186,21 @@ export function useLibraryBooks(
         addBook: allBooksForShelfResult.addBook,
       }
     : baseResult;
+
+  const { incrementBooksLoading, decrementBooksLoading } = useLibraryLoading();
+
+  // Integrate with global library loading context while keeping book data
+  // fetching concerns localized to this hook. Uses a reference-counted
+  // model so multiple hook instances can contribute to the shared signal.
+  useEffect(() => {
+    if (result.isLoading) {
+      incrementBooksLoading();
+      return () => {
+        decrementBooksLoading();
+      };
+    }
+    return undefined;
+  }, [result.isLoading, incrementBooksLoading, decrementBooksLoading]);
 
   return {
     books: result.books,

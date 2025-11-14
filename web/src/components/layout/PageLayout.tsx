@@ -17,9 +17,11 @@
 
 import type { ReactNode } from "react";
 import { HeaderActionBarButtons } from "@/components/layout/HeaderActionBarButtons";
+import { PageLoadingOverlay } from "@/components/layout/PageLoadingOverlay";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { ActiveLibraryProvider } from "@/contexts/ActiveLibraryContext";
 import { HeaderActionBarProvider } from "@/contexts/HeaderActionBarContext";
+import { LibraryLoadingProvider } from "@/contexts/LibraryLoadingContext";
 import { SelectedShelfProvider } from "@/contexts/SelectedShelfContext";
 import { ShelvesProvider } from "@/contexts/ShelvesContext";
 import { SidebarProvider, useSidebar } from "@/contexts/SidebarContext";
@@ -33,6 +35,9 @@ interface PageContentProps {
 /**
  * Page content wrapper that handles responsive margins based on sidebar state.
  *
+ * Also hosts the global `PageLoadingOverlay` so that the soft loading spinner
+ * is always centered over the main content area, independently of the sidebar.
+ *
  * Parameters
  * ----------
  * children : ReactNode
@@ -43,10 +48,11 @@ function PageContent({ children }: PageContentProps) {
   return (
     <main
       className={cn(
-        "flex-1 overflow-y-auto bg-surface-a0 transition-[margin-left] duration-300 ease-in-out",
+        "relative flex-1 overflow-y-auto bg-surface-a0 transition-[margin-left] duration-300 ease-in-out",
         isCollapsed ? "ml-16" : "ml-[var(--sidebar-width)]",
       )}
     >
+      <PageLoadingOverlay />
       {children}
     </main>
   );
@@ -83,17 +89,19 @@ export function PageLayout({ children }: PageLayoutProps) {
     <UserProvider>
       <ActiveLibraryProvider>
         <ShelvesProvider>
-          <SelectedShelfProvider>
-            <SidebarProvider>
-              <HeaderActionBarProvider>
-                <HeaderActionBarButtons />
-                <div className="flex h-screen w-full overflow-hidden">
-                  <Sidebar />
-                  <PageContent>{children}</PageContent>
-                </div>
-              </HeaderActionBarProvider>
-            </SidebarProvider>
-          </SelectedShelfProvider>
+          <LibraryLoadingProvider>
+            <SelectedShelfProvider>
+              <SidebarProvider>
+                <HeaderActionBarProvider>
+                  <HeaderActionBarButtons />
+                  <div className="flex h-screen w-full overflow-hidden">
+                    <Sidebar />
+                    <PageContent>{children}</PageContent>
+                  </div>
+                </HeaderActionBarProvider>
+              </SidebarProvider>
+            </SelectedShelfProvider>
+          </LibraryLoadingProvider>
         </ShelvesProvider>
       </ActiveLibraryProvider>
     </UserProvider>
