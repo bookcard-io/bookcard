@@ -16,12 +16,16 @@
 import { useCallback, useState } from "react";
 import type { DeviceCreate } from "@/components/profile/DeviceEditModal";
 import type { EReaderDevice } from "@/components/profile/hooks/useUserProfile";
+import type { EReaderDevice as ContextEReaderDevice } from "@/contexts/UserContext";
+import { generateDeviceName } from "@/utils/device";
 import { isEmailError, translateDeviceError } from "@/utils/deviceErrors";
 import { validateEmail } from "@/utils/validation";
 
 export interface UseDeviceFormOptions {
   /** Initial device data (for edit mode). */
   initialDevice?: EReaderDevice | null;
+  /** Existing devices for name generation (for create mode). */
+  existingDevices?: ContextEReaderDevice[];
   /** Callback when form is successfully submitted. */
   onSubmit?: (data: DeviceCreate) => Promise<EReaderDevice> | Promise<void>;
   /** Callback when form submission fails. */
@@ -84,7 +88,7 @@ export interface UseDeviceFormReturn {
 export function useDeviceForm(
   options: UseDeviceFormOptions = {},
 ): UseDeviceFormReturn {
-  const { initialDevice, onSubmit, onError } = options;
+  const { initialDevice, existingDevices = [], onSubmit, onError } = options;
 
   const [email, setEmail] = useState(initialDevice?.email || "");
   const [deviceName, setDeviceName] = useState(
@@ -133,9 +137,17 @@ export function useDeviceForm(
     setErrors({});
 
     try {
+      // Generate device name if not provided (only in create mode)
+      const trimmedName = deviceName.trim();
+      const finalDeviceName = trimmedName
+        ? trimmedName
+        : initialDevice
+          ? null
+          : generateDeviceName(existingDevices);
+
       const data: DeviceCreate = {
         email: email.trim(),
-        device_name: deviceName.trim() || null,
+        device_name: finalDeviceName,
         device_type: deviceType,
         preferred_format: preferredFormat.trim() || null,
         is_default: isDefault,
@@ -179,6 +191,8 @@ export function useDeviceForm(
     validate,
     onSubmit,
     onError,
+    initialDevice,
+    existingDevices,
   ]);
 
   const reset = useCallback(() => {

@@ -92,8 +92,8 @@ export function AddToShelfFlyoutMenu({
     menuRef,
     onClose,
     padding: 10,
-    minMovementPx: 1,
-    idleTimeMs: 15, // smaller value = snappier close; larger value = more forgiving, but sluggish
+    minMovementPx: 2,
+    idleTimeMs: 20, // smaller value = snappier close; larger value = more forgiving, but sluggish
   });
 
   /**

@@ -75,55 +75,100 @@ describe("useMainContent", () => {
     mockToString.mockReturnValue("");
 
     mockSearch = {
-      searchQuery: "",
-      handleSearchChange: vi.fn(),
-      handleSearchSubmit: vi.fn(),
-      clearSearch: vi.fn(),
+      searchInputValue: "",
+      filterQuery: "",
+      handleSearchChange: vi.fn<(value: string) => void>(),
+      handleSearchSubmit: vi.fn<(value: string) => void>(),
+      handleSuggestionClick:
+        vi.fn<
+          (suggestion: { type: string; name: string; id?: number }) => void
+        >(),
+      clearSearch: vi.fn<() => void>(),
     } as ReturnType<typeof useLibrarySearch>;
 
     mockSorting = {
       sortBy: "title",
       sortOrder: "asc",
-      handleSortChange: vi.fn(),
-      handleSortToggle: vi.fn(),
-      isSortPanelOpen: false,
-      openSortPanel: vi.fn(),
-      closeSortPanel: vi.fn(),
+      showSortPanel: false,
+      handleSortByClick: vi.fn<() => void>(),
+      handleSortByChange:
+        vi.fn<
+          (
+            newSortBy: import("@/components/library/widgets/SortPanel").SortField,
+          ) => void
+        >(),
+      handleSortToggle: vi.fn<() => void>(),
+      closeSortPanel: vi.fn<() => void>(),
     } as ReturnType<typeof useLibrarySorting>;
 
     mockFilters = {
-      filters: {},
-      handleFilterChange: vi.fn(),
-      clearFilters: vi.fn(),
-      isFiltersPanelOpen: false,
-      openFiltersPanel: vi.fn(),
-      closeFiltersPanel: vi.fn(),
+      filters: {
+        authorIds: [],
+        titleIds: [],
+        genreIds: [],
+        publisherIds: [],
+        seriesIds: [],
+        tagIds: [],
+        languageIds: [],
+        ratingIds: [],
+        identifierIds: [],
+        formats: [],
+      },
+      selectedFilterSuggestions: {},
+      showFiltersPanel: false,
+      handleFiltersClick: vi.fn<() => void>(),
+      handleFiltersChange:
+        vi.fn<
+          (
+            newFilters: import("@/components/library/widgets/FiltersPanel").FilterValues,
+          ) => void
+        >(),
+      handleSuggestionsChange:
+        vi.fn<
+          (
+            suggestions: import("@/components/library/widgets/FiltersPanel").SelectedFilterSuggestions,
+          ) => void
+        >(),
+      handleApplyFilters:
+        vi.fn<
+          (
+            appliedFilters: import("@/components/library/widgets/FiltersPanel").FilterValues,
+          ) => void
+        >(),
+      handleClearFilters: vi.fn<() => void>(),
+      handleCloseFiltersPanel: vi.fn<() => void>(),
+      clearFilters: vi.fn<() => void>(),
+      closeFiltersPanel: vi.fn<() => void>(),
     } as ReturnType<typeof useLibraryFilters>;
 
     mockViewMode = {
       viewMode: "grid",
-      handleViewModeChange: vi.fn(),
+      isReady: true,
+      handleViewModeChange: vi.fn<(mode: "grid" | "list") => void>(),
     } as ReturnType<typeof useLibraryViewMode>;
 
     mockBookModal = {
-      isOpen: false,
-      currentBookId: null,
-      handleBookClick: vi.fn(),
-      handleClose: vi.fn(),
-      handleNext: vi.fn(),
-      handlePrevious: vi.fn(),
+      viewingBookId: null,
+      handleBookClick: vi.fn<(book: { id: number }) => void>(),
+      handleCloseModal: vi.fn<() => void>(),
+      handleNavigatePrevious: vi.fn<() => void>(),
+      handleNavigateNext: vi.fn<() => void>(),
     } as ReturnType<typeof useBookViewModal>;
 
     mockBookEditModal = {
       editingBookId: null,
-      handleEditBook: vi.fn(),
-      handleClose: vi.fn(),
+      handleEditBook: vi.fn<(bookId: number) => void>(),
+      handleCloseModal: vi.fn<() => void>(),
     } as ReturnType<typeof useBookEditModal>;
 
     mockBookUpload = {
+      fileInputRef: { current: null },
       isUploading: false,
-      handleFileSelect: vi.fn(),
-      handleDrop: vi.fn(),
+      openFileBrowser: vi.fn<() => void>(),
+      handleFileChange:
+        vi.fn<(e: React.ChangeEvent<HTMLInputElement>) => void>(),
+      accept:
+        ".epub,.mobi,.azw,.azw3,.pdf,.txt,.rtf,.html,.htm,.fb2,.lit,.lrf,.pdb,.rb,.snb,.tcr,.djv,.djvu,.xps,.oxps,.cbz,.cbr,.cbc,.zip",
     } as ReturnType<typeof useBookUpload>;
 
     vi.mocked(useLibrarySearch).mockReturnValue(mockSearch);
@@ -290,12 +335,12 @@ describe("useMainContent", () => {
 
       // The hook should set up coordination
       expect(useLibrarySorting).toHaveBeenCalled();
-      const callArgs = vi.mocked(useLibrarySorting).mock.calls[0][0];
-      expect(callArgs.onSortPanelChange).toBeDefined();
+      const callArgs = vi.mocked(useLibrarySorting).mock.calls[0]?.[0];
+      expect(callArgs?.onSortPanelChange).toBeDefined();
 
       // When sort panel opens, filters should close
       act(() => {
-        callArgs.onSortPanelChange?.(true);
+        callArgs?.onSortPanelChange?.(true);
       });
 
       expect(mockFilters.closeFiltersPanel).toHaveBeenCalled();
@@ -310,12 +355,12 @@ describe("useMainContent", () => {
 
       renderHook(() => useMainContent());
 
-      const callArgs = vi.mocked(useLibraryFilters).mock.calls[0][0];
-      expect(callArgs.onFiltersPanelChange).toBeDefined();
+      const callArgs = vi.mocked(useLibraryFilters).mock.calls[0]?.[0];
+      expect(callArgs?.onFiltersPanelChange).toBeDefined();
 
       // When filters panel opens, sort should close
       act(() => {
-        callArgs.onFiltersPanelChange?.(true);
+        callArgs?.onFiltersPanelChange?.(true);
       });
 
       expect(mockSorting.closeSortPanel).toHaveBeenCalled();
@@ -326,12 +371,12 @@ describe("useMainContent", () => {
     it("should connect search onBookClick to book modal", () => {
       renderHook(() => useMainContent());
 
-      const searchCallArgs = vi.mocked(useLibrarySearch).mock.calls[0][0];
-      expect(searchCallArgs.onBookClick).toBeDefined();
+      const searchCallArgs = vi.mocked(useLibrarySearch).mock.calls[0]?.[0];
+      expect(searchCallArgs?.onBookClick).toBeDefined();
 
       // The onBookClick should call book modal
       act(() => {
-        searchCallArgs.onBookClick?.(123);
+        searchCallArgs?.onBookClick?.(123);
       });
 
       // Book modal ref should be updated via useEffect
@@ -360,9 +405,9 @@ describe("useMainContent", () => {
     it("should set up book upload with success handler", () => {
       renderHook(() => useMainContent());
 
-      const uploadCallArgs = vi.mocked(useBookUpload).mock.calls[0][0];
-      expect(uploadCallArgs.onUploadSuccess).toBeDefined();
-      expect(uploadCallArgs.onUploadError).toBeDefined();
+      const uploadCallArgs = vi.mocked(useBookUpload).mock.calls[0]?.[0];
+      expect(uploadCallArgs?.onUploadSuccess).toBeDefined();
+      expect(uploadCallArgs?.onUploadError).toBeDefined();
     });
 
     it("should add book to grid and open edit modal on upload success", async () => {
@@ -376,10 +421,10 @@ describe("useMainContent", () => {
         addBook: mockAddBook,
       };
 
-      const uploadCallArgs = vi.mocked(useBookUpload).mock.calls[0][0];
+      const uploadCallArgs = vi.mocked(useBookUpload).mock.calls[0]?.[0];
 
       await act(async () => {
-        await uploadCallArgs.onUploadSuccess?.(123);
+        await uploadCallArgs?.onUploadSuccess?.(123);
       });
 
       expect(mockAddBook).toHaveBeenCalledWith(123);
@@ -392,14 +437,17 @@ describe("useMainContent", () => {
         .mockImplementation(() => {});
       renderHook(() => useMainContent());
 
-      const uploadCallArgs = vi.mocked(useBookUpload).mock.calls[0][0];
-      const error = new Error("Upload failed");
+      const uploadCallArgs = vi.mocked(useBookUpload).mock.calls[0]?.[0];
+      const error = "Upload failed";
 
       act(() => {
-        uploadCallArgs.onUploadError?.(error);
+        uploadCallArgs?.onUploadError?.(error);
       });
 
-      expect(consoleSpy).toHaveBeenCalledWith("Book upload failed:", error);
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "Book upload failed:",
+        "Upload failed",
+      );
       consoleSpy.mockRestore();
     });
   });
@@ -408,8 +456,8 @@ describe("useMainContent", () => {
     it("should connect view mode to sort toggle", () => {
       renderHook(() => useMainContent());
 
-      const viewModeCallArgs = vi.mocked(useLibraryViewMode).mock.calls[0][0];
-      expect(viewModeCallArgs.onSortToggle).toBe(mockSorting.handleSortToggle);
+      const viewModeCallArgs = vi.mocked(useLibraryViewMode).mock.calls[0]?.[0];
+      expect(viewModeCallArgs?.onSortToggle).toBe(mockSorting.handleSortToggle);
     });
 
     it("should handle view mode change", () => {
@@ -460,11 +508,11 @@ describe("useMainContent", () => {
       const bookModalCallArgs =
         vi.mocked(useBookViewModal).mock.calls[
           vi.mocked(useBookViewModal).mock.calls.length - 1
-        ][0];
-      expect(bookModalCallArgs.bookIds).toEqual([1, 2, 3]);
-      expect(bookModalCallArgs.loadMore).toBe(newData.loadMore);
-      expect(bookModalCallArgs.hasMore).toBe(true);
-      expect(bookModalCallArgs.isLoading).toBe(false);
+        ]?.[0];
+      expect(bookModalCallArgs?.bookIds).toEqual([1, 2, 3]);
+      expect(bookModalCallArgs?.loadMore).toBe(newData.loadMore);
+      expect(bookModalCallArgs?.hasMore).toBe(true);
+      expect(bookModalCallArgs?.isLoading).toBe(false);
     });
   });
 
@@ -472,8 +520,8 @@ describe("useMainContent", () => {
     it("should connect filters clearSearch to search clearSearch", () => {
       renderHook(() => useMainContent());
 
-      const filtersCallArgs = vi.mocked(useLibraryFilters).mock.calls[0][0];
-      expect(filtersCallArgs.onClearSearch).toBe(mockSearch.clearSearch);
+      const filtersCallArgs = vi.mocked(useLibraryFilters).mock.calls[0]?.[0];
+      expect(filtersCallArgs?.onClearSearch).toBe(mockSearch.clearSearch);
     });
   });
 });

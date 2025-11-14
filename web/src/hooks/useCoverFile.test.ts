@@ -327,14 +327,14 @@ describe("useCoverFile", () => {
   it("should sync with initialCoverFile in create mode when user hasn't touched", () => {
     const initialFile = new File(["test"], "cover.jpg", { type: "image/jpeg" });
     const { result, rerender } = renderHook(
-      ({ initialCoverFile }) =>
+      ({ initialCoverFile }: { initialCoverFile?: File | null }) =>
         useCoverFile({ initialCoverFile, isEditMode: false }),
-      { initialProps: { initialCoverFile: null } },
+      { initialProps: { initialCoverFile: null as File | null } },
     );
 
     expect(result.current.coverFile).toBeNull();
 
-    rerender({ initialCoverFile: initialFile });
+    rerender({ initialCoverFile: initialFile as File | null });
 
     expect(result.current.coverFile).toBe(initialFile);
   });
@@ -346,9 +346,9 @@ describe("useCoverFile", () => {
     const userFile = new File(["user"], "user.jpg", { type: "image/jpeg" });
 
     const { result, rerender } = renderHook(
-      ({ initialCoverFile }) =>
+      ({ initialCoverFile }: { initialCoverFile?: File | null }) =>
         useCoverFile({ initialCoverFile, isEditMode: false }),
-      { initialProps: { initialCoverFile: null } },
+      { initialProps: { initialCoverFile: null as File | null } },
     );
 
     // User selects a file
@@ -365,7 +365,7 @@ describe("useCoverFile", () => {
     expect(result.current.coverFile).toBe(userFile);
 
     // Update initialCoverFile - should not overwrite
-    rerender({ initialCoverFile: initialFile });
+    rerender({ initialCoverFile: initialFile as File | null });
 
     expect(result.current.coverFile).toBe(userFile); // Still user's file
   });
@@ -375,14 +375,14 @@ describe("useCoverFile", () => {
       type: "image/jpeg",
     });
     const { result, rerender } = renderHook(
-      ({ initialCoverFile }) =>
+      ({ initialCoverFile }: { initialCoverFile?: File | null }) =>
         useCoverFile({ initialCoverFile, isEditMode: true }),
-      { initialProps: { initialCoverFile: null } },
+      { initialProps: { initialCoverFile: null as File | null } },
     );
 
     expect(result.current.coverFile).toBeNull();
 
-    rerender({ initialCoverFile: initialFile });
+    rerender({ initialCoverFile: initialFile as File | null });
 
     expect(result.current.coverFile).toBeNull(); // Should not sync in edit mode
   });

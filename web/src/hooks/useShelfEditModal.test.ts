@@ -38,15 +38,19 @@ function createMockShelf(id: number): Shelf {
 
 describe("useShelfEditModal", () => {
   let shelf: Shelf;
-  let onEdit: ReturnType<typeof vi.fn>;
-  let onShelfUpdate: ReturnType<typeof vi.fn>;
-  let onCoverUpdate: ReturnType<typeof vi.fn>;
+  let onEdit: ReturnType<typeof vi.fn<(shelfId: number) => void>>;
+  let onShelfUpdate: ReturnType<typeof vi.fn<(shelf: Shelf) => Promise<void>>>;
+  let onCoverUpdate: ReturnType<
+    typeof vi.fn<(shelfId: number, updatedShelf?: Shelf) => void>
+  >;
 
   beforeEach(() => {
     shelf = createMockShelf(1);
-    onEdit = vi.fn();
-    onShelfUpdate = vi.fn().mockResolvedValue(undefined);
-    onCoverUpdate = vi.fn();
+    onEdit = vi.fn<(shelfId: number) => void>();
+    onShelfUpdate = vi
+      .fn<(shelf: Shelf) => Promise<void>>()
+      .mockResolvedValue(undefined);
+    onCoverUpdate = vi.fn<(shelfId: number, updatedShelf?: Shelf) => void>();
   });
 
   it("should initialize with modal closed", () => {

@@ -60,8 +60,8 @@ describe("useShelfGridOperations", () => {
     updateShelf: (shelfId: number, shelfData: Partial<Shelf>) => void;
     updateCover: (shelfId: number) => void;
   }>;
-  let onShelvesDeleted: ReturnType<typeof vi.fn>;
-  let onError: ReturnType<typeof vi.fn>;
+  let onShelvesDeleted: ReturnType<typeof vi.fn<(shelfIds: number[]) => void>>;
+  let onError: ReturnType<typeof vi.fn<(error: Error) => void>>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -83,6 +83,9 @@ describe("useShelfGridOperations", () => {
     } as ReturnType<typeof useShelves>);
 
     vi.mocked(useShelvesContext).mockReturnValue({
+      shelves: [],
+      isLoading: false,
+      error: null,
       refresh: mockRefreshContext,
     } as ReturnType<typeof useShelvesContext>);
 
@@ -93,8 +96,8 @@ describe("useShelfGridOperations", () => {
       },
     };
 
-    onShelvesDeleted = vi.fn();
-    onError = vi.fn();
+    onShelvesDeleted = vi.fn<(shelfIds: number[]) => void>();
+    onError = vi.fn<(error: Error) => void>();
   });
 
   it("should update shelf and refresh context", async () => {
@@ -366,7 +369,8 @@ describe("useShelfGridOperations", () => {
       ...shelf,
       name: "Updated Shelf",
     };
-    shelfDataUpdateRef.current = null;
+    shelfDataUpdateRef.current =
+      undefined as unknown as typeof shelfDataUpdateRef.current;
 
     const { result } = renderHook(() =>
       useShelfGridOperations({
@@ -386,7 +390,8 @@ describe("useShelfGridOperations", () => {
 
   it("should handle null shelfDataUpdateRef.current for cover update", () => {
     const updatedShelf = createMockShelf(1);
-    shelfDataUpdateRef.current = null;
+    shelfDataUpdateRef.current =
+      undefined as unknown as typeof shelfDataUpdateRef.current;
 
     const { result } = renderHook(() =>
       useShelfGridOperations({

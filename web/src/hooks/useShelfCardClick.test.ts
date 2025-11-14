@@ -14,6 +14,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { renderHook } from "@testing-library/react";
+import type React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Shelf } from "@/types/shelf";
 import { useShelfCardClick } from "./useShelfCardClick";
@@ -37,12 +38,12 @@ function createMockShelf(id: number, bookCount: number = 0): Shelf {
 }
 
 describe("useShelfCardClick", () => {
-  let onShelfClick: ReturnType<typeof vi.fn>;
-  let onTriggerAnimation: ReturnType<typeof vi.fn>;
+  let onShelfClick: ReturnType<typeof vi.fn<(shelfId: number) => void>>;
+  let onTriggerAnimation: ReturnType<typeof vi.fn<() => void>>;
 
   beforeEach(() => {
-    onShelfClick = vi.fn();
-    onTriggerAnimation = vi.fn();
+    onShelfClick = vi.fn<(shelfId: number) => void>();
+    onTriggerAnimation = vi.fn<() => void>();
   });
 
   it("should trigger animation for empty shelf on click", () => {
@@ -57,7 +58,7 @@ describe("useShelfCardClick", () => {
 
     const mockEvent = {
       target: document.createElement("div"),
-    } as React.MouseEvent;
+    } as unknown as React.MouseEvent<Element, MouseEvent>;
 
     result.current.handleClick(mockEvent);
 
@@ -77,7 +78,7 @@ describe("useShelfCardClick", () => {
 
     const mockEvent = {
       target: document.createElement("div"),
-    } as React.MouseEvent;
+    } as unknown as React.MouseEvent<Element, MouseEvent>;
 
     result.current.handleClick(mockEvent);
 
@@ -99,7 +100,7 @@ describe("useShelfCardClick", () => {
     checkbox.setAttribute("data-shelf-checkbox", "");
     const mockEvent = {
       target: checkbox,
-    } as React.MouseEvent;
+    } as unknown as React.MouseEvent<Element, MouseEvent>;
 
     result.current.handleClick(mockEvent);
 
@@ -121,7 +122,7 @@ describe("useShelfCardClick", () => {
     editButton.setAttribute("data-shelf-edit", "");
     const mockEvent = {
       target: editButton,
-    } as React.MouseEvent;
+    } as unknown as React.MouseEvent<Element, MouseEvent>;
 
     result.current.handleClick(mockEvent);
 
@@ -143,7 +144,7 @@ describe("useShelfCardClick", () => {
     menuButton.setAttribute("data-shelf-menu", "");
     const mockEvent = {
       target: menuButton,
-    } as React.MouseEvent;
+    } as unknown as React.MouseEvent<Element, MouseEvent>;
 
     result.current.handleClick(mockEvent);
 
@@ -168,7 +169,7 @@ describe("useShelfCardClick", () => {
 
     const mockEvent = {
       target: child,
-    } as React.MouseEvent;
+    } as unknown as React.MouseEvent<Element, MouseEvent>;
 
     // Mock closest to return the checkbox
     vi.spyOn(child, "closest").mockReturnValue(checkbox);
@@ -278,7 +279,7 @@ describe("useShelfCardClick", () => {
 
     const mockEvent = {
       target: document.createElement("div"),
-    } as React.MouseEvent;
+    } as unknown as React.MouseEvent<Element, MouseEvent>;
 
     result.current.handleClick(mockEvent);
 
@@ -300,7 +301,7 @@ describe("useShelfCardClick", () => {
 
     const mockEvent = {
       target: document.createElement("div"),
-    } as React.MouseEvent;
+    } as unknown as React.MouseEvent<Element, MouseEvent>;
 
     result.current.handleClick(mockEvent);
     expect(onTriggerAnimation).toHaveBeenCalledTimes(1);

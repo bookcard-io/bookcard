@@ -37,10 +37,12 @@ function createMockShelf(id: number): Shelf {
 }
 
 describe("useShelfSelection", () => {
-  let onSelectionChange: ReturnType<typeof vi.fn>;
+  let onSelectionChange: ReturnType<
+    typeof vi.fn<(selectedIds: Set<number>) => void>
+  >;
 
   beforeEach(() => {
-    onSelectionChange = vi.fn();
+    onSelectionChange = vi.fn<(selectedIds: Set<number>) => void>();
   });
 
   it("should initialize with empty selection", () => {
@@ -184,8 +186,10 @@ describe("useShelfSelection", () => {
     });
 
     const lastCall =
-      onSelectionChange.mock.calls[onSelectionChange.mock.calls.length - 1][0];
-    expect(lastCall.has(1)).toBe(true);
+      onSelectionChange.mock.calls[
+        onSelectionChange.mock.calls.length - 1
+      ]?.[0];
+    expect(lastCall?.has(1)).toBe(true);
   });
 
   it("should notify parent when selection is cleared", async () => {
@@ -217,8 +221,8 @@ describe("useShelfSelection", () => {
       const lastCall =
         onSelectionChange.mock.calls[
           onSelectionChange.mock.calls.length - 1
-        ][0];
-      expect(lastCall.size).toBe(0);
+        ]?.[0];
+      expect(lastCall?.size).toBe(0);
     });
   });
 
@@ -253,9 +257,9 @@ describe("useShelfSelection", () => {
       const lastCall =
         onSelectionChange.mock.calls[
           onSelectionChange.mock.calls.length - 1
-        ][0];
-      expect(lastCall.size).toBe(1);
-      expect(lastCall.has(2)).toBe(true);
+        ]?.[0];
+      expect(lastCall?.size).toBe(1);
+      expect(lastCall?.has(2)).toBe(true);
     });
   });
 

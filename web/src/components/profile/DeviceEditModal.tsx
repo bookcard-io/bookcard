@@ -18,6 +18,7 @@
 import { useCallback } from "react";
 import { Button } from "@/components/forms/Button";
 import { TextInput } from "@/components/forms/TextInput";
+import { useUser } from "@/contexts/UserContext";
 import { useDeviceForm } from "@/hooks/useDeviceForm";
 import { useModal } from "@/hooks/useModal";
 import { useModalAnimation } from "@/hooks/useModalAnimation";
@@ -57,6 +58,10 @@ export function DeviceEditModal({
   onSave,
 }: DeviceEditModalProps) {
   const isEditMode = device !== null && device !== undefined;
+  const { user } = useUser();
+  // Exclude current device from existing devices when editing
+  const existingDevices =
+    user?.ereader_devices?.filter((d) => d.id !== device?.id) || [];
 
   // Prevent body scroll when modal is open
   useModal(true);
@@ -83,6 +88,7 @@ export function DeviceEditModal({
     handleSubmit,
   } = useDeviceForm({
     initialDevice: device,
+    existingDevices,
     onSubmit: async (data) => {
       const result = await onSave(data);
       // Only close on success - if we reach here, save was successful
@@ -158,6 +164,15 @@ export function DeviceEditModal({
         >
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-y-auto p-6">
             <TextInput
+              label="Device name"
+              value={deviceName}
+              onChange={(e) => setDeviceName(e.target.value)}
+              error={errors.device_name}
+              placeholder="e.g., My Kindle"
+              autoFocus
+            />
+
+            <TextInput
               label="Email"
               type="email"
               value={email}
@@ -170,16 +185,7 @@ export function DeviceEditModal({
               }}
               error={errors.email}
               required
-              autoFocus
               placeholder="device@example.com"
-            />
-
-            <TextInput
-              label="Device name"
-              value={deviceName}
-              onChange={(e) => setDeviceName(e.target.value)}
-              error={errors.device_name}
-              placeholder="e.g., My Kindle"
             />
 
             <div className="flex flex-col gap-2">

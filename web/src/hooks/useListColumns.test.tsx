@@ -16,7 +16,7 @@
 import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { UserContext } from "@/contexts/UserContext";
+import { type User, UserContext } from "@/contexts/UserContext";
 import { DEFAULT_VISIBLE_COLUMNS } from "@/types/listColumns";
 import { useListColumns } from "./useListColumns";
 
@@ -42,15 +42,15 @@ function createWrapper(mockContext: Partial<UserContextValue> = {}) {
     user: null,
     isLoading: false,
     error: null,
-    refresh: vi.fn(),
+    refresh: vi.fn<() => Promise<void>>(),
     refreshTimestamp: 0,
-    updateUser: vi.fn(),
+    updateUser: vi.fn<(userData: Partial<User>) => void>(),
     profilePictureUrl: null,
-    invalidateProfilePictureCache: vi.fn(),
+    invalidateProfilePictureCache: vi.fn<() => void>(),
     settings: {},
     isSaving: false,
-    getSetting: vi.fn(() => null),
-    updateSetting: vi.fn(),
+    getSetting: vi.fn<(key: string) => string | null>(() => null),
+    updateSetting: vi.fn<(key: string, value: string) => void>(),
     ...mockContext,
   };
 
@@ -62,13 +62,15 @@ function createWrapper(mockContext: Partial<UserContextValue> = {}) {
 }
 
 describe("useListColumns", () => {
-  let mockGetSetting: ReturnType<typeof vi.fn>;
-  let mockUpdateSetting: ReturnType<typeof vi.fn>;
+  let mockGetSetting: ReturnType<typeof vi.fn<(key: string) => string | null>>;
+  let mockUpdateSetting: ReturnType<
+    typeof vi.fn<(key: string, value: string) => void>
+  >;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetSetting = vi.fn(() => null);
-    mockUpdateSetting = vi.fn();
+    mockGetSetting = vi.fn<(key: string) => string | null>(() => null);
+    mockUpdateSetting = vi.fn<(key: string, value: string) => void>();
   });
 
   afterEach(() => {

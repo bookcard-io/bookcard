@@ -37,18 +37,22 @@ function createMockShelf(id: number): Shelf {
 }
 
 describe("useShelfCoverOperations", () => {
-  let mockUploadCover: ReturnType<typeof vi.fn>;
-  let mockDeleteCover: ReturnType<typeof vi.fn>;
-  let onCoverSaved: ReturnType<typeof vi.fn>;
-  let onCoverDeleted: ReturnType<typeof vi.fn>;
-  let onError: ReturnType<typeof vi.fn>;
+  let mockUploadCover: ReturnType<
+    typeof vi.fn<(shelfId: number, file: File) => Promise<Shelf>>
+  >;
+  let mockDeleteCover: ReturnType<
+    typeof vi.fn<(shelfId: number) => Promise<Shelf>>
+  >;
+  let onCoverSaved: ReturnType<typeof vi.fn<(shelf: Shelf) => void>>;
+  let onCoverDeleted: ReturnType<typeof vi.fn<(shelf: Shelf) => void>>;
+  let onError: ReturnType<typeof vi.fn<(error: string) => void>>;
 
   beforeEach(() => {
-    mockUploadCover = vi.fn();
-    mockDeleteCover = vi.fn();
-    onCoverSaved = vi.fn();
-    onCoverDeleted = vi.fn();
-    onError = vi.fn();
+    mockUploadCover = vi.fn<(shelfId: number, file: File) => Promise<Shelf>>();
+    mockDeleteCover = vi.fn<(shelfId: number) => Promise<Shelf>>();
+    onCoverSaved = vi.fn<(shelf: Shelf) => void>();
+    onCoverDeleted = vi.fn<(shelf: Shelf) => void>();
+    onError = vi.fn<(error: string) => void>();
   });
 
   it("should upload cover when coverFile is provided", async () => {
