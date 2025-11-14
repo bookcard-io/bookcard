@@ -15,7 +15,7 @@
 
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useRef } from "react";
 import { BookCardOverlay } from "@/components/library/BookCardOverlay";
 import { ShelfCardCheckbox } from "@/components/shelves/ShelfCardCheckbox";
 import { ShelfCardCover } from "@/components/shelves/ShelfCardCover";
@@ -25,10 +25,12 @@ import { ShelfCardMenuButton } from "@/components/shelves/ShelfCardMenuButton";
 import { ShelfCardMetadata } from "@/components/shelves/ShelfCardMetadata";
 import { ShelfEditModal } from "@/components/shelves/ShelfEditModal";
 import { useBookCardMenu } from "@/hooks/useBookCardMenu";
+import { useShelfCardAnimation } from "@/hooks/useShelfCardAnimation";
+import { useShelfCardClick } from "@/hooks/useShelfCardClick";
 import { useShelfCardMenuActions } from "@/hooks/useShelfCardMenuActions";
+import { useShelfEditModal } from "@/hooks/useShelfEditModal";
 import { cn } from "@/libs/utils";
-import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
-import { createEnterSpaceHandler } from "@/utils/keyboard";
+import type { Shelf } from "@/types/shelf";
 
 export interface ShelfCardProps {
   /** Shelf data to display. */
@@ -79,10 +81,29 @@ export function ShelfCard({
   onShelfClick,
 }: ShelfCardProps) {
   const menu = useBookCardMenu();
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [isShaking, setIsShaking] = useState(false);
-  const [isGlowing, setIsGlowing] = useState(false);
   const cardRef = useRef<HTMLButtonElement>(null);
+
+  const { isShaking, isGlowing, triggerAnimation } = useShelfCardAnimation();
+
+  const { handleClick, handleKeyDown } = useShelfCardClick({
+    shelf,
+    onShelfClick,
+    onTriggerAnimation: triggerAnimation,
+  });
+
+  const {
+    showEditModal,
+    closeEditModal,
+    handleEditClick,
+    handleShelfSave,
+    handleCoverSaved,
+    handleCoverDeleted,
+  } = useShelfEditModal({
+    shelf,
+    onEdit,
+    onShelfUpdate,
+    onCoverUpdate,
+  });
 
   const menuActions = useShelfCardMenuActions({
     shelf,
@@ -98,84 +119,6 @@ export function ShelfCard({
       }
     },
   });
-
-  /**
-   * Handle shelf card click.
-   */
-  const handleClick = useCallback(
-    (e: React.MouseEvent) => {
-      // Don't trigger if clicking on overlay buttons (checkbox, edit, menu)
-      const target = e.target as HTMLElement;
-      if (
-        target.closest("[data-shelf-checkbox]") ||
-        target.closest("[data-shelf-edit]") ||
-        target.closest("[data-shelf-menu]")
-      ) {
-        return;
-      }
-
-      if (shelf.book_count === 0) {
-        // Empty shelf: trigger shake and red glow animation
-        setIsShaking(true);
-        setIsGlowing(true);
-        // Reset shake after animation completes
-        setTimeout(() => {
-          setIsShaking(false);
-        }, 500);
-        // Fade out red glow after shake completes
-        setTimeout(() => {
-          setIsGlowing(false);
-        }, 1000);
-      } else {
-        // Shelf has books: navigate to library tab and filter
-        onShelfClick?.(shelf.id);
-      }
-    },
-    [shelf.book_count, shelf.id, onShelfClick],
-  );
-
-  const handleKeyDown = createEnterSpaceHandler(() => {
-    // For keyboard interactions, we don't need to check for overlay buttons
-    // since keyboard focus won't be on those elements
-    if (shelf.book_count === 0) {
-      // Empty shelf: trigger shake and red glow animation
-      setIsShaking(true);
-      setIsGlowing(true);
-      // Reset shake after animation completes
-      setTimeout(() => {
-        setIsShaking(false);
-      }, 500);
-      // Fade out red glow after shake completes
-      setTimeout(() => {
-        setIsGlowing(false);
-      }, 1000);
-    } else {
-      // Shelf has books: navigate to library tab and filter
-      onShelfClick?.(shelf.id);
-    }
-  });
-
-  const handleEditClick = useCallback(() => {
-    if (onEdit) {
-      onEdit(shelf.id);
-    } else {
-      setShowEditModal(true);
-    }
-  }, [onEdit, shelf.id]);
-
-  const handleShelfSave = useCallback(
-    async (data: ShelfCreate | ShelfUpdate): Promise<Shelf> => {
-      if (onShelfUpdate) {
-        const updatedShelf = { ...shelf, ...data } as Shelf;
-        await onShelfUpdate(updatedShelf);
-        setShowEditModal(false);
-        return updatedShelf;
-      }
-      setShowEditModal(false);
-      return shelf;
-    },
-    [onShelfUpdate, shelf],
-  );
 
   return (
     <>
@@ -240,16 +183,10 @@ export function ShelfCard({
       {showEditModal && (
         <ShelfEditModal
           shelf={shelf}
-          onClose={() => setShowEditModal(false)}
+          onClose={closeEditModal}
           onSave={handleShelfSave}
-          onCoverSaved={(updatedShelf) => {
-            // Update cover in grid when cover is saved (O(1) operation)
-            onCoverUpdate?.(updatedShelf.id, updatedShelf);
-          }}
-          onCoverDeleted={(updatedShelf) => {
-            // Update cover in grid when cover is deleted (O(1) operation)
-            onCoverUpdate?.(updatedShelf.id, updatedShelf);
-          }}
+          onCoverSaved={handleCoverSaved}
+          onCoverDeleted={handleCoverDeleted}
         />
       )}
     </>
