@@ -95,3 +95,50 @@ export function deduplicateShelves(
 
   return result;
 }
+
+/**
+ * Sort shelves by created_at in descending order (newest first).
+ *
+ * Parameters
+ * ----------
+ * shelves : Shelf[]
+ *     Array of shelves to sort.
+ *
+ * Returns
+ * -------
+ * Shelf[]
+ *     Sorted array of shelves.
+ */
+export function sortShelvesByCreatedAt(shelves: Shelf[]): Shelf[] {
+  return [...shelves].sort((a, b) => {
+    const dateA = new Date(a.created_at).getTime();
+    const dateB = new Date(b.created_at).getTime();
+    return dateB - dateA; // Descending order
+  });
+}
+
+/**
+ * Process shelves: deduplicate, apply overrides, and sort.
+ *
+ * Combines deduplication, override application, and sorting into a single operation.
+ * Follows DRY by centralizing shelf data transformation logic.
+ *
+ * Parameters
+ * ----------
+ * shelves : Shelf[]
+ *     Array of shelves to process.
+ * shelfDataOverrides? : Map<number, Partial<Shelf>>
+ *     Optional map of shelf ID to override shelf data.
+ *
+ * Returns
+ * -------
+ * Shelf[]
+ *     Processed array of shelves (deduplicated, overridden, sorted).
+ */
+export function processShelves(
+  shelves: Shelf[],
+  shelfDataOverrides?: Map<number, Partial<Shelf>>,
+): Shelf[] {
+  const deduplicated = deduplicateShelves(shelves, shelfDataOverrides);
+  return sortShelvesByCreatedAt(deduplicated);
+}
