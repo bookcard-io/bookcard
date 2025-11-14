@@ -84,13 +84,16 @@ export function AddToShelfFlyoutMenu({
     setMounted(true);
   }, []);
 
-  // Keep flyout open while pointer is within padded union of parent + flyout
+  // Keep flyout open while pointer is within padded union of parent + flyout,
+  // but close quickly once the pointer "rests" elsewhere to keep the UI snappy.
   useFlyoutIntent({
     isOpen,
     parentItemRef,
     menuRef,
     onClose,
     padding: 10,
+    minMovementPx: 1,
+    idleTimeMs: 15, // smaller value = snappier close; larger value = more forgiving, but sluggish
   });
 
   /**

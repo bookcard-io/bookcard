@@ -26,6 +26,19 @@ export interface UseFlyoutIntentOptions {
   onClose: () => void;
   /** Extra padding in pixels to expand the union hitbox. */
   padding?: number;
+  /**
+   * Minimum pointer movement (in CSS pixels) between animation frames to
+   * consider the pointer "moving with intent".
+   *
+   * If the pointer is effectively stationary within the safe corridor but
+   * outside both the parent and flyout elements, the flyout will close.
+   */
+  minMovementPx?: number;
+  /**
+   * Minimum time delta (in milliseconds) between pointer events before
+   * considering the pointer "stationary" for intent purposes.
+   */
+  idleTimeMs?: number;
 }
 
 /**
@@ -41,9 +54,12 @@ export function useFlyoutIntent({
   menuRef,
   onClose,
   padding = 10,
+  minMovementPx = 2,
+  idleTimeMs = 100,
 }: UseFlyoutIntentOptions) {
   const rafIdRef = useRef<number | null>(null);
   const pendingEventRef = useRef<PointerEvent | null>(null);
+  const lastEventRef = useRef<PointerEvent | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -87,10 +103,38 @@ export function useFlyoutIntent({
         const x = e.clientX;
         const y = e.clientY;
 
-        const inside = x >= left && x <= right && y >= top && y <= bottom;
+        const insideCorridor =
+          x >= left && x <= right && y >= top && y <= bottom;
 
-        if (!inside) {
+        if (!insideCorridor) {
           onClose();
+          lastEventRef.current = null;
+          return;
+        }
+
+        // Within the safe corridor; detect when the pointer effectively
+        // "comes to rest" on another menu item (outside parent/flyout)
+        // and close in that case to avoid the flyout feeling sticky.
+        const inParent =
+          x >= p.left && x <= p.right && y >= p.top && y <= p.bottom;
+        const inMenu =
+          x >= m.left && x <= m.right && y >= m.top && y <= m.bottom;
+
+        const prev = lastEventRef.current;
+        lastEventRef.current = e;
+
+        if (!inParent && !inMenu && prev) {
+          const dt = e.timeStamp - prev.timeStamp;
+          const dx = e.clientX - prev.clientX;
+          const dy = e.clientY - prev.clientY;
+          const distance = Math.hypot(dx, dy);
+
+          const isStationary = dt >= idleTimeMs && distance < minMovementPx;
+
+          if (isStationary) {
+            onClose();
+            lastEventRef.current = null;
+          }
         }
       });
     };
@@ -114,5 +158,13 @@ export function useFlyoutIntent({
       }
       pendingEventRef.current = null;
     };
-  }, [isOpen, parentItemRef, menuRef, onClose, padding]);
+  }, [
+    isOpen,
+    parentItemRef,
+    menuRef,
+    onClose,
+    padding,
+    minMovementPx,
+    idleTimeMs,
+  ]);
 }
