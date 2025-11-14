@@ -14,7 +14,9 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { renderHook } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { LibraryLoadingProvider } from "@/contexts/LibraryLoadingContext";
 import { createEmptyFilters } from "@/utils/filters";
 import { useLibraryBooks } from "./useLibraryBooks";
 
@@ -27,8 +29,20 @@ vi.mock("./useBooks", () => ({
   useBooks: vi.fn(),
 }));
 
+vi.mock("./useShelfBooks", () => ({
+  useShelfBooks: vi.fn(),
+}));
+
 import { useBooks } from "./useBooks";
 import { useFilteredBooks } from "./useFilteredBooks";
+import { useShelfBooks } from "./useShelfBooks";
+
+/**
+ * Wrapper component with LibraryLoadingProvider for tests.
+ */
+const wrapper = ({ children }: { children: ReactNode }) => {
+  return <LibraryLoadingProvider>{children}</LibraryLoadingProvider>;
+};
 
 describe("useLibraryBooks", () => {
   const mockBooksResult = {
@@ -40,11 +54,21 @@ describe("useLibraryBooks", () => {
     hasMore: false,
   };
 
+  const mockShelfBooksResult = {
+    bookIds: [],
+    total: 0,
+    isLoading: false,
+    error: null,
+  };
+
   beforeEach(() => {
     (useFilteredBooks as ReturnType<typeof vi.fn>).mockReturnValue(
       mockBooksResult,
     );
     (useBooks as ReturnType<typeof vi.fn>).mockReturnValue(mockBooksResult);
+    (useShelfBooks as ReturnType<typeof vi.fn>).mockReturnValue(
+      mockShelfBooksResult,
+    );
   });
 
   it("should use filtered books when filters are active", () => {
@@ -53,7 +77,7 @@ describe("useLibraryBooks", () => {
       authorIds: [1],
     };
 
-    renderHook(() => useLibraryBooks({ filters }));
+    renderHook(() => useLibraryBooks({ filters }), { wrapper });
 
     expect(useFilteredBooks).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -65,7 +89,7 @@ describe("useLibraryBooks", () => {
   });
 
   it("should use regular books when filters are not active", () => {
-    renderHook(() => useLibraryBooks({}));
+    renderHook(() => useLibraryBooks({}), { wrapper });
 
     expect(useBooks).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -76,7 +100,7 @@ describe("useLibraryBooks", () => {
   });
 
   it("should use regular books with search query", () => {
-    renderHook(() => useLibraryBooks({ searchQuery: "test" }));
+    renderHook(() => useLibraryBooks({ searchQuery: "test" }), { wrapper });
 
     expect(useBooks).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -86,11 +110,13 @@ describe("useLibraryBooks", () => {
   });
 
   it("should pass sort parameters", () => {
-    renderHook(() =>
-      useLibraryBooks({
-        sortBy: "title",
-        sortOrder: "asc",
-      }),
+    renderHook(
+      () =>
+        useLibraryBooks({
+          sortBy: "title",
+          sortOrder: "asc",
+        }),
+      { wrapper },
     );
 
     expect(useBooks).toHaveBeenCalledWith(
@@ -102,7 +128,7 @@ describe("useLibraryBooks", () => {
   });
 
   it("should pass page size", () => {
-    renderHook(() => useLibraryBooks({ pageSize: 50 }));
+    renderHook(() => useLibraryBooks({ pageSize: 50 }), { wrapper });
 
     expect(useBooks).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -127,7 +153,9 @@ describe("useLibraryBooks", () => {
       authorIds: [1],
     };
 
-    const { result } = renderHook(() => useLibraryBooks({ filters }));
+    const { result } = renderHook(() => useLibraryBooks({ filters }), {
+      wrapper,
+    });
 
     expect(result.current.books).toEqual(filteredResult.books);
   });

@@ -15,10 +15,12 @@
 
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback } from "react";
 import { Button } from "@/components/forms/Button";
 import { TextInput } from "@/components/forms/TextInput";
+import { useDeviceForm } from "@/hooks/useDeviceForm";
 import { useModal } from "@/hooks/useModal";
+import { useModalAnimation } from "@/hooks/useModalAnimation";
 import { useModalInteractions } from "@/hooks/useModalInteractions";
 import { cn } from "@/libs/utils";
 import type { EReaderDevice } from "./hooks/useUserProfile";
@@ -41,12 +43,13 @@ export interface DeviceEditModalProps {
 }
 
 /**
- * Device create modal component.
+ * Device create/edit modal component.
  *
- * Displays a form for creating a new device in a modal overlay.
+ * Displays a form for creating or editing a device in a modal overlay.
  * Follows SRP by delegating concerns to specialized hooks.
+ * Follows SOC by separating form logic, validation, and animations.
  * Follows IOC by accepting callbacks for all operations.
- * Follows DRY by reusing modal patterns from ShelfEditModal.
+ * Follows DRY by reusing modal patterns and form hooks.
  */
 export function DeviceEditModal({
   device,
@@ -55,40 +58,42 @@ export function DeviceEditModal({
 }: DeviceEditModalProps) {
   const isEditMode = device !== null && device !== undefined;
 
-  const [email, setEmail] = useState(device?.email || "");
-  const [deviceName, setDeviceName] = useState(device?.device_name || "");
-  const [deviceType, setDeviceType] = useState(device?.device_type || "kindle");
-  const [preferredFormat, setPreferredFormat] = useState(
-    device?.preferred_format || "",
-  );
-  const [isDefault, setIsDefault] = useState(device?.is_default || false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isShaking, setIsShaking] = useState(false);
-  const [generalError, setGeneralError] = useState<string | null>(null);
-  const [errors, setErrors] = useState<{
-    email?: string;
-    device_name?: string;
-  }>({});
-
-  // Track whether the initial fade-in animation has already played while
-  // this modal instance is open. Using a ref avoids extra re-renders.
-  const hasAnimatedRef = useRef(false);
-
   // Prevent body scroll when modal is open
   useModal(true);
 
-  // After the first mount, mark the fade-in as done so subsequent re-renders
-  // (e.g. validation errors, shake) don't replay the overlay fade animation.
-  useEffect(() => {
-    if (hasAnimatedRef.current) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      hasAnimatedRef.current = true;
-    }, 250); // Slightly longer than fadeIn duration (200ms)
+  // Manage modal animations (fade-in and shake)
+  const { overlayStyle, containerStyle, triggerShake } = useModalAnimation();
 
-    return () => clearTimeout(timer);
-  }, []);
+  // Manage form state, validation, and submission
+  const {
+    email,
+    deviceName,
+    deviceType,
+    preferredFormat,
+    isDefault,
+    isSubmitting,
+    errors,
+    generalError,
+    setEmail,
+    setDeviceName,
+    setDeviceType,
+    setPreferredFormat,
+    setIsDefault,
+    clearErrors,
+    handleSubmit,
+  } = useDeviceForm({
+    initialDevice: device,
+    onSubmit: async (data) => {
+      const result = await onSave(data);
+      // Only close on success - if we reach here, save was successful
+      onClose();
+      return result;
+    },
+    onError: () => {
+      // Trigger shake animation on error
+      triggerShake();
+    },
+  });
 
   const { handleOverlayClick, handleModalClick } = useModalInteractions({
     onClose,
@@ -103,96 +108,19 @@ export function DeviceEditModal({
     [onClose],
   );
 
-  const validateForm = useCallback((): boolean => {
-    const newErrors: { email?: string; device_name?: string } = {};
-
-    if (!email.trim()) {
-      newErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      newErrors.email = "Please enter a valid email address";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  }, [email]);
-
   const handleFormSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-
-      if (!validateForm()) {
-        return;
-      }
-
-      setIsSubmitting(true);
-      setGeneralError(null);
-      setErrors({});
-
-      try {
-        const data: DeviceCreate = {
-          email: email.trim(),
-          device_name: deviceName.trim() || null,
-          device_type: deviceType,
-          preferred_format: preferredFormat.trim() || null,
-          is_default: isDefault,
-        };
-
-        await onSave(data);
-        // Only close on success - if we reach here, save was successful
-        onClose();
-      } catch (error) {
-        // Prevent modal from closing on error - catch all errors here
-        // This ensures the modal stays open and displays the error
-        console.error("Failed to save device:", error);
-
-        // Trigger shake animation
-        setIsShaking(true);
-        setTimeout(() => {
-          setIsShaking(false);
-        }, 500);
-
-        // Display error message
-        if (error instanceof Error) {
-          const errorMessage = error.message;
-          // Translate technical error codes to user-friendly messages
-          let displayMessage = errorMessage;
-          if (errorMessage === "device_email_already_exists") {
-            displayMessage = "A device with this email already exists.";
-          }
-
-          // Check if it's an email-related error
-          if (
-            errorMessage.includes("email") ||
-            errorMessage.includes("device_email")
-          ) {
-            setErrors({ email: displayMessage });
-          } else {
-            setGeneralError(displayMessage);
-          }
-        } else {
-          setGeneralError("Failed to save device. Please try again.");
-        }
-      } finally {
-        setIsSubmitting(false);
-      }
+      await handleSubmit();
     },
-    [
-      email,
-      deviceName,
-      deviceType,
-      preferredFormat,
-      isDefault,
-      validateForm,
-      onSave,
-      onClose,
-    ],
+    [handleSubmit],
   );
 
   return (
     /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
     <div
       className="modal-overlay modal-overlay-z-50 modal-overlay-padding"
-      style={hasAnimatedRef.current ? { animation: "none" } : undefined}
+      style={overlayStyle}
       onClick={handleOverlayClick}
       onKeyDown={handleOverlayKeyDown}
       role="presentation"
@@ -201,13 +129,7 @@ export function DeviceEditModal({
         className={cn(
           "modal-container modal-container-shadow-default w-full max-w-md flex-col",
         )}
-        style={
-          hasAnimatedRef.current
-            ? isShaking
-              ? { animation: "shake 0.5s ease-in-out" }
-              : { animation: "none" }
-            : undefined
-        }
+        style={containerStyle}
         role="dialog"
         aria-modal="true"
         aria-label={isEditMode ? "Edit device" : "Add device"}
@@ -243,8 +165,7 @@ export function DeviceEditModal({
                 setEmail(e.target.value);
                 // Clear errors when user starts typing
                 if (errors.email || generalError) {
-                  setErrors({});
-                  setGeneralError(null);
+                  clearErrors();
                 }
               }}
               error={errors.email}

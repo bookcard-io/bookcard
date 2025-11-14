@@ -8,6 +8,12 @@ export default defineConfig({
   plugins: [react(), tsconfigPaths()],
   resolve: {
     dedupe: ["react", "react-dom"],
+    alias: {
+      "next/navigation": new URL(
+        "./src/__mocks__/next-navigation.ts",
+        import.meta.url,
+      ).pathname,
+    },
   },
   optimizeDeps: {
     include: [
