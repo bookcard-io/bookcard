@@ -43,6 +43,8 @@ class UserRead(BaseModel):
         Whether the user has admin privileges.
     default_ereader_email : str | None
         Email address of the default e-reader device, if any.
+    ereader_devices : list[EReaderDeviceRead]
+        List of e-reader devices for the user.
     roles : list[RoleRead]
         List of roles assigned to the user.
     """
@@ -56,6 +58,7 @@ class UserRead(BaseModel):
     profile_picture: str | None = None
     is_admin: bool
     default_ereader_email: str | None = None
+    ereader_devices: list[EReaderDeviceRead] = Field(default_factory=list)
     roles: list[RoleRead] = Field(default_factory=list)
 
     @classmethod
@@ -86,6 +89,14 @@ class UserRead(BaseModel):
         if user.roles:
             roles = [RoleRead.model_validate(ur.role) for ur in user.roles if ur.role]
 
+        # Extract e-reader devices
+        ereader_devices = []
+        if user.ereader_devices:
+            ereader_devices = [
+                EReaderDeviceRead.model_validate(device)
+                for device in user.ereader_devices
+            ]
+
         return cls(
             id=user.id,  # type: ignore[arg-type]
             username=user.username,
@@ -94,6 +105,7 @@ class UserRead(BaseModel):
             profile_picture=user.profile_picture,
             is_admin=user.is_admin,
             default_ereader_email=default_email,
+            ereader_devices=ereader_devices,
             roles=roles,
         )
 

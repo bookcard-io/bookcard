@@ -46,7 +46,7 @@ export const INSPIRING_QUOTES = [
   },
   {
     author: "William Nicholson",
-    quote: "We read to know were not alone.",
+    quote: "We read to know we're not alone.",
     source: "Shadowlands: A Play",
     tags: ["misattributed-to-c-s-lewis", "reading"],
   },
@@ -74,14 +74,14 @@ export const INSPIRING_QUOTES = [
   {
     author: "J.D. Salinger",
     quote:
-      "What really knocks me out is a book that, when youre all done reading it, you wish the author that wrote it was a terrific friend of yours and you could call him up on the phone whenever you felt like it. That doesnt happen much, though.",
+      "What really knocks me out is a book that, when you're all done reading it, you wish the author that wrote it was a terrific friend of yours and you could call him up on the phone whenever you felt like it. That doesn't happen much, though.",
     source: "The Catcher in the Rye",
     tags: ["authors", "books", "literature", "reading", "writing"],
   },
   {
     author: "Oscar Wilde",
     quote:
-      "It is what you read when you dont have to that determines what you will be when you cant help it.",
+      "It is what you read when you don't have to that determines what you will be when you can't help it.",
     source: "",
     tags: ["books", "reading"],
   },
@@ -101,7 +101,7 @@ export const INSPIRING_QUOTES = [
   },
   {
     author: "Mark Twain",
-    quote: "′Classic′ - a book which people praise and dont read.",
+    quote: "′Classic′ - a book which people praise and don't read.",
     source: "",
     tags: ["books", "classic", "reading"],
   },
@@ -114,7 +114,7 @@ export const INSPIRING_QUOTES = [
   {
     author: "John Green",
     quote:
-      "Books are the ultimate Dumpees: put them down and theyll wait for you forever; pay attention to them and they always love you back.",
+      "Books are the ultimate Dumpees: put them down and they'll wait for you forever; pay attention to them and they always love you back.",
     source: "An Abundance of Katherines",
     tags: ["books", "reading"],
   },
@@ -142,21 +142,21 @@ export const INSPIRING_QUOTES = [
   {
     author: "C.S. Lewis",
     quote:
-      "A childrens story that can only be enjoyed by children is not a good childrens story in the slightest.",
+      "A children's story that can only be enjoyed by children is not a good children's story in the slightest.",
     source: "",
     tags: ["books", "children-s-books", "reading"],
   },
   {
     author: "Stephen King",
     quote:
-      "If you dont have time to read, you dont have the time (or the tools) to write. Simple as that.",
+      "If you don't have time to read, you don't have the time (or the tools) to write. Simple as that.",
     source: "",
     tags: ["reading", "writing"],
   },
   {
     author: "Ray Bradbury",
     quote:
-      "You dont have to burn books to destroy a culture. Just get people to stop reading them.",
+      "You don't have to burn books to destroy a culture. Just get people to stop reading them.",
     source: "",
     tags: ["culture", "reading"],
   },
@@ -239,7 +239,7 @@ export const INSPIRING_QUOTES = [
   {
     author: "Ralph Waldo Emerson",
     quote:
-      "I cannot remember the books Ive read any more than the meals I have eaten; even so, they have made me.",
+      "I cannot remember the books I've read any more than the meals I have eaten; even so, they have made me.",
     source: "",
     tags: [
       "books",
@@ -260,7 +260,7 @@ export const INSPIRING_QUOTES = [
   {
     author: "Aldous Huxley",
     quote:
-      "Words can be like X-rays if you use them properly – theyll go through anything. You read and youre pierced.",
+      "Words can be like X-rays if you use them properly – they'll go through anything. You read and you're pierced.",
     source: "Brave New World",
     tags: ["reading", "words", "writing"],
   },
@@ -281,7 +281,7 @@ export const INSPIRING_QUOTES = [
   {
     author: "John Waters",
     quote:
-      "If you go home with somebody, and they dont have books, dont fuck em!",
+      "If you go home with somebody, and they don't have books, don't fuck 'em!",
     source: "",
     tags: ["books", "fuck", "profanity", "reading"],
   },
@@ -320,7 +320,7 @@ export const INSPIRING_QUOTES = [
   {
     author: "Nora Ephron",
     quote:
-      "Reading is escape, and the opposite of escape; its a way to make contact with reality after a day of making things up, and its a way of making contact with someone elses imagination after a day thats all too real.",
+      "Reading is escape, and the opposite of escape; it's a way to make contact with reality after a day of making things up, and it's a way of making contact with someone else's imagination after a day that's all too real.",
     source: "",
     tags: ["reading"],
   },
@@ -352,7 +352,7 @@ export const INSPIRING_QUOTES = [
   {
     author: "Cornelia Funke",
     quote:
-      "Isnt it odd how much fatter a book gets when youve read it several times? Mo had said...As if something were left between the pages every time you read it. Feelings, thoughts, sounds, smells...and then, when you look at the book again many years later, you find yourself there, too, a slightly younger self, slightly different, as if the book had preserved you like a pressed flower...both strange and familiar.",
+      "Isn't it odd how much fatter a book gets when you've read it several times? Mo had said...As if something were left between the pages every time you read it. Feelings, thoughts, sounds, smells...and then, when you look at the book again many years later, you find yourself there, too, a slightly younger self, slightly different, as if the book had preserved you like a pressed flower...both strange and familiar.",
     source: "Inkspell",
     tags: ["books", "feelings", "reading", "thoughts"],
   },
@@ -365,7 +365,7 @@ export const INSPIRING_QUOTES = [
   {
     author: "John Green",
     quote:
-      "Sometimes, you read a book and it fills you with this weird evangelical zeal, and you become convinced that the shattered world will never be put back together unless and until all living humans read the book. And then there are books like An Imperial Affliction, which you cant tell people about, books so special and rare and yours that advertising your affection feels like betrayal",
+      "Sometimes, you read a book and it fills you with this weird evangelical zeal, and you become convinced that the shattered world will never be put back together unless and until all living humans read the book. And then there are books like An Imperial Affliction, which you can't tell people about, books so special and rare and yours that advertising your affection feels like betrayal",
     source: "The Fault in Our Stars",
     tags: ["books", "john-green", "reading", "the-fault-in-our-stars"],
   },
@@ -397,7 +397,7 @@ export const INSPIRING_QUOTES = [
   {
     author: "Christopher Paolini",
     quote:
-      "Books should go where they will be most appreciated, and not sit unread, gathering dust on a forgotten shelf, dont you agree?",
+      "Books should go where they will be most appreciated, and not sit unread, gathering dust on a forgotten shelf, don't you agree?",
     source: "",
     tags: ["books", "reading"],
   },
