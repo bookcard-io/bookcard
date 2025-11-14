@@ -211,7 +211,7 @@ def test_get_active_library_service_success() -> None:
 
         result = books._get_active_library_service(session)
         assert result == mock_book_service
-        mock_book_service_class.assert_called_once_with(library)
+        mock_book_service_class.assert_called_once_with(library, session=session)
 
 
 def test_list_books_success(monkeypatch: pytest.MonkeyPatch) -> None:
