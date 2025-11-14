@@ -1,4 +1,4 @@
-.PHONY: dev setup-uv kill-ports
+.PHONY: dev setup-uv kill-ports format test
 
 setup-uv:
 	@if command -v uv >/dev/null 2>&1; then \
@@ -110,3 +110,16 @@ kill-ports:
 		fi; \
 	done; \
 	echo "Done."
+
+format:
+	@echo "Running format checks and fixes..."; \
+	cd $(CURDIR) && uv run --frozen ruff check --fix; \
+	cd $(CURDIR) && uv run --frozen ruff format; \
+	cd $(CURDIR) && uv run --frozen ty check; \
+	cd $(CURDIR)/web && npm run lint:fix -- --unsafe; \
+	cd $(CURDIR)/web && npm run check:types
+
+test:
+	@echo "Running tests with coverage..."; \
+	cd $(CURDIR) && uv run --frozen pytest --cov=fundamental --cov-report=term-missing -n auto; \
+	cd $(CURDIR)/web && npm run test:coverage
