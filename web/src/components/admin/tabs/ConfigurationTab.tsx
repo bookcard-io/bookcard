@@ -15,6 +15,7 @@
 
 "use client";
 
+import { EmailServerConfig } from "../email/EmailServerConfig";
 import { LibraryManagement } from "../library/LibraryManagement";
 
 export function ConfigurationTab() {
@@ -35,9 +36,11 @@ export function ConfigurationTab() {
         <h2 className="mb-4 font-semibold text-text-a0 text-xl">
           Email Server Settings
         </h2>
-        <p className="text-sm text-text-a30">
-          Email server configuration will be implemented here.
+        <p className="mb-4 text-sm text-text-a30 leading-relaxed">
+          Configure email server settings for sending e-books to devices.
+          Supports both SMTP and Gmail server types.
         </p>
+        <EmailServerConfig />
       </div>
 
       <div className="rounded-lg border border-surface-a20 bg-surface-tonal-a0 p-6">

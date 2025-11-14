@@ -60,7 +60,7 @@ export function LibraryListItem({
 }: LibraryListItemProps) {
   return (
     <div className="flex items-center gap-3 rounded-md border border-[var(--color-surface-a20)] bg-[var(--color-surface-a10)] p-3">
-      <div className="flex flex-1 items-center gap-3">
+      <div className="flex min-w-[250px] flex-1 items-center gap-3">
         <input
           type="checkbox"
           checked={library.is_active}
@@ -72,7 +72,7 @@ export function LibraryListItem({
             className={cn(
               "font-medium text-sm",
               library.is_active
-                ? "text-[var(--color-primary-a0)]"
+                ? "text-[var(--color-text-a0)]"
                 : "text-[var(--color-text-a0)]",
             )}
           >

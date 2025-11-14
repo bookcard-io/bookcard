@@ -39,7 +39,7 @@ export interface LibraryStatPillProps {
  */
 export function LibraryStatPill({ value, label }: LibraryStatPillProps) {
   return (
-    <div className="rounded-full bg-[var(--color-info-a20)] px-2.5 py-1 font-medium text-gray-900 text-xs">
+    <div className="rounded-full bg-[var(--color-info-a10)] px-2.5 py-1 font-medium text-[var(--color-white)] text-xs">
       {value} {label}
     </div>
   );

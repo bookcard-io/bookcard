@@ -51,6 +51,7 @@ class AppConfig:
     jwt_secret: str
     jwt_algorithm: str
     jwt_expires_minutes: int
+    encryption_key: str
     alembic_enabled: bool = False
     database_url: str = "sqlite:///fundamental.db"
     echo_sql: bool = False
@@ -97,6 +98,26 @@ class AppConfig:
         return jwt_algorithm
 
     @staticmethod
+    def _get_encryption_key() -> str:
+        """Get and validate encryption key from environment.
+
+        Returns
+        -------
+        str
+            Encryption key value (base64-encoded Fernet key).
+
+        Raises
+        ------
+        ValueError
+            If FUNDAMENTAL_FERNET_KEY is not set.
+        """
+        encryption_key = os.getenv("FUNDAMENTAL_FERNET_KEY")
+        if encryption_key is None:
+            msg = "FUNDAMENTAL_FERNET_KEY is not set"
+            raise ValueError(msg)
+        return encryption_key
+
+    @staticmethod
     def _parse_bool_env(key: str, default: str = "false") -> bool:
         """Parse boolean environment variable.
 
@@ -127,6 +148,7 @@ class AppConfig:
             jwt_secret=AppConfig._get_jwt_secret(),
             jwt_algorithm=AppConfig._get_jwt_algorithm(),
             jwt_expires_minutes=int(os.getenv("FUNDAMENTAL_JWT_EXPIRES_MIN")),
+            encryption_key=AppConfig._get_encryption_key(),
             database_url=os.getenv(
                 "FUNDAMENTAL_DATABASE_URL", "sqlite:///fundamental.db"
             ),

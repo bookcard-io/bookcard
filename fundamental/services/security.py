@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Security utilities: password hashing and JWT handling.
+"""Security utilities: password hashing, JWT handling, and data encryption.
 
 Adheres to SRP by encapsulating crypto and token details away from routes.
 """
@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import jwt
+from cryptography.fernet import Fernet, InvalidToken
 from passlib.context import CryptContext
 
 if TYPE_CHECKING:
@@ -130,3 +131,155 @@ class SecurityTokenError(Exception):
     """Raised when a JWT is invalid or cannot be decoded."""
 
     BLACKLISTED_MESSAGE = "Token is blacklisted"
+
+
+class DataEncryptor:
+    """Symmetric encryption utility for sensitive data.
+
+    Uses Fernet (symmetric encryption) to encrypt and decrypt sensitive data
+    such as SMTP passwords and OAuth tokens. Data must be encrypted before
+    storage and decrypted when retrieved.
+
+    Parameters
+    ----------
+    encryption_key : str
+        Base64-encoded Fernet key. Can be generated using Fernet.generate_key().
+        Should be stored securely (e.g., environment variable).
+
+    Raises
+    ------
+    ValueError
+        If encryption_key is invalid or cannot be used to create a Fernet instance.
+    """
+
+    def __init__(self, encryption_key: str) -> None:
+        """Initialize the encryptor with a Fernet key.
+
+        Parameters
+        ----------
+        encryption_key : str
+            Base64-encoded Fernet key. Can be generated using Fernet.generate_key().
+
+        Raises
+        ------
+        ValueError
+            If the key is invalid.
+        """
+        try:
+            # Fernet expects a base64-encoded key as bytes
+            key_bytes = (
+                encryption_key.encode()
+                if isinstance(encryption_key, str)
+                else encryption_key
+            )
+            self._fernet = Fernet(key_bytes)
+        except Exception as e:
+            msg = f"Invalid encryption key: {e}"
+            raise ValueError(msg) from e
+
+    def encrypt(self, plaintext: str) -> str:
+        """Encrypt plaintext data.
+
+        Parameters
+        ----------
+        plaintext : str
+            Plaintext string to encrypt.
+
+        Returns
+        -------
+        str
+            Encrypted string (base64-encoded).
+
+        Raises
+        ------
+        ValueError
+            If plaintext is None or empty.
+        """
+        if not plaintext:
+            msg = "Cannot encrypt empty or None value"
+            raise ValueError(msg)
+        encrypted_bytes = self._fernet.encrypt(plaintext.encode())
+        return encrypted_bytes.decode()
+
+    def decrypt(self, ciphertext: str) -> str:
+        """Decrypt encrypted data.
+
+        Parameters
+        ----------
+        ciphertext : str
+            Encrypted string (base64-encoded) to decrypt.
+
+        Returns
+        -------
+        str
+            Decrypted plaintext string.
+
+        Raises
+        ------
+        ValueError
+            If ciphertext is None, empty, or invalid.
+        DecryptionError
+            If decryption fails (e.g., wrong key or corrupted data).
+        """
+        if not ciphertext:
+            msg = "Cannot decrypt empty or None value"
+            raise ValueError(msg)
+        try:
+            decrypted_bytes = self._fernet.decrypt(ciphertext.encode())
+            return decrypted_bytes.decode()
+        except InvalidToken as e:
+            msg = "Failed to decrypt data: invalid or corrupted ciphertext"
+            raise ValueError(msg) from e
+
+    def encrypt_dict(self, data: dict[str, Any]) -> str:
+        """Encrypt a dictionary by JSON-encoding it first.
+
+        Parameters
+        ----------
+        data : dict[str, Any]
+            Dictionary to encrypt.
+
+        Returns
+        -------
+        str
+            Encrypted JSON string.
+
+        Raises
+        ------
+        ValueError
+            If data is None or cannot be JSON-encoded.
+        """
+        import json
+
+        if data is None:
+            msg = "Cannot encrypt None value"
+            raise ValueError(msg)
+        json_str = json.dumps(data)
+        return self.encrypt(json_str)
+
+    def decrypt_dict(self, ciphertext: str) -> dict[str, Any]:
+        """Decrypt and JSON-decode a dictionary.
+
+        Parameters
+        ----------
+        ciphertext : str
+            Encrypted JSON string.
+
+        Returns
+        -------
+        dict[str, Any]
+            Decrypted dictionary.
+
+        Raises
+        ------
+        ValueError
+            If decryption or JSON decoding fails.
+        """
+        import json
+
+        json_str = self.decrypt(ciphertext)
+        return json.loads(json_str)
+
+
+class DecryptionError(Exception):
+    """Raised when decryption fails."""

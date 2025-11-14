@@ -27,6 +27,8 @@ from sqlmodel import Session, select
 
 from fundamental.api.deps import get_current_user, get_db_session
 from fundamental.api.schemas import (
+    EmailServerConfigRead,
+    EmailServerConfigUpdate,
     InviteValidationResponse,
     LoginRequest,
     LoginResponse,
@@ -48,6 +50,7 @@ from fundamental.repositories.user_repository import (
 )
 from fundamental.services.auth_service import AuthError, AuthService
 from fundamental.services.security import (
+    DataEncryptor,
     JWTManager,
     PasswordHasher,
     SecurityTokenError,
@@ -64,8 +67,16 @@ def _auth_service(request: Request, session: Session) -> AuthService:
     cfg = request.app.state.config
     jwt = JWTManager(cfg)
     hasher = PasswordHasher()
+    encryptor = DataEncryptor(cfg.encryption_key)
     repo = UserRepository(session)
-    return AuthService(session, repo, hasher, jwt, data_directory=cfg.data_directory)
+    return AuthService(
+        session,
+        repo,
+        hasher,
+        jwt,
+        encryptor=encryptor,
+        data_directory=cfg.data_directory,
+    )
 
 
 @router.post(
@@ -631,3 +642,80 @@ def upsert_setting(
             raise HTTPException(status_code=404, detail=msg) from exc
         raise
     return SettingRead.model_validate(setting)
+
+
+@router.get("/email-server-config", response_model=EmailServerConfigRead)
+def get_email_server_config(
+    request: Request,
+    session: SessionDep,
+) -> EmailServerConfigRead:
+    """Get the global email server configuration (admin only).
+
+    Returns default values if configuration has not been created yet.
+    """
+    service = _auth_service(request, session)
+    current_user = get_current_user(request, session)
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    config = service.get_email_server_config(decrypt=True)
+    if config is None:
+        # Return defaults (no persisted record yet)
+        from fundamental.models.config import EmailServerType
+
+        return EmailServerConfigRead(
+            id=None,
+            server_type=EmailServerType.SMTP,
+            smtp_host=None,
+            smtp_port=587,
+            smtp_username=None,
+            smtp_use_tls=True,
+            smtp_use_ssl=False,
+            smtp_from_email=None,
+            smtp_from_name=None,
+            max_email_size_mb=25,
+            gmail_token=None,
+            enabled=False,
+            created_at=None,
+            updated_at=None,
+        )
+    return EmailServerConfigRead.model_validate(config)
+
+
+@router.put("/email-server-config", response_model=EmailServerConfigRead)
+def upsert_email_server_config(
+    request: Request,
+    session: SessionDep,
+    payload: EmailServerConfigUpdate,
+) -> EmailServerConfigRead:
+    """Create or update the global email server configuration (admin only).
+
+    Parameters
+    ----------
+    payload : EmailServerConfigUpdate
+        Configuration payload. SMTP password can be set but will not
+        be returned in the response.
+    """
+    service = _auth_service(request, session)
+    current_user = get_current_user(request, session)
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    try:
+        cfg = service.upsert_email_server_config(
+            **payload.model_dump(exclude_unset=True)
+        )
+        session.commit()
+        # Decrypt for API response (password won't be included in response model)
+        cfg = service.get_email_server_config(decrypt=True)
+        if cfg is None:
+            raise HTTPException(
+                status_code=500, detail="Failed to retrieve saved config"
+            )
+    except ValueError as exc:
+        msg = str(exc)
+        if msg == "invalid_smtp_encryption":
+            raise HTTPException(status_code=400, detail=msg) from exc
+        raise
+
+    return EmailServerConfigRead.model_validate(cfg)

@@ -22,6 +22,7 @@ from datetime import datetime  # noqa: TC003
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from fundamental.models.auth import User  # noqa: TC001
+from fundamental.models.config import EmailServerType
 
 
 class UserRead(BaseModel):
@@ -319,3 +320,48 @@ class EReaderDeviceRead(BaseModel):
     device_type: str
     is_default: bool
     preferred_format: str | None = None
+
+
+class EmailServerConfigRead(BaseModel):
+    """Email server configuration representation (read).
+
+    Notes
+    -----
+    The SMTP password is intentionally omitted from the read model
+    for security reasons. The password may be set via the update model.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int | None = None
+    server_type: EmailServerType
+    smtp_host: str | None = None
+    smtp_port: int | None = None
+    smtp_username: str | None = None
+    smtp_use_tls: bool = True
+    smtp_use_ssl: bool = False
+    smtp_from_email: str | None = None
+    smtp_from_name: str | None = None
+    max_email_size_mb: int = 25
+    gmail_token: dict[str, object] | None = None
+    enabled: bool = False
+    # timestamps
+    updated_at: datetime | None = None
+    created_at: datetime | None = None
+
+
+class EmailServerConfigUpdate(BaseModel):
+    """Payload to create or update email server configuration."""
+
+    server_type: EmailServerType = EmailServerType.SMTP
+    smtp_host: str | None = Field(default=None, max_length=255)
+    smtp_port: int | None = None
+    smtp_username: str | None = Field(default=None, max_length=255)
+    smtp_password: str | None = Field(default=None, max_length=500)
+    smtp_use_tls: bool | None = None
+    smtp_use_ssl: bool | None = None
+    smtp_from_email: str | None = Field(default=None, max_length=255)
+    smtp_from_name: str | None = Field(default=None, max_length=255)
+    max_email_size_mb: int | None = None
+    gmail_token: dict[str, object] | None = None
+    enabled: bool | None = None

@@ -31,6 +31,8 @@ from __future__ import annotations
 from fundamental.api.schemas.auth import (
     AdminUserCreate,
     AdminUserUpdate,
+    EmailServerConfigRead,
+    EmailServerConfigUpdate,
     EReaderDeviceCreate,
     EReaderDeviceRead,
     EReaderDeviceUpdate,
@@ -112,6 +114,8 @@ __all__ = [
     "EReaderDeviceCreate",
     "EReaderDeviceRead",
     "EReaderDeviceUpdate",
+    "EmailServerConfigRead",
+    "EmailServerConfigUpdate",
     "FilterSuggestionsResponse",
     "InviteValidationResponse",
     # Library schemas

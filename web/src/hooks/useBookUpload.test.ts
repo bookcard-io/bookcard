@@ -210,11 +210,12 @@ describe("useBookUpload", () => {
       },
     } as unknown as React.ChangeEvent<HTMLInputElement>;
 
-    await act(async () => {
+    act(() => {
       result.current.handleFileChange(changeEvent);
-      await waitFor(() => {
-        expect(result.current.isUploading).toBe(false);
-      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.isUploading).toBe(false);
     });
 
     expect(onUploadError).toHaveBeenCalledWith("Network error");
@@ -238,11 +239,12 @@ describe("useBookUpload", () => {
       },
     } as unknown as React.ChangeEvent<HTMLInputElement>;
 
-    await act(async () => {
+    act(() => {
       result.current.handleFileChange(changeEvent);
-      await waitFor(() => {
-        expect(result.current.isUploading).toBe(false);
-      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.isUploading).toBe(false);
     });
 
     expect(onUploadError).toHaveBeenCalledWith("Upload failed");
@@ -312,14 +314,15 @@ describe("useBookUpload", () => {
       },
     } as unknown as React.ChangeEvent<HTMLInputElement>;
 
-    await act(async () => {
+    act(() => {
       result.current.handleFileChange(changeEvent);
-      await waitFor(() => {
-        expect(result.current.isUploading).toBe(false);
-      });
     });
 
-    // Should not throw
+    await waitFor(() => {
+      expect(result.current.isUploading).toBe(false);
+    });
+
+    // Should not throw and fetch should be called
     expect(globalThis.fetch).toHaveBeenCalled();
   });
 
@@ -346,11 +349,12 @@ describe("useBookUpload", () => {
       },
     } as unknown as React.ChangeEvent<HTMLInputElement>;
 
-    await act(async () => {
+    act(() => {
       result.current.handleFileChange(changeEvent);
-      await waitFor(() => {
-        expect(result.current.isUploading).toBe(false);
-      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.isUploading).toBe(false);
     });
 
     // Verify FormData was created with the file
@@ -368,6 +372,7 @@ describe("useBookUpload", () => {
       const formData = fetchCall[1].body as FormData;
       const formDataFile = formData.get("file") as File;
 
+      expect(formDataFile).toBeInstanceOf(File);
       expect(formDataFile.name).toBe("test.epub");
       expect(formDataFile.type).toBe("application/epub+zip");
       expect(formDataFile.lastModified).toBe(1234567890);
