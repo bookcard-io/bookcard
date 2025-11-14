@@ -113,15 +113,13 @@ export function DeleteBookConfirmationModal({
   const modalContent = (
     /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
     <div
-      className="fixed inset-0 z-[1002] flex items-center justify-center bg-black/70 p-4"
-      style={{ animation: "fadeIn 0.2s ease-out" }}
+      className="modal-overlay modal-overlay-z-1002 modal-overlay-padding"
       onClick={handleOverlayClick}
       onKeyDown={handleKeyDown}
       role="presentation"
     >
       <div
-        className="relative flex w-full max-w-md flex-col rounded-2xl bg-[var(--color-surface-a10)] shadow-[0_20px_60px_rgba(0,0,0,0.5)]"
-        style={{ animation: "slideUp 0.3s ease-out" }}
+        className="modal-container modal-container-shadow-large w-full max-w-md flex-col"
         role="dialog"
         aria-modal="true"
         aria-label="Confirm book deletion"
@@ -130,10 +128,10 @@ export function DeleteBookConfirmationModal({
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border-none bg-transparent p-2 text-3xl text-[var(--color-text-a30)] leading-none transition-all duration-200 hover:bg-[var(--color-surface-a20)] hover:text-[var(--color-text-a0)] focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
+          className="modal-close-button modal-close-button-sm cursor-pointer transition-all hover:bg-[var(--color-surface-a20)] hover:text-[var(--color-text-a0)]"
           aria-label="Close"
         >
-          ×
+          <i className="pi pi-times" aria-hidden="true" />
         </button>
 
         <div className="flex flex-col gap-6 p-6">

@@ -234,13 +234,13 @@ export function AddToShelfModal({
     <>
       {/* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */}
       <div
-        className="fixed inset-0 z-50 flex animate-[fadeIn_0.2s_ease-out] items-center justify-center overflow-y-auto bg-black/70 p-4"
+        className="modal-overlay modal-overlay-z-50 modal-overlay-padding"
         onClick={handleOverlayClick}
         onKeyDown={handleOverlayKeyDown}
         role="presentation"
       >
         <div
-          className="relative flex h-[480px] w-[528px] animate-[slideUp_0.3s_ease-out] flex-col overflow-hidden rounded-2xl bg-surface-a10 shadow-[var(--shadow-card-hover)]"
+          className="modal-container modal-container-shadow-default h-[480px] w-[528px] flex-col overflow-hidden"
           role="dialog"
           aria-modal="true"
           aria-label="Add to shelf"
@@ -254,10 +254,10 @@ export function AddToShelfModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full border-none bg-transparent p-0 text-2xl text-text-a30 leading-none transition-colors duration-200 hover:bg-surface-a20 hover:text-text-a0 focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
+              className="modal-close-button modal-close-button-sm h-8 w-8 focus:outline"
               aria-label="Close"
             >
-              ×
+              <i className="pi pi-times" aria-hidden="true" />
             </button>
           </div>
 

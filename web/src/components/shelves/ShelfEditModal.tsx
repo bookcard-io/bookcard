@@ -203,13 +203,13 @@ export function ShelfEditModal({
   return (
     /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
     <div
-      className="fixed inset-0 z-50 flex animate-[fadeIn_0.2s_ease-out] items-center justify-center overflow-y-auto bg-black/70 p-4"
+      className="modal-overlay modal-overlay-z-50 modal-overlay-padding"
       onClick={handleOverlayClick}
       onKeyDown={handleOverlayKeyDown}
       role="presentation"
     >
       <div
-        className="relative w-full max-w-md animate-[slideUp_0.3s_ease-out] flex-col overflow-y-auto rounded-2xl bg-surface-a10 shadow-[var(--shadow-card-hover)]"
+        className="modal-container modal-container-shadow-default w-full max-w-md flex-col"
         role="dialog"
         aria-modal="true"
         aria-label={isEditMode ? "Edit shelf" : "Create shelf"}
@@ -218,10 +218,10 @@ export function ShelfEditModal({
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border-none bg-transparent p-2 text-2xl text-text-a30 leading-none transition-colors duration-200 hover:bg-surface-a20 hover:text-text-a0 focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
+          className="modal-close-button modal-close-button-sm focus:outline"
           aria-label="Close"
         >
-          ×
+          <i className="pi pi-times" aria-hidden="true" />
         </button>
 
         <div className="flex items-start justify-between gap-4 border-surface-a20 border-b pt-6 pr-16 pb-4 pl-6">

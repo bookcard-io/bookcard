@@ -64,6 +64,9 @@ export function BookViewModal({
     full: true,
   });
 
+  const modalContainerClassName =
+    "modal-container modal-container-shadow-large max-h-[90vh] min-h-[90vh] w-full max-w-[900px] md:max-h-[98vh] md:rounded-xl";
+
   const deleteConfirmation = useDeleteConfirmation({
     bookId: bookId || null,
     onSuccess: () => {
@@ -131,13 +134,13 @@ export function BookViewModal({
     return (
       /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
       <div
-        className="fixed inset-0 z-[1000] flex animate-[fadeIn_0.2s_ease-out] items-center justify-center overflow-y-auto bg-black/70 p-4 md:p-2"
+        className="modal-overlay modal-overlay-z-1000 modal-overlay-padding-responsive"
         onClick={handleOverlayClick}
         onKeyDown={handleOverlayKeyDown}
         role="presentation"
       >
         <div
-          className="relative flex max-h-[90vh] min-h-[90vh] w-full max-w-[900px] animate-[slideUp_0.3s_ease-out] flex-col overflow-y-auto rounded-2xl bg-[var(--color-surface-a10)] shadow-[0_20px_60px_rgba(0,0,0,0.5)] md:max-h-[98vh] md:rounded-xl"
+          className={modalContainerClassName}
           role="dialog"
           aria-modal="true"
           aria-label="Book details"
@@ -155,13 +158,13 @@ export function BookViewModal({
     return (
       /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
       <div
-        className="fixed inset-0 z-[1000] flex animate-[fadeIn_0.2s_ease-out] items-center justify-center overflow-y-auto bg-black/70 p-4 md:p-2"
+        className="modal-overlay modal-overlay-z-1000 modal-overlay-padding-responsive"
         onClick={handleOverlayClick}
         onKeyDown={handleOverlayKeyDown}
         role="presentation"
       >
         <div
-          className="relative flex max-h-[90vh] min-h-[90vh] w-full max-w-[900px] animate-[slideUp_0.3s_ease-out] flex-col overflow-y-auto rounded-2xl bg-[var(--color-surface-a10)] shadow-[0_20px_60px_rgba(0,0,0,0.5)] md:max-h-[98vh] md:rounded-xl"
+          className={modalContainerClassName}
           role="dialog"
           aria-modal="true"
           aria-label="Book details"
@@ -182,13 +185,13 @@ export function BookViewModal({
     <>
       {/* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */}
       <div
-        className="fixed inset-0 z-[1000] flex animate-[fadeIn_0.2s_ease-out] items-center justify-center overflow-y-auto bg-black/70 p-4 md:p-2"
+        className="modal-overlay modal-overlay-z-1000 modal-overlay-padding-responsive"
         onClick={handleOverlayClick}
         onKeyDown={handleOverlayKeyDown}
         role="presentation"
       >
         <div
-          className="relative flex max-h-[90vh] min-h-[90vh] w-full max-w-[900px] animate-[slideUp_0.3s_ease-out] flex-col overflow-y-auto rounded-2xl bg-[var(--color-surface-a10)] shadow-[0_20px_60px_rgba(0,0,0,0.5)] md:max-h-[98vh] md:rounded-xl"
+          className={modalContainerClassName}
           role="dialog"
           aria-modal="true"
           aria-label="Book details"
@@ -197,10 +200,10 @@ export function BookViewModal({
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border-none bg-transparent p-2 text-[2rem] text-[var(--color-text-a30)] leading-none transition-all duration-200 hover:bg-[var(--color-surface-a20)] hover:text-[var(--color-text-a0)] focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
+            className="modal-close-button modal-close-button-sm transition-all hover:bg-[var(--color-surface-a20)] hover:text-[var(--color-text-a0)]"
             aria-label="Close"
           >
-            ×
+            <i className="pi pi-times" aria-hidden="true" />
           </button>
 
           <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-6 md:gap-4 md:p-4">

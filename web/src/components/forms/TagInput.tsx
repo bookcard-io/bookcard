@@ -151,11 +151,11 @@ export function TagInput({
               {tag}
               <button
                 type="button"
-                className="flex h-4 w-4 items-center justify-center rounded-full border-none bg-transparent p-0 text-text-a0 text-xl leading-none transition-[background-color_0.15s] hover:bg-black/15 focus:bg-black/20 focus:outline-none"
+                className="flex h-4 w-4 items-center justify-center rounded-full border-none bg-transparent p-0 text-sm text-text-a0 leading-none transition-[background-color_0.15s] hover:bg-black/15 focus:bg-black/20 focus:outline-none"
                 onClick={() => removeTag(tag)}
                 aria-label={`Remove tag ${tag}`}
               >
-                ×
+                <i className="pi pi-times" aria-hidden="true" />
               </button>
             </span>
           ))}

@@ -142,6 +142,69 @@
   .menu-item-tonal {
     @apply text-text-a0 transition-[background-color,color] duration-150 hover:bg-surface-tonal-a20 active:bg-surface-tonal-a30;
   }
+
+  /* Modal overlay base styles */
+  .modal-overlay {
+    @apply fixed inset-0 flex items-center justify-center overflow-y-auto bg-black/70 animate-[fadeIn_0.2s_ease-out];
+  }
+
+  /* Modal overlay z-index variants */
+  .modal-overlay-z-50 {
+    @apply z-50;
+  }
+
+  .modal-overlay-z-1000 {
+    @apply z-[1000];
+  }
+
+  .modal-overlay-z-1002 {
+    @apply z-[1002];
+  }
+
+  /* Modal overlay padding variants */
+  .modal-overlay-padding {
+    @apply p-4;
+  }
+
+  .modal-overlay-padding-responsive {
+    @apply p-4 md:p-2;
+  }
+
+  /* Modal container base styles */
+  .modal-container {
+    @apply relative flex flex-col overflow-y-auto rounded-md bg-surface-a10 animate-[slideUp_0.3s_ease-out];
+  }
+
+  /* Modal container shadow variants */
+  .modal-container-shadow-default {
+    @apply shadow-[var(--shadow-card-hover)];
+  }
+
+  .modal-container-shadow-large {
+    @apply shadow-[0_20px_60px_rgba(0,0,0,0.5)];
+  }
+
+  /* Modal close button base styles */
+  .modal-close-button {
+    @apply absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-md border-none bg-transparent leading-none transition-colors duration-200 hover:bg-surface-a20 hover:text-text-a0 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2;
+  }
+
+  /* Modal close button size variants */
+  .modal-close-button-sm {
+    @apply p-0 text-2xl text-text-a30;
+  }
+
+  .modal-close-button-md {
+    @apply p-2 text-2xl text-text-a30;
+  }
+
+  .modal-close-button-lg {
+    @apply p-2 text-3xl text-text-a30;
+  }
+
+  .modal-close-button-xl {
+    @apply p-2 text-[2rem] text-text-a30;
+  }
 }
 
 /* Light theme - applied when data-theme="light" */

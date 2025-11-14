@@ -199,11 +199,11 @@ export function FilterInput({
                   {displayName}
                   <button
                     type="button"
-                    className="flex h-4 w-4 items-center justify-center rounded-full border-none bg-transparent p-0 text-base text-text-a0 leading-none transition-colors duration-150 hover:bg-black/10"
+                    className="flex h-4 w-4 items-center justify-center rounded-full border-none bg-transparent p-0 text-text-a0 text-xs leading-none transition-colors duration-150 hover:bg-black/10"
                     onClick={() => handleRemoveValue(id)}
                     aria-label={`Remove ${displayName}`}
                   >
-                    ×
+                    <i className="pi pi-times" aria-hidden="true" />
                   </button>
                 </span>
               );

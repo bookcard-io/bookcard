@@ -121,13 +121,13 @@ export function BookEditModal({
     return (
       /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
       <div
-        className="fixed inset-0 z-[1000] flex animate-[fadeIn_0.2s_ease-out] items-center justify-center overflow-y-auto bg-black/70 p-4"
+        className="modal-overlay modal-overlay-z-1000 modal-overlay-padding"
         onClick={handleOverlayClick}
         onKeyDown={handleOverlayKeyDown}
         role="presentation"
       >
         <div
-          className="relative flex max-h-[90vh] min-h-[90vh] w-full max-w-[90vw] animate-[slideUp_0.3s_ease-out] flex-col overflow-y-auto rounded-2xl bg-surface-a10 shadow-[var(--shadow-card-hover)]"
+          className="modal-container modal-container-shadow-default max-h-[90vh] min-h-[90vh] w-full max-w-[90vw]"
           role="dialog"
           aria-modal="true"
           aria-label="Editing book info"
@@ -145,13 +145,13 @@ export function BookEditModal({
     return (
       /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
       <div
-        className="fixed inset-0 z-[1000] flex animate-[fadeIn_0.2s_ease-out] items-center justify-center overflow-y-auto bg-black/70 p-4"
+        className="modal-overlay modal-overlay-z-1000 modal-overlay-padding"
         onClick={handleOverlayClick}
         onKeyDown={handleOverlayKeyDown}
         role="presentation"
       >
         <div
-          className="relative flex max-h-[90vh] min-h-[90vh] w-full max-w-[90vw] animate-[slideUp_0.3s_ease-out] flex-col overflow-y-auto rounded-2xl bg-surface-a10 shadow-[var(--shadow-card-hover)]"
+          className="modal-container modal-container-shadow-default max-h-[90vh] min-h-[90vh] w-full max-w-[90vw]"
           role="dialog"
           aria-modal="true"
           aria-label="Editing book info"
@@ -175,13 +175,13 @@ export function BookEditModal({
   return (
     /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
     <div
-      className="fixed inset-0 z-[1000] flex animate-[fadeIn_0.2s_ease-out] items-center justify-center overflow-y-auto bg-black/70 p-4"
+      className="modal-overlay modal-overlay-z-1000 modal-overlay-padding"
       onClick={handleOverlayClick}
       onKeyDown={handleOverlayKeyDown}
       role="presentation"
     >
       <div
-        className="relative flex max-h-[90vh] min-h-[90vh] w-full max-w-[90vw] animate-[slideUp_0.3s_ease-out] flex-col overflow-y-auto rounded-2xl bg-surface-a10 shadow-[var(--shadow-card-hover)]"
+        className="modal-container modal-container-shadow-default max-h-[90vh] min-h-[90vh] w-full max-w-[90vw]"
         role="dialog"
         aria-modal="true"
         aria-label={modalTitle}
@@ -190,10 +190,10 @@ export function BookEditModal({
         <button
           type="button"
           onClick={handleClose}
-          className="absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border-none bg-transparent p-2 text-2xl text-text-a30 leading-none transition-colors duration-200 hover:bg-surface-a20 hover:text-text-a0 focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
+          className="modal-close-button modal-close-button-sm focus:outline"
           aria-label="Close"
         >
-          ×
+          <i className="pi pi-times" aria-hidden="true" />
         </button>
 
         <BookEditModalHeader

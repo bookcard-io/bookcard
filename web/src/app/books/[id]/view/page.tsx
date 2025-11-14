@@ -181,7 +181,7 @@ export default function BookViewPage({ params }: BookViewPageProps) {
           className={styles.closeButton}
           aria-label="Close"
         >
-          ×
+          <i className="pi pi-times" aria-hidden="true" />
         </button>
 
         <div className={styles.content}>

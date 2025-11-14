@@ -153,13 +153,13 @@ export function MetadataFetchModal({
   return (
     /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
     <div
-      className="fixed inset-0 z-[1000] flex animate-[fadeIn_0.2s_ease-out] items-center justify-center overflow-y-auto bg-black/70 p-4 md:p-2"
+      className="modal-overlay modal-overlay-z-1000 modal-overlay-padding-responsive"
       onClick={handleOverlayClick}
       onKeyDown={handleOverlayKeyDown}
       role="presentation"
     >
       <div
-        className="relative flex max-h-[95vh] min-h-[95vh] w-full min-w-[850px] max-w-[60vw] animate-[slideUp_0.3s_ease-out] flex-col overflow-y-auto rounded-2xl bg-surface-a10 shadow-[0_20px_60px_rgba(0,0,0,0.5)] md:max-h-[98vh] md:min-h-[98vh] md:rounded-xl"
+        className="modal-container modal-container-shadow-large max-h-[95vh] min-h-[95vh] w-full min-w-[850px] max-w-[60vw] md:max-h-[98vh] md:min-h-[98vh] md:rounded-xl"
         role="dialog"
         aria-modal="true"
         aria-label="Fetch metadata"
@@ -168,10 +168,10 @@ export function MetadataFetchModal({
         <button
           type="button"
           onClick={handleClose}
-          className="absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border-0 bg-transparent p-2 text-3xl text-text-a30 leading-none transition-all duration-200 hover:bg-surface-a20 hover:text-text-a0 focus:outline-none focus:outline-2 focus:outline-primary-a0 focus:outline-offset-2"
+          className="modal-close-button modal-close-button-sm border-0 focus:outline-none"
           aria-label="Close"
         >
-          ×
+          <i className="pi pi-times" aria-hidden="true" />
         </button>
 
         <div className="flex min-h-0 flex-1 flex-col gap-6 p-6 md:gap-4 md:p-4">

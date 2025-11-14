@@ -108,11 +108,11 @@ export function IdentifierInput({
             </span>
             <button
               type="button"
-              className="flex h-6 w-6 items-center justify-center rounded-full border-none bg-transparent p-1 text-text-a30 text-xl transition-[background-color_0.15s,color_0.15s] hover:bg-danger-a20 hover:text-danger-a10 focus:bg-danger-a20 focus:text-danger-a10 focus:outline-none"
+              className="flex h-6 w-6 items-center justify-center rounded-full border-none bg-transparent p-1 text-sm text-text-a30 transition-[background-color_0.15s,color_0.15s] hover:bg-danger-a20 hover:text-danger-a10 focus:bg-danger-a20 focus:text-danger-a10 focus:outline-none"
               onClick={() => removeIdentifier(index)}
               aria-label={`Remove ${identifier.type} ${identifier.val}`}
             >
-              ×
+              <i className="pi pi-times" aria-hidden="true" />
             </button>
           </div>
         ))}

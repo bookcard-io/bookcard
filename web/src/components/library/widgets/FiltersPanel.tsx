@@ -208,7 +208,7 @@ export function FiltersPanel({
             onClick={onClose}
             aria-label="Close filters"
           >
-            ×
+            <i className="pi pi-times" aria-hidden="true" />
           </button>
         )}
       </div>
