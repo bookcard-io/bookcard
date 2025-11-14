@@ -117,9 +117,15 @@ export function useBookUpload(
         });
 
         if (!response.ok) {
-          const data = (await response.json()) as { detail?: string };
-          const errorMessage =
-            data.detail || `Upload failed with status ${response.status}`;
+          let errorMessage = `Upload failed with status ${response.status}`;
+          try {
+            const data = (await response.json()) as { detail?: string };
+            if (data.detail) {
+              errorMessage = data.detail;
+            }
+          } catch {
+            // If JSON parsing fails, use the default error message
+          }
           throw new Error(errorMessage);
         }
 

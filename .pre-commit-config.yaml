@@ -68,11 +68,11 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-push]
-      # - id: vitest
-      #   name: run vitest
-      #   entry: bash -lc 'cd web && npx --yes vitest run --silent --bail 1 --reporter=dot >/dev/null 2>&1'
-      #   language: system
-      #   types: [javascript]
-      #   pass_filenames: false
-      #   always_run: true
-      #   stages: [pre-push]
+      - id: vitest
+        name: run vitest
+        entry: bash -lc 'cd web && npx --yes vitest run --silent --bail 1 --reporter=dot >/dev/null 2>&1'
+        language: system
+        types: [javascript]
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

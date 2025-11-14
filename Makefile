@@ -1,4 +1,4 @@
-.PHONY: dev setup-uv kill-ports format test
+.PHONY: dev setup-uv kill-ports format test testjs testpy
 
 setup-uv:
 	@if command -v uv >/dev/null 2>&1; then \
@@ -123,3 +123,11 @@ test:
 	@echo "Running tests with coverage..."; \
 	cd $(CURDIR) && uv run --frozen pytest --cov=fundamental --cov-report=term-missing -n auto; \
 	cd $(CURDIR)/web && npm run test:coverage
+
+testjs:
+	@echo "Running JavaScript/TypeScript tests with coverage..."; \
+	cd $(CURDIR)/web && npm run test:coverage
+
+testpy:
+	@echo "Running Python tests with coverage..."; \
+	cd $(CURDIR) && uv run --frozen pytest --cov=fundamental --cov-report=term-missing -n auto
