@@ -22,13 +22,13 @@ import { useSelectedShelf } from "@/contexts/SelectedShelfContext";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
 import { useSidebar } from "@/contexts/SidebarContext";
 import { useRecentCreatedShelves } from "@/hooks/useRecentCreatedShelves";
-import { useShelves } from "@/hooks/useShelves";
 import { BurgerArrowLeft } from "@/icons/BurgerArrowLeft";
 import { BurgerArrowRight } from "@/icons/BurgerArrowRight";
 import { LibraryBuilding } from "@/icons/LibraryBuilding";
 import { LibraryOutline } from "@/icons/LibraryOutline";
 import { SharpDevicesFold } from "@/icons/SharpDevicesFold";
 import { cn } from "@/libs/utils";
+import { createShelf as createShelfApi } from "@/services/shelfService";
 import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
 
 interface NavSection {
@@ -60,7 +60,6 @@ export function Sidebar() {
     refresh: refreshShelvesContext,
   } = useShelvesContext();
   const { selectedShelfId, setSelectedShelfId } = useSelectedShelf();
-  const { createShelf } = useShelves();
   const router = useRouter();
   const pathname = usePathname();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
@@ -113,7 +112,7 @@ export function Sidebar() {
   const handleCreateShelf = async (
     data: ShelfCreate | ShelfUpdate,
   ): Promise<Shelf> => {
-    const newShelf = await createShelf(data as ShelfCreate);
+    const newShelf = await createShelfApi(data as ShelfCreate);
     setShowCreateModal(false);
     await refreshShelvesContext();
     return newShelf;

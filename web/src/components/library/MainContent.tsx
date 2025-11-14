@@ -24,7 +24,6 @@ import { LibraryTabs } from "@/components/library/LibraryTabs";
 import { SearchWidgetBar } from "@/components/library/SearchWidgetBar";
 import { FiltersPanel } from "@/components/library/widgets/FiltersPanel";
 import { ShelfSelectionBar } from "@/components/shelves/ShelfSelectionBar";
-import { ShelvesGrid } from "@/components/shelves/ShelvesGrid";
 import { useSelectedShelf } from "@/contexts/SelectedShelfContext";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
 import { useMainContent } from "@/hooks/useMainContent";
@@ -37,6 +36,10 @@ const BooksGrid = dynamic(
 );
 const BooksList = dynamic(
   () => import("@/components/library/BooksList").then((m) => m.BooksList),
+  { ssr: false },
+);
+const ShelvesGrid = dynamic(
+  () => import("@/components/shelves/ShelvesGrid").then((m) => m.ShelvesGrid),
   { ssr: false },
 );
 

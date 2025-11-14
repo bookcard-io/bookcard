@@ -15,8 +15,11 @@
 
 import { useCallback } from "react";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
-import { useShelves } from "@/hooks/useShelves";
-import { deleteShelf } from "@/services/shelfService";
+import {
+  createShelf as createShelfApi,
+  deleteShelf,
+  updateShelf as updateShelfApi,
+} from "@/services/shelfService";
 import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
 
 export interface ShelfDataUpdateRef {
@@ -67,12 +70,11 @@ export function useShelfGridOperations(
   options: UseShelfGridOperationsOptions,
 ): UseShelfGridOperationsResult {
   const { shelfDataUpdateRef, onShelvesDeleted, onError } = options;
-  const { updateShelf, createShelf } = useShelves();
   const { refresh: refreshContext } = useShelvesContext();
 
   const handleShelfUpdate = useCallback(
     async (shelf: Shelf) => {
-      await updateShelf(shelf.id, {
+      await updateShelfApi(shelf.id, {
         name: shelf.name,
         description: shelf.description,
         is_public: shelf.is_public,
@@ -86,7 +88,7 @@ export function useShelfGridOperations(
         is_public: shelf.is_public,
       });
     },
-    [updateShelf, refreshContext, shelfDataUpdateRef],
+    [refreshContext, shelfDataUpdateRef],
   );
 
   const handleCoverUpdate = useCallback(
@@ -129,12 +131,12 @@ export function useShelfGridOperations(
 
   const handleCreateShelf = useCallback(
     async (data: ShelfCreate | ShelfUpdate): Promise<Shelf> => {
-      const newShelf = await createShelf(data as ShelfCreate);
+      const newShelf = await createShelfApi(data as ShelfCreate);
       // Refresh context to sync with Sidebar and other components
       await refreshContext();
       return newShelf;
     },
-    [createShelf, refreshContext],
+    [refreshContext],
   );
 
   return {

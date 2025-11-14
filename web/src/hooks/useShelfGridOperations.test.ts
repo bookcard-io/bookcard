@@ -27,12 +27,14 @@ vi.mock("@/contexts/ShelvesContext", () => ({
 }));
 
 vi.mock("@/services/shelfService", () => ({
+  createShelf: vi.fn(),
   deleteShelf: vi.fn(),
+  updateShelf: vi.fn(),
 }));
 
 import { useShelvesContext } from "@/contexts/ShelvesContext";
 import { useShelves } from "@/hooks/useShelves";
-import { deleteShelf } from "@/services/shelfService";
+import { createShelf, deleteShelf, updateShelf } from "@/services/shelfService";
 
 function createMockShelf(id: number): Shelf {
   return {
@@ -71,6 +73,10 @@ describe("useShelfGridOperations", () => {
 
     vi.mocked(deleteShelf).mockReset();
     vi.mocked(deleteShelf).mockResolvedValue(undefined);
+    vi.mocked(updateShelf).mockReset();
+    vi.mocked(updateShelf).mockResolvedValue(createMockShelf(1));
+    vi.mocked(createShelf).mockReset();
+    vi.mocked(createShelf).mockResolvedValue(createMockShelf(1));
 
     vi.mocked(useShelves).mockReturnValue({
       shelves: [],
@@ -119,7 +125,7 @@ describe("useShelfGridOperations", () => {
 
     await result.current.handleShelfUpdate(updatedShelf);
 
-    expect(mockUpdateShelf).toHaveBeenCalledWith(1, {
+    expect(vi.mocked(updateShelf)).toHaveBeenCalledWith(1, {
       name: "Updated Shelf",
       description: "Updated description",
       is_public: true,
@@ -290,7 +296,7 @@ describe("useShelfGridOperations", () => {
 
     const createdShelf = await result.current.handleCreateShelf(shelfData);
 
-    expect(mockCreateShelf).toHaveBeenCalledWith(shelfData);
+    expect(vi.mocked(createShelf)).toHaveBeenCalledWith(shelfData);
     expect(mockRefreshContext).toHaveBeenCalled();
     expect(createdShelf).toEqual(newShelf);
   });
@@ -314,7 +320,7 @@ describe("useShelfGridOperations", () => {
 
     const createdShelf = await result.current.handleCreateShelf(shelfData);
 
-    expect(mockCreateShelf).toHaveBeenCalledWith(shelfData);
+    expect(vi.mocked(createShelf)).toHaveBeenCalledWith(shelfData);
     expect(createdShelf).toEqual(newShelf);
   });
 
@@ -382,7 +388,7 @@ describe("useShelfGridOperations", () => {
 
     await result.current.handleShelfUpdate(updatedShelf);
 
-    expect(mockUpdateShelf).toHaveBeenCalled();
+    expect(vi.mocked(updateShelf)).toHaveBeenCalled();
     expect(mockRefreshContext).toHaveBeenCalled();
     // Should not throw when ref.current is null
     expect(true).toBe(true);
