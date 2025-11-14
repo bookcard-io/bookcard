@@ -15,17 +15,16 @@
 
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/forms/Button";
 import { TextArea } from "@/components/forms/TextArea";
 import { TextInput } from "@/components/forms/TextInput";
+import { ShelfCoverSection } from "@/components/shelves/ShelfCoverSection";
+import { useCoverFile } from "@/hooks/useCoverFile";
 import { useModal } from "@/hooks/useModal";
+import { useModalInteractions } from "@/hooks/useModalInteractions";
+import { useShelfCoverOperations } from "@/hooks/useShelfCoverOperations";
 import { useShelfForm } from "@/hooks/useShelfForm";
-import {
-  deleteShelfCoverPicture,
-  getShelfCoverPictureUrl,
-  uploadShelfCoverPicture,
-} from "@/services/shelfService";
 import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
 
 export interface ShelfEditModalProps {
@@ -49,6 +48,9 @@ export interface ShelfEditModalProps {
  * Shelf create/edit modal component.
  *
  * Displays a form for creating or editing a shelf in a modal overlay.
+ * Follows SRP by delegating concerns to specialized hooks and components.
+ * Follows IOC by accepting callbacks for all operations.
+ * Follows DRY by reusing hooks and components.
  */
 export function ShelfEditModal({
   shelf,
@@ -70,7 +72,7 @@ export function ShelfEditModal({
     setDescription,
     setIsPublic,
     handleSubmit: validateAndSubmit,
-    reset,
+    reset: resetForm,
   } = useShelfForm({
     initialName: shelf?.name ?? initialName ?? "",
     initialDescription: shelf?.description ?? null,
@@ -83,48 +85,42 @@ export function ShelfEditModal({
     },
   });
 
-  const [coverFile, setCoverFile] = useState<File | null>(
-    initialCoverFile || null,
-  );
-  const [coverError, setCoverError] = useState<string | null>(null);
+  const {
+    coverFile,
+    coverPreviewUrl,
+    coverError,
+    isCoverDeleteStaged,
+    fileInputRef,
+    handleCoverFileChange,
+    handleClearCoverFile,
+    handleCoverDelete,
+    handleCancelDelete,
+    reset: resetCover,
+  } = useCoverFile({
+    initialCoverFile,
+    isEditMode,
+  });
+
   const [isSaving, setIsSaving] = useState(false);
-  const [isCoverDeleteStaged, setIsCoverDeleteStaged] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
-  const hasUserTouchedCoverRef = useRef(false);
+  const [coverOperationError, setCoverOperationError] = useState<string | null>(
+    null,
+  );
 
-  // Create object URL for cover preview and clean up on unmount or file change
-  useEffect(() => {
-    if (coverFile && !isEditMode) {
-      const objectUrl = URL.createObjectURL(coverFile);
-      setCoverPreviewUrl(objectUrl);
-      return () => {
-        URL.revokeObjectURL(objectUrl);
-      };
-    }
-    setCoverPreviewUrl(null);
-    return () => {};
-  }, [coverFile, isEditMode]);
-
-  // Keep coverFile in sync with initialCoverFile for create mode,
-  // but do not overwrite if the user has already interacted with the cover input.
-  useEffect(() => {
-    if (!isEditMode && initialCoverFile && !hasUserTouchedCoverRef.current) {
-      setCoverFile((prev) => prev ?? initialCoverFile);
-    }
-  }, [initialCoverFile, isEditMode]);
+  const { executeCoverOperations } = useShelfCoverOperations({
+    onCoverSaved,
+    onCoverDeleted,
+    onError: (error) => {
+      setCoverOperationError(error);
+      console.error("Cover operation error:", error);
+    },
+  });
 
   // Prevent body scroll when modal is open
   useModal(true);
 
-  const handleOverlayClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.target === e.currentTarget) {
-        onClose();
-      }
-    },
-    [onClose],
-  );
+  const { handleOverlayClick, handleModalClick } = useModalInteractions({
+    onClose,
+  });
 
   const handleOverlayKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -135,74 +131,20 @@ export function ShelfEditModal({
     [onClose],
   );
 
-  const handleModalClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      e.stopPropagation();
+  const handleCoverFileChangeWithErrorClear = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setCoverOperationError(null);
+      handleCoverFileChange(e);
     },
-    [],
+    [handleCoverFileChange],
   );
 
   const handleCancel = useCallback(() => {
-    reset();
-    setIsCoverDeleteStaged(false);
-    setCoverFile(null);
-    setCoverError(null);
+    resetForm();
+    resetCover();
+    setCoverOperationError(null);
     onClose();
-  }, [reset, onClose]);
-
-  const handleCoverFileChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        // Validate file type
-        const validTypes = [
-          "image/jpeg",
-          "image/jpg",
-          "image/png",
-          "image/gif",
-          "image/webp",
-          "image/svg+xml",
-        ];
-        if (!validTypes.includes(file.type)) {
-          setCoverError("Invalid file type. Please select an image file.");
-          return;
-        }
-        // Validate file size (max 5MB)
-        const maxSize = 5 * 1024 * 1024;
-        if (file.size > maxSize) {
-          setCoverError("File size must be less than 5MB");
-          return;
-        }
-        setCoverFile(file);
-        setCoverError(null);
-        hasUserTouchedCoverRef.current = true;
-        // Clear staged deletion if a new file is selected
-        setIsCoverDeleteStaged(false);
-      }
-    },
-    [],
-  );
-
-  const handleClearCoverFile = useCallback(() => {
-    setCoverFile(null);
-    setCoverError(null);
-    setIsCoverDeleteStaged(false);
-    hasUserTouchedCoverRef.current = true;
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  }, []);
-
-  const handleCoverDelete = useCallback(() => {
-    // Stage the deletion - actual deletion happens on Save
-    setIsCoverDeleteStaged(true);
-    setCoverFile(null);
-    setCoverError(null);
-    hasUserTouchedCoverRef.current = true;
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  }, []);
+  }, [resetForm, resetCover, onClose]);
 
   const handleFormSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -215,6 +157,8 @@ export function ShelfEditModal({
       }
 
       setIsSaving(true);
+      setCoverOperationError(null);
+
       try {
         // Prepare shelf data
         const data: ShelfCreate | ShelfUpdate = {
@@ -227,51 +171,18 @@ export function ShelfEditModal({
         const savedShelf = await onSave(data);
 
         // Handle cover operations after shelf is saved
-        if (savedShelf) {
-          // Delete cover if deletion is staged
-          if (isCoverDeleteStaged) {
-            try {
-              const updatedShelf = await deleteShelfCoverPicture(savedShelf.id);
-              // Notify parent to refresh cover with updated shelf data
-              onCoverDeleted?.(updatedShelf);
-            } catch (error) {
-              console.error("Failed to delete cover picture:", error);
-              setCoverError(
-                error instanceof Error
-                  ? error.message
-                  : "Failed to delete cover picture",
-              );
-              setIsSaving(false);
-              return;
-            }
-          }
-
-          // Upload cover picture if one was selected
-          if (coverFile) {
-            try {
-              const updatedShelf = await uploadShelfCoverPicture(
-                savedShelf.id,
-                coverFile,
-              );
-              // Notify parent to refresh cover with updated shelf data
-              onCoverSaved?.(updatedShelf);
-            } catch (error) {
-              console.error("Failed to upload cover picture:", error);
-              setCoverError(
-                error instanceof Error
-                  ? error.message
-                  : "Failed to upload cover picture",
-              );
-              setIsSaving(false);
-              return;
-            }
-          }
+        if (savedShelf && (coverFile || isCoverDeleteStaged)) {
+          await executeCoverOperations(
+            savedShelf,
+            coverFile,
+            isCoverDeleteStaged,
+          );
         }
 
         onClose();
       } catch (error) {
         console.error("Failed to save shelf:", error);
-        // Error handling is done by useShelfForm
+        // Error handling is done by useShelfForm and useShelfCoverOperations
       } finally {
         setIsSaving(false);
       }
@@ -284,8 +195,7 @@ export function ShelfEditModal({
       onSave,
       coverFile,
       isCoverDeleteStaged,
-      onCoverSaved,
-      onCoverDeleted,
+      executeCoverOperations,
       onClose,
     ],
   );
@@ -345,90 +255,19 @@ export function ShelfEditModal({
               placeholder="Optional description of the shelf"
             />
 
-            <div className="space-y-4">
-              <div className="font-medium text-sm text-text-a10">
-                Cover picture (optional)
-              </div>
-              {isEditMode &&
-              shelf &&
-              shelf.cover_picture &&
-              !isCoverDeleteStaged ? (
-                <div className="space-y-4">
-                  <img
-                    src={getShelfCoverPictureUrl(shelf.id)}
-                    alt={`${shelf.name} cover`}
-                    className="h-32 w-32 rounded-lg object-cover"
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="medium"
-                      onClick={handleCoverDelete}
-                      disabled={isSaving}
-                    >
-                      Delete Cover
-                    </Button>
-                  </div>
-                </div>
-              ) : isEditMode && isCoverDeleteStaged ? (
-                <div className="space-y-4">
-                  <div className="flex h-32 w-32 items-center justify-center rounded-lg border-2 border-surface-a30 border-dashed bg-surface-a20">
-                    <span className="text-sm text-text-a40">
-                      Cover will be deleted
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="medium"
-                      onClick={() => setIsCoverDeleteStaged(false)}
-                      disabled={isSaving}
-                    >
-                      Cancel Delete
-                    </Button>
-                  </div>
-                </div>
-              ) : coverPreviewUrl ? (
-                <div className="space-y-4">
-                  <img
-                    src={coverPreviewUrl}
-                    alt="Cover preview"
-                    className="h-32 w-32 rounded-lg object-cover"
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="medium"
-                      onClick={handleClearCoverFile}
-                      disabled={isSaving}
-                    >
-                      Clear
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/svg+xml"
-                    onChange={handleCoverFileChange}
-                    className="block w-full rounded-lg border border-surface-a20 bg-surface-a0 px-4 py-3 font-inherit text-base text-text-a0 leading-normal transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s] file:mr-4 file:cursor-pointer file:rounded file:border-0 file:bg-surface-a20 file:px-4 file:py-2 file:font-semibold file:text-sm file:text-text-a0 hover:file:bg-surface-a30 focus:border-primary-a0 focus:bg-surface-a10 focus:shadow-[var(--shadow-focus-ring)] focus:outline-none hover:not(:focus):border-surface-a30"
-                  />
-                </div>
-              )}
-              {coverError && (
-                <p
-                  className="text-danger-a10 text-sm leading-normal"
-                  role="alert"
-                >
-                  {coverError}
-                </p>
-              )}
-            </div>
+            <ShelfCoverSection
+              shelf={shelf}
+              isEditMode={isEditMode}
+              isCoverDeleteStaged={isCoverDeleteStaged}
+              coverPreviewUrl={coverPreviewUrl}
+              coverError={coverError || coverOperationError}
+              fileInputRef={fileInputRef}
+              isSaving={isSaving}
+              onCoverFileChange={handleCoverFileChangeWithErrorClear}
+              onClearCoverFile={handleClearCoverFile}
+              onCoverDelete={handleCoverDelete}
+              onCancelDelete={handleCancelDelete}
+            />
 
             <div className="flex items-center gap-2">
               <input
