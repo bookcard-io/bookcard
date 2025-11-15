@@ -20,6 +20,7 @@ Encapsulates user profile operations and validations.
 
 from __future__ import annotations
 
+import json
 import re
 from contextlib import suppress
 from pathlib import Path
@@ -32,6 +33,7 @@ from fundamental.models.auth import (
     EBookFormat,
     User,
     UserRole,
+    UserSetting,
 )
 from fundamental.repositories.command_executor import CommandExecutor
 from fundamental.repositories.delete_commands import (
@@ -54,6 +56,27 @@ if TYPE_CHECKING:
     from fundamental.services.security import PasswordHasher
 
 
+# Default user settings to initialize for new users.
+# Values can be strings, booleans, or lists (which will be JSON-encoded).
+# Only settings with non-None values will be created.
+DEFAULT_USER_SETTINGS: dict[str, str | bool | list[str]] = {
+    "theme_preference": "dark",
+    "books_grid_display": "infinite-scroll",
+    "default_view_mode": "grid",
+    "default_page_size": "20",
+    "preferred_language": "en",
+    "default_sort_field": "timestamp",
+    "default_sort_order": "desc",
+    "enabled_metadata_providers": ["Google Books", "Amazon", "ComicVine"],
+    "preferred_metadata_providers": ["Google Books", "Amazon"],
+    "replace_cover_on_metadata_selection": True,
+    "auto_dismiss_book_edit_modal": True,
+    "book_details_open_mode": "modal",
+    "always_warn_on_delete": True,
+    "default_delete_files_from_drive": False,
+}
+
+
 class UserService:
     """Operations for retrieving and updating user profiles.
 
@@ -72,6 +95,127 @@ class UserService:
     def get(self, user_id: int) -> User | None:
         """Return a user by id or ``None`` if missing."""
         return self._users.get(user_id)
+
+    def create_admin_user(
+        self,
+        username: str,
+        email: str,
+        password: str,
+        *,
+        full_name: str | None = None,
+        is_admin: bool = False,
+        is_active: bool = True,
+        role_ids: list[int] | None = None,
+        default_device_email: str | None = None,
+        default_device_name: str | None = None,
+        default_device_type: str | None = None,
+        default_device_format: str | None = None,
+        password_hasher: PasswordHasher,
+        role_service: RoleService | None = None,
+        device_service: EReaderService | None = None,
+    ) -> User:
+        """Create a new user with optional role and device assignment.
+
+        Parameters
+        ----------
+        username : str
+            Username for the new user.
+        email : str
+            Email address for the new user.
+        password : str
+            Plain text password (will be hashed before storage).
+        full_name : str | None
+            Optional full name.
+        is_admin : bool
+            Whether the user is an admin (default: False).
+        is_active : bool
+            Whether the user is active (default: True).
+        role_ids : list[int] | None
+            Optional list of role IDs to assign.
+        default_device_email : str | None
+            Optional e-reader email for default device.
+        default_device_name : str | None
+            Optional device name (used when creating device).
+        default_device_type : str | None
+            Optional device type (defaults to "generic" if creating).
+        default_device_format : str | None
+            Optional preferred format string (defaults to EPUB if creating).
+        password_hasher : PasswordHasher
+            Password hasher for hashing passwords (IOC).
+        role_service : RoleService | None
+            Role service for managing role assignments (IOC).
+        device_service : EReaderService | None
+            E-reader service for device operations (IOC).
+
+        Returns
+        -------
+        User
+            Created user with relationships loaded.
+
+        Raises
+        ------
+        ValueError
+            If username or email already exists.
+        """
+        # Check if username/email exists
+        if self._users.find_by_username(username) is not None:
+            msg = "username_already_exists"
+            raise ValueError(msg)
+        if self._users.find_by_email(email) is not None:
+            msg = "email_already_exists"
+            raise ValueError(msg)
+
+        # Create user
+        user = User(
+            username=username,
+            full_name=full_name,
+            email=email,
+            password_hash=password_hasher.hash(password),
+            is_admin=is_admin,
+            is_active=is_active,
+        )
+        self._users.add(user)
+        self._session.flush()
+
+        # Assign roles if provided
+        if role_ids and role_service is not None:
+            for role_id in role_ids:
+                with suppress(ValueError):
+                    # Role doesn't exist or already assigned, skip
+                    role_service.assign_role_to_user(user.id, role_id)  # type: ignore[arg-type]
+
+        # Create default device if email provided
+        if default_device_email and device_service is not None:
+            # Use payload values if provided, otherwise default to hardcoded values
+            preferred_format = EBookFormat.EPUB
+            if default_device_format:
+                with suppress(ValueError):
+                    # Invalid format, use default
+                    preferred_format = EBookFormat(default_device_format.lower())
+            device_name = default_device_name or "My eReader"
+            device_type = default_device_type or "generic"
+            with suppress(ValueError):
+                # Device email already exists, skip
+                device_service.create_device(
+                    user.id,  # type: ignore[arg-type]
+                    default_device_email,
+                    device_name=device_name,
+                    device_type=device_type,
+                    preferred_format=preferred_format,
+                    is_default=True,
+                )
+
+        # Initialize default user settings
+        self._initialize_default_settings(user.id)  # type: ignore[arg-type]
+
+        self._session.commit()
+
+        # Reload with relationships for response
+        user_with_rels = self.get_with_relationships(user.id)  # type: ignore[arg-type]
+        if user_with_rels is None:
+            msg = "user_not_found"
+            raise ValueError(msg)
+        return user_with_rels
 
     def update_profile(
         self, user_id: int, *, username: str | None = None, email: str | None = None
@@ -631,4 +775,44 @@ class UserService:
 
         # Clear executor after successful execution
         executor.clear()
+        self._session.flush()
+
+    def _initialize_default_settings(self, user_id: int) -> None:
+        """Initialize default user settings for a newly created user.
+
+        Creates UserSetting records for all settings defined in DEFAULT_USER_SETTINGS.
+        Handles different value types:
+        - Strings: stored as-is
+        - Booleans: converted to "true"/"false" strings
+        - Lists: JSON-encoded to strings
+
+        Parameters
+        ----------
+        user_id : int
+            User identifier for which to create default settings.
+
+        Notes
+        -----
+        Follows SRP by handling only default settings initialization.
+        Follows DRY by centralizing default values in DEFAULT_USER_SETTINGS constant.
+        """
+        for key, value in DEFAULT_USER_SETTINGS.items():
+            # Convert value to string representation
+            if isinstance(value, bool):
+                setting_value = "true" if value else "false"
+            elif isinstance(value, list):
+                # JSON-encode lists (e.g., metadata providers)
+                setting_value = json.dumps(value)
+            else:
+                # String or other types - convert to string
+                setting_value = str(value)
+
+            # Create setting record
+            setting = UserSetting(
+                user_id=user_id,
+                key=key,
+                value=setting_value,
+            )
+            self._session.add(setting)
+
         self._session.flush()

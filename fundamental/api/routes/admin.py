@@ -99,73 +99,50 @@ def create_user(
         If username or email already exists (409).
     """
     user_repo = UserRepository(session)
+    user_service = UserService(session, user_repo)
     hasher = PasswordHasher()
 
-    # Check if username/email exists
-    if user_repo.find_by_username(payload.username) is not None:
-        raise HTTPException(status_code=409, detail="username_already_exists")
-    if user_repo.find_by_email(payload.email) is not None:
-        raise HTTPException(status_code=409, detail="email_already_exists")
-
-    # Create user
-    user = User(
-        username=payload.username,
-        full_name=payload.full_name,
-        email=payload.email,
-        password_hash=hasher.hash(payload.password),
-        is_admin=payload.is_admin,
-        is_active=payload.is_active,
-    )
-    user_repo.add(user)
-    session.flush()
-
-    # Assign roles if provided
+    # Prepare role service if roles are provided
+    role_service: RoleService | None = None
     if payload.role_ids:
-        role_repo = RoleRepository(session)
-        user_role_repo = UserRoleRepository(session)
         role_service = RoleService(
             session,
-            role_repo,
+            RoleRepository(session),
             PermissionRepository(session),
-            user_role_repo,
+            UserRoleRepository(session),
             RolePermissionRepository(session),
         )
-        for role_id in payload.role_ids:
-            with suppress(ValueError):
-                # Role doesn't exist or already assigned, skip
-                role_service.assign_role_to_user(user.id, role_id)  # type: ignore[arg-type]
 
-    # Create default device if email provided
+    # Prepare device service if device email is provided
+    device_service: EReaderService | None = None
     if payload.default_device_email:
-        device_repo = EReaderRepository(session)
-        device_service = EReaderService(session, device_repo)
-        # Use payload values if provided, otherwise default to hardcoded values
-        preferred_format = EBookFormat.EPUB
-        if payload.default_device_format:
-            with suppress(ValueError):
-                # Invalid format, use default
-                preferred_format = EBookFormat(payload.default_device_format.lower())
-        device_name = payload.default_device_name or "My eReader"
-        device_type = payload.default_device_type or "generic"
-        with suppress(ValueError):
-            # Device email already exists, skip
-            device_service.create_device(
-                user.id,  # type: ignore[arg-type]
-                payload.default_device_email,
-                device_name=device_name,
-                device_type=device_type,
-                preferred_format=preferred_format,
-                is_default=True,
-            )
+        device_service = EReaderService(session, EReaderRepository(session))
 
-    session.commit()
-    # Reload with relationships for response
-    user_repo = UserRepository(session)
-    user_service = UserService(session, user_repo)
-    user_with_rels = user_service.get_with_relationships(user.id)  # type: ignore[arg-type]
-    if user_with_rels is None:
-        raise HTTPException(status_code=404, detail="user_not_found")
-    return UserRead.from_user(user_with_rels)
+    try:
+        user = user_service.create_admin_user(
+            username=payload.username,
+            email=payload.email,
+            password=payload.password,
+            full_name=payload.full_name,
+            is_admin=payload.is_admin,
+            is_active=payload.is_active,
+            role_ids=payload.role_ids if payload.role_ids else None,
+            default_device_email=payload.default_device_email,
+            default_device_name=payload.default_device_name,
+            default_device_type=payload.default_device_type,
+            default_device_format=payload.default_device_format,
+            password_hasher=hasher,
+            role_service=role_service,
+            device_service=device_service,
+        )
+        return UserRead.from_user(user)
+    except ValueError as exc:
+        error_msg = str(exc)
+        if error_msg in ("username_already_exists", "email_already_exists"):
+            raise HTTPException(status_code=409, detail=error_msg) from exc
+        if error_msg == "user_not_found":
+            raise HTTPException(status_code=404, detail=error_msg) from exc
+        raise HTTPException(status_code=400, detail=error_msg) from exc
 
 
 @router.get(
