@@ -203,6 +203,7 @@ export function DeviceEditModal({
               >
                 <option value="kindle">Kindle</option>
                 <option value="kobo">Kobo</option>
+                <option value="nook">Nook</option>
                 <option value="generic">Generic</option>
               </select>
             </div>

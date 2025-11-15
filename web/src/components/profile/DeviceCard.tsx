@@ -15,8 +15,11 @@
 
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
+import { Ereader } from "@/icons/EReader";
 import { Kindle } from "@/icons/Kindle";
+import { KoboBooks } from "@/icons/Kobo";
+import { Nook } from "@/icons/Nook";
 import { cn } from "@/libs/utils";
 import type { EReaderDevice } from "./hooks/useUserProfile";
 
@@ -42,6 +45,19 @@ export interface DeviceCardProps {
  *     Component props including device data.
  */
 export function DeviceCard({ device, onEdit, onDelete }: DeviceCardProps) {
+  const DeviceIcon = useMemo(() => {
+    switch (device.device_type?.toLowerCase()) {
+      case "kindle":
+        return Kindle;
+      case "kobo":
+        return KoboBooks;
+      case "nook":
+        return Nook;
+      default:
+        return Ereader;
+    }
+  }, [device.device_type]);
+
   const handleEdit = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -120,7 +136,7 @@ export function DeviceCard({ device, onEdit, onDelete }: DeviceCardProps) {
           aria-label="Edit device"
           title="Edit device"
         >
-          <Kindle className={cn("h-85 w-85 text-text-a30")} />
+          <DeviceIcon className={cn("h-85 w-85 text-text-a30")} />
         </button>
         {onDelete && (
           <button
