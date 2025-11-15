@@ -97,12 +97,29 @@ describe("useModalInteractions", () => {
     expect(stopPropagationSpy).toHaveBeenCalled();
   });
 
-  it("should provide handleOverlayKeyDown handler", () => {
+  it("should call onClose when Escape key is pressed", () => {
     const onClose = vi.fn();
     const { result } = renderHook(() => useModalInteractions({ onClose }));
     expect(typeof result.current.handleOverlayKeyDown).toBe("function");
-    // Handler exists for accessibility but doesn't do anything
-    expect(() => result.current.handleOverlayKeyDown()).not.toThrow();
+
+    const escapeEvent = {
+      key: "Escape",
+    } as unknown as React.KeyboardEvent<HTMLDivElement>;
+
+    result.current.handleOverlayKeyDown(escapeEvent);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("should not call onClose for other keys", () => {
+    const onClose = vi.fn();
+    const { result } = renderHook(() => useModalInteractions({ onClose }));
+
+    const enterEvent = {
+      key: "Enter",
+    } as unknown as React.KeyboardEvent<HTMLDivElement>;
+
+    result.current.handleOverlayKeyDown(enterEvent);
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("should only call onClose when clicking overlay itself (e.target === e.currentTarget)", () => {

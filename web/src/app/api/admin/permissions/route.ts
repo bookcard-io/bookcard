@@ -17,9 +17,10 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedClient } from "@/services/http/routeHelpers";
 
 /**
- * GET /api/admin/roles
+ * GET /api/admin/permissions
  *
- * Proxies request to the backend admin roles endpoint.
+ * Proxies request to the backend admin permissions endpoint.
+ * Supports optional resource query parameter for filtering.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -29,25 +30,34 @@ export async function GET(request: NextRequest) {
       return error;
     }
 
-    const response = await client.request("/admin/roles", {
+    const searchParams = request.nextUrl.searchParams;
+    const resource = searchParams.get("resource");
+
+    const queryParams: Record<string, string> = {};
+    if (resource) {
+      queryParams.resource = resource;
+    }
+
+    const response = await client.request("/admin/permissions", {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
       },
+      queryParams,
     });
 
     const data = await response.json();
 
     if (!response.ok) {
       return NextResponse.json(
-        { detail: data.detail || "Failed to fetch roles" },
+        { detail: data.detail || "Failed to fetch permissions" },
         { status: response.status },
       );
     }
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Error in GET /api/admin/roles:", error);
+    console.error("Error in GET /api/admin/permissions:", error);
     return NextResponse.json(
       { detail: "Internal server error" },
       { status: 500 },
@@ -56,9 +66,9 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/admin/roles
+ * POST /api/admin/permissions
  *
- * Proxies request to create a new role.
+ * Proxies request to the backend admin permissions endpoint for creating permissions.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -70,7 +80,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    const response = await client.request("/admin/roles", {
+    const response = await client.request("/admin/permissions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -82,14 +92,14 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       return NextResponse.json(
-        { detail: data.detail || "Failed to create role" },
+        { detail: data.detail || "Failed to create permission" },
         { status: response.status },
       );
     }
 
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
-    console.error("Error in POST /api/admin/roles:", error);
+    console.error("Error in POST /api/admin/permissions:", error);
     return NextResponse.json(
       { detail: "Internal server error" },
       { status: 500 },

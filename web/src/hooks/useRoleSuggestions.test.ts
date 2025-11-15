@@ -46,7 +46,7 @@ function createMockRole(
   name: string,
   description: string | null = null,
 ): Role {
-  return { id, name, description };
+  return { id, name, description, permissions: [] };
 }
 
 describe("useRoleSuggestions", () => {

@@ -19,7 +19,7 @@ import { useState } from "react";
 import { cn } from "@/libs/utils";
 import { ConfigurationTab } from "./tabs/ConfigurationTab";
 import { SystemTab } from "./tabs/SystemTab";
-import { UsersTab } from "./tabs/UsersTab";
+import { UsersAndRolesTab } from "./tabs/UsersAndRolesTab";
 
 type TabId = "users" | "configuration" | "system";
 
@@ -27,7 +27,7 @@ export function AdminSettings() {
   const [activeTab, setActiveTab] = useState<TabId>("users");
 
   const tabs: { id: TabId; label: string }[] = [
-    { id: "users", label: "Users" },
+    { id: "users", label: "Users & Permissions" },
     { id: "configuration", label: "Configuration" },
     { id: "system", label: "System" },
   ];
@@ -54,7 +54,7 @@ export function AdminSettings() {
         </div>
 
         <div className="px-0 py-3.5">
-          {activeTab === "users" && <UsersTab />}
+          {activeTab === "users" && <UsersAndRolesTab />}
           {activeTab === "configuration" && <ConfigurationTab />}
           {activeTab === "system" && <SystemTab />}
         </div>

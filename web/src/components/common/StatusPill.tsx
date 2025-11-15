@@ -13,8 +13,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-export type StatusPillVariant = "success" | "warning" | "danger" | "info";
-export type StatusPillSize = "default" | "tiny";
+export type StatusPillVariant =
+  | "success"
+  | "warning"
+  | "danger"
+  | "info"
+  | "neutral";
+export type StatusPillSize = "tiny" | "small" | "default" | "medium" | "large";
 
 export interface StatusPillProps {
   /** Text to display in the pill. */
@@ -63,6 +68,8 @@ export function StatusPill({
         return "var(--color-danger-a10)";
       case "info":
         return "var(--color-info-a10)";
+      case "neutral":
+        return "var(--color-surface-a20)";
       default:
         return "var(--color-success-a10)";
     }
@@ -80,6 +87,8 @@ export function StatusPill({
         return "var(--color-danger-a0)";
       case "info":
         return "var(--color-info-a0)";
+      case "neutral":
+        return "var(--color-text-a40)";
       default:
         return "var(--color-success-a0)";
     }
@@ -87,20 +96,43 @@ export function StatusPill({
 
   // Get size-specific classes
   const getSizeClasses = () => {
-    if (size === "tiny") {
-      return {
-        container: "gap-1 rounded-full px-1.5 py-0.5",
-        icon: "h-3 w-3",
-        iconText: "text-[8px]",
-        label: "font-medium text-[10px]",
-      };
+    switch (size) {
+      case "tiny":
+        return {
+          container: "gap-1 rounded-full px-1.5 py-0.5",
+          icon: "h-3 w-3",
+          iconText: "text-[8px]",
+          label: "font-medium text-[10px]",
+        };
+      case "small":
+        return {
+          container: "gap-1.5 rounded-full px-2 py-1",
+          icon: "h-4 w-4",
+          iconText: "text-[10px]",
+          label: "font-medium text-xs",
+        };
+      case "medium":
+        return {
+          container: "gap-2 rounded-full px-3 py-1.5",
+          icon: "h-5 w-5",
+          iconText: "text-xs",
+          label: "font-medium text-sm",
+        };
+      case "large":
+        return {
+          container: "gap-2 rounded-full px-4 py-2",
+          icon: "h-6 w-6",
+          iconText: "text-sm",
+          label: "font-medium text-base",
+        };
+      default: // "default"
+        return {
+          container: "gap-2 rounded-full px-3 py-1.5",
+          icon: "h-5 w-5",
+          iconText: "text-xs",
+          label: "font-medium text-sm",
+        };
     }
-    return {
-      container: "gap-2 rounded-full px-3 py-1.5",
-      icon: "h-5 w-5",
-      iconText: "text-xs",
-      label: "font-medium text-sm",
-    };
   };
 
   const sizeClasses = getSizeClasses();
@@ -121,8 +153,12 @@ export function StatusPill({
         </div>
       )}
       <span
-        className={sizeClasses.label}
-        style={{ color: "var(--color-black)" }}
+        className={`${sizeClasses.label} ${
+          variant === "neutral" ? "text-text-a0" : ""
+        }`}
+        style={
+          variant !== "neutral" ? { color: "var(--color-black)" } : undefined
+        }
       >
         {label}
       </span>

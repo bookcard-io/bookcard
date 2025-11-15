@@ -25,8 +25,8 @@ export interface UseModalInteractionsResult {
   handleOverlayClick: (e: React.MouseEvent<HTMLDivElement>) => void;
   /** Handler for modal click events (prevents propagation). */
   handleModalClick: (e: React.MouseEvent<HTMLDivElement>) => void;
-  /** Handler for overlay keydown events (for accessibility). */
-  handleOverlayKeyDown: () => void;
+  /** Handler for overlay keydown events (handles Escape key). */
+  handleOverlayKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
 }
 
 /**
@@ -68,10 +68,14 @@ export function useModalInteractions(
     [],
   );
 
-  const handleOverlayKeyDown = useCallback(() => {
-    // Keyboard navigation is handled by useKeyboardNavigation hook
-    // This handler exists only to satisfy accessibility requirements
-  }, []);
+  const handleOverlayKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    },
+    [onClose],
+  );
 
   return {
     handleOverlayClick,

@@ -877,10 +877,11 @@ def test_create_role_success(monkeypatch: pytest.MonkeyPatch) -> None:
     payload = admin.RoleCreate(name="viewer", description="Viewer role")
 
     role = Role(id=1, name="viewer", description="Viewer role")
+    role.permissions = []  # type: ignore[attr-defined]
 
     with patch("fundamental.api.routes.admin.RoleService") as mock_service_class:
         mock_service = MagicMock()
-        mock_service.create_role.return_value = role
+        mock_service.create_role_from_schema.return_value = role
         mock_service_class.return_value = mock_service
 
         result = admin.create_role(session, payload)
@@ -895,7 +896,9 @@ def test_create_role_already_exists(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with patch("fundamental.api.routes.admin.RoleService") as mock_service_class:
         mock_service = MagicMock()
-        mock_service.create_role.side_effect = ValueError("role_already_exists")
+        mock_service.create_role_from_schema.side_effect = ValueError(
+            "role_already_exists"
+        )
         mock_service_class.return_value = mock_service
 
         with pytest.raises(HTTPException) as exc_info:
@@ -919,7 +922,7 @@ def test_create_role_already_exists(monkeypatch: pytest.MonkeyPatch) -> None:
             admin.create_role,
             admin.RoleCreate(name="testrole", description="Test role"),
             "fundamental.api.routes.admin.RoleService",
-            "create_role",
+            "create_role_from_schema",
             "488",
             {"payload": admin.RoleCreate(name="testrole", description="Test role")},
         ),
@@ -1064,14 +1067,14 @@ def test_list_roles(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_delete_role_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test delete_role succeeds."""
     session = DummySession()
-    role = Role(id=1, name="viewer", description="Viewer role")
+    role = Role(id=2, name="viewer", description="Viewer role")
 
     with patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = role
         mock_repo_class.return_value = mock_repo
 
-        result = admin.delete_role(session, role_id=1)
+        result = admin.delete_role(session, role_id=2)
         assert result is None
         mock_repo.delete.assert_called_once_with(role)
 
@@ -1260,6 +1263,110 @@ def test_list_permissions_with_resource(monkeypatch: pytest.MonkeyPatch) -> None
         result = admin.list_permissions(session, resource="books")
         assert len(result) == 2
         mock_repo.list_by_resource.assert_called_once_with("books")
+
+
+def test_delete_permission_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test delete_permission succeeds when permission is orphaned."""
+    session = DummySession()
+
+    with (
+        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch(
+            "fundamental.api.routes.admin.PermissionRepository"
+        ) as mock_perm_repo_class,
+        patch("fundamental.api.routes.admin.UserRoleRepository"),
+        patch(
+            "fundamental.api.routes.admin.RolePermissionRepository"
+        ) as mock_rp_repo_class,
+    ):
+        mock_service = MagicMock()
+        mock_service.delete_permission.return_value = None
+        mock_service_class.return_value = mock_service
+
+        mock_repo = MagicMock()
+        mock_repo_class.return_value = mock_repo
+
+        mock_perm_repo = MagicMock()
+        mock_perm_repo_class.return_value = mock_perm_repo
+
+        mock_rp_repo = MagicMock()
+        mock_rp_repo_class.return_value = mock_rp_repo
+
+        result = admin.delete_permission(session, permission_id=1)
+        assert result is None
+        mock_service.delete_permission.assert_called_once_with(1)
+        session.commit()
+
+
+def test_delete_permission_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test delete_permission raises 404 when permission not found."""
+    session = DummySession()
+
+    with (
+        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch(
+            "fundamental.api.routes.admin.PermissionRepository"
+        ) as mock_perm_repo_class,
+        patch("fundamental.api.routes.admin.UserRoleRepository"),
+        patch(
+            "fundamental.api.routes.admin.RolePermissionRepository"
+        ) as mock_rp_repo_class,
+    ):
+        mock_service = MagicMock()
+        mock_service.delete_permission.side_effect = ValueError("permission_not_found")
+        mock_service_class.return_value = mock_service
+
+        mock_repo = MagicMock()
+        mock_repo_class.return_value = mock_repo
+
+        mock_perm_repo = MagicMock()
+        mock_perm_repo_class.return_value = mock_perm_repo
+
+        mock_rp_repo = MagicMock()
+        mock_rp_repo_class.return_value = mock_rp_repo
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.delete_permission(session, permission_id=999)
+        assert exc_info.value.status_code == 404  # type: ignore[attr-defined]
+        assert exc_info.value.detail == "permission_not_found"  # type: ignore[attr-defined]
+
+
+def test_delete_permission_assigned_to_roles(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test delete_permission raises 400 when permission is associated with roles."""
+    session = DummySession()
+
+    with (
+        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch(
+            "fundamental.api.routes.admin.PermissionRepository"
+        ) as mock_perm_repo_class,
+        patch("fundamental.api.routes.admin.UserRoleRepository"),
+        patch(
+            "fundamental.api.routes.admin.RolePermissionRepository"
+        ) as mock_rp_repo_class,
+    ):
+        mock_service = MagicMock()
+        mock_service.delete_permission.side_effect = ValueError(
+            "permission_assigned_to_roles_2",
+        )
+        mock_service_class.return_value = mock_service
+
+        mock_repo = MagicMock()
+        mock_repo_class.return_value = mock_repo
+
+        mock_perm_repo = MagicMock()
+        mock_perm_repo_class.return_value = mock_perm_repo
+
+        mock_rp_repo = MagicMock()
+        mock_rp_repo_class.return_value = mock_rp_repo
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.delete_permission(session, permission_id=1)
+        assert exc_info.value.status_code == 400  # type: ignore[attr-defined]
+        assert exc_info.value.detail == "permission_assigned_to_roles_2"  # type: ignore[attr-defined]
 
 
 def test_list_permissions_without_resource(monkeypatch: pytest.MonkeyPatch) -> None:

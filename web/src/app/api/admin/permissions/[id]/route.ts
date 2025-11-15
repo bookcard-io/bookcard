@@ -17,11 +17,14 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedClient } from "@/services/http/routeHelpers";
 
 /**
- * GET /api/admin/roles
+ * PUT /api/admin/permissions/[id]
  *
- * Proxies request to the backend admin roles endpoint.
+ * Update a permission.
  */
-export async function GET(request: NextRequest) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   try {
     const { client, error } = getAuthenticatedClient(request);
 
@@ -29,49 +32,11 @@ export async function GET(request: NextRequest) {
       return error;
     }
 
-    const response = await client.request("/admin/roles", {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return NextResponse.json(
-        { detail: data.detail || "Failed to fetch roles" },
-        { status: response.status },
-      );
-    }
-
-    return NextResponse.json(data);
-  } catch (error) {
-    console.error("Error in GET /api/admin/roles:", error);
-    return NextResponse.json(
-      { detail: "Internal server error" },
-      { status: 500 },
-    );
-  }
-}
-
-/**
- * POST /api/admin/roles
- *
- * Proxies request to create a new role.
- */
-export async function POST(request: NextRequest) {
-  try {
-    const { client, error } = getAuthenticatedClient(request);
-
-    if (error) {
-      return error;
-    }
-
+    const { id } = await params;
     const body = await request.json();
 
-    const response = await client.request("/admin/roles", {
-      method: "POST",
+    const response = await client.request(`/admin/permissions/${id}`, {
+      method: "PUT",
       headers: {
         "Content-Type": "application/json",
       },
@@ -82,14 +47,60 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       return NextResponse.json(
-        { detail: data.detail || "Failed to create role" },
+        { detail: data.detail || "Failed to update permission" },
         { status: response.status },
       );
     }
 
-    return NextResponse.json(data, { status: 201 });
+    return NextResponse.json(data);
   } catch (error) {
-    console.error("Error in POST /api/admin/roles:", error);
+    console.error("Error in PUT /api/admin/permissions/[id]:", error);
+    return NextResponse.json(
+      { detail: "Internal server error" },
+      { status: 500 },
+    );
+  }
+}
+
+/**
+ * DELETE /api/admin/permissions/[id]
+ *
+ * Delete a permission.
+ * Only allows deletion of orphaned permissions (permissions with no role associations).
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { client, error } = getAuthenticatedClient(request);
+
+    if (error) {
+      return error;
+    }
+
+    const { id } = await params;
+
+    const response = await client.request(`/admin/permissions/${id}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({
+        detail: "Failed to delete permission",
+      }));
+      return NextResponse.json(
+        { detail: errorData.detail || "Failed to delete permission" },
+        { status: response.status },
+      );
+    }
+
+    return new NextResponse(null, { status: 204 });
+  } catch (error) {
+    console.error("Error in DELETE /api/admin/permissions/[id]:", error);
     return NextResponse.json(
       { detail: "Internal server error" },
       { status: 500 },

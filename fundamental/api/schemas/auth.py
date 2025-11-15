@@ -254,6 +254,36 @@ class RoleCreate(BaseModel):
 
     name: str = Field(min_length=1, max_length=64)
     description: str | None = Field(default=None, max_length=255)
+    permissions: list[PermissionAssignment] = Field(
+        default_factory=list,
+        description="List of permissions to assign to the role.",
+    )
+
+
+class RoleUpdate(BaseModel):
+    """Payload to update a role."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=64)
+    description: str | None = Field(default=None, max_length=255)
+    permissions: list[PermissionAssignment] | None = Field(
+        default=None,
+        description="List of permissions to assign to the role. If provided, replaces all existing permissions.",
+    )
+    removed_permission_ids: list[int] = Field(
+        default_factory=list,
+        description="List of role_permission IDs to remove (for granular updates).",
+    )
+
+
+class RolePermissionRead(BaseModel):
+    """Role-permission association representation."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    permission: PermissionRead
+    condition: dict[str, object] | None = None
+    assigned_at: datetime
 
 
 class RoleRead(BaseModel):
@@ -264,6 +294,7 @@ class RoleRead(BaseModel):
     id: int
     name: str
     description: str | None = None
+    permissions: list[RolePermissionRead] = Field(default_factory=list)
 
 
 class PermissionRead(BaseModel):
@@ -276,6 +307,74 @@ class PermissionRead(BaseModel):
     description: str | None = None
     resource: str
     action: str
+
+
+class PermissionCreate(BaseModel):
+    """Payload to create a new permission."""
+
+    name: str = Field(min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=255)
+    resource: str = Field(min_length=1, max_length=50)
+    action: str = Field(min_length=1, max_length=50)
+    condition: dict[str, object] | None = Field(
+        default=None,
+        description="Optional condition for resource-specific permissions (must be valid JSON).",
+    )
+
+
+class PermissionUpdate(BaseModel):
+    """Payload to update a permission."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=255)
+    resource: str | None = Field(default=None, min_length=1, max_length=50)
+    action: str | None = Field(default=None, min_length=1, max_length=50)
+
+
+class RolePermissionUpdate(BaseModel):
+    """Payload to update a role-permission association."""
+
+    condition: dict[str, object] | None = Field(
+        default=None,
+        description="Optional condition for resource-specific permissions (must be valid JSON).",
+    )
+
+
+class PermissionAssignment(BaseModel):
+    """Permission assignment for role creation/update."""
+
+    permission_id: int | None = Field(
+        default=None,
+        description="Existing permission ID. If None, permission_name must be provided.",
+    )
+    permission_name: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=100,
+        description="Permission name. If permission_id is None, this will be used to find or create the permission.",
+    )
+    # For new permissions
+    resource: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=50,
+        description="Resource name (required if creating new permission).",
+    )
+    action: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=50,
+        description="Action name (required if creating new permission).",
+    )
+    permission_description: str | None = Field(
+        default=None,
+        max_length=255,
+        description="Permission description (for new permissions).",
+    )
+    condition: dict[str, object] | None = Field(
+        default=None,
+        description="Optional condition for resource-specific permissions (must be valid JSON).",
+    )
 
 
 class RolePermissionGrant(BaseModel):

@@ -22,6 +22,7 @@ import { Sidebar } from "@/components/sidebar/Sidebar";
 import { ActiveLibraryProvider } from "@/contexts/ActiveLibraryContext";
 import { HeaderActionBarProvider } from "@/contexts/HeaderActionBarContext";
 import { LibraryLoadingProvider } from "@/contexts/LibraryLoadingContext";
+import { RolesProvider } from "@/contexts/RolesContext";
 import { SelectedShelfProvider } from "@/contexts/SelectedShelfContext";
 import { ShelvesProvider } from "@/contexts/ShelvesContext";
 import { SidebarProvider, useSidebar } from "@/contexts/SidebarContext";
@@ -87,23 +88,25 @@ interface PageLayoutProps {
 export function PageLayout({ children }: PageLayoutProps) {
   return (
     <UserProvider>
-      <ActiveLibraryProvider>
-        <ShelvesProvider>
-          <LibraryLoadingProvider>
-            <SelectedShelfProvider>
-              <SidebarProvider>
-                <HeaderActionBarProvider>
-                  <HeaderActionBarButtons />
-                  <div className="flex h-screen w-full overflow-hidden">
-                    <Sidebar />
-                    <PageContent>{children}</PageContent>
-                  </div>
-                </HeaderActionBarProvider>
-              </SidebarProvider>
-            </SelectedShelfProvider>
-          </LibraryLoadingProvider>
-        </ShelvesProvider>
-      </ActiveLibraryProvider>
+      <RolesProvider>
+        <ActiveLibraryProvider>
+          <ShelvesProvider>
+            <LibraryLoadingProvider>
+              <SelectedShelfProvider>
+                <SidebarProvider>
+                  <HeaderActionBarProvider>
+                    <HeaderActionBarButtons />
+                    <div className="flex h-screen w-full overflow-hidden">
+                      <Sidebar />
+                      <PageContent>{children}</PageContent>
+                    </div>
+                  </HeaderActionBarProvider>
+                </SidebarProvider>
+              </SelectedShelfProvider>
+            </LibraryLoadingProvider>
+          </ShelvesProvider>
+        </ActiveLibraryProvider>
+      </RolesProvider>
     </UserProvider>
   );
 }

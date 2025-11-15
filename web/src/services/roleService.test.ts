@@ -37,6 +37,7 @@ function createMockRole(id: number, overrides: Partial<Role> = {}): Role {
     id,
     name: `Role ${id}`,
     description: `Description for role ${id}`,
+    permissions: [],
     ...overrides,
   };
 }
