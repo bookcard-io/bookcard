@@ -27,6 +27,8 @@ export interface SidebarSectionProps {
   isExpanded: boolean;
   /** Callback when section header is clicked. */
   onToggle: () => void;
+  /** Callback when icon is clicked while sidebar is collapsed. */
+  onIconClick?: () => void;
   /** Child components to render when expanded. */
   children: ReactNode;
 }
@@ -50,19 +52,34 @@ export function SidebarSection({
   isCollapsed,
   isExpanded,
   onToggle,
+  onIconClick,
   children,
 }: SidebarSectionProps) {
+  const handleIconClick = (e: React.MouseEvent) => {
+    if (isCollapsed && onIconClick) {
+      e.stopPropagation();
+      onIconClick();
+    }
+  };
+
   return (
     <div className="mb-2">
       <button
         type="button"
-        className="flex w-full cursor-pointer items-center justify-between border-0 bg-transparent px-4 py-3 text-left font-semibold text-[var(--color-surface-a50)] text-xs uppercase tracking-[0.5px] transition-colors duration-200 hover:bg-[var(--color-surface-a20)]"
+        className={cn(
+          "flex w-full cursor-pointer items-center justify-between",
+          "border-0 bg-transparent px-4 py-3",
+          "text-left font-semibold text-[var(--color-surface-a50)] text-xs uppercase tracking-[0.5px]",
+          "transition-colors duration-200",
+          "hover:bg-[var(--color-surface-a20)]",
+        )}
         onClick={onToggle}
       >
         {Icon && (
           <Icon
             className="mr-3 h-[18px] w-[18px] shrink-0 text-[var(--color-surface-a50)]"
             aria-hidden="true"
+            onClick={handleIconClick}
           />
         )}
         {!isCollapsed && <span className="flex-1">{title}</span>}

@@ -33,6 +33,8 @@ export interface SidebarDevicesSectionProps {
   onDeviceClick: (deviceId: number) => void;
   /** Callback when manage devices is clicked. */
   onManageDevicesClick: () => void;
+  /** Callback when icon is clicked while sidebar is collapsed. */
+  onIconClick?: () => void;
 }
 
 /**
@@ -54,6 +56,7 @@ export function SidebarDevicesSection({
   devices,
   onDeviceClick,
   onManageDevicesClick,
+  onIconClick,
 }: SidebarDevicesSectionProps) {
   return (
     <SidebarSection
@@ -62,6 +65,7 @@ export function SidebarDevicesSection({
       isCollapsed={isCollapsed}
       isExpanded={isExpanded}
       onToggle={onToggle}
+      onIconClick={onIconClick}
     >
       {devices.length === 0 ? (
         <li className="px-[46px] py-2.5 text-[var(--color-text-a30)] text-sm">

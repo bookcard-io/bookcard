@@ -15,7 +15,58 @@
 
 "use client";
 
-import { createContext, type ReactNode, useContext, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+
+const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
+const DEFAULT_COLLAPSED = false;
+
+/**
+ * Safely gets sidebar collapsed state from localStorage.
+ *
+ * Returns
+ * -------
+ * boolean | null
+ *     Collapsed state from localStorage, or null if not found/invalid.
+ */
+function getCollapsedFromLocalStorage(): boolean | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+    if (stored === "true" || stored === "false") {
+      return stored === "true";
+    }
+  } catch {
+    // localStorage might not be available
+  }
+  return null;
+}
+
+/**
+ * Safely saves sidebar collapsed state to localStorage.
+ *
+ * Parameters
+ * ----------
+ * collapsed : boolean
+ *     Collapsed state to save.
+ */
+function saveCollapsedToLocalStorage(collapsed: boolean): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
+  } catch {
+    // localStorage might not be available
+  }
+}
 
 interface SidebarContextType {
   isCollapsed: boolean;
@@ -25,7 +76,15 @@ interface SidebarContextType {
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    const stored = getCollapsedFromLocalStorage();
+    return stored ?? DEFAULT_COLLAPSED;
+  });
+
+  // Persist collapsed state to localStorage when it changes
+  useEffect(() => {
+    saveCollapsedToLocalStorage(isCollapsed);
+  }, [isCollapsed]);
 
   return (
     <SidebarContext.Provider value={{ isCollapsed, setIsCollapsed }}>

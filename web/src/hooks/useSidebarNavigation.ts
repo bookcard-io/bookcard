@@ -47,6 +47,18 @@ export function useSidebarNavigation(): UseSidebarNavigationResult {
   const pathname = usePathname();
   const { setSelectedShelfId } = useSelectedShelf();
 
+  const scrollToManageDevices = useCallback(() => {
+    if (typeof document === "undefined") {
+      return false;
+    }
+    const element = document.getElementById("manage-devices");
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+      return true;
+    }
+    return false;
+  }, []);
+
   const navigateHome = useCallback(() => {
     setSelectedShelfId(undefined);
     router.push("/");
@@ -61,24 +73,27 @@ export function useSidebarNavigation(): UseSidebarNavigationResult {
   }, [router]);
 
   const navigateToManageDevices = useCallback(() => {
-    // Navigate to profile page and scroll to manage-devices section
+    // If already on profile, just scroll.
     if (pathname === "/profile") {
-      // Already on profile page, scroll immediately
-      const element = document.getElementById("manage-devices");
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    } else {
-      // Navigate to profile page first, then scroll after navigation
-      router.push("/profile");
-      setTimeout(() => {
-        const element = document.getElementById("manage-devices");
-        if (element) {
-          element.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      }, 100);
+      scrollToManageDevices();
+      return;
     }
-  }, [router, pathname]);
+
+    // Navigate to profile page and keep trying to scroll until the element exists
+    router.push("/profile#manage-devices");
+
+    let attempts = 0;
+    const maxAttempts = 20;
+    const intervalMs = 100;
+
+    const intervalId = window.setInterval(() => {
+      attempts += 1;
+      const didScroll = scrollToManageDevices();
+      if (didScroll || attempts >= maxAttempts) {
+        window.clearInterval(intervalId);
+      }
+    }, intervalMs);
+  }, [router, pathname, scrollToManageDevices]);
 
   const isAdminActive = pathname === "/admin";
 

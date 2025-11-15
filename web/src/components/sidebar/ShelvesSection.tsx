@@ -36,6 +36,8 @@ export interface ShelvesSectionProps {
   onShelfClick: (shelfId: number) => void;
   /** Callback when manage shelves is clicked. */
   onManageShelvesClick: () => void;
+  /** Callback when icon is clicked while sidebar is collapsed. */
+  onIconClick?: () => void;
 }
 
 /**
@@ -59,6 +61,7 @@ export function ShelvesSection({
   selectedShelfId,
   onShelfClick,
   onManageShelvesClick,
+  onIconClick,
 }: ShelvesSectionProps) {
   const [shakingShelfId, setShakingShelfId] = useState<number | null>(null);
 
@@ -85,6 +88,7 @@ export function ShelvesSection({
       isCollapsed={isCollapsed}
       isExpanded={isExpanded}
       onToggle={onToggle}
+      onIconClick={onIconClick}
     >
       {isLoading ? (
         <li className="px-[46px] py-2.5 text-[var(--color-text-a30)] text-sm">

@@ -105,6 +105,7 @@ export function Sidebar() {
           isExpanded={expandedSections.has("MY LIBRARY")}
           onToggle={() => toggleSection("MY LIBRARY")}
           onHomeClick={navigateHome}
+          onIconClick={navigateHome}
         />
 
         <ShelvesSection
@@ -116,6 +117,7 @@ export function Sidebar() {
           selectedShelfId={selectedShelfId}
           onShelfClick={handleShelfClick}
           onManageShelvesClick={navigateToShelves}
+          onIconClick={navigateToShelves}
         />
 
         <SidebarDevicesSection
@@ -125,6 +127,7 @@ export function Sidebar() {
           devices={topDevices}
           onDeviceClick={setDefaultDevice}
           onManageDevicesClick={navigateToManageDevices}
+          onIconClick={navigateToManageDevices}
         />
       </SidebarNav>
 

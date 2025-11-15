@@ -26,6 +26,8 @@ export interface LibrarySectionProps {
   onToggle: () => void;
   /** Callback when home is clicked. */
   onHomeClick: () => void;
+  /** Callback when icon is clicked while sidebar is collapsed. */
+  onIconClick?: () => void;
 }
 
 /**
@@ -45,6 +47,7 @@ export function LibrarySection({
   isExpanded,
   onToggle,
   onHomeClick,
+  onIconClick,
 }: LibrarySectionProps) {
   return (
     <SidebarSection
@@ -53,6 +56,7 @@ export function LibrarySection({
       isCollapsed={isCollapsed}
       isExpanded={isExpanded}
       onToggle={onToggle}
+      onIconClick={onIconClick}
     >
       <SidebarNavItem label="Home" onClick={onHomeClick} />
       <SidebarNavItem label="Authors" onClick={() => {}} />
