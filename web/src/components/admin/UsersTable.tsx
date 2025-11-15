@@ -105,7 +105,7 @@ export function UsersTable({
               key={user.id}
               className={cn(
                 "grid grid-cols-[60px_2fr_2fr_2fr_1fr_120px] gap-4 border-surface-a20 border-b px-4 py-3 transition-colors duration-200 last:border-b-0",
-                index % 2 === 0 ? "bg-surface-a20" : "bg-surface-a10",
+                index % 2 === 0 ? "bg-surface-a20" : "bg-surface-tonal-a20",
                 "hover:bg-surface-a40/50",
               )}
             >
