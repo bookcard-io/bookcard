@@ -122,7 +122,7 @@ export function UsersTable({
                 ) : (
                   <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full">
                     {/* Muted, blurred circular background */}
-                    <div className="absolute inset-0 rounded-full bg-surface-tonal-a20 opacity-50 blur-xl" />
+                    <div className="absolute inset-0 rounded-full bg-surface-a0 opacity-75 blur-xl" />
                     {/* Icon - dead centered */}
                     <i
                       className="pi pi-user relative text-text-a30 text-xl"
