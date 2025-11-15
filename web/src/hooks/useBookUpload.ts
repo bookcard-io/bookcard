@@ -124,9 +124,11 @@ export function useBookUpload(
               errorMessage = data.detail;
             }
           } catch {
-            // If JSON parsing fails, use the default error message
+            // If JSON parsing fails, use the default status-based message
           }
-          throw new Error(errorMessage);
+
+          onUploadError?.(errorMessage);
+          return;
         }
 
         const data = (await response.json()) as { book_id: number };

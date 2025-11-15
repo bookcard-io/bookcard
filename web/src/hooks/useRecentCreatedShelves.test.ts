@@ -80,7 +80,7 @@ describe("useRecentCreatedShelves", () => {
     );
 
     const { result } = renderHook(() => useRecentCreatedShelves(shelves));
-    expect(result.current).toHaveLength(3);
+    expect(result.current).toHaveLength(5);
     expect(result.current[0]?.id).toBe(10);
     expect(result.current[4]?.id).toBe(6);
   });
