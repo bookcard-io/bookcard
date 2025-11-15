@@ -135,7 +135,7 @@ export function UsersTab() {
               onClick={handleCreateUser}
             >
               <i className="pi pi-plus mr-2" aria-hidden="true" />
-              Add User
+              Add user
             </Button>
           </div>
           <UsersTable
