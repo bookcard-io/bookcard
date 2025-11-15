@@ -56,23 +56,19 @@ def test_create_user_success(monkeypatch: pytest.MonkeyPatch) -> None:
         patch("fundamental.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_repo = MagicMock()
-        mock_repo.find_by_username.return_value = None
-        mock_repo.find_by_email.return_value = None
         mock_repo_class.return_value = mock_repo
 
         mock_hasher = MagicMock()
-        mock_hasher.hash.return_value = "hashed_password"
         mock_hasher_class.return_value = mock_hasher
 
         mock_service = MagicMock()
-        mock_service.get_with_relationships.return_value = user
+        mock_service.create_admin_user.return_value = user
         mock_service_class.return_value = mock_service
 
         result = admin.create_user(session, payload)
         assert result.id == 1
         assert result.username == "testuser"
-        mock_repo.add.assert_called_once()
-        session.flush()
+        mock_service.create_admin_user.assert_called_once()
 
 
 def test_create_user_username_exists() -> None:
@@ -84,17 +80,22 @@ def test_create_user_username_exists() -> None:
         password="password123",
     )
 
-    existing_user = User(
-        id=1,
-        username="existing",
-        email="existing@example.com",
-        password_hash="hash",
-    )
-
-    with patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class:
+    with (
+        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("fundamental.api.routes.admin.PasswordHasher") as mock_hasher_class,
+        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+    ):
         mock_repo = MagicMock()
-        mock_repo.find_by_username.return_value = existing_user
         mock_repo_class.return_value = mock_repo
+
+        mock_hasher = MagicMock()
+        mock_hasher_class.return_value = mock_hasher
+
+        mock_service = MagicMock()
+        mock_service.create_admin_user.side_effect = ValueError(
+            "username_already_exists"
+        )
+        mock_service_class.return_value = mock_service
 
         with pytest.raises(HTTPException) as exc_info:
             admin.create_user(session, payload)
@@ -112,18 +113,20 @@ def test_create_user_email_exists() -> None:
         password="password123",
     )
 
-    existing_user = User(
-        id=1,
-        username="existing",
-        email="existing@example.com",
-        password_hash="hash",
-    )
-
-    with patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class:
+    with (
+        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("fundamental.api.routes.admin.PasswordHasher") as mock_hasher_class,
+        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+    ):
         mock_repo = MagicMock()
-        mock_repo.find_by_username.return_value = None
-        mock_repo.find_by_email.return_value = existing_user
         mock_repo_class.return_value = mock_repo
+
+        mock_hasher = MagicMock()
+        mock_hasher_class.return_value = mock_hasher
+
+        mock_service = MagicMock()
+        mock_service.create_admin_user.side_effect = ValueError("email_already_exists")
+        mock_service_class.return_value = mock_service
 
         with pytest.raises(HTTPException) as exc_info:
             admin.create_user(session, payload)
@@ -158,12 +161,9 @@ def test_create_user_with_roles(monkeypatch: pytest.MonkeyPatch) -> None:
         patch("fundamental.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_repo = MagicMock()
-        mock_repo.find_by_username.return_value = None
-        mock_repo.find_by_email.return_value = None
         mock_repo_class.return_value = mock_repo
 
         mock_hasher = MagicMock()
-        mock_hasher.hash.return_value = "hashed_password"
         mock_hasher_class.return_value = mock_hasher
 
         mock_role_service = MagicMock()
@@ -171,13 +171,15 @@ def test_create_user_with_roles(monkeypatch: pytest.MonkeyPatch) -> None:
         mock_role_service_class.return_value = mock_role_service
 
         mock_service = MagicMock()
-        mock_service.get_with_relationships.return_value = user
+        mock_service.create_admin_user.return_value = user
         mock_service_class.return_value = mock_service
 
         result = admin.create_user(session, payload)
         assert result.id == 1
-        # Should attempt to assign roles
-        assert mock_role_service.assign_role_to_user.call_count == 2
+        # Verify create_admin_user was called with role_ids
+        call_args = mock_service.create_admin_user.call_args
+        assert call_args is not None
+        assert call_args.kwargs.get("role_ids") == [1, 2]
 
 
 def test_create_user_with_device(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -211,12 +213,9 @@ def test_create_user_with_device(monkeypatch: pytest.MonkeyPatch) -> None:
         patch("fundamental.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_repo = MagicMock()
-        mock_repo.find_by_username.return_value = None
-        mock_repo.find_by_email.return_value = None
         mock_repo_class.return_value = mock_repo
 
         mock_hasher = MagicMock()
-        mock_hasher.hash.return_value = "hashed_password"
         mock_hasher_class.return_value = mock_hasher
 
         mock_device_service = MagicMock()
@@ -224,13 +223,15 @@ def test_create_user_with_device(monkeypatch: pytest.MonkeyPatch) -> None:
         mock_device_service_class.return_value = mock_device_service
 
         mock_service = MagicMock()
-        mock_service.get_with_relationships.return_value = user
+        mock_service.create_admin_user.return_value = user
         mock_service_class.return_value = mock_service
 
         result = admin.create_user(session, payload)
         assert result.id == 1
-        # Should create device
-        mock_device_service.create_device.assert_called_once()
+        # Verify create_admin_user was called with device parameters
+        call_args = mock_service.create_admin_user.call_args
+        assert call_args is not None
+        assert call_args.kwargs.get("default_device_email") == "device@example.com"
 
 
 def test_create_user_with_roles_suppresses_value_error(
@@ -261,12 +262,9 @@ def test_create_user_with_roles_suppresses_value_error(
         patch("fundamental.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_user_repo = MagicMock()
-        mock_user_repo.find_by_username.return_value = None
-        mock_user_repo.find_by_email.return_value = None
         mock_user_repo_class.return_value = mock_user_repo
 
         mock_hasher = MagicMock()
-        mock_hasher.hash.return_value = "hashed_password"
         mock_hasher_class.return_value = mock_hasher
 
         mock_role_service = MagicMock()
@@ -278,13 +276,13 @@ def test_create_user_with_roles_suppresses_value_error(
         mock_role_service_class.return_value = mock_role_service
 
         mock_service = MagicMock()
-        mock_service.get_with_relationships.return_value = user
+        mock_service.create_admin_user.return_value = user
         mock_service_class.return_value = mock_service
 
         result = admin.create_user(session, payload)
         assert result.id == 1
-        # Should attempt to assign both roles, second one suppressed
-        assert mock_role_service.assign_role_to_user.call_count == 2
+        # Verify create_admin_user was called (role assignment happens inside service)
+        mock_service.create_admin_user.assert_called_once()
 
 
 def test_create_user_with_device_suppresses_value_error(
@@ -318,12 +316,9 @@ def test_create_user_with_device_suppresses_value_error(
         patch("fundamental.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_user_repo = MagicMock()
-        mock_user_repo.find_by_username.return_value = None
-        mock_user_repo.find_by_email.return_value = None
         mock_user_repo_class.return_value = mock_user_repo
 
         mock_hasher = MagicMock()
-        mock_hasher.hash.return_value = "hashed_password"
         mock_hasher_class.return_value = mock_hasher
 
         mock_device_service = MagicMock()
@@ -334,13 +329,13 @@ def test_create_user_with_device_suppresses_value_error(
         mock_device_service_class.return_value = mock_device_service
 
         mock_service = MagicMock()
-        mock_service.get_with_relationships.return_value = user
+        mock_service.create_admin_user.return_value = user
         mock_service_class.return_value = mock_service
 
         result = admin.create_user(session, payload)
         assert result.id == 1
-        # Device creation should be attempted but error suppressed
-        mock_device_service.create_device.assert_called_once()
+        # Verify create_admin_user was called (device creation happens inside service)
+        mock_service.create_admin_user.assert_called_once()
 
 
 def test_create_user_user_not_found_after_create(
@@ -360,16 +355,13 @@ def test_create_user_user_not_found_after_create(
         patch("fundamental.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_repo = MagicMock()
-        mock_repo.find_by_username.return_value = None
-        mock_repo.find_by_email.return_value = None
         mock_repo_class.return_value = mock_repo
 
         mock_hasher = MagicMock()
-        mock_hasher.hash.return_value = "hashed_password"
         mock_hasher_class.return_value = mock_hasher
 
         mock_service = MagicMock()
-        mock_service.get_with_relationships.return_value = None
+        mock_service.create_admin_user.side_effect = ValueError("user_not_found")
         mock_service_class.return_value = mock_service
 
         with pytest.raises(HTTPException) as exc_info:
