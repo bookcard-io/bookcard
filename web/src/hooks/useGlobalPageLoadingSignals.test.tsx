@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import type { ReactNode } from "react";
 import { vi } from "vitest";
 
 vi.mock("@/contexts/UserContext", () => ({
@@ -24,6 +25,7 @@ vi.mock("@/contexts/ShelvesContext", () => ({
 }));
 
 vi.mock("@/contexts/LibraryLoadingContext", () => ({
+  LibraryLoadingProvider: ({ children }: { children: ReactNode }) => children,
   useLibraryLoading: vi.fn(),
 }));
 
@@ -63,7 +65,7 @@ describe("useGlobalPageLoadingSignals", () => {
       refresh: vi.fn(),
     });
 
-    vi.mocked(useLibraryLoading).mockReturnValue({
+    (useLibraryLoading as ReturnType<typeof vi.fn>).mockReturnValue({
       isBooksLoading: false,
       incrementBooksLoading: vi.fn(),
       decrementBooksLoading: vi.fn(),
@@ -98,7 +100,7 @@ describe("useGlobalPageLoadingSignals", () => {
       refresh: vi.fn(),
     });
 
-    vi.mocked(useLibraryLoading).mockReturnValue({
+    (useLibraryLoading as ReturnType<typeof vi.fn>).mockReturnValue({
       isBooksLoading: false,
       incrementBooksLoading: vi.fn(),
       decrementBooksLoading: vi.fn(),
@@ -133,7 +135,7 @@ describe("useGlobalPageLoadingSignals", () => {
       refresh: vi.fn(),
     });
 
-    vi.mocked(useLibraryLoading).mockReturnValue({
+    (useLibraryLoading as ReturnType<typeof vi.fn>).mockReturnValue({
       isBooksLoading: false,
       incrementBooksLoading: vi.fn(),
       decrementBooksLoading: vi.fn(),
@@ -168,7 +170,7 @@ describe("useGlobalPageLoadingSignals", () => {
       refresh: vi.fn(),
     });
 
-    vi.mocked(useLibraryLoading).mockReturnValue({
+    (useLibraryLoading as ReturnType<typeof vi.fn>).mockReturnValue({
       isBooksLoading: true,
       incrementBooksLoading: vi.fn(),
       decrementBooksLoading: vi.fn(),
@@ -203,7 +205,7 @@ describe("useGlobalPageLoadingSignals", () => {
       refresh: vi.fn(),
     });
 
-    vi.mocked(useLibraryLoading).mockReturnValue({
+    (useLibraryLoading as ReturnType<typeof vi.fn>).mockReturnValue({
       isBooksLoading: false,
       incrementBooksLoading: vi.fn(),
       decrementBooksLoading: vi.fn(),
@@ -238,7 +240,7 @@ describe("useGlobalPageLoadingSignals", () => {
       refresh: vi.fn(),
     });
 
-    vi.mocked(useLibraryLoading).mockReturnValue({
+    (useLibraryLoading as ReturnType<typeof vi.fn>).mockReturnValue({
       isBooksLoading: true,
       incrementBooksLoading: vi.fn(),
       decrementBooksLoading: vi.fn(),

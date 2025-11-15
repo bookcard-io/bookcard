@@ -21,9 +21,15 @@ import { cn } from "@/libs/utils";
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   /** Button variant style. */
-  variant?: "primary" | "secondary" | "danger" | "ghost" | "success";
+  variant?:
+    | "primary"
+    | "secondary"
+    | "danger"
+    | "ghost"
+    | "success"
+    | "neutral";
   /** Button size. */
-  size?: "small" | "medium" | "large";
+  size?: "xsmall" | "small" | "medium" | "large";
   /** Whether button is in loading state. */
   loading?: boolean;
 }
@@ -90,7 +96,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             "hover:bg-success-a10",
             "active:bg-success-a0",
           ],
+          variant === "neutral" && [
+            "border-0 bg-transparent",
+            "hover:bg-[color-mix(in_srgb,var(--color-black)_50%,transparent)]",
+          ],
           // Size styles
+          size === "xsmall" && "px-2 py-1 text-xs",
           size === "small" && "px-4 py-2 text-sm",
           size === "medium" && "px-6 py-3 text-base",
           size === "large" && "px-8 py-4 text-lg",

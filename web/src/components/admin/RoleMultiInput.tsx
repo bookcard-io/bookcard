@@ -1,0 +1,185 @@
+// Copyright (C) 2025 knguyen and others
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+"use client";
+
+import { type KeyboardEvent, useState } from "react";
+import { FilterSuggestionsDropdown } from "@/components/library/widgets/FilterSuggestionsDropdown";
+import { useRoleSuggestions } from "@/hooks/useRoleSuggestions";
+import { cn } from "@/libs/utils";
+
+export interface RoleMultiInputProps {
+  /** Label text for the input. */
+  label?: string;
+  /** Current role names. */
+  values: string[];
+  /** Callback when values change. */
+  onChange: (values: string[]) => void;
+  /** Placeholder text. */
+  placeholder?: string;
+  /** Error message to display. */
+  error?: string;
+  /** Helper text to display. */
+  helperText?: string;
+  /** Input ID for accessibility. */
+  id?: string;
+}
+
+/**
+ * Multi-role input component for managing a list of role names.
+ *
+ * Follows SRP by focusing solely on role selection.
+ * Uses controlled component pattern (IOC via props).
+ */
+export function RoleMultiInput({
+  label,
+  values,
+  onChange,
+  placeholder = "Add roles...",
+  error,
+  helperText,
+  id = "role-multi-input",
+}: RoleMultiInputProps) {
+  const [inputValue, setInputValue] = useState("");
+
+  const { suggestions, isLoading } = useRoleSuggestions(inputValue, true);
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addValue();
+    } else if (
+      e.key === "Backspace" &&
+      inputValue === "" &&
+      values.length > 0
+    ) {
+      // Remove last value when backspace is pressed on empty input
+      onChange(values.slice(0, -1));
+    }
+  };
+
+  const addValue = () => {
+    const trimmed = inputValue.trim();
+    if (trimmed && !values.includes(trimmed)) {
+      // Check if the role name exists in suggestions
+      const roleExists = suggestions.some((s) => s.name === trimmed);
+      if (roleExists) {
+        onChange([...values, trimmed]);
+        setInputValue("");
+      }
+    }
+  };
+
+  const addSuggestion = (name: string) => {
+    if (!values.includes(name)) {
+      onChange([...values, name]);
+    }
+    setInputValue("");
+  };
+
+  const removeValue = (valueToRemove: string) => {
+    onChange(values.filter((value) => value !== valueToRemove));
+  };
+
+  const shouldShowDropdown =
+    inputValue.trim().length > 0 && (isLoading || suggestions.length > 0);
+
+  return (
+    <div className="relative flex w-full flex-col gap-2">
+      {label && (
+        <label
+          htmlFor={id}
+          className="font-medium text-sm text-text-a10 leading-normal"
+        >
+          {label}
+        </label>
+      )}
+      <div className="w-full">
+        <div
+          className={cn(
+            "flex min-h-[2.75rem] flex-wrap items-center gap-2 rounded-md border bg-surface-a0 p-2",
+            "transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s]",
+            "focus-within:border-primary-a0 focus-within:bg-surface-a10",
+            "focus-within:shadow-[var(--shadow-focus-ring)]",
+            "hover:not(:focus-within):border-surface-a30",
+            error && [
+              "border-danger-a0",
+              "focus-within:border-danger-a0",
+              "focus-within:shadow-[var(--shadow-focus-ring-danger)]",
+            ],
+            !error && "border-surface-a20",
+          )}
+        >
+          {values.map((value) => (
+            <span
+              key={value}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary-a0 px-3 py-1.5 text-sm text-text-a0 leading-normal"
+            >
+              {value}
+              <button
+                type="button"
+                className="flex h-4 w-4 items-center justify-center rounded-full border-none bg-transparent p-0 text-sm text-text-a0 leading-none transition-[background-color_0.15s] hover:bg-black/15 focus:bg-black/20 focus:outline-none"
+                onClick={() => removeValue(value)}
+                aria-label={`Remove ${value}`}
+              >
+                <i className="pi pi-times" aria-hidden="true" />
+              </button>
+            </span>
+          ))}
+          <input
+            id={id}
+            type="text"
+            className="min-w-[120px] flex-1 border-none bg-transparent py-1 font-inherit text-base text-text-a0 leading-normal placeholder:text-text-a40 focus:outline-none"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={() => setTimeout(() => addValue(), 150)}
+            placeholder={values.length === 0 ? placeholder : ""}
+            aria-invalid={error ? "true" : "false"}
+            aria-describedby={
+              error || helperText
+                ? `${id}-${error ? "error" : "helper"}`
+                : undefined
+            }
+          />
+        </div>
+        {shouldShowDropdown && (
+          <FilterSuggestionsDropdown
+            suggestions={suggestions}
+            isLoading={isLoading}
+            onSuggestionClick={(s) => addSuggestion(s.name)}
+          />
+        )}
+      </div>
+      {error && (
+        <span
+          id={`${id}-error`}
+          className="text-danger-a10 text-sm leading-normal"
+          role="alert"
+        >
+          {error}
+        </span>
+      )}
+      {helperText && !error && (
+        <span
+          id={`${id}-helper`}
+          className="text-sm text-text-a30 leading-normal"
+        >
+          {helperText}
+        </span>
+      )}
+    </div>
+  );
+}

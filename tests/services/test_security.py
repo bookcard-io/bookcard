@@ -262,3 +262,82 @@ def test_security_token_error() -> None:
     """Test SecurityTokenError exception."""
     error = SecurityTokenError()
     assert isinstance(error, Exception)
+
+
+# Tests for DataEncryptor missing lines
+def test_data_encryptor_init_invalid_key() -> None:
+    """Test DataEncryptor.__init__ raises ValueError for invalid key (covers lines 176-178)."""
+    from fundamental.services.security import DataEncryptor
+
+    with pytest.raises(ValueError, match="Invalid encryption key"):
+        DataEncryptor("invalid_key_too_short")
+
+
+@pytest.mark.parametrize(
+    "plaintext",
+    [
+        "",
+        None,
+    ],
+)
+def test_data_encryptor_encrypt_empty_or_none(plaintext: str | None) -> None:
+    """Test DataEncryptor.encrypt raises ValueError for empty/None (covers lines 198-202)."""
+    from fundamental.services.security import DataEncryptor
+
+    encryptor = DataEncryptor(TEST_ENCRYPTION_KEY)
+
+    with pytest.raises(ValueError, match="Cannot encrypt empty or None value"):
+        encryptor.encrypt(plaintext)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "ciphertext",
+    [
+        "",
+        None,
+    ],
+)
+def test_data_encryptor_decrypt_empty_or_none(ciphertext: str | None) -> None:
+    """Test DataEncryptor.decrypt raises ValueError for empty/None (covers lines 224-226)."""
+    from fundamental.services.security import DataEncryptor
+
+    encryptor = DataEncryptor(TEST_ENCRYPTION_KEY)
+
+    with pytest.raises(ValueError, match="Cannot decrypt empty or None value"):
+        encryptor.decrypt(ciphertext)  # type: ignore[arg-type]
+
+
+def test_data_encryptor_decrypt_invalid_token() -> None:
+    """Test DataEncryptor.decrypt raises ValueError for invalid token (covers lines 227-232)."""
+    from fundamental.services.security import DataEncryptor
+
+    encryptor = DataEncryptor(TEST_ENCRYPTION_KEY)
+
+    # Create truly invalid ciphertext (not properly encrypted)
+    invalid_ciphertext = "invalid_encrypted_data_not_base64"
+
+    with pytest.raises(ValueError, match="Failed to decrypt data"):
+        encryptor.decrypt(invalid_ciphertext)
+
+
+def test_data_encryptor_encrypt_dict_none() -> None:
+    """Test DataEncryptor.encrypt_dict raises ValueError for None (covers lines 252-258)."""
+    from fundamental.services.security import DataEncryptor
+
+    encryptor = DataEncryptor(TEST_ENCRYPTION_KEY)
+
+    with pytest.raises(ValueError, match="Cannot encrypt None value"):
+        encryptor.encrypt_dict(None)  # type: ignore[arg-type]
+
+
+def test_data_encryptor_decrypt_dict_success() -> None:
+    """Test DataEncryptor.decrypt_dict successfully decrypts and parses JSON (covers lines 278-281)."""
+    from fundamental.services.security import DataEncryptor
+
+    encryptor = DataEncryptor(TEST_ENCRYPTION_KEY)
+    original_data = {"key": "value", "number": 123, "nested": {"inner": "data"}}
+
+    encrypted = encryptor.encrypt_dict(original_data)
+    decrypted = encryptor.decrypt_dict(encrypted)
+
+    assert decrypted == original_data

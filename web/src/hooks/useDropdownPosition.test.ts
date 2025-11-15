@@ -209,4 +209,144 @@ describe("useDropdownPosition", () => {
     });
     expect(result.current.position.top - initialTop).toBe(100); // Button moved 100px down
   });
+
+  it("should auto-flip up when menu would overflow bottom with button ref", async () => {
+    const cursorPosition = { x: 250, y: 125 };
+    const menuRef = { current: document.createElement("div") };
+    const menuElement = menuRef.current as HTMLElement;
+    menuElement.getBoundingClientRect = vi.fn(() => ({
+      top: 0,
+      left: 0,
+      right: 100,
+      bottom: 1000, // Large height that would overflow
+      width: 100,
+      height: 1000,
+      x: 0,
+      y: 0,
+      toJSON: vi.fn(),
+    }));
+
+    // Set window height to be smaller than menu would need
+    Object.defineProperty(window, "innerHeight", {
+      writable: true,
+      configurable: true,
+      value: 500,
+    });
+
+    const { result } = renderHook(() =>
+      useDropdownPosition({
+        isOpen: true,
+        buttonRef,
+        cursorPosition,
+        menuRef,
+      }),
+    );
+
+    await waitFor(() => {
+      // Should flip up: top = max(0, buttonRect.bottom - measuredHeight)
+      // buttonRect.bottom = 150, measuredHeight = 1000
+      // top = max(0, 150 - 1000) = max(0, -850) = 0
+      expect(result.current.position.top).toBe(0);
+    });
+  });
+
+  it("should auto-flip up when menu would overflow bottom with cursor fallback", async () => {
+    const nullButtonRef = { current: null };
+    const cursorPosition = { x: 250, y: 400 };
+    const menuRef = { current: document.createElement("div") };
+    const menuElement = menuRef.current as HTMLElement;
+    menuElement.getBoundingClientRect = vi.fn(() => ({
+      top: 0,
+      left: 0,
+      right: 100,
+      bottom: 500,
+      width: 100,
+      height: 500,
+      x: 0,
+      y: 0,
+      toJSON: vi.fn(),
+    }));
+
+    // Set window height to be smaller than menu would need
+    Object.defineProperty(window, "innerHeight", {
+      writable: true,
+      configurable: true,
+      value: 600,
+    });
+
+    const { result } = renderHook(() =>
+      useDropdownPosition({
+        isOpen: true,
+        buttonRef: nullButtonRef,
+        cursorPosition,
+        menuRef,
+      }),
+    );
+
+    await waitFor(() => {
+      // Should flip up: top = max(0, cursorPosition.y - measuredHeight)
+      // cursorPosition.y = 400, measuredHeight = 500
+      // downTop = 400 + 2 = 402, wouldOverflow = 402 + 500 > 600 = true
+      // top = max(0, 400 - 500) = max(0, -100) = 0
+      expect(result.current.position.top).toBe(0);
+    });
+  });
+
+  it("should position down when menu would not overflow", async () => {
+    const cursorPosition = { x: 250, y: 125 };
+    const menuRef = { current: document.createElement("div") };
+    const menuElement = menuRef.current as HTMLElement;
+    menuElement.getBoundingClientRect = vi.fn(() => ({
+      top: 0,
+      left: 0,
+      right: 100,
+      bottom: 100,
+      width: 100,
+      height: 100,
+      x: 0,
+      y: 0,
+      toJSON: vi.fn(),
+    }));
+
+    Object.defineProperty(window, "innerHeight", {
+      writable: true,
+      configurable: true,
+      value: 1000,
+    });
+
+    const { result } = renderHook(() =>
+      useDropdownPosition({
+        isOpen: true,
+        buttonRef,
+        cursorPosition,
+        menuRef,
+      }),
+    );
+
+    await waitFor(() => {
+      // Should not flip: downTop = 125 + 2 = 127, wouldOverflow = 127 + 100 > 1000 = false
+      // top = 127
+      expect(result.current.position.top).toBe(127);
+    });
+  });
+
+  it("should handle menu ref being null", async () => {
+    const cursorPosition = { x: 250, y: 125 };
+    const nullMenuRef = { current: null };
+
+    const { result } = renderHook(() =>
+      useDropdownPosition({
+        isOpen: true,
+        buttonRef,
+        cursorPosition,
+        menuRef: nullMenuRef,
+      }),
+    );
+
+    await waitFor(() => {
+      // Should use measuredHeight = 0 when menuRef is null
+      // downTop = 125 + 2 = 127, wouldOverflow = 127 + 0 > window.innerHeight = false
+      expect(result.current.position.top).toBe(127);
+    });
+  });
 });

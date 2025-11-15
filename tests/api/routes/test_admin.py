@@ -472,7 +472,7 @@ def test_update_user_success(monkeypatch: pytest.MonkeyPatch) -> None:
         mock_repo_class.return_value = mock_repo
 
         mock_service = MagicMock()
-        mock_service.update_profile.return_value = None
+        mock_service.update_user.return_value = user
         mock_service.get_with_relationships.return_value = user
         mock_service_class.return_value = mock_service
 
@@ -509,6 +509,8 @@ def test_update_user_username_conflict(monkeypatch: pytest.MonkeyPatch) -> None:
         email="test@example.com",
         password_hash="hash",
     )
+    user.ereader_devices = []  # type: ignore[attr-defined]
+    user.roles = []  # type: ignore[attr-defined]
 
     with (
         patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
@@ -519,7 +521,7 @@ def test_update_user_username_conflict(monkeypatch: pytest.MonkeyPatch) -> None:
         mock_repo_class.return_value = mock_repo
 
         mock_service = MagicMock()
-        mock_service.update_profile.side_effect = ValueError("username_already_exists")
+        mock_service.update_user.side_effect = ValueError("username_already_exists")
         mock_service_class.return_value = mock_service
 
         with pytest.raises(HTTPException) as exc_info:
@@ -553,13 +555,17 @@ def test_update_user_admin_status(monkeypatch: pytest.MonkeyPatch) -> None:
         mock_repo_class.return_value = mock_repo
 
         mock_service = MagicMock()
-        mock_service.update_admin_status.return_value = None
+        mock_service.update_user.return_value = user
         mock_service.get_with_relationships.return_value = user
         mock_service_class.return_value = mock_service
 
         result = admin.update_user(session, user_id=1, payload=payload)
         assert result.id == 1
-        mock_service.update_admin_status.assert_called_once_with(1, True)
+        mock_service.update_user.assert_called_once()
+        # Verify is_admin was passed to update_user
+        call_args = mock_service.update_user.call_args
+        assert call_args[0][0] == 1  # user_id
+        assert call_args[1]["is_admin"] is True
 
 
 def test_update_user_active_status(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -586,13 +592,17 @@ def test_update_user_active_status(monkeypatch: pytest.MonkeyPatch) -> None:
         mock_repo_class.return_value = mock_repo
 
         mock_service = MagicMock()
-        mock_service.update_active_status.return_value = None
+        mock_service.update_user.return_value = user
         mock_service.get_with_relationships.return_value = user
         mock_service_class.return_value = mock_service
 
         result = admin.update_user(session, user_id=1, payload=payload)
         assert result.id == 1
-        mock_service.update_active_status.assert_called_once_with(1, False)
+        mock_service.update_user.assert_called_once()
+        # Verify is_active was passed to update_user
+        call_args = mock_service.update_user.call_args
+        assert call_args[0][0] == 1  # user_id
+        assert call_args[1]["is_active"] is False
 
 
 def test_update_user_not_found_after_update(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -606,6 +616,8 @@ def test_update_user_not_found_after_update(monkeypatch: pytest.MonkeyPatch) -> 
         email="test@example.com",
         password_hash="hash",
     )
+    user.ereader_devices = []  # type: ignore[attr-defined]
+    user.roles = []  # type: ignore[attr-defined]
 
     with (
         patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
@@ -616,7 +628,7 @@ def test_update_user_not_found_after_update(monkeypatch: pytest.MonkeyPatch) -> 
         mock_repo_class.return_value = mock_repo
 
         mock_service = MagicMock()
-        mock_service.update_profile.return_value = None
+        mock_service.update_user.return_value = user
         mock_service.get_with_relationships.return_value = None
         mock_service_class.return_value = mock_service
 
@@ -638,6 +650,8 @@ def test_update_user_profile_unexpected_error(monkeypatch: pytest.MonkeyPatch) -
         email="test@example.com",
         password_hash="hash",
     )
+    user.ereader_devices = []  # type: ignore[attr-defined]
+    user.roles = []  # type: ignore[attr-defined]
 
     with (
         patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
@@ -649,7 +663,7 @@ def test_update_user_profile_unexpected_error(monkeypatch: pytest.MonkeyPatch) -
 
         mock_service = MagicMock()
         # Raise ValueError with unexpected message (not username_already_exists or email_already_exists)
-        mock_service.update_profile.side_effect = ValueError("unexpected_error")
+        mock_service.update_user.side_effect = ValueError("unexpected_error")
         mock_service_class.return_value = mock_service
 
         with pytest.raises(ValueError, match="unexpected_error"):
@@ -678,6 +692,8 @@ def test_update_user_status_value_error(
         email="test@example.com",
         password_hash="hash",
     )
+    user.ereader_devices = []  # type: ignore[attr-defined]
+    user.roles = []  # type: ignore[attr-defined]
 
     with (
         patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
@@ -688,11 +704,8 @@ def test_update_user_status_value_error(
         mock_repo_class.return_value = mock_repo
 
         mock_service = MagicMock()
-        setattr(
-            mock_service,
-            method_name,
-            MagicMock(side_effect=ValueError("user_not_found")),
-        )
+        # update_user now handles all updates internally, so we mock it to raise ValueError
+        mock_service.update_user.side_effect = ValueError("user_not_found")
         mock_service_class.return_value = mock_service
 
         with pytest.raises(HTTPException) as exc_info:
@@ -1882,3 +1895,580 @@ def test_get_library_stats_file_not_found(monkeypatch: pytest.MonkeyPatch) -> No
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == "calibre_database_not_found"
+
+
+def test_get_user_profile_picture_user_not_found(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test get_user_profile_picture raises 404 when user not found (covers line 282-283)."""
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            import tempfile
+
+            temp_dir = tempfile.mkdtemp()
+
+            class DummyConfig:
+                data_directory = temp_dir
+
+            self.app = type(
+                "App", (), {"state": type("State", (), {"config": DummyConfig()})()}
+            )()
+
+    session = DummySession()
+    request = DummyRequest()
+
+    with patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class:
+        mock_repo = MagicMock()
+        mock_repo.get.return_value = None
+        mock_repo_class.return_value = mock_repo
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.get_user_profile_picture(request, session, user_id=999)  # type: ignore[arg-type]
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == "user_not_found"
+
+
+def test_get_user_profile_picture_no_picture(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test get_user_profile_picture returns 404 when user has no profile picture (covers line 285-286)."""
+    from fastapi import Response
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            import tempfile
+
+            temp_dir = tempfile.mkdtemp()
+
+            class DummyConfig:
+                data_directory = temp_dir
+
+            self.app = type(
+                "App", (), {"state": type("State", (), {"config": DummyConfig()})()}
+            )()
+
+    session = DummySession()
+    request = DummyRequest()
+    user = User(
+        id=1,
+        username="testuser",
+        email="test@example.com",
+        password_hash="hash",
+        profile_picture=None,
+    )
+
+    with patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class:
+        mock_repo = MagicMock()
+        mock_repo.get.return_value = user
+        mock_repo_class.return_value = mock_repo
+
+        result = admin.get_user_profile_picture(request, session, user_id=1)  # type: ignore[arg-type]
+        assert isinstance(result, Response)
+        assert result.status_code == 404
+
+
+def test_get_user_profile_picture_absolute_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test get_user_profile_picture with absolute path (covers lines 290-291)."""
+    import tempfile
+    from pathlib import Path
+
+    from fastapi.responses import FileResponse
+
+    class DummyRequest:
+        def __init__(self, temp_dir: str) -> None:
+            class DummyConfig:
+                data_directory = temp_dir
+
+            self.app = type(
+                "App", (), {"state": type("State", (), {"config": DummyConfig()})()}
+            )()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        pic_file = Path(tmpdir) / "pic.jpg"
+        pic_file.write_bytes(b"fake image")
+
+        session = DummySession()
+        request = DummyRequest(tmpdir)
+        user = User(
+            id=1,
+            username="testuser",
+            email="test@example.com",
+            password_hash="hash",
+            profile_picture=str(pic_file),
+        )
+
+        with patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class:
+            mock_repo = MagicMock()
+            mock_repo.get.return_value = user
+            mock_repo_class.return_value = mock_repo
+
+            result = admin.get_user_profile_picture(request, session, user_id=1)  # type: ignore[arg-type]
+            assert isinstance(result, FileResponse)
+            assert result.path == str(pic_file)
+            assert result.media_type == "image/jpeg"
+
+
+def test_get_user_profile_picture_relative_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test get_user_profile_picture with relative path (covers lines 292-294)."""
+    import tempfile
+    from pathlib import Path
+
+    from fastapi.responses import FileResponse
+
+    class DummyRequest:
+        def __init__(self, temp_dir: str) -> None:
+            class DummyConfig:
+                data_directory = temp_dir
+
+            self.app = type(
+                "App", (), {"state": type("State", (), {"config": DummyConfig()})()}
+            )()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        pic_file = Path(tmpdir) / "pictures" / "pic.png"
+        pic_file.parent.mkdir()
+        pic_file.write_bytes(b"fake image")
+
+        session = DummySession()
+        request = DummyRequest(tmpdir)
+        user = User(
+            id=1,
+            username="testuser",
+            email="test@example.com",
+            password_hash="hash",
+            profile_picture="pictures/pic.png",
+        )
+
+        with patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class:
+            mock_repo = MagicMock()
+            mock_repo.get.return_value = user
+            mock_repo_class.return_value = mock_repo
+
+            result = admin.get_user_profile_picture(request, session, user_id=1)  # type: ignore[arg-type]
+            assert isinstance(result, FileResponse)
+            assert result.path == str(pic_file)
+            assert result.media_type == "image/png"
+
+
+def test_get_user_profile_picture_file_not_exists(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test get_user_profile_picture returns 404 when file doesn't exist (covers lines 296-297)."""
+    from fastapi import Response
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            import tempfile
+
+            temp_dir = tempfile.mkdtemp()
+
+            class DummyConfig:
+                data_directory = temp_dir
+
+            self.app = type(
+                "App", (), {"state": type("State", (), {"config": DummyConfig()})()}
+            )()
+
+    session = DummySession()
+    request = DummyRequest()
+    user = User(
+        id=1,
+        username="testuser",
+        email="test@example.com",
+        password_hash="hash",
+        profile_picture="nonexistent.jpg",
+    )
+
+    with patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class:
+        mock_repo = MagicMock()
+        mock_repo.get.return_value = user
+        mock_repo_class.return_value = mock_repo
+
+        result = admin.get_user_profile_picture(request, session, user_id=1)  # type: ignore[arg-type]
+        assert isinstance(result, Response)
+        assert result.status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("ext", "expected_media_type"),
+    [
+        (".jpg", "image/jpeg"),
+        (".jpeg", "image/jpeg"),
+        (".png", "image/png"),
+        (".gif", "image/gif"),
+        (".webp", "image/webp"),
+        (".svg", "image/svg+xml"),
+        (".unknown", "image/jpeg"),  # Default fallback
+    ],
+)
+def test_get_user_profile_picture_media_types(
+    monkeypatch: pytest.MonkeyPatch, ext: str, expected_media_type: str
+) -> None:
+    """Test get_user_profile_picture determines correct media type (covers lines 299-309)."""
+    import tempfile
+    from pathlib import Path
+
+    from fastapi.responses import FileResponse
+
+    class DummyRequest:
+        def __init__(self, temp_dir: str) -> None:
+            class DummyConfig:
+                data_directory = temp_dir
+
+            self.app = type(
+                "App", (), {"state": type("State", (), {"config": DummyConfig()})()}
+            )()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        pic_file = Path(tmpdir) / f"pic{ext}"
+        pic_file.write_bytes(b"fake image")
+
+        session = DummySession()
+        request = DummyRequest(tmpdir)
+        user = User(
+            id=1,
+            username="testuser",
+            email="test@example.com",
+            password_hash="hash",
+            profile_picture=str(pic_file),
+        )
+
+        with patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class:
+            mock_repo = MagicMock()
+            mock_repo.get.return_value = user
+            mock_repo_class.return_value = mock_repo
+
+            result = admin.get_user_profile_picture(request, session, user_id=1)  # type: ignore[arg-type]
+            assert isinstance(result, FileResponse)
+            assert result.media_type == expected_media_type
+
+
+def test_update_user_with_role_ids(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test update_user with role_ids creates role service (covers lines 353-362)."""
+    session = DummySession()
+    payload = admin.AdminUserUpdate(role_ids=[1, 2])
+
+    user = User(
+        id=1,
+        username="testuser",
+        email="test@example.com",
+        password_hash="hash",
+    )
+    user.ereader_devices = []  # type: ignore[attr-defined]
+    user.roles = []  # type: ignore[attr-defined]
+
+    with (
+        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("fundamental.api.routes.admin.RoleRepository") as mock_role_repo_class,
+        patch(
+            "fundamental.api.routes.admin.UserRoleRepository"
+        ) as mock_user_role_repo_class,
+        patch("fundamental.api.routes.admin.PermissionRepository"),
+        patch("fundamental.api.routes.admin.RolePermissionRepository"),
+        patch("fundamental.api.routes.admin.RoleService") as mock_role_service_class,
+    ):
+        mock_repo = MagicMock()
+        mock_repo.get.return_value = user
+        mock_repo_class.return_value = mock_repo
+
+        mock_service = MagicMock()
+        mock_service.update_user.return_value = user
+        mock_service.get_with_relationships.return_value = user
+        mock_service_class.return_value = mock_service
+
+        result = admin.update_user(session, user_id=1, payload=payload)
+        assert result.id == 1
+        # Verify role service was created
+        mock_role_repo_class.assert_called_once()
+        mock_user_role_repo_class.assert_called_once()
+        mock_role_service_class.assert_called_once()
+
+
+def test_update_user_with_password(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test update_user with password creates password hasher (covers line 367)."""
+    session = DummySession()
+    payload = admin.AdminUserUpdate(password="newpassword123")
+
+    user = User(
+        id=1,
+        username="testuser",
+        email="test@example.com",
+        password_hash="hash",
+    )
+    user.ereader_devices = []  # type: ignore[attr-defined]
+    user.roles = []  # type: ignore[attr-defined]
+
+    with (
+        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("fundamental.api.routes.admin.PasswordHasher") as mock_hasher_class,
+    ):
+        mock_repo = MagicMock()
+        mock_repo.get.return_value = user
+        mock_repo_class.return_value = mock_repo
+
+        mock_service = MagicMock()
+        mock_service.update_user.return_value = user
+        mock_service.get_with_relationships.return_value = user
+        mock_service_class.return_value = mock_service
+
+        result = admin.update_user(session, user_id=1, payload=payload)
+        assert result.id == 1
+        # Verify password hasher was created
+        mock_hasher_class.assert_called_once()
+
+
+def test_update_user_with_device_email(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test update_user with default_device_email creates device service (covers lines 372-374)."""
+    session = DummySession()
+    payload = admin.AdminUserUpdate(default_device_email="device@example.com")
+
+    user = User(
+        id=1,
+        username="testuser",
+        email="test@example.com",
+        password_hash="hash",
+    )
+    user.ereader_devices = []  # type: ignore[attr-defined]
+    user.roles = []  # type: ignore[attr-defined]
+
+    with (
+        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch(
+            "fundamental.api.routes.admin.EReaderRepository"
+        ) as mock_device_repo_class,
+        patch(
+            "fundamental.api.routes.admin.EReaderService"
+        ) as mock_device_service_class,
+    ):
+        mock_repo = MagicMock()
+        mock_repo.get.return_value = user
+        mock_repo_class.return_value = mock_repo
+
+        mock_service = MagicMock()
+        mock_service.update_user.return_value = user
+        mock_service.get_with_relationships.return_value = user
+        mock_service_class.return_value = mock_service
+
+        result = admin.update_user(session, user_id=1, payload=payload)
+        assert result.id == 1
+        # Verify device service was created
+        mock_device_repo_class.assert_called_once()
+        mock_device_service_class.assert_called_once()
+
+
+def test_update_user_password_hasher_required(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test update_user raises 500 when password_hasher_required (covers lines 403-406)."""
+    session = DummySession()
+    payload = admin.AdminUserUpdate(password="newpassword123")
+
+    user = User(
+        id=1,
+        username="testuser",
+        email="test@example.com",
+        password_hash="hash",
+    )
+
+    with (
+        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+    ):
+        mock_repo = MagicMock()
+        mock_repo.get.return_value = user
+        mock_repo_class.return_value = mock_repo
+
+        mock_service = MagicMock()
+        mock_service.update_user.side_effect = ValueError("password_hasher_required")
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.update_user(session, user_id=1, payload=payload)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 500
+        assert exc_info.value.detail == "password_update_failed"
+
+
+def test_delete_user_cannot_delete_self(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test delete_user raises 403 when admin tries to delete themselves (covers lines 444-445)."""
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            import tempfile
+
+            temp_dir = tempfile.mkdtemp()
+
+            class DummyConfig:
+                data_directory = temp_dir
+
+            self.app = type(
+                "App", (), {"state": type("State", (), {"config": DummyConfig()})()}
+            )()
+
+    session = DummySession()
+    request = DummyRequest()
+    admin_user = User(
+        id=1,
+        username="admin",
+        email="admin@example.com",
+        password_hash="hash",
+        is_admin=True,
+    )
+
+    with patch("fundamental.api.routes.admin.get_admin_user") as mock_get_admin:
+        mock_get_admin.return_value = admin_user
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.delete_user(request, session, admin_user, user_id=1)  # type: ignore[arg-type]
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 403
+        assert exc_info.value.detail == "cannot_delete_self"
+
+
+def test_delete_user_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test delete_user succeeds (covers lines 447-461)."""
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            import tempfile
+
+            temp_dir = tempfile.mkdtemp()
+
+            class DummyConfig:
+                data_directory = temp_dir
+
+            self.app = type(
+                "App", (), {"state": type("State", (), {"config": DummyConfig()})()}
+            )()
+
+    session = DummySession()
+    request = DummyRequest()
+    admin_user = User(
+        id=1,
+        username="admin",
+        email="admin@example.com",
+        password_hash="hash",
+        is_admin=True,
+    )
+    target_user = User(
+        id=2,
+        username="target",
+        email="target@example.com",
+        password_hash="hash",
+    )
+
+    with (
+        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("fundamental.api.routes.admin.EReaderRepository"),
+        patch("fundamental.api.routes.admin.UserRoleRepository"),
+        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+    ):
+        mock_user_repo = MagicMock()
+        mock_user_repo.get.return_value = target_user
+        mock_repo_class.return_value = mock_user_repo
+
+        mock_service = MagicMock()
+        mock_service.delete_user.return_value = None
+        mock_service_class.return_value = mock_service
+
+        admin.delete_user(request, session, admin_user, user_id=2)  # type: ignore[arg-type]
+        mock_service.delete_user.assert_called_once()
+        session.commit()
+
+
+def test_delete_user_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test delete_user raises 404 when user not found (covers lines 462-466)."""
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            import tempfile
+
+            temp_dir = tempfile.mkdtemp()
+
+            class DummyConfig:
+                data_directory = temp_dir
+
+            self.app = type(
+                "App", (), {"state": type("State", (), {"config": DummyConfig()})()}
+            )()
+
+    session = DummySession()
+    request = DummyRequest()
+    admin_user = User(
+        id=1,
+        username="admin",
+        email="admin@example.com",
+        password_hash="hash",
+        is_admin=True,
+    )
+
+    with (
+        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("fundamental.api.routes.admin.EReaderRepository"),
+        patch("fundamental.api.routes.admin.UserRoleRepository"),
+        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+    ):
+        mock_user_repo = MagicMock()
+        mock_user_repo.get.return_value = None
+        mock_repo_class.return_value = mock_user_repo
+
+        mock_service = MagicMock()
+        mock_service.delete_user.side_effect = ValueError("user_not_found")
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.delete_user(request, session, admin_user, user_id=999)  # type: ignore[arg-type]
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == "user_not_found"
+
+
+def test_delete_user_other_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test delete_user re-raises ValueError with other messages (covers line 466)."""
+    from unittest.mock import MagicMock, patch
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            import tempfile
+
+            temp_dir = tempfile.mkdtemp()
+
+            class DummyConfig:
+                data_directory = temp_dir
+
+            self.app = type(
+                "App", (), {"state": type("State", (), {"config": DummyConfig()})()}
+            )()
+
+    session = DummySession()
+    request = DummyRequest()
+    admin_user = User(
+        id=1,
+        username="admin",
+        email="admin@example.com",
+        password_hash="hash",
+        is_admin=True,
+    )
+
+    with (
+        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("fundamental.api.routes.admin.EReaderRepository"),
+        patch("fundamental.api.routes.admin.UserRoleRepository"),
+        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+    ):
+        mock_repo = MagicMock()
+        mock_repo_class.return_value = mock_repo
+
+        mock_service = MagicMock()
+        mock_service.delete_user.side_effect = ValueError("other_error")
+        mock_service_class.return_value = mock_service
+
+        from fundamental.api.routes import admin
+
+        with pytest.raises(ValueError, match="other_error"):
+            admin.delete_user(request, session, admin_user, user_id=999)  # type: ignore[arg-type]

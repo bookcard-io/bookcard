@@ -22,7 +22,7 @@
  */
 
 /**
- * Generate cache-busting profile picture URL.
+ * Generate cache-busting profile picture URL for the current user.
  *
  * Parameters
  * ----------
@@ -38,6 +38,30 @@ export function getProfilePictureUrlWithCacheBuster(
   cacheBuster?: number,
 ): string {
   const baseUrl = "/api/auth/profile-picture";
+  const timestamp = cacheBuster ?? Date.now();
+  return `${baseUrl}?v=${timestamp}`;
+}
+
+/**
+ * Generate cache-busting profile picture URL for a specific user by ID.
+ *
+ * Parameters
+ * ----------
+ * userId : number
+ *     User identifier.
+ * cacheBuster? : number
+ *     Optional cache-busting timestamp. Defaults to current time.
+ *
+ * Returns
+ * -------
+ * string
+ *     Profile picture URL with cache-busting parameter.
+ */
+export function getUserProfilePictureUrl(
+  userId: number,
+  cacheBuster?: number,
+): string {
+  const baseUrl = `/api/admin/users/${userId}/profile-picture`;
   const timestamp = cacheBuster ?? Date.now();
   return `${baseUrl}?v=${timestamp}`;
 }

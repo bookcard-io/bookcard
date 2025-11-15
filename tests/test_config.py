@@ -124,3 +124,19 @@ def test_from_env_default_database_url() -> None:
     with patch.dict(os.environ, env_vars):
         config = AppConfig.from_env()
         assert config.database_url == "sqlite:///fundamental.db"
+
+
+def test_get_encryption_key_success() -> None:
+    """Test successful encryption key retrieval."""
+    with patch.dict(os.environ, {"FUNDAMENTAL_FERNET_KEY": "test-key-123"}):
+        result = AppConfig._get_encryption_key()
+        assert result == "test-key-123"
+
+
+def test_get_encryption_key_missing() -> None:
+    """Test encryption key retrieval when environment variable is missing (covers lines 116-117)."""
+    with (
+        patch.dict(os.environ, {}, clear=True),
+        pytest.raises(ValueError, match="FUNDAMENTAL_FERNET_KEY is not set"),
+    ):
+        AppConfig._get_encryption_key()

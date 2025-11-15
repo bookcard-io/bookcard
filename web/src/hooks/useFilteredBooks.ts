@@ -55,12 +55,12 @@ export interface UseFilteredBooksResult {
   error: string | null;
   /** Function to refetch books. */
   refetch: () => Promise<void>;
+  /** Function to remove a book by ID from the list. */
+  removeBook: (bookId: number) => void;
   /** Function to load next page (only available when infiniteScroll is enabled). */
   loadMore?: () => void;
   /** Whether there are more pages to load (only available when infiniteScroll is enabled). */
   hasMore?: boolean;
-  /** Function to remove a book by ID from the accumulated books list. */
-  removeBook?: (bookId: number) => void;
   /** Function to add a book by ID to the accumulated books list. */
   addBook?: (bookId: number) => Promise<void>;
 }
@@ -351,6 +351,7 @@ export function useFilteredBooks(
     isLoading,
     error,
     refetch: fetchFilteredBooks,
-    ...(infiniteScroll && { loadMore, hasMore, removeBook, addBook }),
+    removeBook,
+    ...(infiniteScroll && { loadMore, hasMore, addBook }),
   };
 }

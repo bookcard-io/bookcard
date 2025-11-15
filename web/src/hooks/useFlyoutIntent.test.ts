@@ -423,6 +423,338 @@ describe("useFlyoutIntent", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it("should close when pointer is stationary outside parent and menu", () => {
+    const parentRect = new DOMRect(50, 50, 50, 50);
+    const menuRect = new DOMRect(100, 50, 50, 50);
+    const parentEl = createMockElement(parentRect);
+    const menuEl = createMockElement(menuRect);
+    const parentItemRef = { current: parentEl };
+    const menuRef = { current: menuEl };
+    const onClose = vi.fn();
+
+    const rafCallbacks: Array<() => void> = [];
+    mockRequestAnimationFrame.mockImplementation((callback: () => void) => {
+      rafCallbacks.push(callback);
+      return 1;
+    });
+
+    renderHook(() =>
+      useFlyoutIntent({
+        isOpen: true,
+        parentItemRef,
+        menuRef,
+        onClose,
+        minMovementPx: 10,
+        idleTimeMs: 100,
+        padding: 10,
+      }),
+    );
+
+    const handlePointerMove = mockAddEventListener.mock.calls[0]?.[1];
+    if (!handlePointerMove) return;
+
+    // First event - inside corridor but outside parent and menu
+    // Corridor: (40, 40) to (160, 110)
+    // Parent: (50, 50) to (100, 100), Menu: (100, 50) to (150, 100)
+    // Point (45, 80) is inside corridor, left of parent, outside both
+    const event1 = createPointerEvent(45, 80);
+    Object.defineProperty(event1, "timeStamp", { value: 1000, writable: true });
+    handlePointerMove(event1);
+
+    // Process RAF callbacks
+    for (const cb of rafCallbacks) {
+      cb();
+    }
+    rafCallbacks.length = 0;
+
+    expect(onClose).not.toHaveBeenCalled(); // Not stationary yet
+
+    // Second event - still outside, but stationary (small movement, enough time)
+    const event2 = createPointerEvent(47, 82); // Small movement (< 10px)
+    Object.defineProperty(event2, "timeStamp", {
+      value: 1200, // 200ms later (>= 100ms)
+      writable: true,
+    });
+    handlePointerMove(event2);
+
+    // Process RAF callbacks
+    for (const cb of rafCallbacks) {
+      cb();
+    }
+
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("should not close when pointer is moving with intent", () => {
+    const parentRect = new DOMRect(50, 50, 50, 50);
+    const menuRect = new DOMRect(100, 50, 50, 50);
+    const parentEl = createMockElement(parentRect);
+    const menuEl = createMockElement(menuRect);
+    const parentItemRef = { current: parentEl };
+    const menuRef = { current: menuEl };
+    const onClose = vi.fn();
+
+    const rafCallbacks: Array<() => void> = [];
+    mockRequestAnimationFrame.mockImplementation((callback: () => void) => {
+      rafCallbacks.push(callback);
+      return 1;
+    });
+
+    renderHook(() =>
+      useFlyoutIntent({
+        isOpen: true,
+        parentItemRef,
+        menuRef,
+        onClose,
+        minMovementPx: 10,
+        idleTimeMs: 100,
+        padding: 10,
+      }),
+    );
+
+    const handlePointerMove = mockAddEventListener.mock.calls[0]?.[1];
+    if (!handlePointerMove) return;
+
+    // First event - inside corridor but outside parent and menu
+    const event1 = createPointerEvent(45, 80);
+    Object.defineProperty(event1, "timeStamp", { value: 1000, writable: true });
+    handlePointerMove(event1);
+
+    // Process RAF callbacks
+    for (const cb of rafCallbacks) {
+      cb();
+    }
+    rafCallbacks.length = 0;
+
+    // Second event - moving with intent (large movement)
+    const event2 = createPointerEvent(60, 80); // Large movement (>= 10px)
+    Object.defineProperty(event2, "timeStamp", {
+      value: 1200,
+      writable: true,
+    });
+    handlePointerMove(event2);
+
+    // Process RAF callbacks
+    for (const cb of rafCallbacks) {
+      cb();
+    }
+
+    expect(onClose).not.toHaveBeenCalled(); // Moving with intent
+  });
+
+  it("should not close when pointer is stationary but not enough time passed", () => {
+    const parentRect = new DOMRect(50, 50, 50, 50);
+    const menuRect = new DOMRect(100, 50, 50, 50);
+    const parentEl = createMockElement(parentRect);
+    const menuEl = createMockElement(menuRect);
+    const parentItemRef = { current: parentEl };
+    const menuRef = { current: menuEl };
+    const onClose = vi.fn();
+
+    const rafCallbacks: Array<() => void> = [];
+    mockRequestAnimationFrame.mockImplementation((callback: () => void) => {
+      rafCallbacks.push(callback);
+      return 1;
+    });
+
+    renderHook(() =>
+      useFlyoutIntent({
+        isOpen: true,
+        parentItemRef,
+        menuRef,
+        onClose,
+        minMovementPx: 10,
+        idleTimeMs: 100,
+        padding: 10,
+      }),
+    );
+
+    const handlePointerMove = mockAddEventListener.mock.calls[0]?.[1];
+    if (!handlePointerMove) return;
+
+    // First event - inside corridor but outside parent and menu
+    const event1 = createPointerEvent(45, 80);
+    Object.defineProperty(event1, "timeStamp", { value: 1000, writable: true });
+    handlePointerMove(event1);
+
+    // Process RAF callbacks
+    for (const cb of rafCallbacks) {
+      cb();
+    }
+    rafCallbacks.length = 0;
+
+    // Second event - stationary but not enough time (< 100ms)
+    const event2 = createPointerEvent(47, 82);
+    Object.defineProperty(event2, "timeStamp", {
+      value: 1050, // Only 50ms later (< 100ms)
+      writable: true,
+    });
+    handlePointerMove(event2);
+
+    // Process RAF callbacks
+    for (const cb of rafCallbacks) {
+      cb();
+    }
+
+    expect(onClose).not.toHaveBeenCalled(); // Not enough time passed
+  });
+
+  it("should not close when pointer is inside parent", () => {
+    const parentRect = new DOMRect(50, 50, 50, 50);
+    const menuRect = new DOMRect(100, 50, 50, 50);
+    const parentEl = createMockElement(parentRect);
+    const menuEl = createMockElement(menuRect);
+    const parentItemRef = { current: parentEl };
+    const menuRef = { current: menuEl };
+    const onClose = vi.fn();
+
+    const rafCallbacks: Array<() => void> = [];
+    mockRequestAnimationFrame.mockImplementation((callback: () => void) => {
+      rafCallbacks.push(callback);
+      return 1;
+    });
+
+    renderHook(() =>
+      useFlyoutIntent({
+        isOpen: true,
+        parentItemRef,
+        menuRef,
+        onClose,
+        minMovementPx: 10,
+        idleTimeMs: 100,
+      }),
+    );
+
+    const handlePointerMove = mockAddEventListener.mock.calls[0]?.[1];
+    if (!handlePointerMove) return;
+
+    // Event inside parent
+    const event = createPointerEvent(75, 75); // Inside parent rect
+    Object.defineProperty(event, "timeStamp", { value: 1000, writable: true });
+    handlePointerMove(event);
+
+    // Process RAF callbacks
+    for (const cb of rafCallbacks) {
+      cb();
+    }
+
+    expect(onClose).not.toHaveBeenCalled(); // Inside parent
+  });
+
+  it("should not close when pointer is inside menu", () => {
+    const parentRect = new DOMRect(50, 50, 50, 50);
+    const menuRect = new DOMRect(100, 50, 50, 50);
+    const parentEl = createMockElement(parentRect);
+    const menuEl = createMockElement(menuRect);
+    const parentItemRef = { current: parentEl };
+    const menuRef = { current: menuEl };
+    const onClose = vi.fn();
+
+    const rafCallbacks: Array<() => void> = [];
+    mockRequestAnimationFrame.mockImplementation((callback: () => void) => {
+      rafCallbacks.push(callback);
+      return 1;
+    });
+
+    renderHook(() =>
+      useFlyoutIntent({
+        isOpen: true,
+        parentItemRef,
+        menuRef,
+        onClose,
+        minMovementPx: 10,
+        idleTimeMs: 100,
+      }),
+    );
+
+    const handlePointerMove = mockAddEventListener.mock.calls[0]?.[1];
+    if (!handlePointerMove) return;
+
+    // Event inside menu
+    const event = createPointerEvent(125, 75); // Inside menu rect
+    Object.defineProperty(event, "timeStamp", { value: 1000, writable: true });
+    handlePointerMove(event);
+
+    // Process RAF callbacks
+    for (const cb of rafCallbacks) {
+      cb();
+    }
+
+    expect(onClose).not.toHaveBeenCalled(); // Inside menu
+  });
+
+  it("should reset lastEventRef when closing due to stationary detection", () => {
+    const parentRect = new DOMRect(50, 50, 50, 50);
+    const menuRect = new DOMRect(100, 50, 50, 50);
+    const parentEl = createMockElement(parentRect);
+    const menuEl = createMockElement(menuRect);
+    const parentItemRef = { current: parentEl };
+    const menuRef = { current: menuEl };
+    const onClose = vi.fn();
+
+    const rafCallbacks: Array<() => void> = [];
+    mockRequestAnimationFrame.mockImplementation((callback: () => void) => {
+      rafCallbacks.push(callback);
+      return 1;
+    });
+
+    renderHook(() =>
+      useFlyoutIntent({
+        isOpen: true,
+        parentItemRef,
+        menuRef,
+        onClose,
+        minMovementPx: 10,
+        idleTimeMs: 100,
+        padding: 10,
+      }),
+    );
+
+    const handlePointerMove = mockAddEventListener.mock.calls[0]?.[1];
+    if (!handlePointerMove) return;
+
+    // First event - inside corridor but outside parent and menu
+    const event1 = createPointerEvent(45, 80);
+    Object.defineProperty(event1, "timeStamp", { value: 1000, writable: true });
+    handlePointerMove(event1);
+
+    for (const cb of rafCallbacks) {
+      cb();
+    }
+    rafCallbacks.length = 0;
+
+    // Second event - stationary
+    const event2 = createPointerEvent(47, 82);
+    Object.defineProperty(event2, "timeStamp", {
+      value: 1200,
+      writable: true,
+    });
+    handlePointerMove(event2);
+
+    for (const cb of rafCallbacks) {
+      cb();
+    }
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    // Third event after close - should not trigger again immediately
+    // Since lastEventRef was reset, this should not trigger close
+    const event3 = createPointerEvent(49, 84);
+    Object.defineProperty(event3, "timeStamp", {
+      value: 1300,
+      writable: true,
+    });
+    handlePointerMove(event3);
+
+    rafCallbacks.length = 0;
+    for (const cb of rafCallbacks) {
+      cb();
+    }
+
+    // Should only be called once (from previous stationary detection)
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("should skip processing if requestAnimationFrame is already pending", () => {
     const parentRect = new DOMRect(50, 50, 50, 50);
     const menuRect = new DOMRect(100, 50, 50, 50);

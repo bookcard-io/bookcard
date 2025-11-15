@@ -22,6 +22,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from fundamental.models.auth import User
 from fundamental.models.core import (
     Book,
     BookAuthorLink,
@@ -48,6 +49,12 @@ from fundamental.repositories.delete_commands import (
     DeleteDirectoryCommand,
     DeleteFileCommand,
     DeleteIdentifiersCommand,
+    DeleteRefreshTokensCommand,
+    DeleteUserCommand,
+    DeleteUserDataDirectoryCommand,
+    DeleteUserDevicesCommand,
+    DeleteUserRolesCommand,
+    DeleteUserSettingsCommand,
 )
 from tests.conftest import DummySession
 
@@ -626,3 +633,478 @@ def test_delete_directory_undo_no_existed(temp_dir: Path) -> None:
     command = DeleteDirectoryCommand(test_dir)
     command.undo()
     assert not test_dir.exists()
+
+
+# User-related delete command tests
+
+
+@pytest.fixture
+def user_id() -> int:
+    """Return a test user ID."""
+    return 1
+
+
+@pytest.fixture
+def mock_device_repo() -> MagicMock:
+    """Create a mock EReaderRepository."""
+    repo = MagicMock()
+    repo.find_by_user.return_value = []
+    return repo
+
+
+@pytest.fixture
+def mock_user_role_repo() -> MagicMock:
+    """Create a mock UserRoleRepository."""
+    return MagicMock()
+
+
+def test_delete_user_devices_execute_deletes_devices(
+    session: DummySession, user_id: int, mock_device_repo: MagicMock
+) -> None:
+    """Test DeleteUserDevicesCommand execute deletes devices."""
+    from fundamental.models.auth import EBookFormat, EReaderDevice
+
+    device1 = EReaderDevice(
+        id=1,
+        user_id=user_id,
+        email="device1@example.com",
+        device_type="kindle",
+        preferred_format=EBookFormat.MOBI,
+    )
+    device2 = EReaderDevice(
+        id=2,
+        user_id=user_id,
+        email="device2@example.com",
+        device_type="kobo",
+        preferred_format=EBookFormat.EPUB,
+    )
+
+    mock_device_repo.find_by_user.return_value = [device1, device2]
+
+    command = DeleteUserDevicesCommand(
+        session,  # type: ignore[arg-type]
+        user_id,
+        mock_device_repo,  # type: ignore[arg-type]
+    )
+    command.execute()
+
+    assert len(command._deleted_devices) == 2
+    assert device1 in command._deleted_devices
+    assert device2 in command._deleted_devices
+    assert mock_device_repo.delete.call_count == 2
+    mock_device_repo.delete.assert_any_call(device1)
+    mock_device_repo.delete.assert_any_call(device2)
+
+
+def test_delete_user_devices_execute_no_devices(
+    session: DummySession, user_id: int, mock_device_repo: MagicMock
+) -> None:
+    """Test DeleteUserDevicesCommand execute handles no devices."""
+    mock_device_repo.find_by_user.return_value = []
+
+    command = DeleteUserDevicesCommand(
+        session,  # type: ignore[arg-type]
+        user_id,
+        mock_device_repo,  # type: ignore[arg-type]
+    )
+    command.execute()
+
+    assert len(command._deleted_devices) == 0
+    assert mock_device_repo.delete.call_count == 0
+
+
+def test_delete_user_devices_undo_restores_devices(
+    session: DummySession, user_id: int, mock_device_repo: MagicMock
+) -> None:
+    """Test DeleteUserDevicesCommand undo restores devices."""
+    from fundamental.models.auth import EBookFormat, EReaderDevice
+
+    device1 = EReaderDevice(
+        id=1,
+        user_id=user_id,
+        email="device1@example.com",
+        device_type="kindle",
+        preferred_format=EBookFormat.MOBI,
+    )
+
+    mock_device_repo.find_by_user.return_value = [device1]
+
+    command = DeleteUserDevicesCommand(
+        session,  # type: ignore[arg-type]
+        user_id,
+        mock_device_repo,  # type: ignore[arg-type]
+    )
+    command.execute()
+    command.undo()
+
+    assert device1 in session.added
+
+
+def test_delete_user_devices_undo_no_devices(
+    session: DummySession, user_id: int, mock_device_repo: MagicMock
+) -> None:
+    """Test DeleteUserDevicesCommand undo handles no deleted devices."""
+    mock_device_repo.find_by_user.return_value = []
+
+    command = DeleteUserDevicesCommand(
+        session,  # type: ignore[arg-type]
+        user_id,
+        mock_device_repo,  # type: ignore[arg-type]
+    )
+    command.undo()
+
+    assert len(session.added) == 0
+
+
+def test_delete_user_roles_execute_deletes_roles(
+    session: DummySession, user_id: int, mock_user_role_repo: MagicMock
+) -> None:
+    """Test DeleteUserRolesCommand execute deletes user roles."""
+    from fundamental.models.auth import Role, UserRole
+
+    role1 = Role(id=1, name="admin", description="Admin role")
+    role2 = Role(id=2, name="user", description="User role")
+    user_role1 = UserRole(id=1, user_id=user_id, role_id=1, role=role1)
+    user_role2 = UserRole(id=2, user_id=user_id, role_id=2, role=role2)
+
+    session.add_exec_result([user_role1, user_role2])
+
+    command = DeleteUserRolesCommand(
+        session,  # type: ignore[arg-type]
+        user_id,
+        mock_user_role_repo,  # type: ignore[arg-type]
+    )
+    command.execute()
+
+    assert len(command._deleted_roles) == 2
+    assert user_role1 in command._deleted_roles
+    assert user_role2 in command._deleted_roles
+    assert mock_user_role_repo.delete.call_count == 2
+    mock_user_role_repo.delete.assert_any_call(user_role1)
+    mock_user_role_repo.delete.assert_any_call(user_role2)
+
+
+def test_delete_user_roles_execute_no_roles(
+    session: DummySession, user_id: int, mock_user_role_repo: MagicMock
+) -> None:
+    """Test DeleteUserRolesCommand execute handles no roles."""
+    session.add_exec_result([])
+
+    command = DeleteUserRolesCommand(
+        session,  # type: ignore[arg-type]
+        user_id,
+        mock_user_role_repo,  # type: ignore[arg-type]
+    )
+    command.execute()
+
+    assert len(command._deleted_roles) == 0
+    assert mock_user_role_repo.delete.call_count == 0
+
+
+def test_delete_user_roles_undo_restores_roles(
+    session: DummySession, user_id: int, mock_user_role_repo: MagicMock
+) -> None:
+    """Test DeleteUserRolesCommand undo restores user roles."""
+    from fundamental.models.auth import Role, UserRole
+
+    role1 = Role(id=1, name="admin", description="Admin role")
+    user_role1 = UserRole(id=1, user_id=user_id, role_id=1, role=role1)
+
+    session.add_exec_result([user_role1])
+
+    command = DeleteUserRolesCommand(
+        session,  # type: ignore[arg-type]
+        user_id,
+        mock_user_role_repo,  # type: ignore[arg-type]
+    )
+    command.execute()
+    command.undo()
+
+    assert user_role1 in session.added
+
+
+def test_delete_user_roles_undo_no_roles(
+    session: DummySession, user_id: int, mock_user_role_repo: MagicMock
+) -> None:
+    """Test DeleteUserRolesCommand undo handles no deleted roles."""
+    session.add_exec_result([])
+
+    command = DeleteUserRolesCommand(
+        session,  # type: ignore[arg-type]
+        user_id,
+        mock_user_role_repo,  # type: ignore[arg-type]
+    )
+    command.undo()
+
+    assert len(session.added) == 0
+
+
+def test_delete_user_settings_execute_deletes_settings(
+    session: DummySession, user_id: int
+) -> None:
+    """Test DeleteUserSettingsCommand execute deletes user settings."""
+    from fundamental.models.auth import UserSetting
+
+    setting1 = UserSetting(id=1, user_id=user_id, key="theme", value="dark")
+    setting2 = UserSetting(id=2, user_id=user_id, key="language", value="en")
+
+    session.add_exec_result([setting1, setting2])
+
+    command = DeleteUserSettingsCommand(session, user_id)  # type: ignore[arg-type]
+    command.execute()
+
+    assert len(command._deleted_settings) == 2
+    assert setting1 in command._deleted_settings
+    assert setting2 in command._deleted_settings
+    assert setting1 in session.deleted
+    assert setting2 in session.deleted
+
+
+def test_delete_user_settings_execute_no_settings(
+    session: DummySession, user_id: int
+) -> None:
+    """Test DeleteUserSettingsCommand execute handles no settings."""
+    session.add_exec_result([])
+
+    command = DeleteUserSettingsCommand(session, user_id)  # type: ignore[arg-type]
+    command.execute()
+
+    assert len(command._deleted_settings) == 0
+    assert len(session.deleted) == 0
+
+
+def test_delete_user_settings_undo_restores_settings(
+    session: DummySession, user_id: int
+) -> None:
+    """Test DeleteUserSettingsCommand undo restores user settings."""
+    from fundamental.models.auth import UserSetting
+
+    setting1 = UserSetting(id=1, user_id=user_id, key="theme", value="dark")
+
+    session.add_exec_result([setting1])
+
+    command = DeleteUserSettingsCommand(session, user_id)  # type: ignore[arg-type]
+    command.execute()
+    command.undo()
+
+    assert setting1 in session.added
+
+
+def test_delete_user_settings_undo_no_settings(
+    session: DummySession, user_id: int
+) -> None:
+    """Test DeleteUserSettingsCommand undo handles no deleted settings."""
+    session.add_exec_result([])
+
+    command = DeleteUserSettingsCommand(session, user_id)  # type: ignore[arg-type]
+    command.undo()
+
+    assert len(session.added) == 0
+
+
+def test_delete_refresh_tokens_execute_deletes_tokens(
+    session: DummySession, user_id: int
+) -> None:
+    """Test DeleteRefreshTokensCommand execute deletes refresh tokens."""
+    from datetime import UTC, datetime, timedelta
+
+    from fundamental.models.auth import RefreshToken
+
+    token1 = RefreshToken(
+        id=1,
+        user_id=user_id,
+        token_hash="hash1",
+        expires_at=datetime.now(UTC) + timedelta(days=7),
+    )
+    token2 = RefreshToken(
+        id=2,
+        user_id=user_id,
+        token_hash="hash2",
+        expires_at=datetime.now(UTC) + timedelta(days=7),
+    )
+
+    session.add_exec_result([token1, token2])
+
+    command = DeleteRefreshTokensCommand(session, user_id)  # type: ignore[arg-type]
+    command.execute()
+
+    assert len(command._deleted_tokens) == 2
+    assert token1 in command._deleted_tokens
+    assert token2 in command._deleted_tokens
+    assert token1 in session.deleted
+    assert token2 in session.deleted
+
+
+def test_delete_refresh_tokens_execute_no_tokens(
+    session: DummySession, user_id: int
+) -> None:
+    """Test DeleteRefreshTokensCommand execute handles no tokens."""
+    session.add_exec_result([])
+
+    command = DeleteRefreshTokensCommand(session, user_id)  # type: ignore[arg-type]
+    command.execute()
+
+    assert len(command._deleted_tokens) == 0
+    assert len(session.deleted) == 0
+
+
+def test_delete_refresh_tokens_undo_restores_tokens(
+    session: DummySession, user_id: int
+) -> None:
+    """Test DeleteRefreshTokensCommand undo restores refresh tokens."""
+    from datetime import UTC, datetime, timedelta
+
+    from fundamental.models.auth import RefreshToken
+
+    token1 = RefreshToken(
+        id=1,
+        user_id=user_id,
+        token_hash="hash1",
+        expires_at=datetime.now(UTC) + timedelta(days=7),
+    )
+
+    session.add_exec_result([token1])
+
+    command = DeleteRefreshTokensCommand(session, user_id)  # type: ignore[arg-type]
+    command.execute()
+    command.undo()
+
+    assert token1 in session.added
+
+
+def test_delete_refresh_tokens_undo_no_tokens(
+    session: DummySession, user_id: int
+) -> None:
+    """Test DeleteRefreshTokensCommand undo handles no deleted tokens."""
+    session.add_exec_result([])
+
+    command = DeleteRefreshTokensCommand(session, user_id)  # type: ignore[arg-type]
+    command.undo()
+
+    assert len(session.added) == 0
+
+
+def test_delete_user_data_directory_execute_deletes_dir(temp_dir: Path) -> None:
+    """Test DeleteUserDataDirectoryCommand execute deletes directory."""
+    user_data_dir = temp_dir / "user_data"
+    user_data_dir.mkdir()
+    (user_data_dir / "file1.txt").write_text("content1")
+    (user_data_dir / "file2.txt").write_text("content2")
+
+    command = DeleteUserDataDirectoryCommand(user_data_dir)
+    command.execute()
+
+    assert not user_data_dir.exists()
+    assert command._dir_existed is True
+
+
+def test_delete_user_data_directory_execute_skips_nonexistent(
+    temp_dir: Path,
+) -> None:
+    """Test DeleteUserDataDirectoryCommand execute skips nonexistent directory."""
+    user_data_dir = temp_dir / "nonexistent"
+
+    command = DeleteUserDataDirectoryCommand(user_data_dir)
+    command.execute()
+
+    assert command._dir_existed is False
+
+
+def test_delete_user_data_directory_undo_warns(
+    temp_dir: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test DeleteUserDataDirectoryCommand undo logs warning."""
+    import logging
+
+    user_data_dir = temp_dir / "user_data"
+    user_data_dir.mkdir()
+
+    command = DeleteUserDataDirectoryCommand(user_data_dir)
+    command.execute()
+
+    with caplog.at_level(logging.WARNING):
+        command.undo()
+        assert any(
+            "Cannot undo recursive directory deletion" in record.message
+            and str(user_data_dir) in record.message
+            for record in caplog.records
+        )
+
+
+def test_delete_user_data_directory_undo_no_existed(temp_dir: Path) -> None:
+    """Test DeleteUserDataDirectoryCommand undo handles directory that didn't exist."""
+    user_data_dir = temp_dir / "nonexistent"
+
+    command = DeleteUserDataDirectoryCommand(user_data_dir)
+    command.undo()
+
+    assert not user_data_dir.exists()
+
+
+@pytest.fixture
+def user() -> User:
+    """Create a test User instance."""
+    from datetime import UTC, datetime
+
+    return User(
+        id=1,
+        username="testuser",
+        email="test@example.com",
+        password_hash="hashed_password",
+        full_name="Test User",
+        is_admin=False,
+        is_active=True,
+        profile_picture=None,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+        last_login=None,
+    )
+
+
+def test_delete_user_execute_deletes_user(session: DummySession, user: User) -> None:
+    """Test DeleteUserCommand execute deletes user and creates snapshot."""
+    command = DeleteUserCommand(session, user)  # type: ignore[arg-type]
+    command.execute()
+
+    assert user in session.deleted
+    assert command._user_snapshot is not None
+    assert command._user_snapshot["id"] == user.id
+    assert command._user_snapshot["username"] == user.username
+    assert command._user_snapshot["email"] == user.email
+    assert command._user_snapshot["password_hash"] == user.password_hash
+    assert command._user_snapshot["full_name"] == user.full_name
+    assert command._user_snapshot["is_admin"] == user.is_admin
+    assert command._user_snapshot["is_active"] == user.is_active
+    assert command._user_snapshot["profile_picture"] == user.profile_picture
+    assert command._user_snapshot["created_at"] == user.created_at
+    assert command._user_snapshot["updated_at"] == user.updated_at
+    assert command._user_snapshot["last_login"] == user.last_login
+
+
+def test_delete_user_undo_restores_user(session: DummySession, user: User) -> None:
+    """Test DeleteUserCommand undo restores user from snapshot."""
+    command = DeleteUserCommand(session, user)  # type: ignore[arg-type]
+    command.execute()
+    command.undo()
+
+    # Should have added a restored user
+    assert len(session.added) == 1
+    restored_user = session.added[0]
+    assert restored_user.id == user.id
+    assert restored_user.username == user.username
+    assert restored_user.email == user.email
+    assert restored_user.password_hash == user.password_hash
+    assert restored_user.full_name == user.full_name
+    assert restored_user.is_admin == user.is_admin
+    assert restored_user.is_active == user.is_active
+    assert restored_user.profile_picture == user.profile_picture
+    assert restored_user.created_at == user.created_at
+    assert restored_user.updated_at == user.updated_at
+    assert restored_user.last_login == user.last_login
+
+
+def test_delete_user_undo_no_snapshot(session: DummySession, user: User) -> None:
+    """Test DeleteUserCommand undo handles no snapshot."""
+    command = DeleteUserCommand(session, user)  # type: ignore[arg-type]
+    command.undo()
+    assert len(session.added) == 0

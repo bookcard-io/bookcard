@@ -371,4 +371,331 @@ describe("useFilteredBooks", () => {
     // hasMore should use currentPage when data.page is undefined
     expect(result.current.hasMore).toBe(true);
   });
+
+  it("should include full parameter in query when full is true", async () => {
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockResponse),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchResponse,
+    );
+
+    const filters = {
+      ...createEmptyFilters(),
+      authorIds: [1],
+    };
+
+    renderHook(() => useFilteredBooks({ filters, full: true }));
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalled();
+    });
+
+    const fetchCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock
+      .calls[0];
+    const url = fetchCall?.[0] as string;
+    expect(url).toContain("full=true");
+  });
+
+  it("should remove book from accumulated books in infinite scroll", async () => {
+    const firstItem = mockResponse.items[0];
+    if (!firstItem) {
+      throw new Error("mockResponse.items[0] is undefined");
+    }
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockResponse),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchResponse,
+    );
+
+    const filters = {
+      ...createEmptyFilters(),
+      authorIds: [1],
+    };
+
+    const { result } = renderHook(() =>
+      useFilteredBooks({ filters, infiniteScroll: true }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(1);
+    });
+
+    act(() => {
+      result.current.removeBook?.(1);
+    });
+
+    expect(result.current.books).toHaveLength(0);
+  });
+
+  it("should remove book from data items and update total", async () => {
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockResponse),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchResponse,
+    );
+
+    const filters = {
+      ...createEmptyFilters(),
+      authorIds: [1],
+    };
+
+    const { result } = renderHook(() =>
+      useFilteredBooks({ filters, infiniteScroll: false }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(1);
+    });
+
+    act(() => {
+      result.current.removeBook?.(1);
+    });
+
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(0);
+    });
+    expect(result.current.total).toBe(0);
+  });
+
+  it("should add book to accumulated books in infinite scroll", async () => {
+    const firstItem = mockResponse.items[0];
+    if (!firstItem) {
+      throw new Error("mockResponse.items[0] is undefined");
+    }
+    const newBook = {
+      ...firstItem,
+      id: 2,
+      title: "Book 2",
+    };
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockResponse),
+    };
+    const bookFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(newBook),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(mockFetchResponse)
+      .mockResolvedValueOnce(bookFetchResponse);
+
+    const filters = {
+      ...createEmptyFilters(),
+      authorIds: [1],
+    };
+
+    const { result } = renderHook(() =>
+      useFilteredBooks({ filters, infiniteScroll: true }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(1);
+    });
+
+    await act(async () => {
+      await result.current.addBook?.(2);
+    });
+
+    expect(result.current.books).toHaveLength(2);
+    expect(result.current.books[0]?.id).toBe(2); // New book should be prepended
+  });
+
+  it("should not add duplicate book to accumulated books", async () => {
+    const firstItem = mockResponse.items[0];
+    if (!firstItem) {
+      throw new Error("mockResponse.items[0] is undefined");
+    }
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockResponse),
+    };
+    const bookFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(firstItem),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(mockFetchResponse)
+      .mockResolvedValueOnce(bookFetchResponse);
+
+    const filters = {
+      ...createEmptyFilters(),
+      authorIds: [1],
+    };
+
+    const { result } = renderHook(() =>
+      useFilteredBooks({ filters, infiniteScroll: true }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(1);
+    });
+
+    await act(async () => {
+      await result.current.addBook?.(1);
+    });
+
+    expect(result.current.books).toHaveLength(1); // Should not add duplicate
+  });
+
+  it("should add book to data items and update total", async () => {
+    const firstItem = mockResponse.items[0];
+    if (!firstItem) {
+      throw new Error("mockResponse.items[0] is undefined");
+    }
+    const newBook = {
+      ...firstItem,
+      id: 2,
+      title: "Book 2",
+    };
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockResponse),
+    };
+    const bookFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(newBook),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(mockFetchResponse)
+      .mockResolvedValueOnce(bookFetchResponse);
+
+    const filters = {
+      ...createEmptyFilters(),
+      authorIds: [1],
+    };
+
+    const { result } = renderHook(() =>
+      useFilteredBooks({ filters, infiniteScroll: true }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(1);
+    });
+
+    await act(async () => {
+      await result.current.addBook?.(2);
+    });
+
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(2);
+    });
+    expect(result.current.total).toBe(2);
+  });
+
+  it("should not add duplicate book to data items", async () => {
+    const firstItem = mockResponse.items[0];
+    if (!firstItem) {
+      throw new Error("mockResponse.items[0] is undefined");
+    }
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockResponse),
+    };
+    const bookFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(firstItem),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(mockFetchResponse)
+      .mockResolvedValueOnce(bookFetchResponse);
+
+    const filters = {
+      ...createEmptyFilters(),
+      authorIds: [1],
+    };
+
+    const { result } = renderHook(() =>
+      useFilteredBooks({ filters, infiniteScroll: true }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(1);
+    });
+
+    await act(async () => {
+      await result.current.addBook?.(1);
+    });
+
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(1); // Should not add duplicate
+    });
+    expect(result.current.total).toBe(1);
+  });
+
+  it("should handle addBook error silently", async () => {
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockResponse),
+    };
+    const bookFetchResponse = {
+      ok: false,
+      json: vi.fn().mockResolvedValue({ detail: "Book not found" }),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(mockFetchResponse)
+      .mockResolvedValueOnce(bookFetchResponse);
+
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    const filters = {
+      ...createEmptyFilters(),
+      authorIds: [1],
+    };
+
+    const { result } = renderHook(() =>
+      useFilteredBooks({ filters, infiniteScroll: true }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(1);
+    });
+
+    await act(async () => {
+      await result.current.addBook?.(999);
+    });
+
+    expect(result.current.books).toHaveLength(1); // Should not change
+    expect(consoleErrorSpy).toHaveBeenCalled();
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("should not add book when infiniteScroll is false", async () => {
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockResponse),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchResponse,
+    );
+
+    const filters = {
+      ...createEmptyFilters(),
+      authorIds: [1],
+    };
+
+    const { result } = renderHook(() =>
+      useFilteredBooks({ filters, infiniteScroll: false }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(1);
+    });
+
+    await act(async () => {
+      await result.current.addBook?.(2);
+    });
+
+    // Should not fetch or add book
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1); // Only initial fetch
+    expect(result.current.books).toHaveLength(1);
+  });
 });

@@ -256,6 +256,10 @@ describe("useProviderSettings", () => {
   });
 
   it("should store all providers when all are enabled", async () => {
+    const { AVAILABLE_METADATA_PROVIDERS } = await import(
+      "@/components/profile/config/configurationConstants"
+    );
+
     const mockFetch = vi
       .fn()
       .mockResolvedValueOnce({
@@ -264,7 +268,13 @@ describe("useProviderSettings", () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: vi.fn().mockResolvedValue({ settings: {} }),
+        json: vi.fn().mockResolvedValue({
+          settings: {
+            enabled_metadata_providers: JSON.stringify(
+              AVAILABLE_METADATA_PROVIDERS.slice(0, 3),
+            ),
+          },
+        }),
       });
     vi.stubGlobal("fetch", mockFetch);
 
@@ -274,14 +284,65 @@ describe("useProviderSettings", () => {
       expect(result.current.isLoading).toBe(false);
     });
 
-    // Enable all providers by toggling each one that's not enabled
+    // Enable remaining providers one by one
+    for (const provider of AVAILABLE_METADATA_PROVIDERS) {
+      if (!result.current.enabledProviders.has(provider)) {
+        act(() => {
+          result.current.toggleProvider(provider);
+        });
+      }
+    }
+
+    // Verify all providers are enabled
+    await waitFor(() => {
+      expect(result.current.enabledProviders.size).toBe(
+        AVAILABLE_METADATA_PROVIDERS.length,
+      );
+    });
+    expect(
+      AVAILABLE_METADATA_PROVIDERS.every((p) =>
+        result.current.enabledProviders.has(p),
+      ),
+    ).toBe(true);
+  });
+
+  it("should add provider when toggling disabled provider", async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ id: 1, username: "test" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          settings: {
+            enabled_metadata_providers: {
+              key: "enabled_metadata_providers",
+              value: JSON.stringify([]),
+              updated_at: "",
+            },
+          },
+        }),
+      });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const { result } = renderHook(() => useProviderSettings(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    // Start with all providers disabled (empty array means explicitly disabled)
+    expect(result.current.enabledProviders.size).toBe(0);
+
+    // Toggle a provider to enable it
     act(() => {
-      // This test verifies the logic, but we can't easily test the exact
-      // updateSetting call without mocking it more deeply
       result.current.toggleProvider("Google Books");
     });
 
-    // The behavior is tested through the state changes
-    expect(result.current.enabledProviders).toBeDefined();
+    // Should now have the provider enabled
+    expect(result.current.enabledProviders.has("Google Books")).toBe(true);
+    expect(result.current.enabledProviders.size).toBe(1);
   });
 });

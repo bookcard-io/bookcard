@@ -149,6 +149,27 @@ describe("useSearchSuggestions", () => {
     expect(result.current.suggestions).toEqual([]);
   });
 
+  it("should handle fetch error with non-Error object", async () => {
+    mockService.fetchSuggestions = vi.fn().mockRejectedValue("String error");
+
+    const { result } = renderHook(() =>
+      useSearchSuggestions({
+        query: "test",
+        service: mockService,
+        debounceDelay: 0,
+      }),
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(0);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.error).toBe("Unknown error");
+    expect(result.current.suggestions).toEqual([]);
+  });
+
   it("should refetch suggestions", async () => {
     const mockResponse: SearchSuggestionsResponse = {
       books: [{ id: 1, name: "Book 1" }],

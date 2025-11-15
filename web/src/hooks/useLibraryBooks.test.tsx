@@ -159,4 +159,76 @@ describe("useLibraryBooks", () => {
 
     expect(result.current.books).toEqual(filteredResult.books);
   });
+
+  it("should filter books by shelf IDs when shelf filter is active", () => {
+    const shelfBookIds = [1, 3, 5];
+    const allBooks = [
+      { id: 1, title: "Book 1" },
+      { id: 2, title: "Book 2" },
+      { id: 3, title: "Book 3" },
+      { id: 4, title: "Book 4" },
+      { id: 5, title: "Book 5" },
+    ] as typeof mockBooksResult.books;
+
+    (useShelfBooks as ReturnType<typeof vi.fn>).mockReturnValue({
+      ...mockShelfBooksResult,
+      bookIds: shelfBookIds,
+      total: shelfBookIds.length,
+      isLoading: false,
+      error: null,
+    });
+
+    (useBooks as ReturnType<typeof vi.fn>).mockReturnValue({
+      ...mockBooksResult,
+      books: allBooks,
+    });
+
+    const { result } = renderHook(() => useLibraryBooks({ shelfId: 1 }), {
+      wrapper,
+    });
+
+    expect(result.current.books).toHaveLength(3);
+    expect(result.current.books.map((b) => b.id)).toEqual([1, 3, 5]);
+  });
+
+  it("should return empty array when shelf books are loading", () => {
+    (useShelfBooks as ReturnType<typeof vi.fn>).mockReturnValue({
+      ...mockShelfBooksResult,
+      isLoading: true,
+    });
+
+    const { result } = renderHook(() => useLibraryBooks({ shelfId: 1 }), {
+      wrapper,
+    });
+
+    expect(result.current.books).toEqual([]);
+  });
+
+  it("should return empty array when shelf books have error", () => {
+    (useShelfBooks as ReturnType<typeof vi.fn>).mockReturnValue({
+      ...mockShelfBooksResult,
+      error: "Failed to fetch shelf books",
+    });
+
+    const { result } = renderHook(() => useLibraryBooks({ shelfId: 1 }), {
+      wrapper,
+    });
+
+    expect(result.current.books).toEqual([]);
+  });
+
+  it("should integrate with library loading context when loading", () => {
+    (useBooks as ReturnType<typeof vi.fn>).mockReturnValue({
+      ...mockBooksResult,
+      isLoading: true,
+    });
+
+    // The hook should work without errors when loading
+    const { result } = renderHook(() => useLibraryBooks({}), { wrapper });
+
+    expect(result.current.isLoading).toBe(true);
+    // The useEffect should run and call incrementBooksLoading
+    // We can't easily test the cleanup without complex mocking,
+    // but we verify the hook works correctly with the context
+  });
 });

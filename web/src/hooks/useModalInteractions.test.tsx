@@ -104,4 +104,40 @@ describe("useModalInteractions", () => {
     // Handler exists for accessibility but doesn't do anything
     expect(() => result.current.handleOverlayKeyDown()).not.toThrow();
   });
+
+  it("should only call onClose when clicking overlay itself (e.target === e.currentTarget)", () => {
+    const onClose = vi.fn();
+    const TestComponent = () => {
+      const { handleOverlayClick } = useModalInteractions({ onClose });
+      return (
+        // biome-ignore lint/a11y/noStaticElementInteractions: test component
+        // biome-ignore lint/a11y/useKeyWithClickEvents: test component
+        <div onClick={handleOverlayClick} data-testid="overlay">
+          <div data-testid="child">Child Content</div>
+        </div>
+      );
+    };
+
+    render(<TestComponent />);
+    const overlay = screen.getByTestId("overlay");
+    const child = screen.getByTestId("child");
+
+    // Click on child should not call onClose (e.target !== e.currentTarget)
+    child.click();
+    expect(onClose).not.toHaveBeenCalled();
+
+    // Click on overlay itself should call onClose (e.target === e.currentTarget)
+    // We need to simulate a click where target equals currentTarget
+    const clickEvent = new MouseEvent("click", { bubbles: true });
+    Object.defineProperty(clickEvent, "target", {
+      value: overlay,
+      writable: false,
+    });
+    Object.defineProperty(clickEvent, "currentTarget", {
+      value: overlay,
+      writable: false,
+    });
+    overlay.dispatchEvent(clickEvent);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });

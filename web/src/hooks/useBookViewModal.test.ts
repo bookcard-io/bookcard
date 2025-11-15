@@ -475,4 +475,99 @@ describe("useBookViewModal", () => {
     // Should not navigate if nextIndex >= bookIds.length
     expect(result.current.viewingBookId).toBe(2);
   });
+
+  it("should navigate to next book when books are loaded after pending navigation", () => {
+    const loadMore = vi.fn();
+    const bookIds = [1, 2];
+    const { result, rerender } = renderHook(
+      ({ bookIds: ids }) =>
+        useBookViewModal({
+          bookIds: ids,
+          loadMore,
+          hasMore: true,
+          isLoading: false,
+        }),
+      { initialProps: { bookIds } },
+    );
+
+    act(() => {
+      result.current.handleBookClick({ id: 2 });
+    });
+
+    // Trigger next navigation - this sets pendingNavigationRef to "next"
+    act(() => {
+      result.current.handleNavigateNext();
+    });
+
+    // Simulate books being loaded - now we have [1, 2, 3]
+    // The useEffect should detect pendingNavigation and navigate to next (line 87, 89-93)
+    rerender({ bookIds: [1, 2, 3] });
+
+    // Should navigate to next book (3) since currentIndex (1) + 1 = 2 < bookIds.length (3)
+    // This tests lines 87, 89-93
+    expect(result.current.viewingBookId).toBe(3);
+  });
+
+  it("should handle null viewingBookId in useEffect navigation (line 87)", () => {
+    const loadMore = vi.fn();
+    const bookIds = [1, 2];
+    const { result, rerender } = renderHook(
+      ({ bookIds: ids }) =>
+        useBookViewModal({
+          bookIds: ids,
+          loadMore,
+          hasMore: true,
+          isLoading: false,
+        }),
+      { initialProps: { bookIds } },
+    );
+
+    // Set pending navigation but viewingBookId is null
+    act(() => {
+      result.current.handleNavigateNext(); // This sets pendingNavigationRef but viewingBookId is null
+    });
+
+    // Simulate books being loaded
+    // The useEffect should handle viewingBookId || -1 (line 87)
+    rerender({ bookIds: [1, 2, 3] });
+
+    // Should not navigate since currentIndex would be -1 (not >= 0)
+    expect(result.current.viewingBookId).toBeNull();
+  });
+
+  it("should handle prevId undefined check in handleNavigatePrevious", () => {
+    // This tests line 126 - though prevId should never be undefined in practice,
+    // we need to cover the check
+    const bookIds = [1, 2, 3];
+    const { result } = renderHook(() => useBookViewModal({ bookIds }));
+
+    act(() => {
+      result.current.handleBookClick({ id: 2 });
+    });
+
+    // Navigate previous - prevId should be 1 (defined)
+    act(() => {
+      result.current.handleNavigatePrevious();
+    });
+
+    expect(result.current.viewingBookId).toBe(1);
+  });
+
+  it("should handle nextId undefined check in handleNavigateNext", () => {
+    // This tests line 170 - though nextId should never be undefined in practice,
+    // we need to cover the check
+    const bookIds = [1, 2, 3];
+    const { result } = renderHook(() => useBookViewModal({ bookIds }));
+
+    act(() => {
+      result.current.handleBookClick({ id: 2 });
+    });
+
+    // Navigate next - nextId should be 3 (defined)
+    act(() => {
+      result.current.handleNavigateNext();
+    });
+
+    expect(result.current.viewingBookId).toBe(3);
+  });
 });

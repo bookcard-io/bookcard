@@ -18,6 +18,7 @@
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from sqlalchemy import inspect
 from sqlmodel import Session, select
@@ -34,6 +35,11 @@ from fundamental.models.core import (
     Identifier,
 )
 from fundamental.models.media import Data
+from fundamental.repositories.ereader_repository import EReaderRepository
+
+if TYPE_CHECKING:
+    from fundamental.models.auth import User
+    from fundamental.repositories.role_repository import UserRoleRepository
 
 logger = logging.getLogger(__name__)
 
@@ -746,3 +752,350 @@ class DeleteDirectoryCommand(DeleteCommand):
             logger.debug("Restoring directory: %r", self._dir_path)
             # Recreate directory
             self._dir_path.mkdir(parents=True, exist_ok=True)
+
+
+class DeleteUserDevicesCommand(DeleteCommand):
+    """Command to delete all e-reader devices for a user."""
+
+    def __init__(
+        self,
+        session: Session,
+        user_id: int,
+        device_repo: EReaderRepository,
+    ) -> None:
+        """Initialize command to delete user devices.
+
+        Parameters
+        ----------
+        session : Session
+            Database session for executing the deletion.
+        user_id : int
+            User identifier.
+        device_repo : EReaderRepository
+            E-reader repository for finding and deleting devices.
+        """
+        self._session = session
+        self._user_id = user_id
+        self._device_repo = device_repo
+        self._deleted_devices: list = []
+
+    def execute(self) -> None:
+        """Execute deletion of all user devices.
+
+        Finds and deletes all EReaderDevice records for the user.
+        Stores deleted devices for potential undo.
+        """
+        devices = list(self._device_repo.find_by_user(self._user_id))
+        self._deleted_devices = devices.copy()
+        for device in devices:
+            self._device_repo.delete(device)
+        if devices:
+            logger.debug(
+                "Deleted %d device(s) for user %d",
+                len(devices),
+                self._user_id,
+            )
+
+    def undo(self) -> None:
+        """Restore all deleted user devices.
+
+        Re-adds all previously deleted devices to the session.
+        """
+        if self._deleted_devices:
+            logger.debug(
+                "Restoring %d device(s) for user %d",
+                len(self._deleted_devices),
+                self._user_id,
+            )
+            for device in self._deleted_devices:
+                self._session.add(device)
+
+
+class DeleteUserRolesCommand(DeleteCommand):
+    """Command to delete all user-role associations for a user."""
+
+    def __init__(
+        self,
+        session: Session,
+        user_id: int,
+        user_role_repo: "UserRoleRepository",
+    ) -> None:
+        """Initialize command to delete user roles.
+
+        Parameters
+        ----------
+        session : Session
+            Database session for executing the deletion.
+        user_id : int
+            User identifier.
+        user_role_repo : UserRoleRepository
+            User role repository for finding and deleting roles.
+        """
+        self._session = session
+        self._user_id = user_id
+        self._user_role_repo = user_role_repo
+        self._deleted_roles: list = []
+
+    def execute(self) -> None:
+        """Execute deletion of all user roles.
+
+        Finds and deletes all UserRole records for the user.
+        Stores deleted roles for potential undo.
+        """
+        from fundamental.models.auth import UserRole
+
+        user_roles = list(
+            self._session.exec(
+                select(UserRole).where(UserRole.user_id == self._user_id)
+            ).all()
+        )
+        self._deleted_roles = user_roles.copy()
+        for user_role in user_roles:
+            self._user_role_repo.delete(user_role)
+        if user_roles:
+            logger.debug(
+                "Deleted %d role(s) for user %d",
+                len(user_roles),
+                self._user_id,
+            )
+
+    def undo(self) -> None:
+        """Restore all deleted user roles.
+
+        Re-adds all previously deleted user roles to the session.
+        """
+        if self._deleted_roles:
+            logger.debug(
+                "Restoring %d role(s) for user %d",
+                len(self._deleted_roles),
+                self._user_id,
+            )
+            for user_role in self._deleted_roles:
+                self._session.add(user_role)
+
+
+class DeleteUserSettingsCommand(DeleteCommand):
+    """Command to delete all user settings for a user."""
+
+    def __init__(self, session: Session, user_id: int) -> None:
+        """Initialize command to delete user settings.
+
+        Parameters
+        ----------
+        session : Session
+            Database session for executing the deletion.
+        user_id : int
+            User identifier.
+        """
+        self._session = session
+        self._user_id = user_id
+        self._deleted_settings: list = []
+
+    def execute(self) -> None:
+        """Execute deletion of all user settings.
+
+        Finds and deletes all UserSetting records for the user.
+        Stores deleted settings for potential undo.
+        """
+        from fundamental.models.auth import UserSetting
+
+        user_settings = list(
+            self._session.exec(
+                select(UserSetting).where(UserSetting.user_id == self._user_id)
+            ).all()
+        )
+        self._deleted_settings = user_settings.copy()
+        for setting in user_settings:
+            self._session.delete(setting)
+        if user_settings:
+            logger.debug(
+                "Deleted %d setting(s) for user %d",
+                len(user_settings),
+                self._user_id,
+            )
+
+    def undo(self) -> None:
+        """Restore all deleted user settings.
+
+        Re-adds all previously deleted settings to the session.
+        """
+        if self._deleted_settings:
+            logger.debug(
+                "Restoring %d setting(s) for user %d",
+                len(self._deleted_settings),
+                self._user_id,
+            )
+            for setting in self._deleted_settings:
+                self._session.add(setting)
+
+
+class DeleteRefreshTokensCommand(DeleteCommand):
+    """Command to delete all refresh tokens for a user."""
+
+    def __init__(self, session: Session, user_id: int) -> None:
+        """Initialize command to delete refresh tokens.
+
+        Parameters
+        ----------
+        session : Session
+            Database session for executing the deletion.
+        user_id : int
+            User identifier.
+        """
+        self._session = session
+        self._user_id = user_id
+        self._deleted_tokens: list = []
+
+    def execute(self) -> None:
+        """Execute deletion of all refresh tokens.
+
+        Finds and deletes all RefreshToken records for the user.
+        Stores deleted tokens for potential undo.
+        """
+        from fundamental.models.auth import RefreshToken
+
+        refresh_tokens = list(
+            self._session.exec(
+                select(RefreshToken).where(RefreshToken.user_id == self._user_id)
+            ).all()
+        )
+        self._deleted_tokens = refresh_tokens.copy()
+        for token in refresh_tokens:
+            self._session.delete(token)
+        if refresh_tokens:
+            logger.debug(
+                "Deleted %d refresh token(s) for user %d",
+                len(refresh_tokens),
+                self._user_id,
+            )
+
+    def undo(self) -> None:
+        """Restore all deleted refresh tokens.
+
+        Re-adds all previously deleted tokens to the session.
+        """
+        if self._deleted_tokens:
+            logger.debug(
+                "Restoring %d refresh token(s) for user %d",
+                len(self._deleted_tokens),
+                self._user_id,
+            )
+            for token in self._deleted_tokens:
+                self._session.add(token)
+
+
+class DeleteUserDataDirectoryCommand(DeleteCommand):
+    """Command to delete a user's data directory recursively."""
+
+    def __init__(self, user_data_dir: Path) -> None:
+        """Initialize command to delete user data directory.
+
+        Parameters
+        ----------
+        user_data_dir : Path
+            Path to the user's data directory to delete.
+        """
+        self._user_data_dir = user_data_dir
+        self._dir_existed = False
+        self._backup_path: Path | None = None
+
+    def execute(self) -> None:
+        """Execute deletion of the user data directory.
+
+        If the directory exists, creates a backup snapshot for potential
+        undo, then recursively deletes the directory.
+
+        Notes
+        -----
+        For large directories, undo may not be practical. This command
+        prioritizes deletion safety over undo capability.
+        """
+        import shutil
+
+        if self._user_data_dir.exists() and self._user_data_dir.is_dir():
+            self._dir_existed = True
+            logger.debug("Deleting user data directory: %r", self._user_data_dir)
+            # Note: Full undo would require backing up entire directory tree
+            # For now, we mark it as deleted but don't backup (too expensive)
+            shutil.rmtree(self._user_data_dir)
+        else:
+            logger.debug(
+                "User data directory does not exist, skipping: %r",
+                self._user_data_dir,
+            )
+
+    def undo(self) -> None:
+        """Restore the deleted user data directory.
+
+        Notes
+        -----
+        This is a no-op as we don't backup large directory trees.
+        Filesystem undo for recursive directory deletion is not practical.
+        """
+        if self._dir_existed:
+            logger.warning(
+                "Cannot undo recursive directory deletion: %r",
+                self._user_data_dir,
+            )
+
+
+class DeleteUserCommand(DeleteCommand):
+    """Command to delete the user record itself."""
+
+    def __init__(self, session: Session, user: "User") -> None:
+        """Initialize command to delete the user record.
+
+        Parameters
+        ----------
+        session : Session
+            Database session for executing the deletion.
+        user : User
+            User instance to delete.
+        """
+        self._session = session
+        self._user = user
+        self._user_snapshot: dict | None = None
+
+    def execute(self) -> None:
+        """Execute deletion of the user record.
+
+        Creates a snapshot of essential user fields for potential undo,
+        then deletes the user record from the session.
+        """
+        # Create snapshot for undo
+        self._user_snapshot = {
+            "id": self._user.id,
+            "username": self._user.username,
+            "email": self._user.email,
+            "password_hash": self._user.password_hash,
+            "full_name": self._user.full_name,
+            "is_admin": self._user.is_admin,
+            "is_active": self._user.is_active,
+            "profile_picture": self._user.profile_picture,
+            "created_at": self._user.created_at,
+            "updated_at": self._user.updated_at,
+            "last_login": self._user.last_login,
+        }
+        logger.debug(
+            "Deleting user record: id=%d, username=%r",
+            self._user.id,
+            self._user.username,
+        )
+        self._session.delete(self._user)
+
+    def undo(self) -> None:
+        """Restore the deleted user record.
+
+        Recreates the user from the stored snapshot and adds it back
+        to the session. Idempotent operation.
+        """
+        from fundamental.models.auth import User
+
+        if self._user_snapshot is not None:
+            logger.debug(
+                "Restoring user record: id=%d, username=%r",
+                self._user_snapshot["id"],
+                self._user_snapshot["username"],
+            )
+            restored_user = User(**self._user_snapshot)
+            self._session.add(restored_user)

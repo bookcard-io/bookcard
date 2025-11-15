@@ -1498,3 +1498,332 @@ def test_upsert_setting_other_error(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with pytest.raises(ValueError, match="other_error"):
         auth.upsert_setting(DummyRequest(), session, "theme", payload)
+
+
+def test_get_email_server_config_not_admin(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test get_email_server_config raises 403 when user is not admin (covers line 658-659)."""
+    user = User(
+        id=1,
+        username="user",
+        email="user@example.com",
+        password_hash="hash",
+        is_admin=False,
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    class StubService:
+        def get_email_server_config(self, decrypt: bool) -> None:
+            return None
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+
+    session = DummySession()
+    with pytest.raises(HTTPException) as exc_info:
+        auth.get_email_server_config(DummyRequest(), session)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail == "forbidden"
+
+
+def test_get_email_server_config_returns_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test get_email_server_config returns defaults when config is None (covers lines 662-681)."""
+    from fundamental.models.config import EmailServerType
+
+    user = User(
+        id=1,
+        username="admin",
+        email="admin@example.com",
+        password_hash="hash",
+        is_admin=True,
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    class StubService:
+        def get_email_server_config(self, decrypt: bool) -> None:
+            return None
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+
+    session = DummySession()
+    result = auth.get_email_server_config(DummyRequest(), session)
+    assert result.id is None
+    assert result.server_type == EmailServerType.SMTP
+    assert result.smtp_port == 587
+    assert result.smtp_use_tls is True
+    assert result.smtp_use_ssl is False
+    assert result.max_email_size_mb == 25
+    assert result.enabled is False
+
+
+def test_get_email_server_config_returns_existing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test get_email_server_config returns existing config (covers line 682)."""
+    from datetime import UTC, datetime
+
+    from fundamental.models.config import EmailServerConfig, EmailServerType
+
+    user = User(
+        id=1,
+        username="admin",
+        email="admin@example.com",
+        password_hash="hash",
+        is_admin=True,
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    config = EmailServerConfig(
+        id=1,
+        server_type=EmailServerType.SMTP,
+        smtp_host="smtp.example.com",
+        smtp_port=587,
+        enabled=True,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    class StubService:
+        def get_email_server_config(self, decrypt: bool) -> EmailServerConfig:
+            return config
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+
+    session = DummySession()
+    result = auth.get_email_server_config(DummyRequest(), session)
+    assert result.id == 1
+    assert result.smtp_host == "smtp.example.com"
+    assert result.enabled is True
+
+
+def test_upsert_email_server_config_not_admin(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test upsert_email_server_config raises 403 when user is not admin (covers line 701-702)."""
+    from fundamental.api.schemas import EmailServerConfigUpdate
+
+    user = User(
+        id=1,
+        username="user",
+        email="user@example.com",
+        password_hash="hash",
+        is_admin=False,
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    class StubService:
+        def upsert_email_server_config(self, **kwargs: object) -> None:
+            return None
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+
+    session = DummySession()
+    payload = EmailServerConfigUpdate(smtp_host="smtp.example.com")
+    with pytest.raises(HTTPException) as exc_info:
+        auth.upsert_email_server_config(DummyRequest(), session, payload)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail == "forbidden"
+
+
+def test_upsert_email_server_config_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test upsert_email_server_config succeeds (covers lines 704-721)."""
+    from datetime import UTC, datetime
+
+    from fundamental.api.schemas import EmailServerConfigUpdate
+    from fundamental.models.config import EmailServerConfig, EmailServerType
+
+    user = User(
+        id=1,
+        username="admin",
+        email="admin@example.com",
+        password_hash="hash",
+        is_admin=True,
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    config = EmailServerConfig(
+        id=1,
+        server_type=EmailServerType.SMTP,
+        smtp_host="smtp.example.com",
+        smtp_port=587,
+        enabled=True,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    class StubService:
+        def upsert_email_server_config(self, **kwargs: object) -> EmailServerConfig:
+            return config
+
+        def get_email_server_config(self, decrypt: bool) -> EmailServerConfig:
+            return config
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+
+    session = DummySession()
+    payload = EmailServerConfigUpdate(smtp_host="smtp.example.com", smtp_port=587)
+    result = auth.upsert_email_server_config(DummyRequest(), session, payload)
+    assert result.id == 1
+    assert result.smtp_host == "smtp.example.com"
+    session.commit()
+
+
+def test_upsert_email_server_config_retrieval_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test upsert_email_server_config raises 500 when retrieval fails (covers lines 710-714)."""
+    from datetime import UTC, datetime
+
+    from fundamental.api.schemas import EmailServerConfigUpdate
+    from fundamental.models.config import EmailServerConfig, EmailServerType
+
+    user = User(
+        id=1,
+        username="admin",
+        email="admin@example.com",
+        password_hash="hash",
+        is_admin=True,
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    config = EmailServerConfig(
+        id=1,
+        server_type=EmailServerType.SMTP,
+        smtp_host="smtp.example.com",
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    class StubService:
+        def upsert_email_server_config(self, **kwargs: object) -> EmailServerConfig:
+            return config
+
+        def get_email_server_config(self, decrypt: bool) -> None:
+            return None
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+
+    session = DummySession()
+    payload = EmailServerConfigUpdate(smtp_host="smtp.example.com")
+    with pytest.raises(HTTPException) as exc_info:
+        auth.upsert_email_server_config(DummyRequest(), session, payload)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.detail == "Failed to retrieve saved config"
+
+
+def test_upsert_email_server_config_invalid_smtp_encryption(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test upsert_email_server_config raises 400 for invalid_smtp_encryption (covers lines 715-719)."""
+    from fundamental.api.schemas import EmailServerConfigUpdate
+
+    user = User(
+        id=1,
+        username="admin",
+        email="admin@example.com",
+        password_hash="hash",
+        is_admin=True,
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    class StubService:
+        def upsert_email_server_config(self, **kwargs: object) -> None:
+            raise ValueError("invalid_smtp_encryption")
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+
+    session = DummySession()
+    payload = EmailServerConfigUpdate(smtp_use_tls=True, smtp_use_ssl=True)
+    with pytest.raises(HTTPException) as exc_info:
+        auth.upsert_email_server_config(DummyRequest(), session, payload)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "invalid_smtp_encryption"
+
+
+def test_upsert_email_server_config_other_value_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test upsert_email_server_config re-raises ValueError with other messages (covers line 719)."""
+    from fundamental.api.schemas import EmailServerConfigUpdate
+
+    user = User(
+        id=1,
+        username="admin",
+        email="admin@example.com",
+        password_hash="hash",
+        is_admin=True,
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    class StubService:
+        def upsert_email_server_config(self, **kwargs: object) -> None:
+            raise ValueError("other_error")
+
+        def get_email_server_config(self, decrypt: bool = False) -> None:
+            return None
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+
+    session = DummySession()
+    payload = EmailServerConfigUpdate(smtp_host="smtp.example.com")
+
+    with pytest.raises(ValueError, match="other_error"):
+        auth.upsert_email_server_config(DummyRequest(), session, payload)

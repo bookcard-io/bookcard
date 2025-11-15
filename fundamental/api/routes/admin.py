@@ -18,9 +18,11 @@
 from __future__ import annotations
 
 from contextlib import suppress
+from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import FileResponse, Response
 from sqlmodel import Session
 
 from fundamental.api.deps import get_admin_user, get_db_session
@@ -108,6 +110,7 @@ def create_user(
     # Create user
     user = User(
         username=payload.username,
+        full_name=payload.full_name,
         email=payload.email,
         password_hash=hasher.hash(payload.password),
         is_admin=payload.is_admin,
@@ -136,18 +139,21 @@ def create_user(
     if payload.default_device_email:
         device_repo = EReaderRepository(session)
         device_service = EReaderService(session, device_repo)
-        preferred_format = None
+        # Use payload values if provided, otherwise default to hardcoded values
+        preferred_format = EBookFormat.EPUB
         if payload.default_device_format:
             with suppress(ValueError):
-                # Invalid format, use None
+                # Invalid format, use default
                 preferred_format = EBookFormat(payload.default_device_format.lower())
+        device_name = payload.default_device_name or "My eReader"
+        device_type = payload.default_device_type or "generic"
         with suppress(ValueError):
             # Device email already exists, skip
             device_service.create_device(
                 user.id,  # type: ignore[arg-type]
                 payload.default_device_email,
-                device_name=payload.default_device_name,
-                device_type=payload.default_device_type,
+                device_name=device_name,
+                device_type=device_type,
                 preferred_format=preferred_format,
                 is_default=True,
             )
@@ -234,6 +240,77 @@ def get_user(
     return UserRead.from_user(user)
 
 
+@router.get(
+    "/users/{user_id}/profile-picture",
+    response_model=None,
+    dependencies=[Depends(get_admin_user)],
+)
+def get_user_profile_picture(
+    request: Request,
+    session: SessionDep,
+    user_id: int,
+) -> FileResponse | Response:
+    """Get a user's profile picture by user ID.
+
+    Serves the profile picture file if it exists.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+    session : SessionDep
+        Database session dependency.
+    admin_user : AdminUserDep
+        Admin user dependency.
+    user_id : int
+        User identifier.
+
+    Returns
+    -------
+    FileResponse | Response
+        Profile picture file or 404 if not found.
+
+    Raises
+    ------
+    HTTPException
+        If user not found (404).
+    """
+    cfg = request.app.state.config
+    user_repo = UserRepository(session)
+    user = user_repo.get(user_id)
+
+    if user is None:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    if not user.profile_picture:
+        return Response(status_code=status.HTTP_404_NOT_FOUND)
+
+    # Handle both relative and absolute paths
+    picture_path = Path(user.profile_picture)
+    if picture_path.is_absolute():
+        full_path = picture_path
+    else:
+        # Relative path - construct full path from data_directory
+        full_path = Path(cfg.data_directory) / user.profile_picture
+
+    if not full_path.exists():
+        return Response(status_code=status.HTTP_404_NOT_FOUND)
+
+    # Determine media type from extension
+    ext = full_path.suffix.lower()
+    media_types = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+        ".svg": "image/svg+xml",
+    }
+    media_type = media_types.get(ext, "image/jpeg")
+
+    return FileResponse(path=str(full_path), media_type=media_type)
+
+
 @router.put(
     "/users/{user_id}",
     response_model=UserRead,
@@ -270,46 +347,123 @@ def update_user(
     user_repo = UserRepository(session)
     user_service = UserService(session, user_repo)
 
-    user = user_repo.get(user_id)
-    if user is None:
-        raise HTTPException(status_code=404, detail="user_not_found")
+    # Prepare role service and repository if roles need updating
+    role_service = None
+    user_role_repo = None
+    if payload.role_ids is not None:
+        role_repo = RoleRepository(session)
+        user_role_repo = UserRoleRepository(session)
+        role_service = RoleService(
+            session,
+            role_repo,
+            PermissionRepository(session),
+            user_role_repo,
+            RolePermissionRepository(session),
+        )
 
-    # Update profile if username/email provided
-    if payload.username is not None or payload.email is not None:
-        try:
-            user_service.update_profile(
-                user_id,
-                username=payload.username,
-                email=payload.email,
-            )
-        except ValueError as exc:
-            msg = str(exc)
-            if msg in {"username_already_exists", "email_already_exists"}:
-                raise HTTPException(status_code=409, detail=msg) from exc
-            raise
+    # Prepare password hasher if password needs updating
+    password_hasher = None
+    if payload.password is not None:
+        password_hasher = PasswordHasher()
 
-    # Update admin status
-    if payload.is_admin is not None:
-        try:
-            user_service.update_admin_status(user_id, payload.is_admin)
-        except ValueError as exc:
-            raise HTTPException(status_code=404, detail="user_not_found") from exc
+    # Prepare device service and repository if device needs updating
+    device_service = None
+    device_repo = None
+    if payload.default_device_email is not None:
+        device_repo = EReaderRepository(session)
+        device_service = EReaderService(session, device_repo)
 
-    # Update active status
-    if payload.is_active is not None:
-        try:
-            user_service.update_active_status(user_id, payload.is_active)
-        except ValueError as exc:
-            raise HTTPException(status_code=404, detail="user_not_found") from exc
+    # Delegate business logic to service
+    try:
+        user_service.update_user(
+            user_id,
+            username=payload.username,
+            email=payload.email,
+            password=payload.password,
+            is_admin=payload.is_admin,
+            is_active=payload.is_active,
+            role_ids=payload.role_ids,
+            default_device_email=payload.default_device_email,
+            default_device_name=payload.default_device_name,
+            default_device_type=payload.default_device_type,
+            default_device_format=payload.default_device_format,
+            role_service=role_service,
+            user_role_repo=user_role_repo,
+            password_hasher=password_hasher,
+            device_service=device_service,
+            device_repo=device_repo,
+        )
+        session.commit()
+    except ValueError as exc:
+        msg = str(exc)
+        if msg == "user_not_found":
+            raise HTTPException(status_code=404, detail=msg) from exc
+        if msg in {"username_already_exists", "email_already_exists"}:
+            raise HTTPException(status_code=409, detail=msg) from exc
+        if msg == "password_hasher_required":
+            raise HTTPException(
+                status_code=500, detail="password_update_failed"
+            ) from exc
+        raise
 
-    session.commit()
     # Reload with relationships for response
-    user_repo = UserRepository(session)
-    user_service = UserService(session, user_repo)
     user_with_rels = user_service.get_with_relationships(user_id)
     if user_with_rels is None:
         raise HTTPException(status_code=404, detail="user_not_found")
     return UserRead.from_user(user_with_rels)
+
+
+@router.delete(
+    "/users/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(get_admin_user)],
+)
+def delete_user(
+    request: Request,
+    session: SessionDep,
+    admin_user: AdminUserDep,
+    user_id: int,
+) -> None:
+    """Delete a user.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+    admin_user : AdminUserDep
+        Admin user dependency.
+    user_id : int
+        User identifier.
+
+    Raises
+    ------
+    HTTPException
+        If user not found (404) or admin tries to delete themselves (403).
+    """
+    # Prevent admin from deleting themselves
+    if admin_user.id == user_id:
+        raise HTTPException(status_code=403, detail="cannot_delete_self")
+
+    # Use service to handle deletion
+    user_repo = UserRepository(session)
+    device_repo = EReaderRepository(session)
+    user_role_repo = UserRoleRepository(session)
+    user_service = UserService(session, user_repo)
+
+    cfg = request.app.state.config
+    try:
+        user_service.delete_user(
+            user_id,
+            data_directory=cfg.data_directory,
+            device_repo=device_repo,
+            user_role_repo=user_role_repo,
+        )
+        session.commit()
+    except ValueError as exc:
+        msg = str(exc)
+        if msg == "user_not_found":
+            raise HTTPException(status_code=404, detail=msg) from exc
+        raise
 
 
 @router.post(

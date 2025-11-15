@@ -76,6 +76,8 @@ class DummySession:
         self.added: list[Any] = []
         self.deleted: list[Any] = []
         self.refreshed: list[Any] = []
+        self.expunged: list[Any] = []
+        self.expunge_count: int = 0
         self.flush_count: int = 0
         self._next_id: int = 1
         self._exec_results: list[list[Any]] = []
@@ -99,6 +101,11 @@ class DummySession:
     def refresh(self, entity: Any) -> None:  # noqa: ANN401
         """Record entity refresh from the session."""
         self.refreshed.append(entity)
+
+    def expunge(self, entity: Any) -> None:  # noqa: ANN401
+        """Record entity expunge from the session."""
+        self.expunged.append(entity)
+        self.expunge_count += 1
 
     def flush(self) -> None:
         """Simulate a flush assigning auto-increment ids."""

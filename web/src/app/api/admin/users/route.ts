@@ -63,3 +63,45 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+/**
+ * POST /api/admin/users
+ *
+ * Proxies request to create a new user.
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const { client, error } = getAuthenticatedClient(request);
+
+    if (error) {
+      return error;
+    }
+
+    const body = await request.json();
+
+    const response = await client.request("/admin/users", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return NextResponse.json(
+        { detail: data.detail || "Failed to create user" },
+        { status: response.status },
+      );
+    }
+
+    return NextResponse.json(data, { status: 201 });
+  } catch (error) {
+    console.error("Error in POST /api/admin/users:", error);
+    return NextResponse.json(
+      { detail: "Internal server error" },
+      { status: 500 },
+    );
+  }
+}

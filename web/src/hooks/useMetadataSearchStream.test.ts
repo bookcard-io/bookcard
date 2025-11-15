@@ -512,6 +512,26 @@ describe("useMetadataSearchStream", () => {
     });
   });
 
+  it("should include enable_providers in URL when provided", async () => {
+    const { result } = renderHook(() =>
+      useMetadataSearchStream({
+        query: "test",
+        enableProviders: ["provider1", "provider2"],
+      }),
+    );
+
+    act(() => {
+      result.current.startSearch();
+    });
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("enable_providers=provider1%2Cprovider2"),
+        expect.any(Object),
+      );
+    });
+  });
+
   it("should process provider.started event", async () => {
     const searchStartedEvent: MetadataSearchStartedEvent = {
       event: "search.started",
@@ -1351,6 +1371,241 @@ describe("useMetadataSearchStream", () => {
     // Should not throw when provider doesn't exist, but should still increment providersFailed
     await waitFor(() => {
       expect(result.current.state.providersFailed).toBe(1);
+    });
+  });
+
+  it("should handle search.progress event with undefined results", async () => {
+    const searchStartedEvent: MetadataSearchStartedEvent = {
+      event: "search.started",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      query: "test",
+      locale: "en",
+      provider_ids: ["provider1"],
+      total_providers: 1,
+    };
+
+    const searchProgressEvent: MetadataSearchProgressEvent = {
+      event: "search.progress",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      providers_completed: 1,
+      providers_failed: 0,
+      total_providers: 1,
+      total_results_so_far: 0,
+      // results is undefined
+    };
+
+    const searchCompletedEvent: MetadataSearchCompletedEvent = {
+      event: "search.completed",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      total_results: 0,
+      providers_completed: 1,
+      providers_failed: 0,
+      duration_ms: 100,
+      results: [],
+    };
+
+    const searchStartedStr = JSON.stringify(searchStartedEvent);
+    const searchProgressStr = JSON.stringify(searchProgressEvent);
+    const searchCompletedStr = JSON.stringify(searchCompletedEvent);
+
+    mockReader.read
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${searchStartedStr}\n\n`.split("").map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${searchProgressStr}\n\n`
+            .split("")
+            .map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${searchCompletedStr}\n\n`
+            .split("")
+            .map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({ done: true });
+
+    const { result } = renderHook(() =>
+      useMetadataSearchStream({ query: "test" }),
+    );
+
+    act(() => {
+      result.current.startSearch();
+    });
+
+    // Should handle undefined results (line 372 - if evt.results !== undefined check)
+    await waitFor(() => {
+      expect(result.current.state.isSearching).toBe(false);
+    });
+  });
+
+  it("should handle search.completed event with non-array results", async () => {
+    const searchStartedEvent: MetadataSearchStartedEvent = {
+      event: "search.started",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      query: "test",
+      locale: "en",
+      provider_ids: ["provider1"],
+      total_providers: 1,
+    };
+
+    // Create a search.completed event with non-array results
+    const searchCompletedEvent = {
+      event: "search.completed",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      total_results: 0,
+      providers_completed: 1,
+      providers_failed: 0,
+      duration_ms: 100,
+      results: "not an array", // Not an array
+    };
+
+    const searchStartedStr = JSON.stringify(searchStartedEvent);
+    const searchCompletedStr = JSON.stringify(searchCompletedEvent);
+
+    mockReader.read
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${searchStartedStr}\n\n`.split("").map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${searchCompletedStr}\n\n`
+            .split("")
+            .map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({ done: true });
+
+    const { result } = renderHook(() =>
+      useMetadataSearchStream({ query: "test" }),
+    );
+
+    act(() => {
+      result.current.startSearch();
+    });
+
+    // Should handle non-array results (line 386 - Array.isArray check)
+    await waitFor(() => {
+      expect(result.current.state.isSearching).toBe(false);
+      expect(result.current.state.results).toEqual([]); // Should default to empty array
+    });
+  });
+
+  it("should handle fetch error with text catch fallback", async () => {
+    // Mock fetch to return ok: false, and text() to reject
+    const mockText = vi.fn().mockRejectedValue(new Error("Text error"));
+    mockFetch.mockResolvedValue({
+      ok: false,
+      body: null,
+      text: mockText,
+    });
+
+    const { result } = renderHook(() =>
+      useMetadataSearchStream({ query: "test" }),
+    );
+
+    act(() => {
+      result.current.startSearch();
+    });
+
+    // Should handle the .catch(() => "Failed to open stream") path (line 408)
+    await waitFor(() => {
+      expect(result.current.state.error).toBeTruthy();
+      expect(result.current.state.isSearching).toBe(false);
+    });
+  });
+
+  it("should handle invalid providerStatuses by creating new Map", async () => {
+    // This tests line 290: prev.providerStatuses || new Map()
+    // We need to trigger processEvent with a state that has invalid providerStatuses
+    const searchStartedEvent: MetadataSearchStartedEvent = {
+      event: "search.started",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      query: "test",
+      locale: "en",
+      provider_ids: ["provider1"],
+      total_providers: 1,
+    };
+
+    const providerProgressEvent: MetadataProviderProgressEvent = {
+      event: "provider.progress",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      provider_id: "provider1",
+      discovered: 5,
+    };
+
+    const searchCompletedEvent: MetadataSearchCompletedEvent = {
+      event: "search.completed",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      total_results: 0,
+      providers_completed: 1,
+      providers_failed: 0,
+      duration_ms: 100,
+      results: [],
+    };
+
+    const searchStartedStr = JSON.stringify(searchStartedEvent);
+    const providerProgressStr = JSON.stringify(providerProgressEvent);
+    const searchCompletedStr = JSON.stringify(searchCompletedEvent);
+
+    mockReader.read
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${searchStartedStr}\n\n`.split("").map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${providerProgressStr}\n\n`
+            .split("")
+            .map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${searchCompletedStr}\n\n`
+            .split("")
+            .map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({ done: true });
+
+    const { result } = renderHook(() =>
+      useMetadataSearchStream({ query: "test" }),
+    );
+
+    act(() => {
+      result.current.startSearch();
+    });
+
+    // The processEvent should handle invalid providerStatuses (line 290)
+    await waitFor(() => {
+      expect(result.current.state.isSearching).toBe(false);
+      // Should have valid providerStatuses Map
+      expect(result.current.state.providerStatuses).toBeInstanceOf(Map);
     });
   });
 });

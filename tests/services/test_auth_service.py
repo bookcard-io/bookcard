@@ -820,3 +820,485 @@ def test_delete_profile_picture_with_relative_path(
 
     assert result.profile_picture is None
     assert session.flush_count >= 1
+
+
+# Tests for get_email_server_config with decryption (lines 324-341)
+def test_get_email_server_config_with_decryption(
+    auth_service: AuthService,
+    session: DummySession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test get_email_server_config decrypts password and token (covers lines 324-341)."""
+    import tempfile
+    from datetime import UTC, datetime
+
+    from fundamental.models.config import EmailServerConfig, EmailServerType
+    from fundamental.services.security import DataEncryptor
+    from tests.conftest import TEST_ENCRYPTION_KEY
+
+    encryptor = DataEncryptor(TEST_ENCRYPTION_KEY)
+    temp_dir = tempfile.mkdtemp()
+
+    def mock_ensure(self: AuthService) -> None:
+        """No-op implementation to skip directory creation."""
+
+    monkeypatch.setattr(AuthService, "_ensure_data_directory_exists", mock_ensure)
+
+    service = AuthService(
+        session,  # type: ignore[arg-type]
+        auth_service._users,  # type: ignore[attr-defined]
+        auth_service._hasher,  # type: ignore[attr-defined]
+        auth_service._jwt,  # type: ignore[attr-defined]
+        encryptor=encryptor,
+        data_directory=temp_dir,
+    )
+
+    config = EmailServerConfig(
+        id=1,
+        server_type=EmailServerType.SMTP,
+        enabled=True,
+        smtp_host="smtp.example.com",
+        smtp_password=encryptor.encrypt("plain_password"),
+        gmail_token=encryptor.encrypt_dict({"token": "gmail_token"}),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    session.add_exec_result([config])
+
+    result = service.get_email_server_config(decrypt=True)
+
+    assert result is not None
+    assert result.smtp_password == "plain_password"
+    assert result.gmail_token == {"token": "gmail_token"}
+    assert session.expunge_count >= 1
+
+
+def test_get_email_server_config_skips_decryption_when_not_string(
+    auth_service: AuthService,
+    session: DummySession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test get_email_server_config skips token decryption when not string (covers line 338)."""
+    import tempfile
+    from datetime import UTC, datetime
+
+    from fundamental.models.config import EmailServerConfig, EmailServerType
+    from fundamental.services.security import DataEncryptor
+    from tests.conftest import TEST_ENCRYPTION_KEY
+
+    encryptor = DataEncryptor(TEST_ENCRYPTION_KEY)
+    temp_dir = tempfile.mkdtemp()
+
+    def mock_ensure(self: AuthService) -> None:
+        """No-op implementation to skip directory creation."""
+
+    monkeypatch.setattr(AuthService, "_ensure_data_directory_exists", mock_ensure)
+
+    service = AuthService(
+        session,  # type: ignore[arg-type]
+        auth_service._users,  # type: ignore[attr-defined]
+        auth_service._hasher,  # type: ignore[attr-defined]
+        auth_service._jwt,  # type: ignore[attr-defined]
+        encryptor=encryptor,
+        data_directory=temp_dir,
+    )
+
+    config = EmailServerConfig(
+        id=1,
+        server_type=EmailServerType.SMTP,
+        enabled=True,
+        smtp_host="smtp.example.com",
+        gmail_token={"already": "decrypted"},  # Already a dict
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    session.add_exec_result([config])
+
+    result = service.get_email_server_config(decrypt=True)
+
+    assert result is not None
+    assert result.gmail_token == {"already": "decrypted"}
+
+
+# Tests for _apply_smtp_config (lines 369-390)
+def test_apply_smtp_config_all_fields(
+    auth_service: AuthService,
+    session: DummySession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test _apply_smtp_config applies all SMTP fields (covers lines 369-390)."""
+    import tempfile
+    from datetime import UTC, datetime
+
+    from fundamental.models.config import EmailServerConfig, EmailServerType
+    from fundamental.services.security import DataEncryptor
+    from tests.conftest import TEST_ENCRYPTION_KEY
+
+    encryptor = DataEncryptor(TEST_ENCRYPTION_KEY)
+    temp_dir = tempfile.mkdtemp()
+
+    def mock_ensure(self: AuthService) -> None:
+        """No-op implementation to skip directory creation."""
+
+    monkeypatch.setattr(AuthService, "_ensure_data_directory_exists", mock_ensure)
+
+    service = AuthService(
+        session,  # type: ignore[arg-type]
+        auth_service._users,  # type: ignore[attr-defined]
+        auth_service._hasher,  # type: ignore[attr-defined]
+        auth_service._jwt,  # type: ignore[attr-defined]
+        encryptor=encryptor,
+        data_directory=temp_dir,
+    )
+
+    config = EmailServerConfig(
+        id=1,
+        server_type=EmailServerType.SMTP,
+        enabled=True,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    service._apply_smtp_config(
+        config,
+        smtp_host="smtp.example.com",
+        smtp_port=587,
+        smtp_username="user@example.com",
+        smtp_password="plain_password",
+        smtp_use_tls=True,
+        smtp_use_ssl=False,
+        smtp_from_email="sender@example.com",
+        smtp_from_name="Sender Name",
+    )
+
+    assert config.smtp_host == "smtp.example.com"
+    assert config.smtp_port == 587
+    assert config.smtp_username == "user@example.com"
+    # Verify password is encrypted (will be different each time due to randomness)
+    assert config.smtp_password != "plain_password"
+    assert isinstance(config.smtp_password, str)
+    # Verify we can decrypt it back
+    assert encryptor.decrypt(config.smtp_password) == "plain_password"
+    assert config.smtp_use_tls is True
+    assert config.smtp_use_ssl is False
+    assert config.smtp_from_email == "sender@example.com"
+    assert config.smtp_from_name == "Sender Name"
+    assert config.gmail_token is None
+
+
+def test_apply_smtp_config_without_encryptor(
+    auth_service: AuthService,
+    session: DummySession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test _apply_smtp_config stores password unencrypted when no encryptor (covers line 380)."""
+    import tempfile
+    from datetime import UTC, datetime
+
+    from fundamental.models.config import EmailServerConfig, EmailServerType
+
+    temp_dir = tempfile.mkdtemp()
+
+    def mock_ensure(self: AuthService) -> None:
+        """No-op implementation to skip directory creation."""
+
+    monkeypatch.setattr(AuthService, "_ensure_data_directory_exists", mock_ensure)
+
+    service = AuthService(
+        session,  # type: ignore[arg-type]
+        auth_service._users,  # type: ignore[attr-defined]
+        auth_service._hasher,  # type: ignore[attr-defined]
+        auth_service._jwt,  # type: ignore[attr-defined]
+        encryptor=None,
+        data_directory=temp_dir,
+    )
+
+    config = EmailServerConfig(
+        id=1,
+        server_type=EmailServerType.SMTP,
+        enabled=True,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    service._apply_smtp_config(
+        config,
+        smtp_host=None,
+        smtp_port=None,
+        smtp_username=None,
+        smtp_password="plain_password",
+        smtp_use_tls=None,
+        smtp_use_ssl=None,
+        smtp_from_email=None,
+        smtp_from_name=None,
+    )
+
+    assert config.smtp_password == "plain_password"
+
+
+# Tests for _apply_gmail_config (lines 421-442)
+def test_apply_gmail_config_all_fields(
+    auth_service: AuthService,
+    session: DummySession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test _apply_gmail_config applies all Gmail fields (covers lines 421-442)."""
+    import tempfile
+    from datetime import UTC, datetime
+
+    from fundamental.models.config import EmailServerConfig, EmailServerType
+    from fundamental.services.security import DataEncryptor
+    from tests.conftest import TEST_ENCRYPTION_KEY
+
+    encryptor = DataEncryptor(TEST_ENCRYPTION_KEY)
+    temp_dir = tempfile.mkdtemp()
+
+    def mock_ensure(self: AuthService) -> None:
+        """No-op implementation to skip directory creation."""
+
+    monkeypatch.setattr(AuthService, "_ensure_data_directory_exists", mock_ensure)
+
+    service = AuthService(
+        session,  # type: ignore[arg-type]
+        auth_service._users,  # type: ignore[attr-defined]
+        auth_service._hasher,  # type: ignore[attr-defined]
+        auth_service._jwt,  # type: ignore[attr-defined]
+        encryptor=encryptor,
+        data_directory=temp_dir,
+    )
+
+    config = EmailServerConfig(
+        id=1,
+        server_type=EmailServerType.GMAIL,
+        enabled=True,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    gmail_token = {"access_token": "token123", "email": "test@gmail.com"}
+
+    service._apply_gmail_config(
+        config,
+        gmail_token=gmail_token,
+        smtp_host="smtp.gmail.com",
+        smtp_port=587,
+        smtp_username="user@gmail.com",
+        smtp_use_tls=True,
+        smtp_use_ssl=False,
+        smtp_from_email="sender@gmail.com",
+        smtp_from_name="Gmail Sender",
+    )
+
+    # Verify token is encrypted (will be different each time due to randomness)
+    assert config.gmail_token != gmail_token
+    assert isinstance(config.gmail_token, str)
+    # Verify we can decrypt it back
+    decrypted = encryptor.decrypt_dict(config.gmail_token)
+    assert decrypted == gmail_token
+    assert config.smtp_password is None
+    assert config.smtp_host == "smtp.gmail.com"
+    assert config.smtp_port == 587
+    assert config.smtp_username == "user@gmail.com"
+    assert config.smtp_use_tls is True
+    assert config.smtp_use_ssl is False
+    assert config.smtp_from_email == "sender@gmail.com"
+    assert config.smtp_from_name == "Gmail Sender"
+
+
+def test_apply_gmail_config_without_encryptor(
+    auth_service: AuthService,
+    session: DummySession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test _apply_gmail_config stores token unencrypted when no encryptor (covers line 425)."""
+    import tempfile
+    from datetime import UTC, datetime
+
+    from fundamental.models.config import EmailServerConfig, EmailServerType
+
+    temp_dir = tempfile.mkdtemp()
+
+    def mock_ensure(self: AuthService) -> None:
+        """No-op implementation to skip directory creation."""
+
+    monkeypatch.setattr(AuthService, "_ensure_data_directory_exists", mock_ensure)
+
+    service = AuthService(
+        session,  # type: ignore[arg-type]
+        auth_service._users,  # type: ignore[attr-defined]
+        auth_service._hasher,  # type: ignore[attr-defined]
+        auth_service._jwt,  # type: ignore[attr-defined]
+        encryptor=None,
+        data_directory=temp_dir,
+    )
+
+    config = EmailServerConfig(
+        id=1,
+        server_type=EmailServerType.GMAIL,
+        enabled=True,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    gmail_token = {"access_token": "token123"}
+
+    service._apply_gmail_config(
+        config,
+        gmail_token=gmail_token,
+        smtp_host=None,
+        smtp_port=None,
+        smtp_username=None,
+        smtp_use_tls=None,
+        smtp_use_ssl=None,
+        smtp_from_email=None,
+        smtp_from_name=None,
+    )
+
+    assert config.gmail_token == gmail_token
+
+
+def test_apply_gmail_config_none_token(
+    auth_service: AuthService,
+    session: DummySession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test _apply_gmail_config sets token to None when None provided (covers line 427)."""
+    import tempfile
+    from datetime import UTC, datetime
+
+    from fundamental.models.config import EmailServerConfig, EmailServerType
+
+    temp_dir = tempfile.mkdtemp()
+
+    def mock_ensure(self: AuthService) -> None:
+        """No-op implementation to skip directory creation."""
+
+    monkeypatch.setattr(AuthService, "_ensure_data_directory_exists", mock_ensure)
+
+    service = AuthService(
+        session,  # type: ignore[arg-type]
+        auth_service._users,  # type: ignore[attr-defined]
+        auth_service._hasher,  # type: ignore[attr-defined]
+        auth_service._jwt,  # type: ignore[attr-defined]
+        data_directory=temp_dir,
+    )
+
+    config = EmailServerConfig(
+        id=1,
+        server_type=EmailServerType.GMAIL,
+        enabled=True,
+        gmail_token={"existing": "token"},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    service._apply_gmail_config(
+        config,
+        gmail_token=None,
+        smtp_host=None,
+        smtp_port=None,
+        smtp_username=None,
+        smtp_use_tls=None,
+        smtp_use_ssl=None,
+        smtp_from_email=None,
+        smtp_from_name=None,
+    )
+
+    assert config.gmail_token is None
+
+
+# Tests for upsert_email_server_config (lines 490-534)
+def test_upsert_email_server_config_invalid_encryption(
+    auth_service: AuthService,
+    session: DummySession,
+) -> None:
+    """Test upsert_email_server_config raises error for invalid encryption (covers lines 490-492)."""
+    with pytest.raises(ValueError, match="invalid_smtp_encryption"):
+        auth_service.upsert_email_server_config(
+            server_type="smtp",  # type: ignore[arg-type]
+            smtp_use_tls=True,
+            smtp_use_ssl=True,
+        )
+
+
+def test_upsert_email_server_config_creates_new_smtp(
+    auth_service: AuthService,
+    session: DummySession,
+) -> None:
+    """Test upsert_email_server_config creates new SMTP config (covers lines 494-534)."""
+    from fundamental.models.config import EmailServerType
+
+    session.add_exec_result([None])  # get_email_server_config returns None
+
+    result = auth_service.upsert_email_server_config(
+        server_type=EmailServerType.SMTP,
+        smtp_host="smtp.example.com",
+        smtp_port=587,
+        enabled=True,
+        max_email_size_mb=25,
+    )
+
+    assert result is not None
+    assert result.server_type == EmailServerType.SMTP
+    assert result.smtp_host == "smtp.example.com"
+    assert result.smtp_port == 587
+    assert result.enabled is True
+    assert result.max_email_size_mb == 25
+    assert len(session.added) >= 1
+    assert session.flush_count >= 1
+
+
+def test_upsert_email_server_config_updates_existing_smtp(
+    auth_service: AuthService,
+    session: DummySession,
+) -> None:
+    """Test upsert_email_server_config updates existing SMTP config (covers lines 494-534)."""
+    from datetime import UTC, datetime
+
+    from fundamental.models.config import EmailServerConfig, EmailServerType
+
+    existing_config = EmailServerConfig(
+        id=1,
+        server_type=EmailServerType.SMTP,
+        enabled=True,
+        smtp_host="old.example.com",
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    session.add_exec_result([existing_config])
+
+    result = auth_service.upsert_email_server_config(
+        server_type=EmailServerType.SMTP,
+        smtp_host="new.example.com",
+        smtp_port=465,
+    )
+
+    assert result.smtp_host == "new.example.com"
+    assert result.smtp_port == 465
+    # Should not add new config, only update existing
+    assert len([a for a in session.added if isinstance(a, EmailServerConfig)]) == 0
+
+
+def test_upsert_email_server_config_creates_new_gmail(
+    auth_service: AuthService,
+    session: DummySession,
+) -> None:
+    """Test upsert_email_server_config creates new Gmail config (covers lines 519-534)."""
+    from fundamental.models.config import EmailServerType
+
+    session.add_exec_result([None])
+
+    result = auth_service.upsert_email_server_config(
+        server_type=EmailServerType.GMAIL,
+        gmail_token={"access_token": "token123"},
+        enabled=True,
+    )
+
+    assert result is not None
+    assert result.server_type == EmailServerType.GMAIL
+    assert result.enabled is True
+    assert len(session.added) >= 1
+    assert session.flush_count >= 1

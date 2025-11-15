@@ -210,6 +210,7 @@ class AdminUserCreate(BaseModel):
     """Payload to create a new user with optional role and device assignment."""
 
     username: str = Field(min_length=3, max_length=50)
+    full_name: str | None = Field(default=None, max_length=255)
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     is_admin: bool = False
@@ -232,8 +233,20 @@ class AdminUserUpdate(BaseModel):
 
     username: str | None = Field(default=None, min_length=3, max_length=50)
     email: EmailStr | None = None
+    password: str | None = Field(default=None, min_length=8, max_length=128)
     is_admin: bool | None = None
     is_active: bool | None = None
+    role_ids: list[int] | None = Field(default=None)
+    default_device_email: str | None = Field(
+        default=None, description="E-reader email for default device"
+    )
+    default_device_name: str | None = Field(
+        default=None, description="Optional device name"
+    )
+    default_device_type: str | None = Field(default=None, description="Device type")
+    default_device_format: str | None = Field(
+        default=None, description="Preferred format (e.g., 'epub', 'mobi')"
+    )
 
 
 class RoleCreate(BaseModel):

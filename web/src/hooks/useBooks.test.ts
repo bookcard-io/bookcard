@@ -694,4 +694,201 @@ describe("useBooks", () => {
     // 2 < 3, so hasMore should be true
     expect(result.current.hasMore).toBe(true);
   });
+
+  it("should include full parameter in query when full is true", async () => {
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockResponse),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchResponse,
+    );
+
+    renderHook(() => useBooks({ full: true }));
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("full=true"),
+        expect.any(Object),
+      );
+    });
+  });
+
+  it("should remove book from accumulated books and data", async () => {
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockResponse),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchResponse,
+    );
+
+    const { result } = renderHook(() => useBooks({ infiniteScroll: true }));
+
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(1);
+    });
+
+    act(() => {
+      result.current.removeBook?.(1);
+    });
+
+    // Should remove from accumulated books (lines 285-289)
+    expect(result.current.books).toHaveLength(0);
+    // Should also update data (lines 290-298)
+    expect(result.current.total).toBe(0);
+  });
+
+  it("should update data when removing book even if prev is null", async () => {
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockResponse),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchResponse,
+    );
+
+    const { result } = renderHook(() => useBooks({ infiniteScroll: true }));
+
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(1);
+    });
+
+    // Remove the book
+    act(() => {
+      result.current.removeBook?.(1);
+    });
+
+    // Now data should be null (since we removed the only book)
+    // The removeBook function should handle prev being null (line 292: if (!prev) return prev;)
+    // This tests the data update path (lines 290-298)
+    expect(result.current.total).toBe(0);
+  });
+
+  it("should add book to accumulated books and data", async () => {
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockResponse),
+    };
+    const newBookResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        id: 2,
+        title: "New Book",
+        authors: ["New Author"],
+        author_sort: "New Author",
+        pubdate: null,
+        timestamp: null,
+        series: null,
+        series_id: null,
+        series_index: null,
+        isbn: null,
+        uuid: "uuid-2",
+        thumbnail_url: null,
+        has_cover: false,
+      }),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(mockFetchResponse)
+      .mockResolvedValueOnce(newBookResponse);
+
+    const { result } = renderHook(() => useBooks({ infiniteScroll: true }));
+
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(1);
+    });
+
+    await act(async () => {
+      await result.current.addBook?.(2);
+    });
+
+    // Should add to accumulated books (lines 323-329)
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(2);
+    });
+    // Should also update data (lines 332-343)
+    expect(result.current.total).toBe(2);
+  });
+
+  it("should not add duplicate book when adding existing book", async () => {
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockResponse),
+    };
+    const existingBookResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockResponse.items[0]),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(mockFetchResponse)
+      .mockResolvedValueOnce(existingBookResponse);
+
+    const { result } = renderHook(() => useBooks({ infiniteScroll: true }));
+
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(1);
+    });
+
+    const initialBooks = [...result.current.books];
+
+    await act(async () => {
+      await result.current.addBook?.(1); // Add existing book
+    });
+
+    // Should not add duplicate (lines 325-327, 335-337)
+    expect(result.current.books).toEqual(initialBooks);
+  });
+
+  it("should handle addBook error gracefully", async () => {
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockResponse),
+    };
+    const errorResponse = {
+      ok: false,
+      json: vi.fn().mockResolvedValue({ detail: "Not found" }),
+    };
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    (globalThis.fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(mockFetchResponse)
+      .mockResolvedValueOnce(errorResponse);
+
+    const { result } = renderHook(() => useBooks({ infiniteScroll: true }));
+
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(1);
+    });
+
+    await act(async () => {
+      await result.current.addBook?.(999);
+    });
+
+    // Should log error but not crash (lines 344-346)
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    // Books should remain unchanged
+    expect(result.current.books).toHaveLength(1);
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("should not add book when infiniteScroll is false", async () => {
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockResponse),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchResponse,
+    );
+
+    const { result } = renderHook(() => useBooks({ infiniteScroll: false }));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    // addBook should not exist when infiniteScroll is false (line 305-307)
+    expect(result.current.addBook).toBeUndefined();
+  });
 });

@@ -152,12 +152,12 @@ describe("useBookUpload", () => {
 
     await act(async () => {
       result.current.handleFileChange(changeEvent);
-      await waitFor(() => {
-        expect(result.current.isUploading).toBe(false);
-      });
     });
 
-    expect(onUploadError).toHaveBeenCalledWith("Invalid file format");
+    await waitFor(() => {
+      expect(result.current.isUploading).toBe(false);
+      expect(onUploadError).toHaveBeenCalledWith("Invalid file format");
+    });
   });
 
   it("should handle upload error without detail message", async () => {

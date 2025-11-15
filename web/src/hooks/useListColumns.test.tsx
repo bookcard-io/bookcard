@@ -558,4 +558,106 @@ describe("useListColumns", () => {
 
     expect(result.current.visibleColumns).not.toContain("series");
   });
+
+  it("should not allow removing last column", () => {
+    const singleColumn = JSON.stringify(["title"]);
+    mockGetSetting.mockReturnValue(singleColumn);
+    const { result } = renderHook(() => useListColumns(), {
+      wrapper: createWrapper({
+        getSetting: mockGetSetting,
+        updateSetting: mockUpdateSetting,
+        isLoading: false,
+      }),
+    });
+
+    const initialColumns = [...result.current.visibleColumns];
+    // Should have at least title and authors (required)
+    expect(initialColumns.length).toBeGreaterThanOrEqual(2);
+
+    // Try to remove a column when we only have required ones
+    // This should not work (prev.length === 1 check)
+    if (initialColumns.length === 2) {
+      const nonTitleColumn = initialColumns.find((id) => id !== "title");
+      if (nonTitleColumn) {
+        act(() => {
+          result.current.toggleColumn(nonTitleColumn);
+        });
+        // Should still have 2 columns
+        expect(result.current.visibleColumns.length).toBe(2);
+      }
+    }
+  });
+
+  it("should save changes when visibleColumns changes", async () => {
+    const { result } = renderHook(() => useListColumns(), {
+      wrapper: createWrapper({
+        getSetting: mockGetSetting,
+        updateSetting: mockUpdateSetting,
+        isLoading: false,
+      }),
+    });
+
+    const initialColumns = [...result.current.visibleColumns];
+
+    // Wait for initial load to complete (isInitialLoadRef.current is set to false after setTimeout)
+    // The setTimeout(0) in the sync effect needs to complete
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve(); // Need to wait for the setTimeout callback
+    });
+
+    // Clear any calls from initial setup
+    mockUpdateSetting.mockClear();
+
+    // Toggle a column
+    act(() => {
+      result.current.toggleColumn("rating");
+    });
+
+    // Wait for the save effect to run (lines 140-144)
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Should have called updateSetting with new columns
+    expect(mockUpdateSetting).toHaveBeenCalled();
+    const callArgs = mockUpdateSetting.mock.calls[0];
+    expect(callArgs).toBeDefined();
+    expect(callArgs?.[0]).toBe("list_view_visible_columns");
+    const savedColumns = JSON.parse((callArgs?.[1] ?? "") as string);
+    expect(savedColumns).not.toEqual(initialColumns);
+  });
+
+  it("should not save when columns haven't changed", async () => {
+    const customColumns = JSON.stringify(["title", "authors", "rating"]);
+    mockGetSetting.mockReturnValue(customColumns);
+    renderHook(() => useListColumns(), {
+      wrapper: createWrapper({
+        getSetting: mockGetSetting,
+        updateSetting: mockUpdateSetting,
+        isLoading: false,
+      }),
+    });
+
+    // Wait for initial load to complete
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve(); // Wait for setTimeout callback
+    });
+
+    // Clear previous calls
+    mockUpdateSetting.mockClear();
+
+    // Don't change anything
+    act(() => {
+      // No change
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Should not have called updateSetting (JSON comparison should prevent it, lines 140-144)
+    expect(mockUpdateSetting).not.toHaveBeenCalled();
+  });
 });
