@@ -106,7 +106,7 @@ export function SortPanel({
 
   return (
     <div
-      className="panel-tonal absolute top-[calc(100%+8px)] left-0 z-[100] flex min-w-[200px] flex-col rounded-lg p-1 shadow-[0_4px_12px_rgba(0,0,0,0.15)]"
+      className="panel-tonal absolute top-[calc(100%+8px)] left-0 z-[100] flex min-w-[200px] flex-col rounded-md p-1 shadow-[0_4px_12px_rgba(0,0,0,0.15)]"
       ref={panelRef}
     >
       {SORT_OPTIONS.map((option) => (

@@ -110,7 +110,7 @@ export function MetadataProviderStatus({
 
   return (
     <div
-      className="flex flex-col gap-[0.35rem] rounded-lg border border-surface-a20 bg-surface-a10 p-2 transition-all duration-200 data-[status=completed]:border-success-a0 data-[status=failed]:border-danger-a0 data-[status=searching]:border-primary-a0 data-[status=completed]:bg-[rgba(34,148,110,0.1)] data-[status=failed]:bg-[rgba(156,33,33,0.15)] data-[status=searching]:bg-[rgba(144,170,249,0.1)] data-[enabled=false]:opacity-60"
+      className="flex flex-col gap-[0.35rem] rounded-md border border-surface-a20 bg-surface-a10 p-2 transition-all duration-200 data-[status=completed]:border-success-a0 data-[status=failed]:border-danger-a0 data-[status=searching]:border-primary-a0 data-[status=completed]:bg-[rgba(34,148,110,0.1)] data-[status=failed]:bg-[rgba(156,33,33,0.15)] data-[status=searching]:bg-[rgba(144,170,249,0.1)] data-[enabled=false]:opacity-60"
       data-status={status.status}
       data-enabled={enabled}
     >

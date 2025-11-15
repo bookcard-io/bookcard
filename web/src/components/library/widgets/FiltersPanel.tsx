@@ -196,7 +196,7 @@ export function FiltersPanel({
 
   return (
     <div
-      className="panel-tonal absolute top-[calc(100%-8px)] right-8 left-8 z-[100] flex flex-col rounded-xl shadow-[var(--shadow-card-hover)]"
+      className="panel-tonal absolute top-[calc(100%-8px)] right-8 left-8 z-[100] flex flex-col rounded-md shadow-[var(--shadow-card-hover)]"
       ref={panelRef}
     >
       <div className="flex items-center justify-between border-surface-a30 border-b p-4 px-6">
@@ -364,14 +364,14 @@ export function FiltersPanel({
         <div className="flex gap-3">
           <button
             type="button"
-            className="cursor-pointer rounded-lg border border-surface-a30 bg-transparent px-6 py-2.5 font-medium text-sm text-text-a30 transition-[background-color_0.2s,color_0.2s,border-color_0.2s] hover:border-surface-a30 hover:bg-surface-tonal-a20 hover:text-text-a0 active:bg-surface-tonal-a30"
+            className="cursor-pointer rounded-md border border-surface-a30 bg-transparent px-6 py-2.5 font-medium text-sm text-text-a30 transition-[background-color_0.2s,color_0.2s,border-color_0.2s] hover:border-surface-a30 hover:bg-surface-tonal-a20 hover:text-text-a0 active:bg-surface-tonal-a30"
             onClick={handleClear}
           >
             Clear Filters
           </button>
           <button
             type="button"
-            className="cursor-pointer rounded-lg border-none bg-primary-a0 px-6 py-2.5 font-medium text-[var(--color-black)] text-sm transition-[opacity_0.2s] hover:opacity-90 active:opacity-80"
+            className="cursor-pointer rounded-md border-none bg-primary-a0 px-6 py-2.5 font-medium text-[var(--color-black)] text-sm transition-[opacity_0.2s] hover:opacity-90 active:opacity-80"
             onClick={handleApply}
           >
             Apply Filter

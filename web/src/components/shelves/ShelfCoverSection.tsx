@@ -80,7 +80,7 @@ export function ShelfCoverSection({
           <img
             src={getShelfCoverPictureUrl(shelf.id)}
             alt={`${shelf.name} cover`}
-            className="h-32 w-32 rounded-lg object-cover"
+            className="h-32 w-32 rounded-md object-cover"
           />
           <div className="flex gap-2">
             <Button
@@ -96,7 +96,7 @@ export function ShelfCoverSection({
         </div>
       ) : isEditMode && isCoverDeleteStaged ? (
         <div className="space-y-4">
-          <div className="flex h-32 w-32 items-center justify-center rounded-lg border-2 border-surface-a30 border-dashed bg-surface-a20">
+          <div className="flex h-32 w-32 items-center justify-center rounded-md border-2 border-surface-a30 border-dashed bg-surface-a20">
             <span className="text-sm text-text-a40">Cover will be deleted</span>
           </div>
           <div className="flex gap-2">
@@ -116,7 +116,7 @@ export function ShelfCoverSection({
           <img
             src={coverPreviewUrl}
             alt="Cover preview"
-            className="h-32 w-32 rounded-lg object-cover"
+            className="h-32 w-32 rounded-md object-cover"
           />
           <div className="flex gap-2">
             <Button
@@ -137,7 +137,7 @@ export function ShelfCoverSection({
             type="file"
             accept={IMAGE_ACCEPT_ATTRIBUTE}
             onChange={onCoverFileChange}
-            className="block w-full rounded-lg border border-surface-a20 bg-surface-a0 px-4 py-3 font-inherit text-base text-text-a0 leading-normal transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s] file:mr-4 file:cursor-pointer file:rounded file:border-0 file:bg-surface-a20 file:px-4 file:py-2 file:font-semibold file:text-sm file:text-text-a0 hover:file:bg-surface-a30 focus:border-primary-a0 focus:bg-surface-a10 focus:shadow-[var(--shadow-focus-ring)] focus:outline-none hover:not(:focus):border-surface-a30"
+            className="block w-full rounded-md border border-surface-a20 bg-surface-a0 px-4 py-3 font-inherit text-base text-text-a0 leading-normal transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s] file:mr-4 file:cursor-pointer file:rounded file:border-0 file:bg-surface-a20 file:px-4 file:py-2 file:font-semibold file:text-sm file:text-text-a0 hover:file:bg-surface-a30 focus:border-primary-a0 focus:bg-surface-a10 focus:shadow-[var(--shadow-focus-ring)] focus:outline-none hover:not(:focus):border-surface-a30"
           />
         </div>
       )}

@@ -69,7 +69,7 @@ export function MetadataSearchProgress({ state }: MetadataSearchProgressProps) {
       : 0;
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-surface-a20 bg-surface-tonal-a0 p-3">
+    <div className="flex flex-col gap-2 rounded-md border border-surface-a20 bg-surface-tonal-a0 p-3">
       <button
         type="button"
         className="flex cursor-pointer items-center justify-between gap-2 border-0 bg-transparent p-0 transition-opacity duration-200 hover:opacity-80 focus:rounded focus:outline-none focus:outline-2 focus:outline-primary-a0 focus:outline-offset-2"

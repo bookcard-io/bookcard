@@ -89,7 +89,7 @@ export function DropdownMenu({
     <div
       ref={menuRef}
       className={cn(
-        "fixed z-[9999] rounded-lg",
+        "fixed z-[9999] rounded-md",
         "border border-surface-tonal-a20 bg-surface-tonal-a10",
         "shadow-black/50 shadow-lg",
         "overflow-hidden",

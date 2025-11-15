@@ -51,7 +51,7 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
           type="date"
           className={cn(
             // Base input styles
-            "w-full rounded-lg border border-surface-a20 bg-surface-a0 px-4 py-3",
+            "w-full rounded-md border border-surface-a20 bg-surface-a0 px-4 py-3",
             "font-inherit text-base text-text-a0 leading-normal",
             "transition-[border-color,box-shadow,background-color] duration-200",
             // Placeholder

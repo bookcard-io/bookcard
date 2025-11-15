@@ -152,7 +152,7 @@ export default function LoginPage() {
         </div>
       )}
 
-      <div className="relative z-[1] w-full max-w-[28rem] rounded-xl bg-[var(--color-surface-tonal-a0)] p-10 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-1px_rgba(0,0,0,0.06)]">
+      <div className="relative z-[1] w-full max-w-[28rem] rounded-md bg-[var(--color-surface-tonal-a0)] p-10 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-1px_rgba(0,0,0,0.06)]">
         <div className="mb-8">
           <h1 className="mb-2 font-bold text-[1.875rem] text-[var(--color-text-a0)] leading-tight">
             Sign in to Fundamental
@@ -164,14 +164,14 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
           {showPasswordChangeSuccess && (
-            <output className="rounded-lg border border-[var(--color-success-a0)] bg-[var(--color-success-a20)] px-4 py-3 text-[var(--color-success-a0)] text-sm leading-normal">
+            <output className="rounded-md border border-[var(--color-success-a0)] bg-[var(--color-success-a20)] px-4 py-3 text-[var(--color-success-a0)] text-sm leading-normal">
               Password changed successfully! Please sign in again to continue
               using the app.
             </output>
           )}
           {error && (
             <div
-              className="rounded-lg border border-[var(--color-danger-a0)] bg-[rgba(156,33,33,0.2)] px-4 py-3 text-[var(--color-danger-a20)] text-sm leading-normal"
+              className="rounded-md border border-[var(--color-danger-a0)] bg-[rgba(156,33,33,0.2)] px-4 py-3 text-[var(--color-danger-a20)] text-sm leading-normal"
               role="alert"
             >
               {error}
@@ -190,7 +190,7 @@ export default function LoginPage() {
               name="identifier"
               type="text"
               autoComplete="username"
-              className="w-full rounded-lg border border-[var(--color-surface-a20)] bg-[var(--color-surface-a0)] px-4 py-3 text-[var(--color-text-a0)] text-base leading-normal transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--color-text-a40)] focus:border-[var(--color-primary-a0)] focus:shadow-[0_0_0_3px_rgba(144,170,249,0.1)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-md border border-[var(--color-surface-a20)] bg-[var(--color-surface-a0)] px-4 py-3 text-[var(--color-text-a0)] text-base leading-normal transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--color-text-a40)] focus:border-[var(--color-primary-a0)] focus:shadow-[0_0_0_3px_rgba(144,170,249,0.1)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
               placeholder="Enter your username or email"
               value={formData.identifier}
               onChange={handleChange}
@@ -211,7 +211,7 @@ export default function LoginPage() {
                 name="password"
                 type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
-                className="w-full rounded-lg border border-[var(--color-surface-a20)] bg-[var(--color-surface-a0)] px-4 py-3 pr-12 text-[var(--color-text-a0)] text-base leading-normal transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--color-text-a40)] focus:border-[var(--color-primary-a0)] focus:shadow-[0_0_0_3px_rgba(144,170,249,0.1)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-md border border-[var(--color-surface-a20)] bg-[var(--color-surface-a0)] px-4 py-3 pr-12 text-[var(--color-text-a0)] text-base leading-normal transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--color-text-a40)] focus:border-[var(--color-primary-a0)] focus:shadow-[0_0_0_3px_rgba(144,170,249,0.1)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                 placeholder="Enter your password"
                 value={formData.password}
                 onChange={handleChange}
@@ -235,7 +235,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full cursor-pointer rounded-lg border-none bg-[var(--color-primary-a0)] px-4 py-3 font-medium text-[var(--color-surface-a20)] text-base leading-normal transition-[background-color,opacity] duration-200 hover:bg-[var(--color-primary-a10)] focus:shadow-[0_0_0_3px_rgba(144,170,249,0.3)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 hover:disabled:bg-[var(--color-primary-a0)]"
+            className="w-full cursor-pointer rounded-md border-none bg-[var(--color-primary-a0)] px-4 py-3 font-medium text-[var(--color-surface-a20)] text-base leading-normal transition-[background-color,opacity] duration-200 hover:bg-[var(--color-primary-a10)] focus:shadow-[0_0_0_3px_rgba(144,170,249,0.3)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 hover:disabled:bg-[var(--color-primary-a0)]"
           >
             {isLoading ? "Signing in..." : "Sign in"}
           </button>

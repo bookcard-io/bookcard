@@ -70,7 +70,7 @@ export function AddBooksButton({
           // Layout
           "flex cursor-pointer items-center gap-2 whitespace-nowrap",
           // Shape & spacing
-          "rounded-lg border-none px-5 py-2.5",
+          "rounded-md border-none px-5 py-2.5",
           // Colors
           "bg-primary-a0 text-[var(--color-text-primary-a0)]",
           // Typography

@@ -71,13 +71,13 @@ export function BookViewHeader({
               alt={`Cover for ${book.title}`}
               width={200}
               height={300}
-              className="rounded-lg object-cover shadow-[0_4px_12px_rgba(0,0,0,0.3)]"
+              className="rounded-md object-cover shadow-[0_4px_12px_rgba(0,0,0,0.3)]"
               containerClassName="inline-block"
               unoptimized
             />
             <button
               type="button"
-              className="pointer-events-none absolute inset-0 flex cursor-default items-center justify-center rounded-lg bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.25)_0%,rgba(0,0,0,0.35)_60%,rgba(0,0,0,0.45)_100%)] opacity-0 transition-opacity duration-200 ease-linear hover:bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.3)_0%,rgba(0,0,0,0.45)_60%,rgba(0,0,0,0.55)_100%)] focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 group-hover:pointer-events-auto group-hover:opacity-100"
+              className="pointer-events-none absolute inset-0 flex cursor-default items-center justify-center rounded-md bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.25)_0%,rgba(0,0,0,0.35)_60%,rgba(0,0,0,0.45)_100%)] opacity-0 transition-opacity duration-200 ease-linear hover:bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.3)_0%,rgba(0,0,0,0.45)_60%,rgba(0,0,0,0.55)_100%)] focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 group-hover:pointer-events-auto group-hover:opacity-100"
               aria-label="View cover full screen"
               title="View cover"
               onClick={openCover}

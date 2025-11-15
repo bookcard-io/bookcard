@@ -98,7 +98,7 @@ export const AutocompleteTextInput = forwardRef<
           id={id}
           type="text"
           className={cn(
-            "w-full rounded-lg border border-surface-a20 bg-surface-a0 px-4 py-3",
+            "w-full rounded-md border border-surface-a20 bg-surface-a0 px-4 py-3",
             "font-inherit text-base text-text-a0 leading-normal",
             "transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s]",
             "placeholder:text-text-a40",

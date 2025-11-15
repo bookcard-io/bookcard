@@ -21,7 +21,7 @@ import { LibraryManagement } from "../library/LibraryManagement";
 export function ConfigurationTab() {
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-lg border border-surface-a20 bg-surface-tonal-a0 p-6">
+      <div className="rounded-md border border-surface-a20 bg-surface-tonal-a0 p-6">
         <h2 className="mb-4 font-semibold text-text-a0 text-xl">
           Library Management
         </h2>
@@ -32,7 +32,7 @@ export function ConfigurationTab() {
         <LibraryManagement />
       </div>
 
-      <div className="rounded-lg border border-surface-a20 bg-surface-tonal-a0 p-6">
+      <div className="rounded-md border border-surface-a20 bg-surface-tonal-a0 p-6">
         <h2 className="mb-4 font-semibold text-text-a0 text-xl">
           Email Server Settings
         </h2>
@@ -43,7 +43,7 @@ export function ConfigurationTab() {
         <EmailServerConfig />
       </div>
 
-      <div className="rounded-lg border border-surface-a20 bg-surface-tonal-a0 p-6">
+      <div className="rounded-md border border-surface-a20 bg-surface-tonal-a0 p-6">
         <h2 className="mb-4 font-semibold text-text-a0 text-xl">
           Basic Configuration
         </h2>
@@ -52,7 +52,7 @@ export function ConfigurationTab() {
         </p>
       </div>
 
-      <div className="rounded-lg border border-surface-a20 bg-surface-tonal-a0 p-6">
+      <div className="rounded-md border border-surface-a20 bg-surface-tonal-a0 p-6">
         <h2 className="mb-4 font-semibold text-text-a0 text-xl">
           UI Configuration
         </h2>

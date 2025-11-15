@@ -130,7 +130,7 @@ export function TagInput({
       <div className="w-full">
         <div
           className={cn(
-            "flex min-h-[2.75rem] flex-wrap items-center gap-2 rounded-lg border bg-surface-a0 p-2",
+            "flex min-h-[2.75rem] flex-wrap items-center gap-2 rounded-md border bg-surface-a0 p-2",
             "transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s]",
             "focus-within:border-primary-a0 focus-within:bg-surface-a10",
             "focus-within:shadow-[0_0_0_3px_rgba(144,170,249,0.1)]",

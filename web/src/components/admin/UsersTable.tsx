@@ -15,7 +15,7 @@
 
 "use client";
 
-import styles from "./UsersTable.module.scss";
+import { cn } from "@/libs/utils";
 
 export interface User {
   id: number;
@@ -39,61 +39,81 @@ export interface UsersTableProps {
 export function UsersTable({ users, isLoading }: UsersTableProps) {
   if (isLoading) {
     return (
-      <div className={styles.container}>
-        <div className={styles.loading}>Loading users...</div>
+      <div className="w-full overflow-x-auto">
+        <div className="p-6 text-center text-sm text-text-a30">
+          Loading users...
+        </div>
       </div>
     );
   }
 
   if (users.length === 0) {
     return (
-      <div className={styles.container}>
-        <div className={styles.empty}>No users found</div>
+      <div className="w-full overflow-x-auto">
+        <div className="p-6 text-center text-sm text-text-a30">
+          No users found
+        </div>
       </div>
     );
   }
 
   return (
-    <div className={styles.container}>
-      <div className={styles.table}>
+    <div className="w-full overflow-x-auto">
+      <div className="flex flex-col overflow-hidden rounded-md border border-surface-a20 bg-surface-tonal-a0">
         {/* Header */}
-        <div className={styles.header}>
-          <div className={styles.headerCell}>Username</div>
-          <div className={styles.headerCell}>Email</div>
-          <div className={styles.headerCell}>Default Device</div>
-          <div className={styles.headerCell}>Roles</div>
-          <div className={styles.headerCell}>Admin</div>
+        <div className="grid grid-cols-[1.5fr_2fr_2fr_2fr_1fr] gap-4 border-surface-a20 border-b bg-surface-a10 px-4 py-3 font-semibold text-sm text-text-a10">
+          <div className="flex items-center">Username</div>
+          <div className="flex items-center">Email</div>
+          <div className="flex items-center">Default Device</div>
+          <div className="flex items-center">Roles</div>
+          <div className="flex items-center">Admin</div>
         </div>
 
         {/* Rows */}
-        <div className={styles.body}>
-          {users.map((user) => (
-            <div key={user.id} className={styles.row}>
-              <div className={styles.cell}>{user.username}</div>
-              <div className={styles.cell}>{user.email}</div>
-              <div className={styles.cell}>
+        <div className="flex flex-col">
+          {users.map((user, index) => (
+            <div
+              key={user.id}
+              className={cn(
+                "grid grid-cols-[1.5fr_2fr_2fr_2fr_1fr] gap-4 border-surface-a20 border-b px-4 py-3 transition-colors duration-200 last:border-b-0",
+                index % 2 === 0 ? "bg-surface-a20" : "bg-surface-a10",
+                "hover:bg-surface-a40/50",
+              )}
+            >
+              <div className="flex items-center break-words text-sm text-text-a0">
+                {user.username}
+              </div>
+              <div className="flex items-center break-words text-sm text-text-a0">
+                {user.email}
+              </div>
+              <div className="flex items-center break-words text-sm text-text-a0">
                 {user.default_ereader_email || (
-                  <span className={styles.emptyValue}>—</span>
+                  <span className="text-text-a40 italic">—</span>
                 )}
               </div>
-              <div className={styles.cell}>
+              <div className="flex items-center break-words text-sm text-text-a0">
                 {user.roles.length > 0 ? (
-                  <div className={styles.roles}>
+                  <div className="flex flex-wrap gap-1.5">
                     {user.roles.map((role) => (
-                      <span key={role.id} className={styles.roleTag}>
+                      <span
+                        key={role.id}
+                        className="inline-block rounded bg-info-a20 px-2 py-1 font-medium text-info-a0 text-xs"
+                      >
                         {role.name}
                       </span>
                     ))}
                   </div>
                 ) : (
-                  <span className={styles.emptyValue}>—</span>
+                  <span className="text-text-a40 italic">—</span>
                 )}
               </div>
-              <div className={styles.cell}>
+              <div className="flex items-center break-words text-sm text-text-a0">
                 {user.is_admin ? (
-                  <span className={styles.adminBadge}>Admin</span>
+                  <span className="inline-block rounded bg-info-a20 px-2 py-1 font-medium text-info-a0 text-xs">
+                    Admin
+                  </span>
                 ) : (
-                  <span className={styles.emptyValue}>—</span>
+                  <span className="text-text-a40 italic">—</span>
                 )}
               </div>
             </div>

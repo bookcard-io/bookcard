@@ -112,7 +112,7 @@ export function ChangePasswordForm() {
               setError(null);
             }
           }}
-          className="w-full rounded-lg border border-surface-a20 bg-surface-tonal-a10 px-4 py-2.5 text-sm text-text-a0 transition-[border-color,background-color] duration-200 placeholder:text-text-a40 hover:border-surface-a30 focus:border-primary-a0 focus:bg-surface-tonal-a0 focus:outline-none"
+          className="w-full rounded-md border border-surface-a20 bg-surface-tonal-a10 px-4 py-2.5 text-sm text-text-a0 transition-[border-color,background-color] duration-200 placeholder:text-text-a40 hover:border-surface-a30 focus:border-primary-a0 focus:bg-surface-tonal-a0 focus:outline-none"
         />
       </div>
 
@@ -133,7 +133,7 @@ export function ChangePasswordForm() {
               setError(null);
             }
           }}
-          className="w-full rounded-lg border border-surface-a20 bg-surface-tonal-a10 px-4 py-2.5 text-sm text-text-a0 transition-[border-color,background-color] duration-200 placeholder:text-text-a40 hover:border-surface-a30 focus:border-primary-a0 focus:bg-surface-tonal-a0 focus:outline-none"
+          className="w-full rounded-md border border-surface-a20 bg-surface-tonal-a10 px-4 py-2.5 text-sm text-text-a0 transition-[border-color,background-color] duration-200 placeholder:text-text-a40 hover:border-surface-a30 focus:border-primary-a0 focus:bg-surface-tonal-a0 focus:outline-none"
         />
       </div>
 
@@ -154,7 +154,7 @@ export function ChangePasswordForm() {
               setError(null);
             }
           }}
-          className={`w-full rounded-lg border px-4 py-2.5 text-sm text-text-a0 transition-[border-color,background-color] duration-200 placeholder:text-text-a40 hover:border-surface-a30 focus:bg-surface-tonal-a0 focus:outline-none ${
+          className={`w-full rounded-md border px-4 py-2.5 text-sm text-text-a0 transition-[border-color,background-color] duration-200 placeholder:text-text-a40 hover:border-surface-a30 focus:bg-surface-tonal-a0 focus:outline-none ${
             confirmPassword.length > 0 && !passwordsMatch
               ? "border-error-a0 focus:border-error-a0"
               : "border-surface-a20 bg-surface-tonal-a10 focus:border-primary-a0"
@@ -166,7 +166,7 @@ export function ChangePasswordForm() {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-error-a20 bg-error-a10 px-4 py-2.5 text-error-a0 text-sm">
+        <div className="rounded-md border border-error-a20 bg-error-a10 px-4 py-2.5 text-error-a0 text-sm">
           {error}
         </div>
       )}

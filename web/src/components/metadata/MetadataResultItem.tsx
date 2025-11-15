@@ -39,7 +39,7 @@ export function MetadataResultItem({
   return (
     <div
       id={id}
-      className="flex gap-3 rounded-lg border border-surface-a20 bg-surface-a10 p-3"
+      className="flex gap-3 rounded-md border border-surface-a20 bg-surface-a10 p-3"
     >
       <div className="shrink-0">
         {record.cover_url ? (

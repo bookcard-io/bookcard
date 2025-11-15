@@ -86,7 +86,7 @@ export function ListColumnSelector({
     <div
       ref={menuRef}
       className={cn(
-        "panel-tonal absolute top-full right-0 z-50 mt-2 w-64 rounded-lg",
+        "panel-tonal absolute top-full right-0 z-50 mt-2 w-64 rounded-md",
         "shadow-lg",
       )}
       role="dialog"

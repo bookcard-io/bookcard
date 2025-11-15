@@ -65,7 +65,7 @@ export function BookViewModal({
   });
 
   const modalContainerClassName =
-    "modal-container modal-container-shadow-large max-h-[90vh] min-h-[90vh] w-full max-w-[900px] md:max-h-[98vh] md:rounded-xl";
+    "modal-container modal-container-shadow-large max-h-[90vh] min-h-[90vh] w-full max-w-[900px] md:max-h-[98vh] md:rounded-md";
 
   const deleteConfirmation = useDeleteConfirmation({
     bookId: bookId || null,

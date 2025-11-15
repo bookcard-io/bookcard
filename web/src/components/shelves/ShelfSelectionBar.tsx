@@ -46,7 +46,7 @@ export function ShelfSelectionBar({
   }
 
   return (
-    <div className="absolute top-0 right-8 left-8 z-40 flex h-14 items-center justify-between rounded-lg border-2 border-[var(--color-primary-a0)] bg-[var(--color-surface-tonal-a10)] px-6 text-[var(--color-text-a0)]">
+    <div className="absolute top-0 right-8 left-8 z-40 flex h-14 items-center justify-between rounded-md border-2 border-[var(--color-primary-a0)] bg-[var(--color-surface-tonal-a10)] px-6 text-[var(--color-text-a0)]">
       {/* Left: Selection count */}
       <div className="flex items-center">
         <span className="font-medium text-sm">
@@ -59,7 +59,7 @@ export function ShelfSelectionBar({
         <button
           type="button"
           onClick={onMerge}
-          className="flex items-center gap-2 rounded-lg bg-transparent px-4 py-2 font-medium text-[var(--color-text-a0)] text-sm transition-colors duration-200 hover:bg-[var(--color-primary-a0)]/20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
+          className="flex items-center gap-2 rounded-md bg-transparent px-4 py-2 font-medium text-[var(--color-text-a0)] text-sm transition-colors duration-200 hover:bg-[var(--color-primary-a0)]/20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
           aria-label="Merge shelves"
         >
           <OutlineMerge className="h-5 w-5" />
@@ -68,7 +68,7 @@ export function ShelfSelectionBar({
         <button
           type="button"
           onClick={onDelete}
-          className="flex items-center gap-2 rounded-lg bg-transparent px-4 py-2 font-medium text-[var(--color-text-a0)] text-sm transition-colors duration-200 hover:bg-[var(--color-primary-a0)]/20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
+          className="flex items-center gap-2 rounded-md bg-transparent px-4 py-2 font-medium text-[var(--color-text-a0)] text-sm transition-colors duration-200 hover:bg-[var(--color-primary-a0)]/20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
           aria-label="Delete shelves"
         >
           <i className="pi pi-trash text-base" aria-hidden="true" />
@@ -81,7 +81,7 @@ export function ShelfSelectionBar({
         <button
           type="button"
           onClick={onDeselectAll}
-          className="flex items-center gap-2 rounded-lg bg-transparent px-4 py-2 font-medium text-[var(--color-text-a0)] text-sm transition-colors duration-200 hover:bg-[var(--color-primary-a0)]/20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
+          className="flex items-center gap-2 rounded-md bg-transparent px-4 py-2 font-medium text-[var(--color-text-a0)] text-sm transition-colors duration-200 hover:bg-[var(--color-primary-a0)]/20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
           aria-label="Deselect all"
         >
           <i className="pi pi-times text-base" aria-hidden="true" />

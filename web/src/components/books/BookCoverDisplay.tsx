@@ -52,7 +52,7 @@ export function BookCoverDisplay({
   return (
     <>
       {coverUrl ? (
-        <div className="relative aspect-[2/3] w-full overflow-hidden rounded-lg bg-surface-a20">
+        <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md bg-surface-a20">
           <ImageWithLoading
             src={coverUrl}
             alt={`Cover for ${book.title}`}
@@ -65,7 +65,7 @@ export function BookCoverDisplay({
           <div className="absolute right-3 bottom-3 z-10 flex gap-2">
             <button
               type="button"
-              className="hover:-translate-y-0.5 flex h-12 w-12 min-w-[3rem] items-center justify-center rounded-xl border-none bg-primary-a20 p-0 text-sm text-surface-a10 shadow-[0_2px_8px_rgba(0,0,0,0.15)] transition-all duration-200 ease-linear hover:bg-primary-a10 hover:shadow-[0_4px_12px_rgba(0,0,0,0.2)] focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 active:translate-y-0 active:bg-primary-a0 active:shadow-[0_2px_6px_rgba(0,0,0,0.15)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="hover:-translate-y-0.5 flex h-12 w-12 min-w-[3rem] items-center justify-center rounded-md border-none bg-primary-a20 p-0 text-sm text-surface-a10 shadow-[0_2px_8px_rgba(0,0,0,0.15)] transition-all duration-200 ease-linear hover:bg-primary-a10 hover:shadow-[0_4px_12px_rgba(0,0,0,0.2)] focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 active:translate-y-0 active:bg-primary-a0 active:shadow-[0_2px_6px_rgba(0,0,0,0.15)] disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="View cover"
               title="View cover"
               onClick={openCover}
@@ -77,7 +77,7 @@ export function BookCoverDisplay({
             </button>
             <button
               type="button"
-              className="hover:-translate-y-0.5 flex h-12 w-12 min-w-[3rem] items-center justify-center rounded-xl border-none bg-primary-a20 p-0 text-sm text-surface-a10 shadow-[0_2px_8px_rgba(0,0,0,0.15)] transition-all duration-200 ease-linear hover:bg-primary-a10 hover:shadow-[0_4px_12px_rgba(0,0,0,0.2)] focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 active:translate-y-0 active:bg-primary-a0 active:shadow-[0_2px_6px_rgba(0,0,0,0.15)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="hover:-translate-y-0.5 flex h-12 w-12 min-w-[3rem] items-center justify-center rounded-md border-none bg-primary-a20 p-0 text-sm text-surface-a10 shadow-[0_2px_8px_rgba(0,0,0,0.15)] transition-all duration-200 ease-linear hover:bg-primary-a10 hover:shadow-[0_4px_12px_rgba(0,0,0,0.2)] focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 active:translate-y-0 active:bg-primary-a0 active:shadow-[0_2px_6px_rgba(0,0,0,0.15)] disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Delete cover"
               title="Delete cover"
             >
@@ -87,7 +87,7 @@ export function BookCoverDisplay({
         </div>
       ) : (
         <div
-          className="flex aspect-[2/3] w-full items-center justify-center rounded-lg text-sm text-text-a40"
+          className="flex aspect-[2/3] w-full items-center justify-center rounded-md text-sm text-text-a40"
           style={{
             background:
               "linear-gradient(135deg, var(--color-surface-a20) 0%, var(--color-surface-a10) 100%)",

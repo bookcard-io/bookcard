@@ -46,7 +46,7 @@ export function BookFormatsSection({ book }: BookFormatsSectionProps) {
               key={`${file.format}-${file.size}`}
               className="flex items-center justify-between gap-3 rounded-md border border-primary-a20 bg-surface-tonal-a10 p-3"
             >
-              <div className="flex h-10 w-10 min-w-10 items-center justify-center rounded-lg border border-primary-a20 bg-surface-a20 font-semibold text-text-a0 text-xs">
+              <div className="flex h-10 w-10 min-w-10 items-center justify-center rounded-md border border-primary-a20 bg-surface-a20 font-semibold text-text-a0 text-xs">
                 {file.format.toUpperCase()}
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -94,7 +94,7 @@ export function BookFormatsSection({ book }: BookFormatsSectionProps) {
           type="button"
           variant="ghost"
           size="small"
-          className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 w-full justify-start rounded-lg hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
+          className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 w-full justify-start rounded-md hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
         >
           <span
             className="pi pi-plus mr-2 text-primary-a20"
@@ -106,7 +106,7 @@ export function BookFormatsSection({ book }: BookFormatsSectionProps) {
           type="button"
           variant="ghost"
           size="small"
-          className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 w-full justify-start rounded-lg hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
+          className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 w-full justify-start rounded-md hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
         >
           <span
             className="pi pi-arrow-right-arrow-left mr-2 text-primary-a20"

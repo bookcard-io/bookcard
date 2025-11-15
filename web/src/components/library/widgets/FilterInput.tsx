@@ -162,7 +162,7 @@ export function FilterInput({
             // Layout
             "w-full",
             // Shape & spacing
-            "rounded-lg border border-surface-a30 px-4 py-2.5",
+            "rounded-md border border-surface-a30 px-4 py-2.5",
             // Colors
             "bg-surface-tonal-a10 text-text-a0",
             // Typography

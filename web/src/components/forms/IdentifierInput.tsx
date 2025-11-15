@@ -98,7 +98,7 @@ export function IdentifierInput({
         {identifiers.map((identifier, index) => (
           <div
             key={`${identifier.type}-${identifier.val}-${index}`}
-            className="flex items-center gap-3 rounded-lg border border-surface-a20 bg-surface-a10 px-3 py-2"
+            className="flex items-center gap-3 rounded-md border border-surface-a20 bg-surface-a10 px-3 py-2"
           >
             <span className="min-w-16 font-semibold text-primary-a0 text-xs uppercase">
               {identifier.type}
@@ -120,7 +120,7 @@ export function IdentifierInput({
           <select
             id={`${id}-type`}
             className={cn(
-              "flex-[0_0_8rem] cursor-pointer rounded-lg border border-surface-a20 bg-surface-a0 px-4 py-3",
+              "flex-[0_0_8rem] cursor-pointer rounded-md border border-surface-a20 bg-surface-a0 px-4 py-3",
               "font-inherit text-base text-text-a0 leading-normal",
               "transition-[border-color_0.2s,background-color_0.2s]",
               "focus:border-primary-a0 focus:bg-surface-a10 focus:outline-none",
@@ -141,7 +141,7 @@ export function IdentifierInput({
             id={`${id}-val`}
             type="text"
             className={cn(
-              "flex-1 rounded-lg border bg-surface-a0 px-4 py-3",
+              "flex-1 rounded-md border bg-surface-a0 px-4 py-3",
               "font-inherit text-base text-text-a0 leading-normal",
               "transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s]",
               "placeholder:text-text-a40",

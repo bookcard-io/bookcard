@@ -42,7 +42,7 @@ export function DeleteSettingsGroup() {
   return (
     <div className="flex flex-col gap-6">
       {shouldShowWarning && (
-        <div className="flex items-start gap-3 rounded-lg border border-[var(--color-warning-a0)] bg-[var(--color-warning-a0)]/20 p-4">
+        <div className="flex items-start gap-3 rounded-md border border-[var(--color-warning-a0)] bg-[var(--color-warning-a0)]/20 p-4">
           <i
             className="pi pi-exclamation-triangle mt-0.5 text-warning-a10"
             aria-hidden="true"

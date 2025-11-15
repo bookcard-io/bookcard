@@ -67,7 +67,7 @@ export function ViewModeButton({
         // Rounded corners based on position
         position === "first" && "rounded-r-none rounded-l-lg",
         position === "last" && "-ml-px rounded-r-lg rounded-l-none",
-        !position && "rounded-lg",
+        !position && "rounded-md",
         // Border - full border for all buttons, creates visible separator when touching
         "border border-surface-a20",
         // Active state: lighter background with darker icon

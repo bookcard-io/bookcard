@@ -159,7 +159,7 @@ export function MetadataFetchModal({
       role="presentation"
     >
       <div
-        className="modal-container modal-container-shadow-large max-h-[95vh] min-h-[95vh] w-full min-w-[850px] max-w-[60vw] md:max-h-[98vh] md:min-h-[98vh] md:rounded-xl"
+        className="modal-container modal-container-shadow-large max-h-[95vh] min-h-[95vh] w-full min-w-[850px] max-w-[60vw] md:max-h-[98vh] md:min-h-[98vh] md:rounded-md"
         role="dialog"
         aria-modal="true"
         aria-label="Fetch metadata"
@@ -220,7 +220,7 @@ export function MetadataFetchModal({
 
           {state.error && (
             <div
-              className="rounded-lg border border-danger-a0 bg-[rgba(156,33,33,0.15)] px-3 py-3 text-danger-a10 text-sm"
+              className="rounded-md border border-danger-a0 bg-[rgba(156,33,33,0.15)] px-3 py-3 text-danger-a10 text-sm"
               role="alert"
             >
               <strong>Error:</strong> {state.error}
@@ -281,7 +281,7 @@ export function MetadataFetchModal({
             state.totalProviders > 0 &&
             state.providersCompleted + state.providersFailed ===
               state.totalProviders && (
-              <div className="rounded-lg border border-success-a0 bg-[rgba(34,148,110,0.15)] px-3 py-3 text-center text-sm text-success-a10">
+              <div className="rounded-md border border-success-a0 bg-[rgba(34,148,110,0.15)] px-3 py-3 text-center text-sm text-success-a10">
                 Search completed. Found {state.totalResults} result
                 {state.totalResults !== 1 ? "s" : ""} from{" "}
                 {state.providersCompleted} provider

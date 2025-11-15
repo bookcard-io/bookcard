@@ -163,7 +163,7 @@ export function AddToShelfFlyoutMenu({
     <div
       ref={menuRef}
       className={cn(
-        "fixed z-[10000] rounded-lg",
+        "fixed z-[10000] rounded-md",
         "border border-surface-tonal-a20 bg-surface-tonal-a10",
         "shadow-black/50 shadow-lg",
         "overflow-hidden",

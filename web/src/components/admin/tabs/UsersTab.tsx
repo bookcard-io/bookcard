@@ -17,7 +17,6 @@
 
 import { useEffect, useState } from "react";
 import { type User, UsersTable } from "../UsersTable";
-import styles from "./UsersTab.module.scss";
 
 export function UsersTab() {
   const [users, setUsers] = useState<User[]>([]);
@@ -47,9 +46,11 @@ export function UsersTab() {
   }, []);
 
   return (
-    <div className={styles.container}>
-      <h2 className={styles.sectionTitle}>Users</h2>
-      <UsersTable users={users} isLoading={isLoading} />
+    <div className="flex flex-col gap-6">
+      <div className="rounded-md border border-surface-a20 bg-surface-tonal-a0 p-6">
+        <h2 className="mb-4 font-semibold text-text-a0 text-xl">Users</h2>
+        <UsersTable users={users} isLoading={isLoading} />
+      </div>
     </div>
   );
 }

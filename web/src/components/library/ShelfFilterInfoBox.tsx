@@ -50,7 +50,7 @@ export function ShelfFilterInfoBox() {
   return (
     <output
       className={cn(
-        "mx-8 mb-4 flex items-center justify-between gap-4 rounded-lg border border-info-a20 bg-info-a20 px-4 py-3",
+        "mx-8 mb-4 flex items-center justify-between gap-4 rounded-md border border-info-a20 bg-info-a20 px-4 py-3",
         "transition-colors duration-200",
       )}
       aria-live="polite"
