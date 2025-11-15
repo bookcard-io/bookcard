@@ -22,15 +22,21 @@ Uses Strategy pattern to decouple email sending strategies from the service.
 
 from __future__ import annotations
 
+import contextlib
+import logging
+import re
+import shutil
+import tempfile
+import unicodedata
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, ClassVar
+from pathlib import Path
+from typing import ClassVar
 
 from ezmail import EzSender
 
 from fundamental.models.config import EmailServerConfig, EmailServerType
 
-if TYPE_CHECKING:
-    from pathlib import Path
+logger = logging.getLogger(__name__)
 
 
 class EmailServiceError(Exception):
@@ -330,6 +336,7 @@ class EmailService:
         book_title: str,
         book_file_path: Path,
         preferred_format: str | None = None,
+        author: str | None = None,
     ) -> None:
         """Send an e-book file to the specified email address.
 
@@ -343,6 +350,8 @@ class EmailService:
             Path to the e-book file to attach.
         preferred_format : str | None
             Preferred format name (e.g., 'EPUB', 'MOBI') for display.
+        author : str | None
+            Author name used when constructing the attachment filename.
 
         Raises
         ------
@@ -350,7 +359,8 @@ class EmailService:
             If email server is not enabled, configuration is invalid,
             or sending fails.
         ValueError
-            If file does not exist or email size exceeds limit.
+            If file does not exist, email size exceeds limit,
+            or attachment preparation fails.
         """
         if not self._config.enabled:
             msg = "email_server_not_enabled"
@@ -374,10 +384,98 @@ class EmailService:
         subject = f"{book_title}{format_str}"
         message = f"Please find your e-book '{book_title}' attached."
 
-        # Delegate to strategy
-        self._sender_strategy.send(
-            to_email=to_email,
-            subject=subject,
-            message=message,
-            attachment_path=book_file_path,
+        # Build a sanitized attachment filename: "author - title.ext"
+        # Fallbacks:
+        # - If author is missing, use title only.
+        # - If neither is available, use "Unknown Author - Unknown Book.ext".
+        extension = (
+            preferred_format.lower()
+            if preferred_format
+            else book_file_path.suffix.lstrip(".").lower()
         )
+        attachment_filename = self._build_attachment_filename(
+            author=author,
+            title=book_title,
+            extension=extension or None,
+        )
+
+        temp_dir = Path(tempfile.gettempdir()) / "calibre_email_attachments"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        temp_path = temp_dir / attachment_filename
+
+        try:
+            shutil.copy2(book_file_path, temp_path)
+        except OSError as exc:
+            msg = f"failed_to_prepare_attachment: {exc!s}"
+            raise ValueError(msg) from exc
+
+        try:
+            # Delegate to strategy with sanitized attachment path
+            self._sender_strategy.send(
+                to_email=to_email,
+                subject=subject,
+                message=message,
+                attachment_path=temp_path,
+            )
+        finally:
+            # Best-effort cleanup of temporary attachment file
+            with contextlib.suppress(OSError):
+                temp_path.unlink()
+
+    def _build_attachment_filename(
+        self,
+        *,
+        author: str | None,
+        title: str | None,
+        extension: str | None,
+    ) -> str:
+        """Build a sanitized attachment filename.
+
+        Parameters
+        ----------
+        author : str | None
+            Author name to use in the filename.
+        title : str | None
+            Book title to use in the filename.
+        extension : str | None
+            File extension (e.g., 'epub', 'mobi') without leading dot.
+
+        Returns
+        -------
+        str
+            Sanitized attachment filename.
+        """
+        default_base = "Unknown Author - Unknown Book"
+
+        author_part = (author or "").strip()
+        title_part = (title or "").strip()
+
+        if author_part and title_part:
+            base = f"{author_part} - {title_part}"
+        elif title_part:
+            base = title_part
+        elif author_part:
+            base = f"{author_part} - Unknown Book"
+        else:
+            base = default_base
+
+        # Normalize unicode characters
+        normalized = unicodedata.normalize("NFKD", base)
+
+        # Allow alphanumerics and a safe subset of punctuation
+        allowed_chars = {" ", "-", "_", ".", "(", ")", "&", ",", "'", "+"}
+        sanitized = "".join(c for c in normalized if c.isalnum() or c in allowed_chars)
+        sanitized = re.sub(r"\s+", " ", sanitized).strip(" .")
+
+        if not sanitized:
+            sanitized = default_base
+
+        # Limit base length to keep filenames manageable
+        max_len = 150
+        if len(sanitized) > max_len:
+            sanitized = sanitized[:max_len].rstrip()
+
+        ext = (extension or "").strip().lstrip(".")
+        if ext:
+            return f"{sanitized}.{ext.lower()}"
+        return sanitized

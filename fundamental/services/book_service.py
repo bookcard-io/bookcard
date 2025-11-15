@@ -567,6 +567,8 @@ class BookService:
 
         logger.debug("Book found: %s (ID: %d)", book.title, book_id)
 
+        author_name = self._get_primary_author_name(book_with_rels)
+
         # Determine format to send
         format_to_send = self._determine_format_to_send(
             book_with_rels, device, file_format
@@ -590,6 +592,7 @@ class BookService:
             book_title=book.title,
             book_file_path=file_path,
             preferred_format=format_to_send,
+            author=author_name,
         )
         logger.info("Book sent successfully to %s", device.email)
 
@@ -829,6 +832,7 @@ class BookService:
             book_title=book.title,
             book_file_path=file_path,
             preferred_format=format_to_send,
+            author=self._get_primary_author_name(book_with_rels),
         )
         logger.info("Book sent successfully to %s", to_email)
 
@@ -1016,3 +1020,23 @@ class BookService:
             return filename
         logger.debug("No format name, using book_id: %d.%s", book_id, format_lower)
         return f"{book_id}.{format_lower}"
+
+    @staticmethod
+    def _get_primary_author_name(
+        book_with_rels: BookWithFullRelations,
+    ) -> str | None:
+        """Get display name for book authors.
+
+        Parameters
+        ----------
+        book_with_rels : BookWithFullRelations
+            Book with related author data.
+
+        Returns
+        -------
+        str | None
+            Comma-separated author name(s) or None if no authors.
+        """
+        if not book_with_rels.authors:
+            return None
+        return ", ".join(book_with_rels.authors)
