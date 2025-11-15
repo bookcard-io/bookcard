@@ -66,13 +66,11 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
-        always_run: true
         stages: [pre-push]
       - id: vitest
         name: run vitest
         entry: bash -lc 'cd web && npx --yes vitest run --silent --bail 1 --reporter=dot >/dev/null 2>&1'
         language: system
-        types: [javascript]
+        types_or: [javascript, ts, tsx, jsx]
         pass_filenames: false
-        always_run: true
         stages: [pre-push]
