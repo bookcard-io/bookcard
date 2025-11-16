@@ -76,15 +76,26 @@ interface SidebarContextType {
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
-    const stored = getCollapsedFromLocalStorage();
-    return stored ?? DEFAULT_COLLAPSED;
-  });
+  // Always start with default to avoid hydration mismatch
+  // Server and client must render the same initial HTML
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(DEFAULT_COLLAPSED);
+  const [isHydrated, setIsHydrated] = useState(false);
 
-  // Persist collapsed state to localStorage when it changes
+  // Sync from localStorage after hydration (client-side only)
   useEffect(() => {
-    saveCollapsedToLocalStorage(isCollapsed);
-  }, [isCollapsed]);
+    const stored = getCollapsedFromLocalStorage();
+    if (stored !== null) {
+      setIsCollapsed(stored);
+    }
+    setIsHydrated(true);
+  }, []);
+
+  // Persist collapsed state to localStorage when it changes (after hydration)
+  useEffect(() => {
+    if (isHydrated) {
+      saveCollapsedToLocalStorage(isCollapsed);
+    }
+  }, [isCollapsed, isHydrated]);
 
   return (
     <SidebarContext.Provider value={{ isCollapsed, setIsCollapsed }}>

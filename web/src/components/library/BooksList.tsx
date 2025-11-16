@@ -15,13 +15,18 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useBookDataUpdates } from "@/hooks/useBookDataUpdates";
-import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
-import { useLibraryBooks } from "@/hooks/useLibraryBooks";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useCallback, useRef } from "react";
+import { useBookRating } from "@/hooks/useBookRating";
+import { useBooksNavigationData } from "@/hooks/useBooksNavigationData";
+import { useBooksViewData } from "@/hooks/useBooksViewData";
+import { useInfiniteScrollVirtualizer } from "@/hooks/useInfiniteScrollVirtualizer";
 import type { Book } from "@/types/book";
-import { deduplicateBooks } from "@/utils/books";
 import { BookListItem } from "./BookListItem";
+import { BooksViewEmpty } from "./BooksViewEmpty";
+import { BooksViewError } from "./BooksViewError";
+import { BooksViewLoading } from "./BooksViewLoading";
+import { BooksViewStatus } from "./BooksViewStatus";
 import { ListHeader } from "./ListHeader";
 import { ShelfFilterInfoBox } from "./ShelfFilterInfoBox";
 import { ColumnSelectorButton } from "./widgets/ColumnSelectorButton";
@@ -78,17 +83,17 @@ export function BooksList({
   bookDataUpdateRef,
   onBooksDataChange,
 }: BooksListProps) {
-  // Fetch books using centralized hook (SOC: data fetching separated)
+  // Fetch and manage books data (SRP: data concerns separated)
   const {
-    books,
+    uniqueBooks,
     isLoading,
     error,
     total,
     loadMore,
     hasMore,
     removeBook,
-    addBook,
-  } = useLibraryBooks({
+    updateBook: updateBookLocal,
+  } = useBooksViewData({
     filters,
     searchQuery,
     shelfId,
@@ -96,93 +101,40 @@ export function BooksList({
     sortOrder,
     pageSize,
     full: true, // Always fetch full details for list view to support additional columns
+    bookDataUpdateRef,
   });
 
-  // Manage book data updates including cover (SRP: book data state management separated)
-  const { bookDataOverrides, updateBook: updateBookLocal } = useBookDataUpdates(
-    {
-      updateRef: bookDataUpdateRef,
-    },
-  );
-
-  // Expose removeBook and addBook via ref so external callers can modify this list instance
-  useEffect(() => {
-    if (!bookDataUpdateRef) {
-      return;
-    }
-    const current = bookDataUpdateRef.current ?? {
-      updateBook: () => {},
-      updateCover: () => {},
-    };
-    bookDataUpdateRef.current = {
-      ...current,
-      removeBook: (bookId: number) => {
-        removeBook?.(bookId);
-      },
-      addBook: async (bookId: number) => {
-        await addBook?.(bookId);
-      },
-    };
-  }, [bookDataUpdateRef, removeBook, addBook]);
-
-  // Infinite scroll handler (SRP: scroll logic separated)
-  const handleLoadMore = useCallback(() => {
-    loadMore?.();
-  }, [loadMore]);
-
-  // Set up infinite scroll sentinel (IOC: using hook for scroll behavior)
-  const sentinelRef = useInfiniteScroll({
-    onLoadMore: handleLoadMore,
-    enabled: Boolean(loadMore && hasMore),
-    isLoading,
+  // Expose navigation data to parent (SRP: navigation concerns separated)
+  useBooksNavigationData({
+    bookIds: uniqueBooks.map((book) => book.id),
+    loadMore,
     hasMore,
+    isLoading,
+    onBooksDataChange,
   });
 
-  // Deduplicate books and apply book data overrides (DRY: using utility)
-  const uniqueBooks = useMemo(
-    () => deduplicateBooks(books, undefined, bookDataOverrides),
-    [books, bookDataOverrides],
-  );
+  // Scroll container ref for virtualizer
+  const parentRef = useRef<HTMLDivElement>(null);
 
-  // Expose book navigation data to parent component for modal navigation
-  // Use ref to avoid infinite loops from callback dependency changes
-  const onBooksDataChangeRef = useRef(onBooksDataChange);
-  useEffect(() => {
-    onBooksDataChangeRef.current = onBooksDataChange;
-  }, [onBooksDataChange]);
+  // Virtualizer for efficient rendering of large lists
+  const rowVirtualizer = useVirtualizer({
+    count: hasMore ? uniqueBooks.length + 1 : uniqueBooks.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 60, // Estimated height for a list item (will be measured dynamically)
+    overscan: 5, // Render 5 extra items above and below viewport
+    // Always measure actual DOM height so vertical offsets are accurate
+    measureElement: (element) => element?.getBoundingClientRect().height,
+  });
 
-  // Memoize the data to avoid unnecessary updates
-  const booksData = useMemo(
-    () => ({
-      bookIds: uniqueBooks.map((book) => book.id),
-      loadMore,
-      hasMore,
-      isLoading,
-    }),
-    [uniqueBooks, loadMore, hasMore, isLoading],
-  );
-
-  // Store previous data to compare and only update if changed
-  const prevBooksDataRef = useRef<typeof booksData | null>(null);
-  useEffect(() => {
-    const prev = prevBooksDataRef.current;
-    const current = booksData;
-
-    // Only call callback if data actually changed (or on first render)
-    if (
-      !prev ||
-      prev.bookIds.length !== current.bookIds.length ||
-      prev.bookIds.some((id, idx) => id !== current.bookIds[idx]) ||
-      prev.hasMore !== current.hasMore ||
-      prev.isLoading !== current.isLoading ||
-      prev.loadMore !== current.loadMore
-    ) {
-      prevBooksDataRef.current = current;
-      if (onBooksDataChangeRef.current) {
-        onBooksDataChangeRef.current(current);
-      }
-    }
-  }, [booksData]);
+  // Infinite scroll: load more when scrolling near the end (SRP: scroll concerns separated)
+  useInfiniteScrollVirtualizer({
+    virtualizer: rowVirtualizer,
+    itemCount: uniqueBooks.length,
+    hasMore: hasMore ?? false,
+    isLoading,
+    loadMore,
+    threshold: 5, // within 5 items of the end
+  });
 
   // Handle deletion initiated from an item: remove locally from list
   const handleBookDeleted = useCallback(
@@ -192,100 +144,112 @@ export function BooksList({
     [removeBook],
   );
 
-  // Handle rating change: update via API and local state
-  const handleRatingChange = useCallback(
-    async (bookId: number, rating: number | null) => {
-      // Optimistically update local state
-      updateBookLocal(bookId, { rating });
+  // Handle rating change: update via API and local state (SRP: rating concerns separated)
+  const { updateRating: handleRatingChange } = useBookRating({
+    onOptimisticUpdate: useCallback(
+      (bookId: number, rating: number | null) => {
+        updateBookLocal(bookId, { rating });
+      },
+      [updateBookLocal],
+    ),
+  });
 
-      // Update via API
-      try {
-        const response = await fetch(`/api/books/${bookId}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            rating_value: rating,
-          }),
-        });
-
-        if (!response.ok) {
-          // Revert on error - could be enhanced with error handling
-          const errorData = (await response.json()) as { detail?: string };
-          console.error(
-            "Failed to update rating:",
-            errorData.detail || "Unknown error",
-          );
-        }
-      } catch (error) {
-        console.error("Error updating rating:", error);
-      }
-    },
-    [updateBookLocal],
-  );
-
+  // Error state (SRP: error display separated)
   if (error) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center p-8">
-        <p className="m-0 text-base text-danger-a10">
-          Error loading books: {error}
-        </p>
-      </div>
-    );
+    return <BooksViewError error={error} />;
   }
 
+  // Loading state (SRP: loading display separated)
   if (isLoading && uniqueBooks.length === 0) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center p-8">
-        <p className="m-0 text-base text-text-a40">Loading books...</p>
-      </div>
-    );
+    return <BooksViewLoading />;
   }
 
+  // Empty state (SRP: empty display separated)
   if (uniqueBooks.length === 0) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center p-8">
-        <p className="m-0 text-base text-text-a40">No books found</p>
-      </div>
-    );
+    return <BooksViewEmpty />;
   }
 
   return (
     <div className="w-full">
-      {total > 0 && (
-        <div className="flex items-center justify-between px-8 pb-4">
-          <div className="text-left text-sm text-text-a40">
-            {hasMore
-              ? `Scroll for more (${uniqueBooks.length} of ${total})`
-              : `${uniqueBooks.length} of ${total} books`}
-          </div>
-          <div className="flex items-center">
-            <ColumnSelectorButton />
-          </div>
-        </div>
-      )}
+      <BooksViewStatus
+        currentCount={uniqueBooks.length}
+        total={total}
+        hasMore={hasMore ?? false}
+        actions={<ColumnSelectorButton />}
+      />
       {shelfId && <ShelfFilterInfoBox />}
       <div className="flex flex-col px-8">
         <ListHeader allBooks={uniqueBooks} />
-        {uniqueBooks.map((book) => (
-          <BookListItem
-            key={book.id}
-            book={book}
-            allBooks={uniqueBooks}
-            onClick={onBookClick}
-            onEdit={onBookEdit}
-            onBookDeleted={handleBookDeleted}
-            onRatingChange={handleRatingChange}
-          />
-        ))}
-      </div>
-      {hasMore && <div ref={sentinelRef as React.RefObject<HTMLDivElement>} />}
-      {isLoading && uniqueBooks.length > 0 && (
-        <div className="p-4 px-8 text-center text-sm text-text-a40">
-          Loading more books...
+        <div
+          ref={parentRef}
+          className="relative h-[calc(100vh-290px)] w-full overflow-auto [contain:strict] [&::-webkit-scrollbar-thumb]:bg-surface-a20 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 hover:[&::-webkit-scrollbar]:block"
+        >
+          <div
+            className="relative w-full"
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+            }}
+          >
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const isLoaderRow = virtualRow.index > uniqueBooks.length - 1;
+              const book = uniqueBooks[virtualRow.index];
+
+              if (isLoaderRow) {
+                return (
+                  <div
+                    key={`loader-${virtualRow.index}`}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    {hasMore ? (
+                      <div className="p-4 px-8 text-center text-sm text-text-a40">
+                        Loading more books...
+                      </div>
+                    ) : (
+                      <div className="p-4 px-8 text-center text-sm text-text-a40">
+                        No more books to load
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              if (!book) {
+                return null;
+              }
+
+              return (
+                <div
+                  key={book.id}
+                  data-index={virtualRow.index}
+                  ref={rowVirtualizer.measureElement}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <BookListItem
+                    book={book}
+                    allBooks={uniqueBooks}
+                    onClick={onBookClick}
+                    onEdit={onBookEdit}
+                    onBookDeleted={handleBookDeleted}
+                    onRatingChange={handleRatingChange}
+                  />
+                </div>
+              );
+            })}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

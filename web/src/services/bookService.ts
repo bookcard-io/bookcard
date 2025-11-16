@@ -16,7 +16,7 @@
 /**
  * Service for interacting with book API endpoints.
  *
- * Provides methods for sending books to e-reader devices.
+ * Provides methods for sending books to e-reader devices and updating book metadata.
  */
 
 /**
@@ -68,5 +68,48 @@ export async function sendBookToDevice(
       .json()
       .catch(() => ({ detail: "Failed to send book" }));
     throw new Error(error.detail || "Failed to send book");
+  }
+}
+
+/**
+ * Update a book's rating.
+ *
+ * Parameters
+ * ----------
+ * bookId : number
+ *     Book ID to update.
+ * rating : number | null
+ *     Rating value (0-5) or null to remove rating.
+ *
+ * Returns
+ * -------
+ * Promise<void>
+ *     Success response.
+ *
+ * Raises
+ * ------
+ * Error
+ *     If the API request fails.
+ */
+export async function updateBookRating(
+  bookId: number,
+  rating: number | null,
+): Promise<void> {
+  const response = await fetch(`/api/books/${bookId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify({
+      rating_value: rating,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to update rating" }));
+    throw new Error(error.detail || "Failed to update rating");
   }
 }

@@ -13,29 +13,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import type { Metadata } from "next";
-import "primeicons/primeicons.css";
-import "../styles/globals.scss";
-import { RootProviders } from "@/components/RootProviders";
-
-export const metadata: Metadata = {
-  title: "Fundamental - Ebook Library",
-  description: "Self-hosted ebook management and reading application",
-};
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+/**
+ * Loading state component for books view.
+ *
+ * Displays loading message when books are being fetched.
+ * Follows SRP by handling only loading display.
+ */
+export function BooksViewLoading() {
   return (
-    <html lang="en">
-      <head>
-        <meta name="darkreader-lock" />
-      </head>
-      <body>
-        <RootProviders>{children}</RootProviders>
-      </body>
-    </html>
+    <div className="flex min-h-[400px] items-center justify-center p-8">
+      <p className="m-0 text-base text-text-a40">Loading books...</p>
+    </div>
   );
 }

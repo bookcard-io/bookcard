@@ -15,13 +15,18 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useBookDataUpdates } from "@/hooks/useBookDataUpdates";
-import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
-import { useLibraryBooks } from "@/hooks/useLibraryBooks";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useCallback, useMemo, useRef } from "react";
+import { useBooksNavigationData } from "@/hooks/useBooksNavigationData";
+import { useBooksViewData } from "@/hooks/useBooksViewData";
+import { useInfiniteScrollVirtualizer } from "@/hooks/useInfiniteScrollVirtualizer";
+import { useResponsiveGridLayout } from "@/hooks/useResponsiveGridLayout";
 import type { Book } from "@/types/book";
-import { deduplicateBooks } from "@/utils/books";
 import { BookCard } from "./BookCard";
+import { BooksViewEmpty } from "./BooksViewEmpty";
+import { BooksViewError } from "./BooksViewError";
+import { BooksViewLoading } from "./BooksViewLoading";
+import { BooksViewStatus } from "./BooksViewStatus";
 import { ShelfFilterInfoBox } from "./ShelfFilterInfoBox";
 import type { FilterValues } from "./widgets/FiltersPanel";
 
@@ -76,108 +81,39 @@ export function BooksGrid({
   bookDataUpdateRef,
   onBooksDataChange,
 }: BooksGridProps) {
-  // Fetch books using centralized hook (SOC: data fetching separated)
+  // Fetch and manage books data (SRP: data concerns separated)
   const {
-    books,
+    uniqueBooks,
     isLoading,
     error,
     total,
     loadMore,
     hasMore,
     removeBook,
-    addBook,
-  } = useLibraryBooks({
+  } = useBooksViewData({
     filters,
     searchQuery,
     shelfId,
     sortBy,
     sortOrder,
     pageSize,
+    bookDataUpdateRef,
   });
 
-  // Manage book data updates including cover (SRP: book data state management separated)
-  const { bookDataOverrides } = useBookDataUpdates({
-    updateRef: bookDataUpdateRef,
-  });
-
-  // Expose removeBook and addBook via ref so external callers can modify this grid instance
-  useEffect(() => {
-    if (!bookDataUpdateRef) {
-      return;
-    }
-    const current = bookDataUpdateRef.current ?? {
-      updateBook: () => {},
-      updateCover: () => {},
-    };
-    bookDataUpdateRef.current = {
-      ...current,
-      removeBook: (bookId: number) => {
-        removeBook?.(bookId);
-      },
-      addBook: async (bookId: number) => {
-        await addBook?.(bookId);
-      },
-    };
-  }, [bookDataUpdateRef, removeBook, addBook]);
-
-  // Infinite scroll handler (SRP: scroll logic separated)
-  const handleLoadMore = useCallback(() => {
-    loadMore?.();
-  }, [loadMore]);
-
-  // Set up infinite scroll sentinel (IOC: using hook for scroll behavior)
-  const sentinelRef = useInfiniteScroll({
-    onLoadMore: handleLoadMore,
-    enabled: Boolean(loadMore && hasMore),
-    isLoading,
+  // Expose navigation data to parent (SRP: navigation concerns separated)
+  useBooksNavigationData({
+    bookIds: uniqueBooks.map((book) => book.id),
+    loadMore,
     hasMore,
+    isLoading,
+    onBooksDataChange,
   });
 
-  // Deduplicate books and apply book data overrides (DRY: using utility)
-  const uniqueBooks = useMemo(
-    () => deduplicateBooks(books, undefined, bookDataOverrides),
-    [books, bookDataOverrides],
-  );
+  // Scroll container ref for virtualizer
+  const parentRef = useRef<HTMLDivElement | null>(null);
 
-  // Expose book navigation data to parent component for modal navigation
-  // Use ref to avoid infinite loops from callback dependency changes
-  const onBooksDataChangeRef = useRef(onBooksDataChange);
-  useEffect(() => {
-    onBooksDataChangeRef.current = onBooksDataChange;
-  }, [onBooksDataChange]);
-
-  // Memoize the data to avoid unnecessary updates
-  const booksData = useMemo(
-    () => ({
-      bookIds: uniqueBooks.map((book) => book.id),
-      loadMore,
-      hasMore,
-      isLoading,
-    }),
-    [uniqueBooks, loadMore, hasMore, isLoading],
-  );
-
-  // Store previous data to compare and only update if changed
-  const prevBooksDataRef = useRef<typeof booksData | null>(null);
-  useEffect(() => {
-    const prev = prevBooksDataRef.current;
-    const current = booksData;
-
-    // Only call callback if data actually changed (or on first render)
-    if (
-      !prev ||
-      prev.bookIds.length !== current.bookIds.length ||
-      prev.bookIds.some((id, idx) => id !== current.bookIds[idx]) ||
-      prev.hasMore !== current.hasMore ||
-      prev.isLoading !== current.isLoading ||
-      prev.loadMore !== current.loadMore
-    ) {
-      prevBooksDataRef.current = current;
-      if (onBooksDataChangeRef.current) {
-        onBooksDataChangeRef.current(current);
-      }
-    }
-  }, [booksData]);
+  // Responsive grid layout shared between CSS and virtualizer math
+  const { columnCount, cardWidth, gap } = useResponsiveGridLayout(parentRef);
 
   // Handle deletion initiated from a card: remove locally from grid
   const handleBookDeleted = useCallback(
@@ -187,58 +123,158 @@ export function BooksGrid({
     [removeBook],
   );
 
+  // Compute number of virtualized rows based on responsive column count
+  const rowCount = useMemo(
+    () => Math.max(1, Math.ceil(uniqueBooks.length / Math.max(columnCount, 1))),
+    [uniqueBooks.length, columnCount],
+  );
+
+  // Estimate row height from card width and aspect ratio; refined via measureElement.
+  const estimatedRowHeight = useMemo(() => {
+    const coverAspectRatio = 1.5; // approximate height/width for cover
+    const metadataHeight = 80; // title + authors + spacing
+    const cardHeight = cardWidth * coverAspectRatio + metadataHeight;
+    return cardHeight + gap;
+  }, [cardWidth, gap]);
+
+  // Virtualizer for efficient rendering of large grids (virtualizing rows).
+  const rowVirtualizer = useVirtualizer({
+    count: hasMore ? rowCount + 1 : rowCount,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => estimatedRowHeight,
+    overscan: 3,
+    // Always measure actual DOM height so row offsets stay accurate
+    measureElement: (element) => element?.getBoundingClientRect().height,
+  });
+
+  // Infinite scroll: load more when we scroll close to the last row (SRP: scroll concerns separated)
+  useInfiniteScrollVirtualizer({
+    virtualizer: rowVirtualizer,
+    itemCount: rowCount,
+    hasMore: hasMore ?? false,
+    isLoading,
+    loadMore,
+    threshold: 2, // within 2 rows of the end
+  });
+
+  // Error state (SRP: error display separated)
   if (error) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center p-8">
-        <p className="m-0 text-base text-danger-a10">
-          Error loading books: {error}
-        </p>
-      </div>
-    );
+    return <BooksViewError error={error} />;
   }
 
+  // Loading state (SRP: loading display separated)
   if (isLoading && uniqueBooks.length === 0) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center p-8">
-        <p className="m-0 text-base text-text-a40">Loading books...</p>
-      </div>
-    );
+    return <BooksViewLoading />;
   }
 
+  // Empty state (SRP: empty display separated)
   if (uniqueBooks.length === 0) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center p-8">
-        <p className="m-0 text-base text-text-a40">No books found</p>
-      </div>
-    );
+    return <BooksViewEmpty />;
   }
 
   return (
     <div className="w-full">
-      {total > 0 && (
-        <div className="px-8 pb-4 text-left text-sm text-text-a40">
-          {hasMore
-            ? `Scroll for more (${uniqueBooks.length} of ${total})`
-            : `${uniqueBooks.length} of ${total} books`}
-        </div>
-      )}
+      <BooksViewStatus
+        currentCount={uniqueBooks.length}
+        total={total}
+        hasMore={hasMore ?? false}
+      />
       {shelfId && <ShelfFilterInfoBox />}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-6 px-8 md:grid-cols-[repeat(auto-fit,minmax(160px,1fr))] md:gap-8 lg:grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
-        {uniqueBooks.map((book) => (
-          <BookCard
-            key={book.id}
-            book={book}
-            allBooks={uniqueBooks}
-            onClick={onBookClick}
-            onEdit={onBookEdit}
-            onBookDeleted={handleBookDeleted}
-          />
-        ))}
+      <div className="px-8">
+        <div
+          ref={parentRef}
+          className="relative h-[calc(100vh-215px)] w-full overflow-auto [contain:strict] [&::-webkit-scrollbar-thumb]:bg-surface-a20 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 hover:[&::-webkit-scrollbar]:block"
+        >
+          <div
+            className="relative w-full"
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+            }}
+          >
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const isLoaderRow = hasMore && virtualRow.index >= rowCount;
+
+              if (isLoaderRow) {
+                return (
+                  <div
+                    key={`loader-${virtualRow.index}`}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      paddingBottom: `${gap}px`,
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    <div className="p-4 text-center text-sm text-text-a40">
+                      {isLoading
+                        ? "Loading more books..."
+                        : "No more books to load"}
+                    </div>
+                  </div>
+                );
+              }
+
+              const startIndex = virtualRow.index * columnCount;
+              const endIndex = Math.min(
+                startIndex + columnCount,
+                uniqueBooks.length,
+              );
+              const rowBooks = uniqueBooks.slice(startIndex, endIndex);
+
+              if (!rowBooks.length) {
+                return null;
+              }
+
+              return (
+                <div
+                  key={virtualRow.index}
+                  data-index={virtualRow.index}
+                  ref={rowVirtualizer.measureElement}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    paddingBottom: `${gap}px`,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <div
+                    className="flex"
+                    style={{
+                      gap: `${gap}px`,
+                    }}
+                  >
+                    {rowBooks.map((book) => (
+                      <div
+                        key={book.id}
+                        className="flex"
+                        style={{
+                          flex: `0 0 ${cardWidth}px`,
+                          width: `${cardWidth}px`,
+                        }}
+                      >
+                        <BookCard
+                          book={book}
+                          allBooks={uniqueBooks}
+                          onClick={onBookClick}
+                          onEdit={onBookEdit}
+                          onBookDeleted={handleBookDeleted}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
-      {hasMore && <div ref={sentinelRef as React.RefObject<HTMLDivElement>} />}
-      {isLoading && uniqueBooks.length > 0 && (
+      {!hasMore && !isLoading && uniqueBooks.length > 0 && (
         <div className="p-4 px-8 text-center text-sm text-text-a40">
-          Loading more books...
+          No more books to load
         </div>
       )}
     </div>

@@ -13,7 +13,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import type { InfiniteData } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FilterValues } from "@/components/library/widgets/FiltersPanel";
 import type { Book, BookListResponse } from "@/types/book";
 import { deduplicateFetch, generateFetchKey } from "@/utils/fetch";
@@ -65,6 +71,73 @@ export interface UseFilteredBooksResult {
   addBook?: (bookId: number) => Promise<void>;
 }
 
+interface FetchFilteredBooksPageParams {
+  filters: FilterValues;
+  page: number;
+  pageSize: number;
+  sortBy: "timestamp" | "pubdate" | "title" | "author_sort" | "series_index";
+  sortOrder: "asc" | "desc";
+  full: boolean;
+}
+
+async function fetchFilteredBooksPage({
+  filters,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder,
+  full,
+}: FetchFilteredBooksPageParams): Promise<BookListResponse> {
+  // Check if any filter is active
+  if (!hasActiveFilters(filters)) {
+    return {
+      items: [],
+      total: 0,
+      page: 1,
+      page_size: pageSize,
+      total_pages: 0,
+    };
+  }
+
+  const queryParams = new URLSearchParams({
+    page: page.toString(),
+    page_size: pageSize.toString(),
+    sort_by: sortBy,
+    sort_order: sortOrder,
+  });
+
+  if (full) {
+    queryParams.append("full", "true");
+  }
+
+  const filterBody = filtersToApiBody(filters);
+  const url = `/api/books/filter?${queryParams.toString()}`;
+  const fetchKey = generateFetchKey(url, {
+    method: "POST",
+    body: JSON.stringify(filterBody),
+  });
+
+  const result = await deduplicateFetch(fetchKey, async () => {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(filterBody),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const errorData = (await response.json()) as { detail?: string };
+      throw new Error(errorData.detail || "Failed to fetch filtered books");
+    }
+
+    return (await response.json()) as BookListResponse;
+  });
+
+  return result;
+}
+
 /**
  * Custom hook for fetching and managing filtered books data.
  *
@@ -95,10 +168,12 @@ export function useFilteredBooks(
     full = false,
   } = options;
 
-  const [data, setData] = useState<BookListResponse | null>(null);
+  const queryClient = useQueryClient();
+
+  const [data, _setData] = useState<BookListResponse | null>(null);
   const [accumulatedBooks, setAccumulatedBooks] = useState<Book[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoading, _setIsLoading] = useState(false);
+  const [error, _setError] = useState<string | null>(null);
 
   // Track previous prop values to detect changes
   const prevSortByRef = useRef<string | undefined>(initialSortBy);
@@ -163,134 +238,234 @@ export function useFilteredBooks(
     }
   }, [options.page_size]);
 
-  const fetchFilteredBooks = useCallback(async () => {
-    if (!enabled || !filters) {
-      return;
-    }
+  const listQueryKey = useMemo(
+    () =>
+      [
+        "filtered-books",
+        {
+          filters,
+          page: currentPage,
+          pageSize: currentPageSize,
+          sortBy: currentSortBy,
+          sortOrder: currentSortOrder,
+          full,
+        },
+      ] as const,
+    [
+      filters,
+      currentPage,
+      currentPageSize,
+      currentSortBy,
+      currentSortOrder,
+      full,
+    ],
+  );
 
-    // Check if any filter is active
-    if (!hasActiveFilters(filters)) {
-      setData(null);
-      setIsLoading(false);
-      return;
-    }
+  const infiniteQueryKey = useMemo(
+    () =>
+      [
+        "filtered-books-infinite",
+        {
+          filters,
+          pageSize: currentPageSize,
+          sortBy: currentSortBy,
+          sortOrder: currentSortOrder,
+          full,
+        },
+      ] as const,
+    [filters, currentPageSize, currentSortBy, currentSortOrder, full],
+  );
 
-    setIsLoading(true);
-    setError(null);
+  const listQueryEnabled = enabled && !!filters && !infiniteScroll;
+  const infiniteQueryEnabled = enabled && !!filters && infiniteScroll;
 
-    try {
-      const queryParams = new URLSearchParams({
-        page: currentPage.toString(),
-        page_size: currentPageSize.toString(),
-        sort_by: currentSortBy,
-        sort_order: currentSortOrder,
+  const listQuery = useQuery<BookListResponse, Error>({
+    queryKey: listQueryKey,
+    queryFn: () =>
+      fetchFilteredBooksPage({
+        filters: filters as FilterValues,
+        page: currentPage,
+        pageSize: currentPageSize,
+        sortBy: currentSortBy,
+        sortOrder: currentSortOrder,
+        full,
+      }),
+    enabled: listQueryEnabled && !!filters && hasActiveFilters(filters),
+    staleTime: 60_000,
+  });
+
+  const infiniteQuery = useInfiniteQuery<
+    BookListResponse,
+    Error,
+    InfiniteData<BookListResponse>,
+    readonly unknown[],
+    number
+  >({
+    queryKey: infiniteQueryKey,
+    queryFn: ({ pageParam = 1 }) =>
+      fetchFilteredBooksPage({
+        filters: filters as FilterValues,
+        page: pageParam,
+        pageSize: currentPageSize,
+        sortBy: currentSortBy,
+        sortOrder: currentSortOrder,
+        full,
+      }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      const pageNum = lastPage.page ?? 1;
+      const totalPages = lastPage.total_pages ?? 0;
+      return pageNum < totalPages ? pageNum + 1 : undefined;
+    },
+    enabled:
+      infiniteQueryEnabled &&
+      !!filters &&
+      hasActiveFilters(filters as FilterValues),
+    staleTime: 60_000,
+  });
+
+  const infiniteData = infiniteQuery.data;
+  const effectiveData = listQuery.data ?? data;
+
+  const effectiveIsLoading =
+    (infiniteScroll && infiniteQueryEnabled
+      ? infiniteQuery.isPending || infiniteQuery.isFetching
+      : listQueryEnabled
+        ? listQuery.isPending || listQuery.isFetching
+        : false) || isLoading;
+
+  const effectiveError =
+    infiniteQuery.error?.message ?? listQuery.error?.message ?? error ?? null;
+
+  const books: Book[] = useMemo(() => {
+    if (infiniteScroll) {
+      if (!infiniteData) return accumulatedBooks.length ? accumulatedBooks : [];
+      const allItems = infiniteData.pages.flatMap((pageData) => pageData.items);
+      const seen = new Set<number>();
+      return allItems.filter((book) => {
+        if (seen.has(book.id)) return false;
+        seen.add(book.id);
+        return true;
       });
+    }
+    return effectiveData?.items ?? [];
+  }, [infiniteScroll, infiniteData, effectiveData, accumulatedBooks]);
 
-      if (full) {
-        queryParams.append("full", "true");
+  const total = useMemo(() => {
+    if (infiniteScroll) {
+      const firstPage = infiniteData?.pages[0];
+      return firstPage ? firstPage.total : (effectiveData?.total ?? 0);
+    }
+    return effectiveData?.total ?? 0;
+  }, [infiniteScroll, infiniteData, effectiveData]);
+
+  const page = useMemo(() => {
+    if (infiniteScroll) {
+      const pages = infiniteData?.pages;
+      if (!pages || pages.length === 0) {
+        return currentPage;
       }
-
-      const filterBody = filtersToApiBody(filters);
-      const url = `/api/books/filter?${queryParams.toString()}`;
-      const fetchKey = generateFetchKey(url, {
-        method: "POST",
-        body: JSON.stringify(filterBody),
-      });
-
-      const result = await deduplicateFetch(fetchKey, async () => {
-        const response = await fetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(filterBody),
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          const errorData = (await response.json()) as { detail?: string };
-          throw new Error(errorData.detail || "Failed to fetch filtered books");
-        }
-
-        return (await response.json()) as BookListResponse;
-      });
-
-      setData(result);
-
-      // Accumulate books for infinite scroll
-      if (infiniteScroll) {
-        if (currentPage === 1) {
-          // First page: replace accumulated books
-          setAccumulatedBooks(result.items);
-        } else {
-          // Subsequent pages: append to accumulated books, deduplicating by ID
-          setAccumulatedBooks((prev) => {
-            const existingIds = new Set(prev.map((book) => book.id));
-            const newBooks = result.items.filter(
-              (book) => !existingIds.has(book.id),
-            );
-            return [...prev, ...newBooks];
-          });
-        }
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown error";
-      setError(message);
-      setData(null);
-    } finally {
-      setIsLoading(false);
+      const lastPage = pages[pages.length - 1];
+      return lastPage?.page ?? currentPage;
     }
-  }, [
-    enabled,
-    infiniteScroll,
-    filters,
-    currentPage,
-    currentPageSize,
-    currentSortBy,
-    currentSortOrder,
-    full,
-  ]);
+    return effectiveData?.page ?? currentPage;
+  }, [infiniteScroll, infiniteData, effectiveData, currentPage]);
 
-  useEffect(() => {
-    void fetchFilteredBooks();
-  }, [fetchFilteredBooks]);
+  const pageSize = useMemo(() => {
+    if (infiniteScroll) {
+      const firstPage = infiniteData?.pages[0];
+      return firstPage ? firstPage.page_size : currentPageSize;
+    }
+    return effectiveData?.page_size ?? currentPageSize;
+  }, [infiniteScroll, infiniteData, effectiveData, currentPageSize]);
+
+  const totalPages = useMemo(() => {
+    if (infiniteScroll) {
+      const firstPage = infiniteData?.pages[0];
+      return firstPage ? firstPage.total_pages : 0;
+    }
+    return effectiveData?.total_pages ?? 0;
+  }, [infiniteScroll, infiniteData, effectiveData]);
 
   const loadMore = useCallback(() => {
-    if (!infiniteScroll || isLoading || !data) {
+    if (!infiniteScroll || !infiniteQueryEnabled) {
       return;
     }
-    const pageNum = data.page || currentPage;
-    const totalPages = data.total_pages || 0;
-    if (pageNum < totalPages) {
-      setCurrentPage(pageNum + 1);
+    if (!infiniteQuery.hasNextPage) {
+      return;
     }
-  }, [infiniteScroll, isLoading, data, currentPage]);
+    void infiniteQuery.fetchNextPage();
+  }, [infiniteScroll, infiniteQuery, infiniteQueryEnabled]);
 
-  const hasMore =
-    infiniteScroll && data
-      ? (data.page || currentPage) < (data.total_pages || 0)
-      : false;
-
-  const books = infiniteScroll ? accumulatedBooks : data?.items || [];
+  const hasMore = !!(
+    infiniteScroll &&
+    infiniteQueryEnabled &&
+    infiniteQuery.hasNextPage
+  );
 
   const removeBook = useCallback(
     (bookId: number) => {
       if (infiniteScroll) {
-        setAccumulatedBooks((prev) =>
-          prev.filter((book) => book.id !== bookId),
+        queryClient.setQueryData<InfiniteData<BookListResponse> | undefined>(
+          infiniteQueryKey,
+          (prev) => {
+            if (!prev) return prev;
+            let removedCount = 0;
+            const newPages = prev.pages.map((pageData) => {
+              const originalLength = pageData.items.length;
+              const filteredItems = pageData.items.filter(
+                (book) => book.id !== bookId,
+              );
+              if (filteredItems.length !== originalLength) {
+                removedCount += originalLength - filteredItems.length;
+                return {
+                  ...pageData,
+                  items: filteredItems,
+                };
+              }
+              return pageData;
+            });
+            if (!removedCount || newPages.length === 0) {
+              return prev;
+            }
+            const [firstPage, ...restPages] = newPages;
+            if (!firstPage) {
+              return prev;
+            }
+            const updatedFirstPage: BookListResponse = {
+              items: firstPage.items,
+              total: Math.max(0, firstPage.total - removedCount),
+              page: firstPage.page,
+              page_size: firstPage.page_size,
+              total_pages: firstPage.total_pages,
+            };
+            return {
+              ...prev,
+              pages: [updatedFirstPage, ...restPages],
+            };
+          },
+        );
+      } else {
+        queryClient.setQueryData<BookListResponse | undefined>(
+          listQueryKey,
+          (prev) => {
+            if (!prev) return prev;
+            const filteredItems: Book[] = prev.items.filter(
+              (book: Book) => book.id !== bookId,
+            );
+            if (filteredItems.length === prev.items.length) {
+              return prev;
+            }
+            return {
+              ...prev,
+              items: filteredItems,
+              total: Math.max(0, prev.total - 1),
+            };
+          },
         );
       }
-      // Also update data if it exists
-      setData((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          items: prev.items.filter((book) => book.id !== bookId),
-          total: Math.max(0, prev.total - 1),
-        };
-      });
     },
-    [infiniteScroll],
+    [infiniteScroll, infiniteQueryKey, listQueryKey, queryClient],
   );
 
   const addBook = useCallback(
@@ -300,7 +475,6 @@ export function useFilteredBooks(
       }
 
       try {
-        // Fetch the new book
         const response = await fetch(`/api/books/${bookId}`, {
           cache: "no-store",
         });
@@ -312,45 +486,96 @@ export function useFilteredBooks(
 
         const newBook = (await response.json()) as Book;
 
-        // Add to accumulated books (prepend since new books typically appear first)
-        setAccumulatedBooks((prev) => {
-          // Check if book already exists to avoid duplicates
-          if (prev.some((book) => book.id === newBook.id)) {
-            return prev;
-          }
-          return [newBook, ...prev];
-        });
+        queryClient.setQueryData<InfiniteData<BookListResponse> | undefined>(
+          infiniteQueryKey,
+          (prev) => {
+            if (!prev) {
+              const newPage: BookListResponse = {
+                items: [newBook],
+                total: 1,
+                page: 1,
+                page_size: currentPageSize,
+                total_pages: 1,
+              };
+              return {
+                pages: [newPage],
+                pageParams: [1],
+              };
+            }
 
-        // Also update data if it exists
-        setData((prev) => {
-          if (!prev) return prev;
-          // Check if book already exists
-          if (prev.items.some((book) => book.id === newBook.id)) {
-            return prev;
-          }
-          return {
-            ...prev,
-            items: [newBook, ...prev.items],
-            total: prev.total + 1,
-          };
-        });
+            const exists = prev.pages.some((pageData) =>
+              pageData.items.some((book) => book.id === newBook.id),
+            );
+            if (exists) {
+              return prev;
+            }
+
+            if (prev.pages.length === 0) {
+              const newPage: BookListResponse = {
+                items: [newBook],
+                total: 1,
+                page: 1,
+                page_size: currentPageSize,
+                total_pages: 1,
+              };
+              return {
+                pages: [newPage],
+                pageParams: [1],
+              };
+            }
+
+            const [firstPage, ...restPages] = prev.pages;
+            if (!firstPage) {
+              const newPage: BookListResponse = {
+                items: [newBook],
+                total: 1,
+                page: 1,
+                page_size: currentPageSize,
+                total_pages: 1,
+              };
+              return {
+                pages: [newPage],
+                pageParams: [1],
+              };
+            }
+            const updatedFirstPage: BookListResponse = {
+              items: [newBook, ...firstPage.items],
+              total: firstPage.total + 1,
+              page: firstPage.page,
+              page_size: firstPage.page_size,
+              total_pages: firstPage.total_pages,
+            };
+
+            return {
+              ...prev,
+              pages: [updatedFirstPage, ...restPages],
+            };
+          },
+        );
       } catch (err) {
-        // Silently fail - book will appear on next refresh
         console.error("Failed to add book to list:", err);
       }
     },
-    [infiniteScroll],
+    [infiniteScroll, infiniteQueryKey, currentPageSize, queryClient],
   );
+
+  const refetch = useCallback(async () => {
+    if (infiniteScroll) {
+      await infiniteQuery.refetch();
+    } else {
+      await listQuery.refetch();
+    }
+  }, [infiniteScroll, infiniteQuery, listQuery]);
 
   return {
     books,
-    total: data?.total || 0,
-    page: data?.page || currentPage,
-    pageSize: data?.page_size || currentPageSize,
-    totalPages: data?.total_pages || 0,
-    isLoading,
-    error,
-    refetch: fetchFilteredBooks,
+    total,
+    page,
+    pageSize,
+    totalPages,
+    isLoading: effectiveIsLoading,
+    error: effectiveError,
+    refetch,
     removeBook,
     ...(infiniteScroll && { loadMore, hasMore, addBook }),
   };

@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ViewMode } from "@/components/library/widgets/ViewModeButtons";
 import { useUser } from "@/contexts/UserContext";
 
@@ -68,15 +68,30 @@ export function useLibraryViewMode(
     return DEFAULT_VIEW_MODE;
   });
 
-  // Sync with settings when they load or change
+  // Track last synced setting to avoid resync on unrelated settings updates
+  const initialSyncedValue =
+    getSetting(SETTING_KEY) === "grid" || getSetting(SETTING_KEY) === "list"
+      ? (getSetting(SETTING_KEY) as ViewMode)
+      : null;
+  const lastSyncedSettingRef = useRef<ViewMode | null>(initialSyncedValue);
+
+  // Sync with settings only when settings finish loading, and only if the
+  // specific default_view_mode setting value actually changed.
   useEffect(() => {
-    if (!isSettingsLoading) {
-      const settingValue = getSetting(SETTING_KEY);
-      if (settingValue === "grid" || settingValue === "list") {
+    if (isSettingsLoading) {
+      return;
+    }
+    const settingValue = getSetting(SETTING_KEY);
+    if (settingValue === "grid" || settingValue === "list") {
+      if (
+        lastSyncedSettingRef.current !== settingValue &&
+        settingValue !== viewMode
+      ) {
         setViewMode(settingValue);
       }
+      lastSyncedSettingRef.current = settingValue;
     }
-  }, [getSetting, isSettingsLoading]);
+  }, [isSettingsLoading, viewMode, getSetting]);
 
   const handleViewModeChange = useCallback(
     (mode: ViewMode) => {
