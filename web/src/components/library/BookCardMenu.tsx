@@ -19,6 +19,7 @@ import { useCallback, useState } from "react";
 import { DropdownMenu } from "@/components/common/DropdownMenu";
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
 import { AddToShelfModal } from "@/components/library/AddToShelfModal";
+import { useExclusiveFlyoutMenus } from "@/hooks/useExclusiveFlyoutMenus";
 import { useFlyoutMenu } from "@/hooks/useFlyoutMenu";
 import { LibraryBuilding } from "@/icons/LibraryBuilding";
 import { cn } from "@/libs/utils";
@@ -77,6 +78,10 @@ export function BookCardMenu({
   const sendFlyoutMenu = useFlyoutMenu({ parentMenuOpen: isOpen });
   const [showAddToShelfModal, setShowAddToShelfModal] = useState(false);
 
+  // Ensure only one flyout menu is open at a time
+  const { handleFirstMouseEnter, handleSecondMouseEnter } =
+    useExclusiveFlyoutMenus(flyoutMenu, sendFlyoutMenu);
+
   /**
    * Handle menu item click.
    *
@@ -131,7 +136,7 @@ export function BookCardMenu({
         />
         <SendToDeviceMenuItem
           itemRef={sendFlyoutMenu.parentItemRef}
-          onMouseEnter={sendFlyoutMenu.handleParentMouseEnter}
+          onMouseEnter={handleSecondMouseEnter}
           onMouseLeave={sendFlyoutMenu.handleParentMouseLeave}
           onClick={handleSendToClick}
           disabled={isSendDisabled}
@@ -143,7 +148,7 @@ export function BookCardMenu({
         />
         <AddToShelfMenuItem
           itemRef={flyoutMenu.parentItemRef}
-          onMouseEnter={flyoutMenu.handleParentMouseEnter}
+          onMouseEnter={handleFirstMouseEnter}
           onMouseLeave={flyoutMenu.handleParentMouseLeave}
           onClick={handleAddToClick}
         />
