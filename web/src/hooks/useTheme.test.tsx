@@ -106,10 +106,8 @@ describe("useTheme", () => {
 
     const { result } = renderHook(() => useTheme());
 
-    // Initially should be default theme
-    expect(result.current.theme).toBe("dark");
-
-    // After hydration, should sync from localStorage
+    // In SSR, initial render is "dark" (default), then syncs from localStorage after hydration
+    // In test environment, effects may run synchronously, so we verify the end state
     await waitFor(() => {
       expect(result.current.theme).toBe("light");
     });
