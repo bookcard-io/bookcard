@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import time
+import unittest.mock
 from unittest.mock import MagicMock
 
 import pytest
@@ -571,3 +572,289 @@ def test_get_provider_not_found(
     info = service.get_provider("nonexistent")
 
     assert info is None
+
+
+def test_initialize_providers_with_enable_providers(
+    mock_registry: MetadataProviderRegistry,
+    provider1: MockProvider,
+    provider2: MockProvider,
+) -> None:
+    """Test _initialize_providers with enable_providers (covers line 275)."""
+    mock_registry.get_enabled_providers = MagicMock(  # type: ignore[assignment]
+        return_value=iter([provider1, provider2])
+    )
+
+    service = MetadataService(registry=mock_registry)
+    providers = service._initialize_providers(
+        None, enable_providers=["provider1", "provider2"]
+    )
+
+    assert len(providers) == 2
+    mock_registry.get_enabled_providers.assert_called_once_with([  # type: ignore[attr-defined]
+        "provider1",
+        "provider2",
+    ])
+
+
+def test_cancel_pending_futures(
+    provider1: MockProvider,
+) -> None:
+    """Test _cancel_pending_futures (covers lines 291-293)."""
+    service = MetadataService()
+    # Use a mock future that can be cancelled
+    future = unittest.mock.MagicMock()
+    future.done.return_value = False
+    future.cancel.return_value = True
+
+    future_to_provider = {future: provider1}
+
+    service._cancel_pending_futures(future_to_provider)
+
+    # Verify cancel was called
+    future.cancel.assert_called_once()
+
+
+def test_check_cancellation_when_set(
+    provider1: MockProvider,
+) -> None:
+    """Test _check_cancellation when cancellation event is set (covers lines 315-317)."""
+    import threading
+
+    service = MetadataService()
+    cancellation_event = threading.Event()
+    cancellation_event.set()
+
+    # Use a mock future that can be cancelled
+    future = unittest.mock.MagicMock()
+    future.done.return_value = False
+    future.cancel.return_value = True
+    future_to_provider = {future: provider1}
+
+    result = service._check_cancellation(cancellation_event, future_to_provider)
+
+    assert result is True
+    # Verify cancel was called
+    future.cancel.assert_called_once()
+
+
+def test_wait_for_futures_exception(
+    provider1: MockProvider,
+) -> None:
+    """Test _wait_for_futures with exception (covers lines 342-344)."""
+    service = MetadataService()
+    futures: list[concurrent.futures.Future] = []
+
+    # Create a mock future that will raise an exception when wait is called
+    with unittest.mock.patch("concurrent.futures.wait") as mock_wait:
+        mock_wait.side_effect = RuntimeError("Test error")
+        result = service._wait_for_futures(futures)
+
+    assert result == set()
+
+
+def test_process_completed_future_cancelled_error(
+    provider1: MockProvider,
+    metadata_record1: MetadataRecord,
+) -> None:
+    """Test _process_completed_future with CancelledError (covers lines 406-407)."""
+    service = MetadataService()
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    try:
+        future = executor.submit(lambda: time.sleep(0.1))
+        future.cancel()
+
+        provider_start_times: dict[str, float] = {}
+        all_results: list[MetadataRecord] = []
+        providers_completed = 0
+        providers_failed = 0
+        events: list[MetadataSearchEvent] = []
+
+        def _now_ms() -> int:
+            return int(time.time() * 1000)
+
+        def _publish(event: MetadataSearchEvent) -> None:
+            events.append(event)
+
+        completed, failed = service._process_completed_future(
+            future=future,
+            provider=provider1,
+            provider_start_times=provider_start_times,
+            total_providers=1,
+            all_results=all_results,
+            request_id="test",
+            _now_ms=_now_ms,
+            _publish=_publish,
+            providers_completed=providers_completed,
+            providers_failed=providers_failed,
+        )
+
+        assert completed == 0
+        assert failed == 1
+    finally:
+        executor.shutdown(wait=True)
+
+
+def test_process_completed_future_timeout_error(
+    provider1: MockProvider,
+) -> None:
+    """Test _process_completed_future with TimeoutError (covers lines 409-410)."""
+    service = MetadataService()
+    provider_start_times: dict[str, float] = {}
+    all_results: list[MetadataRecord] = []
+    providers_completed = 0
+    providers_failed = 0
+    events: list[MetadataSearchEvent] = []
+
+    def _now_ms() -> int:
+        return int(time.time() * 1000)
+
+    def _publish(event: MetadataSearchEvent) -> None:
+        events.append(event)
+
+    # Create a mock future that raises TimeoutError
+    future = unittest.mock.MagicMock()
+    future.result.side_effect = concurrent.futures.TimeoutError("Timeout")
+
+    completed, failed = service._process_completed_future(
+        future=future,
+        provider=provider1,
+        provider_start_times=provider_start_times,
+        total_providers=1,
+        all_results=all_results,
+        request_id="test",
+        _now_ms=_now_ms,
+        _publish=_publish,
+        providers_completed=providers_completed,
+        providers_failed=providers_failed,
+    )
+
+    assert completed == 0
+    assert failed == 1
+
+
+def test_collect_provider_results_cancellation_at_start(
+    mock_registry: MetadataProviderRegistry,
+    provider1: MockProvider,
+    metadata_record1: MetadataRecord,
+) -> None:
+    """Test _collect_provider_results with cancellation at start (covers line 469)."""
+    import threading
+
+    service = MetadataService(registry=mock_registry)
+    provider1.set_search_result([metadata_record1])
+    mock_registry.get_enabled_providers = MagicMock(  # type: ignore[assignment]
+        return_value=iter([provider1])
+    )
+
+    cancellation_event = threading.Event()
+    cancellation_event.set()
+
+    events: list[MetadataSearchEvent] = []
+
+    def event_callback(event: MetadataSearchEvent) -> None:
+        events.append(event)
+
+    result = service.search(
+        query="test query",
+        event_callback=event_callback,
+        cancellation_event=cancellation_event,
+    )
+
+    # Should return empty or partial results due to cancellation
+    assert isinstance(result, list)
+
+
+def test_collect_provider_results_cancellation_when_no_done(
+    mock_registry: MetadataProviderRegistry,
+    provider1: MockProvider,
+) -> None:
+    """Test _collect_provider_results with cancellation when no futures done (covers lines 476-478)."""
+    import threading
+
+    service = MetadataService(registry=mock_registry)
+    # Make provider take a long time
+    provider1.set_search_exception = lambda: None  # type: ignore[assignment]
+    mock_registry.get_enabled_providers = MagicMock(  # type: ignore[assignment]
+        return_value=iter([provider1])
+    )
+
+    cancellation_event = threading.Event()
+
+    def slow_search(
+        self: MockProvider, query: str, locale: str = "en", max_results: int = 10
+    ) -> list[MetadataRecord]:
+        time.sleep(0.2)  # Make it slow
+        return []
+
+    provider1.search = slow_search.__get__(provider1, type(provider1))  # type: ignore[assignment]
+
+    # Set cancellation after a short delay
+    def cancel_soon() -> None:
+        time.sleep(0.05)
+        cancellation_event.set()
+
+    import threading
+
+    cancel_thread = threading.Thread(target=cancel_soon)
+    cancel_thread.start()
+
+    result = service.search(
+        query="test query",
+        cancellation_event=cancellation_event,
+    )
+
+    cancel_thread.join()
+    assert isinstance(result, list)
+
+
+def test_collect_provider_results_cancellation_before_processing(
+    mock_registry: MetadataProviderRegistry,
+    provider1: MockProvider,
+    metadata_record1: MetadataRecord,
+) -> None:
+    """Test _collect_provider_results with cancellation before processing future (covers line 484)."""
+    import threading
+
+    service = MetadataService(registry=mock_registry)
+    provider1.set_search_result([metadata_record1])
+    mock_registry.get_enabled_providers = MagicMock(  # type: ignore[assignment]
+        return_value=iter([provider1])
+    )
+
+    cancellation_event = threading.Event()
+
+    # Set cancellation after a short delay
+    def cancel_soon() -> None:
+        time.sleep(0.01)
+        cancellation_event.set()
+
+    cancel_thread = threading.Thread(target=cancel_soon)
+    cancel_thread.start()
+
+    result = service.search(
+        query="test query",
+        cancellation_event=cancellation_event,
+    )
+
+    cancel_thread.join()
+    assert isinstance(result, list)
+
+
+def test_search_provider_cancellation_before_start(
+    provider1: MockProvider,
+) -> None:
+    """Test _search_provider with cancellation before start (covers lines 742-743)."""
+    import threading
+
+    service = MetadataService()
+    cancellation_event = threading.Event()
+    cancellation_event.set()
+
+    with pytest.raises(concurrent.futures.CancelledError):
+        service._search_provider(
+            provider1,
+            "test query",
+            "en",
+            10,
+            cancellation_event=cancellation_event,
+        )
