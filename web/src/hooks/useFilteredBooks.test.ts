@@ -13,10 +13,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import { QueryClient } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BookListResponse } from "@/types/book";
 import { createEmptyFilters } from "@/utils/filters";
+import { createQueryClientWrapper } from "./test-utils";
 import { useFilteredBooks } from "./useFilteredBooks";
 
 describe("useFilteredBooks", () => {
@@ -44,22 +46,49 @@ describe("useFilteredBooks", () => {
     total_pages: 1,
   };
 
+  let queryClient: QueryClient;
+  let wrapper: ReturnType<typeof createQueryClientWrapper>;
+
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
+    queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+          gcTime: 0,
+        },
+      },
+    });
+    wrapper = createQueryClientWrapper(queryClient);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    queryClient.clear();
   });
 
-  it("should not fetch when no filters are provided", () => {
-    renderHook(() => useFilteredBooks({ filters: undefined }));
-    expect(globalThis.fetch).not.toHaveBeenCalled();
+  it("should not fetch when no filters are provided", async () => {
+    renderHook(() => useFilteredBooks({ filters: undefined }), { wrapper });
+    // React Query may still initialize, so wait a bit
+    await waitFor(
+      () => {
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+      },
+      { timeout: 100 },
+    );
   });
 
-  it("should not fetch when filters are empty", () => {
-    renderHook(() => useFilteredBooks({ filters: createEmptyFilters() }));
-    expect(globalThis.fetch).not.toHaveBeenCalled();
+  it("should not fetch when filters are empty", async () => {
+    renderHook(() => useFilteredBooks({ filters: createEmptyFilters() }), {
+      wrapper,
+    });
+    // React Query may still initialize, so wait a bit
+    await waitFor(
+      () => {
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+      },
+      { timeout: 100 },
+    );
   });
 
   it("should fetch filtered books", async () => {
@@ -76,8 +105,9 @@ describe("useFilteredBooks", () => {
       authorIds: [1],
     };
 
-    const { result } = renderHook(() =>
-      useFilteredBooks({ filters, enabled: true }),
+    const { result } = renderHook(
+      () => useFilteredBooks({ filters, enabled: true }),
+      { wrapper },
     );
 
     await waitFor(() => {
@@ -101,7 +131,9 @@ describe("useFilteredBooks", () => {
       authorIds: [1],
     };
 
-    const { result } = renderHook(() => useFilteredBooks({ filters }));
+    const { result } = renderHook(() => useFilteredBooks({ filters }), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -143,8 +175,9 @@ describe("useFilteredBooks", () => {
         json: vi.fn().mockResolvedValue(page2Response),
       });
 
-    const { result } = renderHook(() =>
-      useFilteredBooks({ filters, infiniteScroll: true }),
+    const { result } = renderHook(
+      () => useFilteredBooks({ filters, infiniteScroll: true }),
+      { wrapper },
     );
 
     await waitFor(() => {
@@ -180,7 +213,10 @@ describe("useFilteredBooks", () => {
 
     const { result, rerender } = renderHook(
       ({ filters }) => useFilteredBooks({ filters, infiniteScroll: true }),
-      { initialProps: { filters: filters1 } },
+      {
+        wrapper,
+        initialProps: { filters: filters1 },
+      },
     );
 
     await waitFor(() => {
@@ -200,8 +236,9 @@ describe("useFilteredBooks", () => {
       authorIds: [1],
     };
 
-    const { result } = renderHook(() =>
-      useFilteredBooks({ filters, infiniteScroll: true }),
+    const { result } = renderHook(
+      () => useFilteredBooks({ filters, infiniteScroll: true }),
+      { wrapper },
     );
 
     // Before any data is loaded, data should be null
@@ -236,8 +273,9 @@ describe("useFilteredBooks", () => {
       authorIds: [1],
     };
 
-    const { result } = renderHook(() =>
-      useFilteredBooks({ filters, infiniteScroll: true }),
+    const { result } = renderHook(
+      () => useFilteredBooks({ filters, infiniteScroll: true }),
+      { wrapper },
     );
 
     await waitFor(() => {
@@ -282,7 +320,10 @@ describe("useFilteredBooks", () => {
 
     const { result, rerender } = renderHook(
       ({ filters }) => useFilteredBooks({ filters, infiniteScroll: true }),
-      { initialProps: { filters: filters1 } },
+      {
+        wrapper,
+        initialProps: { filters: filters1 },
+      },
     );
 
     await waitFor(() => {
@@ -315,8 +356,9 @@ describe("useFilteredBooks", () => {
       authorIds: [1],
     };
 
-    const { result } = renderHook(() =>
-      useFilteredBooks({ filters, infiniteScroll: true }),
+    const { result } = renderHook(
+      () => useFilteredBooks({ filters, infiniteScroll: true }),
+      { wrapper },
     );
 
     await waitFor(() => {
@@ -360,8 +402,9 @@ describe("useFilteredBooks", () => {
       authorIds: [1],
     };
 
-    const { result } = renderHook(() =>
-      useFilteredBooks({ filters, infiniteScroll: true }),
+    const { result } = renderHook(
+      () => useFilteredBooks({ filters, infiniteScroll: true }),
+      { wrapper },
     );
 
     await waitFor(() => {
@@ -386,7 +429,7 @@ describe("useFilteredBooks", () => {
       authorIds: [1],
     };
 
-    renderHook(() => useFilteredBooks({ filters, full: true }));
+    renderHook(() => useFilteredBooks({ filters, full: true }), { wrapper });
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalled();
@@ -416,8 +459,9 @@ describe("useFilteredBooks", () => {
       authorIds: [1],
     };
 
-    const { result } = renderHook(() =>
-      useFilteredBooks({ filters, infiniteScroll: true }),
+    const { result } = renderHook(
+      () => useFilteredBooks({ filters, infiniteScroll: true }),
+      { wrapper },
     );
 
     await waitFor(() => {
@@ -428,7 +472,10 @@ describe("useFilteredBooks", () => {
       result.current.removeBook?.(1);
     });
 
-    expect(result.current.books).toHaveLength(0);
+    // Wait for React Query to update the cache and component to re-render
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(0);
+    });
   });
 
   it("should remove book from data items and update total", async () => {
@@ -445,8 +492,9 @@ describe("useFilteredBooks", () => {
       authorIds: [1],
     };
 
-    const { result } = renderHook(() =>
-      useFilteredBooks({ filters, infiniteScroll: false }),
+    const { result } = renderHook(
+      () => useFilteredBooks({ filters, infiniteScroll: false }),
+      { wrapper },
     );
 
     await waitFor(() => {
@@ -490,8 +538,9 @@ describe("useFilteredBooks", () => {
       authorIds: [1],
     };
 
-    const { result } = renderHook(() =>
-      useFilteredBooks({ filters, infiniteScroll: true }),
+    const { result } = renderHook(
+      () => useFilteredBooks({ filters, infiniteScroll: true }),
+      { wrapper },
     );
 
     await waitFor(() => {
@@ -502,8 +551,11 @@ describe("useFilteredBooks", () => {
       await result.current.addBook?.(2);
     });
 
-    expect(result.current.books).toHaveLength(2);
-    expect(result.current.books[0]?.id).toBe(2); // New book should be prepended
+    // Wait for React Query to update the cache and component to re-render
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(2);
+      expect(result.current.books[0]?.id).toBe(2); // New book should be prepended
+    });
   });
 
   it("should not add duplicate book to accumulated books", async () => {
@@ -528,8 +580,9 @@ describe("useFilteredBooks", () => {
       authorIds: [1],
     };
 
-    const { result } = renderHook(() =>
-      useFilteredBooks({ filters, infiniteScroll: true }),
+    const { result } = renderHook(
+      () => useFilteredBooks({ filters, infiniteScroll: true }),
+      { wrapper },
     );
 
     await waitFor(() => {
@@ -540,7 +593,10 @@ describe("useFilteredBooks", () => {
       await result.current.addBook?.(1);
     });
 
-    expect(result.current.books).toHaveLength(1); // Should not add duplicate
+    // Wait for React Query to update (or confirm it didn't change)
+    await waitFor(() => {
+      expect(result.current.books).toHaveLength(1); // Should not add duplicate
+    });
   });
 
   it("should add book to data items and update total", async () => {
@@ -570,8 +626,9 @@ describe("useFilteredBooks", () => {
       authorIds: [1],
     };
 
-    const { result } = renderHook(() =>
-      useFilteredBooks({ filters, infiniteScroll: true }),
+    const { result } = renderHook(
+      () => useFilteredBooks({ filters, infiniteScroll: true }),
+      { wrapper },
     );
 
     await waitFor(() => {
@@ -610,8 +667,9 @@ describe("useFilteredBooks", () => {
       authorIds: [1],
     };
 
-    const { result } = renderHook(() =>
-      useFilteredBooks({ filters, infiniteScroll: true }),
+    const { result } = renderHook(
+      () => useFilteredBooks({ filters, infiniteScroll: true }),
+      { wrapper },
     );
 
     await waitFor(() => {
@@ -650,8 +708,9 @@ describe("useFilteredBooks", () => {
       authorIds: [1],
     };
 
-    const { result } = renderHook(() =>
-      useFilteredBooks({ filters, infiniteScroll: true }),
+    const { result } = renderHook(
+      () => useFilteredBooks({ filters, infiniteScroll: true }),
+      { wrapper },
     );
 
     await waitFor(() => {
@@ -682,8 +741,9 @@ describe("useFilteredBooks", () => {
       authorIds: [1],
     };
 
-    const { result } = renderHook(() =>
-      useFilteredBooks({ filters, infiniteScroll: false }),
+    const { result } = renderHook(
+      () => useFilteredBooks({ filters, infiniteScroll: false }),
+      { wrapper },
     );
 
     await waitFor(() => {

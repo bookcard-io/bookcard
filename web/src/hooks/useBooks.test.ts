@@ -13,9 +13,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import { QueryClient } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BookListResponse } from "@/types/book";
+import { createQueryClientWrapper } from "./test-utils";
 import { useBooks } from "./useBooks";
 
 describe("useBooks", () => {
@@ -43,12 +45,25 @@ describe("useBooks", () => {
     total_pages: 1,
   };
 
+  let queryClient: QueryClient;
+  let wrapper: ReturnType<typeof createQueryClientWrapper>;
+
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
+    queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+          gcTime: 0,
+        },
+      },
+    });
+    wrapper = createQueryClientWrapper(queryClient);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    queryClient.clear();
   });
 
   it("should fetch books on mount", async () => {
@@ -60,7 +75,7 @@ describe("useBooks", () => {
       mockFetchResponse,
     );
 
-    const { result } = renderHook(() => useBooks());
+    const { result } = renderHook(() => useBooks(), { wrapper });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -70,9 +85,16 @@ describe("useBooks", () => {
     expect(result.current.total).toBe(1);
   });
 
-  it("should not fetch when enabled is false", () => {
-    renderHook(() => useBooks({ enabled: false }));
-    expect(globalThis.fetch).not.toHaveBeenCalled();
+  it("should not fetch when enabled is false", async () => {
+    renderHook(() => useBooks({ enabled: false }), { wrapper });
+    // React Query may still initialize, so wait a bit
+    await waitFor(
+      () => {
+        // With enabled: false, React Query won't fetch
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+      },
+      { timeout: 100 },
+    );
   });
 
   it("should include search query in request", async () => {
@@ -84,7 +106,7 @@ describe("useBooks", () => {
       mockFetchResponse,
     );
 
-    renderHook(() => useBooks({ search: "test query" }));
+    renderHook(() => useBooks({ search: "test query" }), { wrapper });
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
@@ -103,7 +125,7 @@ describe("useBooks", () => {
       mockFetchResponse,
     );
 
-    const { result } = renderHook(() => useBooks());
+    const { result } = renderHook(() => useBooks(), { wrapper });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -122,7 +144,7 @@ describe("useBooks", () => {
       mockFetchResponse,
     );
 
-    const { result } = renderHook(() => useBooks());
+    const { result } = renderHook(() => useBooks(), { wrapper });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -168,7 +190,9 @@ describe("useBooks", () => {
         json: vi.fn().mockResolvedValue(page2Response),
       });
 
-    const { result } = renderHook(() => useBooks({ infiniteScroll: true }));
+    const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.books).toHaveLength(1);
@@ -194,7 +218,10 @@ describe("useBooks", () => {
 
     const { result, rerender } = renderHook(
       ({ search }) => useBooks({ infiniteScroll: true, search }),
-      { initialProps: { search: "query1" } },
+      {
+        wrapper,
+        initialProps: { search: "query1" },
+      },
     );
 
     await waitFor(() => {
@@ -221,7 +248,9 @@ describe("useBooks", () => {
       mockFetchResponse,
     );
 
-    const { result } = renderHook(() => useBooks({ infiniteScroll: true }));
+    const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.hasMore).toBe(true);
@@ -239,7 +268,10 @@ describe("useBooks", () => {
 
     const { result, rerender } = renderHook(
       ({ sort_order }) => useBooks({ infiniteScroll: true, sort_order }),
-      { initialProps: { sort_order: "asc" as "asc" | "desc" } },
+      {
+        wrapper,
+        initialProps: { sort_order: "asc" as "asc" | "desc" },
+      },
     );
 
     await waitFor(() => {
@@ -262,7 +294,9 @@ describe("useBooks", () => {
       mockFetchResponse,
     );
 
-    const { result } = renderHook(() => useBooks({ infiniteScroll: true }));
+    const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -286,7 +320,9 @@ describe("useBooks", () => {
       mockFetchResponse,
     );
 
-    const { result } = renderHook(() => useBooks({ infiniteScroll: true }));
+    const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -314,7 +350,9 @@ describe("useBooks", () => {
       mockFetchResponse,
     );
 
-    const { result } = renderHook(() => useBooks({ infiniteScroll: false }));
+    const { result } = renderHook(() => useBooks({ infiniteScroll: false }), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -340,7 +378,9 @@ describe("useBooks", () => {
   });
 
   it("should not load more when data is null", async () => {
-    const { result } = renderHook(() => useBooks({ infiniteScroll: true }));
+    const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
+      wrapper,
+    });
 
     // Before any data is loaded, data should be null
     act(() => {
@@ -369,7 +409,9 @@ describe("useBooks", () => {
       mockFetchResponse,
     );
 
-    const { result } = renderHook(() => useBooks({ infiniteScroll: true }));
+    const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -405,6 +447,7 @@ describe("useBooks", () => {
     const { result, rerender } = renderHook(
       ({ sort_by }) => useBooks({ sort_by }),
       {
+        wrapper,
         initialProps: {
           sort_by: "title" as
             | "timestamp"
@@ -439,7 +482,9 @@ describe("useBooks", () => {
       mockFetchResponse,
     );
 
-    const { result } = renderHook(() => useBooks({ infiniteScroll: true }));
+    const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -463,7 +508,9 @@ describe("useBooks", () => {
       mockFetchResponse,
     );
 
-    const { result } = renderHook(() => useBooks({ infiniteScroll: true }));
+    const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -490,6 +537,7 @@ describe("useBooks", () => {
     const { result, rerender } = renderHook(
       ({ sort_by }) => useBooks({ infiniteScroll: true, sort_by }),
       {
+        wrapper,
         initialProps: {
           sort_by: "title" as
             | "timestamp"
@@ -537,7 +585,10 @@ describe("useBooks", () => {
 
     const { result, rerender } = renderHook(
       ({ page_size }) => useBooks({ page_size }),
-      { initialProps: { page_size: 20 } },
+      {
+        wrapper,
+        initialProps: { page_size: 20 },
+      },
     );
 
     await waitFor(() => {
@@ -577,7 +628,7 @@ describe("useBooks", () => {
       mockFetchResponse,
     );
 
-    const { result } = renderHook(() => useBooks());
+    const { result } = renderHook(() => useBooks(), { wrapper });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -601,7 +652,9 @@ describe("useBooks", () => {
       mockFetchResponse,
     );
 
-    const { result } = renderHook(() => useBooks({ infiniteScroll: true }));
+    const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -622,40 +675,43 @@ describe("useBooks", () => {
       page: undefined,
       total_pages: 3,
     } as unknown as BookListResponse;
+    const page2Response = {
+      ...mockResponse,
+      page: 2,
+      total_pages: 3,
+    };
     const mockFetchResponse = {
       ok: true,
       json: vi.fn().mockResolvedValue(responseWithoutPage),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
-    );
+    const page2FetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(page2Response),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(mockFetchResponse)
+      .mockResolvedValueOnce(page2FetchResponse);
 
-    const { result } = renderHook(() => useBooks({ infiniteScroll: true }));
-
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
-
-    // Manually set page to 2 to test the fallback
-    act(() => {
-      result.current.setQuery({ page: 2 });
+    const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
+      wrapper,
     });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
     });
 
-    // Now try loadMore - it should use page (2) as fallback since data.page is undefined
+    // Load more - React Query's infinite query will use getNextPageParam
+    // which uses lastPage.page ?? 1, so if page is undefined, it uses 1, then increments to 2
     act(() => {
       if (result.current.loadMore) {
         result.current.loadMore();
       }
     });
 
-    // Should load page 3
+    // Should load page 2 (since first page had undefined page, getNextPageParam uses 1, then increments)
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining("page=3"),
+        expect.stringContaining("page=2"),
         expect.any(Object),
       );
     });
@@ -675,7 +731,9 @@ describe("useBooks", () => {
       mockFetchResponse,
     );
 
-    const { result } = renderHook(() => useBooks({ infiniteScroll: true }));
+    const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -704,7 +762,7 @@ describe("useBooks", () => {
       mockFetchResponse,
     );
 
-    renderHook(() => useBooks({ full: true }));
+    renderHook(() => useBooks({ full: true }), { wrapper });
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
@@ -723,7 +781,9 @@ describe("useBooks", () => {
       mockFetchResponse,
     );
 
-    const { result } = renderHook(() => useBooks({ infiniteScroll: true }));
+    const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.books).toHaveLength(1);
@@ -733,10 +793,13 @@ describe("useBooks", () => {
       result.current.removeBook?.(1);
     });
 
-    // Should remove from accumulated books (lines 285-289)
-    expect(result.current.books).toHaveLength(0);
-    // Should also update data (lines 290-298)
-    expect(result.current.total).toBe(0);
+    // Wait for React Query to update the cache and component to re-render
+    await waitFor(() => {
+      // Should remove from accumulated books
+      expect(result.current.books).toHaveLength(0);
+      // Should also update data
+      expect(result.current.total).toBe(0);
+    });
   });
 
   it("should update data when removing book even if prev is null", async () => {
@@ -748,7 +811,9 @@ describe("useBooks", () => {
       mockFetchResponse,
     );
 
-    const { result } = renderHook(() => useBooks({ infiniteScroll: true }));
+    const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.books).toHaveLength(1);
@@ -759,10 +824,13 @@ describe("useBooks", () => {
       result.current.removeBook?.(1);
     });
 
-    // Now data should be null (since we removed the only book)
-    // The removeBook function should handle prev being null (line 292: if (!prev) return prev;)
-    // This tests the data update path (lines 290-298)
-    expect(result.current.total).toBe(0);
+    // Wait for React Query to update the cache and component to re-render
+    await waitFor(() => {
+      // Now data should be updated (since we removed the only book)
+      // The removeBook function should handle prev being null
+      // This tests the data update path
+      expect(result.current.total).toBe(0);
+    });
   });
 
   it("should add book to accumulated books and data", async () => {
@@ -792,7 +860,9 @@ describe("useBooks", () => {
       .mockResolvedValueOnce(mockFetchResponse)
       .mockResolvedValueOnce(newBookResponse);
 
-    const { result } = renderHook(() => useBooks({ infiniteScroll: true }));
+    const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.books).toHaveLength(1);
@@ -823,7 +893,9 @@ describe("useBooks", () => {
       .mockResolvedValueOnce(mockFetchResponse)
       .mockResolvedValueOnce(existingBookResponse);
 
-    const { result } = renderHook(() => useBooks({ infiniteScroll: true }));
+    const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.books).toHaveLength(1);
@@ -855,7 +927,9 @@ describe("useBooks", () => {
       .mockResolvedValueOnce(mockFetchResponse)
       .mockResolvedValueOnce(errorResponse);
 
-    const { result } = renderHook(() => useBooks({ infiniteScroll: true }));
+    const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.books).toHaveLength(1);
@@ -882,7 +956,9 @@ describe("useBooks", () => {
       mockFetchResponse,
     );
 
-    const { result } = renderHook(() => useBooks({ infiniteScroll: false }));
+    const { result } = renderHook(() => useBooks({ infiniteScroll: false }), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);

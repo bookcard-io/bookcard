@@ -13,6 +13,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+/**
+ * NOTE: This hook is kept for reference purposes.
+ *
+ * We migrated to React Query (useInfiniteQuery) and @tanstack/react-virtual
+ * for infinite scroll functionality. This hook is preserved in case we need
+ * to revert to the Intersection Observer-based approach.
+ *
+ * See: useInfiniteScrollVirtualizer.ts for the current implementation.
+ */
+
 "use client";
 
 import { useEffect, useRef } from "react";
