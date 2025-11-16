@@ -58,7 +58,7 @@ export interface SearchInputProps {
  * Follows IOC by using dependency injection for the search service.
  */
 export function SearchInput({
-  placeholder = "Search books, tags & authors",
+  placeholder = "Search books, series, tags, and authors",
   value = "",
   onChange,
   onSubmit,
