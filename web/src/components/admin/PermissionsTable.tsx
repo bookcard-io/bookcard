@@ -93,7 +93,7 @@ export function PermissionsTable({
         {/* Header */}
         <div
           className={cn(
-            "grid grid-cols-[2fr_2fr_1fr_2fr_120px] gap-4 border-surface-a20 border-b bg-surface-a10 px-4 py-3 font-semibold text-sm text-text-a40",
+            "grid grid-cols-[1fr_2fr_1fr_2fr_120px] gap-4 border-surface-a20 border-b bg-surface-a10 px-4 py-3 font-semibold text-sm text-text-a40",
           )}
         >
           <div className={cn("flex items-center")}>Name</div>
@@ -113,7 +113,7 @@ export function PermissionsTable({
               <div
                 key={permission.id}
                 className={cn(
-                  "grid grid-cols-[2fr_2fr_1fr_2fr_120px] gap-4 border-surface-a20 border-b px-4 py-3 transition-colors duration-200 last:border-b-0",
+                  "grid grid-cols-[1fr_2fr_1fr_2fr_120px] gap-4 border-surface-a20 border-b px-4 py-3 transition-colors duration-200 last:border-b-0",
                   index % 2 === 0 ? "bg-surface-a20" : "bg-surface-tonal-a20",
                   "hover:bg-surface-a40/50",
                 )}
