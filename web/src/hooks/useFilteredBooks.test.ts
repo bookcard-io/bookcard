@@ -758,4 +758,145 @@ describe("useFilteredBooks", () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(1); // Only initial fetch
     expect(result.current.books).toHaveLength(1);
   });
+
+  it("should return empty result when no active filters", async () => {
+    const emptyFilters = createEmptyFilters();
+    const { result } = renderHook(
+      () => useFilteredBooks({ filters: emptyFilters }),
+      { wrapper },
+    );
+
+    // When there are no active filters, the query is disabled
+    // so it should return empty results immediately
+    await waitFor(() => {
+      expect(result.current.books).toEqual([]);
+      expect(result.current.total).toBe(0);
+    });
+
+    // Verify that no fetch was called (query is disabled)
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+
+    // Note: isLoading might be true initially even for disabled queries
+    // because listQueryEnabled is true, but the query itself is disabled
+    // The important thing is that no fetch happens and results are empty
+  });
+
+  it("should handle fetch error with detail message", async () => {
+    const mockFetchResponse = {
+      ok: false,
+      json: vi.fn().mockResolvedValue({ detail: "Custom error message" }),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchResponse,
+    );
+
+    const filters = {
+      ...createEmptyFilters(),
+      authorIds: [1],
+    };
+
+    const { result } = renderHook(() => useFilteredBooks({ filters }), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.error).toBe("Custom error message");
+  });
+
+  it("should handle fetch error without detail message", async () => {
+    const mockFetchResponse = {
+      ok: false,
+      json: vi.fn().mockResolvedValue({}),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchResponse,
+    );
+
+    const filters = {
+      ...createEmptyFilters(),
+      authorIds: [1],
+    };
+
+    const { result } = renderHook(() => useFilteredBooks({ filters }), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.error).toBe("Failed to fetch filtered books");
+  });
+
+  it("should refetch books in regular mode", async () => {
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockResponse),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchResponse,
+    );
+
+    const filters = {
+      ...createEmptyFilters(),
+      authorIds: [1],
+    };
+
+    const { result } = renderHook(() => useFilteredBooks({ filters }), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    const initialCallCount = (globalThis.fetch as ReturnType<typeof vi.fn>).mock
+      .calls.length;
+
+    await act(async () => {
+      await result.current.refetch();
+    });
+
+    expect(
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length,
+    ).toBeGreaterThan(initialCallCount);
+  });
+
+  it("should refetch books in infinite scroll mode", async () => {
+    const mockFetchResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockResponse),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchResponse,
+    );
+
+    const filters = {
+      ...createEmptyFilters(),
+      authorIds: [1],
+    };
+
+    const { result } = renderHook(
+      () => useFilteredBooks({ filters, infiniteScroll: true }),
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    const initialCallCount = (globalThis.fetch as ReturnType<typeof vi.fn>).mock
+      .calls.length;
+
+    await act(async () => {
+      await result.current.refetch();
+    });
+
+    expect(
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length,
+    ).toBeGreaterThan(initialCallCount);
+  });
 });

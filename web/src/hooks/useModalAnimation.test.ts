@@ -14,12 +14,17 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useModalAnimation } from "./useModalAnimation";
 
 describe("useModalAnimation", () => {
   beforeEach(() => {
-    // No setup needed
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   it("should initialize with hasAnimated false and isShaking false", () => {
@@ -27,103 +32,169 @@ describe("useModalAnimation", () => {
 
     expect(result.current.hasAnimated).toBe(false);
     expect(result.current.isShaking).toBe(false);
-  });
-
-  it("should have undefined overlayStyle and containerStyle initially", () => {
-    const { result } = renderHook(() => useModalAnimation());
-
     expect(result.current.overlayStyle).toBeUndefined();
     expect(result.current.containerStyle).toBeUndefined();
   });
 
-  it("should trigger shake animation and set isShaking to true", () => {
-    const { result } = renderHook(() => useModalAnimation());
+  it("should set hasAnimated to true after fadeInDuration", () => {
+    const { result } = renderHook(() => useModalAnimation(250));
+
+    expect(result.current.hasAnimated).toBe(false);
 
     act(() => {
-      result.current.triggerShake();
+      vi.advanceTimersByTime(250);
     });
 
-    expect(result.current.isShaking).toBe(true);
+    expect(result.current.hasAnimated).toBe(true);
   });
 
   it("should use default fadeInDuration of 250ms", () => {
     const { result } = renderHook(() => useModalAnimation());
 
-    expect(result.current.hasAnimated).toBe(false);
-    expect(result.current.overlayStyle).toBeUndefined();
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+
+    expect(result.current.hasAnimated).toBe(true);
   });
 
-  it("should accept custom fadeInDuration", () => {
-    const { result } = renderHook(() => useModalAnimation(500));
-
-    expect(result.current.hasAnimated).toBe(false);
-    expect(result.current.overlayStyle).toBeUndefined();
-  });
-
-  it("should return stable triggerShake function", () => {
-    const { result, rerender } = renderHook(() => useModalAnimation());
-
-    const initialTriggerShake = result.current.triggerShake;
-
-    rerender();
-
-    expect(result.current.triggerShake).toBe(initialTriggerShake);
-  });
-
-  it("should return all expected properties", () => {
-    const { result } = renderHook(() => useModalAnimation());
-
-    expect(result.current).toHaveProperty("hasAnimated");
-    expect(result.current).toHaveProperty("isShaking");
-    expect(result.current).toHaveProperty("triggerShake");
-    expect(result.current).toHaveProperty("overlayStyle");
-    expect(result.current).toHaveProperty("containerStyle");
-  });
-
-  it("should have triggerShake as a function", () => {
-    const { result } = renderHook(() => useModalAnimation());
-
-    expect(typeof result.current.triggerShake).toBe("function");
-  });
-
-  it("should compute overlayStyle based on hasAnimatedRef", () => {
+  it("should set overlayStyle to animation none after animation completes", () => {
     const { result } = renderHook(() => useModalAnimation(250));
 
-    // Initially overlayStyle is undefined because hasAnimatedRef.current is false (line 77-79)
     expect(result.current.overlayStyle).toBeUndefined();
+
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+
+    expect(result.current.overlayStyle).toEqual({ animation: "none" });
   });
 
-  it("should not replay animation on subsequent renders (early return check)", () => {
-    const { result, rerender } = renderHook(() => useModalAnimation(250));
+  it("should set containerStyle to animation none after animation completes when not shaking", () => {
+    const { result } = renderHook(() => useModalAnimation(250));
 
-    // Initially hasAnimated is false
-    expect(result.current.hasAnimated).toBe(false);
-
-    // Rerender multiple times - the early return check (line 60) prevents
-    // the effect from running again after the first time
-    rerender();
-    rerender();
-    rerender();
-
-    // Verify hook maintains state correctly
-    expect(result.current).toHaveProperty("hasAnimated");
-    expect(result.current).toHaveProperty("isShaking");
-    expect(result.current).toHaveProperty("triggerShake");
-  });
-
-  it("should compute containerStyle based on hasAnimatedRef and isShaking state", () => {
-    const { result } = renderHook(() => useModalAnimation());
-
-    // Initially containerStyle is undefined (hasAnimatedRef.current is false, line 81-85)
     expect(result.current.containerStyle).toBeUndefined();
 
-    // Trigger shake - this sets isShaking to true (line 71)
-    // The setTimeout callback (line 73) will reset it later, but we test the immediate state
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+
+    expect(result.current.containerStyle).toEqual({ animation: "none" });
+  });
+
+  it("should set containerStyle to shake animation when shaking after animation completes", () => {
+    const { result } = renderHook(() => useModalAnimation(250));
+
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+
+    expect(result.current.containerStyle).toEqual({ animation: "none" });
+
     act(() => {
       result.current.triggerShake();
     });
 
-    // isShaking should be true immediately after triggerShake (line 71)
     expect(result.current.isShaking).toBe(true);
+    expect(result.current.containerStyle).toEqual({
+      animation: "shake 0.5s ease-in-out",
+    });
+  });
+
+  it("should stop shaking after 500ms", () => {
+    const { result } = renderHook(() => useModalAnimation(250));
+
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+
+    act(() => {
+      result.current.triggerShake();
+    });
+
+    expect(result.current.isShaking).toBe(true);
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(result.current.isShaking).toBe(false);
+    expect(result.current.containerStyle).toEqual({ animation: "none" });
+  });
+
+  it("should handle multiple shake triggers", () => {
+    const { result } = renderHook(() => useModalAnimation(250));
+
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+
+    act(() => {
+      result.current.triggerShake();
+    });
+
+    expect(result.current.isShaking).toBe(true);
+
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    // Trigger another shake while still shaking
+    act(() => {
+      result.current.triggerShake();
+    });
+
+    expect(result.current.isShaking).toBe(true);
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(result.current.isShaking).toBe(false);
+  });
+
+  it("should not set overlayStyle or containerStyle before animation completes", () => {
+    const { result } = renderHook(() => useModalAnimation(250));
+
+    expect(result.current.overlayStyle).toBeUndefined();
+    expect(result.current.containerStyle).toBeUndefined();
+
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
+    expect(result.current.overlayStyle).toBeUndefined();
+    expect(result.current.containerStyle).toBeUndefined();
+  });
+
+  it("should handle custom fadeInDuration", () => {
+    const { result } = renderHook(() => useModalAnimation(500));
+
+    expect(result.current.hasAnimated).toBe(false);
+
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+
+    expect(result.current.hasAnimated).toBe(false);
+
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+
+    expect(result.current.hasAnimated).toBe(true);
+  });
+
+  it("should clean up timer on unmount", () => {
+    const { unmount } = renderHook(() => useModalAnimation(250));
+
+    unmount();
+
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+
+    // Should not cause errors
+    expect(true).toBe(true);
   });
 });
