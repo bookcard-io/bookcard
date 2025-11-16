@@ -78,8 +78,6 @@ function saveThemeToLocalStorage(theme: "dark" | "light"): void {
  *     Theme value, toggle function, and loading state.
  */
 export function useTheme() {
-  // Always start with default to avoid hydration mismatch
-  // Server and client must render the same initial HTML
   const [theme, setTheme] = useState<"dark" | "light">(DEFAULT_THEME);
   const [isHydrated, setIsHydrated] = useState(false);
 
@@ -149,5 +147,6 @@ export function useTheme() {
     theme,
     toggleTheme,
     isLoading: userContext?.isLoading ?? false,
+    isHydrated,
   };
 }

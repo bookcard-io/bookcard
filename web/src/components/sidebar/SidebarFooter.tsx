@@ -47,7 +47,7 @@ export function SidebarFooter({
   isAdminActive,
   onAdminClick,
 }: SidebarFooterProps) {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, isHydrated } = useTheme();
 
   const handleThemeToggle = useCallback(() => {
     toggleTheme();
@@ -61,14 +61,26 @@ export function SidebarFooter({
         onClick={handleThemeToggle}
         className="flex w-full cursor-pointer items-center gap-3 rounded border-0 bg-transparent p-2 text-[var(--color-text-a30)] text-sm no-underline transition-colors duration-200 hover:bg-[var(--color-surface-a20)]"
         aria-label={
-          theme === "dark" ? "Switch to light theme" : "Switch to dark theme"
+          isHydrated
+            ? theme === "dark"
+              ? "Switch to light theme"
+              : "Switch to dark theme"
+            : "Toggle theme"
         }
       >
         <i
-          className={theme === "dark" ? "pi pi-sun" : "pi pi-moon"}
+          className={
+            isHydrated
+              ? theme === "dark"
+                ? "pi pi-sun"
+                : "pi pi-moon"
+              : "pi pi-sun"
+          }
           aria-hidden="true"
         />
-        {!isCollapsed && <span>{getToggleThemeLabel(theme)}</span>}
+        {!isCollapsed && isHydrated && (
+          <span>{getToggleThemeLabel(theme)}</span>
+        )}
       </button>
       {/* Admin settings button */}
       {isAdmin && (
