@@ -42,6 +42,7 @@ vi.mock("@/hooks/useKeyboardNavigation", () => ({
 vi.mock("@/utils/metadata", () => ({
   convertMetadataRecordToBookUpdate: vi.fn(),
   applyBookUpdateToForm: vi.fn(),
+  calculateProvidersForBackend: vi.fn(),
 }));
 
 vi.mock("@/utils/books", () => ({
