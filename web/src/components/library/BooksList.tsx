@@ -182,7 +182,7 @@ export function BooksList({
         <ListHeader allBooks={uniqueBooks} />
         <div
           ref={parentRef}
-          className="relative h-[calc(100vh-290px)] w-full overflow-auto [contain:strict] [&::-webkit-scrollbar-thumb]:bg-surface-a20 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 hover:[&::-webkit-scrollbar]:block"
+          className="relative h-[calc(100vh-300px)] w-full overflow-auto [contain:strict] [&::-webkit-scrollbar-thumb]:bg-surface-a20 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 hover:[&::-webkit-scrollbar]:block"
         >
           <div
             className="relative w-full"
