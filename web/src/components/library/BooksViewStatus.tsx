@@ -14,6 +14,10 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import type { ReactNode } from "react";
+import { Button } from "@/components/forms/Button";
+import { useScrollNavigation } from "@/hooks/useScrollNavigation";
+import { useStickyStatus } from "@/hooks/useStickyStatus";
+import { cn } from "@/libs/utils";
 
 export interface BooksViewStatusProps {
   /** Current number of books loaded. */
@@ -29,9 +33,10 @@ export interface BooksViewStatusProps {
 /**
  * Status bar component for books view.
  *
- * Displays current count and total, with optional action buttons.
- * Follows SRP by handling only status display.
- * Follows IOC by accepting actions as children.
+ * Displays current count and total, with optional action buttons and scroll
+ * navigation controls when sticky. Follows SRP by handling only presentation.
+ * Follows IOC by accepting actions and delegating scroll logic to hooks.
+ * Follows SOC by separating scroll navigation from status display.
  *
  * Parameters
  * ----------
@@ -44,18 +49,74 @@ export function BooksViewStatus({
   hasMore,
   actions,
 }: BooksViewStatusProps) {
+  const { statusRef, isSticky, opacity } = useStickyStatus();
+  const { scrollToTop, scrollUp, scrollDown } = useScrollNavigation();
+
   if (total === 0) {
     return null;
   }
 
   return (
-    <div className="flex items-center justify-between px-8 pb-4">
-      <div className="text-left text-sm text-text-a40">
-        {hasMore
-          ? `Scroll for more (${currentCount} of ${total})`
-          : `${currentCount} of ${total} books`}
+    <div
+      ref={statusRef}
+      className={cn(
+        "relative flex items-center justify-between px-8 py-4",
+        isSticky &&
+          "sticky top-0 z-10 border-surface-a10 border-b-1 border-solid",
+      )}
+    >
+      {/* Background layer with opacity */}
+      {isSticky && (
+        <div
+          className="absolute inset-0 bg-surface-a0 transition-opacity duration-200"
+          style={{
+            opacity,
+            backdropFilter: opacity > 0 ? "blur(8px)" : "none",
+          }}
+        />
+      )}
+      {/* Content layer */}
+      <div className="relative z-10 flex w-full items-center justify-between">
+        <div className="text-center text-sm text-text-a40">
+          {hasMore
+            ? `Scroll for more (${currentCount} of ${total})`
+            : `${currentCount} of ${total} books`}
+        </div>
+        <div className="flex items-center gap-2">
+          {actions && <div className="flex items-center">{actions}</div>}
+          {isSticky && (
+            <>
+              <Button
+                variant="primary"
+                size="xsmall"
+                onClick={scrollToTop}
+                aria-label="Scroll to top"
+              >
+                <i className="pi pi-angle-double-up" aria-hidden="true" />
+                <span>Top</span>
+              </Button>
+              <Button
+                variant="primary"
+                size="xsmall"
+                onClick={scrollUp}
+                aria-label="Scroll up"
+              >
+                <i className="pi pi-angle-up" aria-hidden="true" />
+                <span>Up</span>
+              </Button>
+              <Button
+                variant="primary"
+                size="xsmall"
+                onClick={scrollDown}
+                aria-label="Scroll down"
+              >
+                <i className="pi pi-angle-down" aria-hidden="true" />
+                <span>Down</span>
+              </Button>
+            </>
+          )}
+        </div>
       </div>
-      {actions && <div className="flex items-center">{actions}</div>}
     </div>
   );
 }
