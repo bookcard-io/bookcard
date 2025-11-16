@@ -14,7 +14,10 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { describe, expect, it } from "vitest";
-import { getProfilePictureUrlWithCacheBuster } from "./profile";
+import {
+  getProfilePictureUrlWithCacheBuster,
+  getUserProfilePictureUrl,
+} from "./profile";
 
 describe("profile utils", () => {
   describe("getProfilePictureUrlWithCacheBuster", () => {
@@ -34,6 +37,38 @@ describe("profile utils", () => {
       const url2 = getProfilePictureUrlWithCacheBuster(2000);
       expect(url1).toBe("/api/auth/profile-picture?v=1000");
       expect(url2).toBe("/api/auth/profile-picture?v=2000");
+      expect(url1).not.toBe(url2);
+    });
+  });
+
+  describe("getUserProfilePictureUrl", () => {
+    it("should generate profile picture URL with default cache buster", () => {
+      const userId = 123;
+      const url = getUserProfilePictureUrl(userId);
+      expect(url).toMatch(/^\/api\/admin\/users\/123\/profile-picture\?v=\d+$/);
+    });
+
+    it("should generate profile picture URL with custom cache buster", () => {
+      const userId = 456;
+      const cacheBuster = 1234567890;
+      const url = getUserProfilePictureUrl(userId, cacheBuster);
+      expect(url).toBe("/api/admin/users/456/profile-picture?v=1234567890");
+    });
+
+    it("should generate different URLs for different cache busters", () => {
+      const userId = 789;
+      const url1 = getUserProfilePictureUrl(userId, 1000);
+      const url2 = getUserProfilePictureUrl(userId, 2000);
+      expect(url1).toBe("/api/admin/users/789/profile-picture?v=1000");
+      expect(url2).toBe("/api/admin/users/789/profile-picture?v=2000");
+      expect(url1).not.toBe(url2);
+    });
+
+    it("should generate different URLs for different user IDs", () => {
+      const url1 = getUserProfilePictureUrl(1, 1000);
+      const url2 = getUserProfilePictureUrl(2, 1000);
+      expect(url1).toBe("/api/admin/users/1/profile-picture?v=1000");
+      expect(url2).toBe("/api/admin/users/2/profile-picture?v=1000");
       expect(url1).not.toBe(url2);
     });
   });
