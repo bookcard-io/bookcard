@@ -14,17 +14,21 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { useCallback, useRef, useState } from "react";
+import { getInitialSearchQuery } from "@/components/metadata/getInitialSearchQuery";
 import { useUser } from "@/contexts/UserContext";
 import { useBook } from "@/hooks/useBook";
 import { useBookForm } from "@/hooks/useBookForm";
 import { useCoverFromUrl } from "@/hooks/useCoverFromUrl";
 import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
 import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
+import { usePreferredProviders } from "@/hooks/usePreferredProviders";
+import { useProviderSettings } from "@/hooks/useProviderSettings";
 import { useStagedCoverUrl } from "@/hooks/useStagedCoverUrl";
 import type { Book } from "@/types/book";
 import { getCoverUrlWithCacheBuster } from "@/utils/books";
 import {
   applyBookUpdateToForm,
+  calculateProvidersForBackend,
   convertMetadataRecordToBookUpdate,
 } from "@/utils/metadata";
 
@@ -60,6 +64,8 @@ export interface UseBookEditFormResult {
   stagedCoverUrl: string | null;
   /** Whether metadata modal is visible. */
   showMetadataModal: boolean;
+  /** Whether lucky search is in progress. */
+  isLuckySearching: boolean;
   /** Handler for field changes. */
   handleFieldChange: ReturnType<typeof useBookForm>["handleFieldChange"];
   /** Handler for form submission. */
@@ -72,6 +78,8 @@ export interface UseBookEditFormResult {
   handleCloseMetadataModal: () => void;
   /** Handler for selecting metadata record. */
   handleSelectMetadata: (record: MetadataRecord) => void;
+  /** Handler for 'I'm feelin' lucky!' button. */
+  handleFeelinLucky: () => Promise<void>;
   /** Handler for cover save completion. */
   handleCoverSaved: () => void;
 }
@@ -138,11 +146,16 @@ export function useBookEditForm({
   });
 
   const [showMetadataModal, setShowMetadataModal] = useState(false);
+  const [isLuckySearching, setIsLuckySearching] = useState(false);
 
   const { stagedCoverUrl, setStagedCoverUrl, clearStagedCoverUrl } =
     useStagedCoverUrl({
       bookId,
     });
+
+  // Get provider settings for lucky search
+  const { enabledProviders } = useProviderSettings();
+  const { preferredProviders } = usePreferredProviders();
 
   /**
    * Handles cover save completion.
@@ -235,6 +248,177 @@ export function useBookEditForm({
   }, []);
 
   /**
+   * Handles 'I'm feelin' lucky!' button click.
+   *
+   * Automatically searches for metadata using SSE stream and applies the first result
+   * as soon as it arrives. Cancels the search immediately after getting the first result.
+   * Uses the same provider settings as the metadata modal.
+   */
+  const handleFeelinLucky = useCallback(async () => {
+    if (!book || isLuckySearching || isUpdating) {
+      return;
+    }
+
+    // Get search query from book/form data
+    const searchQuery = getInitialSearchQuery(book, formData);
+    if (!searchQuery.trim()) {
+      // eslint-disable-next-line no-console
+      console.warn("No search query available for lucky search");
+      return;
+    }
+
+    setIsLuckySearching(true);
+
+    // Calculate providers to use (preferred AND enabled)
+    const providersForBackend = calculateProvidersForBackend(
+      preferredProviders,
+      enabledProviders,
+    );
+
+    // Build SSE stream URL
+    const url = new URL("/api/metadata/search/stream", window.location.origin);
+    url.searchParams.set("query", searchQuery);
+    url.searchParams.set("locale", "en");
+    url.searchParams.set("max_results_per_provider", "20"); // Get enough results to find a good first one
+    if (providersForBackend.length > 0) {
+      url.searchParams.set("enable_providers", providersForBackend.join(","));
+    }
+    url.searchParams.set(
+      "request_id",
+      `req_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+    );
+
+    const abortController = new AbortController();
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+
+    try {
+      // Fetch SSE stream
+      const response = await fetch(url.toString(), {
+        signal: abortController.signal,
+        headers: {
+          Accept: "text/event-stream",
+        },
+      });
+
+      if (!response.ok || !response.body) {
+        const text = await response.text().catch(() => "Failed to open stream");
+        throw new Error(text || "Failed to open stream");
+      }
+
+      reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      // Parse SSE stream and cancel as soon as first result arrives
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || ""; // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const dataStr = line.slice(6).trim();
+            if (dataStr) {
+              try {
+                const data = JSON.parse(dataStr) as {
+                  event: string;
+                  results?: MetadataRecord[];
+                };
+
+                // Check for search.progress event with results
+                if (data.event === "search.progress" && data.results) {
+                  const results = Array.isArray(data.results)
+                    ? data.results
+                    : [];
+                  const firstResult = results[0];
+                  if (firstResult) {
+                    // Got first result! Cancel search and apply it
+                    reader.cancel().catch(() => {
+                      // Ignore cancellation errors
+                    });
+                    abortController.abort();
+                    handleSelectMetadata(firstResult);
+                    setIsLuckySearching(false);
+                    return;
+                  }
+                }
+
+                // Check for search.completed event
+                if (data.event === "search.completed") {
+                  const results = Array.isArray(data.results)
+                    ? data.results
+                    : [];
+                  const firstResult = results[0];
+                  if (firstResult) {
+                    handleSelectMetadata(firstResult);
+                  } else {
+                    // eslint-disable-next-line no-console
+                    console.info("No metadata results found for lucky search");
+                  }
+                  reader.cancel().catch(() => {
+                    // Ignore cancellation errors
+                  });
+                  abortController.abort();
+                  setIsLuckySearching(false);
+                  return;
+                }
+              } catch (error) {
+                const message =
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to parse event";
+                // eslint-disable-next-line no-console
+                console.error("Lucky search parse error:", message);
+                reader.cancel().catch(() => {
+                  // Ignore cancellation errors
+                });
+                abortController.abort();
+                setIsLuckySearching(false);
+                return;
+              }
+            }
+          }
+        }
+      }
+
+      // Stream ended without results
+      setIsLuckySearching(false);
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        // Search was cancelled (expected when we get first result)
+        return;
+      }
+      // Error handling
+      const message =
+        error instanceof Error ? error.message : "Failed to search metadata";
+      // eslint-disable-next-line no-console
+      console.error("Lucky search failed:", message);
+      setIsLuckySearching(false);
+    } finally {
+      // Cleanup
+      if (reader) {
+        reader.cancel().catch(() => {
+          // Ignore cancellation errors
+        });
+      }
+      abortController.abort();
+    }
+  }, [
+    book,
+    formData,
+    isLuckySearching,
+    isUpdating,
+    preferredProviders,
+    enabledProviders,
+    handleSelectMetadata,
+  ]);
+
+  /**
    * Wraps form submit to handle staged cover URL before submission.
    *
    * If there's a staged cover URL (from metadata selection), download it
@@ -282,12 +466,14 @@ export function useBookEditForm({
     updateError,
     stagedCoverUrl,
     showMetadataModal,
+    isLuckySearching,
     handleFieldChange,
     handleSubmit,
     handleClose,
     handleOpenMetadataModal,
     handleCloseMetadataModal,
     handleSelectMetadata,
+    handleFeelinLucky,
     handleCoverSaved,
   };
 }

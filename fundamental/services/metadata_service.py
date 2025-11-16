@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import logging
+import threading  # noqa: TC003
 from typing import TYPE_CHECKING
 
 from fundamental.api.schemas import (
@@ -252,8 +253,9 @@ class MetadataService:
         provider_ids : list[str] | None
             List of provider IDs to search, or None for all enabled.
         enable_providers : list[str] | None
-            List of provider names to enable. If None or empty, all available
-            providers are enabled. Unknown provider names are ignored.
+            List of provider names to enable. If None, all available
+            providers are enabled. If empty list, no providers are enabled.
+            Unknown provider names are ignored.
 
         Returns
         -------
@@ -267,8 +269,235 @@ class MetadataService:
                 if self.registry.get_provider(pid) is not None
             ]
         else:
-            providers = list(self.registry.get_enabled_providers(enable_providers))
+            # Only pass enable_providers if it's not None
+            # Empty list means no providers should be enabled
+            if enable_providers is not None:
+                providers = list(self.registry.get_enabled_providers(enable_providers))
+            else:
+                providers = list(self.registry.get_enabled_providers(None))
         return providers
+
+    def _cancel_pending_futures(
+        self,
+        future_to_provider: dict[concurrent.futures.Future, MetadataProvider],
+    ) -> None:
+        """Cancel all pending futures.
+
+        Parameters
+        ----------
+        future_to_provider : dict[concurrent.futures.Future, MetadataProvider]
+            Mapping of futures to providers.
+        """
+        for pending_future in future_to_provider:
+            if not pending_future.done():
+                pending_future.cancel()
+
+    def _check_cancellation(
+        self,
+        cancellation_event: threading.Event | None,
+        future_to_provider: dict[concurrent.futures.Future, MetadataProvider],
+    ) -> bool:
+        """Check if cancellation is requested and cancel pending futures.
+
+        Parameters
+        ----------
+        cancellation_event : threading.Event | None
+            Event to signal cancellation.
+        future_to_provider : dict[concurrent.futures.Future, MetadataProvider]
+            Mapping of futures to providers.
+
+        Returns
+        -------
+        bool
+            True if cancellation was requested, False otherwise.
+        """
+        if cancellation_event and cancellation_event.is_set():
+            self._cancel_pending_futures(future_to_provider)
+            logger.info("Search cancelled by client")
+            return True
+        return False
+
+    def _wait_for_futures(
+        self,
+        futures: list[concurrent.futures.Future],
+    ) -> set[concurrent.futures.Future]:
+        """Wait for futures to complete with timeout.
+
+        Parameters
+        ----------
+        futures : list[concurrent.futures.Future]
+            List of futures to wait for.
+
+        Returns
+        -------
+        set[concurrent.futures.Future]
+            Set of completed futures.
+        """
+        try:
+            done, _ = concurrent.futures.wait(
+                futures,
+                timeout=0.1,
+                return_when=concurrent.futures.FIRST_COMPLETED,
+            )
+        except (RuntimeError, OSError, ValueError) as e:
+            logger.warning("Error waiting for futures: %s", e)
+            return set()
+        else:
+            return done
+
+    def _process_completed_future(
+        self,
+        future: concurrent.futures.Future,
+        provider: MetadataProvider,
+        provider_start_times: dict[str, float],
+        total_providers: int,
+        all_results: list[MetadataRecord],
+        request_id: str | None,
+        _now_ms: Callable[[], int],
+        _publish: Callable[[MetadataSearchEvent], None],
+        providers_completed: int,
+        providers_failed: int,
+    ) -> tuple[int, int]:
+        """Process a single completed future.
+
+        Parameters
+        ----------
+        future : concurrent.futures.Future
+            Completed future to process.
+        provider : MetadataProvider
+            Provider that was searched.
+        provider_start_times : dict[str, float]
+            Dictionary mapping provider IDs to start times.
+        total_providers : int
+            Total number of providers.
+        all_results : list[MetadataRecord]
+            Accumulated results list to extend.
+        request_id : str | None
+            Request correlation ID.
+        _now_ms : Callable[[], int]
+            Function to get current timestamp in milliseconds.
+        _publish : Callable[[MetadataSearchEvent], None]
+            Function to publish events.
+        providers_completed : int
+            Current count of completed providers.
+        providers_failed : int
+            Current count of failed providers.
+
+        Returns
+        -------
+        tuple[int, int]
+            Updated (providers_completed, providers_failed) counts.
+        """
+        try:
+            results = future.result(timeout=0)
+            providers_completed = self._handle_provider_success(
+                provider=provider,
+                results=results,
+                provider_start_times=provider_start_times,
+                providers_completed=providers_completed,
+                providers_failed=providers_failed,
+                total_providers=total_providers,
+                all_results=all_results,
+                request_id=request_id,
+                _now_ms=_now_ms,
+                _publish=_publish,
+            )
+        except concurrent.futures.CancelledError:
+            logger.debug("Provider search cancelled: %s", provider.get_source_info().id)
+            providers_failed += 1
+        except concurrent.futures.TimeoutError:
+            logger.debug("Timeout getting result for %s", provider.get_source_info().id)
+            providers_failed += 1
+        except (MetadataProviderError, RuntimeError, OSError, ValueError) as e:
+            providers_failed = self._handle_provider_failure(
+                provider=provider,
+                error=e,
+                providers_completed=providers_completed,
+                providers_failed=providers_failed,
+                total_providers=total_providers,
+                all_results=all_results,
+                request_id=request_id,
+                _now_ms=_now_ms,
+                _publish=_publish,
+            )
+        return providers_completed, providers_failed
+
+    def _collect_provider_results(
+        self,
+        future_to_provider: dict[concurrent.futures.Future, MetadataProvider],
+        provider_start_times: dict[str, float],
+        total_providers: int,
+        all_results: list[MetadataRecord],
+        request_id: str | None,
+        _now_ms: Callable[[], int],
+        _publish: Callable[[MetadataSearchEvent], None],
+        cancellation_event: threading.Event | None,
+    ) -> tuple[int, int]:
+        """Collect results from provider futures as they complete.
+
+        Parameters
+        ----------
+        future_to_provider : dict[concurrent.futures.Future, MetadataProvider]
+            Mapping of futures to providers.
+        provider_start_times : dict[str, float]
+            Dictionary mapping provider IDs to start times.
+        total_providers : int
+            Total number of providers.
+        all_results : list[MetadataRecord]
+            Accumulated results list to extend.
+        request_id : str | None
+            Request correlation ID.
+        _now_ms : Callable[[], int]
+            Function to get current timestamp in milliseconds.
+        _publish : Callable[[MetadataSearchEvent], None]
+            Function to publish events.
+        cancellation_event : threading.Event | None
+            Event to signal cancellation.
+
+        Returns
+        -------
+        tuple[int, int]
+            Tuple of (providers_completed, providers_failed).
+        """
+        providers_completed = 0
+        providers_failed = 0
+
+        # Use wait with timeout to check cancellation more frequently
+        while future_to_provider:
+            # Check for cancellation before waiting for next result
+            if self._check_cancellation(cancellation_event, future_to_provider):
+                return providers_completed, providers_failed
+
+            # Wait for next completed future with timeout to allow cancellation checks
+            done = self._wait_for_futures(list(future_to_provider.keys()))
+
+            if not done:
+                # No futures completed yet, check cancellation and continue
+                if self._check_cancellation(cancellation_event, future_to_provider):
+                    return providers_completed, providers_failed
+                continue
+
+            # Process completed futures
+            for future in done:
+                # Check cancellation again before processing
+                if self._check_cancellation(cancellation_event, future_to_provider):
+                    return providers_completed, providers_failed
+
+                provider = future_to_provider.pop(future)
+                providers_completed, providers_failed = self._process_completed_future(
+                    future=future,
+                    provider=provider,
+                    provider_start_times=provider_start_times,
+                    total_providers=total_providers,
+                    all_results=all_results,
+                    request_id=request_id,
+                    _now_ms=_now_ms,
+                    _publish=_publish,
+                    providers_completed=providers_completed,
+                    providers_failed=providers_failed,
+                )
+
+        return providers_completed, providers_failed
 
     def _start_provider_searches(
         self,
@@ -281,6 +510,7 @@ class MetadataService:
         _now_ms: Callable[[], int],
         _publish: Callable[[MetadataSearchEvent], None],
         executor: concurrent.futures.ThreadPoolExecutor,
+        cancellation_event: threading.Event | None = None,
     ) -> dict[concurrent.futures.Future, MetadataProvider]:
         """Start provider searches and return future mapping.
 
@@ -317,6 +547,7 @@ class MetadataService:
                 query,
                 locale,
                 max_results_per_provider,
+                cancellation_event,
             ): provider
             for provider in providers
         }
@@ -348,6 +579,7 @@ class MetadataService:
         *,
         request_id: str | None = None,
         event_callback: Callable[[MetadataSearchEvent], None] | None = None,
+        cancellation_event: threading.Event | None = None,
     ) -> list[MetadataRecord]:
         """Search for books across multiple metadata providers.
 
@@ -362,12 +594,16 @@ class MetadataService:
         provider_ids : list[str] | None
             List of provider IDs to search. If None, searches all enabled providers.
         enable_providers : list[str] | None
-            List of provider names to enable. If None or empty, all available
-            providers are enabled. Unknown provider names are ignored.
+            List of provider names to enable. If None, all available
+            providers are enabled. If empty list, no providers are enabled.
+            Unknown provider names are ignored.
         request_id : str | None
             Optional correlation ID to include in emitted events.
         event_callback : Callable[[MetadataSearchEvent], None] | None
             Optional callback to receive progress events for live updates.
+        cancellation_event : threading.Event | None
+            Optional event to signal cancellation. When set, pending searches
+            will be cancelled.
 
         Returns
         -------
@@ -421,8 +657,6 @@ class MetadataService:
 
         # Search providers concurrently
         all_results: list[MetadataRecord] = []
-        providers_completed = 0
-        providers_failed = 0
         provider_start_times: dict[str, float] = {}
 
         with concurrent.futures.ThreadPoolExecutor(
@@ -439,37 +673,20 @@ class MetadataService:
                 _now_ms=_now_ms,
                 _publish=_publish,
                 executor=executor,
+                cancellation_event=cancellation_event,
             )
 
             # Collect results as they complete
-            for future in concurrent.futures.as_completed(future_to_provider):
-                provider = future_to_provider[future]
-                try:
-                    results = future.result()
-                    providers_completed = self._handle_provider_success(
-                        provider=provider,
-                        results=results,
-                        provider_start_times=provider_start_times,
-                        providers_completed=providers_completed,
-                        providers_failed=providers_failed,
-                        total_providers=total_providers,
-                        all_results=all_results,
-                        request_id=request_id,
-                        _now_ms=_now_ms,
-                        _publish=_publish,
-                    )
-                except (MetadataProviderError, RuntimeError, OSError, ValueError) as e:
-                    providers_failed = self._handle_provider_failure(
-                        provider=provider,
-                        error=e,
-                        providers_completed=providers_completed,
-                        providers_failed=providers_failed,
-                        total_providers=total_providers,
-                        all_results=all_results,
-                        request_id=request_id,
-                        _now_ms=_now_ms,
-                        _publish=_publish,
-                    )
+            providers_completed, providers_failed = self._collect_provider_results(
+                future_to_provider=future_to_provider,
+                provider_start_times=provider_start_times,
+                total_providers=total_providers,
+                all_results=all_results,
+                request_id=request_id,
+                _now_ms=_now_ms,
+                _publish=_publish,
+                cancellation_event=cancellation_event,
+            )
 
         overall_duration_ms = int((time.monotonic() - overall_start) * 1000)
         _publish(
@@ -493,6 +710,7 @@ class MetadataService:
         query: str,
         locale: str,
         max_results: int,
+        cancellation_event: threading.Event | None = None,
     ) -> Sequence[MetadataRecord]:
         """Search a single provider.
 
@@ -506,12 +724,24 @@ class MetadataService:
             Locale code.
         max_results : int
             Maximum results.
+        cancellation_event : threading.Event | None
+            Event to signal cancellation. If set, search will be aborted.
 
         Returns
         -------
         Sequence[MetadataRecord]
             Search results from provider.
+
+        Raises
+        ------
+        concurrent.futures.CancelledError
+            If cancellation is requested.
         """
+        # Check for cancellation before starting
+        if cancellation_event and cancellation_event.is_set():
+            msg = "Search cancelled before provider start"
+            raise concurrent.futures.CancelledError(msg)
+
         try:
             return provider.search(query, locale=locale, max_results=max_results)
         except MetadataProviderError:

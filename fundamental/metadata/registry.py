@@ -173,8 +173,11 @@ class MetadataProviderRegistry:
         Parameters
         ----------
         enable_providers : list[str] | None
-            List of provider names to enable. If None or empty, all available
-            providers are enabled. Unknown provider names are ignored.
+            List of provider names to enable. If None, all available
+            providers that are enabled by their is_enabled() method are returned.
+            If empty list, no providers are returned.
+            If non-empty list, only providers whose names match are returned
+            (regardless of is_enabled() status). Unknown provider names are ignored.
 
         Yields
         ------
@@ -183,28 +186,31 @@ class MetadataProviderRegistry:
         """
         all_providers = list(self.get_all_providers())
 
-        # If enable_providers is None or empty, return all providers that are enabled
-        if not enable_providers:
+        # If enable_providers is None, return all providers that are enabled
+        if enable_providers is None:
             for provider in all_providers:
                 if provider.is_enabled():
                     yield provider
             return
 
-        # Filter by provider names
+        # If enable_providers is empty list, return nothing
+        if not enable_providers:
+            return
+
+        # Filter by provider names only (don't check is_enabled when explicitly provided)
         # Get all available provider names for matching
         available_names = {
             provider.get_source_info().name for provider in all_providers
         }
 
         # Filter to only include providers whose names are in enable_providers
-        # and that are also enabled by their is_enabled() method
         enabled_names_set = set(enable_providers)
         matching_names = enabled_names_set & available_names
 
-        # Yield providers that match the enabled names and are also enabled
+        # Yield providers that match the enabled names
         for provider in all_providers:
             provider_name = provider.get_source_info().name
-            if provider_name in matching_names and provider.is_enabled():
+            if provider_name in matching_names:
                 yield provider
 
     def list_providers(self) -> list[str]:

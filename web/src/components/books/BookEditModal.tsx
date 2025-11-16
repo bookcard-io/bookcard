@@ -67,12 +67,14 @@ export function BookEditModal({
     updateError,
     stagedCoverUrl,
     showMetadataModal,
+    isLuckySearching,
     handleFieldChange,
     handleSubmit,
     handleClose,
     handleOpenMetadataModal,
     handleCloseMetadataModal,
     handleSelectMetadata,
+    handleFeelinLucky,
     handleCoverSaved,
   } = useBookEditForm({
     bookId,
@@ -200,7 +202,9 @@ export function BookEditModal({
           book={book}
           formTitle={formData.title}
           isUpdating={isUpdating}
+          isLuckySearching={isLuckySearching}
           onFetchMetadata={handleOpenMetadataModal}
+          onFeelinLucky={handleFeelinLucky}
         />
 
         {showMetadataModal && (

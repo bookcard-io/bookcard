@@ -121,6 +121,7 @@ def _create_search_worker(
     enable_providers_list: list[str] | None,
     request_id: str,
     event_queue: queue.Queue[str | None],
+    cancellation_event: threading.Event,
 ) -> Callable[[], None]:
     """Create worker function for metadata search.
 
@@ -142,6 +143,8 @@ def _create_search_worker(
         Request correlation ID.
     event_queue : queue.Queue[str | None]
         Thread-safe queue for event payloads.
+    cancellation_event : threading.Event
+        Event to signal cancellation.
 
     Returns
     -------
@@ -159,7 +162,10 @@ def _create_search_worker(
                 enable_providers=enable_providers_list,
                 request_id=request_id,
                 event_callback=_create_event_callback(event_queue, request_id),
+                cancellation_event=cancellation_event,
             )
+            # Put None sentinel to signal completion
+            event_queue.put(None)
         except (MetadataProviderError, ValueError, RuntimeError, OSError) as e:
             # Emit a terminal failure event and close
             # Catch specific exceptions that can occur during search
@@ -178,6 +184,7 @@ def _create_search_worker(
 
 def _create_sse_generator(
     event_queue: queue.Queue[str | None],
+    cancellation_event: threading.Event,
 ) -> Iterator[str]:
     """Create SSE generator for streaming events.
 
@@ -185,6 +192,8 @@ def _create_sse_generator(
     ----------
     event_queue : queue.Queue[str | None]
         Thread-safe queue for event payloads.
+    cancellation_event : threading.Event
+        Event to signal cancellation when client disconnects.
 
     Yields
     ------
@@ -193,12 +202,24 @@ def _create_sse_generator(
     """
     # Optional: initial retry directive
     yield "retry: 2000\n\n"
-    while True:
-        item = event_queue.get()
-        if item is None:
-            break
-        # SSE format: data: <json>\n\n
-        yield f"data: {item}\n\n"
+    try:
+        while True:
+            try:
+                # Use timeout to periodically check for cancellation
+                item = event_queue.get(timeout=0.5)
+                if item is None:
+                    break
+                # SSE format: data: <json>\n\n
+                yield f"data: {item}\n\n"
+            except queue.Empty:
+                # Check if cancelled while waiting
+                if cancellation_event.is_set():
+                    break
+                continue
+    except GeneratorExit:
+        # Client disconnected - signal cancellation
+        cancellation_event.set()
+        raise
 
 
 @router.get("/providers", response_model=MetadataProvidersResponse)
@@ -380,6 +401,8 @@ def search_metadata_stream(
 
     # Thread-safe queue for events (str for serialized JSON) and sentinel None
     event_queue: queue.Queue[str | None] = queue.Queue()
+    # Event to signal cancellation when client disconnects
+    cancellation_event = threading.Event()
 
     # Start search in background thread
     worker = _create_search_worker(
@@ -391,6 +414,7 @@ def search_metadata_stream(
         enable_providers_list=enable_providers_list,
         request_id=rid,
         event_queue=event_queue,
+        cancellation_event=cancellation_event,
     )
     t = threading.Thread(target=worker, name="metadata-search-stream", daemon=True)
     t.start()
@@ -400,7 +424,7 @@ def search_metadata_stream(
         "X-Accel-Buffering": "no",
     }
     return StreamingResponse(
-        _create_sse_generator(event_queue),
+        _create_sse_generator(event_queue, cancellation_event),
         media_type="text/event-stream",
         headers=headers,
     )

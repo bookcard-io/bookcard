@@ -73,6 +73,7 @@ export async function GET(request: NextRequest) {
 
   // Pipe backend SSE to client
   let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+  let cancelled = false;
   const stream = new ReadableStream({
     start(controller) {
       reader = backendResponse.body?.getReader() ?? null;
@@ -81,32 +82,42 @@ export async function GET(request: NextRequest) {
         return;
       }
       const pump = (): Promise<void> => {
-        if (!reader) {
+        if (!reader || cancelled) {
           return Promise.resolve();
         }
         return reader.read().then(({ done, value }) => {
-          if (done) {
-            controller.close();
+          if (done || cancelled) {
+            if (!cancelled) {
+              controller.close();
+            }
             return Promise.resolve();
           }
-          if (value) controller.enqueue(value);
-          return pump();
+          if (value && !cancelled) {
+            controller.enqueue(value);
+            return pump();
+          }
+          return Promise.resolve();
         });
       };
       pump().catch(() => {
-        try {
-          controller.close();
-        } catch {
-          // ignore
+        if (!cancelled) {
+          try {
+            controller.close();
+          } catch {
+            // ignore
+          }
         }
       });
     },
     cancel() {
-      // Cancel the reader instead of the stream, since the stream is locked once we get a reader
+      cancelled = true;
+      // Cancel the reader to close backend connection
+      // This will trigger GeneratorExit in the backend SSE generator
       if (reader) {
         reader.cancel().catch(() => {
           // ignore cancellation errors
         });
+        reader = null;
       } else if (backendResponse.body && !backendResponse.body.locked) {
         // Only try to cancel the stream if it's not locked and we don't have a reader
         try {

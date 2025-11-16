@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import time
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
@@ -35,6 +36,9 @@ from fundamental.api.schemas import (
 )
 from fundamental.metadata.base import MetadataProviderError
 from fundamental.models.metadata import MetadataRecord, MetadataSourceInfo
+
+if TYPE_CHECKING:
+    import threading
 
 
 class MockMetadataService:
@@ -59,6 +63,7 @@ class MockMetadataService:
         enable_providers: list[str] | None = None,
         request_id: str | None = None,
         event_callback: callable | None = None,  # type: ignore[type-arg]
+        cancellation_event: threading.Event | None = None,
     ) -> list[MetadataRecord]:
         """Mock search method."""
         if self._search_exception:
@@ -408,6 +413,7 @@ def test_search_metadata_stream_event_callback_serialization_error(
         enable_providers: list[str] | None = None,
         request_id: str | None = None,
         event_callback: callable | None = None,  # type: ignore[type-arg]
+        cancellation_event: threading.Event | None = None,
     ) -> list[MetadataRecord]:
         """Search that sends bad event."""
         if event_callback:
@@ -437,6 +443,7 @@ def test_search_metadata_stream_event_callback_serialization_error(
             enable_providers,
             request_id,
             event_callback,
+            cancellation_event,
         )
 
     mock_metadata_service.search = bad_search  # type: ignore[method-assign]

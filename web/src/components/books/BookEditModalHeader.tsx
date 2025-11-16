@@ -25,8 +25,12 @@ export interface BookEditModalHeaderProps {
   formTitle?: string | null;
   /** Whether update is in progress. */
   isUpdating: boolean;
+  /** Whether lucky search is in progress. */
+  isLuckySearching?: boolean;
   /** Callback to open metadata fetch modal. */
   onFetchMetadata: () => void;
+  /** Callback for 'I'm feelin' lucky!' button. */
+  onFeelinLucky: () => Promise<void>;
 }
 
 /**
@@ -39,7 +43,9 @@ export function BookEditModalHeader({
   book,
   formTitle,
   isUpdating,
+  isLuckySearching = false,
   onFetchMetadata,
+  onFeelinLucky,
 }: BookEditModalHeaderProps) {
   return (
     <div className="flex items-start justify-between gap-4 border-surface-a20 border-b pt-6 pr-16 pb-4 pl-6">
@@ -58,16 +64,17 @@ export function BookEditModalHeader({
           variant="success"
           size="medium"
           onClick={onFetchMetadata}
-          disabled={isUpdating}
+          disabled={isUpdating || isLuckySearching}
         >
           Fetch metadata
         </Button>
         <Button
           type="button"
-          variant="success"
+          variant="warning"
           size="medium"
-          onClick={() => {}}
-          disabled={isUpdating}
+          onClick={onFeelinLucky}
+          disabled={isUpdating || isLuckySearching}
+          loading={isLuckySearching}
         >
           I'm feelin' lucky!
         </Button>
