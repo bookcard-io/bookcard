@@ -39,7 +39,8 @@ describe("useResponsiveGridLayout", () => {
 
     // Mock ResizeObserver
     mockResizeObserver = {
-      observe: vi.fn<(target: Element, options?: ResizeObserverOptions) => void>(),
+      observe:
+        vi.fn<(target: Element, options?: ResizeObserverOptions) => void>(),
       disconnect: vi.fn<() => void>(),
     };
 

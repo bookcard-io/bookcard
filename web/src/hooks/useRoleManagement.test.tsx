@@ -50,9 +50,8 @@ describe("useRoleManagement", () => {
 
   beforeEach(() => {
     mockCreateRole = vi.fn<(data: RoleCreate) => Promise<Role>>();
-    mockUpdateRoleById = vi.fn<
-      (roleId: number, data: RoleUpdate) => Promise<Role>
-    >();
+    mockUpdateRoleById =
+      vi.fn<(roleId: number, data: RoleUpdate) => Promise<Role>>();
     mockDeleteRoleById = vi.fn<(roleId: number) => Promise<void>>();
     mockUpdateRole = vi.fn<(role: Role) => void>();
   });
