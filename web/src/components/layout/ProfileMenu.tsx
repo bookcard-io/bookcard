@@ -18,6 +18,7 @@
 import { useCallback } from "react";
 import { DropdownMenu } from "@/components/common/DropdownMenu";
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
+import { getToggleThemeLabel } from "@/components/profile/config/configurationConstants";
 import type { User } from "@/contexts/UserContext";
 import { useUser } from "@/contexts/UserContext";
 import { useTheme } from "@/hooks/useTheme";
@@ -130,7 +131,7 @@ export function ProfileMenu({
       />
       <DropdownMenuItem
         icon={theme === "dark" ? "pi pi-sun" : "pi pi-moon"}
-        label={theme === "dark" ? "Light Theme" : "Dark Theme"}
+        label={getToggleThemeLabel(theme)}
         onClick={handleThemeToggle}
         className="cursor-pointer"
       />

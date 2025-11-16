@@ -78,8 +78,32 @@ export const BOOK_DETAILS_OPEN_MODE_OPTIONS = [
 ] as const;
 
 export const THEME_PREFERENCE_OPTIONS = [
-  { value: "dark", label: "Dark Theme" },
-  { value: "light", label: "Light Theme" },
+  { value: "dark", label: "Dark theme" },
+  { value: "light", label: "Light theme" },
 ] as const;
 
 export const THEME_PREFERENCE_SETTING_KEY = "theme_preference";
+
+/**
+ * Gets the label for the theme toggle button.
+ *
+ * Returns the label for the opposite theme (the theme that will be activated
+ * when the toggle is clicked).
+ *
+ * Parameters
+ * ----------
+ * currentTheme : "dark" | "light"
+ *     The current theme.
+ *
+ * Returns
+ * -------
+ * string
+ *     The label for the toggle button.
+ */
+export function getToggleThemeLabel(currentTheme: "dark" | "light"): string {
+  const oppositeTheme = currentTheme === "dark" ? "light" : "dark";
+  const option = THEME_PREFERENCE_OPTIONS.find(
+    (opt) => opt.value === oppositeTheme,
+  );
+  return option?.label ?? "Theme";
+}

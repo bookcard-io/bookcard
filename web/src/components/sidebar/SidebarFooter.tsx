@@ -14,8 +14,9 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { useCallback } from "react";
-import { cn } from "@/libs/utils";
+import { getToggleThemeLabel } from "@/components/profile/config/configurationConstants";
 import { useTheme } from "@/hooks/useTheme";
+import { cn } from "@/libs/utils";
 
 export interface SidebarFooterProps {
   /** Whether the sidebar is collapsed. */
@@ -59,15 +60,15 @@ export function SidebarFooter({
         type="button"
         onClick={handleThemeToggle}
         className="flex w-full cursor-pointer items-center gap-3 rounded border-0 bg-transparent p-2 text-[var(--color-text-a30)] text-sm no-underline transition-colors duration-200 hover:bg-[var(--color-surface-a20)]"
-        aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+        aria-label={
+          theme === "dark" ? "Switch to light theme" : "Switch to dark theme"
+        }
       >
         <i
           className={theme === "dark" ? "pi pi-sun" : "pi pi-moon"}
           aria-hidden="true"
         />
-        {!isCollapsed && (
-          <span>{theme === "dark" ? "Light Theme" : "Dark Theme"}</span>
-        )}
+        {!isCollapsed && <span>{getToggleThemeLabel(theme)}</span>}
       </button>
       {/* Admin settings button */}
       {isAdmin && (
