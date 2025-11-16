@@ -109,7 +109,7 @@ export function BooksGrid({
     onBooksDataChange,
   });
 
-  // Scroll container ref for virtualizer
+  // Container ref for responsive layout calculations (not the scroll container)
   const parentRef = useRef<HTMLDivElement | null>(null);
 
   // Responsive grid layout shared between CSS and virtualizer math
@@ -140,7 +140,14 @@ export function BooksGrid({
   // Virtualizer for efficient rendering of large grids (virtualizing rows).
   const rowVirtualizer = useVirtualizer({
     count: hasMore ? rowCount + 1 : rowCount,
-    getScrollElement: () => parentRef.current,
+    // Use the main page scroll container defined in PageLayout so that
+    // virtual rows respond to the actual scrollable area, not window scroll.
+    getScrollElement: () =>
+      typeof document !== "undefined"
+        ? (document.querySelector(
+            '[data-page-scroll-container="true"]',
+          ) as HTMLElement | null)
+        : null,
     estimateSize: () => estimatedRowHeight,
     overscan: 3,
     // Always measure actual DOM height so row offsets stay accurate
@@ -181,10 +188,7 @@ export function BooksGrid({
       />
       {shelfId && <ShelfFilterInfoBox />}
       <div className="px-8">
-        <div
-          ref={parentRef}
-          className="relative h-[calc(100vh-215px)] w-full overflow-y-auto overflow-x-hidden [contain:strict] [&::-webkit-scrollbar-thumb]:bg-surface-a20 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 hover:[&::-webkit-scrollbar]:block"
-        >
+        <div ref={parentRef} className="relative w-full">
           <div
             className="relative w-full"
             style={{

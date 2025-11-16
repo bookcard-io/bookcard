@@ -48,6 +48,7 @@ function PageContent({ children }: PageContentProps) {
   const { isCollapsed } = useSidebar();
   return (
     <main
+      data-page-scroll-container="true"
       className={cn(
         "relative flex-1 overflow-y-auto bg-surface-a0 transition-[margin-left] duration-300 ease-in-out",
         isCollapsed ? "ml-16" : "ml-[var(--sidebar-width)]",
