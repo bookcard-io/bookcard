@@ -51,11 +51,11 @@ export interface PageHeaderProps {
  */
 export function PageHeader({ title, children }: PageHeaderProps) {
   return (
-    <header className="flex items-center justify-between px-8 pt-6 pb-4">
-      <h1 className="m-0 font-semibold text-[32px] text-[var(--color-text-a0)] leading-[1.2]">
+    <header className="grid grid-cols-[minmax(0,1fr)_auto] grid-rows-2 gap-x-4 gap-y-2 px-8 pt-6 pb-4 sm:flex sm:items-center sm:justify-between">
+      <h1 className="col-span-1 row-span-2 m-0 font-semibold text-[32px] text-[var(--color-text-a0)] leading-[1.2]">
         {title}
       </h1>
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="col-start-2 row-span-2 row-start-1 flex flex-col items-end gap-2 sm:col-auto sm:row-auto sm:flex-row sm:items-center sm:gap-3">
         {children}
         <HeaderActionBar />
       </div>
