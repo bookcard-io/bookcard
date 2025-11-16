@@ -16,7 +16,7 @@
 "use client";
 
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 import { useBookRating } from "@/hooks/useBookRating";
 import { useBooksNavigationData } from "@/hooks/useBooksNavigationData";
 import { useBooksViewData } from "@/hooks/useBooksViewData";
@@ -113,13 +113,17 @@ export function BooksList({
     onBooksDataChange,
   });
 
-  // Scroll container ref for virtualizer
-  const parentRef = useRef<HTMLDivElement>(null);
-
   // Virtualizer for efficient rendering of large lists
   const rowVirtualizer = useVirtualizer({
     count: hasMore ? uniqueBooks.length + 1 : uniqueBooks.length,
-    getScrollElement: () => parentRef.current,
+    // Use the main page scroll container defined in PageLayout so that
+    // virtual rows respond to the actual scrollable area, not window scroll.
+    getScrollElement: () =>
+      typeof document !== "undefined"
+        ? (document.querySelector(
+            '[data-page-scroll-container="true"]',
+          ) as HTMLElement | null)
+        : null,
     estimateSize: () => 60, // Estimated height for a list item (will be measured dynamically)
     overscan: 5, // Render 5 extra items above and below viewport
     // Always measure actual DOM height so vertical offsets are accurate
@@ -176,14 +180,12 @@ export function BooksList({
         total={total}
         hasMore={hasMore ?? false}
         actions={<ColumnSelectorButton />}
+        disableSticky
       />
       {shelfId && <ShelfFilterInfoBox />}
       <div className="flex flex-col px-8">
         <ListHeader allBooks={uniqueBooks} />
-        <div
-          ref={parentRef}
-          className="relative h-[calc(100vh-300px)] w-full overflow-auto [contain:strict] [&::-webkit-scrollbar-thumb]:bg-surface-a20 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 hover:[&::-webkit-scrollbar]:block"
-        >
+        <div className="relative w-full">
           <div
             className="relative w-full"
             style={{

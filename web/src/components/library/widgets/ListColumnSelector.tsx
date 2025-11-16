@@ -15,7 +15,8 @@
 
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useDragReorder } from "@/hooks/useDragReorder";
 import { useDropdownClickOutside } from "@/hooks/useDropdownClickOutside";
 import { useListColumns } from "@/hooks/useListColumns";
@@ -50,6 +51,10 @@ export function ListColumnSelector({
   const { visibleColumns, allColumns, toggleColumn, reorderColumns } =
     useListColumns();
   const menuRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{
+    top: number;
+    right: number;
+  } | null>(null);
 
   // Separate concerns: data transformation
   const { orderedVisibleColumns, nonVisibleColumns } = useColumnData(
@@ -70,6 +75,49 @@ export function ListColumnSelector({
     onClose,
   });
 
+  // Calculate position based on button location (for portal rendering)
+  useEffect(() => {
+    if (!isOpen || !buttonRef.current) {
+      setPosition(null);
+      return;
+    }
+
+    const updatePosition = () => {
+      if (!buttonRef.current) {
+        return;
+      }
+
+      const rect = buttonRef.current.getBoundingClientRect();
+
+      // Position below the button, aligned to the right
+      // Using fixed positioning (relative to viewport), so use getBoundingClientRect directly
+      setPosition({
+        top: rect.bottom + 8, // 8px = mt-2 equivalent
+        right: window.innerWidth - rect.right,
+      });
+    };
+
+    updatePosition();
+
+    // Update position on scroll and resize
+    const handleScroll = () => updatePosition();
+    const handleResize = () => updatePosition();
+
+    const scrollContainer = document.querySelector(
+      '[data-page-scroll-container="true"]',
+    );
+    // Listen to scroll events to update position when button moves
+    scrollContainer?.addEventListener("scroll", handleScroll, {
+      passive: true,
+    });
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      scrollContainer?.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [isOpen, buttonRef]);
+
   // Memoized handler for column toggle (IOC: dependency injection)
   const handleToggle = useCallback(
     (columnId: string) => {
@@ -78,17 +126,18 @@ export function ListColumnSelector({
     [toggleColumn],
   );
 
-  if (!isOpen) {
+  if (!isOpen || !position) {
     return null;
   }
 
-  return (
+  const menuContent = (
     <div
       ref={menuRef}
-      className={cn(
-        "panel-tonal absolute top-full right-0 z-50 mt-2 w-64 rounded-md",
-        "shadow-lg",
-      )}
+      className={cn("panel-tonal fixed z-50 w-64 rounded-md shadow-lg")}
+      style={{
+        top: `${position.top}px`,
+        right: `${position.right}px`,
+      }}
       role="dialog"
       aria-label="Column selector"
       aria-modal="false"
@@ -160,4 +209,9 @@ export function ListColumnSelector({
       </div>
     </div>
   );
+
+  // Render in portal to ensure it appears above sticky headers
+  return typeof document !== "undefined"
+    ? createPortal(menuContent, document.body)
+    : null;
 }

@@ -28,6 +28,8 @@ export interface BooksViewStatusProps {
   hasMore: boolean;
   /** Optional action buttons to display on the right. */
   actions?: ReactNode;
+  /** Whether to disable the sticky effect. */
+  disableSticky?: boolean;
 }
 
 /**
@@ -48,9 +50,19 @@ export function BooksViewStatus({
   total,
   hasMore,
   actions,
+  disableSticky = false,
 }: BooksViewStatusProps) {
-  const { statusRef, isSticky, opacity } = useStickyStatus();
-  const { scrollToTop, scrollUp, scrollDown } = useScrollNavigation();
+  // Always call hooks (React rules), but conditionally use their results
+  const stickyStatus = useStickyStatus();
+  const scrollNavigation = useScrollNavigation();
+
+  // Use hook results only when sticky is enabled
+  const { statusRef, isSticky, opacity } = disableSticky
+    ? { statusRef: { current: null }, isSticky: false, opacity: 0 }
+    : stickyStatus;
+  const { scrollToTop, scrollUp, scrollDown } = disableSticky
+    ? { scrollToTop: () => {}, scrollUp: () => {}, scrollDown: () => {} }
+    : scrollNavigation;
 
   if (total === 0) {
     return null;
