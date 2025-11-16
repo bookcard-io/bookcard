@@ -55,7 +55,7 @@ export function BookEditFormFields({
     <div className="flex min-w-0 flex-col gap-6">
       <div className="grid grid-cols-3 gap-4 sm:grid-cols-1">
         {/* Row 1: Title and Title Sort */}
-        <div className="col-span-full grid grid-cols-[1fr_1fr] items-start gap-4">
+        <div className="col-span-full grid grid-cols-1 items-start gap-4 sm:grid-cols-[1fr_1fr]">
           <div className="grid min-w-0 grid-cols-[1fr_auto] items-end gap-3">
             <TextInput
               id="title"
@@ -86,7 +86,7 @@ export function BookEditFormFields({
         </div>
 
         {/* Row 2: Author(s) and Author(s) Sort */}
-        <div className="col-span-full grid grid-cols-[1fr_1fr] items-start gap-4">
+        <div className="col-span-full grid grid-cols-1 items-start gap-4 sm:grid-cols-[1fr_1fr]">
           <div className="grid min-w-0 grid-cols-[1fr_auto] items-end gap-3">
             <MultiTextInput
               id="authors"
@@ -115,7 +115,7 @@ export function BookEditFormFields({
         </div>
 
         {/* Row 3: Series, Number, Rating */}
-        <div className="col-span-full grid grid-cols-[2fr_1fr_1fr] items-end gap-4">
+        <div className="col-span-full grid grid-cols-1 items-end gap-4 sm:grid-cols-[2fr_1fr_1fr]">
           <AutocompleteTextInput
             id="series_name"
             label="Series"
@@ -155,7 +155,7 @@ export function BookEditFormFields({
         </div>
 
         {/* Row 4: Tags and Manage Tags button */}
-        <div className="col-span-full grid grid-cols-[1fr_1fr] items-start gap-4">
+        <div className="col-span-full grid grid-cols-1 items-start gap-4 sm:grid-cols-[1fr_1fr]">
           <TagInput
             id="tags"
             label="Tags"
@@ -183,7 +183,7 @@ export function BookEditFormFields({
         </div>
 
         {/* Row 5: Identifiers and Languages */}
-        <div className="col-span-full grid grid-cols-[1fr_1fr] items-start gap-4">
+        <div className="col-span-full grid grid-cols-1 items-start gap-4 sm:grid-cols-[1fr_1fr]">
           <IdentifierInput
             id="identifiers"
             label="Identifiers"
@@ -209,7 +209,7 @@ export function BookEditFormFields({
         </div>
 
         {/* Row 6: Publisher and Publish date */}
-        <div className="col-span-full grid grid-cols-[1fr_1fr] items-start gap-4">
+        <div className="col-span-full grid grid-cols-1 items-start gap-4 sm:grid-cols-[1fr_1fr]">
           <AutocompleteTextInput
             id="publisher"
             label="Publisher"

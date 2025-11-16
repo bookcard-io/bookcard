@@ -50,10 +50,10 @@ export function BookEditModalHeader({
   return (
     <div className="flex items-start justify-between gap-4 border-surface-a20 border-b pt-6 pr-16 pb-4 pl-6">
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <h2 className="m-0 truncate font-bold text-2xl text-text-a0 leading-[1.4]">
+        <h2 className="m-0 hidden truncate font-bold text-2xl text-text-a0 leading-[1.4] md:block">
           Editing {formTitle || book.title || "Untitled"}
         </h2>
-        <p className="m-0 text-sm text-text-a30 leading-6">
+        <p className="m-0 hidden text-sm text-text-a30 leading-6 md:block">
           Multi-valued values like Authors, Tags, Languages: comma or enter to
           add.
         </p>
@@ -62,7 +62,8 @@ export function BookEditModalHeader({
         <Button
           type="button"
           variant="success"
-          size="medium"
+          size="xsmall"
+          className="sm:px-6 sm:py-3 sm:text-base"
           onClick={onFetchMetadata}
           disabled={isUpdating || isLuckySearching}
         >
@@ -71,7 +72,8 @@ export function BookEditModalHeader({
         <Button
           type="button"
           variant="warning"
-          size="medium"
+          size="xsmall"
+          className="sm:px-6 sm:py-3 sm:text-base"
           onClick={onFeelinLucky}
           disabled={isUpdating || isLuckySearching}
           loading={isLuckySearching}

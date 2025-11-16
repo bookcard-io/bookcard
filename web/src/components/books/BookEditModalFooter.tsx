@@ -65,7 +65,8 @@ export function BookEditModalFooter({
         <Button
           type="button"
           variant="secondary"
-          size="medium"
+          size="xsmall"
+          className="sm:px-6 sm:py-3 sm:text-base"
           onClick={() => {}}
           disabled={isUpdating}
         >
@@ -74,7 +75,8 @@ export function BookEditModalFooter({
         <Button
           type="button"
           variant="secondary"
-          size="medium"
+          size="xsmall"
+          className="sm:px-6 sm:py-3 sm:text-base"
           onClick={() => {}}
           disabled={isUpdating}
         >
@@ -83,7 +85,8 @@ export function BookEditModalFooter({
         <Button
           type="button"
           variant="ghost"
-          size="medium"
+          size="xsmall"
+          className="sm:px-6 sm:py-3 sm:text-base"
           onClick={onCancel}
           disabled={isUpdating}
         >
@@ -92,7 +95,8 @@ export function BookEditModalFooter({
         <Button
           type="submit"
           variant="primary"
-          size="medium"
+          size="xsmall"
+          className="sm:px-6 sm:py-3 sm:text-base"
           loading={isUpdating}
           disabled={!hasChanges}
         >
