@@ -25,8 +25,8 @@ export interface BookCardMenuButtonProps {
   isMenuOpen: boolean;
   /** Handler for menu toggle. */
   onToggle: (e: React.MouseEvent<HTMLDivElement>) => void;
-  /** Variant style: 'grid' for overlay on cover, 'list' for inline. */
-  variant?: "grid" | "list";
+  /** Variant style: 'grid' for overlay on cover, 'list' for inline, 'mobile' for mobile layout. */
+  variant?: "grid" | "list" | "mobile";
 }
 
 /**
@@ -47,10 +47,13 @@ export function BookCardMenuButton({
   });
 
   const isList = variant === "list";
+  const isMobile = variant === "mobile";
 
   return (
     <div
-      className={isList ? "relative z-20" : "absolute right-3 bottom-3 z-20"}
+      className={
+        isList || isMobile ? "relative z-20" : "absolute right-3 bottom-3 z-20"
+      }
     >
       {/* biome-ignore lint/a11y/useSemanticElements: Cannot use button inside button, using div with role="button" for accessibility */}
       <div
@@ -63,7 +66,7 @@ export function BookCardMenuButton({
           "focus:shadow-focus-ring focus:outline-none",
           "active:scale-95",
           "[&_i]:block",
-          isList
+          isMobile || isList
             ? [
                 "h-8 w-8 rounded border border-surface-a20 bg-surface-a10 text-text-a0",
                 "hover:bg-surface-a20 [&_i]:text-sm",
@@ -83,7 +86,9 @@ export function BookCardMenuButton({
         onKeyDown={handleKeyDown}
       >
         <i
-          className={isList ? "pi pi-ellipsis-h" : "pi pi-ellipsis-v"}
+          className={
+            isList || isMobile ? "pi pi-ellipsis-h" : "pi pi-ellipsis-v"
+          }
           aria-hidden="true"
         />
       </div>

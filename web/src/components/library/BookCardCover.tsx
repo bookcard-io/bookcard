@@ -32,7 +32,7 @@ export interface BookCardCoverProps {
  */
 export function BookCardCover({ title, thumbnailUrl }: BookCardCoverProps) {
   return (
-    <div className="relative aspect-[2/3] w-full overflow-hidden">
+    <div className="relative h-full w-full overflow-hidden md:aspect-[2/3] md:w-full">
       {thumbnailUrl ? (
         <ImageWithLoading
           src={thumbnailUrl}

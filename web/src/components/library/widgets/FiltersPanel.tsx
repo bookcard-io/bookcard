@@ -212,7 +212,7 @@ export function FiltersPanel({
           </button>
         )}
       </div>
-      <div className="grid grid-cols-3 gap-5 p-5 px-6">
+      <div className="grid grid-cols-1 gap-5 p-5 px-6 md:grid-cols-3">
         <FilterInput
           label="Author"
           filterType="author"

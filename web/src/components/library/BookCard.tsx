@@ -94,41 +94,103 @@ export function BookCard({
       <button
         type="button"
         className={cn(
-          "group flex cursor-pointer flex-col overflow-hidden rounded",
+          "group cursor-pointer overflow-hidden rounded",
           "w-full border-2 border-transparent bg-gradient-to-b from-surface-a0 to-surface-a10 p-0 text-left",
           "transition-[transform,box-shadow,border-color] duration-200 ease-out",
           "hover:-translate-y-0.5 hover:shadow-card-hover",
           "focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2",
           "focus:not-focus-visible:outline-none focus:outline-none",
           selected && "border-primary-a0 shadow-primary-glow outline-none",
+          // Mobile: grid layout with 2 columns, 2 rows
+          // Row 1 (title/author) takes remaining space, row 2 (buttons) is auto
+          "grid grid-cols-[75px_1fr] grid-rows-[1fr_auto] gap-0",
+          // Desktop: vertical flex layout
+          "md:flex md:flex-col",
         )}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         aria-label={getBookCardAriaLabel(book, selected)}
         data-book-card
       >
-        <div className="relative">
+        {/* Mobile: Cover in col 1, spanning 2 rows */}
+        {/* Desktop: Cover at top */}
+        <div
+          className={cn(
+            "relative",
+            // Mobile: col 1, row-span-2
+            "col-start-1 row-span-2 row-start-1",
+            // Desktop: full width
+            "md:col-span-1 md:row-span-1",
+          )}
+        >
           <BookCardCover title={book.title} thumbnailUrl={book.thumbnail_url} />
-          <BookCardOverlay selected={selected}>
-            <BookCardCheckbox
-              book={book}
-              allBooks={allBooks}
-              selected={selected}
-            />
-            {onEdit && (
-              <BookCardEditButton
-                bookTitle={book.title}
-                onEdit={() => onEdit(book.id)}
+          {/* Desktop overlay (hidden on mobile) */}
+          <div className="hidden md:block">
+            <BookCardOverlay selected={selected}>
+              <BookCardCheckbox
+                book={book}
+                allBooks={allBooks}
+                selected={selected}
               />
-            )}
-            <BookCardMenuButton
-              buttonRef={menu.menuButtonRef}
-              isMenuOpen={menu.isMenuOpen}
-              onToggle={menu.handleMenuToggle}
-            />
-          </BookCardOverlay>
+              {onEdit && (
+                <BookCardEditButton
+                  bookTitle={book.title}
+                  onEdit={() => onEdit(book.id)}
+                />
+              )}
+              <BookCardMenuButton
+                buttonRef={menu.menuButtonRef}
+                isMenuOpen={menu.isMenuOpen}
+                onToggle={menu.handleMenuToggle}
+              />
+            </BookCardOverlay>
+          </div>
         </div>
-        <BookCardMetadata title={book.title} authors={book.authors} />
+
+        {/* Mobile: Title/Author in row 1, col 2 */}
+        {/* Desktop: Title/Author below cover */}
+        <div
+          className={cn(
+            // Mobile: row 1, col 2, fill height
+            "col-start-2 row-start-1 h-full",
+            // Desktop: full width
+            "md:col-span-1 md:h-auto",
+          )}
+        >
+          <BookCardMetadata title={book.title} authors={book.authors} />
+        </div>
+
+        {/* Mobile: Action buttons in row 2, col 2 */}
+        <div
+          className={cn(
+            "flex items-center justify-end gap-2 p-2",
+            // Mobile: row 2, col 2
+            "col-start-2 row-start-2",
+            // Desktop: hidden (overlay handles this)
+            "md:hidden",
+          )}
+        >
+          <BookCardCheckbox
+            book={book}
+            allBooks={allBooks}
+            selected={selected}
+            variant="mobile"
+          />
+          {onEdit && (
+            <BookCardEditButton
+              bookTitle={book.title}
+              onEdit={() => onEdit(book.id)}
+              variant="mobile"
+            />
+          )}
+          <BookCardMenuButton
+            buttonRef={menu.menuButtonRef}
+            isMenuOpen={menu.isMenuOpen}
+            onToggle={menu.handleMenuToggle}
+            variant="mobile"
+          />
+        </div>
+
         <BookCardMenu
           isOpen={menu.isMenuOpen}
           onClose={menu.handleMenuClose}

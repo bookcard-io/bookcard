@@ -33,7 +33,7 @@ export function BookCardMetadata({ title, authors }: BookCardMetadataProps) {
     authors.length > 0 ? authors.join(", ") : "Unknown Author";
 
   return (
-    <div className="flex min-h-16 flex-col gap-1 bg-surface-a10 p-[0.75rem]">
+    <div className="flex h-full min-h-16 flex-col gap-1 bg-surface-a10 p-[0.75rem] md:h-auto md:min-h-16">
       <h3
         className="m-0 line-clamp-2 font-[500] text-[0.875rem] text-text-a0 leading-[1.3]"
         title={title}

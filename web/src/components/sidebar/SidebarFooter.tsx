@@ -13,7 +13,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import { useCallback } from "react";
 import { cn } from "@/libs/utils";
+import { useTheme } from "@/hooks/useTheme";
 
 export interface SidebarFooterProps {
   /** Whether the sidebar is collapsed. */
@@ -29,7 +31,7 @@ export interface SidebarFooterProps {
 /**
  * Sidebar footer component.
  *
- * Displays admin settings button.
+ * Displays theme toggle and admin settings button.
  * Follows SRP by handling only footer rendering.
  * Follows IOC by accepting all behavior via props.
  *
@@ -44,8 +46,30 @@ export function SidebarFooter({
   isAdminActive,
   onAdminClick,
 }: SidebarFooterProps) {
+  const { theme, toggleTheme } = useTheme();
+
+  const handleThemeToggle = useCallback(() => {
+    toggleTheme();
+  }, [toggleTheme]);
+
   return (
-    <div className="border-[var(--color-surface-a20)] border-t p-4">
+    <div className="flex-shrink-0 border-[var(--color-surface-a20)] border-t px-4 py-2">
+      {/* Theme toggle button */}
+      <button
+        type="button"
+        onClick={handleThemeToggle}
+        className="flex w-full cursor-pointer items-center gap-3 rounded border-0 bg-transparent p-2 text-[var(--color-text-a30)] text-sm no-underline transition-colors duration-200 hover:bg-[var(--color-surface-a20)]"
+        aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+      >
+        <i
+          className={theme === "dark" ? "pi pi-sun" : "pi pi-moon"}
+          aria-hidden="true"
+        />
+        {!isCollapsed && (
+          <span>{theme === "dark" ? "Light Theme" : "Dark Theme"}</span>
+        )}
+      </button>
+      {/* Admin settings button */}
       {isAdmin && (
         <button
           type="button"

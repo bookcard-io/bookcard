@@ -106,30 +106,34 @@ export function SearchWidgetBar({
   onViewModeChange,
 }: SearchWidgetBarProps) {
   return (
-    <div className="flex items-center gap-3 px-8 pb-4">
+    <div className="flex flex-col gap-3 px-8 pb-4 md:flex-row md:items-center">
+      {/* Row 1: SearchInput (full width on mobile, flex-1 on desktop) */}
       <SearchInput
         value={searchValue}
         onChange={onSearchChange}
         onSubmit={onSearchSubmit}
         onSuggestionClick={onSuggestionClick}
       />
-      <FiltersButton onClick={onFiltersClick} filters={filters} />
-      <WithSelectedDropdown onClick={onWithSelectedClick} />
-      <div className="relative">
-        <SortByDropdown sortBy={sortBy} onClick={onSortByClick} />
-        {showSortPanel && (
-          <SortPanel
-            sortBy={sortBy}
-            onSortByChange={onSortByChange}
-            onClose={onSortByClick}
-          />
-        )}
+      {/* Row 2+: Other elements wrap horizontally on mobile, stay in row on desktop */}
+      <div className="flex flex-wrap items-center gap-3">
+        <FiltersButton onClick={onFiltersClick} filters={filters} />
+        <WithSelectedDropdown onClick={onWithSelectedClick} />
+        <div className="relative">
+          <SortByDropdown sortBy={sortBy} onClick={onSortByClick} />
+          {showSortPanel && (
+            <SortPanel
+              sortBy={sortBy}
+              onSortByChange={onSortByChange}
+              onClose={onSortByClick}
+            />
+          )}
+        </div>
+        <ViewModeButtons
+          activeMode={activeViewMode}
+          sortOrder={sortOrder}
+          onModeChange={onViewModeChange}
+        />
       </div>
-      <ViewModeButtons
-        activeMode={activeViewMode}
-        sortOrder={sortOrder}
-        onModeChange={onViewModeChange}
-      />
     </div>
   );
 }

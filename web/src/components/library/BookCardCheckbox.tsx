@@ -27,6 +27,8 @@ export interface BookCardCheckboxProps {
   allBooks: Book[];
   /** Whether the book is selected. */
   selected: boolean;
+  /** Variant style: 'grid' for overlay on cover, 'mobile' for inline. */
+  variant?: "grid" | "mobile";
 }
 
 /**
@@ -40,6 +42,7 @@ export function BookCardCheckbox({
   book,
   allBooks,
   selected,
+  variant = "grid",
 }: BookCardCheckboxProps) {
   const { handleBookClick } = useSelectedBooks();
 
@@ -60,18 +63,31 @@ export function BookCardCheckbox({
     handleClick({} as React.MouseEvent<HTMLDivElement>);
   });
 
+  const isMobile = variant === "mobile";
+
   return (
     /* biome-ignore lint/a11y/useSemanticElements: Cannot use button inside button, using div with role="button" for accessibility */
     <div
       className={cn(
-        "checkbox pointer-events-auto absolute top-3 left-3 flex cursor-default items-center justify-center",
-        "text-[var(--color-white)] transition-[background-color,border-color] duration-200 ease-in-out",
-        "h-6 w-6 rounded border-2 bg-transparent p-0",
+        "checkbox pointer-events-auto flex cursor-default items-center justify-center",
+        "transition-[background-color,border-color] duration-200 ease-in-out",
         "focus:shadow-focus-ring focus:outline-none",
-        selected
-          ? "border-primary-a0 bg-primary-a0"
-          : "border-[var(--color-white)] hover:bg-[rgba(144,170,249,0.2)]",
         "[&_i]:block [&_i]:text-sm",
+        isMobile
+          ? [
+              "relative h-8 w-8 rounded border-2 bg-transparent p-0",
+              "text-text-a0",
+              selected
+                ? "border-primary-a0 bg-primary-a0"
+                : "border-surface-a20 hover:bg-surface-a20",
+            ]
+          : [
+              "absolute top-3 left-3 h-6 w-6 rounded border-2 bg-transparent p-0",
+              "text-[var(--color-white)]",
+              selected
+                ? "border-primary-a0 bg-primary-a0"
+                : "border-[var(--color-white)] hover:bg-[rgba(144,170,249,0.2)]",
+            ],
       )}
       onClick={handleClick}
       role="button"

@@ -23,8 +23,8 @@ export interface BookCardEditButtonProps {
   bookTitle: string;
   /** Handler for edit action. */
   onEdit: () => void;
-  /** Variant style: 'grid' for overlay on cover, 'list' for inline. */
-  variant?: "grid" | "list";
+  /** Variant style: 'grid' for overlay on cover, 'list' for inline, 'mobile' for mobile layout. */
+  variant?: "grid" | "list" | "mobile";
 }
 
 /**
@@ -49,6 +49,7 @@ export function BookCardEditButton({
   });
 
   const isList = variant === "list";
+  const isMobile = variant === "mobile";
 
   return (
     /* biome-ignore lint/a11y/useSemanticElements: Cannot use button inside button, using div with role="button" for accessibility */
@@ -61,7 +62,7 @@ export function BookCardEditButton({
         "focus:shadow-focus-ring focus:outline-none",
         "active:scale-95",
         "[&_i]:block",
-        isList
+        isMobile || isList
           ? [
               "relative h-8 w-8 rounded border border-surface-a20 bg-surface-a10 text-text-a0",
               "hover:bg-surface-a20 [&_i]:text-sm",

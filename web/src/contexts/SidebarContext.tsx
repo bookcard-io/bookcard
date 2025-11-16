@@ -75,6 +75,21 @@ interface SidebarContextType {
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
+/**
+ * Checks if the current viewport is mobile (< 768px).
+ *
+ * Returns
+ * -------
+ * boolean
+ *     True if viewport width is less than 768px (mobile breakpoint).
+ */
+function isMobileViewport(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return window.innerWidth < 768;
+}
+
 export function SidebarProvider({ children }: { children: ReactNode }) {
   // Always start with default to avoid hydration mismatch
   // Server and client must render the same initial HTML
@@ -82,17 +97,26 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   const [isHydrated, setIsHydrated] = useState(false);
 
   // Sync from localStorage after hydration (client-side only)
+  // On mobile, default to collapsed (but don't persist to localStorage)
   useEffect(() => {
-    const stored = getCollapsedFromLocalStorage();
-    if (stored !== null) {
-      setIsCollapsed(stored);
+    const isMobile = isMobileViewport();
+    if (isMobile) {
+      // Mobile: always start collapsed, don't check localStorage
+      setIsCollapsed(true);
+    } else {
+      // Desktop: check localStorage for saved preference
+      const stored = getCollapsedFromLocalStorage();
+      if (stored !== null) {
+        setIsCollapsed(stored);
+      }
     }
     setIsHydrated(true);
   }, []);
 
   // Persist collapsed state to localStorage when it changes (after hydration)
+  // Only persist on desktop, not on mobile (as per requirements)
   useEffect(() => {
-    if (isHydrated) {
+    if (isHydrated && !isMobileViewport()) {
       saveCollapsedToLocalStorage(isCollapsed);
     }
   }, [isCollapsed, isHydrated]);
