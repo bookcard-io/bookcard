@@ -183,7 +183,7 @@ export function BooksGrid({
       <div className="px-8">
         <div
           ref={parentRef}
-          className="relative h-[calc(100vh-215px)] w-full overflow-auto [contain:strict] [&::-webkit-scrollbar-thumb]:bg-surface-a20 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 hover:[&::-webkit-scrollbar]:block"
+          className="relative h-[calc(100vh-215px)] w-full overflow-y-auto overflow-x-hidden [contain:strict] [&::-webkit-scrollbar-thumb]:bg-surface-a20 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 hover:[&::-webkit-scrollbar]:block"
         >
           <div
             className="relative w-full"
@@ -203,6 +203,7 @@ export function BooksGrid({
                       top: 0,
                       left: 0,
                       width: "100%",
+                      maxWidth: "100%",
                       paddingBottom: `${gap}px`,
                       transform: `translateY(${virtualRow.start}px)`,
                     }}
@@ -237,6 +238,7 @@ export function BooksGrid({
                     top: 0,
                     left: 0,
                     width: "100%",
+                    maxWidth: "100%",
                     paddingBottom: `${gap}px`,
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
@@ -245,6 +247,8 @@ export function BooksGrid({
                     className="flex"
                     style={{
                       gap: `${gap}px`,
+                      width: "100%",
+                      maxWidth: "100%",
                     }}
                   >
                     {rowBooks.map((book) => (
