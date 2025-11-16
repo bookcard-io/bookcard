@@ -82,6 +82,12 @@ export const THEME_PREFERENCE_OPTIONS = [
   { value: "light", label: "Light theme" },
 ] as const;
 
+export const METADATA_DOWNLOAD_FORMAT_OPTIONS = [
+  { value: "opf", label: "OPF" },
+  { value: "json", label: "JSON" },
+  { value: "yaml", label: "YAML" },
+] as const;
+
 export const THEME_PREFERENCE_SETTING_KEY = "theme_preference";
 
 /**

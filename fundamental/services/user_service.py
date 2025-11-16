@@ -70,6 +70,7 @@ DEFAULT_USER_SETTINGS: dict[str, str | bool | list[str]] = {
     "enabled_metadata_providers": ["Google Books", "Amazon", "ComicVine"],
     "preferred_metadata_providers": ["Google Books", "Amazon"],
     "replace_cover_on_metadata_selection": True,
+    "metadata_download_format": "opf",
     "auto_dismiss_book_edit_modal": True,
     "book_details_open_mode": "modal",
     "always_warn_on_delete": True,

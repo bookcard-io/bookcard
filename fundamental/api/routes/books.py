@@ -59,6 +59,7 @@ from fundamental.services.book_service import BookService
 from fundamental.services.config_service import LibraryService
 from fundamental.services.email_config_service import EmailConfigService
 from fundamental.services.email_service import EmailService, EmailServiceError
+from fundamental.services.metadata_export_service import MetadataExportService
 from fundamental.services.security import DataEncryptor
 
 router = APIRouter(prefix="/books", tags=["books"])
@@ -708,6 +709,73 @@ def download_book_file(
         path=str(file_path),
         media_type=media_type,
         filename=filename,
+    )
+
+
+@router.get("/{book_id}/metadata", response_model=None)
+def download_book_metadata(
+    session: SessionDep,
+    book_id: int,
+    format: str = "opf",  # noqa: A002
+) -> Response:
+    """Download book metadata in the specified format.
+
+    Generates metadata file in OPF (XML), JSON, or YAML format.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+    book_id : int
+        Calibre book ID.
+    format : str
+        Export format: 'opf', 'json', or 'yaml' (default: 'opf').
+
+    Returns
+    -------
+    Response
+        Metadata file response with appropriate headers.
+
+    Raises
+    ------
+    HTTPException
+        If book not found (404), no active library (404), or format unsupported (400).
+    """
+    book_service = _get_active_library_service(session)
+    book_with_rels = book_service.get_book_full(book_id)
+
+    if book_with_rels is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="book_not_found",
+        )
+
+    # Generate metadata using service (SRP, IOC, SOC)
+    # Service validates format and raises ValueError for unsupported formats
+    format_lower = format.lower()
+    export_service = MetadataExportService()
+    try:
+        export_result = export_service.export_metadata(book_with_rels, format_lower)
+    except ValueError as exc:
+        # ValueError from export_metadata indicates unsupported format (client error)
+        error_msg = str(exc)
+        if "Unsupported format" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_msg,
+            ) from exc
+        # Other ValueError cases are treated as server errors
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_msg,
+        ) from exc
+
+    return Response(
+        content=export_result.content,
+        media_type=export_result.media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{export_result.filename}"',
+        },
     )
 
 

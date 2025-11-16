@@ -15,9 +15,13 @@
 
 "use client";
 
+import { useCallback } from "react";
 import { Button } from "@/components/forms/Button";
+import { useUser } from "@/contexts/UserContext";
 
 export interface BookEditModalFooterProps {
+  /** Book ID for metadata download. */
+  bookId: number;
   /** Error message from update attempt. */
   updateError: string | null;
   /** Whether to show success message. */
@@ -37,12 +41,58 @@ export interface BookEditModalFooterProps {
  * Follows SRP by focusing solely on footer presentation.
  */
 export function BookEditModalFooter({
+  bookId,
   updateError,
   showSuccess,
   isUpdating,
   hasChanges,
   onCancel,
 }: BookEditModalFooterProps) {
+  const { getSetting } = useUser();
+
+  /**
+   * Handles downloading book metadata in the user's preferred format.
+   */
+  const handleDownloadMetadata = useCallback(async () => {
+    try {
+      // Get user's preferred format, default to 'opf'
+      const format = getSetting("metadata_download_format") || "opf";
+
+      const downloadUrl = `/api/books/${bookId}/metadata?format=${format}`;
+      const response = await fetch(downloadUrl, {
+        method: "GET",
+      });
+      if (!response.ok) {
+        // eslint-disable-next-line no-console
+        console.error("Download failed", await response.text());
+        return;
+      }
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get("content-disposition");
+      let filename = `book_${bookId}_metadata.${format}`;
+      if (contentDisposition) {
+        const match = contentDisposition.match(
+          /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i,
+        );
+        const cdName = decodeURIComponent(match?.[1] || match?.[2] || "");
+        if (cdName) {
+          filename = cdName;
+        }
+      }
+      const objectUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("Download error", err);
+    }
+  }, [bookId, getSetting]);
+
   return (
     <div className="flex flex-col gap-4 border-surface-a20 border-t bg-surface-tonal-a10 p-4 md:flex-row md:items-center md:justify-between md:gap-4 md:px-6 md:pt-4 md:pb-6">
       <div className="flex w-full flex-1 flex-col gap-2">
@@ -77,7 +127,7 @@ export function BookEditModalFooter({
           variant="secondary"
           size="xsmall"
           className="sm:px-6 sm:py-3 sm:text-base"
-          onClick={() => {}}
+          onClick={handleDownloadMetadata}
           disabled={isUpdating}
         >
           Download metadata

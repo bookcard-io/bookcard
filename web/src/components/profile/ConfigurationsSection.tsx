@@ -30,6 +30,7 @@ import { DeleteSettingsGroup } from "./config/DeleteSettingsGroup";
 import { DisplayModeConfiguration } from "./config/DisplayModeConfiguration";
 import { EnabledMetadataProvidersConfiguration } from "./config/EnabledMetadataProvidersConfiguration";
 import { LanguagesConfiguration } from "./config/LanguagesConfiguration";
+import { MetadataDownloadFormatConfiguration } from "./config/MetadataDownloadFormatConfiguration";
 import { MetadataProvidersConfiguration } from "./config/MetadataProvidersConfiguration";
 import { ReplaceCoverOnMetadataSelectionConfiguration } from "./config/ReplaceCoverOnMetadataSelectionConfiguration";
 import { ThemePreferenceConfiguration } from "./config/ThemePreferenceConfiguration";
@@ -117,6 +118,7 @@ function ConfigurationsSectionContent() {
           <EnabledMetadataProvidersConfiguration key="enabled-metadata-providers" />,
           <MetadataProvidersConfiguration key="metadata-providers" />,
           <ReplaceCoverOnMetadataSelectionConfiguration key="replace-cover-on-metadata-select" />,
+          <MetadataDownloadFormatConfiguration key="metadata-download-format" />,
           <AutoDismissBookEditModalConfiguration key="auto-dismiss-modal" />,
         ];
       case "navigation":
