@@ -101,31 +101,43 @@ describe("useTheme", () => {
     expect(setAttributeSpy).toHaveBeenCalledWith("data-theme", "dark");
   });
 
-  it("should initialize with theme from localStorage", () => {
+  it("should initialize with theme from localStorage after hydration", async () => {
     mockLocalStorage["theme-preference"] = "light";
 
     const { result } = renderHook(() => useTheme());
 
-    expect(result.current.theme).toBe("light");
+    // Initially should be default theme
+    expect(result.current.theme).toBe("dark");
+
+    // After hydration, should sync from localStorage
+    await waitFor(() => {
+      expect(result.current.theme).toBe("light");
+    });
     expect(setAttributeSpy).toHaveBeenCalledWith("data-theme", "light");
   });
 
-  it("should handle invalid theme value in localStorage", () => {
+  it("should handle invalid theme value in localStorage", async () => {
     mockLocalStorage["theme-preference"] = "invalid";
 
     const { result } = renderHook(() => useTheme());
 
-    expect(result.current.theme).toBe("dark");
+    // Should remain default theme even after hydration
+    await waitFor(() => {
+      expect(result.current.theme).toBe("dark");
+    });
   });
 
-  it("should handle localStorage.getItem error", () => {
+  it("should handle localStorage.getItem error", async () => {
     mockGetItem.mockImplementation(() => {
       throw new Error("Storage error");
     });
 
     const { result } = renderHook(() => useTheme());
 
-    expect(result.current.theme).toBe("dark");
+    // Should remain default theme even after hydration attempt
+    await waitFor(() => {
+      expect(result.current.theme).toBe("dark");
+    });
   });
 
   it("should load theme from UserContext when available", async () => {
@@ -137,6 +149,7 @@ describe("useTheme", () => {
 
     const { result } = renderHook(() => useTheme(), { wrapper });
 
+    // Wait for hydration, then UserContext sync
     await waitFor(() => {
       expect(result.current.theme).toBe("light");
     });
@@ -155,6 +168,7 @@ describe("useTheme", () => {
 
     const { result } = renderHook(() => useTheme(), { wrapper });
 
+    // Wait for hydration and UserContext sync
     await waitFor(() => {
       expect(result.current.theme).toBe("dark");
     });
@@ -179,6 +193,7 @@ describe("useTheme", () => {
 
     renderHook(() => useTheme(), { wrapper });
 
+    // Wait for hydration, then UserContext sync
     await waitFor(() => {
       expect(mockUpdateSetting).toHaveBeenCalledWith(
         THEME_PREFERENCE_SETTING_KEY,
@@ -217,11 +232,14 @@ describe("useTheme", () => {
     expect(setAttributeSpy).toHaveBeenCalledWith("data-theme", "light");
   });
 
-  it("should toggle theme from light to dark", () => {
+  it("should toggle theme from light to dark", async () => {
     mockLocalStorage["theme-preference"] = "light";
     const { result } = renderHook(() => useTheme());
 
-    expect(result.current.theme).toBe("light");
+    // Wait for hydration to sync from localStorage
+    await waitFor(() => {
+      expect(result.current.theme).toBe("light");
+    });
 
     act(() => {
       result.current.toggleTheme();
@@ -313,6 +331,7 @@ describe("useTheme", () => {
 
     const { result } = renderHook(() => useTheme(), { wrapper });
 
+    // Wait for hydration to sync from localStorage, then UserContext check
     await waitFor(() => {
       expect(result.current.theme).toBe("dark");
     });
