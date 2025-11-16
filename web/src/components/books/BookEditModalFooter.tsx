@@ -64,6 +64,24 @@ export function BookEditModalFooter({
       <div className="flex w-full flex-shrink-0 flex-col-reverse justify-end gap-3 md:w-auto md:flex-row">
         <Button
           type="button"
+          variant="secondary"
+          size="medium"
+          onClick={() => {}}
+          disabled={isUpdating}
+        >
+          Import metadata
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="medium"
+          onClick={() => {}}
+          disabled={isUpdating}
+        >
+          Download metadata
+        </Button>
+        <Button
+          type="button"
           variant="ghost"
           size="medium"
           onClick={onCancel}

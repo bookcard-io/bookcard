@@ -27,6 +27,7 @@ export interface ButtonProps
     | "danger"
     | "ghost"
     | "success"
+    | "warning"
     | "neutral";
   /** Button size. */
   size?: "xsmall" | "small" | "medium" | "large";
@@ -95,6 +96,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             "border-success-a10",
             "hover:bg-success-a10",
             "active:bg-success-a0",
+          ],
+          variant === "warning" && [
+            "bg-warning-a0 text-[var(--color-white)]",
+            "border-warning-a10",
+            "hover:bg-warning-a10",
+            "active:bg-warning-a0",
           ],
           variant === "neutral" && [
             "border-0 bg-transparent",

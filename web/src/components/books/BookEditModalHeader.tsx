@@ -52,15 +52,26 @@ export function BookEditModalHeader({
           add.
         </p>
       </div>
-      <Button
-        type="button"
-        variant="success"
-        size="medium"
-        onClick={onFetchMetadata}
-        disabled={isUpdating}
-      >
-        Fetch metadata
-      </Button>
+      <div className="flex items-center gap-3">
+        <Button
+          type="button"
+          variant="success"
+          size="medium"
+          onClick={onFetchMetadata}
+          disabled={isUpdating}
+        >
+          Fetch metadata
+        </Button>
+        <Button
+          type="button"
+          variant="success"
+          size="medium"
+          onClick={() => {}}
+          disabled={isUpdating}
+        >
+          I'm feelin' lucky!
+        </Button>
+      </div>
     </div>
   );
 }
