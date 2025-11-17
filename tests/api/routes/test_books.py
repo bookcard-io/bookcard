@@ -1802,3 +1802,247 @@ def test_send_book_email_service_error(monkeypatch: pytest.MonkeyPatch) -> None:
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 500
     assert exc_info.value.detail == "email_send_failed"
+
+
+def test_download_book_metadata_not_found() -> None:
+    """Test download_book_metadata when book not found (lines 746-753)."""
+    session = DummySession()
+    mock_service = MockBookService(get_book_full_result=None)
+
+    with patch("fundamental.api.routes.books._get_active_library_service") as mock_get:
+        mock_get.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            books.download_book_metadata(session, book_id=1, format="json")
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == "book_not_found"
+
+
+def test_download_book_metadata_unsupported_format() -> None:
+    """Test download_book_metadata with unsupported format (lines 764-768)."""
+    from datetime import UTC, datetime
+
+    from fundamental.repositories.models import BookWithFullRelations
+
+    session = DummySession()
+    book = Book(
+        id=1,
+        title="Test Book",
+        timestamp=datetime.now(UTC),
+        pubdate=None,
+        uuid="test-uuid",
+        has_cover=False,
+        path="Test Book (1)",
+    )
+    book_with_rels = BookWithFullRelations(
+        book=book,
+        authors=[],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        languages=[],
+        language_ids=[],
+        rating=None,
+        rating_id=None,
+        formats=[],
+    )
+    mock_service = MockBookService(get_book_full_result=book_with_rels)
+
+    with patch("fundamental.api.routes.books._get_active_library_service") as mock_get:
+        mock_get.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            books.download_book_metadata(session, book_id=1, format="invalid")
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 400
+        assert "Unsupported format" in str(exc_info.value.detail)
+
+
+def test_download_book_metadata_other_value_error() -> None:
+    """Test download_book_metadata with other ValueError (lines 769-773)."""
+    from datetime import UTC, datetime
+
+    from fundamental.repositories.models import BookWithFullRelations
+
+    session = DummySession()
+    book = Book(
+        id=1,
+        title="Test Book",
+        timestamp=datetime.now(UTC),
+        pubdate=None,
+        uuid="test-uuid",
+        has_cover=False,
+        path="Test Book (1)",
+    )
+    book_with_rels = BookWithFullRelations(
+        book=book,
+        authors=[],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        languages=[],
+        language_ids=[],
+        rating=None,
+        rating_id=None,
+        formats=[],
+    )
+    mock_service = MockBookService(get_book_full_result=book_with_rels)
+
+    with patch("fundamental.api.routes.books._get_active_library_service") as mock_get:
+        mock_get.return_value = mock_service
+
+        with patch(
+            "fundamental.api.routes.books.MetadataExportService"
+        ) as mock_export_service:
+            mock_instance = MagicMock()
+            mock_instance.export_metadata.side_effect = ValueError("Other error")
+            mock_export_service.return_value = mock_instance
+
+            with pytest.raises(HTTPException) as exc_info:
+                books.download_book_metadata(session, book_id=1, format="json")
+            assert isinstance(exc_info.value, HTTPException)
+            assert exc_info.value.status_code == 500
+            assert "Other error" in str(exc_info.value.detail)
+
+
+def test_import_book_metadata_no_filename() -> None:
+    """Test import_book_metadata with no filename (lines 809-813)."""
+    from fastapi import UploadFile
+
+    mock_file = MagicMock(spec=UploadFile)
+    mock_file.filename = None
+
+    with pytest.raises(HTTPException) as exc_info:
+        books.import_book_metadata(mock_file)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "filename_required"
+
+
+def test_import_book_metadata_unsupported_format() -> None:
+    """Test import_book_metadata with unsupported format (lines 817-821)."""
+    from fastapi import UploadFile
+
+    mock_file = MagicMock(spec=UploadFile)
+    mock_file.filename = "test.txt"
+
+    with pytest.raises(HTTPException) as exc_info:
+        books.import_book_metadata(mock_file)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 400
+    assert "Unsupported file format" in str(exc_info.value.detail)
+
+
+def test_import_book_metadata_unicode_decode_error() -> None:
+    """Test import_book_metadata with UnicodeDecodeError (lines 827-831)."""
+    from fastapi import UploadFile
+
+    mock_file = MagicMock(spec=UploadFile)
+    mock_file.filename = "test.opf"
+    mock_file.file = MagicMock()
+    mock_file.file.read.side_effect = UnicodeDecodeError(
+        "utf-8", b"\xff\xfe", 0, 1, "invalid"
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        books.import_book_metadata(mock_file)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 400
+    assert "Invalid file encoding" in str(exc_info.value.detail)
+
+
+def test_import_book_metadata_read_exception() -> None:
+    """Test import_book_metadata with read exception (lines 832-836)."""
+    from fastapi import UploadFile
+
+    mock_file = MagicMock(spec=UploadFile)
+    mock_file.filename = "test.opf"
+    mock_file.file = MagicMock()
+    # Use Exception instead of OSError to match the catch-all in the code
+    mock_file.file.read.side_effect = Exception("Read error")
+
+    with pytest.raises(HTTPException) as exc_info:
+        books.import_book_metadata(mock_file)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 500
+    assert "failed_to_read_file" in str(exc_info.value.detail)
+
+
+def test_import_book_metadata_unsupported_format_error() -> None:
+    """Test import_book_metadata with unsupported format error (lines 845-849)."""
+    from fastapi import UploadFile
+
+    mock_file = MagicMock(spec=UploadFile)
+    mock_file.filename = "test.opf"
+    mock_file.file = MagicMock()
+    mock_file.file.read.return_value = b"<package></package>"
+
+    with patch(
+        "fundamental.api.routes.books.MetadataImportService"
+    ) as mock_import_service:
+        mock_instance = MagicMock()
+        mock_instance.import_metadata.side_effect = ValueError(
+            "Unsupported format: invalid"
+        )
+        mock_import_service.return_value = mock_instance
+
+        with pytest.raises(HTTPException) as exc_info:
+            books.import_book_metadata(mock_file)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 400
+        assert "Unsupported format" in str(exc_info.value.detail)
+
+
+def test_import_book_metadata_other_value_error() -> None:
+    """Test import_book_metadata with other ValueError (lines 850-854)."""
+    from fastapi import UploadFile
+
+    mock_file = MagicMock(spec=UploadFile)
+    mock_file.filename = "test.opf"
+    mock_file.file = MagicMock()
+    mock_file.file.read.return_value = b"<package></package>"
+
+    with patch(
+        "fundamental.api.routes.books.MetadataImportService"
+    ) as mock_import_service:
+        mock_instance = MagicMock()
+        mock_instance.import_metadata.side_effect = ValueError("Parsing error")
+        mock_import_service.return_value = mock_instance
+
+        with pytest.raises(HTTPException) as exc_info:
+            books.import_book_metadata(mock_file)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 400
+        assert "Parsing error" in str(exc_info.value.detail)
+
+
+def test_import_book_metadata_unexpected_exception() -> None:
+    """Test import_book_metadata with unexpected exception (lines 855-860)."""
+    from fastapi import UploadFile
+
+    mock_file = MagicMock(spec=UploadFile)
+    mock_file.filename = "test.opf"
+    mock_file.file = MagicMock()
+    mock_file.file.read.return_value = b"<package></package>"
+
+    with patch(
+        "fundamental.api.routes.books.MetadataImportService"
+    ) as mock_import_service:
+        mock_instance = MagicMock()
+        mock_instance.import_metadata.side_effect = RuntimeError("Unexpected error")
+        mock_import_service.return_value = mock_instance
+
+        with pytest.raises(HTTPException) as exc_info:
+            books.import_book_metadata(mock_file)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 500
+        assert "Failed to import metadata" in str(exc_info.value.detail)

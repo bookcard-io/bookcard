@@ -331,6 +331,29 @@ def test_parse_date_not_string_or_datetime() -> None:
     assert result is None
 
 
+def test_parse_date_none() -> None:
+    """Test _parse_date with None (line 266)."""
+    result = YamlImporter._parse_date(None)
+    assert result is None
+
+
+def test_parse_date_formats_success() -> None:
+    """Test _parse_date_formats successfully parses date (line 349)."""
+    result = YamlImporter._parse_date_formats("2020-01-01")
+    assert result is not None
+    assert result == datetime(2020, 1, 1, tzinfo=UTC)
+
+
+def test_import_metadata_yaml_not_installed() -> None:
+    """Test import_metadata when yaml is not installed (lines 28-29)."""
+    # Mock yaml module to be None to simulate ImportError
+    with (
+        patch("fundamental.services.metadata_importers.yaml_importer.yaml", None),
+        pytest.raises(ValueError, match="YAML import requires PyYAML"),
+    ):
+        YamlImporter().import_metadata("title: Test")
+
+
 def test_convert_identifier_list() -> None:
     """Test _convert_identifier_list."""
     identifiers = [
