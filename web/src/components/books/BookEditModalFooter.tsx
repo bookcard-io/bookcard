@@ -15,9 +15,12 @@
 
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { Button } from "@/components/forms/Button";
 import { useUser } from "@/contexts/UserContext";
+import type { BookUpdate } from "@/types/book";
+import { applyBookUpdateToForm } from "@/utils/metadata";
+import { parseJsonMetadataFile } from "@/utils/metadataImport";
 
 export interface BookEditModalFooterProps {
   /** Book ID for metadata download. */
@@ -32,6 +35,11 @@ export interface BookEditModalFooterProps {
   hasChanges: boolean;
   /** Callback when cancel is clicked. */
   onCancel: () => void;
+  /** Handler for field changes. */
+  handleFieldChange: <K extends keyof BookUpdate>(
+    field: K,
+    value: BookUpdate[K],
+  ) => void;
 }
 
 /**
@@ -47,8 +55,10 @@ export function BookEditModalFooter({
   isUpdating,
   hasChanges,
   onCancel,
+  handleFieldChange,
 }: BookEditModalFooterProps) {
   const { getSetting } = useUser();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   /**
    * Handles downloading book metadata in the user's preferred format.
@@ -93,6 +103,82 @@ export function BookEditModalFooter({
     }
   }, [bookId, getSetting]);
 
+  /**
+   * Handles importing metadata from file.
+   *
+   * Opens file picker and parses the selected file (YAML, JSON, or OPF),
+   * then stages the metadata in the form without applying it.
+   */
+  const handleImportMetadata = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  /**
+   * Handles file selection and parsing.
+   *
+   * JSON files are parsed client-side, while OPF and YAML files
+   * are sent to the backend for processing.
+   */
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) {
+        return;
+      }
+
+      // Reset file input so same file can be selected again
+      e.target.value = "";
+
+      const fileName = file.name.toLowerCase();
+      const extension = fileName.split(".").pop()?.toLowerCase() || "";
+
+      try {
+        let update: BookUpdate;
+
+        if (extension === "json") {
+          // Parse JSON client-side
+          update = await parseJsonMetadataFile(file);
+        } else if (
+          extension === "opf" ||
+          extension === "yaml" ||
+          extension === "yml"
+        ) {
+          // Send OPF/YAML to backend for processing
+          const formData = new FormData();
+          formData.append("file", file);
+
+          const response = await fetch("/api/books/metadata/import", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({
+              detail: "Failed to import metadata",
+            }));
+            throw new Error(errorData.detail || "Failed to import metadata");
+          }
+
+          update = (await response.json()) as BookUpdate;
+        } else {
+          throw new Error(
+            `Unsupported file format: ${extension}. Supported formats: json, yaml, opf`,
+          );
+        }
+
+        applyBookUpdateToForm(update, handleFieldChange);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to import metadata";
+        // eslint-disable-next-line no-console
+        console.error("Import metadata error:", message);
+        // TODO: Show error message to user (could add error state prop)
+        alert(`Failed to import metadata: ${message}`);
+      }
+    },
+    [handleFieldChange],
+  );
+
   return (
     <div className="modal-footer-between">
       <div className="flex w-full flex-1 flex-col gap-2">
@@ -112,12 +198,20 @@ export function BookEditModalFooter({
         )}
       </div>
       <div className="flex w-full flex-shrink-0 flex-col-reverse justify-end gap-3 md:w-auto md:flex-row">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json,.yaml,.yml,.opf"
+          className="hidden"
+          onChange={handleFileChange}
+          aria-label="Import metadata file"
+        />
         <Button
           type="button"
           variant="secondary"
           size="xsmall"
           className="sm:px-6 sm:py-3 sm:text-base"
-          onClick={() => {}}
+          onClick={handleImportMetadata}
           disabled={isUpdating}
         >
           Import metadata

@@ -28,6 +28,7 @@ import httpx
 from fastapi import (
     APIRouter,
     Depends,
+    File,
     HTTPException,
     Request,
     Response,
@@ -60,6 +61,7 @@ from fundamental.services.config_service import LibraryService
 from fundamental.services.email_config_service import EmailConfigService
 from fundamental.services.email_service import EmailService, EmailServiceError
 from fundamental.services.metadata_export_service import MetadataExportService
+from fundamental.services.metadata_import_service import MetadataImportService
 from fundamental.services.security import DataEncryptor
 
 router = APIRouter(prefix="/books", tags=["books"])
@@ -777,6 +779,87 @@ def download_book_metadata(
             "Content-Disposition": f'attachment; filename="{export_result.filename}"',
         },
     )
+
+
+@router.post("/metadata/import", response_model=BookUpdate)
+def import_book_metadata(
+    file: Annotated[UploadFile, File()],
+) -> BookUpdate:
+    """Import book metadata from file.
+
+    Accepts metadata files in OPF (XML) or YAML format and returns
+    a BookUpdate object ready for staging in the form.
+
+    Parameters
+    ----------
+    file : UploadFile
+        Metadata file to import (OPF or YAML).
+
+    Returns
+    -------
+    BookUpdate
+        Book update object ready for form application.
+
+    Raises
+    ------
+    HTTPException
+        If file format is unsupported (400), file is invalid (400),
+        or parsing fails (500).
+    """
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="filename_required",
+        )
+
+    # Determine format from file extension
+    file_ext = Path(file.filename).suffix.lower().lstrip(".")
+    if file_ext not in ("opf", "yaml", "yml"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported file format: {file_ext}. Supported formats: opf, yaml, yml",
+        )
+
+    # Read file content
+    try:
+        content_bytes = file.file.read()
+        content = content_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file encoding: {exc}",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"failed_to_read_file: {exc!s}",
+        ) from exc
+
+    # Import metadata using service (SRP, IOC, SOC)
+    import_service = MetadataImportService()
+    try:
+        book_update = import_service.import_metadata(content, file_ext)
+    except ValueError as exc:
+        # ValueError from import_metadata indicates unsupported format or parsing error
+        error_msg = str(exc)
+        if "Unsupported format" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_msg,
+            ) from exc
+        # Other ValueError cases (parsing errors) are treated as client errors
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_msg,
+        ) from exc
+    except Exception as exc:
+        # Unexpected errors are treated as server errors
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to import metadata: {exc!s}",
+        ) from exc
+
+    return book_update
 
 
 @router.post("/{book_id}/send", status_code=status.HTTP_204_NO_CONTENT)

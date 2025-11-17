@@ -237,6 +237,7 @@ export function BookEditModal({
             isUpdating={isUpdating}
             hasChanges={hasChanges}
             onCancel={handleClose}
+            handleFieldChange={handleFieldChange}
           />
         </form>
       </div>
