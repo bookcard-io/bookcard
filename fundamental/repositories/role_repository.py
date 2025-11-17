@@ -112,8 +112,28 @@ class PermissionRepository(Repository[Permission]):
         )
         return self._session.exec(stmt).first()
 
+    def list(self, limit: int | None = None, offset: int = 0) -> Iterable[Permission]:
+        """List permissions with simple pagination, ordered by name.
+
+        Parameters
+        ----------
+        limit : int | None
+            Maximum number of records to return.
+        offset : int
+            Number of records to skip.
+
+        Returns
+        -------
+        Iterable[Permission]
+            Permission entities ordered by name.
+        """
+        stmt = select(Permission).order_by(Permission.name).offset(offset)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        return self._session.exec(stmt).all()
+
     def list_by_resource(self, resource: str) -> Iterable[Permission]:
-        """Return all permissions for a resource.
+        """Return all permissions for a resource, ordered by name.
 
         Parameters
         ----------
@@ -123,9 +143,13 @@ class PermissionRepository(Repository[Permission]):
         Returns
         -------
         Iterable[Permission]
-            Permission entities for the resource.
+            Permission entities for the resource, ordered by name.
         """
-        stmt = select(Permission).where(Permission.resource == resource)
+        stmt = (
+            select(Permission)
+            .where(Permission.resource == resource)
+            .order_by(Permission.name)
+        )
         return self._session.exec(stmt).all()
 
 

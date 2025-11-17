@@ -93,6 +93,8 @@ describe("useLibraryViewMode", () => {
             getSetting: mockGetSetting,
             updateSetting: vi.fn(),
             defaultDevice: null,
+            hasPermission: vi.fn(() => false),
+            canPerformAction: vi.fn(() => false),
           }}
         >
           {children}
@@ -124,6 +126,8 @@ describe("useLibraryViewMode", () => {
             getSetting: mockGetSettingLoading,
             updateSetting: vi.fn(),
             defaultDevice: null,
+            hasPermission: vi.fn(() => false),
+            canPerformAction: vi.fn(() => false),
           }}
         >
           {children}
@@ -153,6 +157,8 @@ describe("useLibraryViewMode", () => {
             getSetting: mockGetSetting2,
             updateSetting: vi.fn(),
             defaultDevice: null,
+            hasPermission: vi.fn(() => false),
+            canPerformAction: vi.fn(() => false),
           }}
         >
           {children}

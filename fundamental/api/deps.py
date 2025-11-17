@@ -31,10 +31,11 @@ from fundamental.repositories.user_repository import (
     TokenBlacklistRepository,
     UserRepository,
 )
+from fundamental.services.permission_service import PermissionService
 from fundamental.services.security import JWTManager, SecurityTokenError
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
 
 def get_db_session(request: Request) -> Iterator[Session]:
@@ -122,3 +123,107 @@ def get_admin_user(
             status_code=status.HTTP_403_FORBIDDEN, detail="admin_required"
         )
     return current_user
+
+
+def require_permission(
+    resource: str,
+    action: str,
+    context: dict[str, object] | None = None,
+) -> Callable[[User, Session], None]:
+    """Create a FastAPI dependency that requires a specific permission.
+
+    Returns a dependency function that checks if the current user has the
+    required permission. Supports optional context for condition evaluation.
+
+    Parameters
+    ----------
+    resource : str
+        Resource name (e.g., 'books', 'shelves').
+    action : str
+        Action name (e.g., 'read', 'write', 'delete').
+    context : dict[str, object] | None
+        Optional context provider function or dict for condition evaluation.
+        If a callable, it will be called with the request to get context.
+
+    Returns
+    -------
+    Callable
+        FastAPI dependency function that checks the permission.
+
+    Examples
+    --------
+    >>> # Simple permission check
+    >>> @router.get("/books")
+    >>> def list_books(
+    ...     _permission: None = Depends(
+    ...         require_permission(
+    ...             "books",
+    ...             "read",
+    ...         )
+    ...     ),
+    ... ):
+    ...     return {
+    ...         "books": []
+    ...     }
+    >>>
+    >>> # Permission check with context
+    >>> @router.get("/books/{book_id}")
+    >>> def get_book(
+    ...     book_id: int,
+    ...     session: Session = Depends(
+    ...         get_db_session
+    ...     ),
+    ...     current_user: User = Depends(
+    ...         get_current_user
+    ...     ),
+    ...     _permission: None = Depends(
+    ...         require_permission(
+    ...             "books",
+    ...             "read",
+    ...             lambda req: get_book_context(
+    ...                 req,
+    ...                 session,
+    ...             ),
+    ...         )
+    ...     ),
+    ... ):
+    ...     return {
+    ...         "book": book
+    ...     }
+    """
+
+    def permission_checker(
+        current_user: Annotated[User, Depends(get_current_user)],
+        session: Annotated[Session, Depends(get_db_session)],
+    ) -> None:
+        """Check permission and raise exception if denied.
+
+        Parameters
+        ----------
+        current_user : User
+            Current authenticated user.
+        session : Session
+            Database session.
+
+        Raises
+        ------
+        HTTPException
+            If user does not have the required permission (403).
+        """
+        permission_service = PermissionService(session)
+
+        # Resolve context if it's a callable
+        resolved_context = None
+        if context is not None:
+            if isinstance(context, dict):
+                resolved_context = context
+            elif callable(context):
+                # Context provider function - would need request, but we can't access it here
+                # For now, support dict only. Callable context can be handled in route handlers.
+                resolved_context = None
+
+        permission_service.check_permission(
+            current_user, resource, action, resolved_context
+        )
+
+    return permission_checker

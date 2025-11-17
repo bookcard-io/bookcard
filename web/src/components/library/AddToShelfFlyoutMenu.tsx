@@ -19,6 +19,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
+import { useUser } from "@/contexts/UserContext";
 import { useFlyoutIntent } from "@/hooks/useFlyoutIntent";
 import { useFlyoutPosition } from "@/hooks/useFlyoutPosition";
 import { useRecentCreatedShelves } from "@/hooks/useRecentCreatedShelves";
@@ -67,6 +68,8 @@ export function AddToShelfFlyoutMenu({
   onMouseEnter,
   onSuccess,
 }: AddToShelfFlyoutMenuProps) {
+  const { canPerformAction } = useUser();
+  const canEditShelves = canPerformAction("shelves", "edit");
   const [mounted, setMounted] = useState(false);
 
   const { shelves, refresh: refreshShelvesContext } = useShelvesContext();
@@ -178,13 +181,13 @@ export function AddToShelfFlyoutMenu({
       <div className="py-1">
         <DropdownMenuItem
           label="Add to shelf..."
-          onClick={handleAddToShelfClick}
-          disabled={isProcessing}
+          onClick={canEditShelves ? handleAddToShelfClick : undefined}
+          disabled={!canEditShelves || isProcessing}
         />
         <RecentShelvesSection
           shelves={recentShelves}
           onShelfClick={handleAddToShelf}
-          disabled={isProcessing}
+          disabled={!canEditShelves || isProcessing}
         />
       </div>
     </div>

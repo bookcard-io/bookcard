@@ -15,6 +15,7 @@
 
 "use client";
 
+import { useUser } from "@/contexts/UserContext";
 import { cn } from "@/libs/utils";
 
 export interface AddBooksButtonProps {
@@ -50,8 +51,13 @@ export function AddBooksButton({
   accept,
   isUploading = false,
 }: AddBooksButtonProps) {
+  const { canPerformAction } = useUser();
+  const canCreate = canPerformAction("books", "create");
+
   const handleClick = () => {
-    fileInputRef.current?.click();
+    if (canCreate) {
+      fileInputRef.current?.click();
+    }
   };
 
   return (
@@ -85,7 +91,7 @@ export function AddBooksButton({
           "disabled:cursor-not-allowed disabled:opacity-50",
         )}
         onClick={handleClick}
-        disabled={isUploading}
+        disabled={!canCreate || isUploading}
         aria-label="Add books"
       >
         <i

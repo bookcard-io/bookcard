@@ -142,13 +142,16 @@ def upgrade() -> None:
     # Seed permissions
     permissions_data = [
         # User management permissions
+        ("users:create", "Create users", "users", "create"),
         ("users:read", "Read user information", "users", "read"),
         ("users:write", "Create and update users", "users", "write"),
         ("users:delete", "Delete users", "users", "delete"),
         # Book management permissions
+        ("books:create", "Create (upload) books", "books", "create"),
         ("books:read", "Read book information", "books", "read"),
         ("books:write", "Create and update books", "books", "write"),
         ("books:delete", "Delete books", "books", "delete"),
+        ("books:send", "Send books via email", "books", "send"),
         # Shelf management permissions
         ("shelves:create", "Create shelves", "shelves", "create"),
         ("shelves:read", "Read shelf information", "shelves", "read"),
@@ -159,6 +162,7 @@ def upgrade() -> None:
         ("roles:write", "Create and update roles", "roles", "write"),
         ("roles:delete", "Delete roles", "roles", "delete"),
         # Permission management permissions
+        ("permissions:create", "Create permissions", "permissions", "create"),
         ("permissions:read", "Read permission information", "permissions", "read"),
         ("permissions:write", "Create and update permissions", "permissions", "write"),
         ("permissions:delete", "Delete permissions", "permissions", "delete"),
@@ -211,8 +215,10 @@ def upgrade() -> None:
     user_role_id = role_ids["user"]
     user_permissions = [
         permission_ids["users:read"],
+        permission_ids["books:create"],
         permission_ids["books:read"],
         permission_ids["books:write"],
+        permission_ids["books:send"],
         permission_ids["shelves:create"],
         permission_ids["shelves:read"],
     ]
@@ -310,11 +316,11 @@ def downgrade() -> None:
             """
             DELETE FROM permissions
             WHERE name IN (
-                'users:read', 'users:write', 'users:delete',
-                'books:read', 'books:write', 'books:delete',
+                'users:create', 'users:read', 'users:write', 'users:delete',
+                'books:create', 'books:read', 'books:write', 'books:delete', 'books:send',
                 'shelves:create', 'shelves:read', 'shelves:edit', 'shelves:delete',
                 'roles:read', 'roles:write', 'roles:delete',
-                'permissions:read', 'permissions:write', 'permissions:delete',
+                'permissions:create', 'permissions:read', 'permissions:write', 'permissions:delete',
                 'system:admin'
             )
             """

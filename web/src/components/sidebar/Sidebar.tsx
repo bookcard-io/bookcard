@@ -54,7 +54,7 @@ export function Sidebar() {
     refresh: refreshShelvesContext,
   } = useShelvesContext();
   const { selectedShelfId, setSelectedShelfId } = useSelectedShelf();
-  const { user } = useUser();
+  const { user, canPerformAction } = useUser();
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Hooks for different concerns
@@ -138,7 +138,7 @@ export function Sidebar() {
         onAdminClick={navigateToAdmin}
       />
 
-      {showCreateModal && (
+      {showCreateModal && canPerformAction("shelves", "create") && (
         <ShelfEditModal
           shelf={null}
           onClose={() => setShowCreateModal(false)}

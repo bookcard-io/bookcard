@@ -56,6 +56,8 @@ describe("useGlobalPageLoadingSignals", () => {
       getSetting: vi.fn(),
       updateSetting: vi.fn(),
       defaultDevice: null,
+      hasPermission: vi.fn(() => false),
+      canPerformAction: vi.fn(() => false),
     });
 
     vi.mocked(useShelvesContext).mockReturnValue({
@@ -91,6 +93,8 @@ describe("useGlobalPageLoadingSignals", () => {
       getSetting: vi.fn(),
       updateSetting: vi.fn(),
       defaultDevice: null,
+      hasPermission: vi.fn(() => false),
+      canPerformAction: vi.fn(() => false),
     });
 
     vi.mocked(useShelvesContext).mockReturnValue({
@@ -126,6 +130,8 @@ describe("useGlobalPageLoadingSignals", () => {
       getSetting: vi.fn(),
       updateSetting: vi.fn(),
       defaultDevice: null,
+      hasPermission: vi.fn(() => false),
+      canPerformAction: vi.fn(() => false),
     });
 
     vi.mocked(useShelvesContext).mockReturnValue({
@@ -161,6 +167,8 @@ describe("useGlobalPageLoadingSignals", () => {
       getSetting: vi.fn(),
       updateSetting: vi.fn(),
       defaultDevice: null,
+      hasPermission: vi.fn(() => false),
+      canPerformAction: vi.fn(() => false),
     });
 
     vi.mocked(useShelvesContext).mockReturnValue({
@@ -196,6 +204,8 @@ describe("useGlobalPageLoadingSignals", () => {
       getSetting: vi.fn(),
       updateSetting: vi.fn(),
       defaultDevice: null,
+      hasPermission: vi.fn(() => false),
+      canPerformAction: vi.fn(() => false),
     });
 
     vi.mocked(useShelvesContext).mockReturnValue({
@@ -231,6 +241,8 @@ describe("useGlobalPageLoadingSignals", () => {
       getSetting: vi.fn(),
       updateSetting: vi.fn(),
       defaultDevice: null,
+      hasPermission: vi.fn(() => false),
+      canPerformAction: vi.fn(() => false),
     });
 
     vi.mocked(useShelvesContext).mockReturnValue({

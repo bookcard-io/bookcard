@@ -144,6 +144,8 @@ describe("useBookEditForm", () => {
       getSetting: mockGetSetting,
       updateSetting: vi.fn(),
       defaultDevice: null,
+      hasPermission: vi.fn(() => false),
+      canPerformAction: vi.fn(() => false),
     });
 
     vi.mocked(useBook).mockReturnValue({

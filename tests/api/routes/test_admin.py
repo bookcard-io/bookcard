@@ -1722,7 +1722,13 @@ def test_get_active_library_success(monkeypatch: pytest.MonkeyPatch) -> None:
         mock_service.get_active_library.return_value = library
         mock_service_class.return_value = mock_service
 
-        result = admin.get_active_library(session)
+        # Create a mock user for the dependency
+        from fundamental.models.auth import User
+
+        mock_user = User(
+            id=1, username="test", email="test@test.com", password_hash="hash"
+        )
+        result = admin.get_active_library(session, _current_user=mock_user)
         assert result is not None
         assert result.name == "Active Library"
 
@@ -1736,7 +1742,13 @@ def test_get_active_library_none(monkeypatch: pytest.MonkeyPatch) -> None:
         mock_service.get_active_library.return_value = None
         mock_service_class.return_value = mock_service
 
-        result = admin.get_active_library(session)
+        # Create a mock user for the dependency
+        from fundamental.models.auth import User
+
+        mock_user = User(
+            id=1, username="test", email="test@test.com", password_hash="hash"
+        )
+        result = admin.get_active_library(session, _current_user=mock_user)
         assert result is None
 
 

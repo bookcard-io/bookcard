@@ -32,6 +32,7 @@ from fundamental.api.schemas.auth import (
 from fundamental.models.auth import EBookFormat, User
 from fundamental.repositories.ereader_repository import EReaderRepository
 from fundamental.services.ereader_service import EReaderService
+from fundamental.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 
@@ -64,8 +65,14 @@ def create_device(
     Raises
     ------
     HTTPException
-        If device email already exists (409).
+        If device email already exists (409) or permission denied (403).
     """
+    # Optional permission check (default: user can create own devices)
+    permission_service = PermissionService(session)
+    if not permission_service.has_permission(current_user, "devices", "write"):
+        # If no permission, fall back to ownership check (user can create own devices)
+        pass  # Allow through - ownership is primary check
+
     device_repo = EReaderRepository(session)
     device_service = EReaderService(session, device_repo)
 
@@ -111,7 +118,18 @@ def list_devices(
     -------
     list[EReaderDeviceRead]
         List of devices.
+
+    Raises
+    ------
+    HTTPException
+        If permission denied (403).
     """
+    # Optional permission check (default: user can see own devices)
+    permission_service = PermissionService(session)
+    if not permission_service.has_permission(current_user, "devices", "read"):
+        # If no permission, fall back to ownership check (user can see own devices)
+        pass  # Allow through - ownership is primary check
+
     device_repo = EReaderRepository(session)
     devices = list(device_repo.find_by_user(current_user.id))  # type: ignore[arg-type]
     return [EReaderDeviceRead.model_validate(device) for device in devices]

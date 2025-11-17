@@ -33,7 +33,7 @@ export interface ShelfCoverSectionProps {
   coverError: string | null;
   /** File input ref. */
   fileInputRef: React.RefObject<HTMLInputElement | null>;
-  /** Whether operations are in progress. */
+  /** Whether operations are in progress or disabled. */
   isSaving: boolean;
   /** Handle file input change. */
   onCoverFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -137,7 +137,8 @@ export function ShelfCoverSection({
             type="file"
             accept={IMAGE_ACCEPT_ATTRIBUTE}
             onChange={onCoverFileChange}
-            className="block w-full rounded-md border border-surface-a20 bg-surface-a0 px-4 py-3 font-inherit text-base text-text-a0 leading-normal transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s] file:mr-4 file:cursor-pointer file:rounded file:border-0 file:bg-surface-a20 file:px-4 file:py-2 file:font-semibold file:text-sm file:text-text-a0 hover:file:bg-surface-a30 focus:border-primary-a0 focus:bg-surface-a10 focus:shadow-[var(--shadow-focus-ring)] focus:outline-none hover:not(:focus):border-surface-a30"
+            disabled={isSaving}
+            className="block w-full rounded-md border border-surface-a20 bg-surface-a0 px-4 py-3 font-inherit text-base text-text-a0 leading-normal transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s] file:mr-4 file:cursor-pointer file:rounded file:border-0 file:bg-surface-a20 file:px-4 file:py-2 file:font-semibold file:text-sm file:text-text-a0 hover:file:bg-surface-a30 focus:border-primary-a0 focus:bg-surface-a10 focus:shadow-[var(--shadow-focus-ring)] focus:outline-none hover:not(:focus):border-surface-a30 disabled:cursor-not-allowed disabled:opacity-50"
           />
         </div>
       )}

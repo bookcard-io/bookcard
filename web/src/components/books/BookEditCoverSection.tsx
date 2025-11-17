@@ -90,6 +90,7 @@ export function BookEditCoverSection({
           isLoading={isLoading}
         />
         <BookCoverActions
+          book={book}
           isUrlInputVisible={urlInput.isVisible}
           onSetFromUrlClick={handleSetFromUrlClick}
           urlInput={

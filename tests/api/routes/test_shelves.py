@@ -38,6 +38,34 @@ from fundamental.models.shelves import BookShelfLink, Shelf
 from tests.conftest import DummySession
 
 
+def _mock_permission_service(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Mock PermissionService to allow all permissions."""
+
+    class MockPermissionService:
+        def __init__(self, session: object) -> None:
+            pass  # Accept session but don't use it
+
+        def has_permission(
+            self,
+            user: User,
+            resource: str,
+            action: str,
+            context: dict[str, object] | None = None,
+        ) -> bool:
+            return True
+
+        def check_permission(
+            self,
+            user: User,
+            resource: str,
+            action: str,
+            context: dict[str, object] | None = None,
+        ) -> None:
+            pass  # Always allow
+
+    monkeypatch.setattr(shelves, "PermissionService", MockPermissionService)
+
+
 class MockShelfService:
     """Mock ShelfService for testing."""
 
@@ -298,12 +326,16 @@ def test_get_active_library_id_success() -> None:
 
 
 def test_create_shelf_success(
-    mock_user: User, mock_shelf: Shelf, mock_library: Library
+    mock_user: User,
+    mock_shelf: Shelf,
+    mock_library: Library,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test create_shelf succeeds (covers lines 158-191)."""
     session = DummySession()
     mock_service = MockShelfService()
     mock_service.create_shelf_result = mock_shelf
+    _mock_permission_service(monkeypatch)
 
     with (
         patch(
@@ -327,7 +359,9 @@ def test_create_shelf_success(
         assert result.book_count == 0
 
 
-def test_create_shelf_no_id(mock_user: User, mock_library: Library) -> None:
+def test_create_shelf_no_id(
+    mock_user: User, mock_library: Library, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test create_shelf raises 500 when shelf has no ID (covers lines 170-174)."""
     session = DummySession()
     shelf_no_id = Shelf(
@@ -342,6 +376,7 @@ def test_create_shelf_no_id(mock_user: User, mock_library: Library) -> None:
     )
     mock_service = MockShelfService()
     mock_service.create_shelf_result = shelf_no_id
+    _mock_permission_service(monkeypatch)
 
     with pytest.raises(HTTPException) as exc_info:
         shelves.create_shelf(
@@ -354,11 +389,14 @@ def test_create_shelf_no_id(mock_user: User, mock_library: Library) -> None:
     assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR  # type: ignore[attr-defined]
 
 
-def test_create_shelf_value_error(mock_user: User, mock_library: Library) -> None:
+def test_create_shelf_value_error(
+    mock_user: User, mock_library: Library, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test create_shelf handles ValueError (covers lines 192-196)."""
     session = DummySession()
     mock_service = MockShelfService()
     mock_service.create_shelf_result = None
+    _mock_permission_service(monkeypatch)
 
     with pytest.raises(HTTPException) as exc_info:
         shelves.create_shelf(
@@ -372,12 +410,16 @@ def test_create_shelf_value_error(mock_user: User, mock_library: Library) -> Non
 
 
 def test_list_shelves_success(
-    mock_user: User, mock_shelf: Shelf, mock_library: Library
+    mock_user: User,
+    mock_shelf: Shelf,
+    mock_library: Library,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test list_shelves succeeds (covers lines 222-251)."""
     session = DummySession()
     mock_service = MockShelfService()
     mock_service.list_user_shelves_result = [mock_shelf]
+    _mock_permission_service(monkeypatch)
 
     with (
         patch(
@@ -401,11 +443,15 @@ def test_list_shelves_success(
 
 
 def test_get_shelf_success(
-    mock_user: User, mock_shelf: Shelf, mock_library: Library
+    mock_user: User,
+    mock_shelf: Shelf,
+    mock_library: Library,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test get_shelf succeeds (covers lines 285-316)."""
     session = DummySession()
     mock_service = MockShelfService()
+    _mock_permission_service(monkeypatch)
 
     with (
         patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class,
@@ -503,12 +549,16 @@ def test_get_shelf_wrong_library(
 
 
 def test_get_shelf_no_id(
-    mock_user: User, mock_shelf: Shelf, mock_library: Library
+    mock_user: User,
+    mock_shelf: Shelf,
+    mock_library: Library,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test get_shelf raises 500 when shelf has no ID (covers lines 310-314)."""
     session = DummySession()
     mock_service = MockShelfService()
     mock_shelf.id = None
+    _mock_permission_service(monkeypatch)
 
     with (
         patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class,
@@ -536,12 +586,16 @@ def test_get_shelf_no_id(
 
 
 def test_update_shelf_success(
-    mock_user: User, mock_shelf: Shelf, mock_library: Library
+    mock_user: User,
+    mock_shelf: Shelf,
+    mock_library: Library,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test update_shelf succeeds (covers lines 368-409)."""
     session = DummySession()
     mock_service = MockShelfService()
     mock_service.update_shelf_result = mock_shelf
+    _mock_permission_service(monkeypatch)
 
     with (
         patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class,
@@ -617,12 +671,16 @@ def test_update_shelf_wrong_library(
 
 
 def test_update_shelf_value_error(
-    mock_user: User, mock_shelf: Shelf, mock_library: Library
+    mock_user: User,
+    mock_shelf: Shelf,
+    mock_library: Library,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test update_shelf handles ValueError (covers lines 410-414)."""
     session = DummySession()
     mock_service = MockShelfService()
     mock_service.update_shelf_result = None
+    _mock_permission_service(monkeypatch)
 
     with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
@@ -642,7 +700,10 @@ def test_update_shelf_value_error(
 
 
 def test_update_shelf_no_id_after_update(
-    mock_user: User, mock_shelf: Shelf, mock_library: Library
+    mock_user: User,
+    mock_shelf: Shelf,
+    mock_library: Library,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test update_shelf raises 500 when shelf has no ID after update (covers lines 388-392)."""
     session = DummySession()
@@ -658,6 +719,7 @@ def test_update_shelf_no_id_after_update(
     )
     mock_service = MockShelfService()
     mock_service.update_shelf_result = shelf_no_id
+    _mock_permission_service(monkeypatch)
 
     with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
@@ -677,11 +739,15 @@ def test_update_shelf_no_id_after_update(
 
 
 def test_delete_shelf_success(
-    mock_user: User, mock_shelf: Shelf, mock_library: Library
+    mock_user: User,
+    mock_shelf: Shelf,
+    mock_library: Library,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test delete_shelf succeeds (covers lines 444-459)."""
     session = DummySession()
     mock_service = MockShelfService()
+    _mock_permission_service(monkeypatch)
 
     with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
@@ -721,12 +787,16 @@ def test_delete_shelf_not_found(mock_user: User, mock_library: Library) -> None:
 
 
 def test_delete_shelf_value_error(
-    mock_user: User, mock_shelf: Shelf, mock_library: Library
+    mock_user: User,
+    mock_shelf: Shelf,
+    mock_library: Library,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test delete_shelf handles ValueError (covers lines 455-459)."""
     session = DummySession()
     mock_service = MockShelfService()
     mock_service.delete_shelf_exception = ValueError("Shelf not found")
+    _mock_permission_service(monkeypatch)
 
     with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()

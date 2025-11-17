@@ -26,7 +26,7 @@ from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from fundamental.api.deps import get_admin_user, get_db_session
+from fundamental.api.deps import get_admin_user, get_current_user, get_db_session
 from fundamental.api.schemas import (
     AdminUserCreate,
     AdminUserUpdate,
@@ -779,8 +779,12 @@ def list_roles(
     """
     # Try to load with permissions, fallback to repo if session.exec returns empty
     # (e.g., in test environments where exec isn't configured)
-    stmt = select(Role).options(
-        selectinload(Role.permissions).selectinload(RolePermission.permission),
+    stmt = (
+        select(Role)
+        .options(
+            selectinload(Role.permissions).selectinload(RolePermission.permission),
+        )
+        .order_by(Role.name)
     )
     roles = list(session.exec(stmt).all())
     if not roles:
@@ -1581,17 +1585,22 @@ def list_libraries(
 @router.get(
     "/libraries/active",
     response_model=LibraryRead | None,
-    dependencies=[Depends(get_admin_user)],
 )
 def get_active_library(
     session: SessionDep,
+    _current_user: Annotated[User, Depends(get_current_user)],
 ) -> LibraryRead | None:
     """Get the currently active library.
+
+    All authenticated users can view the active library.
+    Only admins can change which library is active.
 
     Parameters
     ----------
     session : SessionDep
         Database session dependency.
+    _current_user : User
+        Current authenticated user (for authentication only, unused).
 
     Returns
     -------

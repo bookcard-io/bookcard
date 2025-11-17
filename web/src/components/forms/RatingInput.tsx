@@ -30,6 +30,8 @@ export interface RatingInputProps {
   helperText?: string;
   /** Input ID for accessibility. */
   id?: string;
+  /** Whether the input is disabled. */
+  disabled?: boolean;
 }
 
 /**
@@ -46,6 +48,7 @@ export function RatingInput({
   error,
   helperText,
   id = "rating-input",
+  disabled = false,
 }: RatingInputProps) {
   const handleStarClick = (rating: number) => {
     if (value === rating) {
@@ -81,6 +84,7 @@ export function RatingInput({
           interactive
           onStarClick={handleStarClick}
           showText
+          disabled={disabled}
         />
       </div>
       {error && (

@@ -16,7 +16,10 @@
 "use client";
 
 import { useCallback } from "react";
+import { useUser } from "@/contexts/UserContext";
+import type { Book } from "@/types/book";
 import { formatFileSize } from "@/utils/format";
+import { buildBookPermissionContext } from "@/utils/permissions";
 
 export interface BookFormat {
   /** File format (e.g., 'EPUB', 'PDF'). */
@@ -28,8 +31,8 @@ export interface BookFormat {
 export interface BookViewFormatsProps {
   /** List of file formats. */
   formats: BookFormat[];
-  /** Book ID for download. */
-  bookId: number;
+  /** Book object for permission checking and ID. */
+  book: Book | null;
 }
 
 /**
@@ -38,9 +41,17 @@ export interface BookViewFormatsProps {
  * Displays available file formats with their sizes and download buttons.
  * Follows SRP by focusing solely on formats presentation.
  */
-export function BookViewFormats({ formats, bookId }: BookViewFormatsProps) {
+export function BookViewFormats({ formats, book }: BookViewFormatsProps) {
+  const { canPerformAction } = useUser();
+  const bookContext = book ? buildBookPermissionContext(book) : undefined;
+  const canRead = canPerformAction("books", "read", bookContext);
+  const bookId = book?.id;
+
   const handleDownload = useCallback(
     async (format: string) => {
+      if (!bookId) {
+        return;
+      }
       try {
         const downloadUrl = `/api/books/${bookId}/download/${format}`;
         const response = await fetch(downloadUrl, {
@@ -104,8 +115,9 @@ export function BookViewFormats({ formats, bookId }: BookViewFormatsProps) {
             </div>
             <button
               type="button"
-              onClick={() => handleDownload(file.format)}
-              className="flex flex-shrink-0 items-center justify-center rounded border-none bg-transparent p-2 text-[var(--color-text-a30)] transition-all duration-200 hover:bg-[var(--color-surface-a20)] hover:text-[var(--color-primary-a0)] focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 active:scale-95"
+              onClick={canRead ? () => handleDownload(file.format) : undefined}
+              disabled={!canRead}
+              className="flex flex-shrink-0 items-center justify-center rounded border-none bg-transparent p-2 text-[var(--color-text-a30)] transition-all duration-200 hover:bg-[var(--color-surface-a20)] hover:text-[var(--color-primary-a0)] focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label={`Download ${file.format.toUpperCase()} format`}
               title={`Download ${file.format.toUpperCase()}`}
             >

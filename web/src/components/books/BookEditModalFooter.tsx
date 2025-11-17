@@ -18,13 +18,14 @@
 import { useCallback, useRef } from "react";
 import { Button } from "@/components/forms/Button";
 import { useUser } from "@/contexts/UserContext";
-import type { BookUpdate } from "@/types/book";
+import type { Book, BookUpdate } from "@/types/book";
 import { applyBookUpdateToForm } from "@/utils/metadata";
 import { parseJsonMetadataFile } from "@/utils/metadataImport";
+import { buildBookPermissionContext } from "@/utils/permissions";
 
 export interface BookEditModalFooterProps {
-  /** Book ID for metadata download. */
-  bookId: number;
+  /** Book data for permission checking and ID. */
+  book?: Book | null;
   /** Error message from update attempt. */
   updateError: string | null;
   /** Whether to show success message. */
@@ -49,7 +50,7 @@ export interface BookEditModalFooterProps {
  * Follows SRP by focusing solely on footer presentation.
  */
 export function BookEditModalFooter({
-  bookId,
+  book,
   updateError,
   showSuccess,
   isUpdating,
@@ -57,13 +58,22 @@ export function BookEditModalFooter({
   onCancel,
   handleFieldChange,
 }: BookEditModalFooterProps) {
-  const { getSetting } = useUser();
+  const { getSetting, canPerformAction } = useUser();
+
+  // Check permission
+  const canWrite =
+    book &&
+    canPerformAction("books", "write", buildBookPermissionContext(book));
+  const bookId = book?.id;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   /**
    * Handles downloading book metadata in the user's preferred format.
    */
   const handleDownloadMetadata = useCallback(async () => {
+    if (!bookId) {
+      return;
+    }
     try {
       // Get user's preferred format, default to 'opf'
       const format = getSetting("metadata_download_format") || "opf";
@@ -191,6 +201,15 @@ export function BookEditModalFooter({
           </div>
         )}
 
+        {!canWrite && (
+          <div
+            className="rounded-md bg-warning-a20 px-4 py-3 text-sm text-warning-a0"
+            role="alert"
+          >
+            You don't have permission to edit this book.
+          </div>
+        )}
+
         {showSuccess && (
           <div className="animate-[slideIn_0.3s_ease-out] rounded-md bg-success-a20 px-4 py-3 text-sm text-success-a0">
             Book metadata updated successfully!
@@ -211,8 +230,8 @@ export function BookEditModalFooter({
           variant="secondary"
           size="xsmall"
           className="sm:px-6 sm:py-3 sm:text-base"
-          onClick={handleImportMetadata}
-          disabled={isUpdating}
+          onClick={canWrite ? handleImportMetadata : undefined}
+          disabled={!canWrite || isUpdating}
         >
           Import metadata
         </Button>
@@ -242,7 +261,7 @@ export function BookEditModalFooter({
           size="xsmall"
           className="sm:px-6 sm:py-3 sm:text-base"
           loading={isUpdating}
-          disabled={!hasChanges}
+          disabled={!hasChanges || !canWrite}
         >
           Save info
         </Button>

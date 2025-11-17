@@ -18,7 +18,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import (
     APIRouter,
@@ -48,7 +48,11 @@ from fundamental.repositories.shelf_repository import (
     ShelfRepository,
 )
 from fundamental.services.config_service import LibraryService
+from fundamental.services.permission_service import PermissionService
 from fundamental.services.shelf_service import ShelfService
+
+if TYPE_CHECKING:
+    from fundamental.models.shelves import Shelf
 
 router = APIRouter(prefix="/shelves", tags=["shelves"])
 
@@ -124,6 +128,25 @@ def _get_active_library_id(
 ActiveLibraryIdDep = Annotated[int, Depends(_get_active_library_id)]
 
 
+def _build_shelf_permission_context(shelf: Shelf) -> dict[str, object]:
+    """Build permission context from shelf metadata.
+
+    Parameters
+    ----------
+    shelf
+        Shelf model instance.
+
+    Returns
+    -------
+    dict[str, object]
+        Permission context dictionary with owner_id, etc.
+    """
+    context: dict[str, object] = {}
+    if shelf.user_id is not None:
+        context["owner_id"] = shelf.user_id
+    return context
+
+
 @router.post("", response_model=ShelfRead, status_code=status.HTTP_201_CREATED)
 def create_shelf(
     shelf_data: ShelfCreate,
@@ -144,6 +167,8 @@ def create_shelf(
         Current authenticated user.
     shelf_service : ShelfServiceDep
         Shelf service dependency.
+    library_id : ActiveLibraryIdDep
+        Active library ID dependency.
 
     Returns
     -------
@@ -153,8 +178,12 @@ def create_shelf(
     Raises
     ------
     HTTPException
-        If shelf name already exists.
+        If shelf name already exists or permission denied (403).
     """
+    # Check permission
+    permission_service = PermissionService(session)
+    permission_service.check_permission(current_user, "shelves", "create")
+
     try:
         shelf = shelf_service.create_shelf(
             library_id=library_id,
@@ -213,12 +242,23 @@ def list_shelves(
         Current authenticated user.
     shelf_service : ShelfServiceDep
         Shelf service dependency.
+    library_id : ActiveLibraryIdDep
+        Active library ID dependency.
 
     Returns
     -------
     ShelfListResponse
         List of shelves with total count.
+
+    Raises
+    ------
+    HTTPException
+        If permission denied (403).
     """
+    # Check permission
+    permission_service = PermissionService(session)
+    permission_service.check_permission(current_user, "shelves", "read")
+
     shelves = shelf_service.list_user_shelves(
         library_id=library_id,
         user_id=current_user.id,
@@ -271,6 +311,8 @@ def get_shelf(
         Current authenticated user.
     shelf_service : ShelfServiceDep
         Shelf service dependency.
+    library_id : ActiveLibraryIdDep
+        Active library ID dependency.
 
     Returns
     -------
@@ -280,7 +322,7 @@ def get_shelf(
     Raises
     ------
     HTTPException
-        If shelf not found or user cannot view it.
+        If shelf not found, user cannot view it, or permission denied (403).
     """
     shelf_repo = ShelfRepository(session)
     shelf = shelf_repo.get(shelf_id)
@@ -290,17 +332,23 @@ def get_shelf(
             detail=f"Shelf {shelf_id} not found",
         )
 
-    if not shelf_service.can_view_shelf(shelf, current_user.id):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Permission denied: cannot view this shelf",
-        )
-
     # Verify shelf belongs to active library
     if shelf.library_id != library_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Shelf {shelf_id} not found",
+        )
+
+    # Check permission with shelf context
+    permission_service = PermissionService(session)
+    shelf_context = _build_shelf_permission_context(shelf)
+    permission_service.check_permission(current_user, "shelves", "read", shelf_context)
+
+    # Also check existing can_view_shelf logic (for backward compatibility)
+    if not shelf_service.can_view_shelf(shelf, current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission denied: cannot view this shelf",
         )
 
     # Get book count
@@ -353,6 +401,8 @@ def update_shelf(
         Current authenticated user.
     shelf_service : ShelfServiceDep
         Shelf service dependency.
+    library_id : ActiveLibraryIdDep
+        Active library ID dependency.
 
     Returns
     -------
@@ -372,6 +422,11 @@ def update_shelf(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Shelf {shelf_id} not found",
         )
+
+    # Check permission with shelf context
+    permission_service = PermissionService(session)
+    shelf_context = _build_shelf_permission_context(shelf_check)
+    permission_service.check_permission(current_user, "shelves", "edit", shelf_context)
 
     try:
         shelf = shelf_service.update_shelf(
@@ -434,6 +489,8 @@ def delete_shelf(
         Current authenticated user.
     shelf_service : ShelfServiceDep
         Shelf service dependency.
+    library_id : ActiveLibraryIdDep
+        Active library ID dependency.
 
     Raises
     ------
@@ -448,6 +505,13 @@ def delete_shelf(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Shelf {shelf_id} not found",
         )
+
+    # Check permission with shelf context
+    permission_service = PermissionService(session)
+    shelf_context = _build_shelf_permission_context(shelf_check)
+    permission_service.check_permission(
+        current_user, "shelves", "delete", shelf_context
+    )
 
     try:
         shelf_service.delete_shelf(shelf_id, current_user.id)

@@ -31,6 +31,8 @@ export interface RatingStarsProps {
   size?: "small" | "medium" | "large";
   /** Additional CSS class name. */
   className?: string;
+  /** Whether the input is disabled. */
+  disabled?: boolean;
 }
 
 /**
@@ -48,6 +50,7 @@ export function RatingStars({
   showText = false,
   size = "medium",
   className,
+  disabled = false,
 }: RatingStarsProps) {
   const [hoveredStar, setHoveredStar] = useState<number | null>(null);
 
@@ -71,11 +74,16 @@ export function RatingStars({
       isHovered && "text-warning-a20",
     );
 
-    const interactiveClasses = interactive
-      ? "cursor-pointer hover:scale-120 focus:text-warning-a10 focus:outline-none"
-      : "";
+    const interactiveClasses =
+      interactive && !disabled
+        ? "cursor-pointer hover:scale-120 focus:text-warning-a10 focus:outline-none"
+        : "";
 
-    const starClassName = cn(baseStarClasses, interactiveClasses);
+    const starClassName = cn(
+      baseStarClasses,
+      interactiveClasses,
+      disabled && "cursor-not-allowed opacity-50",
+    );
 
     if (interactive) {
       return (
@@ -84,8 +92,9 @@ export function RatingStars({
           type="button"
           className={starClassName}
           onClick={() => handleStarClick(star)}
-          onMouseEnter={() => setHoveredStar(star)}
+          onMouseEnter={() => !disabled && setHoveredStar(star)}
           onMouseLeave={() => setHoveredStar(null)}
+          disabled={disabled}
           aria-label={`Rate ${star} out of 5`}
           aria-pressed={isFilled}
         >

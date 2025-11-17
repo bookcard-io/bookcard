@@ -25,10 +25,49 @@ import pytest
 from fastapi import HTTPException
 
 import fundamental.api.routes.books as books
+from fundamental.models.auth import User
 from fundamental.models.config import Library
 from fundamental.models.core import Book
 from fundamental.repositories import BookWithFullRelations, BookWithRelations
 from tests.conftest import DummySession
+
+
+def _create_mock_user() -> User:
+    """Create a mock user for testing."""
+    return User(
+        id=1,
+        username="testuser",
+        email="test@example.com",
+        password_hash="hash",
+    )
+
+
+def _mock_permission_service(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Mock PermissionService to allow all permissions."""
+
+    class MockPermissionService:
+        def __init__(self, session: object) -> None:
+            pass  # Accept session but don't use it
+
+        def has_permission(
+            self,
+            user: User,
+            resource: str,
+            action: str,
+            context: dict[str, object] | None = None,
+        ) -> bool:
+            return True
+
+        def check_permission(
+            self,
+            user: User,
+            resource: str,
+            action: str,
+            context: dict[str, object] | None = None,
+        ) -> None:
+            pass  # Always allow
+
+    monkeypatch.setattr(books, "PermissionService", MockPermissionService)
 
 
 class MockBookService:
@@ -217,6 +256,7 @@ def test_get_active_library_service_success() -> None:
 def test_list_books_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test list_books succeeds with valid parameters."""
     session = DummySession()
+    current_user = _create_mock_user()
     book = Book(
         id=1,
         title="Test Book",
@@ -246,8 +286,9 @@ def test_list_books_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    _mock_permission_service(monkeypatch)
 
-    result = books.list_books(session, page=1, page_size=20)
+    result = books.list_books(session, current_user=current_user, page=1, page_size=20)
     assert result.total == 1
     assert len(result.items) == 1
     assert result.items[0].id == 1
@@ -257,6 +298,7 @@ def test_list_books_success(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_list_books_pagination_adjustments(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test list_books adjusts invalid pagination parameters."""
     session = DummySession()
+    current_user = _create_mock_user()
 
     mock_service = MockBookService(list_books_result=([], 0))
 
@@ -266,17 +308,18 @@ def test_list_books_pagination_adjustments(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    _mock_permission_service(monkeypatch)
 
     # Test page < 1
-    result = books.list_books(session, page=0, page_size=20)
+    result = books.list_books(session, current_user=current_user, page=0, page_size=20)
     assert result.page == 1
 
     # Test page_size < 1
-    result = books.list_books(session, page=1, page_size=0)
+    result = books.list_books(session, current_user=current_user, page=1, page_size=0)
     assert result.page_size == 20
 
     # Test page_size > 100
-    result = books.list_books(session, page=1, page_size=200)
+    result = books.list_books(session, current_user=current_user, page=1, page_size=200)
     assert result.page_size == 100
 
 
@@ -325,8 +368,10 @@ def test_list_books_skips_books_without_id(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    _mock_permission_service(monkeypatch)
+    current_user = _create_mock_user()
 
-    result = books.list_books(session, page=1, page_size=20)
+    result = books.list_books(session, current_user=current_user, page=1, page_size=20)
     # Should only include book with ID
     assert len(result.items) == 1
     assert result.items[0].id == 2
@@ -377,7 +422,12 @@ def test_list_books_with_full_true(monkeypatch: pytest.MonkeyPatch) -> None:
         books, "_get_active_library_service", mock_get_active_library_service
     )
 
-    result = books.list_books(session, page=1, page_size=20, full=True)
+    _mock_permission_service(monkeypatch)
+    current_user = _create_mock_user()
+
+    result = books.list_books(
+        session, current_user=current_user, page=1, page_size=20, full=True
+    )
     assert result.total == 1
     assert len(result.items) == 1
     assert result.items[0].id == 1
@@ -429,7 +479,10 @@ def test_get_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
         books, "_get_active_library_service", mock_get_active_library_service
     )
 
-    result = books.get_book(session, book_id=1)
+    _mock_permission_service(monkeypatch)
+    current_user = _create_mock_user()
+
+    result = books.get_book(session, current_user=current_user, book_id=1)
     assert result.id == 1
     assert result.title == "Test Book"
 
@@ -447,8 +500,11 @@ def test_get_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
         books, "_get_active_library_service", mock_get_active_library_service
     )
 
+    _mock_permission_service(monkeypatch)
+    current_user = _create_mock_user()
+
     with pytest.raises(HTTPException) as exc_info:
-        books.get_book(session, book_id=999)
+        books.get_book(session, current_user=current_user, book_id=999)
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == "book_not_found"
@@ -481,8 +537,11 @@ def test_get_book_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
         books, "_get_active_library_service", mock_get_active_library_service
     )
 
+    _mock_permission_service(monkeypatch)
+    current_user = _create_mock_user()
+
     with pytest.raises(HTTPException) as exc_info:
-        books.get_book(session, book_id=1)
+        books.get_book(session, current_user=current_user, book_id=1)
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 500
     assert exc_info.value.detail == "book_missing_id"
@@ -493,6 +552,8 @@ def test_get_book_cover_success(monkeypatch: pytest.MonkeyPatch) -> None:
     from fastapi.responses import FileResponse
 
     session = DummySession()
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     book = Book(
         id=1,
@@ -524,7 +585,7 @@ def test_get_book_cover_success(monkeypatch: pytest.MonkeyPatch) -> None:
             books, "_get_active_library_service", mock_get_active_library_service
         )
 
-        result = books.get_book_cover(session, book_id=1)
+        result = books.get_book_cover(session, current_user=current_user, book_id=1)
         assert isinstance(result, FileResponse)
         assert result.path == str(cover_path)
     finally:
@@ -534,6 +595,8 @@ def test_get_book_cover_success(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_get_book_cover_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test get_book_cover raises 404 when book not found."""
     session = DummySession()
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     mock_service = MockBookService(get_book_result=None)
 
@@ -545,7 +608,7 @@ def test_get_book_cover_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        books.get_book_cover(session, book_id=999)
+        books.get_book_cover(session, current_user=current_user, book_id=999)
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == "book_not_found"
@@ -556,6 +619,8 @@ def test_get_book_cover_file_not_exists(monkeypatch: pytest.MonkeyPatch) -> None
     from fastapi import Response
 
     session = DummySession()
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     book = Book(
         id=1,
@@ -586,7 +651,7 @@ def test_get_book_cover_file_not_exists(monkeypatch: pytest.MonkeyPatch) -> None
         books, "_get_active_library_service", mock_get_active_library_service
     )
 
-    result = books.get_book_cover(session, book_id=1)
+    result = books.get_book_cover(session, current_user=current_user, book_id=1)
     assert isinstance(result, Response)
     assert result.status_code == 404
 
@@ -594,6 +659,8 @@ def test_get_book_cover_file_not_exists(monkeypatch: pytest.MonkeyPatch) -> None
 def test_search_suggestions_empty_query(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test search_suggestions returns empty response for empty query (covers lines 301-313)."""
     session = DummySession()
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     def mock_get_active_library_service(sess: object) -> MockBookService:
         return MockBookService()
@@ -602,7 +669,7 @@ def test_search_suggestions_empty_query(monkeypatch: pytest.MonkeyPatch) -> None
         books, "_get_active_library_service", mock_get_active_library_service
     )
 
-    result = books.search_suggestions(session, q="")
+    result = books.search_suggestions(session, current_user=current_user, q="")
     assert result.books == []
     assert result.authors == []
     assert result.tags == []
@@ -612,6 +679,8 @@ def test_search_suggestions_empty_query(monkeypatch: pytest.MonkeyPatch) -> None
 def test_search_suggestions_whitespace_query(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test search_suggestions returns empty response for whitespace-only query (covers lines 301-313)."""
     session = DummySession()
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     def mock_get_active_library_service(sess: object) -> MockBookService:
         return MockBookService()
@@ -620,7 +689,7 @@ def test_search_suggestions_whitespace_query(monkeypatch: pytest.MonkeyPatch) ->
         books, "_get_active_library_service", mock_get_active_library_service
     )
 
-    result = books.search_suggestions(session, q="   ")
+    result = books.search_suggestions(session, current_user=current_user, q="   ")
     assert result.books == []
     assert result.authors == []
     assert result.tags == []
@@ -630,6 +699,8 @@ def test_search_suggestions_whitespace_query(monkeypatch: pytest.MonkeyPatch) ->
 def test_search_suggestions_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test search_suggestions succeeds with valid query (covers lines 301-313)."""
     session = DummySession()
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     mock_service = MockBookService(
         search_suggestions_result={
@@ -647,7 +718,7 @@ def test_search_suggestions_success(monkeypatch: pytest.MonkeyPatch) -> None:
         books, "_get_active_library_service", mock_get_active_library_service
     )
 
-    result = books.search_suggestions(session, q="test")
+    result = books.search_suggestions(session, current_user=current_user, q="test")
     assert len(result.books) == 1
     assert len(result.authors) == 1
     assert len(result.tags) == 1
@@ -659,6 +730,8 @@ def test_search_suggestions_success(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_filter_suggestions_empty_query(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test filter_suggestions returns empty response for empty query (covers lines 364-374)."""
     session = DummySession()
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     def mock_get_active_library_service(sess: object) -> MockBookService:
         return MockBookService()
@@ -667,13 +740,17 @@ def test_filter_suggestions_empty_query(monkeypatch: pytest.MonkeyPatch) -> None
         books, "_get_active_library_service", mock_get_active_library_service
     )
 
-    result = books.filter_suggestions(session, q="", filter_type="author")
+    result = books.filter_suggestions(
+        session, current_user=current_user, q="", filter_type="author"
+    )
     assert result.suggestions == []
 
 
 def test_filter_suggestions_whitespace_query(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test filter_suggestions returns empty response for whitespace-only query (covers lines 364-374)."""
     session = DummySession()
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     def mock_get_active_library_service(sess: object) -> MockBookService:
         return MockBookService()
@@ -682,13 +759,17 @@ def test_filter_suggestions_whitespace_query(monkeypatch: pytest.MonkeyPatch) ->
         books, "_get_active_library_service", mock_get_active_library_service
     )
 
-    result = books.filter_suggestions(session, q="   ", filter_type="author")
+    result = books.filter_suggestions(
+        session, current_user=current_user, q="   ", filter_type="author"
+    )
     assert result.suggestions == []
 
 
 def test_filter_suggestions_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test filter_suggestions succeeds with valid query (covers lines 364-374)."""
     session = DummySession()
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     mock_service = MockBookService(
         filter_suggestions_result=[
@@ -705,7 +786,7 @@ def test_filter_suggestions_success(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     result = books.filter_suggestions(
-        session, q="author", filter_type="author", limit=10
+        session, current_user=current_user, q="author", filter_type="author", limit=10
     )
     assert len(result.suggestions) == 2
     assert result.suggestions[0].id == 1
@@ -717,6 +798,9 @@ def test_filter_books_success(monkeypatch: pytest.MonkeyPatch) -> None:
     from fundamental.api.schemas import BookFilterRequest
 
     session = DummySession()
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
+
     book = Book(
         id=1,
         title="Test Book",
@@ -757,6 +841,7 @@ def test_filter_books_success(monkeypatch: pytest.MonkeyPatch) -> None:
 
     result = books.filter_books(
         session,
+        current_user=current_user,
         filter_request=filter_request,
         page=1,
         page_size=20,
@@ -779,6 +864,8 @@ def test_filter_books_pagination_adjustments(monkeypatch: pytest.MonkeyPatch) ->
     from fundamental.api.schemas import BookFilterRequest
 
     session = DummySession()
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     mock_service = MockBookService(list_books_with_filters_result=([], 0))
     # Use setattr to allow dynamic assignment for assertion testing
@@ -795,19 +882,31 @@ def test_filter_books_pagination_adjustments(monkeypatch: pytest.MonkeyPatch) ->
 
     # Test page < 1
     result = books.filter_books(
-        session, filter_request=filter_request, page=0, page_size=20
+        session,
+        current_user=current_user,
+        filter_request=filter_request,
+        page=0,
+        page_size=20,
     )
     assert result.page == 1
 
     # Test page_size < 1
     result = books.filter_books(
-        session, filter_request=filter_request, page=1, page_size=0
+        session,
+        current_user=current_user,
+        filter_request=filter_request,
+        page=1,
+        page_size=0,
     )
     assert result.page_size == 20
 
     # Test page_size > 100
     result = books.filter_books(
-        session, filter_request=filter_request, page=1, page_size=200
+        session,
+        current_user=current_user,
+        filter_request=filter_request,
+        page=1,
+        page_size=200,
     )
     assert result.page_size == 100
 
@@ -817,6 +916,8 @@ def test_filter_books_skips_books_without_id(monkeypatch: pytest.MonkeyPatch) ->
     from fundamental.api.schemas import BookFilterRequest
 
     session = DummySession()
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     book_no_id = Book(
         id=None,
@@ -866,7 +967,11 @@ def test_filter_books_skips_books_without_id(monkeypatch: pytest.MonkeyPatch) ->
     filter_request = BookFilterRequest()
 
     result = books.filter_books(
-        session, filter_request=filter_request, page=1, page_size=20
+        session,
+        current_user=current_user,
+        filter_request=filter_request,
+        page=1,
+        page_size=20,
     )
     # Should only include book with ID
     assert len(result.items) == 1
@@ -878,6 +983,8 @@ def test_filter_books_with_full_true(monkeypatch: pytest.MonkeyPatch) -> None:
     from fundamental.api.schemas import BookFilterRequest
 
     session = DummySession()
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     book = Book(
         id=1,
@@ -928,6 +1035,7 @@ def test_filter_books_with_full_true(monkeypatch: pytest.MonkeyPatch) -> None:
 
     result = books.filter_books(
         session,
+        current_user=current_user,
         filter_request=filter_request,
         page=1,
         page_size=20,
@@ -998,7 +1106,10 @@ def test_get_book_with_full_true(monkeypatch: pytest.MonkeyPatch) -> None:
         books, "_get_active_library_service", mock_get_active_library_service
     )
 
-    result = books.get_book(session, book_id=1, full=True)
+    _mock_permission_service(monkeypatch)
+    current_user = _create_mock_user()
+
+    result = books.get_book(session, current_user=current_user, book_id=1, full=True)
     assert result.id == 1
     assert result.title == "Test Book"
     assert result.tags == ["Fiction", "Adventure"]
@@ -1047,7 +1158,10 @@ def test_get_book_with_full_false(monkeypatch: pytest.MonkeyPatch) -> None:
         books, "_get_active_library_service", mock_get_active_library_service
     )
 
-    result = books.get_book(session, book_id=1, full=False)
+    _mock_permission_service(monkeypatch)
+    current_user = _create_mock_user()
+
+    result = books.get_book(session, current_user=current_user, book_id=1, full=False)
     assert result.id == 1
     assert result.title == "Test Book"
     assert result.tags == []
@@ -1097,9 +1211,26 @@ def test_update_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
         authors=[],
         series=None,
     )
+    existing_book_full = BookWithFullRelations(
+        book=Book(id=1, title="Original Book", uuid="test-uuid"),
+        authors=[],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        languages=[],
+        language_ids=[],
+        rating=None,
+        rating_id=None,
+        formats=[],
+    )
 
     mock_service = MockBookService(
         get_book_result=existing_book,
+        get_book_full_result=existing_book_full,
         update_book_result=updated_book,
         get_thumbnail_url_result="/api/books/1/cover",
     )
@@ -1110,6 +1241,8 @@ def test_update_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    _mock_permission_service(monkeypatch)
+    current_user = _create_mock_user()
 
     update = BookUpdate(
         title="Updated Book",
@@ -1124,7 +1257,9 @@ def test_update_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
         rating_value=4,
     )
 
-    result = books.update_book(session, book_id=1, update=update)
+    result = books.update_book(
+        session, current_user=current_user, book_id=1, update=update
+    )
     assert result.id == 1
     assert result.title == "Updated Book"
     assert result.authors == ["Updated Author"]
@@ -1156,11 +1291,15 @@ def test_update_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    _mock_permission_service(monkeypatch)
+    current_user = _create_mock_user()
 
     update = BookUpdate(title="Updated Book")
 
     with pytest.raises(HTTPException) as exc_info:
-        books.update_book(session, book_id=999, update=update)
+        books.update_book(
+            session, current_user=current_user, book_id=999, update=update
+        )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == "book_not_found"
@@ -1177,9 +1316,26 @@ def test_update_book_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
         authors=[],
         series=None,
     )
+    existing_book_full = BookWithFullRelations(
+        book=Book(id=1, title="Original Book", uuid="test-uuid"),
+        authors=[],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        languages=[],
+        language_ids=[],
+        rating=None,
+        rating_id=None,
+        formats=[],
+    )
 
     mock_service = MockBookService(
         get_book_result=existing_book,
+        get_book_full_result=existing_book_full,
         update_book_result=None,
     )
 
@@ -1189,11 +1345,13 @@ def test_update_book_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    _mock_permission_service(monkeypatch)
+    current_user = _create_mock_user()
 
     update = BookUpdate(title="Updated Book")
 
     with pytest.raises(HTTPException) as exc_info:
-        books.update_book(session, book_id=1, update=update)
+        books.update_book(session, current_user=current_user, book_id=1, update=update)
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == "book_not_found"
@@ -1209,6 +1367,22 @@ def test_update_book_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
         book=Book(id=1, title="Original Book", uuid="test-uuid"),
         authors=[],
         series=None,
+    )
+    existing_book_full = BookWithFullRelations(
+        book=Book(id=1, title="Original Book", uuid="test-uuid"),
+        authors=[],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        languages=[],
+        language_ids=[],
+        rating=None,
+        rating_id=None,
+        formats=[],
     )
 
     book_no_id = Book(
@@ -1235,6 +1409,7 @@ def test_update_book_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
 
     mock_service = MockBookService(
         get_book_result=existing_book,
+        get_book_full_result=existing_book_full,
         update_book_result=updated_book,
     )
 
@@ -1244,11 +1419,13 @@ def test_update_book_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    _mock_permission_service(monkeypatch)
+    current_user = _create_mock_user()
 
     update = BookUpdate(title="Updated Book")
 
     with pytest.raises(HTTPException) as exc_info:
-        books.update_book(session, book_id=1, update=update)
+        books.update_book(session, current_user=current_user, book_id=1, update=update)
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 500
     assert exc_info.value.detail == "book_missing_id"
@@ -1258,7 +1435,24 @@ def test_delete_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test delete_book succeeds (covers lines 482-489)."""
     session = DummySession()
 
-    mock_service = MockBookService()
+    existing_book_full = BookWithFullRelations(
+        book=Book(id=1, title="Test Book", uuid="test-uuid"),
+        authors=[],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        languages=[],
+        language_ids=[],
+        rating=None,
+        rating_id=None,
+        formats=[],
+    )
+
+    mock_service = MockBookService(get_book_full_result=existing_book_full)
     mock_service.delete_book = MagicMock(return_value=None)  # type: ignore[assignment]
 
     def mock_get_active_library_service(sess: object) -> MockBookService:
@@ -1267,9 +1461,13 @@ def test_delete_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    _mock_permission_service(monkeypatch)
+    current_user = _create_mock_user()
 
     delete_request = books.BookDeleteRequest(delete_files_from_drive=True)
-    result = books.delete_book(session, book_id=1, delete_request=delete_request)
+    result = books.delete_book(
+        session, current_user=current_user, book_id=1, delete_request=delete_request
+    )
     assert result is None
     mock_service.delete_book.assert_called_once_with(
         book_id=1, delete_files_from_drive=True
@@ -1280,7 +1478,24 @@ def test_delete_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test delete_book raises 404 when book not found (covers lines 489-495)."""
     session = DummySession()
 
-    mock_service = MockBookService()
+    existing_book_full = BookWithFullRelations(
+        book=Book(id=999, title="Test Book", uuid="test-uuid"),
+        authors=[],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        languages=[],
+        language_ids=[],
+        rating=None,
+        rating_id=None,
+        formats=[],
+    )
+
+    mock_service = MockBookService(get_book_full_result=existing_book_full)
     mock_service.delete_book = MagicMock(side_effect=ValueError("book_not_found"))  # type: ignore[assignment]
 
     def mock_get_active_library_service(sess: object) -> MockBookService:
@@ -1289,11 +1504,18 @@ def test_delete_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    _mock_permission_service(monkeypatch)
+    current_user = _create_mock_user()
 
     delete_request = books.BookDeleteRequest(delete_files_from_drive=False)
 
     with pytest.raises(HTTPException) as exc_info:
-        books.delete_book(session, book_id=999, delete_request=delete_request)
+        books.delete_book(
+            session,
+            current_user=current_user,
+            book_id=999,
+            delete_request=delete_request,
+        )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == "book_not_found"
@@ -1303,7 +1525,24 @@ def test_delete_book_other_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test delete_book raises 500 for other ValueError (covers lines 496-499)."""
     session = DummySession()
 
-    mock_service = MockBookService()
+    existing_book_full = BookWithFullRelations(
+        book=Book(id=1, title="Test Book", uuid="test-uuid"),
+        authors=[],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        languages=[],
+        language_ids=[],
+        rating=None,
+        rating_id=None,
+        formats=[],
+    )
+
+    mock_service = MockBookService(get_book_full_result=existing_book_full)
     # Use a ValueError that's not "book_not_found" to trigger the else branch
     mock_service.delete_book = MagicMock(side_effect=ValueError("other_error"))  # type: ignore[assignment]
 
@@ -1313,11 +1552,15 @@ def test_delete_book_other_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    _mock_permission_service(monkeypatch)
+    current_user = _create_mock_user()
 
     delete_request = books.BookDeleteRequest(delete_files_from_drive=False)
 
     with pytest.raises(HTTPException) as exc_info:
-        books.delete_book(session, book_id=1, delete_request=delete_request)
+        books.delete_book(
+            session, current_user=current_user, book_id=1, delete_request=delete_request
+        )
     # This should execute line 496-499 (the else branch for ValueError)
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 500
@@ -1328,7 +1571,24 @@ def test_delete_book_os_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test delete_book handles OSError (covers lines 500-504)."""
     session = DummySession()
 
-    mock_service = MockBookService()
+    existing_book_full = BookWithFullRelations(
+        book=Book(id=1, title="Test Book", uuid="test-uuid"),
+        authors=[],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        languages=[],
+        language_ids=[],
+        rating=None,
+        rating_id=None,
+        formats=[],
+    )
+
+    mock_service = MockBookService(get_book_full_result=existing_book_full)
     mock_service.delete_book = MagicMock(side_effect=OSError("Permission denied"))  # type: ignore[assignment]
 
     def mock_get_active_library_service(sess: object) -> MockBookService:
@@ -1337,11 +1597,15 @@ def test_delete_book_os_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    _mock_permission_service(monkeypatch)
+    current_user = _create_mock_user()
 
     delete_request = books.BookDeleteRequest(delete_files_from_drive=True)
 
     with pytest.raises(HTTPException) as exc_info:
-        books.delete_book(session, book_id=1, delete_request=delete_request)
+        books.delete_book(
+            session, current_user=current_user, book_id=1, delete_request=delete_request
+        )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 500
     assert "Failed to delete files from filesystem" in exc_info.value.detail
@@ -1354,6 +1618,8 @@ def test_upload_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
     from unittest.mock import MagicMock
 
     session = DummySession()
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     mock_service = MockBookService()
     mock_service.add_book = MagicMock(return_value=1)  # type: ignore[assignment]
@@ -1379,7 +1645,9 @@ def test_upload_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
 
         try:
             # This should execute lines 1174-1218
-            result = books.upload_book(session, file=mock_file)
+            result = books.upload_book(
+                session, current_user=current_user, file=mock_file
+            )
             assert result.book_id == 1
         finally:
             # Clean up
@@ -1392,6 +1660,8 @@ def test_upload_book_no_extension(monkeypatch: pytest.MonkeyPatch) -> None:
     from unittest.mock import MagicMock
 
     session = DummySession()
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     mock_service = MockBookService()
 
@@ -1406,7 +1676,7 @@ def test_upload_book_no_extension(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_file.filename = "test"  # No extension
 
     with pytest.raises(HTTPException) as exc_info:
-        books.upload_book(session, file=mock_file)
+        books.upload_book(session, current_user=current_user, file=mock_file)
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail == "file_extension_required"
@@ -1417,6 +1687,8 @@ def test_upload_book_save_error(monkeypatch: pytest.MonkeyPatch) -> None:
     from unittest.mock import MagicMock
 
     session = DummySession()
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     mock_service = MockBookService()
 
@@ -1440,7 +1712,7 @@ def test_upload_book_save_error(monkeypatch: pytest.MonkeyPatch) -> None:
 
         with patch("pathlib.Path.unlink"):
             with pytest.raises(HTTPException) as exc_info:
-                books.upload_book(session, file=mock_file)
+                books.upload_book(session, current_user=current_user, file=mock_file)
             assert isinstance(exc_info.value, HTTPException)
             assert exc_info.value.status_code == 500
             assert "failed_to_save_file" in exc_info.value.detail
@@ -1512,7 +1784,34 @@ def test_send_book_email_server_not_configured(monkeypatch: pytest.MonkeyPatch) 
     def mock_email_config_service(req: object, sess: object) -> MockEmailConfigService:
         return MockEmailConfigService()
 
+    class MockBookService:
+        def get_book_full(self, book_id: int) -> BookWithFullRelations | None:
+            book = Book(id=1, title="Test Book", uuid="test-uuid")
+            return BookWithFullRelations(
+                book=book,
+                authors=[],
+                series=None,
+                series_id=None,
+                tags=[],
+                identifiers=[],
+                description=None,
+                publisher=None,
+                publisher_id=None,
+                languages=[],
+                language_ids=[],
+                rating=None,
+                rating_id=None,
+                formats=[],
+            )
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return MockBookService()
+
     monkeypatch.setattr(books, "_email_config_service", mock_email_config_service)
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+    _mock_permission_service(monkeypatch)
 
     with pytest.raises(HTTPException) as exc_info:
         books.send_book_to_device(
@@ -1567,7 +1866,34 @@ def test_send_book_email_server_disabled(monkeypatch: pytest.MonkeyPatch) -> Non
     def mock_email_config_service(req: object, sess: object) -> MockEmailConfigService:
         return MockEmailConfigService()
 
+    class MockBookService:
+        def get_book_full(self, book_id: int) -> BookWithFullRelations | None:
+            book = Book(id=1, title="Test Book", uuid="test-uuid")
+            return BookWithFullRelations(
+                book=book,
+                authors=[],
+                series=None,
+                series_id=None,
+                tags=[],
+                identifiers=[],
+                description=None,
+                publisher=None,
+                publisher_id=None,
+                languages=[],
+                language_ids=[],
+                rating=None,
+                rating_id=None,
+                formats=[],
+            )
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return MockBookService()
+
     monkeypatch.setattr(books, "_email_config_service", mock_email_config_service)
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+    _mock_permission_service(monkeypatch)
 
     with pytest.raises(HTTPException) as exc_info:
         books.send_book_to_device(
@@ -1620,7 +1946,25 @@ def test_send_book_user_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
             return config
 
     class MockBookService:
-        pass
+        def get_book_full(self, book_id: int) -> BookWithFullRelations | None:
+            # Return a valid book so the code can proceed to check user ID
+            book = Book(id=1, title="Test Book", uuid="test-uuid")
+            return BookWithFullRelations(
+                book=book,
+                authors=[],
+                series=None,
+                series_id=None,
+                tags=[],
+                identifiers=[],
+                description=None,
+                publisher=None,
+                publisher_id=None,
+                languages=[],
+                language_ids=[],
+                rating=None,
+                rating_id=None,
+                formats=[],
+            )
 
     def mock_email_config_service(req: object, sess: object) -> MockEmailConfigService:
         return MockEmailConfigService()
@@ -1632,6 +1976,7 @@ def test_send_book_user_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    _mock_permission_service(monkeypatch)
 
     with pytest.raises(HTTPException) as exc_info:
         books.send_book_to_device(
@@ -1701,6 +2046,26 @@ def test_send_book_value_error_handling(
             return config
 
     class MockBookService:
+        def get_book_full(self, book_id: int) -> BookWithFullRelations | None:
+            # Return a mock book for testing
+            book = Book(id=1, title="Test Book", uuid="test-uuid")
+            return BookWithFullRelations(
+                book=book,
+                authors=[],
+                series=None,
+                series_id=None,
+                tags=[],
+                identifiers=[],
+                description=None,
+                publisher=None,
+                publisher_id=None,
+                languages=[],
+                language_ids=[],
+                rating=None,
+                rating_id=None,
+                formats=[],
+            )
+
         def send_book(
             self,
             book_id: int,
@@ -1721,6 +2086,7 @@ def test_send_book_value_error_handling(
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    _mock_permission_service(monkeypatch)
 
     with pytest.raises(HTTPException) as exc_info:
         books.send_book_to_device(
@@ -1774,6 +2140,25 @@ def test_send_book_email_service_error(monkeypatch: pytest.MonkeyPatch) -> None:
             return config
 
     class MockBookService:
+        def get_book_full(self, book_id: int) -> BookWithFullRelations | None:
+            book = Book(id=1, title="Test Book", uuid="test-uuid")
+            return BookWithFullRelations(
+                book=book,
+                authors=[],
+                series=None,
+                series_id=None,
+                tags=[],
+                identifiers=[],
+                description=None,
+                publisher=None,
+                publisher_id=None,
+                languages=[],
+                language_ids=[],
+                rating=None,
+                rating_id=None,
+                formats=[],
+            )
+
         def send_book(
             self,
             book_id: int,
@@ -1794,6 +2179,7 @@ def test_send_book_email_service_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    _mock_permission_service(monkeypatch)
 
     with pytest.raises(HTTPException) as exc_info:
         books.send_book_to_device(
@@ -1804,28 +2190,36 @@ def test_send_book_email_service_error(monkeypatch: pytest.MonkeyPatch) -> None:
     assert exc_info.value.detail == "email_send_failed"
 
 
-def test_download_book_metadata_not_found() -> None:
+def test_download_book_metadata_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test download_book_metadata when book not found (lines 746-753)."""
     session = DummySession()
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
     mock_service = MockBookService(get_book_full_result=None)
 
     with patch("fundamental.api.routes.books._get_active_library_service") as mock_get:
         mock_get.return_value = mock_service
 
         with pytest.raises(HTTPException) as exc_info:
-            books.download_book_metadata(session, book_id=1, format="json")
+            books.download_book_metadata(
+                session, current_user=current_user, book_id=1, format="json"
+            )
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == "book_not_found"
 
 
-def test_download_book_metadata_unsupported_format() -> None:
+def test_download_book_metadata_unsupported_format(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Test download_book_metadata with unsupported format (lines 764-768)."""
     from datetime import UTC, datetime
 
     from fundamental.repositories.models import BookWithFullRelations
 
     session = DummySession()
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
     book = Book(
         id=1,
         title="Test Book",
@@ -1857,19 +2251,25 @@ def test_download_book_metadata_unsupported_format() -> None:
         mock_get.return_value = mock_service
 
         with pytest.raises(HTTPException) as exc_info:
-            books.download_book_metadata(session, book_id=1, format="invalid")
+            books.download_book_metadata(
+                session, current_user=current_user, book_id=1, format="invalid"
+            )
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 400
         assert "Unsupported format" in str(exc_info.value.detail)
 
 
-def test_download_book_metadata_other_value_error() -> None:
+def test_download_book_metadata_other_value_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Test download_book_metadata with other ValueError (lines 769-773)."""
     from datetime import UTC, datetime
 
     from fundamental.repositories.models import BookWithFullRelations
 
     session = DummySession()
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
     book = Book(
         id=1,
         title="Test Book",
@@ -1908,7 +2308,9 @@ def test_download_book_metadata_other_value_error() -> None:
             mock_export_service.return_value = mock_instance
 
             with pytest.raises(HTTPException) as exc_info:
-                books.download_book_metadata(session, book_id=1, format="json")
+                books.download_book_metadata(
+                    session, current_user=current_user, book_id=1, format="json"
+                )
             assert isinstance(exc_info.value, HTTPException)
             assert exc_info.value.status_code == 500
             assert "Other error" in str(exc_info.value.detail)

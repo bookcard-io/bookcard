@@ -43,7 +43,7 @@ from fundamental.api.schemas import (
     UserCreate,
     UserRead,
 )
-from fundamental.models.auth import User, UserRole
+from fundamental.models.auth import Role, RolePermission, User, UserRole
 from fundamental.repositories.user_repository import (
     TokenBlacklistRepository,
     UserRepository,
@@ -114,13 +114,16 @@ def login(
             ) from exc
         raise
 
-    # Load relationships for user
+    # Load relationships for user with permissions
     stmt = (
         select(User)
         .where(User.id == user.id)
         .options(
             selectinload(User.ereader_devices),
-            selectinload(User.roles).selectinload(UserRole.role),
+            selectinload(User.roles)
+            .selectinload(UserRole.role)
+            .selectinload(Role.permissions)
+            .selectinload(RolePermission.permission),
         )
     )
     user_with_rels = session.exec(stmt).first()
@@ -141,13 +144,16 @@ def me(
     """Return the current authenticated user."""
     current_user = get_current_user(request, session)
 
-    # Load relationships for current user
+    # Load relationships for current user with permissions
     stmt = (
         select(User)
         .where(User.id == current_user.id)
         .options(
             selectinload(User.ereader_devices),
-            selectinload(User.roles).selectinload(UserRole.role),
+            selectinload(User.roles)
+            .selectinload(UserRole.role)
+            .selectinload(Role.permissions)
+            .selectinload(RolePermission.permission),
         )
     )
     user_with_rels = session.exec(stmt).first()

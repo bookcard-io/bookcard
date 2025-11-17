@@ -21,6 +21,7 @@ import { Button } from "@/components/forms/Button";
 import { TextInput } from "@/components/forms/TextInput";
 import { ShelfEditModal } from "@/components/shelves/ShelfEditModal";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
+import { useUser } from "@/contexts/UserContext";
 import { useBook } from "@/hooks/useBook";
 import { useModal } from "@/hooks/useModal";
 import { useShelfActions } from "@/hooks/useShelfActions";
@@ -52,6 +53,9 @@ export function AddToShelfModal({
   onClose,
   onSuccess,
 }: AddToShelfModalProps) {
+  const { canPerformAction } = useUser();
+  const canEditShelves = canPerformAction("shelves", "edit");
+  const canCreateShelves = canPerformAction("shelves", "create");
   const { book, isLoading: isBookLoading } = useBook({
     bookId,
     enabled: true,
@@ -157,6 +161,9 @@ export function AddToShelfModal({
    */
   const handleShelfSelect = useCallback(
     async (shelfId: number) => {
+      if (!canEditShelves) {
+        return;
+      }
       try {
         await addBook(shelfId, bookId);
         await refreshShelvesContext();
@@ -179,7 +186,14 @@ export function AddToShelfModal({
         console.error("Failed to add book to shelf:", error);
       }
     },
-    [addBook, bookId, refreshShelvesContext, onClose, onSuccess],
+    [
+      canEditShelves,
+      addBook,
+      bookId,
+      refreshShelvesContext,
+      onClose,
+      onSuccess,
+    ],
   );
 
   /**
@@ -225,10 +239,10 @@ export function AddToShelfModal({
    * Handle create button click.
    */
   const handleCreateClick = useCallback(() => {
-    if (newShelfName.trim()) {
+    if (newShelfName.trim() && canCreateShelves) {
       setShowCreateModal(true);
     }
-  }, [newShelfName]);
+  }, [newShelfName, canCreateShelves]);
 
   return (
     <>
@@ -269,13 +283,19 @@ export function AddToShelfModal({
                   <tr
                     key={shelf.id}
                     className={cn(
-                      "cursor-pointer transition-colors duration-150",
+                      "transition-colors duration-150",
+                      canEditShelves && "cursor-pointer",
                       index % 2 === 0
                         ? "bg-surface-tonal-a0"
                         : "bg-surface-tonal-a10",
-                      "hover:bg-surface-tonal-a20",
+                      canEditShelves && "hover:bg-surface-tonal-a20",
+                      !canEditShelves && "cursor-not-allowed opacity-50",
                     )}
-                    onClick={() => handleShelfSelect(shelf.id)}
+                    onClick={
+                      canEditShelves
+                        ? () => handleShelfSelect(shelf.id)
+                        : undefined
+                    }
                   >
                     <td className="px-4 py-3 align-middle">
                       <div className="flex items-center gap-3">
@@ -320,8 +340,13 @@ export function AddToShelfModal({
                 isBookLoading ? "Loading..." : bookTitle || "Shelf name"
               }
               className="flex-1"
+              disabled={!canCreateShelves}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && newShelfName.trim()) {
+                if (
+                  e.key === "Enter" &&
+                  newShelfName.trim() &&
+                  canCreateShelves
+                ) {
                   e.preventDefault();
                   handleCreateClick();
                 }
@@ -332,7 +357,9 @@ export function AddToShelfModal({
               variant="primary"
               size="medium"
               onClick={handleCreateClick}
-              disabled={!newShelfName.trim() || isProcessing}
+              disabled={
+                !canCreateShelves || !newShelfName.trim() || isProcessing
+              }
             >
               Create
             </Button>

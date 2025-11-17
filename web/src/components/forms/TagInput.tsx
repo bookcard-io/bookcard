@@ -42,6 +42,8 @@ export interface TagInputProps {
   suggestionsService?: FilterSuggestionsService;
   /** Maximum number of tags allowed (default: unlimited). */
   maxTags?: number;
+  /** Whether the input is disabled. */
+  disabled?: boolean;
 }
 
 /**
@@ -61,6 +63,7 @@ export function TagInput({
   filterType,
   suggestionsService,
   maxTags,
+  disabled = false,
 }: TagInputProps) {
   const [inputValue, setInputValue] = useState("");
 
@@ -141,6 +144,7 @@ export function TagInput({
               "focus-within:shadow-[0_0_0_3px_rgba(156,33,33,0.1)]",
             ],
             !error && "border-surface-a20",
+            disabled && "cursor-not-allowed opacity-50",
           )}
         >
           {tags.map((tag) => (
@@ -151,8 +155,9 @@ export function TagInput({
               {tag}
               <button
                 type="button"
-                className="flex h-4 w-4 items-center justify-center rounded-full border-none bg-transparent p-0 text-sm text-text-a0 leading-none transition-[background-color_0.15s] hover:bg-black/15 focus:bg-black/20 focus:outline-none"
+                className="flex h-4 w-4 items-center justify-center rounded-full border-none bg-transparent p-0 text-sm text-text-a0 leading-none transition-[background-color_0.15s] hover:bg-black/15 focus:bg-black/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                 onClick={() => removeTag(tag)}
+                disabled={disabled}
                 aria-label={`Remove tag ${tag}`}
               >
                 <i className="pi pi-times" aria-hidden="true" />
@@ -163,12 +168,13 @@ export function TagInput({
             <input
               id={id}
               type="text"
-              className="min-w-[120px] flex-1 border-none bg-transparent py-1 font-inherit text-base text-text-a0 leading-normal placeholder:text-text-a40 focus:outline-none"
+              className="min-w-[120px] flex-1 border-none bg-transparent py-1 font-inherit text-base text-text-a0 leading-normal placeholder:text-text-a40 focus:outline-none disabled:cursor-not-allowed"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               onBlur={() => setTimeout(() => addTag(), 150)}
               placeholder={tags.length === 0 ? placeholder : ""}
+              disabled={disabled}
               aria-invalid={error ? "true" : "false"}
               aria-describedby={
                 error || helperText
@@ -178,7 +184,7 @@ export function TagInput({
             />
           )}
         </div>
-        {shouldShowDropdown && (
+        {shouldShowDropdown && !disabled && (
           <FilterSuggestionsDropdown
             suggestions={suggestions}
             isLoading={isLoading}

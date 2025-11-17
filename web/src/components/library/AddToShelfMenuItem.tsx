@@ -16,6 +16,7 @@
 "use client";
 
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
+import { useUser } from "@/contexts/UserContext";
 import { InterfaceContentBook2LibraryContentBooksBookShelfStack as Shelf } from "@/icons/Shelf";
 
 export interface AddToShelfMenuItemProps {
@@ -47,6 +48,9 @@ export function AddToShelfMenuItem({
   onMouseLeave,
   onClick,
 }: AddToShelfMenuItemProps) {
+  const { canPerformAction } = useUser();
+  const canEditShelves = canPerformAction("shelves", "edit");
+
   return (
     /* biome-ignore lint/a11y/noStaticElementInteractions: hover wrapper for flyout menu */
     <div
@@ -59,7 +63,8 @@ export function AddToShelfMenuItem({
         ref={itemRef}
         icon={<Shelf className="h-4 w-4" />}
         label="Add to..."
-        onClick={onClick}
+        onClick={canEditShelves ? onClick : undefined}
+        disabled={!canEditShelves}
         rightContent={
           <i
             className="pi pi-chevron-right flex-shrink-0 text-xs"

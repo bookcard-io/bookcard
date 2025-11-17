@@ -30,6 +30,11 @@ import {
   saveSetting as apiSaveSetting,
   type Setting,
 } from "@/services/settingsApi";
+import {
+  canAccessResource,
+  hasPermission,
+  type Role,
+} from "@/utils/permissions";
 import { getProfilePictureUrlWithCacheBuster } from "@/utils/profile";
 
 export interface EReaderDevice {
@@ -50,6 +55,7 @@ export interface User {
   profile_picture: string | null;
   is_admin: boolean;
   ereader_devices?: EReaderDevice[];
+  roles?: Role[];
 }
 
 interface UserContextType {
@@ -71,6 +77,13 @@ interface UserContextType {
   updateSetting: (key: string, value: string) => void;
   // Get default e-reader device
   defaultDevice: EReaderDevice | null;
+  // Permission checking methods
+  hasPermission: (resource: string, action: string) => boolean;
+  canPerformAction: (
+    resource: string,
+    action: string,
+    resourceData?: Record<string, unknown>,
+  ) => boolean;
 }
 
 export const UserContext = createContext<UserContextType | undefined>(
@@ -289,6 +302,25 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return user.ereader_devices.find((device) => device.is_default) || null;
   }, [user?.ereader_devices]);
 
+  // Permission checking methods
+  const hasPermissionMethod = useCallback(
+    (resource: string, action: string) => {
+      return hasPermission(user, resource, action);
+    },
+    [user],
+  );
+
+  const canPerformActionMethod = useCallback(
+    (
+      resource: string,
+      action: string,
+      resourceData?: Record<string, unknown>,
+    ) => {
+      return canAccessResource(user, resource, action, resourceData);
+    },
+    [user],
+  );
+
   const contextValue = useMemo(
     () => ({
       user,
@@ -304,6 +336,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
       getSetting,
       updateSetting,
       defaultDevice,
+      hasPermission: hasPermissionMethod,
+      canPerformAction: canPerformActionMethod,
     }),
     [
       user,
@@ -319,6 +353,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
       getSetting,
       updateSetting,
       defaultDevice,
+      hasPermissionMethod,
+      canPerformActionMethod,
     ],
   );
 

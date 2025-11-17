@@ -24,9 +24,10 @@ import time
 import uuid
 from typing import TYPE_CHECKING
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 
+from fundamental.api.deps import get_current_user
 from fundamental.api.schemas import (
     MetadataProvidersResponse,
     MetadataSearchEvent,
@@ -222,7 +223,11 @@ def _create_sse_generator(
         raise
 
 
-@router.get("/providers", response_model=MetadataProvidersResponse)
+@router.get(
+    "/providers",
+    response_model=MetadataProvidersResponse,
+    dependencies=[Depends(get_current_user)],
+)
 def list_providers() -> MetadataProvidersResponse:
     """List all available metadata providers.
 
@@ -250,8 +255,14 @@ def list_providers() -> MetadataProvidersResponse:
     return MetadataProvidersResponse(providers=providers)
 
 
-@router.post("/search", response_model=MetadataSearchResponse)
-def search_metadata(request: MetadataSearchRequest) -> MetadataSearchResponse:
+@router.post(
+    "/search",
+    response_model=MetadataSearchResponse,
+    dependencies=[Depends(get_current_user)],
+)
+def search_metadata(
+    request: MetadataSearchRequest,
+) -> MetadataSearchResponse:
     """Search for book metadata across multiple providers.
 
     Parameters
@@ -296,7 +307,11 @@ def search_metadata(request: MetadataSearchRequest) -> MetadataSearchResponse:
         ) from e
 
 
-@router.get("/search", response_model=MetadataSearchResponse)
+@router.get(
+    "/search",
+    response_model=MetadataSearchResponse,
+    dependencies=[Depends(get_current_user)],
+)
 def search_metadata_get(
     query: str = Query(..., min_length=1, description="Search query"),
     locale: str = Query(default="en", description="Locale code"),
@@ -354,7 +369,10 @@ def search_metadata_get(
     return search_metadata(request)
 
 
-@router.get("/search/stream")
+@router.get(
+    "/search/stream",
+    dependencies=[Depends(get_current_user)],
+)
 def search_metadata_stream(
     query: str = Query(..., min_length=1, description="Search query"),
     locale: str = Query(default="en", description="Locale code"),

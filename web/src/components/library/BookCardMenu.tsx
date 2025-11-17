@@ -19,10 +19,13 @@ import { useCallback, useState } from "react";
 import { DropdownMenu } from "@/components/common/DropdownMenu";
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
 import { AddToShelfModal } from "@/components/library/AddToShelfModal";
+import { useUser } from "@/contexts/UserContext";
 import { useExclusiveFlyoutMenus } from "@/hooks/useExclusiveFlyoutMenus";
 import { useFlyoutMenu } from "@/hooks/useFlyoutMenu";
 import { LibraryBuilding } from "@/icons/LibraryBuilding";
 import { cn } from "@/libs/utils";
+import type { Book } from "@/types/book";
+import { buildBookPermissionContext } from "@/utils/permissions";
 import { AddToShelfFlyoutMenu } from "./AddToShelfFlyoutMenu";
 import { AddToShelfMenuItem } from "./AddToShelfMenuItem";
 import { SendToDeviceFlyoutMenu } from "./SendToDeviceFlyoutMenu";
@@ -37,8 +40,8 @@ export interface BookCardMenuProps {
   buttonRef: React.RefObject<HTMLElement | null>;
   /** Cursor position when menu was opened. */
   cursorPosition: { x: number; y: number } | null;
-  /** Book ID for shelf operations. */
-  bookId: number;
+  /** Book data (required for operations and permission checking). */
+  book: Book;
   /** Callback when Book info is clicked. */
   onBookInfo?: () => void;
   /** Whether Send action is disabled. */
@@ -66,7 +69,7 @@ export function BookCardMenu({
   onClose,
   buttonRef,
   cursorPosition,
-  bookId,
+  book,
   onBookInfo,
   onMoveToLibrary,
   onConvert,
@@ -74,6 +77,13 @@ export function BookCardMenu({
   onMore,
   isSendDisabled = false,
 }: BookCardMenuProps) {
+  const { user, canPerformAction } = useUser();
+  const bookContext = buildBookPermissionContext(book);
+  const canWrite = canPerformAction("books", "write", bookContext);
+  const canDelete = canPerformAction("books", "delete", bookContext);
+  const canSend = canPerformAction("books", "send", bookContext);
+  const isAdmin = user?.is_admin ?? false;
+
   const flyoutMenu = useFlyoutMenu({ parentMenuOpen: isOpen });
   const sendFlyoutMenu = useFlyoutMenu({ parentMenuOpen: isOpen });
   const [showAddToShelfModal, setShowAddToShelfModal] = useState(false);
@@ -138,13 +148,14 @@ export function BookCardMenu({
           itemRef={sendFlyoutMenu.parentItemRef}
           onMouseEnter={handleSecondMouseEnter}
           onMouseLeave={sendFlyoutMenu.handleParentMouseLeave}
-          onClick={handleSendToClick}
-          disabled={isSendDisabled}
+          onClick={canSend ? handleSendToClick : undefined}
+          disabled={!canSend || isSendDisabled}
         />
         <DropdownMenuItem
           icon={<LibraryBuilding className="h-4 w-4" />}
           label="Move to library"
-          onClick={() => handleItemClick(onMoveToLibrary)}
+          onClick={isAdmin ? () => handleItemClick(onMoveToLibrary) : undefined}
+          disabled={!isAdmin}
         />
         <AddToShelfMenuItem
           itemRef={flyoutMenu.parentItemRef}
@@ -155,12 +166,14 @@ export function BookCardMenu({
         <DropdownMenuItem
           icon="pi pi-arrow-right-arrow-left"
           label="Convert format"
-          onClick={() => handleItemClick(onConvert)}
+          onClick={canWrite ? () => handleItemClick(onConvert) : undefined}
+          disabled={!canWrite}
         />
         <DropdownMenuItem
           icon="pi pi-trash"
           label="Delete"
-          onClick={() => handleItemClick(onDelete)}
+          onClick={canDelete ? () => handleItemClick(onDelete) : undefined}
+          disabled={!canDelete}
         />
         <hr className={cn("my-1 h-px border-0 bg-surface-tonal-a20")} />
         <DropdownMenuItem
@@ -178,7 +191,7 @@ export function BookCardMenu({
       <AddToShelfFlyoutMenu
         isOpen={flyoutMenu.isFlyoutOpen && isOpen}
         parentItemRef={flyoutMenu.parentItemRef}
-        bookId={bookId}
+        bookId={book.id}
         onOpenModal={() => {
           setShowAddToShelfModal(true);
           flyoutMenu.handleFlyoutClose();
@@ -191,7 +204,7 @@ export function BookCardMenu({
       <SendToDeviceFlyoutMenu
         isOpen={sendFlyoutMenu.isFlyoutOpen && isOpen}
         parentItemRef={sendFlyoutMenu.parentItemRef}
-        bookId={bookId}
+        book={book}
         onClose={sendFlyoutMenu.handleFlyoutClose}
         onMouseEnter={sendFlyoutMenu.handleFlyoutMouseEnter}
         onSuccess={onClose}
@@ -199,7 +212,7 @@ export function BookCardMenu({
       />
       {showAddToShelfModal && (
         <AddToShelfModal
-          bookId={bookId}
+          bookId={book.id}
           onClose={() => setShowAddToShelfModal(false)}
           onSuccess={onClose}
         />

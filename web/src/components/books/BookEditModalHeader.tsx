@@ -16,7 +16,9 @@
 "use client";
 
 import { Button } from "@/components/forms/Button";
+import { useUser } from "@/contexts/UserContext";
 import type { Book } from "@/types/book";
+import { buildBookPermissionContext } from "@/utils/permissions";
 
 export interface BookEditModalHeaderProps {
   /** Current book being edited. */
@@ -47,6 +49,10 @@ export function BookEditModalHeader({
   onFetchMetadata,
   onFeelinLucky,
 }: BookEditModalHeaderProps) {
+  const { canPerformAction } = useUser();
+  const bookContext = buildBookPermissionContext(book);
+  const canWrite = canPerformAction("books", "write", bookContext);
+
   return (
     <div className="modal-header">
       <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -64,8 +70,8 @@ export function BookEditModalHeader({
           variant="success"
           size="xsmall"
           className="sm:px-6 sm:py-3 sm:text-base"
-          onClick={onFetchMetadata}
-          disabled={isUpdating || isLuckySearching}
+          onClick={canWrite ? onFetchMetadata : undefined}
+          disabled={!canWrite || isUpdating || isLuckySearching}
         >
           Fetch metadata
         </Button>
@@ -74,8 +80,8 @@ export function BookEditModalHeader({
           variant="warning"
           size="xsmall"
           className="sm:px-6 sm:py-3 sm:text-base"
-          onClick={onFeelinLucky}
-          disabled={isUpdating || isLuckySearching}
+          onClick={canWrite ? onFeelinLucky : undefined}
+          disabled={!canWrite || isUpdating || isLuckySearching}
           loading={isLuckySearching}
         >
           I'm feelin' lucky!

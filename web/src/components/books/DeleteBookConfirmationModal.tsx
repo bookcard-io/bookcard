@@ -18,7 +18,10 @@
 import { useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/forms/Button";
+import { useUser } from "@/contexts/UserContext";
 import { useModal } from "@/hooks/useModal";
+import type { Book } from "@/types/book";
+import { buildBookPermissionContext } from "@/utils/permissions";
 
 export interface DeleteBookConfirmationModalProps {
   /** Whether the modal is open. */
@@ -41,6 +44,8 @@ export interface DeleteBookConfirmationModalProps {
   error?: string | null;
   /** Book title for display in warning message. */
   bookTitle?: string;
+  /** Book data for permission checking. */
+  book?: Book | null;
 }
 
 /**
@@ -64,9 +69,14 @@ export function DeleteBookConfirmationModal({
   onToggleDeleteFilesFromDrive,
   onConfirm,
   bookTitle,
+  book,
   isDeleting = false,
   error = null,
 }: DeleteBookConfirmationModalProps) {
+  const { canPerformAction } = useUser();
+  const bookContext = book ? buildBookPermissionContext(book) : undefined;
+  const canDelete = book && canPerformAction("books", "delete", bookContext);
+
   // Prevent body scroll when modal is open
   useModal(isOpen);
 
@@ -183,8 +193,8 @@ export function DeleteBookConfirmationModal({
                 type="button"
                 variant="danger"
                 size="medium"
-                onClick={onConfirm}
-                disabled={isDeleting}
+                onClick={canDelete ? onConfirm : undefined}
+                disabled={!canDelete || isDeleting}
               >
                 {isDeleting ? "Deleting..." : "Delete"}
               </Button>

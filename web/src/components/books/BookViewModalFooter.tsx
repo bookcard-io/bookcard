@@ -16,10 +16,15 @@
 "use client";
 
 import { Button } from "@/components/forms/Button";
+import { useUser } from "@/contexts/UserContext";
+import type { Book } from "@/types/book";
+import { buildBookPermissionContext } from "@/utils/permissions";
 
 export interface BookViewModalFooterProps {
   /** Callback when delete button is clicked. */
   onDelete?: () => void;
+  /** Book data for permission checking. */
+  book?: Book | null;
 }
 
 /**
@@ -28,12 +33,22 @@ export interface BookViewModalFooterProps {
  * Displays action buttons.
  * Follows SRP by focusing solely on footer presentation.
  */
-export function BookViewModalFooter({ onDelete }: BookViewModalFooterProps) {
+export function BookViewModalFooter({
+  onDelete,
+  book,
+}: BookViewModalFooterProps) {
+  const { canPerformAction } = useUser();
+
   const handleDelete = () => {
     if (onDelete) {
       onDelete();
     }
   };
+
+  // Check permission
+  const canDelete =
+    book &&
+    canPerformAction("books", "delete", buildBookPermissionContext(book));
 
   return (
     <div className="modal-footer-between">
@@ -44,7 +59,8 @@ export function BookViewModalFooter({ onDelete }: BookViewModalFooterProps) {
           variant="danger"
           size="medium"
           onClick={handleDelete}
-          className="bg-[var(--color-danger-a-1)] text-[var(--color-white)] hover:bg-[var(--color-danger-a0)]"
+          disabled={!canDelete}
+          className="bg-[var(--color-danger-a-1)] text-[var(--color-white)] hover:bg-[var(--color-danger-a0)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           Delete
         </Button>

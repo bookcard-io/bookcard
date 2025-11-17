@@ -25,8 +25,10 @@ import { RatingInput } from "@/components/forms/RatingInput";
 import { TagInput } from "@/components/forms/TagInput";
 import { TextArea } from "@/components/forms/TextArea";
 import { TextInput } from "@/components/forms/TextInput";
+import { useUser } from "@/contexts/UserContext";
 import { languageFilterSuggestionsService } from "@/services/filterSuggestionsService";
 import type { Book, BookUpdate } from "@/types/book";
+import { buildBookPermissionContext } from "@/utils/permissions";
 
 export interface BookEditFormFieldsProps {
   /** Current book being edited. */
@@ -51,6 +53,10 @@ export function BookEditFormFields({
   formData,
   onFieldChange,
 }: BookEditFormFieldsProps) {
+  const { canPerformAction } = useUser();
+  const bookContext = buildBookPermissionContext(book);
+  const canWrite = canPerformAction("books", "write", bookContext);
+
   return (
     <div className="flex min-w-0 flex-col gap-6">
       <div className="grid grid-cols-3 gap-4 sm:grid-cols-1">
@@ -65,11 +71,13 @@ export function BookEditFormFields({
                 onFieldChange("title", e.target.value)
               }
               required
+              disabled={!canWrite}
               className="min-w-0"
             />
             <button
               type="button"
-              className="mb-2 flex items-center justify-center self-end border-none bg-transparent p-2 text-text-a30 text-xl transition-[transform,color] duration-200 hover:translate-x-0.5 hover:text-primary-a0 focus:rounded focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
+              disabled={!canWrite}
+              className="mb-2 flex items-center justify-center self-end border-none bg-transparent p-2 text-text-a30 text-xl transition-[transform,color] duration-200 hover:translate-x-0.5 hover:text-primary-a0 focus:rounded focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Copy to title sort"
               title="Copy to title sort"
             >
@@ -95,10 +103,12 @@ export function BookEditFormFields({
               onChange={(authors) => onFieldChange("author_names", authors)}
               placeholder="Add author names (press Enter or comma)"
               filterType="author"
+              disabled={!canWrite}
             />
             <button
               type="button"
-              className="mb-2 flex items-center justify-center self-end border-none bg-transparent p-2 text-text-a30 text-xl transition-[transform,color] duration-200 hover:translate-x-0.5 hover:text-primary-a0 focus:rounded focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
+              disabled={!canWrite}
+              className="mb-2 flex items-center justify-center self-end border-none bg-transparent p-2 text-text-a30 text-xl transition-[transform,color] duration-200 hover:translate-x-0.5 hover:text-primary-a0 focus:rounded focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Copy to author sort"
               title="Copy to author sort"
             >
@@ -128,6 +138,7 @@ export function BookEditFormFields({
             }
             placeholder="Enter series name"
             filterType="series"
+            disabled={!canWrite}
             className="min-w-0"
           />
           <NumberInput
@@ -142,6 +153,7 @@ export function BookEditFormFields({
             }
             step={0.1}
             min={0}
+            disabled={!canWrite}
             className="min-w-0"
           />
           <div className="flex min-w-0 flex-col">
@@ -150,6 +162,7 @@ export function BookEditFormFields({
               label="Rating"
               value={formData.rating_value ?? null}
               onChange={(rating) => onFieldChange("rating_value", rating)}
+              disabled={!canWrite}
             />
           </div>
         </div>
@@ -163,6 +176,7 @@ export function BookEditFormFields({
             onChange={(tags) => onFieldChange("tag_names", tags)}
             placeholder="Add tags (press Enter or comma)"
             filterType="genre"
+            disabled={!canWrite}
           />
           <div className="flex w-full flex-col gap-2">
             <div className="h-[1.3125rem] font-medium text-sm text-text-a10 leading-6">
@@ -173,9 +187,14 @@ export function BookEditFormFields({
               variant="primary"
               size="medium"
               className="h-11 self-start"
-              onClick={() => {
-                // TODO: Implement manage tags
-              }}
+              onClick={
+                canWrite
+                  ? () => {
+                      // TODO: Implement manage tags
+                    }
+                  : undefined
+              }
+              disabled={!canWrite}
             >
               Manage tags
             </Button>
@@ -191,6 +210,7 @@ export function BookEditFormFields({
             onChange={(identifiers) =>
               onFieldChange("identifiers", identifiers)
             }
+            disabled={!canWrite}
           />
           <TagInput
             id="languages"
@@ -205,6 +225,7 @@ export function BookEditFormFields({
             placeholder="Add language code"
             filterType="language"
             suggestionsService={languageFilterSuggestionsService}
+            disabled={!canWrite}
           />
         </div>
 
@@ -222,6 +243,7 @@ export function BookEditFormFields({
             }
             placeholder="Enter publisher name"
             filterType="publisher"
+            disabled={!canWrite}
           />
           <DateInput
             id="pubdate"
@@ -230,6 +252,7 @@ export function BookEditFormFields({
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               onFieldChange("pubdate", e.target.value || null)
             }
+            disabled={!canWrite}
           />
         </div>
       </div>
@@ -245,6 +268,7 @@ export function BookEditFormFields({
           }
           placeholder="Enter book description..."
           rows={6}
+          disabled={!canWrite}
         />
       </div>
     </div>

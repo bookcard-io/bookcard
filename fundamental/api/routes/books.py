@@ -54,19 +54,22 @@ from fundamental.api.schemas import (
     SearchSuggestionItem,
     SearchSuggestionsResponse,
 )
-from fundamental.models.auth import User  # noqa: TC001
+from fundamental.models.auth import User
 from fundamental.repositories.config_repository import LibraryRepository
+from fundamental.repositories.models import BookWithFullRelations, BookWithRelations
 from fundamental.services.book_service import BookService
 from fundamental.services.config_service import LibraryService
 from fundamental.services.email_config_service import EmailConfigService
 from fundamental.services.email_service import EmailService, EmailServiceError
 from fundamental.services.metadata_export_service import MetadataExportService
 from fundamental.services.metadata_import_service import MetadataImportService
+from fundamental.services.permission_service import PermissionService
 from fundamental.services.security import DataEncryptor
 
 router = APIRouter(prefix="/books", tags=["books"])
 
 SessionDep = Annotated[Session, Depends(get_db_session)]
+CurrentUserDep = Annotated[User, Depends(get_current_user)]
 
 # Media types mapping for book file formats
 FILE_FORMAT_MEDIA_TYPES = {
@@ -182,6 +185,46 @@ def _email_config_service(request: Request, session: Session) -> EmailConfigServ
     return EmailConfigService(session, encryptor=encryptor)
 
 
+def _build_book_permission_context(
+    book_with_rels: BookWithRelations | BookWithFullRelations,
+    _book_id: int,
+    _session: Session,
+) -> dict[str, object]:
+    """Build permission context from book metadata.
+
+    Parameters
+    ----------
+    book_with_rels : BookWithRelations | BookWithFullRelations
+        Book with related metadata.
+    _book_id : int
+        Book ID (unused, kept for API compatibility).
+    _session : Session
+        Database session (unused, kept for API compatibility).
+
+    Returns
+    -------
+    dict[str, object]
+        Permission context dictionary with authors, tags, series_id, etc.
+    """
+    context: dict[str, object] = {
+        "authors": book_with_rels.authors,
+    }
+
+    # Note: author_ids are not included here because BookAuthorLink exists
+    # in the Calibre metadata.db, not in fundamental.db. Permission conditions
+    # can use "author" (author names) instead of "author_id" or "author_ids".
+
+    # Add series_id if available
+    if isinstance(book_with_rels, BookWithFullRelations) and book_with_rels.series_id:
+        context["series_id"] = book_with_rels.series_id
+
+    # Add tags if available
+    if isinstance(book_with_rels, BookWithFullRelations) and book_with_rels.tags:
+        context["tags"] = book_with_rels.tags
+
+    return context
+
+
 def _get_active_library_service(
     session: SessionDep,
 ) -> BookService:
@@ -218,6 +261,7 @@ def _get_active_library_service(
 @router.get("", response_model=BookListResponse)
 def list_books(
     session: SessionDep,
+    current_user: CurrentUserDep,
     page: int = 1,
     page_size: int = 20,
     search: str | None = None,
@@ -231,6 +275,8 @@ def list_books(
     ----------
     session : SessionDep
         Database session dependency.
+    current_user : CurrentUserDep
+        Current authenticated user.
     page : int
         Page number (1-indexed, default: 1).
     page_size : int
@@ -253,8 +299,12 @@ def list_books(
     Raises
     ------
     HTTPException
-        If no active library is configured (404).
+        If no active library is configured (404) or permission denied (403).
     """
+    # Check permission
+    permission_service = PermissionService(session)
+    permission_service.check_permission(current_user, "books", "read")
+
     if page < 1:
         page = 1
     if page_size < 1:
@@ -326,6 +376,7 @@ def list_books(
 @router.get("/{book_id}", response_model=BookRead)
 def get_book(
     session: SessionDep,
+    current_user: CurrentUserDep,
     book_id: int,
     full: bool = False,
 ) -> BookRead:
@@ -335,6 +386,8 @@ def get_book(
     ----------
     session : SessionDep
         Database session dependency.
+    current_user : CurrentUserDep
+        Current authenticated user.
     book_id : int
         Calibre book ID.
     full : bool
@@ -348,7 +401,7 @@ def get_book(
     Raises
     ------
     HTTPException
-        If book not found (404) or no active library (404).
+        If book not found (404), no active library (404), or permission denied (403).
     """
     book_service = _get_active_library_service(session)
 
@@ -362,6 +415,11 @@ def get_book(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="book_not_found",
         )
+
+    # Check permission with book context
+    permission_service = PermissionService(session)
+    book_context = _build_book_permission_context(book_with_rels, book_id, session)
+    permission_service.check_permission(current_user, "books", "read", book_context)
 
     book = book_with_rels.book
     if book.id is None:
@@ -410,6 +468,7 @@ def get_book(
 @router.put("/{book_id}", response_model=BookRead)
 def update_book(
     session: SessionDep,
+    current_user: CurrentUserDep,
     book_id: int,
     update: BookUpdate,
 ) -> BookRead:
@@ -419,6 +478,8 @@ def update_book(
     ----------
     session : SessionDep
         Database session dependency.
+    current_user : CurrentUserDep
+        Current authenticated user.
     book_id : int
         Calibre book ID.
     update : BookUpdate
@@ -432,17 +493,22 @@ def update_book(
     Raises
     ------
     HTTPException
-        If book not found (404) or no active library (404).
+        If book not found (404), no active library (404), or permission denied (403).
     """
     book_service = _get_active_library_service(session)
 
-    # Check if book exists
-    existing_book = book_service.get_book(book_id)
+    # Check if book exists and get metadata for permission check
+    existing_book = book_service.get_book_full(book_id)
     if existing_book is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="book_not_found",
         )
+
+    # Check permission with book context
+    permission_service = PermissionService(session)
+    book_context = _build_book_permission_context(existing_book, book_id, session)
+    permission_service.check_permission(current_user, "books", "write", book_context)
 
     # Update book
     updated_book = book_service.update_book(
@@ -508,6 +574,7 @@ def update_book(
 @router.delete("/{book_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_book(
     session: SessionDep,
+    current_user: CurrentUserDep,
     book_id: int,
     delete_request: BookDeleteRequest,
 ) -> None:
@@ -517,6 +584,8 @@ def delete_book(
     ----------
     session : SessionDep
         Database session dependency.
+    current_user : CurrentUserDep
+        Current authenticated user.
     book_id : int
         Calibre book ID.
     delete_request : BookDeleteRequest
@@ -525,10 +594,23 @@ def delete_book(
     Raises
     ------
     HTTPException
-        If book not found (404), no active library (404), or filesystem
-        operation fails (500).
+        If book not found (404), no active library (404), permission denied (403),
+        or filesystem operation fails (500).
     """
     book_service = _get_active_library_service(session)
+
+    # Check if book exists and get metadata for permission check
+    existing_book = book_service.get_book_full(book_id)
+    if existing_book is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="book_not_found",
+        )
+
+    # Check permission with book context (delete is part of write)
+    permission_service = PermissionService(session)
+    book_context = _build_book_permission_context(existing_book, book_id, session)
+    permission_service.check_permission(current_user, "books", "write", book_context)
 
     try:
         book_service.delete_book(
@@ -557,6 +639,7 @@ def delete_book(
 @router.get("/{book_id}/cover", response_model=None)
 def get_book_cover(
     session: SessionDep,
+    current_user: CurrentUserDep,
     book_id: int,
 ) -> FileResponse | Response:
     """Get book cover thumbnail image.
@@ -587,6 +670,11 @@ def get_book_cover(
             detail="book_not_found",
         )
 
+    # Check permission with book context
+    permission_service = PermissionService(session)
+    book_context = _build_book_permission_context(book_with_rels, book_id, session)
+    permission_service.check_permission(current_user, "books", "read", book_context)
+
     cover_path = book_service.get_thumbnail_path(book_with_rels)
     book_id_for_filename = book_with_rels.book.id
     if cover_path is None or not cover_path.exists():
@@ -602,6 +690,7 @@ def get_book_cover(
 @router.get("/{book_id}/download/{file_format}", response_model=None)
 def download_book_file(
     session: SessionDep,
+    current_user: CurrentUserDep,
     book_id: int,
     file_format: str,
 ) -> FileResponse | Response:
@@ -636,6 +725,11 @@ def download_book_file(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="book_not_found",
         )
+
+    # Check permission with book context
+    permission_service = PermissionService(session)
+    book_context = _build_book_permission_context(book_with_rels, book_id, session)
+    permission_service.check_permission(current_user, "books", "read", book_context)
 
     book = book_with_rels.book
     if book.id is None:
@@ -717,6 +811,7 @@ def download_book_file(
 @router.get("/{book_id}/metadata", response_model=None)
 def download_book_metadata(
     session: SessionDep,
+    current_user: CurrentUserDep,
     book_id: int,
     format: str = "opf",  # noqa: A002
 ) -> Response:
@@ -752,6 +847,11 @@ def download_book_metadata(
             detail="book_not_found",
         )
 
+    # Check permission with book context
+    permission_service = PermissionService(session)
+    book_context = _build_book_permission_context(book_with_rels, book_id, session)
+    permission_service.check_permission(current_user, "books", "read", book_context)
+
     # Generate metadata using service (SRP, IOC, SOC)
     # Service validates format and raises ValueError for unsupported formats
     format_lower = format.lower()
@@ -781,7 +881,11 @@ def download_book_metadata(
     )
 
 
-@router.post("/metadata/import", response_model=BookUpdate)
+@router.post(
+    "/metadata/import",
+    response_model=BookUpdate,
+    dependencies=[Depends(get_current_user)],
+)
 def import_book_metadata(
     file: Annotated[UploadFile, File()],
 ) -> BookUpdate:
@@ -867,7 +971,7 @@ def send_book_to_device(
     request: Request,
     session: SessionDep,
     book_id: int,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: CurrentUserDep,
     send_request: BookSendRequest,
 ) -> None:
     """Send a book via email.
@@ -883,7 +987,7 @@ def send_book_to_device(
         Database session dependency.
     book_id : int
         Calibre book ID.
-    current_user : User
+    current_user : CurrentUserDep
         Current authenticated user.
     send_request : BookSendRequest
         Send request containing optional email and file format.
@@ -898,8 +1002,22 @@ def send_book_to_device(
     HTTPException
         If book not found (404), no default device when email not provided (400),
         email server not configured (400), format not found (404),
-        or email sending fails (500).
+        permission denied (403), or email sending fails (500).
     """
+    # Get book service and check if book exists
+    book_service = _get_active_library_service(session)
+    existing_book = book_service.get_book_full(book_id)
+    if existing_book is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="book_not_found",
+        )
+
+    # Check permission with book context
+    permission_service = PermissionService(session)
+    book_context = _build_book_permission_context(existing_book, book_id, session)
+    permission_service.check_permission(current_user, "books", "send", book_context)
+
     # Get email configuration
     email_config_service = _email_config_service(request, session)
     email_config = email_config_service.get_config(decrypt=True)
@@ -908,9 +1026,6 @@ def send_book_to_device(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="email_server_not_configured_or_disabled",
         )
-
-    # Get book service
-    book_service = _get_active_library_service(session)
     email_service = EmailService(email_config)
 
     # Validate user ID
@@ -1095,6 +1210,7 @@ def _save_image_to_temp(content: bytes, image: Image.Image) -> str:
 @router.post("/{book_id}/cover-from-url", response_model=CoverFromUrlResponse)
 def download_cover_from_url(
     session: SessionDep,
+    current_user: CurrentUserDep,
     book_id: int,
     request: CoverFromUrlRequest,
 ) -> CoverFromUrlResponse:
@@ -1128,13 +1244,18 @@ def download_cover_from_url(
 
     url = request.url.strip()
     book_service = _get_active_library_service(session)
-    book_with_rels = book_service.get_book(book_id)
+    book_with_rels = book_service.get_book_full(book_id)
 
     if book_with_rels is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="book_not_found",
         )
+
+    # Check permission with book context
+    permission_service = PermissionService(session)
+    book_context = _build_book_permission_context(book_with_rels, book_id, session)
+    permission_service.check_permission(current_user, "books", "write", book_context)
 
     if not url:
         raise HTTPException(
@@ -1236,6 +1357,7 @@ def get_temp_cover(
 @router.get("/search/suggestions", response_model=SearchSuggestionsResponse)
 def search_suggestions(
     session: SessionDep,
+    current_user: CurrentUserDep,
     q: str,
 ) -> SearchSuggestionsResponse:
     """Get search suggestions for autocomplete.
@@ -1260,6 +1382,10 @@ def search_suggestions(
     HTTPException
         If no active library is configured (404).
     """
+    # Check permission
+    permission_service = PermissionService(session)
+    permission_service.check_permission(current_user, "books", "read")
+
     if not q or not q.strip():
         return SearchSuggestionsResponse()
 
@@ -1295,6 +1421,7 @@ def search_suggestions(
 @router.get("/filter/suggestions", response_model=FilterSuggestionsResponse)
 def filter_suggestions(
     session: SessionDep,
+    current_user: CurrentUserDep,
     q: str,
     filter_type: str,
     limit: int = 10,
@@ -1323,6 +1450,10 @@ def filter_suggestions(
     HTTPException
         If no active library is configured (404).
     """
+    # Check permission
+    permission_service = PermissionService(session)
+    permission_service.check_permission(current_user, "books", "read")
+
     if not q or not q.strip():
         return FilterSuggestionsResponse()
 
@@ -1344,6 +1475,7 @@ def filter_suggestions(
 @router.post("/filter", response_model=BookListResponse)
 def filter_books(
     session: SessionDep,
+    current_user: CurrentUserDep,
     filter_request: BookFilterRequest,
     page: int = 1,
     page_size: int = 20,
@@ -1382,8 +1514,12 @@ def filter_books(
     Raises
     ------
     HTTPException
-        If no active library is configured (404).
+        If no active library is configured (404) or permission denied (403).
     """
+    # Check permission
+    permission_service = PermissionService(session)
+    permission_service.check_permission(current_user, "books", "read")
+
     if page < 1:
         page = 1
     if page_size < 1:
@@ -1461,10 +1597,13 @@ def filter_books(
 
 
 @router.post(
-    "/upload", response_model=BookUploadResponse, status_code=status.HTTP_201_CREATED
+    "/upload",
+    response_model=BookUploadResponse,
+    status_code=status.HTTP_201_CREATED,
 )
 def upload_book(
     session: SessionDep,
+    current_user: CurrentUserDep,
     file: UploadFile,
 ) -> BookUploadResponse:
     """Upload a book file to the active library.
@@ -1489,8 +1628,12 @@ def upload_book(
     ------
     HTTPException
         If no active library is configured (404), file is invalid (400),
-        or database operation fails (500).
+        permission denied (403), or database operation fails (500).
     """
+    # Check permission
+    permission_service = PermissionService(session)
+    permission_service.check_permission(current_user, "books", "create")
+
     book_service = _get_active_library_service(session)
 
     # Validate file extension

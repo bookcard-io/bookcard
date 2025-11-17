@@ -15,6 +15,7 @@
 
 "use client";
 
+import { useUser } from "@/contexts/UserContext";
 import { OutlineMerge } from "@/icons/OutlineMerge";
 
 export interface ShelfSelectionBarProps {
@@ -41,6 +42,10 @@ export function ShelfSelectionBar({
   onDelete,
   onDeselectAll,
 }: ShelfSelectionBarProps) {
+  const { canPerformAction } = useUser();
+  const canCreate = canPerformAction("shelves", "create");
+  const canDelete = canPerformAction("shelves", "delete");
+
   if (selectedCount < 1) {
     return null;
   }
@@ -58,8 +63,9 @@ export function ShelfSelectionBar({
       <div className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 flex items-center gap-4">
         <button
           type="button"
-          onClick={onMerge}
-          className="flex items-center gap-2 rounded-md bg-transparent px-4 py-2 font-medium text-[var(--color-text-a0)] text-sm transition-colors duration-200 hover:bg-[var(--color-primary-a0)]/20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
+          onClick={canCreate ? onMerge : undefined}
+          disabled={!canCreate}
+          className="flex items-center gap-2 rounded-md bg-transparent px-4 py-2 font-medium text-[var(--color-text-a0)] text-sm transition-colors duration-200 hover:bg-[var(--color-primary-a0)]/20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           aria-label="Merge shelves"
         >
           <OutlineMerge className="h-5 w-5" />
@@ -68,7 +74,8 @@ export function ShelfSelectionBar({
         <button
           type="button"
           onClick={onDelete}
-          className="flex items-center gap-2 rounded-md bg-transparent px-4 py-2 font-medium text-[var(--color-text-a0)] text-sm transition-colors duration-200 hover:bg-[var(--color-primary-a0)]/20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
+          disabled={!canDelete}
+          className="flex items-center gap-2 rounded-md bg-transparent px-4 py-2 font-medium text-[var(--color-text-a0)] text-sm transition-colors duration-200 hover:bg-[var(--color-primary-a0)]/20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           aria-label="Delete shelves"
         >
           <i className="pi pi-trash text-base" aria-hidden="true" />

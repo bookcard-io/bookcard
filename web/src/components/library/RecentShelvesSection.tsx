@@ -16,6 +16,7 @@
 "use client";
 
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
+import { useUser } from "@/contexts/UserContext";
 import { cn } from "@/libs/utils";
 import type { Shelf } from "@/types/shelf";
 
@@ -45,6 +46,9 @@ export function RecentShelvesSection({
   onShelfClick,
   disabled = false,
 }: RecentShelvesSectionProps) {
+  const { canPerformAction } = useUser();
+  const canEditShelves = canPerformAction("shelves", "edit");
+
   if (shelves.length === 0) {
     return null;
   }
@@ -62,8 +66,8 @@ export function RecentShelvesSection({
         <DropdownMenuItem
           key={shelf.id}
           label={shelf.name}
-          onClick={() => onShelfClick(shelf.id)}
-          disabled={disabled}
+          onClick={canEditShelves ? () => onShelfClick(shelf.id) : undefined}
+          disabled={!canEditShelves || disabled}
         />
       ))}
     </>

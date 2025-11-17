@@ -18,6 +18,9 @@
 import { useCallback } from "react";
 import { DropdownMenu } from "@/components/common/DropdownMenu";
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
+import { useUser } from "@/contexts/UserContext";
+import type { Shelf } from "@/types/shelf";
+import { buildShelfPermissionContext } from "@/utils/permissions";
 
 export interface ShelfCardMenuProps {
   /** Whether the menu is open. */
@@ -30,6 +33,8 @@ export interface ShelfCardMenuProps {
   cursorPosition: { x: number; y: number } | null;
   /** Callback when Delete is clicked. */
   onDelete?: () => void;
+  /** Shelf object for permission checking. */
+  shelf: Shelf;
 }
 
 /**
@@ -46,7 +51,12 @@ export function ShelfCardMenu({
   buttonRef,
   cursorPosition,
   onDelete,
+  shelf,
 }: ShelfCardMenuProps) {
+  const { canPerformAction } = useUser();
+  const shelfContext = buildShelfPermissionContext(shelf);
+  const canDelete = canPerformAction("shelves", "delete", shelfContext);
+
   /**
    * Handle menu item click.
    *
@@ -76,7 +86,8 @@ export function ShelfCardMenu({
       <DropdownMenuItem
         icon="pi pi-trash"
         label="Delete"
-        onClick={() => handleItemClick(onDelete)}
+        onClick={canDelete ? () => handleItemClick(onDelete) : undefined}
+        disabled={!canDelete}
       />
     </DropdownMenu>
   );

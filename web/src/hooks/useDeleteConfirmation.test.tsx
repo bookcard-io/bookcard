@@ -23,6 +23,8 @@ function createWrapper(mockContext: Partial<UserContextValue> = {}) {
     getSetting: vi.fn<(key: string) => string | null>(() => null),
     updateSetting: vi.fn<(key: string, value: string) => void>(),
     defaultDevice: null,
+    hasPermission: vi.fn(() => false),
+    canPerformAction: vi.fn(() => false),
     ...mockContext,
   };
 

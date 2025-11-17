@@ -20,12 +20,14 @@ import { Button } from "@/components/forms/Button";
 import { TextArea } from "@/components/forms/TextArea";
 import { TextInput } from "@/components/forms/TextInput";
 import { ShelfCoverSection } from "@/components/shelves/ShelfCoverSection";
+import { useUser } from "@/contexts/UserContext";
 import { useCoverFile } from "@/hooks/useCoverFile";
 import { useModal } from "@/hooks/useModal";
 import { useModalInteractions } from "@/hooks/useModalInteractions";
 import { useShelfCoverOperations } from "@/hooks/useShelfCoverOperations";
 import { useShelfForm } from "@/hooks/useShelfForm";
 import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
+import { buildShelfPermissionContext } from "@/utils/permissions";
 
 export interface ShelfEditModalProps {
   /** Shelf to edit (null for create mode). */
@@ -62,6 +64,11 @@ export function ShelfEditModal({
   onCoverDeleted,
 }: ShelfEditModalProps) {
   const isEditMode = shelf !== null;
+  const { canPerformAction } = useUser();
+  const shelfContext = shelf ? buildShelfPermissionContext(shelf) : undefined;
+  const canCreate = !isEditMode && canPerformAction("shelves", "create");
+  const canEdit =
+    isEditMode && canPerformAction("shelves", "edit", shelfContext);
   const {
     name,
     description,
@@ -200,6 +207,8 @@ export function ShelfEditModal({
     ],
   );
 
+  const hasPermission = canCreate || canEdit;
+
   return (
     /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
     <div
@@ -237,6 +246,17 @@ export function ShelfEditModal({
           className="flex min-h-0 flex-1 flex-col"
         >
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-y-auto p-6">
+            {!hasPermission && (
+              <div
+                className="rounded-md bg-warning-a20 px-4 py-3 text-sm text-warning-a0"
+                role="alert"
+              >
+                {isEditMode
+                  ? "You don't have permission to edit this shelf."
+                  : "You don't have permission to create shelves."}
+              </div>
+            )}
+
             <TextInput
               label="Shelf name"
               value={name}
@@ -244,6 +264,7 @@ export function ShelfEditModal({
               error={errors.name}
               required
               autoFocus
+              disabled={!hasPermission}
             />
 
             <TextArea
@@ -253,6 +274,7 @@ export function ShelfEditModal({
               error={errors.description}
               rows={4}
               placeholder="Optional description of the shelf"
+              disabled={!hasPermission}
             />
 
             <ShelfCoverSection
@@ -262,7 +284,7 @@ export function ShelfEditModal({
               coverPreviewUrl={coverPreviewUrl}
               coverError={coverError || coverOperationError}
               fileInputRef={fileInputRef}
-              isSaving={isSaving}
+              isSaving={isSaving || !hasPermission}
               onCoverFileChange={handleCoverFileChangeWithErrorClear}
               onClearCoverFile={handleClearCoverFile}
               onCoverDelete={handleCoverDelete}
@@ -275,11 +297,12 @@ export function ShelfEditModal({
                 id="isPublic"
                 checked={isPublic}
                 onChange={(e) => setIsPublic(e.target.checked)}
-                className="h-4 w-4 cursor-pointer rounded border-surface-a20 text-primary-a0 accent-[var(--color-primary-a0)] focus:ring-2 focus:ring-primary-a0"
+                disabled={!hasPermission}
+                className="h-4 w-4 cursor-pointer rounded border-surface-a20 text-primary-a0 accent-[var(--color-primary-a0)] focus:ring-2 focus:ring-primary-a0 disabled:cursor-not-allowed disabled:opacity-50"
               />
               <label
                 htmlFor="isPublic"
-                className="cursor-pointer text-base text-text-a0"
+                className="cursor-pointer text-base text-text-a0 disabled:cursor-not-allowed"
               >
                 Share with everyone
               </label>
@@ -305,6 +328,7 @@ export function ShelfEditModal({
                 variant="primary"
                 size="medium"
                 loading={isSubmitting || isSaving}
+                disabled={!hasPermission || isSubmitting || isSaving}
               >
                 {isEditMode ? "Save" : "Create"}
               </Button>

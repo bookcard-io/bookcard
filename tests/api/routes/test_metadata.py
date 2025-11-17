@@ -516,34 +516,45 @@ def test_search_metadata_stream_sse_generator(
         metadata_routes, "_get_metadata_service", mock_get_metadata_service
     )
 
-    response = metadata_routes.search_metadata_stream(
-        query="test",
-        locale="en",
-        max_results_per_provider=10,
-        provider_ids=None,
-        request_id=None,
-    )
-
-    # Verify response structure
-    assert response.media_type == "text/event-stream"
-    assert hasattr(response, "body_iterator")
-
-    # Use TestClient to actually execute the generator and cover lines 280-286
+    # Since the function uses dependencies=[Depends(get_current_user)], we need to
+    # use TestClient instead of calling the function directly
     from fastapi import FastAPI
+
+    from fundamental.models.auth import User
 
     app = FastAPI()
     app.include_router(metadata_routes.router)
 
+    # Override the dependency to return a mock user
+    mock_user = User(id=1, username="test", email="test@test.com", password_hash="hash")
+    from fundamental.api.deps import get_current_user
+
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+
     client = TestClient(app)
+    response = client.get(
+        "/metadata/search/stream",
+        params={
+            "query": "test",
+            "locale": "en",
+            "max_results_per_provider": 10,
+        },
+    )
+
+    # Verify response structure
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
+
+    # Use TestClient to actually execute the generator and cover lines 280-286
     # Give background thread time to start
     time.sleep(0.2)
 
     # Make request to trigger generator execution
     with client.stream(
         "GET", "/metadata/search/stream", params={"query": "test"}
-    ) as response:
+    ) as stream_response:
         chunks = []
-        for chunk in response.iter_text():
+        for chunk in stream_response.iter_text():
             if chunk:
                 chunks.append(chunk)
             if len(chunks) >= 5:  # Limit to avoid hanging

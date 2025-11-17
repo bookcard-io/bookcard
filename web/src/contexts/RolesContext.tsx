@@ -25,6 +25,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useUser } from "@/contexts/UserContext";
 import {
   createRole,
   deleteRole,
@@ -68,6 +69,7 @@ export const RolesContext = createContext<RolesContextType | undefined>(
  *     Child components that can access the roles context.
  */
 export function RolesProvider({ children }: { children: ReactNode }) {
+  const { user, isLoading: userLoading } = useUser();
   const [roles, setRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -75,6 +77,13 @@ export function RolesProvider({ children }: { children: ReactNode }) {
   const hasInitialRefetchRunRef = useRef(false);
 
   const refresh = useCallback(async () => {
+    // Only fetch roles if user is admin
+    if (!user?.is_admin) {
+      setIsLoading(false);
+      setRoles([]);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
@@ -95,15 +104,23 @@ export function RolesProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user?.is_admin]);
 
   useEffect(() => {
+    // Wait for user to load before checking admin status
+    if (userLoading) {
+      return;
+    }
+
     // Avoid duplicate fetch in React 18 StrictMode development double-invoke
-    if (!hasInitialRefetchRunRef.current) {
-      hasInitialRefetchRunRef.current = true;
+    // Only skip on initial mount, but allow refresh when user admin status changes
+    if (!hasInitialRefetchRunRef.current || user?.is_admin) {
+      if (!hasInitialRefetchRunRef.current) {
+        hasInitialRefetchRunRef.current = true;
+      }
       void refresh();
     }
-  }, [refresh]);
+  }, [refresh, userLoading, user?.is_admin]);
 
   /**
    * Optimistically update role state without triggering full refresh.

@@ -26,7 +26,9 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+
+from fundamental.api.deps import get_admin_user
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -204,7 +206,10 @@ def _build_suggestions(children: Iterable[Path], needle: str, limit: int) -> lis
     return suggestions[:limit]
 
 
-@router.get("/suggest_dirs")
+@router.get(
+    "/suggest_dirs",
+    dependencies=[Depends(get_admin_user)],
+)
 def suggest_dirs(
     q: str = Query(default="", description="Absolute path or prefix for suggestions."),
     limit: int = Query(

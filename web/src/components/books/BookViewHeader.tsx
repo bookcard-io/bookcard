@@ -19,8 +19,10 @@ import { useCallback, useState } from "react";
 import { FullscreenImageModal } from "@/components/common/FullscreenImageModal";
 import { ImageWithLoading } from "@/components/common/ImageWithLoading";
 import { RatingDisplay } from "@/components/forms/RatingDisplay";
+import { useUser } from "@/contexts/UserContext";
 import { sendBookToDevice } from "@/services/bookService";
 import type { Book } from "@/types/book";
+import { buildBookPermissionContext } from "@/utils/permissions";
 
 export interface BookViewHeaderProps {
   /** Book data to display. */
@@ -42,10 +44,17 @@ export function BookViewHeader({
   showDescription = false,
   onEdit,
 }: BookViewHeaderProps) {
+  const { canPerformAction } = useUser();
   const [isCoverOpen, setIsCoverOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const openCover = useCallback(() => setIsCoverOpen(true), []);
   const closeCover = useCallback(() => setIsCoverOpen(false), []);
+
+  // Check permissions
+  const bookContext = buildBookPermissionContext(book);
+  const canRead = canPerformAction("books", "read", bookContext);
+  const canWrite = canPerformAction("books", "write", bookContext);
+  const canSend = canPerformAction("books", "send", bookContext);
 
   const handleSend = useCallback(async () => {
     try {
@@ -91,7 +100,8 @@ export function BookViewHeader({
           <div className="mt-4 flex w-full items-center justify-center gap-4">
             <button
               type="button"
-              className="group flex min-h-8 min-w-8 items-center justify-center rounded-full p-2 transition hover:scale-110 hover:bg-white/20 hover:backdrop-blur-sm focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 active:scale-95"
+              disabled={!canRead}
+              className="group flex min-h-8 min-w-8 items-center justify-center rounded-full p-2 transition hover:scale-110 hover:bg-white/20 hover:backdrop-blur-sm focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Read book"
               title="Read book"
             >
@@ -103,7 +113,7 @@ export function BookViewHeader({
             <button
               type="button"
               onClick={handleSend}
-              disabled={isSending}
+              disabled={isSending || !canSend}
               className="group flex min-h-8 min-w-8 items-center justify-center rounded-full p-2 transition hover:scale-110 hover:bg-white/20 hover:backdrop-blur-sm focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Send book"
               title={isSending ? "Sending..." : "Send book"}
@@ -115,7 +125,8 @@ export function BookViewHeader({
             </button>
             <button
               type="button"
-              className="group flex min-h-8 min-w-8 items-center justify-center rounded-full p-2 transition hover:scale-110 hover:bg-white/20 hover:backdrop-blur-sm focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 active:scale-95"
+              disabled={!canWrite}
+              className="group flex min-h-8 min-w-8 items-center justify-center rounded-full p-2 transition hover:scale-110 hover:bg-white/20 hover:backdrop-blur-sm focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Convert format"
               title="Convert format"
             >
@@ -128,7 +139,8 @@ export function BookViewHeader({
               <button
                 type="button"
                 onClick={onEdit}
-                className="group flex min-h-8 min-w-8 items-center justify-center rounded-full p-2 transition hover:scale-110 hover:bg-white/20 hover:backdrop-blur-sm focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 active:scale-95"
+                disabled={!canWrite}
+                className="group flex min-h-8 min-w-8 items-center justify-center rounded-full p-2 transition hover:scale-110 hover:bg-white/20 hover:backdrop-blur-sm focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Edit metadata"
                 title="Edit metadata"
               >

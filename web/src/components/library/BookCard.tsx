@@ -196,7 +196,7 @@ export function BookCard({
           onClose={menu.handleMenuClose}
           buttonRef={menu.menuButtonRef}
           cursorPosition={menu.cursorPosition}
-          bookId={book.id}
+          book={book}
           onBookInfo={menuActions.handleBookInfo}
           onMoveToLibrary={menuActions.handleMoveToLibrary}
           onConvert={menuActions.handleConvert}
@@ -220,6 +220,7 @@ export function BookCard({
         }
         onConfirm={menuActions.deleteConfirmation.confirm}
         bookTitle={book.title}
+        book={book}
         isDeleting={menuActions.deleteConfirmation.isDeleting}
         error={menuActions.deleteConfirmation.error}
       />

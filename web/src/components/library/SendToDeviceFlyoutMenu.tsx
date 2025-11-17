@@ -24,7 +24,9 @@ import { useFlyoutIntent } from "@/hooks/useFlyoutIntent";
 import { useFlyoutPosition } from "@/hooks/useFlyoutPosition";
 import { cn } from "@/libs/utils";
 import { sendBookToDevice } from "@/services/bookService";
+import type { Book } from "@/types/book";
 import { getFlyoutPositionStyle } from "@/utils/flyoutPositionStyle";
+import { buildBookPermissionContext } from "@/utils/permissions";
 import { DevicesSection } from "./DevicesSection";
 
 export interface SendToDeviceFlyoutMenuProps {
@@ -32,8 +34,8 @@ export interface SendToDeviceFlyoutMenuProps {
   isOpen: boolean;
   /** Reference to the parent menu item element. */
   parentItemRef: React.RefObject<HTMLElement | null>;
-  /** Book ID to send. */
-  bookId: number;
+  /** Book data (required for permission checking and sending). */
+  book: Book;
   /** Callback when menu should be closed. */
   onClose: () => void;
   /** Callback when mouse enters the flyout (to keep parent menu item hovered). */
@@ -55,12 +57,12 @@ export interface SendToDeviceFlyoutMenuProps {
  * Parameters
  * ----------
  * props : SendToDeviceFlyoutMenuProps
- *     Component props including open state, parent ref, book ID, and callbacks.
+ *     Component props including open state, parent ref, book data, and callbacks.
  */
 export function SendToDeviceFlyoutMenu({
   isOpen,
   parentItemRef,
-  bookId,
+  book,
   onClose,
   onMouseEnter,
   onSuccess,
@@ -71,7 +73,14 @@ export function SendToDeviceFlyoutMenu({
   const [showEmailInput, setShowEmailInput] = useState(false);
   const [email, setEmail] = useState("");
   const emailInputRef = useRef<HTMLInputElement>(null);
-  const { user } = useUser();
+  const { user, canPerformAction } = useUser();
+
+  // Check permission - disable all actions if no permission
+  const canSend = canPerformAction(
+    "books",
+    "send",
+    buildBookPermissionContext(book),
+  );
 
   const { position, direction, menuRef } = useFlyoutPosition({
     isOpen,
@@ -155,7 +164,7 @@ export function SendToDeviceFlyoutMenu({
     }
     try {
       setIsSending(true);
-      await sendBookToDevice(bookId, {
+      await sendBookToDevice(book.id, {
         toEmail: defaultDevice.email,
       });
       onClose();
@@ -166,7 +175,7 @@ export function SendToDeviceFlyoutMenu({
     } finally {
       setIsSending(false);
     }
-  }, [bookId, defaultDevice, onClose, onSuccess]);
+  }, [book.id, defaultDevice, onClose, onSuccess]);
 
   /**
    * Handle sending book to a specific device.
@@ -180,7 +189,7 @@ export function SendToDeviceFlyoutMenu({
     async (device: EReaderDevice) => {
       try {
         setIsSending(true);
-        await sendBookToDevice(bookId, {
+        await sendBookToDevice(book.id, {
           toEmail: device.email,
         });
         onClose();
@@ -192,7 +201,7 @@ export function SendToDeviceFlyoutMenu({
         setIsSending(false);
       }
     },
-    [bookId, onClose, onSuccess],
+    [book.id, onClose, onSuccess],
   );
 
   /**
@@ -214,7 +223,7 @@ export function SendToDeviceFlyoutMenu({
 
     try {
       setIsSending(true);
-      await sendBookToDevice(bookId, {
+      await sendBookToDevice(book.id, {
         toEmail: trimmedEmail,
       });
       setShowEmailInput(false);
@@ -227,7 +236,7 @@ export function SendToDeviceFlyoutMenu({
     } finally {
       setIsSending(false);
     }
-  }, [bookId, email, onClose, onSuccess]);
+  }, [book.id, email, onClose, onSuccess]);
 
   /**
    * Handle Enter key in email input.
@@ -268,13 +277,13 @@ export function SendToDeviceFlyoutMenu({
           <DropdownMenuItem
             label={`Send to ${defaultDevice.device_name || defaultDevice.email}`}
             onClick={handleSendToDefault}
-            disabled={isSending}
+            disabled={isSending || !canSend}
           />
         )}
         <DevicesSection
           devices={otherDevices}
           onDeviceClick={handleSendToDevice}
-          disabled={isSending}
+          disabled={isSending || !canSend}
         />
         <hr className={cn("my-1 h-px border-0 bg-surface-tonal-a20")} />
         {showEmailInput ? (
@@ -286,7 +295,7 @@ export function SendToDeviceFlyoutMenu({
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={handleEmailInputKeyDown}
               placeholder="Enter email address"
-              disabled={isSending}
+              disabled={isSending || !canSend}
               className={cn(
                 "w-full rounded px-3 py-1.5 text-sm",
                 "border border-surface-tonal-a30 bg-surface-tonal-a10",
@@ -300,7 +309,7 @@ export function SendToDeviceFlyoutMenu({
           <DropdownMenuItem
             label="Send to email"
             onClick={handleSendToEmailClick}
-            disabled={isSending}
+            disabled={isSending || !canSend}
           />
         )}
       </div>

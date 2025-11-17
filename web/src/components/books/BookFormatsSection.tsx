@@ -16,8 +16,10 @@
 "use client";
 
 import { Button } from "@/components/forms/Button";
+import { useUser } from "@/contexts/UserContext";
 import type { Book } from "@/types/book";
 import { formatFileSize } from "@/utils/format";
+import { buildBookPermissionContext } from "@/utils/permissions";
 
 export interface BookFormatsSectionProps {
   /** Book data containing formats. */
@@ -36,6 +38,11 @@ export interface BookFormatsSectionProps {
  *     Component props including book data.
  */
 export function BookFormatsSection({ book }: BookFormatsSectionProps) {
+  const { canPerformAction } = useUser();
+  const bookContext = buildBookPermissionContext(book);
+  const canWrite = canPerformAction("books", "write", bookContext);
+  const canDelete = canPerformAction("books", "delete", bookContext);
+
   return (
     <div className="mt-6 flex flex-col gap-4">
       <h3 className="m-0 font-bold text-text-a0 text-xl">Formats</h3>
@@ -68,7 +75,8 @@ export function BookFormatsSection({ book }: BookFormatsSectionProps) {
                 </button>
                 <button
                   type="button"
-                  className="flex flex-shrink-0 items-center justify-center rounded bg-transparent p-1.5 text-text-a30 transition-[transform,color,background-color] duration-200 hover:bg-surface-a20 hover:text-primary-a0 focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 active:scale-95"
+                  disabled={!canWrite}
+                  className="flex flex-shrink-0 items-center justify-center rounded bg-transparent p-1.5 text-text-a30 transition-[transform,color,background-color] duration-200 hover:bg-surface-a20 hover:text-primary-a0 focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label={`Copy ${file.format.toUpperCase()}`}
                   title={`Copy ${file.format.toUpperCase()}`}
                 >
@@ -76,7 +84,8 @@ export function BookFormatsSection({ book }: BookFormatsSectionProps) {
                 </button>
                 <button
                   type="button"
-                  className="flex flex-shrink-0 items-center justify-center rounded bg-transparent p-1.5 text-text-a30 transition-[transform,color,background-color] duration-200 hover:bg-surface-a20 hover:text-primary-a0 focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 active:scale-95"
+                  disabled={!canDelete}
+                  className="flex flex-shrink-0 items-center justify-center rounded bg-transparent p-1.5 text-text-a30 transition-[transform,color,background-color] duration-200 hover:bg-surface-a20 hover:text-primary-a0 focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label={`Delete ${file.format.toUpperCase()}`}
                   title={`Delete ${file.format.toUpperCase()}`}
                 >
@@ -94,7 +103,8 @@ export function BookFormatsSection({ book }: BookFormatsSectionProps) {
           type="button"
           variant="ghost"
           size="small"
-          className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 w-full justify-start rounded-md hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
+          disabled={!canWrite}
+          className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 w-full justify-start rounded-md hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <span
             className="pi pi-plus mr-2 text-primary-a20"
@@ -106,7 +116,8 @@ export function BookFormatsSection({ book }: BookFormatsSectionProps) {
           type="button"
           variant="ghost"
           size="small"
-          className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 w-full justify-start rounded-md hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
+          disabled={!canWrite}
+          className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 w-full justify-start rounded-md hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <span
             className="pi pi-arrow-right-arrow-left mr-2 text-primary-a20"

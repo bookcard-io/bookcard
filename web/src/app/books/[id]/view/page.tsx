@@ -202,7 +202,7 @@ export default function BookViewPage({ params }: BookViewPageProps) {
             <BookViewMetadata book={book} />
 
             {book.formats && book.formats.length > 0 && bookId && (
-              <BookViewFormats formats={book.formats} bookId={bookId} />
+              <BookViewFormats formats={book.formats} book={book} />
             )}
           </div>
 

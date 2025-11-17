@@ -37,6 +37,8 @@ export interface MultiTextInputProps {
   id?: string;
   /** Optional filter type to enable autocomplete suggestions. */
   filterType?: string;
+  /** Whether the input is disabled. */
+  disabled?: boolean;
 }
 
 /**
@@ -54,6 +56,7 @@ export function MultiTextInput({
   helperText,
   id = "multi-text-input",
   filterType,
+  disabled = false,
 }: MultiTextInputProps) {
   const [inputValue, setInputValue] = useState("");
 
@@ -125,6 +128,7 @@ export function MultiTextInput({
               "focus-within:shadow-[var(--shadow-focus-ring-danger)]",
             ],
             !error && "border-surface-a20",
+            disabled && "cursor-not-allowed opacity-50",
           )}
         >
           {values.map((value) => (
@@ -135,8 +139,9 @@ export function MultiTextInput({
               {value}
               <button
                 type="button"
-                className="flex h-4 w-4 items-center justify-center rounded-full border-none bg-transparent p-0 text-sm text-text-a0 leading-none transition-[background-color_0.15s] hover:bg-black/15 focus:bg-black/20 focus:outline-none"
+                className="flex h-4 w-4 items-center justify-center rounded-full border-none bg-transparent p-0 text-sm text-text-a0 leading-none transition-[background-color_0.15s] hover:bg-black/15 focus:bg-black/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                 onClick={() => removeValue(value)}
+                disabled={disabled}
                 aria-label={`Remove ${value}`}
               >
                 <i className="pi pi-times" aria-hidden="true" />
@@ -146,12 +151,13 @@ export function MultiTextInput({
           <input
             id={id}
             type="text"
-            className="min-w-[120px] flex-1 border-none bg-transparent py-1 font-inherit text-base text-text-a0 leading-normal placeholder:text-text-a40 focus:outline-none"
+            className="min-w-[120px] flex-1 border-none bg-transparent py-1 font-inherit text-base text-text-a0 leading-normal placeholder:text-text-a40 focus:outline-none disabled:cursor-not-allowed"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             onBlur={() => setTimeout(() => addValue(), 150)}
             placeholder={values.length === 0 ? placeholder : ""}
+            disabled={disabled}
             aria-invalid={error ? "true" : "false"}
             aria-describedby={
               error || helperText
@@ -160,7 +166,7 @@ export function MultiTextInput({
             }
           />
         </div>
-        {shouldShowDropdown && (
+        {shouldShowDropdown && !disabled && (
           <FilterSuggestionsDropdown
             suggestions={suggestions}
             isLoading={isLoading}

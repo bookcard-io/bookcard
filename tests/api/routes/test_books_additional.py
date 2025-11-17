@@ -25,10 +25,49 @@ import pytest
 from fastapi import HTTPException, status
 
 import fundamental.api.routes.books as books
+from fundamental.models.auth import User
 from fundamental.models.config import Library
 from fundamental.models.core import Book
 from fundamental.repositories import BookWithFullRelations, BookWithRelations
 from tests.conftest import DummySession
+
+
+def _create_mock_user() -> User:
+    """Create a mock user for testing."""
+    return User(
+        id=1,
+        username="testuser",
+        email="test@example.com",
+        password_hash="hash",
+    )
+
+
+def _mock_permission_service(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Mock PermissionService to allow all permissions."""
+
+    class MockPermissionService:
+        def __init__(self, session: object) -> None:
+            pass  # Accept session but don't use it
+
+        def has_permission(
+            self,
+            user: User,
+            resource: str,
+            action: str,
+            context: dict[str, object] | None = None,
+        ) -> bool:
+            return True
+
+        def check_permission(
+            self,
+            user: User,
+            resource: str,
+            action: str,
+            context: dict[str, object] | None = None,
+        ) -> None:
+            pass  # Always allow
+
+    monkeypatch.setattr(books, "PermissionService", MockPermissionService)
 
 
 class MockBookService:
@@ -170,8 +209,12 @@ def test_download_book_file_success(
         monkeypatch.setattr(
             books, "_get_active_library_service", mock_get_active_library_service
         )
+        current_user = _create_mock_user()
+        _mock_permission_service(monkeypatch)
 
-        result = books.download_book_file(session, book_id=1, file_format="EPUB")
+        result = books.download_book_file(
+            session, current_user=current_user, book_id=1, file_format="EPUB"
+        )
 
         assert result is not None
         assert hasattr(result, "path")
@@ -230,8 +273,12 @@ def test_download_book_file_with_library_root(
         monkeypatch.setattr(
             books, "_get_active_library_service", mock_get_active_library_service
         )
+        current_user = _create_mock_user()
+        _mock_permission_service(monkeypatch)
 
-        result = books.download_book_file(session, book_id=1, file_format="EPUB")
+        result = books.download_book_file(
+            session, current_user=current_user, book_id=1, file_format="EPUB"
+        )
 
         assert result is not None
 
@@ -292,8 +339,12 @@ def test_download_book_file_alt_path_exists(
         monkeypatch.setattr(
             books, "_get_active_library_service", mock_get_active_library_service
         )
+        current_user = _create_mock_user()
+        _mock_permission_service(monkeypatch)
 
-        result = books.download_book_file(session, book_id=1, file_format="EPUB")
+        result = books.download_book_file(
+            session, current_user=current_user, book_id=1, file_format="EPUB"
+        )
 
         assert result is not None
 
@@ -350,8 +401,12 @@ def test_download_book_file_sanitizes_author_title(
         monkeypatch.setattr(
             books, "_get_active_library_service", mock_get_active_library_service
         )
+        current_user = _create_mock_user()
+        _mock_permission_service(monkeypatch)
 
-        result = books.download_book_file(session, book_id=1, file_format="EPUB")
+        result = books.download_book_file(
+            session, current_user=current_user, book_id=1, file_format="EPUB"
+        )
 
         assert result is not None
         # Verify filename is sanitized (no special chars)
@@ -373,9 +428,13 @@ def test_download_book_file_not_found(
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     with pytest.raises(HTTPException) as exc_info:
-        books.download_book_file(session, book_id=999, file_format="EPUB")
+        books.download_book_file(
+            session, current_user=current_user, book_id=999, file_format="EPUB"
+        )
 
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
@@ -421,9 +480,13 @@ def test_download_book_file_missing_id(
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     with pytest.raises(HTTPException) as exc_info:
-        books.download_book_file(session, book_id=1, file_format="EPUB")
+        books.download_book_file(
+            session, current_user=current_user, book_id=1, file_format="EPUB"
+        )
 
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 500
@@ -469,9 +532,13 @@ def test_download_book_file_format_not_found(
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     with pytest.raises(HTTPException) as exc_info:
-        books.download_book_file(session, book_id=1, file_format="EPUB")
+        books.download_book_file(
+            session, current_user=current_user, book_id=1, file_format="EPUB"
+        )
 
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
@@ -533,8 +600,12 @@ def test_download_book_file_db_path_is_file(
         monkeypatch.setattr(
             books, "_get_active_library_service", mock_get_active_library_service
         )
+        current_user = _create_mock_user()
+        _mock_permission_service(monkeypatch)
 
-        result = books.download_book_file(session, book_id=1, file_format="EPUB")
+        result = books.download_book_file(
+            session, current_user=current_user, book_id=1, file_format="EPUB"
+        )
 
         assert result is not None
 
@@ -590,9 +661,13 @@ def test_download_book_file_not_found_both_paths(
         monkeypatch.setattr(
             books, "_get_active_library_service", mock_get_active_library_service
         )
+        current_user = _create_mock_user()
+        _mock_permission_service(monkeypatch)
 
         with pytest.raises(HTTPException) as exc_info:
-            books.download_book_file(session, book_id=1, file_format="EPUB")
+            books.download_book_file(
+                session, current_user=current_user, book_id=1, file_format="EPUB"
+            )
 
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 404
@@ -651,8 +726,12 @@ def test_download_book_file_empty_author(
         monkeypatch.setattr(
             books, "_get_active_library_service", mock_get_active_library_service
         )
+        current_user = _create_mock_user()
+        _mock_permission_service(monkeypatch)
 
-        result = books.download_book_file(session, book_id=1, file_format="EPUB")
+        result = books.download_book_file(
+            session, current_user=current_user, book_id=1, file_format="EPUB"
+        )
 
         assert result is not None
 
@@ -709,8 +788,12 @@ def test_download_book_file_empty_title(
         monkeypatch.setattr(
             books, "_get_active_library_service", mock_get_active_library_service
         )
+        current_user = _create_mock_user()
+        _mock_permission_service(monkeypatch)
 
-        result = books.download_book_file(session, book_id=1, file_format="EPUB")
+        result = books.download_book_file(
+            session, current_user=current_user, book_id=1, file_format="EPUB"
+        )
 
         assert result is not None
 
@@ -1047,6 +1130,24 @@ def test_download_cover_from_url_success(
 
         mock_service = MockBookService(library_with_path)
         mock_service.get_book = lambda book_id: book_with_rels  # type: ignore[method-assign]
+        # Also need to set get_book_full for download_cover_from_url
+        book_with_full_rels = BookWithFullRelations(
+            book=book,
+            authors=[],
+            series=None,
+            series_id=None,
+            tags=[],
+            identifiers=[],
+            description=None,
+            publisher=None,
+            publisher_id=None,
+            languages=[],
+            language_ids=[],
+            rating=None,
+            rating_id=None,
+            formats=[],
+        )
+        mock_service.set_get_book_full_result(book_with_full_rels)
 
         # Mock the book repository session
         mock_calibre_session = MagicMock(spec=Session)
@@ -1066,12 +1167,16 @@ def test_download_cover_from_url_success(
         monkeypatch.setattr(
             books, "_get_active_library_service", mock_get_active_library_service
         )
+        current_user = _create_mock_user()
+        _mock_permission_service(monkeypatch)
 
         with patch(
             "fundamental.api.routes.books.httpx.Client", return_value=mock_client
         ):
             request = CoverFromUrlRequest(url="https://example.com/cover.jpg")
-            result = books.download_cover_from_url(session, book_id=1, request=request)
+            result = books.download_cover_from_url(
+                session, current_user=current_user, book_id=1, request=request
+            )
 
             assert result.temp_url == "/api/books/1/cover"
             # Verify cover was saved
@@ -1136,6 +1241,24 @@ def test_download_cover_from_url_with_library_root(
 
         mock_service = MockBookService(library_with_root)
         mock_service.get_book = lambda book_id: book_with_rels  # type: ignore[method-assign]
+        # Also need to set get_book_full for download_cover_from_url
+        book_with_full_rels = BookWithFullRelations(
+            book=book,
+            authors=[],
+            series=None,
+            series_id=None,
+            tags=[],
+            identifiers=[],
+            description=None,
+            publisher=None,
+            publisher_id=None,
+            languages=[],
+            language_ids=[],
+            rating=None,
+            rating_id=None,
+            formats=[],
+        )
+        mock_service.set_get_book_full_result(book_with_full_rels)
 
         # Mock the book repository session
         mock_calibre_session = MagicMock(spec=Session)
@@ -1155,12 +1278,16 @@ def test_download_cover_from_url_with_library_root(
         monkeypatch.setattr(
             books, "_get_active_library_service", mock_get_active_library_service
         )
+        current_user = _create_mock_user()
+        _mock_permission_service(monkeypatch)
 
         with patch(
             "fundamental.api.routes.books.httpx.Client", return_value=mock_client
         ):
             request = CoverFromUrlRequest(url="https://example.com/cover.jpg")
-            result = books.download_cover_from_url(session, book_id=1, request=request)
+            result = books.download_cover_from_url(
+                session, current_user=current_user, book_id=1, request=request
+            )
 
             assert result.temp_url == "/api/books/1/cover"
 
@@ -1224,6 +1351,24 @@ def test_download_cover_from_url_db_path_is_file(
 
         mock_service = MockBookService(library_with_file_path)
         mock_service.get_book = lambda book_id: book_with_rels  # type: ignore[method-assign]
+        # Also need to set get_book_full for download_cover_from_url
+        book_with_full_rels = BookWithFullRelations(
+            book=book,
+            authors=[],
+            series=None,
+            series_id=None,
+            tags=[],
+            identifiers=[],
+            description=None,
+            publisher=None,
+            publisher_id=None,
+            languages=[],
+            language_ids=[],
+            rating=None,
+            rating_id=None,
+            formats=[],
+        )
+        mock_service.set_get_book_full_result(book_with_full_rels)
 
         # Mock the book repository session
         mock_calibre_session = MagicMock(spec=Session)
@@ -1243,12 +1388,16 @@ def test_download_cover_from_url_db_path_is_file(
         monkeypatch.setattr(
             books, "_get_active_library_service", mock_get_active_library_service
         )
+        current_user = _create_mock_user()
+        _mock_permission_service(monkeypatch)
 
         with patch(
             "fundamental.api.routes.books.httpx.Client", return_value=mock_client
         ):
             request = CoverFromUrlRequest(url="https://example.com/cover.jpg")
-            result = books.download_cover_from_url(session, book_id=1, request=request)
+            result = books.download_cover_from_url(
+                session, current_user=current_user, book_id=1, request=request
+            )
 
             assert result.temp_url == "/api/books/1/cover"
 
@@ -1280,6 +1429,24 @@ def test_download_cover_from_url_internal_error(
 
     mock_service = MockBookService(library_with_path)
     mock_service.get_book = lambda book_id: book_with_rels  # type: ignore[method-assign]
+    # Also need to set get_book_full for download_cover_from_url
+    book_with_full_rels = BookWithFullRelations(
+        book=book,
+        authors=[],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        languages=[],
+        language_ids=[],
+        rating=None,
+        rating_id=None,
+        formats=[],
+    )
+    mock_service.set_get_book_full_result(book_with_full_rels)
 
     def mock_get_active_library_service(sess: object) -> MockBookService:
         return mock_service
@@ -1287,6 +1454,8 @@ def test_download_cover_from_url_internal_error(
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     # Mock _download_and_validate_image to raise a non-HTTPException
     def mock_download(*args: object, **kwargs: object) -> None:
@@ -1297,7 +1466,9 @@ def test_download_cover_from_url_internal_error(
     request = CoverFromUrlRequest(url="https://example.com/cover.jpg")
 
     with pytest.raises(HTTPException) as exc_info:
-        books.download_cover_from_url(session, book_id=1, request=request)
+        books.download_cover_from_url(
+            session, current_user=current_user, book_id=1, request=request
+        )
 
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 500
@@ -1410,6 +1581,8 @@ def test_download_cover_from_url_book_not_found(
 
     mock_service = MockBookService(library_with_path)
     mock_service.get_book = lambda book_id: None  # type: ignore[method-assign]
+    # Also need to set get_book_full for download_cover_from_url (returns None for not found)
+    mock_service.set_get_book_full_result(None)
 
     def mock_get_active_library_service(sess: object) -> MockBookService:
         return mock_service
@@ -1417,11 +1590,15 @@ def test_download_cover_from_url_book_not_found(
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     request = CoverFromUrlRequest(url="https://example.com/cover.jpg")
 
     with pytest.raises(HTTPException) as exc_info:
-        books.download_cover_from_url(session, book_id=999, request=request)
+        books.download_cover_from_url(
+            session, current_user=current_user, book_id=999, request=request
+        )
 
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
@@ -1454,6 +1631,24 @@ def test_download_cover_from_url_empty_url(
 
     mock_service = MockBookService(library_with_path)
     mock_service.get_book = lambda book_id: book_with_rels  # type: ignore[method-assign]
+    # Also need to set get_book_full for download_cover_from_url
+    book_with_full_rels = BookWithFullRelations(
+        book=book,
+        authors=[],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        languages=[],
+        language_ids=[],
+        rating=None,
+        rating_id=None,
+        formats=[],
+    )
+    mock_service.set_get_book_full_result(book_with_full_rels)
 
     def mock_get_active_library_service(sess: object) -> MockBookService:
         return mock_service
@@ -1461,13 +1656,17 @@ def test_download_cover_from_url_empty_url(
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     request = CoverFromUrlRequest(
         url="   "
     )  # Whitespace only, will be stripped to empty
 
     with pytest.raises(HTTPException) as exc_info:
-        books.download_cover_from_url(session, book_id=1, request=request)
+        books.download_cover_from_url(
+            session, current_user=current_user, book_id=1, request=request
+        )
 
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 400
@@ -1500,6 +1699,24 @@ def test_download_cover_from_url_invalid_url_format(
 
     mock_service = MockBookService(library_with_path)
     mock_service.get_book = lambda book_id: book_with_rels  # type: ignore[method-assign]
+    # Also need to set get_book_full for download_cover_from_url
+    book_with_full_rels = BookWithFullRelations(
+        book=book,
+        authors=[],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        languages=[],
+        language_ids=[],
+        rating=None,
+        rating_id=None,
+        formats=[],
+    )
+    mock_service.set_get_book_full_result(book_with_full_rels)
 
     def mock_get_active_library_service(sess: object) -> MockBookService:
         return mock_service
@@ -1507,11 +1724,15 @@ def test_download_cover_from_url_invalid_url_format(
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     request = CoverFromUrlRequest(url="ftp://example.com/cover.jpg")
 
     with pytest.raises(HTTPException) as exc_info:
-        books.download_cover_from_url(session, book_id=1, request=request)
+        books.download_cover_from_url(
+            session, current_user=current_user, book_id=1, request=request
+        )
 
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 400
@@ -1547,6 +1768,24 @@ def test_download_cover_from_url_http_exception_re_raise(
     mock_service.get_book = lambda book_id: book_with_rels  # type: ignore[method-assign]
     # Ensure _library attribute exists to avoid AttributeError
     mock_service._library = library_with_path  # type: ignore[attr-defined]
+    # Also need to set get_book_full for download_cover_from_url
+    book_with_full_rels = BookWithFullRelations(
+        book=book,
+        authors=[],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        languages=[],
+        language_ids=[],
+        rating=None,
+        rating_id=None,
+        formats=[],
+    )
+    mock_service.set_get_book_full_result(book_with_full_rels)
 
     def mock_get_active_library_service(sess: object) -> MockBookService:
         return mock_service
@@ -1554,6 +1793,8 @@ def test_download_cover_from_url_http_exception_re_raise(
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
+    current_user = _create_mock_user()
+    _mock_permission_service(monkeypatch)
 
     # Create the HTTPException that will be raised
     http_exception = HTTPException(
@@ -1570,7 +1811,9 @@ def test_download_cover_from_url_http_exception_re_raise(
     request = CoverFromUrlRequest(url="https://example.com/cover.jpg")
 
     with pytest.raises(HTTPException) as exc_info:
-        books.download_cover_from_url(session, book_id=1, request=request)
+        books.download_cover_from_url(
+            session, current_user=current_user, book_id=1, request=request
+        )
 
     # Should re-raise the same HTTPException (line 838)
     assert isinstance(exc_info.value, HTTPException)

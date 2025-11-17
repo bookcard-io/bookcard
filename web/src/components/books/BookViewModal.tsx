@@ -217,12 +217,12 @@ export function BookViewModal({
               <BookViewMetadata book={book} />
 
               {book.formats && book.formats.length > 0 && bookId && (
-                <BookViewFormats formats={book.formats} bookId={bookId} />
+                <BookViewFormats formats={book.formats} book={book} />
               )}
             </div>
           </div>
 
-          <BookViewModalFooter onDelete={handleDelete} />
+          <BookViewModalFooter onDelete={handleDelete} book={book} />
         </div>
       </div>
       {/* Render delete confirmation modal via portal, independent of BookViewModal */}
@@ -238,6 +238,7 @@ export function BookViewModal({
           }
           onConfirm={deleteConfirmation.confirm}
           bookTitle={book?.title}
+          book={book}
           isDeleting={deleteConfirmation.isDeleting}
           error={deleteConfirmation.error}
         />

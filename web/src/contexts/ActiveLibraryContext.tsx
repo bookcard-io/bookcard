@@ -23,6 +23,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import { useUser } from "@/contexts/UserContext";
 
 export interface Library {
   id: number;
@@ -49,10 +50,18 @@ const ActiveLibraryContext = createContext<
 >(undefined);
 
 export function ActiveLibraryProvider({ children }: { children: ReactNode }) {
+  const { isLoading: userLoading } = useUser();
   const [activeLibrary, setActiveLibrary] = useState<Library | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const refresh = useCallback(async () => {
+    // Wait for user to load before fetching
+    if (userLoading) {
+      return;
+    }
+
+    // All authenticated users can view the active library
+    // (only admins can change it)
     try {
       setIsLoading(true);
       const response = await fetch("/api/admin/libraries/active");
@@ -67,7 +76,7 @@ export function ActiveLibraryProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [userLoading]);
 
   useEffect(() => {
     void refresh();

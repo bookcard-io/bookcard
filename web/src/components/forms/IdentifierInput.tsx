@@ -36,6 +36,8 @@ export interface IdentifierInputProps {
   helperText?: string;
   /** Input ID for accessibility. */
   id?: string;
+  /** Whether the input is disabled. */
+  disabled?: boolean;
 }
 
 /**
@@ -51,6 +53,7 @@ export function IdentifierInput({
   error,
   helperText,
   id = "identifier-input",
+  disabled = false,
 }: IdentifierInputProps) {
   const [typeValue, setTypeValue] = useState("isbn");
   const [valValue, setValValue] = useState("");
@@ -108,8 +111,9 @@ export function IdentifierInput({
             </span>
             <button
               type="button"
-              className="flex h-6 w-6 items-center justify-center rounded-full border-none bg-transparent p-1 text-sm text-text-a30 transition-[background-color_0.15s,color_0.15s] hover:bg-danger-a20 hover:text-danger-a10 focus:bg-danger-a20 focus:text-danger-a10 focus:outline-none"
+              className="flex h-6 w-6 items-center justify-center rounded-full border-none bg-transparent p-1 text-sm text-text-a30 transition-[background-color_0.15s,color_0.15s] hover:bg-danger-a20 hover:text-danger-a10 focus:bg-danger-a20 focus:text-danger-a10 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
               onClick={() => removeIdentifier(index)}
+              disabled={disabled}
               aria-label={`Remove ${identifier.type} ${identifier.val}`}
             >
               <i className="pi pi-times" aria-hidden="true" />
@@ -125,9 +129,11 @@ export function IdentifierInput({
               "transition-[border-color_0.2s,background-color_0.2s]",
               "focus:border-primary-a0 focus:bg-surface-a10 focus:outline-none",
               "hover:not(:focus):border-surface-a30",
+              "disabled:cursor-not-allowed disabled:opacity-50",
             )}
             value={typeValue}
             onChange={(e) => setTypeValue(e.target.value)}
+            disabled={disabled}
           >
             <option value="isbn">ISBN</option>
             <option value="doi">DOI</option>
@@ -148,6 +154,7 @@ export function IdentifierInput({
               "focus:border-primary-a0 focus:bg-surface-a10 focus:outline-none",
               "focus:shadow-[var(--shadow-focus-ring)]",
               "hover:not(:focus):border-surface-a30",
+              "disabled:cursor-not-allowed disabled:opacity-50",
               error && [
                 "border-danger-a0",
                 "focus:border-danger-a0",
@@ -160,6 +167,7 @@ export function IdentifierInput({
             onKeyDown={handleKeyDown}
             onBlur={addIdentifier}
             placeholder="Enter identifier value..."
+            disabled={disabled}
             aria-invalid={error ? "true" : "false"}
             aria-describedby={
               error || helperText

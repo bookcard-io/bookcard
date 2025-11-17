@@ -20,6 +20,7 @@ import { CreateShelfCard } from "@/components/shelves/CreateShelfCard";
 import { ShelfCard } from "@/components/shelves/ShelfCard";
 import { ShelfEditModal } from "@/components/shelves/ShelfEditModal";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
+import { useUser } from "@/contexts/UserContext";
 import { useShelfDataUpdates } from "@/hooks/useShelfDataUpdates";
 import { useShelfGridOperations } from "@/hooks/useShelfGridOperations";
 import { useShelfSelection } from "@/hooks/useShelfSelection";
@@ -53,6 +54,7 @@ export function ShelvesGrid({
 }: ShelvesGridProps = {}) {
   // Use global context for shelves data (syncs with Sidebar automatically)
   const { shelves, isLoading, error } = useShelvesContext();
+  const { canPerformAction } = useUser();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -106,6 +108,10 @@ export function ShelvesGrid({
     [shelves, shelfDataOverrides],
   );
 
+  // Check permissions
+  const canRead = canPerformAction("shelves", "read");
+  const canCreate = canPerformAction("shelves", "create");
+
   if (error) {
     return (
       <div className="flex min-h-[400px] items-center justify-center p-8">
@@ -120,6 +126,16 @@ export function ShelvesGrid({
     return (
       <div className="flex min-h-[400px] items-center justify-center p-8">
         <p className="m-0 text-base text-text-a40">Loading shelves...</p>
+      </div>
+    );
+  }
+
+  if (!canRead) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center p-8">
+        <p className="m-0 text-base text-danger-a10">
+          You don't have permission to view shelves.
+        </p>
       </div>
     );
   }
@@ -148,8 +164,10 @@ export function ShelvesGrid({
               onShelfClick={onShelfClick}
             />
           ))}
-          {/* Always show "Create shelf" card as the last item */}
-          <CreateShelfCard onClick={() => setShowCreateModal(true)} />
+          {/* Show "Create shelf" card only if user has create permission */}
+          {canCreate && (
+            <CreateShelfCard onClick={() => setShowCreateModal(true)} />
+          )}
         </div>
       </div>
       {showCreateModal && (

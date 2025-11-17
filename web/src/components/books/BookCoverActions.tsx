@@ -16,8 +16,13 @@
 "use client";
 
 import { Button } from "@/components/forms/Button";
+import { useUser } from "@/contexts/UserContext";
+import type { Book } from "@/types/book";
+import { buildBookPermissionContext } from "@/utils/permissions";
 
 export interface BookCoverActionsProps {
+  /** Book data for permission checking. */
+  book: Book;
   /** Whether URL input is visible. */
   isUrlInputVisible: boolean;
   /** Handler for "Set cover from URL" button click. */
@@ -38,17 +43,23 @@ export interface BookCoverActionsProps {
  *     Component props including handlers and URL input.
  */
 export function BookCoverActions({
+  book,
   isUrlInputVisible,
   onSetFromUrlClick,
   urlInput,
 }: BookCoverActionsProps) {
+  const { canPerformAction } = useUser();
+  const bookContext = buildBookPermissionContext(book);
+  const canWrite = canPerformAction("books", "write", bookContext);
+
   return (
     <div className="flex flex-col gap-2">
       <Button
         type="button"
         variant="ghost"
         size="small"
-        className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 focus:!shadow-none w-full justify-start rounded-md hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
+        disabled={!canWrite}
+        className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 focus:!shadow-none w-full justify-start rounded-md hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <span
           className="pi pi-image mr-2 text-primary-a20"
@@ -60,8 +71,9 @@ export function BookCoverActions({
         type="button"
         variant="ghost"
         size="small"
-        className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 focus:!shadow-none w-full justify-start rounded-md hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
-        onClick={onSetFromUrlClick}
+        onClick={canWrite ? onSetFromUrlClick : undefined}
+        disabled={!canWrite}
+        className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 focus:!shadow-none w-full justify-start rounded-md hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <span className="pi pi-link mr-2 text-primary-a20" aria-hidden="true" />
         Set cover from URL
@@ -71,7 +83,8 @@ export function BookCoverActions({
         type="button"
         variant="ghost"
         size="small"
-        className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 focus:!shadow-none w-full justify-start rounded-md hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
+        disabled={!canWrite}
+        className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 focus:!shadow-none w-full justify-start rounded-md hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <span
           className="pi pi-download mr-2 text-primary-a20"
@@ -83,7 +96,8 @@ export function BookCoverActions({
         type="button"
         variant="ghost"
         size="small"
-        className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 focus:!shadow-none w-full justify-start rounded-md hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2"
+        disabled={!canWrite}
+        className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 focus:!shadow-none w-full justify-start rounded-md hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <span
           className="pi pi-sparkles mr-2 text-primary-a20"

@@ -231,7 +231,7 @@ export function BookEditModal({
           </div>
 
           <BookEditModalFooter
-            bookId={bookId}
+            book={book}
             updateError={updateError}
             showSuccess={showSuccess}
             isUpdating={isUpdating}

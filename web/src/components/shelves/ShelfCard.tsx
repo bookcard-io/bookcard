@@ -24,6 +24,7 @@ import { ShelfCardMenu } from "@/components/shelves/ShelfCardMenu";
 import { ShelfCardMenuButton } from "@/components/shelves/ShelfCardMenuButton";
 import { ShelfCardMetadata } from "@/components/shelves/ShelfCardMetadata";
 import { ShelfEditModal } from "@/components/shelves/ShelfEditModal";
+import { useUser } from "@/contexts/UserContext";
 import { useBookCardMenu } from "@/hooks/useBookCardMenu";
 import { useShelfCardAnimation } from "@/hooks/useShelfCardAnimation";
 import { useShelfCardClick } from "@/hooks/useShelfCardClick";
@@ -31,6 +32,7 @@ import { useShelfCardMenuActions } from "@/hooks/useShelfCardMenuActions";
 import { useShelfEditModal } from "@/hooks/useShelfEditModal";
 import { cn } from "@/libs/utils";
 import type { Shelf } from "@/types/shelf";
+import { buildShelfPermissionContext } from "@/utils/permissions";
 
 export interface ShelfCardProps {
   /** Shelf data to display. */
@@ -120,6 +122,11 @@ export function ShelfCard({
     },
   });
 
+  const { canPerformAction } = useUser();
+  const shelfContext = buildShelfPermissionContext(shelf);
+  const canEdit = canPerformAction("shelves", "edit", shelfContext);
+  const canDelete = canPerformAction("shelves", "delete", shelfContext);
+
   return (
     <>
       <button
@@ -156,15 +163,19 @@ export function ShelfCard({
               selected={selected}
               onShelfSelect={onShelfSelect}
             />
-            <ShelfCardEditButton
-              shelfName={shelf.name}
-              onEdit={handleEditClick}
-            />
-            <ShelfCardMenuButton
-              buttonRef={menu.menuButtonRef}
-              isMenuOpen={menu.isMenuOpen}
-              onToggle={menu.handleMenuToggle}
-            />
+            {canEdit && (
+              <ShelfCardEditButton
+                shelfName={shelf.name}
+                onEdit={handleEditClick}
+              />
+            )}
+            {canDelete && (
+              <ShelfCardMenuButton
+                buttonRef={menu.menuButtonRef}
+                isMenuOpen={menu.isMenuOpen}
+                onToggle={menu.handleMenuToggle}
+              />
+            )}
           </BookCardOverlay>
         </div>
         <ShelfCardMetadata
@@ -173,13 +184,16 @@ export function ShelfCard({
           isPublic={shelf.is_public}
         />
       </button>
-      <ShelfCardMenu
-        isOpen={menu.isMenuOpen}
-        onClose={menu.handleMenuClose}
-        buttonRef={menu.menuButtonRef}
-        cursorPosition={menu.cursorPosition}
-        onDelete={menuActions.handleDelete}
-      />
+      {canDelete && (
+        <ShelfCardMenu
+          isOpen={menu.isMenuOpen}
+          onClose={menu.handleMenuClose}
+          buttonRef={menu.menuButtonRef}
+          cursorPosition={menu.cursorPosition}
+          onDelete={menuActions.handleDelete}
+          shelf={shelf}
+        />
+      )}
       {showEditModal && (
         <ShelfEditModal
           shelf={shelf}
