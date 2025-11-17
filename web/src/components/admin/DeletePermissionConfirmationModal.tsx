@@ -100,12 +100,7 @@ export function DeletePermissionConfirmationModal({
           )}
         </div>
 
-        <div
-          className={cn(
-            "flex flex-shrink-0 flex-col gap-4 border-surface-a20 border-t bg-surface-tonal-a10 p-4",
-            "md:flex-row md:items-center md:justify-end md:gap-3 md:px-6 md:pt-4 md:pb-6",
-          )}
-        >
+        <div className={cn("modal-footer-end flex-shrink-0")}>
           <div className="flex w-full flex-shrink-0 flex-col-reverse justify-end gap-3 md:w-auto md:flex-row">
             <Button
               type="button"

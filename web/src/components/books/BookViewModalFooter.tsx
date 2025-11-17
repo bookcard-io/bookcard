@@ -36,7 +36,7 @@ export function BookViewModalFooter({ onDelete }: BookViewModalFooterProps) {
   };
 
   return (
-    <div className="flex items-center justify-between gap-4 border-surface-a20 border-t bg-surface-tonal-a10 px-6 pt-4 pb-6">
+    <div className="modal-footer-between">
       <div className="flex-1" />
       <div className="flex flex-shrink-0 justify-end gap-3">
         <Button

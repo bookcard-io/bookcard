@@ -48,7 +48,7 @@ export function BookEditModalHeader({
   onFeelinLucky,
 }: BookEditModalHeaderProps) {
   return (
-    <div className="flex items-start justify-between gap-4 border-surface-a20 border-b pt-6 pr-16 pb-4 pl-6">
+    <div className="modal-header">
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <h2 className="m-0 hidden truncate font-bold text-2xl text-text-a0 leading-[1.4] md:block">
           Editing {formTitle || book.title || "Untitled"}
@@ -58,7 +58,7 @@ export function BookEditModalHeader({
           add.
         </p>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 self-center">
         <Button
           type="button"
           variant="success"

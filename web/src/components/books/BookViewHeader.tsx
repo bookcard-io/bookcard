@@ -62,7 +62,7 @@ export function BookViewHeader({
   }, [book.id]);
 
   return (
-    <div className="flex flex-col items-center gap-4 border-[var(--color-surface-a20)] border-b pb-4 text-center md:flex-row md:items-start md:gap-6 md:pb-6 md:text-left">
+    <div className="flex flex-col items-center gap-4 border-[var(--color-surface-a20)] border-b pb-4 text-center md:flex-row md:items-start md:gap-4 md:pb-6 md:text-left">
       {book.thumbnail_url && (
         <div className="flex flex-shrink-0 flex-col items-center">
           <div className="group relative inline-block leading-none">

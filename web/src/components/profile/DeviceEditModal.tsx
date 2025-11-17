@@ -246,7 +246,7 @@ export function DeviceEditModal({
             </div>
           </div>
 
-          <div className="flex flex-col gap-4 border-surface-a20 border-t bg-surface-tonal-a10 p-4 md:flex-row md:items-center md:justify-between md:gap-4 md:px-6 md:pt-4 md:pb-6">
+          <div className="modal-footer-between">
             <div className="flex w-full flex-1 flex-col gap-2">
               {generalError && (
                 <p className="m-0 text-[var(--color-danger-a0)] text-sm">
