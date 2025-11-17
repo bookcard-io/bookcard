@@ -42,15 +42,15 @@ export const AVAILABLE_METADATA_PROVIDERS = [
 ] as const;
 
 export const DISPLAY_MODE_OPTIONS = [
-  { value: "pagination", label: "Use Pagination" },
-  { value: "infinite-scroll", label: "Use Infinite Scroll" },
+  { value: "pagination", label: "Use pagination" },
+  { value: "infinite-scroll", label: "Use infinite scroll" },
 ] as const;
 
 export const SORT_FIELD_OPTIONS = [
-  { value: "timestamp", label: "Added Date" },
+  { value: "timestamp", label: "Added date" },
   { value: "title", label: "Title" },
   { value: "author_sort", label: "Author" },
-  { value: "pubdate", label: "Modified Date" },
+  { value: "pubdate", label: "Modified date" },
   { value: "series_index", label: "Size" },
 ] as const;
 
@@ -73,8 +73,8 @@ export const VIEW_MODE_OPTIONS = [
 ] as const;
 
 export const BOOK_DETAILS_OPEN_MODE_OPTIONS = [
-  { value: "modal", label: "Open in Modal" },
-  { value: "page", label: "Navigate to Page" },
+  { value: "modal", label: "Open in modal" },
+  { value: "page", label: "Navigate to page" },
 ] as const;
 
 export const THEME_PREFERENCE_OPTIONS = [
