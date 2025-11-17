@@ -249,12 +249,12 @@ class YamlImporter(MetadataImporter):
                 update["rating_value"] = max(0, min(5, rating_value))
 
     @staticmethod
-    def _parse_date(date_value: str | datetime) -> datetime | None:
+    def _parse_date(date_value: str | datetime | None) -> datetime | None:
         """Parse date value to datetime.
 
         Parameters
         ----------
-        date_value : str | datetime
+        date_value : str | datetime | None
             Date value to parse.
 
         Returns
@@ -262,19 +262,81 @@ class YamlImporter(MetadataImporter):
         datetime | None
             Parsed datetime or None if invalid.
         """
+        if date_value is None:
+            return None
+
         if isinstance(date_value, datetime):
-            return date_value
+            return YamlImporter._normalize_datetime_timezone(date_value)
+
+        # Handle date objects (from PyYAML)
+        from datetime import date
+
+        if isinstance(date_value, date):
+            return datetime.combine(date_value, datetime.min.time()).replace(tzinfo=UTC)
 
         if not isinstance(date_value, str):
             return None
 
         # Try ISO format first
-        try:
-            return datetime.fromisoformat(date_value.replace("Z", "+00:00"))
-        except (ValueError, AttributeError):
-            pass
+        dt = YamlImporter._parse_iso_date(date_value)
+        if dt is not None:
+            return dt
 
         # Try common date formats
+        return YamlImporter._parse_date_formats(date_value)
+
+    @staticmethod
+    def _normalize_datetime_timezone(dt: datetime) -> datetime:
+        """Normalize datetime to UTC if naive.
+
+        Parameters
+        ----------
+        dt : datetime
+            Datetime to normalize.
+
+        Returns
+        -------
+        datetime
+            Timezone-aware datetime.
+        """
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=UTC)
+        return dt
+
+    @staticmethod
+    def _parse_iso_date(date_str: str) -> datetime | None:
+        """Parse ISO format date string.
+
+        Parameters
+        ----------
+        date_str : str
+            ISO format date string.
+
+        Returns
+        -------
+        datetime | None
+            Parsed datetime or None if invalid.
+        """
+        try:
+            dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+            return YamlImporter._normalize_datetime_timezone(dt)
+        except (ValueError, AttributeError):
+            return None
+
+    @staticmethod
+    def _parse_date_formats(date_str: str) -> datetime | None:
+        """Parse date string using common formats.
+
+        Parameters
+        ----------
+        date_str : str
+            Date string to parse.
+
+        Returns
+        -------
+        datetime | None
+            Parsed datetime or None if invalid.
+        """
         date_formats = [
             "%Y-%m-%d",
             "%Y-%m-%dT%H:%M:%S",
@@ -283,13 +345,9 @@ class YamlImporter(MetadataImporter):
 
         for fmt in date_formats:
             try:
-                dt = datetime.strptime(date_value, fmt)  # noqa: DTZ007
-                # Make timezone-aware if naive
-                if dt.tzinfo is None:
-                    return dt.replace(tzinfo=UTC)
+                dt = datetime.strptime(date_str, fmt)  # noqa: DTZ007
+                return YamlImporter._normalize_datetime_timezone(dt)
             except ValueError:
                 continue
-            else:
-                return dt
 
         return None

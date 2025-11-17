@@ -285,9 +285,19 @@ class OpfImporter(MetadataImporter):
         etree._Element | None
             Found meta element or None.
         """
-        return metadata_elem.find(
-            f".//opf:meta[@property='{property_name}']", ns
-        ) or metadata_elem.find(f".//opf:meta[@name='{property_name}']", ns)
+        # Try with opf: prefix first
+        result = metadata_elem.find(f".//opf:meta[@property='{property_name}']", ns)
+        if result is not None:
+            return result
+        result = metadata_elem.find(f".//opf:meta[@name='{property_name}']", ns)
+        if result is not None:
+            return result
+        # Fallback to default namespace (meta tags without prefix)
+        opf_ns = ns.get("opf", NS_OPF)
+        result = metadata_elem.find(f".//{{{opf_ns}}}meta[@property='{property_name}']")
+        if result is not None:
+            return result
+        return metadata_elem.find(f".//{{{opf_ns}}}meta[@name='{property_name}']")
 
     @staticmethod
     def _get_meta_content(meta_elem: etree._Element) -> str | None:
@@ -329,9 +339,14 @@ class OpfImporter(MetadataImporter):
             # Handle Z timezone
             if date_str.endswith("Z"):
                 date_str = date_str[:-1] + "+00:00"
-            return datetime.fromisoformat(date_str)
+            dt = datetime.fromisoformat(date_str)
+            # Make timezone-aware if naive
+            if dt.tzinfo is None:
+                return dt.replace(tzinfo=UTC)
         except (ValueError, AttributeError):
             pass
+        else:
+            return dt
 
         # Try common date formats
         date_formats = [
