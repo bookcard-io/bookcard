@@ -1613,13 +1613,25 @@ def test_delete_book_os_error(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_upload_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test upload_book succeeds (covers lines 1174-1218)."""
-    import tempfile
-    from pathlib import Path
     from unittest.mock import MagicMock
 
     session = DummySession()
     current_user = _create_mock_user()
     _mock_permission_service(monkeypatch)
+
+    # Create mock request with task_runner
+    mock_task_runner = MagicMock()
+    mock_task_runner.enqueue.return_value = 123  # Return a task_id
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            self.app = type(
+                "App",
+                (),
+                {"state": type("State", (), {"task_runner": mock_task_runner})()},
+            )()
+
+    request = DummyRequest()
 
     mock_service = MockBookService()
     mock_service.add_book = MagicMock(return_value=1)  # type: ignore[assignment]
@@ -1631,28 +1643,20 @@ def test_upload_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
         books, "_get_active_library_service", mock_get_active_library_service
     )
 
-    # Create a real temporary file to test the actual code path
-    with tempfile.NamedTemporaryFile(
-        delete=False, suffix=".epub", prefix="calibre_upload_"
-    ) as temp_file:
-        temp_path = Path(temp_file.name)
-        temp_path.write_bytes(b"fake epub content")
+    mock_file = MagicMock()
+    mock_file.filename = "test.epub"
+    mock_file.file = MagicMock()
+    mock_file.file.read.return_value = b"fake epub content"
 
-        mock_file = MagicMock()
-        mock_file.filename = "test.epub"
-        mock_file.file = MagicMock()
-        mock_file.file.read.return_value = b"fake epub content"
-
-        try:
-            # This should execute lines 1174-1218
-            result = books.upload_book(
-                session, current_user=current_user, file=mock_file
-            )
-            assert result.book_id == 1
-        finally:
-            # Clean up
-            if temp_path.exists():
-                temp_path.unlink(missing_ok=True)
+    # This should execute lines 1174-1218
+    result = books.upload_book(
+        request,
+        session,
+        current_user=current_user,
+        file=mock_file,  # type: ignore[arg-type]
+    )
+    assert result.task_id == 123
+    mock_task_runner.enqueue.assert_called_once()
 
 
 def test_upload_book_no_extension(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1662,6 +1666,20 @@ def test_upload_book_no_extension(monkeypatch: pytest.MonkeyPatch) -> None:
     session = DummySession()
     current_user = _create_mock_user()
     _mock_permission_service(monkeypatch)
+
+    # Create mock request with task_runner
+    mock_task_runner = MagicMock()
+    mock_task_runner.enqueue.return_value = 123
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            self.app = type(
+                "App",
+                (),
+                {"state": type("State", (), {"task_runner": mock_task_runner})()},
+            )()
+
+    request = DummyRequest()
 
     mock_service = MockBookService()
 
@@ -1676,7 +1694,7 @@ def test_upload_book_no_extension(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_file.filename = "test"  # No extension
 
     with pytest.raises(HTTPException) as exc_info:
-        books.upload_book(session, current_user=current_user, file=mock_file)
+        books.upload_book(request, session, current_user=current_user, file=mock_file)  # type: ignore[arg-type]
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail == "file_extension_required"
@@ -1689,6 +1707,20 @@ def test_upload_book_save_error(monkeypatch: pytest.MonkeyPatch) -> None:
     session = DummySession()
     current_user = _create_mock_user()
     _mock_permission_service(monkeypatch)
+
+    # Create mock request with task_runner
+    mock_task_runner = MagicMock()
+    mock_task_runner.enqueue.return_value = 123
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            self.app = type(
+                "App",
+                (),
+                {"state": type("State", (), {"task_runner": mock_task_runner})()},
+            )()
+
+    request = DummyRequest()
 
     mock_service = MockBookService()
 
@@ -1712,7 +1744,9 @@ def test_upload_book_save_error(monkeypatch: pytest.MonkeyPatch) -> None:
 
         with patch("pathlib.Path.unlink"):
             with pytest.raises(HTTPException) as exc_info:
-                books.upload_book(session, current_user=current_user, file=mock_file)
+                books.upload_book(
+                    request, session, current_user=current_user, file=mock_file
+                )  # type: ignore[arg-type]
             assert isinstance(exc_info.value, HTTPException)
             assert exc_info.value.status_code == 500
             assert "failed_to_save_file" in exc_info.value.detail

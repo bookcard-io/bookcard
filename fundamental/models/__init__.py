@@ -76,6 +76,12 @@ from fundamental.models.system import (
     MetadataDirtied,
     Preference,
 )
+from fundamental.models.tasks import (
+    Task,
+    TaskStatistics,
+    TaskStatus,
+    TaskType,
+)
 
 __all__ = [
     "Annotation",
@@ -124,6 +130,10 @@ __all__ = [
     "Shelf",
     "ShelfArchive",
     "Tag",
+    "Task",
+    "TaskStatistics",
+    "TaskStatus",
+    "TaskType",
     "UIConfig",
     "User",
     "UserRole",

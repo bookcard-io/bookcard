@@ -41,6 +41,7 @@ from sqlmodel import Session, select
 
 from fundamental.api.deps import get_current_user, get_db_session
 from fundamental.api.schemas import (
+    BookBatchUploadResponse,
     BookDeleteRequest,
     BookFilterRequest,
     BookListResponse,
@@ -1602,39 +1603,52 @@ def filter_books(
     status_code=status.HTTP_201_CREATED,
 )
 def upload_book(
+    request: Request,
     session: SessionDep,
     current_user: CurrentUserDep,
     file: UploadFile,
 ) -> BookUploadResponse:
-    """Upload a book file to the active library.
+    """Upload a book file to the active library (asynchronous).
 
-    Accepts a book file, saves it temporarily, and adds it directly to the
-    Calibre database (following calibre-web approach). Returns the ID of the
-    newly added book.
+    Accepts a book file, saves it temporarily, and creates a background task
+    to add it to the Calibre database. Returns the task ID for tracking.
 
     Parameters
     ----------
+    request : Request
+        FastAPI request object.
     session : SessionDep
         Database session dependency.
+    current_user : CurrentUserDep
+        Current authenticated user.
     file : UploadFile
         Book file to upload.
 
     Returns
     -------
     BookUploadResponse
-        Response containing the ID of the newly uploaded book.
+        Response containing the task ID for tracking the upload.
 
     Raises
     ------
     HTTPException
         If no active library is configured (404), file is invalid (400),
-        permission denied (403), or database operation fails (500).
+        permission denied (403), or task runner unavailable (503).
     """
     # Check permission
     permission_service = PermissionService(session)
     permission_service.check_permission(current_user, "books", "create")
 
-    book_service = _get_active_library_service(session)
+    # Get task runner
+    if (
+        not hasattr(request.app.state, "task_runner")
+        or request.app.state.task_runner is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Task runner not available",
+        )
+    task_runner = request.app.state.task_runner
 
     # Validate file extension
     file_ext = Path(file.filename or "").suffix.lower().lstrip(".")
@@ -1662,20 +1676,164 @@ def upload_book(
                 detail=f"failed_to_save_file: {exc!s}",
             ) from exc
 
-    try:
-        # Add book directly to database (following calibre-web approach)
         # Extract title from filename if possible
         filename = file.filename or "Unknown"
         title = Path(filename).stem if filename else None
 
-        book_id = book_service.add_book(
-            file_path=temp_path,
-            file_format=file_ext,
-            title=title,
-            author_name=None,  # Will default to "Unknown"
+    # Create upload task
+    from fundamental.models.tasks import TaskType
+
+    # Enqueue task with file path in payload
+    # Task record will be created by the runner
+    task_id = task_runner.enqueue(
+        task_type=TaskType.BOOK_UPLOAD,
+        payload={
+            "file_path": str(temp_path),
+            "filename": filename,
+            "file_format": file_ext,
+            "title": title,
+        },
+        user_id=current_user.id or 0,
+        metadata={
+            "task_type": TaskType.BOOK_UPLOAD,
+            "filename": filename,
+            "file_format": file_ext,
+        },
+    )
+
+    return BookUploadResponse(task_id=task_id)
+
+
+@router.post(
+    "/upload/batch",
+    response_model=BookBatchUploadResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def upload_books_batch(  # noqa: C901
+    request: Request,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    files: list[UploadFile] = File(...),  # noqa: B008
+) -> BookBatchUploadResponse:
+    """Upload multiple book files to the active library (asynchronous).
+
+    Accepts multiple book files, saves them temporarily, and creates a
+    background task to add them to the Calibre database. Returns the task ID
+    for tracking.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+    session : SessionDep
+        Database session dependency.
+    current_user : CurrentUserDep
+        Current authenticated user.
+    files : list[UploadFile]
+        List of book files to upload.
+
+    Returns
+    -------
+    BookBatchUploadResponse
+        Response containing the task ID and total file count.
+
+    Raises
+    ------
+    HTTPException
+        If no active library is configured (404), files are invalid (400),
+        permission denied (403), or task runner unavailable (503).
+    """
+    # Check permission
+    permission_service = PermissionService(session)
+    permission_service.check_permission(current_user, "books", "create")
+
+    # Get task runner
+    if (
+        not hasattr(request.app.state, "task_runner")
+        or request.app.state.task_runner is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Task runner not available",
+        )
+    task_runner = request.app.state.task_runner
+
+    if not files:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No files provided",
         )
 
-        return BookUploadResponse(book_id=book_id)
-    finally:
-        # Clean up temporary file
-        temp_path.unlink(missing_ok=True)
+    # Save all files to temporary locations
+    file_infos = []
+    temp_paths = []
+
+    try:
+        for file in files:
+            # Validate file extension
+            file_ext = Path(file.filename or "").suffix.lower().lstrip(".")
+            if not file_ext:
+                # Clean up already saved files
+                for path in temp_paths:
+                    path.unlink(missing_ok=True)
+                raise HTTPException(  # noqa: TRY301
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"file_extension_required: {file.filename}",
+                )
+
+            # Save file to temporary location
+            with tempfile.NamedTemporaryFile(
+                delete=False,
+                suffix=f".{file_ext}",
+                prefix="calibre_upload_",
+            ) as temp_file:
+                temp_path = Path(temp_file.name)
+                try:
+                    content = file.file.read()
+                    temp_path.write_bytes(content)
+                    temp_paths.append(temp_path)
+
+                    filename = file.filename or "Unknown"
+                    title = Path(filename).stem if filename else None
+
+                    file_infos.append({
+                        "file_path": str(temp_path),
+                        "filename": filename,
+                        "file_format": file_ext,
+                        "title": title,
+                    })
+                except Exception as exc:
+                    # Clean up on error
+                    for path in temp_paths:
+                        path.unlink(missing_ok=True)
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"failed_to_save_file: {exc!s}",
+                    ) from exc
+
+        # Enqueue batch upload task
+        from fundamental.models.tasks import TaskType
+
+        task_id = task_runner.enqueue(
+            task_type=TaskType.MULTI_BOOK_UPLOAD,
+            payload={"files": file_infos},
+            user_id=current_user.id or 0,
+            metadata={
+                "task_type": TaskType.MULTI_BOOK_UPLOAD,
+                "total_files": len(file_infos),
+            },
+        )
+
+        return BookBatchUploadResponse(task_id=task_id, total_files=len(file_infos))
+
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as exc:
+        # Clean up on unexpected error
+        for path in temp_paths:
+            path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"failed_to_process_upload: {exc!s}",
+        ) from exc

@@ -17,13 +17,16 @@
 
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 from uuid import uuid4
 
 from pydantic import ConfigDict
 from sqlalchemy import JSON, Column
 from sqlalchemy import Enum as SQLEnum
 from sqlmodel import Field, Relationship, SQLModel
+
+if TYPE_CHECKING:
+    from fundamental.models.tasks import Task
 
 
 class EBookFormat(StrEnum):
@@ -101,6 +104,7 @@ class User(SQLModel, table=True):
     roles: list["UserRole"] = Relationship(back_populates="user")
     refresh_tokens: list["RefreshToken"] = Relationship(back_populates="user")
     ereader_devices: list["EReaderDevice"] = Relationship(back_populates="user")
+    tasks: list["Task"] = Relationship(back_populates="user")
 
 
 class UserSetting(SQLModel, table=True):

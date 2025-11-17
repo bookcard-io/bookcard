@@ -61,6 +61,7 @@ from fundamental.api.schemas.auth import (
     UserRoleAssign,
 )
 from fundamental.api.schemas.books import (
+    BookBatchUploadResponse,
     BookDeleteRequest,
     BookFilterRequest,
     BookListResponse,
@@ -101,12 +102,20 @@ from fundamental.api.schemas.shelves import (
     ShelfReorderRequest,
     ShelfUpdate,
 )
+from fundamental.api.schemas.tasks import (
+    TaskCancelResponse,
+    TaskListResponse,
+    TaskRead,
+    TaskStatisticsRead,
+    TaskTypesResponse,
+)
 
 __all__ = [
     # Auth schemas
     "AdminUserCreate",
     "AdminUserUpdate",
     # Book schemas
+    "BookBatchUploadResponse",
     "BookDeleteRequest",
     "BookFilterRequest",
     "BookListResponse",
@@ -167,6 +176,11 @@ __all__ = [
     "ShelfRead",
     "ShelfReorderRequest",
     "ShelfUpdate",
+    "TaskCancelResponse",
+    "TaskListResponse",
+    "TaskRead",
+    "TaskStatisticsRead",
+    "TaskTypesResponse",
     "TokenResponse",
     "UserCreate",
     "UserRead",

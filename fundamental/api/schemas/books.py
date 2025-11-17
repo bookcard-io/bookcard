@@ -293,15 +293,33 @@ class CoverFromUrlResponse(BaseModel):
 
 
 class BookUploadResponse(BaseModel):
-    """Response for book upload operation.
+    """Response for book upload.
 
     Attributes
     ----------
-    book_id : int
-        ID of the newly uploaded book.
+    book_id : int | None
+        ID of uploaded book (for synchronous uploads).
+    task_id : int | None
+        ID of upload task (for asynchronous uploads).
     """
 
-    book_id: int = Field(..., description="ID of the newly uploaded book")
+    book_id: int | None = None
+    task_id: int | None = None
+
+
+class BookBatchUploadResponse(BaseModel):
+    """Response for batch book upload.
+
+    Attributes
+    ----------
+    task_id : int
+        ID of the batch upload task.
+    total_files : int
+        Total number of files being uploaded.
+    """
+
+    task_id: int
+    total_files: int
 
 
 class BookDeleteRequest(BaseModel):
