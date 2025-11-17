@@ -54,14 +54,21 @@ export function RatingStars({
 }: RatingStarsProps) {
   const [hoveredStar, setHoveredStar] = useState<number | null>(null);
 
-  const handleStarClick = (rating: number) => {
+  const handleStarClick = (rating: number, event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
     if (interactive && onStarClick) {
       onStarClick(rating);
     }
   };
 
   const starElements = [1, 2, 3, 4, 5].map((star) => {
-    const isFilled = value !== null && star <= value;
+    // When hovering, highlight stars at or below hovered star
+    // When not hovering, highlight stars at or below the selected value
+    const isFilled =
+      hoveredStar === null
+        ? value !== null && star <= value
+        : star <= hoveredStar;
     const isHovered =
       interactive && hoveredStar !== null && star <= hoveredStar;
 
@@ -91,9 +98,9 @@ export function RatingStars({
           key={star}
           type="button"
           className={starClassName}
-          onClick={() => handleStarClick(star)}
+          onClick={(e) => handleStarClick(star, e)}
           onMouseEnter={() => !disabled && setHoveredStar(star)}
-          onMouseLeave={() => setHoveredStar(null)}
+          onMouseLeave={() => !disabled && setHoveredStar(null)}
           disabled={disabled}
           aria-label={`Rate ${star} out of 5`}
           aria-pressed={isFilled}

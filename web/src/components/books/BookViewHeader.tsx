@@ -190,7 +190,7 @@ export function BookViewHeader({
         )}
         {book.rating !== null && book.rating !== undefined && (
           <div className="mt-1 flex items-center">
-            <RatingDisplay value={book.rating} showText size="medium" />
+            <RatingDisplay value={book.rating} size="medium" />
           </div>
         )}
         {showDescription && book.description && (

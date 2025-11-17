@@ -83,7 +83,6 @@ export function RatingInput({
           value={value}
           interactive
           onStarClick={handleStarClick}
-          showText
           disabled={disabled}
         />
       </div>
