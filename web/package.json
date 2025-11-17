@@ -26,7 +26,8 @@
     "test:coverage": "vitest run --coverage",
     "storybook": "storybook dev -p 6006",
     "storybook:test": "vitest run --config .storybook/vitest.config.mts",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "postinstall": "patch-package"
   },
   "repository": {
     "type": "git",
@@ -54,7 +55,7 @@
     "@tanstack/react-virtual": "^3.13.12",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.44.7",
-    "next": "^16.0.1",
+    "next": "^16.0.3",
     "next-intl": "^4.4.0",
     "pg": "^8.16.3",
     "posthog-js": "^1.284.0",
@@ -101,6 +102,7 @@
     "drizzle-kit": "^0.31.6",
     "knip": "^5.66.4",
     "npm-run-all": "^4.1.5",
+    "patch-package": "^8.0.1",
     "postcss": "^8.5.6",
     "postcss-load-config": "^6.0.1",
     "rimraf": "^6.1.0",
