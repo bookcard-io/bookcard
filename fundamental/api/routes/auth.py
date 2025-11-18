@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Annotated
 
@@ -58,6 +59,7 @@ from fundamental.services.security import (
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+logger = logging.getLogger(__name__)
 
 SessionDep = Annotated[Session, Depends(get_db_session)]
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
@@ -91,9 +93,15 @@ def register(
         _user, token = service.register_user(
             payload.username, payload.email, payload.password
         )
+        logger.info(
+            "User registered: username=%s, email=%s", payload.username, payload.email
+        )
     except ValueError as exc:
         msg = str(exc)
         if msg in {AuthError.USERNAME_EXISTS, AuthError.EMAIL_EXISTS}:
+            logger.debug(
+                "Registration failed: %s for username=%s", msg, payload.username
+            )
             raise HTTPException(status_code=409, detail=msg) from exc
         raise
     return TokenResponse(access_token=token)
@@ -107,8 +115,15 @@ def login(
     service = _auth_service(request, session)
     try:
         user, token = service.login_user(payload.identifier, payload.password)
+        logger.info(
+            "User logged in: user_id=%s, identifier=%s", user.id, payload.identifier
+        )
     except ValueError as exc:
         if str(exc) == AuthError.INVALID_CREDENTIALS:
+            logger.debug(
+                "Login failed: invalid credentials for identifier=%s",
+                payload.identifier,
+            )
             raise HTTPException(
                 status_code=401, detail=AuthError.INVALID_CREDENTIALS
             ) from exc
@@ -190,9 +205,14 @@ def change_password(
             payload.current_password,
             payload.new_password,
         )
+        logger.info("Password changed: user_id=%s", current_user.id)
     except ValueError as exc:
         msg = str(exc)
         if msg == AuthError.INVALID_PASSWORD:
+            logger.debug(
+                "Password change failed: invalid password for user_id=%s",
+                current_user.id,
+            )
             raise HTTPException(status_code=400, detail=msg) from exc
         if msg == "user_not_found":
             raise HTTPException(status_code=404, detail=msg) from exc
@@ -252,6 +272,7 @@ def logout(
     blacklist_repo = TokenBlacklistRepository(session)
     blacklist_repo.add_to_blacklist(jti, expires_at)
     session.flush()
+    logger.info("User logged out: jti=%s", jti)
 
 
 @router.get("/profile", response_model=ProfileRead)
@@ -316,6 +337,7 @@ def update_profile(
             full_name=payload.full_name,
         )
         session.commit()
+        logger.info("Profile updated: user_id=%s", current_user.id)
     except ValueError as exc:
         msg = str(exc)
         if msg == "user_not_found":
@@ -380,6 +402,11 @@ def upload_profile_picture(
             file.filename,
         )
         session.commit()
+        logger.info(
+            "Profile picture uploaded: user_id=%s, filename=%s",
+            current_user.id,
+            file.filename,
+        )
     except ValueError as exc:
         msg = str(exc)
         if msg == "user_not_found":
@@ -526,6 +553,7 @@ def delete_profile_picture(
     try:
         user = service.delete_profile_picture(current_user.id)  # type: ignore[arg-type]
         session.commit()
+        logger.info("Profile picture deleted: user_id=%s", current_user.id)
     except ValueError as exc:
         if str(exc) == "user_not_found":
             raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -563,12 +591,15 @@ def validate_invite_token(
     service = _auth_service(request, session)
     try:
         service.validate_invite_token(token)
+        logger.debug("Invite token validated: token=%s", token[:8] + "...")
         return InviteValidationResponse(valid=True, token=token)
     except ValueError as exc:
         msg = str(exc)
         if msg == AuthError.INVALID_INVITE:
+            logger.debug("Invite token validation failed: invalid token")
             raise HTTPException(status_code=404, detail=msg) from exc
         if msg in {AuthError.INVITE_EXPIRED, AuthError.INVITE_ALREADY_USED}:
+            logger.debug("Invite token validation failed: %s", msg)
             raise HTTPException(status_code=400, detail=msg) from exc
         raise
 
@@ -642,6 +673,7 @@ def upsert_setting(
             payload.description,
         )
         session.commit()
+        logger.info("Setting updated: user_id=%s, key=%s", current_user.id, key)
     except ValueError as exc:
         msg = str(exc)
         if msg == "user_not_found":
@@ -712,6 +744,7 @@ def upsert_email_server_config(
             **payload.model_dump(exclude_unset=True)
         )
         session.commit()
+        logger.info("Email server config updated: user_id=%s", current_user.id)
         # Decrypt for API response (password won't be included in response model)
         cfg = service.get_email_server_config(decrypt=True)
         if cfg is None:

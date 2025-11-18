@@ -151,7 +151,9 @@ class AppConfig:
         ValueError
             If FUNDAMENTAL_FERNET_KEY is not set.
         """
-        encryption_key = AppConfig._normalize_env_value(os.getenv("FUNDAMENTAL_FERNET_KEY"))
+        encryption_key = AppConfig._normalize_env_value(
+            os.getenv("FUNDAMENTAL_FERNET_KEY")
+        )
         if encryption_key is None:
             msg = "FUNDAMENTAL_FERNET_KEY is not set"
             raise ValueError(msg)
@@ -173,9 +175,7 @@ class AppConfig:
         bool
             Parsed boolean value.
         """
-        value = AppConfig._normalize_env_value_with_default(
-            os.getenv(key), default
-        )
+        value = AppConfig._normalize_env_value_with_default(os.getenv(key), default)
         return value.lower() == "true"
 
     @staticmethod
@@ -187,7 +187,9 @@ class AppConfig:
         AppConfig
             Fully constructed configuration with env overrides applied.
         """
-        jwt_expires_min = AppConfig._normalize_env_value(os.getenv("FUNDAMENTAL_JWT_EXPIRES_MIN"))
+        jwt_expires_min = AppConfig._normalize_env_value(
+            os.getenv("FUNDAMENTAL_JWT_EXPIRES_MIN")
+        )
         if jwt_expires_min is None:
             msg = "FUNDAMENTAL_JWT_EXPIRES_MIN is not set"
             raise ValueError(msg)
