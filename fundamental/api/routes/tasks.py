@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 from typing import TYPE_CHECKING, Annotated
 
@@ -32,7 +33,7 @@ from fundamental.api.schemas.tasks import (
     TaskTypesResponse,
 )
 from fundamental.models.auth import User
-from fundamental.models.tasks import TaskStatus, TaskType
+from fundamental.models.tasks import Task, TaskStatus, TaskType
 from fundamental.services.permission_service import PermissionService
 from fundamental.services.task_service import TaskService
 
@@ -124,8 +125,23 @@ def list_tasks(
     )
 
     # Convert to TaskRead with duration
+    logger = logging.getLogger(__name__)
     task_reads = []
     for task in tasks:
+        # Extract Task from Row if needed (fallback in case service didn't handle it)
+        if not isinstance(task, Task):
+            mapping = getattr(task, "_mapping", None)
+            if mapping is not None and "Task" in mapping:
+                task = mapping["Task"]
+            elif hasattr(task, "__getitem__"):
+                try:
+                    task = task[0]
+                except (IndexError, KeyError):
+                    logger.exception(
+                        "Could not extract Task from Row in route: %s", type(task)
+                    )
+                    continue
+
         task_read = TaskRead(
             id=task.id or 0,
             task_type=task.task_type,

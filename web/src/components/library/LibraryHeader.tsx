@@ -58,12 +58,14 @@ export function LibraryHeader({
 }: LibraryHeaderProps) {
   return (
     <PageHeader title="My Library">
-      <AddBooksButton
-        fileInputRef={fileInputRef}
-        onFileChange={onFileChange}
-        accept={accept}
-        isUploading={isUploading}
-      />
+      <div className="flex items-center gap-3">
+        <AddBooksButton
+          fileInputRef={fileInputRef}
+          onFileChange={onFileChange}
+          accept={accept}
+          isUploading={isUploading}
+        />
+      </div>
     </PageHeader>
   );
 }

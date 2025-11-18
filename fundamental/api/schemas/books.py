@@ -297,13 +297,13 @@ class BookUploadResponse(BaseModel):
 
     Attributes
     ----------
-    book_id : int | None
-        ID of uploaded book (for synchronous uploads).
+    book_ids : list[int] | None
+        IDs of uploaded books. Single book upload returns [book_id], multi-book returns [book_id1, book_id2, ...].
     task_id : int | None
         ID of upload task (for asynchronous uploads).
     """
 
-    book_id: int | None = None
+    book_ids: list[int] | None = None
     task_id: int | None = None
 
 

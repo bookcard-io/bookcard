@@ -14,6 +14,10 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { useCallback, useRef, useState } from "react";
+import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
+import { useBookUploadOrchestrator } from "./useBookUploadOrchestrator";
+import { useFileUpload } from "./useFileUpload";
+import { useTaskPolling } from "./useTaskPolling";
 
 export interface UseBookUploadOptions {
   /**
@@ -25,6 +29,16 @@ export interface UseBookUploadOptions {
    *     ID of the newly uploaded book.
    */
   onUploadSuccess?: (bookId: number) => void;
+  /**
+   * Callback fired when a book is added (for multi-upload, no modal).
+   * If provided, this will be used instead of onUploadSuccess for multi-file uploads.
+   *
+   * Parameters
+   * ----------
+   * bookId : number
+   *     ID of the newly uploaded book.
+   */
+  onBookAdded?: (bookId: number) => void;
   /**
    * Callback fired when upload fails.
    *
@@ -79,70 +93,58 @@ export interface UseBookUploadResult {
 export function useBookUpload(
   options: UseBookUploadOptions = {},
 ): UseBookUploadResult {
-  const { onUploadSuccess, onUploadError } = options;
+  const { onUploadSuccess, onBookAdded, onUploadError } = options;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  /**
-   * Uploads a book file to the server.
-   *
-   * Creates a fresh copy of the file to avoid stream locking issues
-   * when the same file is selected multiple times.
-   *
-   * Parameters
-   * ----------
-   * file : File
-   *     Book file to upload.
-   */
-  const uploadBook = useCallback(
-    async (file: File) => {
-      setIsUploading(true);
+  // Track if we're in a multi-file upload session to suppress modals
+  const isMultiFileUploadRef = useRef(false);
+  const multiFileTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-      try {
-        // Create a fresh copy of the file to avoid stream locking issues
-        // This is especially important when the same file is selected multiple times
-        // The browser may reuse the File object with a locked stream
-        const fileBuffer = await file.arrayBuffer();
-        const freshFile = new File([fileBuffer], file.name, {
-          type: file.type,
-          lastModified: file.lastModified,
-        });
+  // Global message publisher (SRP: message dispatch, independent of UI position)
+  const { showSuccess, showDanger } = useGlobalMessages();
 
-        const formData = new FormData();
-        formData.append("file", freshFile);
-
-        const response = await fetch("/api/books/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!response.ok) {
-          let errorMessage = `Upload failed with status ${response.status}`;
-          try {
-            const data = (await response.json()) as { detail?: string };
-            if (data.detail) {
-              errorMessage = data.detail;
-            }
-          } catch {
-            // If JSON parsing fails, use the default status-based message
-          }
-
-          onUploadError?.(errorMessage);
-          return;
-        }
-
-        const data = (await response.json()) as { book_id: number };
-        onUploadSuccess?.(data.book_id);
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Upload failed";
-        onUploadError?.(errorMessage);
-      } finally {
-        setIsUploading(false);
-      }
+  const showSuccessMessage = useCallback(
+    (message: string) => {
+      showSuccess(message, { durationMs: 2000 });
     },
-    [onUploadSuccess, onUploadError],
+    [showSuccess],
   );
+
+  const showErrorMessage = useCallback(
+    (message: string) => {
+      showDanger(message, { durationMs: 3000 });
+    },
+    [showDanger],
+  );
+
+  // File upload (SRP: upload API calls)
+  const fileUpload = useFileUpload({
+    onUploadStart: () => setIsUploading(true),
+    onUploadComplete: () => setIsUploading(false),
+    onError: onUploadError,
+    onSetErrorMessage: showErrorMessage,
+  });
+
+  // Task polling (SRP: polling logic)
+  // Note: onSuccess is not set here because the orchestrator handles success
+  // via handleBookIds, which ensures consistent message handling for both sync and async uploads
+  const taskPolling = useTaskPolling({
+    onError: onUploadError,
+    onSetErrorMessage: showErrorMessage,
+  });
+
+  // Upload orchestrator (SRP: workflow coordination)
+  const orchestrator = useBookUploadOrchestrator({
+    fileUpload,
+    taskPolling,
+    onSetErrorMessage: showErrorMessage,
+    onSetSuccessMessage: showSuccessMessage,
+    onUploadSuccess,
+    onBookAdded,
+    onUploadError,
+    getIsMultiFileUpload: () => isMultiFileUploadRef.current,
+  });
 
   const openFileBrowser = useCallback(() => {
     fileInputRef.current?.click();
@@ -150,16 +152,47 @@ export function useBookUpload(
 
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        void uploadBook(file);
+      const files = Array.from(e.target.files || []);
+      if (files.length === 0) {
+        return;
       }
-      // Reset input to allow selecting the same file again
+
+      // Track if this is a multi-file upload to suppress modals
+      const isMultiFile = files.length > 1;
+
+      // Clear any existing timeout
+      if (multiFileTimeoutRef.current) {
+        clearTimeout(multiFileTimeoutRef.current);
+      }
+
+      isMultiFileUploadRef.current = isMultiFile;
+
+      // Upload files in parallel - each upload unblocks the button once file is sent
+      // Polling continues in the background without blocking the UI
+      for (const file of files) {
+        // Fire and forget - each upload will unblock itself once file is sent to server
+        void orchestrator.uploadBook(file);
+      }
+
+      // Reset the flag after a delay to allow polling callbacks to check it
+      // The flag is checked during polling when bookIds are extracted
+      // We keep it set for a reasonable duration to cover typical polling time
+      if (isMultiFile) {
+        multiFileTimeoutRef.current = setTimeout(() => {
+          isMultiFileUploadRef.current = false;
+          multiFileTimeoutRef.current = null;
+        }, 300000); // 5 minutes - covers typical polling duration
+      } else {
+        // Single file - reset immediately (modal will show)
+        isMultiFileUploadRef.current = false;
+      }
+
+      // Reset input to allow selecting the same file again immediately
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
     },
-    [uploadBook],
+    [orchestrator],
   );
 
   // Supported Calibre formats: AZW, AZW3, AZW4, CBZ, CBR, CB7, CBC, CHM, DJVU, DOCX, EPUB, FB2, FBZ, HTML, HTMLZ, KEPUB, LIT, LRF, MOBI, ODT, PDF, PRC, PDB, PML, RB, RTF, SNB, TCR, TXT, TXTZ

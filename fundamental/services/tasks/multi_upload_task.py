@@ -139,11 +139,20 @@ class MultiBookUploadTask(BaseTask):
                 if file_format and file_format not in formats:
                     formats.append(file_format)
 
-                book_id = upload_task.metadata.get("book_id")
+                # Extract book_ids from upload task metadata
+                upload_book_ids = upload_task.metadata.get("book_ids", [])
+                if isinstance(upload_book_ids, list) and len(upload_book_ids) > 0:
+                    # Collect book_ids for multi-upload response
+                    self.metadata.setdefault("book_ids", []).extend(upload_book_ids)
+                    # Use first book_id for file_details (for display purposes)
+                    book_id = upload_book_ids[0]
+                else:
+                    book_id = None
+
                 file_details = {
                     "filename": filename,
                     "file_format": file_format,
-                    "book_id": book_id,
+                    "book_id": book_id,  # For file_details display only
                     "status": "success",
                 }
                 self.metadata.setdefault("file_details", []).append(file_details)

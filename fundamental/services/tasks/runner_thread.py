@@ -22,21 +22,23 @@ and small deployments.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import queue
 import threading
-import time
 from typing import TYPE_CHECKING, Any
 
 from fundamental.database import get_session as _get_session
-from fundamental.models.tasks import TaskStatus, TaskType
 from fundamental.services.task_service import TaskService
 from fundamental.services.tasks.base import BaseTask, TaskRunner
+from fundamental.services.tasks.task_executor import TaskExecutor
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from sqlalchemy import Engine
+
+    from fundamental.models.tasks import TaskStatus, TaskType
 
 logger = logging.getLogger(__name__)
 
@@ -94,8 +96,9 @@ class ThreadTaskRunner(TaskRunner):
     def _worker_loop(self) -> None:
         """Process tasks from the queue in a background thread."""
         while not self._shutdown:
-            try:
-                # Get task from queue with timeout to allow shutdown check
+            # Get task from queue with timeout to allow shutdown check
+            # Use suppress to ignore Empty exception (expected when timeout occurs)
+            with contextlib.suppress(queue.Empty):
                 item = self._queue.get(timeout=1.0)
                 task_id, _task_type, payload, user_id, metadata = item
 
@@ -111,12 +114,14 @@ class ThreadTaskRunner(TaskRunner):
                         task_service.start_task(task_id)
 
                         # Create task instance - include task_type in metadata
+                        # Merge payload into metadata before creating task instance
+                        # so that tasks can access payload data in __init__
                         task_metadata = (metadata or {}).copy()
                         task_metadata["task_type"] = task.task_type
+                        task_metadata.update(payload)
                         task_instance = self._task_factory(
                             task_id, user_id, task_metadata
                         )
-                        task_instance.metadata.update(payload)
 
                         # Store running task for cancellation
                         with self._lock:
@@ -138,50 +143,13 @@ class ThreadTaskRunner(TaskRunner):
                             "task_service": task_service,
                             "update_progress": update_progress,
                         }
-                        start_time = time.time()
 
                         try:
-                            task_instance.run(worker_context)
-                            duration = time.time() - start_time
-
-                            # Refresh task to get latest status
-                            task = task_service.get_task(task_id)
-                            if task and task.status == TaskStatus.CANCELLED:
-                                logger.info("Task %s was cancelled", task_id)
-                            else:
-                                # Mark as completed
-                                task_service.complete_task(
-                                    task_id, task_instance.metadata
-                                )
-                                task_service.record_task_completion(
-                                    task_id,
-                                    TaskStatus.COMPLETED,
-                                    duration,
-                                )
-                                logger.info(
-                                    "Task %s completed in %.2fs", task_id, duration
-                                )
-
-                        except Exception:
-                            duration = time.time() - start_time
-                            # Get error from task if available
-                            task = task_service.get_task(task_id)
-                            error_msg = (
-                                task.error_message
-                                if task and task.error_message
-                                else "Unknown error"
+                            # Execute task using executor service (SRP: execution logic separated)
+                            executor = TaskExecutor(task_service)
+                            executor.execute_task(
+                                task_id, task_instance, worker_context
                             )
-                            logger.exception("Task %s failed: %s", task_id, error_msg)
-                            if not task or task.status != TaskStatus.FAILED:
-                                # Only fail if not already failed
-                                task_service.fail_task(task_id, error_msg)
-                            task_service.record_task_completion(
-                                task_id,
-                                TaskStatus.FAILED,
-                                duration,
-                                error_msg,
-                            )
-
                         finally:
                             # Remove from running tasks
                             with self._lock:
@@ -192,10 +160,6 @@ class ThreadTaskRunner(TaskRunner):
 
                 finally:
                     self._queue.task_done()
-
-            except queue.Empty:
-                # Timeout - continue loop to check shutdown
-                continue
 
     def enqueue(
         self,

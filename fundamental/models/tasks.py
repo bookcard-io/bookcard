@@ -66,6 +66,8 @@ class TaskType(StrEnum):
         Metadata backup task.
     THUMBNAIL_GENERATE : str
         Thumbnail generation task.
+    LIBRARY_SCAN : str
+        Library scan task (scans authors, genres, series, and publishers).
     """
 
     BOOK_UPLOAD = "book_upload"
@@ -74,6 +76,7 @@ class TaskType(StrEnum):
     EMAIL_SEND = "email_send"
     METADATA_BACKUP = "metadata_backup"
     THUMBNAIL_GENERATE = "thumbnail_generate"
+    LIBRARY_SCAN = "library_scan"
 
 
 class Task(SQLModel, table=True):
@@ -149,8 +152,19 @@ class Task(SQLModel, table=True):
         """
         if self.started_at is None:
             return None
+
+        # Ensure timezone-aware datetimes for comparison
+        started_at = self.started_at
+        if started_at.tzinfo is None:
+            # If naive, assume UTC
+            started_at = started_at.replace(tzinfo=UTC)
+
         end_time = self.completed_at or self.cancelled_at or datetime.now(UTC)
-        return (end_time - self.started_at).total_seconds()
+        if end_time.tzinfo is None:
+            # If naive, assume UTC
+            end_time = end_time.replace(tzinfo=UTC)
+
+        return (end_time - started_at).total_seconds()
 
     @property
     def is_complete(self) -> bool:

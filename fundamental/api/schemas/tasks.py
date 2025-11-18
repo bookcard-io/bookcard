@@ -39,6 +39,8 @@ class TaskRead(BaseModel):
         Progress (0.0 to 1.0).
     user_id : int
         User who created the task.
+    username : str | None
+        Username of the user who created the task.
     created_at : datetime
         Task creation timestamp.
     started_at : datetime | None
@@ -62,6 +64,7 @@ class TaskRead(BaseModel):
     status: TaskStatus
     progress: float = Field(ge=0.0, le=1.0)
     user_id: int
+    username: str | None = None
     created_at: datetime
     started_at: datetime | None = None
     completed_at: datetime | None = None

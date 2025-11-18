@@ -21,13 +21,17 @@ Follows SRP by handling only task persistence and retrieval.
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import desc, select
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session  # noqa: TC002
 
 from fundamental.models.tasks import Task, TaskStatistics, TaskStatus, TaskType
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -104,10 +108,18 @@ class TaskService:
         Task | None
             Task instance if found, None otherwise.
         """
-        stmt = select(Task).where(Task.id == task_id)
-        if user_id is not None:
-            stmt = stmt.where(Task.user_id == user_id)
-        return self._session.exec(stmt).first()  # type: ignore[call-overload]
+        # Use session.get() to ensure we get a Task instance, not a Row
+        task = self._session.get(Task, task_id)
+        if task is None:
+            return None
+
+        # Filter by user_id if provided
+        if user_id is not None and task.user_id != user_id:
+            return None
+
+        # Eagerly load the user relationship
+        self._session.refresh(task, ["user"])
+        return task
 
     def list_tasks(
         self,
@@ -137,7 +149,7 @@ class TaskService:
         Sequence[Task]
             List of matching tasks.
         """
-        stmt = select(Task)
+        stmt = select(Task).options(selectinload(Task.user))
         if user_id is not None:
             stmt = stmt.where(Task.user_id == user_id)
         if status is not None:
@@ -145,7 +157,35 @@ class TaskService:
         if task_type is not None:
             stmt = stmt.where(Task.task_type == task_type)
         stmt = stmt.order_by(desc(Task.created_at)).limit(limit).offset(offset)
-        return self._session.exec(stmt).all()  # type: ignore[call-overload]
+        results = self._session.exec(stmt).all()  # type: ignore[call-overload]
+
+        # Extract Task instances from Row objects if needed
+        task_instances = []
+        for result in results:
+            if isinstance(result, Task):
+                task_instances.append(result)
+            else:
+                # Result is a Row object, extract the Task from it
+                # Row objects with selectinload return tuples/rows with the model as first element
+                # or accessible via ['Task'] key
+                mapping = getattr(result, "_mapping", None)
+                if mapping is not None and "Task" in mapping:
+                    task_instances.append(mapping["Task"])
+                elif hasattr(result, "__getitem__"):
+                    # Try to get first element (Task should be first)
+                    try:
+                        task_instances.append(result[0])
+                    except (IndexError, KeyError):
+                        logger.exception(
+                            "Could not extract Task from Row: %s", type(result)
+                        )
+                        continue
+                else:
+                    logger.error(
+                        "Unexpected result type in list_tasks: %s", type(result)
+                    )
+
+        return task_instances
 
     def update_task_progress(
         self,
@@ -177,7 +217,11 @@ class TaskService:
         if metadata is not None:
             if task.task_data is None:
                 task.task_data = {}
-            task.task_data.update(metadata)
+            # Create a new dict to ensure SQLModel detects the change
+            # SQLModel doesn't detect in-place updates to mutable objects
+            updated_task_data = dict(task.task_data)
+            updated_task_data.update(metadata)
+            task.task_data = updated_task_data
         self._session.add(task)
         self._session.commit()
 
@@ -199,7 +243,12 @@ class TaskService:
         self._session.add(task)
         self._session.commit()
 
-    def complete_task(self, task_id: int, metadata: dict | None = None) -> None:
+    def complete_task(
+        self,
+        task_id: int,
+        metadata: dict | None = None,
+        normalize_metadata: bool = True,
+    ) -> None:
         """Mark a task as completed.
 
         Parameters
@@ -208,7 +257,14 @@ class TaskService:
             Task ID to complete.
         metadata : dict | None
             Optional metadata to merge into existing metadata.
+        normalize_metadata : bool
+            Whether to normalize metadata (e.g., convert book_id to book_ids).
+            Defaults to True.
         """
+        from fundamental.services.tasks.metadata_normalizer import (
+            TaskMetadataNormalizer,
+        )
+
         task = self._session.get(Task, task_id)
         if task is None:
             msg = f"Task {task_id} not found"
@@ -217,12 +273,30 @@ class TaskService:
         task.status = TaskStatus.COMPLETED
         task.progress = 1.0
         task.completed_at = datetime.now(UTC)
+
         if metadata is not None:
             if task.task_data is None:
                 task.task_data = {}
-            task.task_data.update(metadata)
+
+            # Normalize metadata if requested (e.g., ensure book_ids is present)
+            if normalize_metadata:
+                normalized_metadata = TaskMetadataNormalizer.normalize_metadata(
+                    metadata,
+                    task.task_data,
+                )
+            else:
+                normalized_metadata = metadata
+
+            # Merge metadata, preserving existing values
+            # Create a new dict to ensure SQLModel detects the change
+            updated_task_data = dict(task.task_data)
+            updated_task_data.update(normalized_metadata)
+            task.task_data = updated_task_data
+
         self._session.add(task)
         self._session.commit()
+        # Refresh to ensure all changes are loaded
+        self._session.refresh(task)
 
     def fail_task(self, task_id: int, error_message: str) -> None:
         """Mark a task as failed.
@@ -299,6 +373,59 @@ class TaskService:
         stmt = stmt.order_by(TaskStatistics.task_type)
         return self._session.exec(stmt).all()  # type: ignore[call-overload]
 
+    def _extract_task_statistics(self, result: object) -> TaskStatistics | None:
+        """Extract TaskStatistics from query result.
+
+        Parameters
+        ----------
+        result : object
+            Query result that may be a TaskStatistics instance or Row object.
+
+        Returns
+        -------
+        TaskStatistics | None
+            Extracted TaskStatistics instance or None if extraction fails.
+        """
+        if isinstance(result, TaskStatistics):
+            return result
+        mapping = getattr(result, "_mapping", None)
+        if mapping is not None and "TaskStatistics" in mapping:
+            return mapping["TaskStatistics"]
+        if hasattr(result, "__getitem__"):
+            try:
+                return result[0]
+            except (IndexError, KeyError):
+                return None
+        return None
+
+    def _update_statistics_duration(
+        self, stats: TaskStatistics, duration: float, total_count: int
+    ) -> None:
+        """Update duration statistics.
+
+        Parameters
+        ----------
+        stats : TaskStatistics
+            Statistics object to update.
+        duration : float
+            Task duration in seconds.
+        total_count : int
+            Total number of tasks (for running average calculation).
+        """
+        if stats.avg_duration is None:
+            stats.avg_duration = duration
+            stats.min_duration = duration
+            stats.max_duration = duration
+        else:
+            # Running average: (old_avg * (n-1) + new_value) / n
+            stats.avg_duration = (
+                stats.avg_duration * (total_count - 1) + duration
+            ) / total_count
+            if stats.min_duration is None or duration < stats.min_duration:
+                stats.min_duration = duration
+            if stats.max_duration is None or duration > stats.max_duration:
+                stats.max_duration = duration
+
     def record_task_completion(
         self,
         task_id: int,
@@ -324,11 +451,13 @@ class TaskService:
             return
 
         # Get or create statistics record
-        stats = self._session.exec(  # type: ignore[call-overload]
+        result = self._session.exec(  # type: ignore[call-overload]
             select(TaskStatistics).where(
                 TaskStatistics.task_type == task.task_type,
             ),
         ).first()
+
+        stats = self._extract_task_statistics(result) if result is not None else None
 
         if stats is None:
             stats = TaskStatistics(
@@ -347,19 +476,7 @@ class TaskService:
             stats.failure_count += 1
 
         if duration is not None:
-            if stats.avg_duration is None:
-                stats.avg_duration = duration
-                stats.min_duration = duration
-                stats.max_duration = duration
-            else:
-                # Running average: (old_avg * (n-1) + new_value) / n
-                stats.avg_duration = (
-                    stats.avg_duration * (stats.total_count - 1) + duration
-                ) / stats.total_count
-                if stats.min_duration is None or duration < stats.min_duration:
-                    stats.min_duration = duration
-                if stats.max_duration is None or duration > stats.max_duration:
-                    stats.max_duration = duration
+            self._update_statistics_duration(stats, duration, stats.total_count)
 
         stats.last_run_at = datetime.now(UTC)
         self._session.add(stats)

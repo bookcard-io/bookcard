@@ -3,13 +3,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type React from "react";
 import { useState } from "react";
+import { GlobalMessageHost } from "@/components/common/GlobalMessageHost";
 import { ThemeInitializer } from "@/components/ThemeInitializer";
+import { GlobalMessageProvider } from "@/contexts/GlobalMessageContext";
 
 /**
  * Root providers component.
  *
  * Wraps the application with global client-side providers such as the
- * React Query client and theme initializer.
+ * React Query client, global message provider, and theme initializer.
  *
  * Parameters
  * ----------
@@ -41,7 +43,12 @@ export function RootProviders({
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeInitializer>{children}</ThemeInitializer>
+      <GlobalMessageProvider>
+        <ThemeInitializer>
+          {children}
+          <GlobalMessageHost />
+        </ThemeInitializer>
+      </GlobalMessageProvider>
     </QueryClientProvider>
   );
 }

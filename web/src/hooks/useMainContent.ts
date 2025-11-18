@@ -210,6 +210,10 @@ export function useMainContent(): UseMainContentResult {
       // Open edit modal for the newly uploaded book
       bookEditModal.handleEditBook(bookId);
     },
+    onBookAdded: async (bookId) => {
+      // Add book to grid without opening modal (for multi-file uploads)
+      await booksGridBookDataUpdateRef.current?.addBook?.(bookId);
+    },
     onUploadError: (error) => {
       // TODO: Show error notification to user
       // eslint-disable-next-line no-console

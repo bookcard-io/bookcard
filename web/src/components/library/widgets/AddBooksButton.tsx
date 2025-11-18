@@ -66,9 +66,10 @@ export function AddBooksButton({
         ref={fileInputRef}
         type="file"
         accept={accept}
+        multiple
         onChange={onFileChange}
         className="hidden"
-        aria-label="Select book file"
+        aria-label="Select book files"
       />
       <button
         type="button"
