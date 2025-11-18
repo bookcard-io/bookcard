@@ -161,12 +161,9 @@ export function useStickyStatus(
           currentOpacityRef.current = calculatedOpacity;
           setOpacity(calculatedOpacity);
         } else {
-          // Status element is still visible - not sticky
-          // Only update if opacity is not already 0 to avoid unnecessary re-renders
-          if (currentOpacityRef.current > 0) {
-            currentOpacityRef.current = 0;
-            setOpacity(0);
-          }
+          // Status element is still visible - not sticky.
+          // Opacity is already guaranteed to be 0 in this branch, so no update
+          // is necessary. This avoids unnecessary re-renders.
         }
       });
     };

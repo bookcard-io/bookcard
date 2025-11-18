@@ -391,6 +391,7 @@ export function useBookEditForm({
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
         // Search was cancelled (expected when we get first result)
+        setIsLuckySearching(false);
         return;
       }
       // Error handling

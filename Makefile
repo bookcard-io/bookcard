@@ -1,4 +1,4 @@
-.PHONY: dev setup-uv kill-ports format test testjs testpy
+.PHONY: dev setup-uv kill-ports format formatjs formatpy test testjs testpy
 
 setup-uv:
 	@if command -v uv >/dev/null 2>&1; then \
@@ -86,7 +86,7 @@ dev: setup-uv
 		. ./.env; \
 	fi; \
 	set +a; \
-	uv run uvicorn fundamental.api.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude "tests/**" --reload-exclude "**/test_*.py" & \
+	uv run uvicorn fundamental.api.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude tests & \
 	PID1=$$!; \
 	cd web && npm run dev & \
 	PID2=$$!; \
@@ -118,6 +118,17 @@ format:
 	cd $(CURDIR) && uv run --frozen ty check; \
 	cd $(CURDIR)/web && npm run lint:fix -- --unsafe; \
 	cd $(CURDIR)/web && npm run check:types
+
+formatjs:
+	@echo "Running JavaScript/TypeScript format checks and fixes..."; \
+	cd $(CURDIR)/web && npm run lint:fix -- --unsafe; \
+	cd $(CURDIR)/web && npm run check:types
+
+formatpy:
+	@echo "Running Python format checks and fixes..."; \
+	cd $(CURDIR) && uv run --frozen ruff check --fix; \
+	cd $(CURDIR) && uv run --frozen ruff format; \
+	cd $(CURDIR) && uv run --frozen ty check
 
 test:
 	@echo "Running tests with coverage..."; \

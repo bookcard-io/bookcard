@@ -14,7 +14,11 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { type SendBookOptions, sendBookToDevice } from "./bookService";
+import {
+  type SendBookOptions,
+  sendBookToDevice,
+  updateBookRating,
+} from "./bookService";
 
 /**
  * Creates a mock fetch response.
@@ -153,6 +157,89 @@ describe("bookService", () => {
 
       await expect(sendBookToDevice(bookId)).rejects.toThrow(
         "Failed to send book",
+      );
+    });
+  });
+
+  describe("updateBookRating", () => {
+    const bookId = 1;
+
+    it("should update rating successfully", async () => {
+      const mockResponse = createMockResponse(true);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      await updateBookRating(bookId, 5);
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(`/api/books/${bookId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          rating_value: 5,
+        }),
+      });
+    });
+
+    it("should update rating to null", async () => {
+      const mockResponse = createMockResponse(true);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      await updateBookRating(bookId, null);
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(`/api/books/${bookId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          rating_value: null,
+        }),
+      });
+    });
+
+    it("should throw error with detail from response", async () => {
+      const mockResponse = createMockResponse(false, {
+        detail: "Book not found",
+      });
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      await expect(updateBookRating(bookId, 5)).rejects.toThrow(
+        "Book not found",
+      );
+    });
+
+    it("should throw error with default message when no detail", async () => {
+      const mockResponse = createMockResponse(false, {});
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      await expect(updateBookRating(bookId, 5)).rejects.toThrow(
+        "Failed to update rating",
+      );
+    });
+
+    it("should throw error when JSON parsing fails", async () => {
+      const mockResponse = createMockResponse(
+        false,
+        {},
+        new Error("Invalid JSON"),
+      );
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      await expect(updateBookRating(bookId, 5)).rejects.toThrow(
+        "Failed to update rating",
       );
     });
   });
