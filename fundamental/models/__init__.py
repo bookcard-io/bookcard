@@ -67,6 +67,7 @@ from fundamental.models.core import (
     Series,
     Tag,
 )
+from fundamental.models.library_scanning import LibraryScanState
 from fundamental.models.media import ConversionOptions, Data
 from fundamental.models.reading import (
     Annotation,
@@ -133,6 +134,7 @@ __all__ = [
     "LastReadPosition",
     "Library",
     "LibraryId",
+    "LibraryScanState",
     "LogLevel",
     "MetadataDirtied",
     "Permission",

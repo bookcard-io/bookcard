@@ -19,14 +19,12 @@ Creates and configures the FastAPI app, registers routers, and initializes
 application state. Designed for IOC and testability.
 """
 
-from __future__ import annotations
-
 import asyncio
 import logging
 import os
 import sys
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -37,6 +35,7 @@ from fundamental.api.routes.auth import router as auth_router
 from fundamental.api.routes.books import router as books_router
 from fundamental.api.routes.devices import router as devices_router
 from fundamental.api.routes.fs import router as fs_router
+from fundamental.api.routes.library_scanning import router as library_scanning_router
 from fundamental.api.routes.metadata import router as metadata_router
 from fundamental.api.routes.shelves import router as shelves_router
 from fundamental.api.routes.tasks import router as tasks_router
@@ -45,9 +44,6 @@ from fundamental.database import create_db_engine
 from fundamental.services.tasks.runner_factory import create_task_runner
 
 logger = logging.getLogger(__name__)
-
-if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
 
 try:
     # Imported lazily in function to avoid hard dependency at import time in tests
@@ -103,6 +99,7 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(books_router)
     app.include_router(devices_router)
     app.include_router(fs_router)
+    app.include_router(library_scanning_router)
     app.include_router(metadata_router)
     app.include_router(shelves_router)
     app.include_router(tasks_router)

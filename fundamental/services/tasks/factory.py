@@ -18,13 +18,12 @@
 Maps task types to their corresponding task classes.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 from fundamental.models.tasks import TaskType
-from fundamental.services.tasks.base import BaseTask  # noqa: TC001
+from fundamental.services.tasks.base import BaseTask
 from fundamental.services.tasks.book_upload_task import BookUploadTask
+from fundamental.services.tasks.library_scan_task import LibraryScanTask
 from fundamental.services.tasks.multi_upload_task import MultiBookUploadTask
 
 
@@ -70,5 +69,7 @@ def create_task(
         return BookUploadTask(task_id, user_id, metadata)
     if task_type == TaskType.MULTI_BOOK_UPLOAD:
         return MultiBookUploadTask(task_id, user_id, metadata)
+    if task_type == TaskType.LIBRARY_SCAN:
+        return LibraryScanTask(task_id, user_id, metadata)
     msg = f"Task type {task_type} not yet implemented"
     raise ValueError(msg)

@@ -338,6 +338,22 @@ class CalibreBookRepository:
         finally:
             session.close()
 
+    @contextmanager
+    def get_session(self) -> Iterator[Session]:
+        """Get a SQLModel session for the Calibre database.
+
+        Yields
+        ------
+        Session
+            SQLModel session.
+        """
+        engine = self._get_engine()
+        session = Session(engine)
+        try:
+            yield session
+        finally:
+            session.close()
+
     def count_books(self, search_query: str | None = None) -> int:
         """Count total number of books, optionally filtered by search.
 
