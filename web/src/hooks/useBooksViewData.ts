@@ -41,7 +41,7 @@ export interface UseBooksViewDataOptions {
     updateCover: (bookId: number) => void;
     removeBook?: (bookId: number) => void;
     addBook?: (bookId: number) => Promise<void>;
-  }>;
+  } | null>;
 }
 
 export interface UseBooksViewDataResult {

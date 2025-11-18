@@ -26,6 +26,16 @@ from fundamental.models.auth import (
     UserRole,
     UserSetting,
 )
+from fundamental.models.author_metadata import (
+    AuthorAlternateName,
+    AuthorLink,
+    AuthorMapping,
+    AuthorMetadata,
+    AuthorPhoto,
+    AuthorRemoteId,
+    AuthorSimilarity,
+    AuthorSubject,
+)
 from fundamental.models.config import (
     BasicConfig,
     ContentRestrictionsConfig,
@@ -87,6 +97,14 @@ __all__ = [
     "Annotation",
     "AnnotationDirtied",
     "Author",
+    "AuthorAlternateName",
+    "AuthorLink",
+    "AuthorMapping",
+    "AuthorMetadata",
+    "AuthorPhoto",
+    "AuthorRemoteId",
+    "AuthorSimilarity",
+    "AuthorSubject",
     "BasicConfig",
     "Book",
     "BookAuthorLink",

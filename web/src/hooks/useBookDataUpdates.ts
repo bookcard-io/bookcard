@@ -22,7 +22,7 @@ export interface UseBookDataUpdatesOptions {
   updateRef?: React.RefObject<{
     updateBook: (bookId: number, bookData: Partial<Book>) => void;
     updateCover: (bookId: number) => void;
-  }>;
+  } | null>;
 }
 
 export interface UseBookDataUpdatesResult {
@@ -86,8 +86,14 @@ export function useBookDataUpdates(
 
   // Expose updateBook and updateCover methods via ref
   useEffect(() => {
-    if (updateRef) {
-      updateRef.current = { updateBook, updateCover };
+    if (updateRef?.current) {
+      // Preserve existing methods (removeBook, addBook) if they exist
+      const existing = updateRef.current;
+      updateRef.current = {
+        ...existing,
+        updateBook,
+        updateCover,
+      };
     }
   }, [updateRef, updateBook, updateCover]);
 

@@ -53,7 +53,7 @@ export interface BooksGridProps {
     updateCover: (bookId: number) => void;
     removeBook?: (bookId: number) => void;
     addBook?: (bookId: number) => Promise<void>;
-  }>;
+  } | null>;
   /** Callback to expose book navigation data (bookIds, loadMore, hasMore, isLoading) for modal navigation. */
   onBooksDataChange?: (data: {
     bookIds: number[];
@@ -61,6 +61,10 @@ export interface BooksGridProps {
     hasMore?: boolean;
     isLoading: boolean;
   }) => void;
+  /** Whether to hide the status header (BooksViewStatus). */
+  hideStatusHeader?: boolean;
+  /** Whether to hide the "No more books to load" message at the bottom. */
+  hideLoadMoreMessage?: boolean;
 }
 
 /**
@@ -80,6 +84,8 @@ export function BooksGrid({
   pageSize = 20,
   bookDataUpdateRef,
   onBooksDataChange,
+  hideStatusHeader = false,
+  hideLoadMoreMessage = false,
 }: BooksGridProps) {
   // Fetch and manage books data (SRP: data concerns separated)
   const {
@@ -181,11 +187,13 @@ export function BooksGrid({
 
   return (
     <div className="w-full">
-      <BooksViewStatus
-        currentCount={uniqueBooks.length}
-        total={total}
-        hasMore={hasMore ?? false}
-      />
+      {!hideStatusHeader && (
+        <BooksViewStatus
+          currentCount={uniqueBooks.length}
+          total={total}
+          hasMore={hasMore ?? false}
+        />
+      )}
       {shelfId && <ShelfFilterInfoBox />}
       <div className="px-8">
         <div ref={parentRef} className="relative w-full">
@@ -280,11 +288,14 @@ export function BooksGrid({
           </div>
         </div>
       </div>
-      {!hasMore && !isLoading && uniqueBooks.length > 0 && (
-        <div className="p-4 px-8 text-center text-sm text-text-a40">
-          No more books to load
-        </div>
-      )}
+      {!hideLoadMoreMessage &&
+        !hasMore &&
+        !isLoading &&
+        uniqueBooks.length > 0 && (
+          <div className="p-4 px-8 text-center text-sm text-text-a40">
+            No more books to load
+          </div>
+        )}
     </div>
   );
 }
