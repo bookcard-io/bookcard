@@ -131,18 +131,41 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
     async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         """Application lifespan manager.
 
-        Runs database migrations at startup when enabled.
+        Runs database migrations at startup when enabled and ensures that
+        background services (such as the task runner) are shut down gracefully
+        during application shutdown or reload.
         """
-        if (
-            cfg.alembic_enabled
-            and _AlembicConfig is not None
-            and _alembic_command is not None
-        ):
-            alembic_cfg = _AlembicConfig()
-            alembic_cfg.set_main_option("script_location", "fundamental/db/migrations")
-            await asyncio.to_thread(_alembic_command.upgrade, alembic_cfg, "head")
-        _ = getattr(app, "state", None)
-        yield
+        try:
+            if (
+                cfg.alembic_enabled
+                and _AlembicConfig is not None
+                and _alembic_command is not None
+            ):
+                alembic_cfg = _AlembicConfig()
+                alembic_cfg.set_main_option(
+                    "script_location", "fundamental/db/migrations"
+                )
+                await asyncio.to_thread(_alembic_command.upgrade, alembic_cfg, "head")
+
+            # Access app.state early to ensure it is created by Starlette.
+            _ = getattr(app, "state", None)
+
+            # Yield control to allow the application to serve requests.
+            yield
+
+        except asyncio.CancelledError:
+            # Uvicorn's reload and shutdown mechanisms may cancel the lifespan
+            # task (common on Windows with the file-watcher/reloader).
+            # Treat this as a graceful shutdown so background workers can stop
+            # cleanly without surfacing noisy tracebacks.
+            logger.info("Application lifespan cancelled; shutting down gracefully.")
+        finally:
+            # Ensure background task runners are stopped so that reload/shutdown
+            # is clean and does not leak worker threads.
+            task_runner = getattr(app.state, "task_runner", None)
+            shutdown = getattr(task_runner, "shutdown", None) if task_runner else None
+            if callable(shutdown):
+                shutdown()
 
     app = FastAPI(
         title="Fundamental",
