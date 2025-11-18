@@ -21,6 +21,7 @@ import {
 } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FilterValues } from "@/components/library/widgets/FiltersPanel";
+import { useActiveLibrary } from "@/contexts/ActiveLibraryContext";
 import type { Book, BookListResponse } from "@/types/book";
 import { deduplicateFetch, generateFetchKey } from "@/utils/fetch";
 import { filtersToApiBody, hasActiveFilters } from "@/utils/filters";
@@ -168,6 +169,9 @@ export function useFilteredBooks(
     full = false,
   } = options;
 
+  const { activeLibrary, isLoading: isActiveLibraryLoading } =
+    useActiveLibrary();
+
   const queryClient = useQueryClient();
 
   const [data, _setData] = useState<BookListResponse | null>(null);
@@ -276,8 +280,12 @@ export function useFilteredBooks(
     [filters, currentPageSize, currentSortBy, currentSortOrder, full],
   );
 
-  const listQueryEnabled = enabled && !!filters && !infiniteScroll;
-  const infiniteQueryEnabled = enabled && !!filters && infiniteScroll;
+  // Only enable queries if there's an active library and not still loading
+  const hasActiveLibrary = activeLibrary !== null && !isActiveLibraryLoading;
+  const listQueryEnabled =
+    enabled && !!filters && !infiniteScroll && hasActiveLibrary;
+  const infiniteQueryEnabled =
+    enabled && !!filters && infiniteScroll && hasActiveLibrary;
 
   const listQuery = useQuery<BookListResponse, Error>({
     queryKey: listQueryKey,
@@ -328,14 +336,22 @@ export function useFilteredBooks(
   const effectiveData = listQuery.data ?? data;
 
   const effectiveIsLoading =
+    isActiveLibraryLoading ||
     (infiniteScroll && infiniteQueryEnabled
       ? infiniteQuery.isPending || infiniteQuery.isFetching
       : listQueryEnabled
         ? listQuery.isPending || listQuery.isFetching
-        : false) || isLoading;
+        : false) ||
+    isLoading;
 
+  // Show friendly error if no active library, otherwise show API error
   const effectiveError =
-    infiniteQuery.error?.message ?? listQuery.error?.message ?? error ?? null;
+    !isActiveLibraryLoading && !hasActiveLibrary
+      ? "no_active_library"
+      : (infiniteQuery.error?.message ??
+        listQuery.error?.message ??
+        error ??
+        null);
 
   const books: Book[] = useMemo(() => {
     if (infiniteScroll) {

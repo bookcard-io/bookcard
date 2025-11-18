@@ -20,11 +20,15 @@
  * Follows SRP by handling only error display.
  */
 export function BooksViewError({ error }: { error: string }) {
+  // Show friendly message for no active library error
+  const friendlyMessage =
+    error === "no_active_library"
+      ? "No library is currently active. Please configure a library in the admin settings."
+      : `Error loading books: ${error}`;
+
   return (
     <div className="flex min-h-[400px] items-center justify-center p-8">
-      <p className="m-0 text-base text-danger-a10">
-        Error loading books: {error}
-      </p>
+      <p className="m-0 text-base text-danger-a10">{friendlyMessage}</p>
     </div>
   );
 }

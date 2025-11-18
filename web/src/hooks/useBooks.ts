@@ -22,6 +22,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useActiveLibrary } from "@/contexts/ActiveLibraryContext";
 import type { Book, BookListResponse, BooksQueryParams } from "@/types/book";
 import { deduplicateFetch, generateFetchKey } from "@/utils/fetch";
 
@@ -136,6 +137,9 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
     full = false,
   } = options;
 
+  const { activeLibrary, isLoading: isActiveLibraryLoading } =
+    useActiveLibrary();
+
   const [_page, _setPage] = useState(initialPage);
   const [_pageSize, _setPageSize] = useState(initialPageSize);
   const [_search, _setSearch] = useState(initialSearch || "");
@@ -227,8 +231,10 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
     [pageSize, search, sortBy, sortOrder, full],
   );
 
-  const listQueryEnabled = enabled && !infiniteScroll;
-  const infiniteQueryEnabled = enabled && infiniteScroll;
+  // Only enable queries if there's an active library and not still loading
+  const hasActiveLibrary = activeLibrary !== null && !isActiveLibraryLoading;
+  const listQueryEnabled = enabled && !infiniteScroll && hasActiveLibrary;
+  const infiniteQueryEnabled = enabled && infiniteScroll && hasActiveLibrary;
 
   const listQuery = useQuery<BookListResponse, Error>({
     queryKey: listQueryKey,
@@ -344,16 +350,20 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
   }, [infiniteScroll, infiniteData, data]);
 
   const isLoading =
-    infiniteScroll && infiniteQueryEnabled
+    isActiveLibraryLoading ||
+    (infiniteScroll && infiniteQueryEnabled
       ? infiniteQuery.isPending || infiniteQuery.isFetching
       : listQueryEnabled
         ? listQuery.isPending || listQuery.isFetching
-        : false;
+        : false);
 
+  // Show friendly error if no active library, otherwise show API error
   const error =
-    (infiniteScroll && infiniteQuery.error?.message) ||
-    listQuery.error?.message ||
-    null;
+    !isActiveLibraryLoading && !hasActiveLibrary
+      ? "no_active_library"
+      : (infiniteScroll && infiniteQuery.error?.message) ||
+        listQuery.error?.message ||
+        null;
 
   const loadMore = useCallback(() => {
     if (!infiniteScroll || !infiniteQueryEnabled) {
