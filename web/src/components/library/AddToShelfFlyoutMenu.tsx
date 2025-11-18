@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
+import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
 import { useUser } from "@/contexts/UserContext";
 import { useFlyoutIntent } from "@/hooks/useFlyoutIntent";
@@ -69,6 +70,7 @@ export function AddToShelfFlyoutMenu({
   onSuccess,
 }: AddToShelfFlyoutMenuProps) {
   const { canPerformAction } = useUser();
+  const { showDanger } = useGlobalMessages();
   const canEditShelves = canPerformAction("shelves", "edit");
   const [mounted, setMounted] = useState(false);
 
@@ -134,7 +136,9 @@ export function AddToShelfFlyoutMenu({
       } catch (error) {
         // If book is already in shelf, treat as success (no-op) and close menu
         const errorMessage =
-          error instanceof Error ? error.message : String(error);
+          error instanceof Error
+            ? error.message
+            : "Failed to add book to shelf";
         if (
           errorMessage.toLowerCase().includes("already in shelf") ||
           errorMessage.toLowerCase().includes("already exists")
@@ -144,8 +148,8 @@ export function AddToShelfFlyoutMenu({
           onSuccess?.();
           return;
         }
-        // For other errors, log and don't close menu
-        console.error("Failed to add book to shelf:", error);
+        // For other errors, show message but don't close menu
+        showDanger(errorMessage);
       }
     },
     [
@@ -155,6 +159,7 @@ export function AddToShelfFlyoutMenu({
       refreshShelvesContext,
       onClose,
       onSuccess,
+      showDanger,
     ],
   );
 

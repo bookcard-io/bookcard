@@ -87,6 +87,83 @@ describe("useBookViewModal", () => {
     expect(result.current.viewingBookId).toBe(1); // Should not change
   });
 
+  it("should navigate next and trigger loadMore when near end", () => {
+    const loadMore = vi.fn();
+    const bookIds = [1, 2, 3];
+    const { result } = renderHook(() =>
+      useBookViewModal({ bookIds, hasMore: true, loadMore }),
+    );
+
+    act(() => {
+      result.current.handleBookClick({ id: 2 });
+    });
+
+    act(() => {
+      result.current.handleNavigateNext();
+    });
+
+    expect(result.current.viewingBookId).toBe(3);
+  });
+
+  it("should handle navigation when bookIds change after pending navigation", () => {
+    const loadMore = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ bookIds }) => useBookViewModal({ bookIds, hasMore: true, loadMore }),
+      {
+        initialProps: { bookIds: [1, 2] },
+      },
+    );
+
+    act(() => {
+      result.current.handleBookClick({ id: 2 });
+    });
+
+    act(() => {
+      result.current.handleNavigateNext();
+    });
+
+    // Should set pending navigation (covers line 87)
+    expect(result.current.viewingBookId).toBe(2);
+
+    // Simulate bookIds expanding
+    rerender({ bookIds: [1, 2, 3, 4] });
+
+    // Should navigate to next book when bookIds expand (covers lines 89-93)
+    expect(result.current.viewingBookId).toBe(3);
+  });
+
+  it("should handle previous navigation with undefined prevId", () => {
+    const bookIds = [1, 2, 3];
+    const { result } = renderHook(() => useBookViewModal({ bookIds }));
+
+    act(() => {
+      result.current.handleBookClick({ id: 2 });
+    });
+
+    act(() => {
+      result.current.handleNavigatePrevious();
+    });
+
+    // Should navigate to previous (covers line 126)
+    expect(result.current.viewingBookId).toBe(1);
+  });
+
+  it("should handle next navigation with undefined nextId", () => {
+    const bookIds = [1, 2, 3];
+    const { result } = renderHook(() => useBookViewModal({ bookIds }));
+
+    act(() => {
+      result.current.handleBookClick({ id: 2 });
+    });
+
+    act(() => {
+      result.current.handleNavigateNext();
+    });
+
+    // Should navigate to next (covers line 170)
+    expect(result.current.viewingBookId).toBe(3);
+  });
+
   it("should not navigate next when at last book and no more to load", () => {
     const bookIds = [1, 2, 3];
     const { result } = renderHook(() => useBookViewModal({ bookIds }));

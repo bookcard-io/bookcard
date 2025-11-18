@@ -20,6 +20,7 @@ import { Button } from "@/components/forms/Button";
 import { TextArea } from "@/components/forms/TextArea";
 import { TextInput } from "@/components/forms/TextInput";
 import { ShelfCoverSection } from "@/components/shelves/ShelfCoverSection";
+import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { useUser } from "@/contexts/UserContext";
 import { useCoverFile } from "@/hooks/useCoverFile";
 import { useModal } from "@/hooks/useModal";
@@ -65,6 +66,7 @@ export function ShelfEditModal({
 }: ShelfEditModalProps) {
   const isEditMode = shelf !== null;
   const { canPerformAction } = useUser();
+  const { showDanger } = useGlobalMessages();
   const shelfContext = shelf ? buildShelfPermissionContext(shelf) : undefined;
   const canCreate = !isEditMode && canPerformAction("shelves", "create");
   const canEdit =
@@ -88,7 +90,7 @@ export function ShelfEditModal({
       // This won't be called since we handle submission manually
     },
     onError: (error) => {
-      console.error("Shelf form error:", error);
+      showDanger(error);
     },
   });
 
@@ -118,7 +120,7 @@ export function ShelfEditModal({
     onCoverDeleted,
     onError: (error) => {
       setCoverOperationError(error);
-      console.error("Cover operation error:", error);
+      showDanger(error);
     },
   });
 
@@ -188,7 +190,9 @@ export function ShelfEditModal({
 
         onClose();
       } catch (error) {
-        console.error("Failed to save shelf:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to save shelf";
+        showDanger(errorMessage);
         // Error handling is done by useShelfForm and useShelfCoverOperations
       } finally {
         setIsSaving(false);
@@ -204,6 +208,7 @@ export function ShelfEditModal({
       isCoverDeleteStaged,
       executeCoverOperations,
       onClose,
+      showDanger,
     ],
   );
 

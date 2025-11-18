@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
+import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import type { EReaderDevice } from "@/contexts/UserContext";
 import { useUser } from "@/contexts/UserContext";
 import { useFlyoutIntent } from "@/hooks/useFlyoutIntent";
@@ -74,6 +75,7 @@ export function SendToDeviceFlyoutMenu({
   const [email, setEmail] = useState("");
   const emailInputRef = useRef<HTMLInputElement>(null);
   const { user, canPerformAction } = useUser();
+  const { showDanger } = useGlobalMessages();
 
   // Check permission - disable all actions if no permission
   const canSend = canPerformAction(
@@ -170,12 +172,13 @@ export function SendToDeviceFlyoutMenu({
       onClose();
       onSuccess?.();
     } catch (error) {
-      console.error("Failed to send book:", error);
-      alert(error instanceof Error ? error.message : "Failed to send book");
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to send book";
+      showDanger(errorMessage);
     } finally {
       setIsSending(false);
     }
-  }, [book.id, defaultDevice, onClose, onSuccess]);
+  }, [book.id, defaultDevice, onClose, onSuccess, showDanger]);
 
   /**
    * Handle sending book to a specific device.
@@ -195,13 +198,14 @@ export function SendToDeviceFlyoutMenu({
         onClose();
         onSuccess?.();
       } catch (error) {
-        console.error("Failed to send book:", error);
-        alert(error instanceof Error ? error.message : "Failed to send book");
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to send book";
+        showDanger(errorMessage);
       } finally {
         setIsSending(false);
       }
     },
-    [book.id, onClose, onSuccess],
+    [book.id, onClose, onSuccess, showDanger],
   );
 
   /**
@@ -231,12 +235,13 @@ export function SendToDeviceFlyoutMenu({
       onClose();
       onSuccess?.();
     } catch (error) {
-      console.error("Failed to send book:", error);
-      alert(error instanceof Error ? error.message : "Failed to send book");
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to send book";
+      showDanger(errorMessage);
     } finally {
       setIsSending(false);
     }
-  }, [book.id, email, onClose, onSuccess]);
+  }, [book.id, email, onClose, onSuccess, showDanger]);
 
   /**
    * Handle Enter key in email input.

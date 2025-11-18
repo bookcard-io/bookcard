@@ -24,6 +24,7 @@ import { LibraryTabs } from "@/components/library/LibraryTabs";
 import { SearchWidgetBar } from "@/components/library/SearchWidgetBar";
 import { FiltersPanel } from "@/components/library/widgets/FiltersPanel";
 import { ShelfSelectionBar } from "@/components/shelves/ShelfSelectionBar";
+import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { useSelectedShelf } from "@/contexts/SelectedShelfContext";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
 import { useMainContent } from "@/hooks/useMainContent";
@@ -73,6 +74,7 @@ export function MainContent() {
     new Set(),
   );
   const { refresh: refreshShelvesContext } = useShelvesContext();
+  const { showDanger } = useGlobalMessages();
   const shelvesGridSelectionControlRef = useRef<{
     clearSelection: () => void;
   } | null>(null);
@@ -96,10 +98,12 @@ export function MainContent() {
         // Refresh context to sync with Sidebar and ShelvesGrid
         await refreshShelvesContext();
       } catch (error) {
-        console.error("Failed to delete shelf(s):", error);
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to delete shelf(s)";
+        showDanger(errorMessage);
       }
     }
-  }, [selectedShelfIds, refreshShelvesContext]);
+  }, [selectedShelfIds, refreshShelvesContext, showDanger]);
 
   // Handle deselect all
   const handleDeselectAll = useCallback(() => {

@@ -15,7 +15,8 @@
 
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { GlobalMessageProvider } from "@/contexts/GlobalMessageContext";
 import { UserContext } from "@/contexts/UserContext";
 import { useDeviceActions } from "./useDeviceActions";
 
@@ -102,28 +103,23 @@ function createWrapper(
   };
 
   return ({ children }: { children: ReactNode }) => (
-    <UserContext.Provider value={defaultContext}>
-      {children}
-    </UserContext.Provider>
+    <GlobalMessageProvider>
+      <UserContext.Provider value={defaultContext}>
+        {children}
+      </UserContext.Provider>
+    </GlobalMessageProvider>
   );
 }
 
 describe("useDeviceActions", () => {
   const mockRefresh = vi.fn();
   const mockUpdateUser = vi.fn();
-  const consoleErrorSpy = vi
-    .spyOn(console, "error")
-    .mockImplementation(() => {});
 
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(deviceService.updateDevice).mockResolvedValue(
       createMockDevice(1, { is_default: true }),
     );
-  });
-
-  afterEach(() => {
-    consoleErrorSpy.mockClear();
   });
 
   it("should return setDefaultDevice function", () => {
@@ -232,11 +228,6 @@ describe("useDeviceActions", () => {
     await waitFor(() => {
       expect(mockRefresh).toHaveBeenCalled();
     });
-
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      "Failed to set default device:",
-      error,
-    );
   });
 
   it("should handle case when user has no devices", async () => {

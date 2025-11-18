@@ -17,6 +17,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/forms/Button";
+import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { useRoles } from "@/contexts/RolesContext";
 import { useDeleteConfirmationState } from "@/hooks/useDeleteConfirmationState";
 import { useModalState } from "@/hooks/useModalState";
@@ -50,6 +51,7 @@ import { type User, UsersTable } from "../UsersTable";
  * Uses DRY by leveraging useUserManagement, useRoleManagement, and modal state hooks.
  */
 export function UsersAndRolesTab() {
+  const { showDanger } = useGlobalMessages();
   // User management (SRP via hook)
   const {
     users,
@@ -93,14 +95,16 @@ export function UsersAndRolesTab() {
         const fetchedPermissions = await fetchPermissions();
         setPermissions(fetchedPermissions);
       } catch (err) {
-        console.error("Failed to fetch permissions:", err);
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to fetch permissions";
+        showDanger(errorMessage);
       } finally {
         setIsLoadingPermissions(false);
       }
     };
 
     void loadPermissions();
-  }, []);
+  }, [showDanger]);
 
   // Permission handlers (standalone mode)
   const handleSavePermission = useCallback(

@@ -14,6 +14,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { useCallback } from "react";
+import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { updateBookRating } from "@/services/bookService";
 
 export interface UseBookRatingOptions {
@@ -49,6 +50,7 @@ export function useBookRating(
   options: UseBookRatingOptions,
 ): UseBookRatingResult {
   const { onOptimisticUpdate, onError } = options;
+  const { showDanger } = useGlobalMessages();
 
   const updateRating = useCallback(
     async (bookId: number, rating: number | null) => {
@@ -65,11 +67,11 @@ export function useBookRating(
         if (onError) {
           onError(errorMessage);
         } else {
-          console.error("Error updating rating:", errorMessage);
+          showDanger(errorMessage.message);
         }
       }
     },
-    [onOptimisticUpdate, onError],
+    [onOptimisticUpdate, onError, showDanger],
   );
 
   return { updateRating };

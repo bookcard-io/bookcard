@@ -19,6 +19,10 @@ vi.mock("./useDeleteConfirmation", () => ({
   useDeleteConfirmation: vi.fn(),
 }));
 
+vi.mock("@/services/bookService", () => ({
+  sendBookToDevice: vi.fn(),
+}));
+
 import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -327,6 +331,178 @@ describe("useBookCardMenuActions", () => {
         result.current.handleSend();
       });
     }).not.toThrow();
+  });
+
+  it("should select default device when available", () => {
+    const book = createMockBook(1);
+    const wrapper = createWrapper({
+      user: {
+        id: 1,
+        username: "test",
+        email: "test@example.com",
+        profile_picture: null,
+        is_admin: false,
+        ereader_devices: [
+          {
+            id: 1,
+            user_id: 1,
+            email: "device1@example.com",
+            device_name: "Device 1",
+            device_type: "kindle",
+            preferred_format: "mobi",
+            is_default: false,
+          },
+          {
+            id: 2,
+            user_id: 1,
+            email: "device2@example.com",
+            device_name: "Device 2",
+            device_type: "kindle",
+            preferred_format: "mobi",
+            is_default: true,
+          },
+        ],
+      },
+    });
+
+    const { result } = renderHook(
+      () =>
+        useBookCardMenuActions({
+          book,
+        }),
+      { wrapper },
+    );
+
+    expect(result.current.isSendDisabled).toBe(false);
+  });
+
+  it("should select first device when no default device", () => {
+    const book = createMockBook(1);
+    const wrapper = createWrapper({
+      user: {
+        id: 1,
+        username: "test",
+        email: "test@example.com",
+        profile_picture: null,
+        is_admin: false,
+        ereader_devices: [
+          {
+            id: 1,
+            user_id: 1,
+            email: "device1@example.com",
+            device_name: "Device 1",
+            device_type: "kindle",
+            preferred_format: "mobi",
+            is_default: false,
+          },
+          {
+            id: 2,
+            user_id: 1,
+            email: "device2@example.com",
+            device_name: "Device 2",
+            device_type: "kindle",
+            preferred_format: "mobi",
+            is_default: false,
+          },
+        ],
+      },
+    });
+
+    const { result } = renderHook(
+      () =>
+        useBookCardMenuActions({
+          book,
+        }),
+      { wrapper },
+    );
+
+    expect(result.current.isSendDisabled).toBe(false);
+  });
+
+  it("should handle send error", async () => {
+    const book = createMockBook(1);
+    vi.stubGlobal("alert", vi.fn());
+    vi.stubGlobal("console", { ...console, error: vi.fn() });
+    const { sendBookToDevice } = await import("@/services/bookService");
+    vi.mocked(sendBookToDevice).mockRejectedValueOnce(new Error("Send failed"));
+
+    const wrapper = createWrapper({
+      user: {
+        id: 1,
+        username: "test",
+        email: "test@example.com",
+        profile_picture: null,
+        is_admin: false,
+        ereader_devices: [
+          {
+            id: 1,
+            user_id: 1,
+            email: "device1@example.com",
+            device_name: "Device 1",
+            device_type: "kindle",
+            preferred_format: "mobi",
+            is_default: true,
+          },
+        ],
+      },
+    });
+
+    const { result } = renderHook(
+      () =>
+        useBookCardMenuActions({
+          book,
+        }),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await result.current.handleSend();
+    });
+
+    expect(globalThis.alert).toHaveBeenCalledWith("Send failed");
+  });
+
+  it("should handle send error with non-Error value", async () => {
+    const book = createMockBook(1);
+    vi.stubGlobal("alert", vi.fn());
+    vi.stubGlobal("console", { ...console, error: vi.fn() });
+    const { sendBookToDevice } = await import("@/services/bookService");
+    vi.mocked(sendBookToDevice).mockRejectedValueOnce("String error");
+
+    const wrapper = createWrapper({
+      user: {
+        id: 1,
+        username: "test",
+        email: "test@example.com",
+        profile_picture: null,
+        is_admin: false,
+        ereader_devices: [
+          {
+            id: 1,
+            user_id: 1,
+            email: "device1@example.com",
+            device_name: "Device 1",
+            device_type: "kindle",
+            preferred_format: "mobi",
+            is_default: true,
+          },
+        ],
+      },
+    });
+
+    const { result } = renderHook(
+      () =>
+        useBookCardMenuActions({
+          book,
+        }),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await result.current.handleSend();
+    });
+
+    expect(globalThis.alert).toHaveBeenCalledWith("Failed to send book");
   });
 
   it("should not throw when handleMoveToLibrary is called", () => {

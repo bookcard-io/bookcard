@@ -20,6 +20,7 @@ import { Button } from "@/components/forms/Button";
 import { PermissionMultiTextInput } from "@/components/forms/PermissionMultiTextInput";
 import { TextArea } from "@/components/forms/TextArea";
 import { TextInput } from "@/components/forms/TextInput";
+import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { useModal } from "@/hooks/useModal";
 import { useModalInteractions } from "@/hooks/useModalInteractions";
 import { useRoleForm } from "@/hooks/useRoleForm";
@@ -66,6 +67,7 @@ export function RoleEditModal({
   onSave,
   availablePermissions = [],
 }: RoleEditModalProps) {
+  const { showDanger } = useGlobalMessages();
   // Form state and validation (SRP via hook)
   const {
     formData,
@@ -84,7 +86,7 @@ export function RoleEditModal({
     role,
     onSubmit: onSave,
     onError: (error) => {
-      console.error("Failed to save role:", error);
+      showDanger(error);
     },
   });
 

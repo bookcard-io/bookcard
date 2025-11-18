@@ -18,6 +18,7 @@
 import { useCallback, useState } from "react";
 import { Button } from "@/components/forms/Button";
 import { TextInput } from "@/components/forms/TextInput";
+import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { useModal } from "@/hooks/useModal";
 import { useModalInteractions } from "@/hooks/useModalInteractions";
 import { useRoleSuggestions } from "@/hooks/useRoleSuggestions";
@@ -47,6 +48,7 @@ export interface UserEditModalProps {
  *     Component props including user, onClose, and onSave callbacks.
  */
 export function UserEditModal({ user, onClose, onSave }: UserEditModalProps) {
+  const { showDanger } = useGlobalMessages();
   const isEditMode = user !== null && user !== undefined;
 
   // Form state
@@ -152,7 +154,7 @@ export function UserEditModal({ user, onClose, onSave }: UserEditModalProps) {
         const errorMessage =
           error instanceof Error ? error.message : "Failed to save user";
         setGeneralError(errorMessage);
-        console.error("Failed to save user:", error);
+        showDanger(errorMessage);
       } finally {
         setIsSaving(false);
       }
@@ -163,6 +165,7 @@ export function UserEditModal({ user, onClose, onSave }: UserEditModalProps) {
       email,
       deviceEmail,
       password,
+      showDanger,
       isAdmin,
       isActive,
       roleNames,

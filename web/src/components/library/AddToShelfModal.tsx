@@ -20,6 +20,7 @@ import { ImageWithLoading } from "@/components/common/ImageWithLoading";
 import { Button } from "@/components/forms/Button";
 import { TextInput } from "@/components/forms/TextInput";
 import { ShelfEditModal } from "@/components/shelves/ShelfEditModal";
+import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
 import { useUser } from "@/contexts/UserContext";
 import { useBook } from "@/hooks/useBook";
@@ -54,6 +55,7 @@ export function AddToShelfModal({
   onSuccess,
 }: AddToShelfModalProps) {
   const { canPerformAction } = useUser();
+  const { showDanger } = useGlobalMessages();
   const canEditShelves = canPerformAction("shelves", "edit");
   const canCreateShelves = canPerformAction("shelves", "create");
   const { book, isLoading: isBookLoading } = useBook({
@@ -123,13 +125,15 @@ export function AddToShelfModal({
 
         setInitialCoverFile(file);
       } catch (error) {
-        console.error("Failed to fetch book cover:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to fetch book cover";
+        showDanger(errorMessage);
         setInitialCoverFile(null);
       }
     };
 
     void fetchBookCover();
-  }, [book?.thumbnail_url, book?.has_cover, bookId]);
+  }, [book?.thumbnail_url, book?.has_cover, bookId, showDanger]);
 
   const handleOverlayClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -172,7 +176,9 @@ export function AddToShelfModal({
       } catch (error) {
         // If book is already in shelf, treat as success (no-op) and close modal
         const errorMessage =
-          error instanceof Error ? error.message : String(error);
+          error instanceof Error
+            ? error.message
+            : "Failed to add book to shelf";
         if (
           errorMessage.toLowerCase().includes("already in shelf") ||
           errorMessage.toLowerCase().includes("already exists")
@@ -182,8 +188,8 @@ export function AddToShelfModal({
           onSuccess?.();
           return;
         }
-        // For other errors, log but don't close modal
-        console.error("Failed to add book to shelf:", error);
+        // For other errors, show message but don't close modal
+        showDanger(errorMessage);
       }
     },
     [
@@ -193,6 +199,7 @@ export function AddToShelfModal({
       refreshShelvesContext,
       onClose,
       onSuccess,
+      showDanger,
     ],
   );
 
@@ -217,7 +224,11 @@ export function AddToShelfModal({
         onClose();
         onSuccess?.();
       } catch (error) {
-        console.error("Failed to add book to new shelf:", error);
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Failed to add book to new shelf";
+        showDanger(errorMessage);
         // Still close modal even if adding fails
         onClose();
         onSuccess?.();
@@ -232,6 +243,7 @@ export function AddToShelfModal({
       onClose,
       onSuccess,
       newShelfName,
+      showDanger,
     ],
   );
 

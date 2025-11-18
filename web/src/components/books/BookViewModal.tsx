@@ -22,6 +22,7 @@ import { BookViewMetadata } from "@/components/books/BookViewMetadata";
 import { BookViewModalFooter } from "@/components/books/BookViewModalFooter";
 import { DeleteBookConfirmationModal } from "@/components/books/DeleteBookConfirmationModal";
 import { Button } from "@/components/forms/Button";
+import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { useBook } from "@/hooks/useBook";
 import { useDeleteConfirmation } from "@/hooks/useDeleteConfirmation";
 import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
@@ -58,6 +59,7 @@ export function BookViewModal({
   onEdit,
   onBookDeleted,
 }: BookViewModalProps) {
+  const { showDanger } = useGlobalMessages();
   const { book, isLoading, error } = useBook({
     bookId: bookId || 0,
     enabled: bookId !== null,
@@ -78,8 +80,7 @@ export function BookViewModal({
       onClose();
     },
     onError: (error) => {
-      // Error is displayed in the modal via deleteConfirmation.error
-      console.error("Failed to delete book:", error);
+      showDanger(error);
     },
   });
 

@@ -19,6 +19,7 @@ import { useCallback, useState } from "react";
 import { Button } from "@/components/forms/Button";
 import { TextArea } from "@/components/forms/TextArea";
 import { TextInput } from "@/components/forms/TextInput";
+import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { useRoles } from "@/contexts/RolesContext";
 import { useModal } from "@/hooks/useModal";
 import { useModalInteractions } from "@/hooks/useModalInteractions";
@@ -71,6 +72,7 @@ export function PermissionEditModal({
   onClose,
   onSave,
 }: PermissionEditModalProps) {
+  const { showDanger } = useGlobalMessages();
   const { updateRole: updateRoleOptimistic, roles, refresh } = useRoles();
   const isRoleContext = rolePermission !== undefined && role !== undefined;
   const isEditMode = permission !== null && permission !== undefined;
@@ -282,7 +284,7 @@ export function PermissionEditModal({
       onClose();
     },
     onError: (error) => {
-      console.error("Failed to save permission:", error);
+      showDanger(error);
     },
   });
 

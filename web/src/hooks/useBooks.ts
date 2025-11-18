@@ -294,7 +294,9 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
   const books: Book[] = useMemo(() => {
     if (infiniteScroll) {
       if (!infiniteData) return [];
-      const allItems = infiniteData.pages.flatMap((pageData) => pageData.items);
+      const allItems = infiniteData.pages.flatMap(
+        (pageData) => pageData?.items ?? [],
+      );
       const seen = new Set<number>();
       return allItems.filter((book) => {
         if (seen.has(book.id)) return false;
@@ -470,7 +472,7 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
             }
 
             const existing = prev.pages.some((pageData) =>
-              pageData.items.some((book) => book.id === newBook.id),
+              pageData?.items.some((book) => book.id === newBook.id),
             );
             if (existing) {
               return prev;

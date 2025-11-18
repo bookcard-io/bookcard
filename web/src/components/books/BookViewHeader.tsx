@@ -19,6 +19,7 @@ import { useCallback, useState } from "react";
 import { FullscreenImageModal } from "@/components/common/FullscreenImageModal";
 import { ImageWithLoading } from "@/components/common/ImageWithLoading";
 import { RatingDisplay } from "@/components/forms/RatingDisplay";
+import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { useUser } from "@/contexts/UserContext";
 import { sendBookToDevice } from "@/services/bookService";
 import type { Book } from "@/types/book";
@@ -45,6 +46,7 @@ export function BookViewHeader({
   onEdit,
 }: BookViewHeaderProps) {
   const { canPerformAction } = useUser();
+  const { showDanger } = useGlobalMessages();
   const [isCoverOpen, setIsCoverOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const openCover = useCallback(() => setIsCoverOpen(true), []);
@@ -62,13 +64,13 @@ export function BookViewHeader({
       await sendBookToDevice(book.id);
       // Optionally show success message
     } catch (error) {
-      console.error("Failed to send book:", error);
-      // Optionally show error message
-      alert(error instanceof Error ? error.message : "Failed to send book");
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to send book";
+      showDanger(errorMessage);
     } finally {
       setIsSending(false);
     }
-  }, [book.id]);
+  }, [book.id, showDanger]);
 
   return (
     <div className="flex flex-col items-center gap-4 border-[var(--color-surface-a20)] border-b pb-4 text-center md:flex-row md:items-start md:gap-4 md:pb-6 md:text-left">

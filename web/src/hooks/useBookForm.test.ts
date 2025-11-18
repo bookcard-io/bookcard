@@ -78,6 +78,45 @@ describe("useBookForm", () => {
     expect(result.current.formData.pubdate).toBe("2024-01-15");
   });
 
+  it("should handle book with no authors", () => {
+    const bookWithoutAuthors = { ...mockBook, authors: [] };
+    const { result } = renderHook(() =>
+      useBookForm({
+        book: bookWithoutAuthors,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
+    );
+
+    expect(result.current.formData.author_names).toEqual([]);
+  });
+
+  it("should handle empty identifiers array", async () => {
+    const bookWithEmptyIdentifiers = {
+      ...mockBook,
+      identifiers: [],
+    };
+    const { result } = renderHook(() =>
+      useBookForm({
+        book: bookWithEmptyIdentifiers,
+        updateBook: updateBook as (update: BookUpdate) => Promise<Book | null>,
+      }),
+    );
+
+    const submitEvent = {
+      preventDefault: vi.fn(),
+    } as unknown as React.FormEvent;
+
+    await act(async () => {
+      await result.current.handleSubmit(submitEvent);
+    });
+
+    expect(updateBook).toHaveBeenCalled();
+    const callArgs = (updateBook as ReturnType<typeof vi.fn>).mock.calls[0];
+    if (callArgs) {
+      expect(callArgs[0].identifiers).toBeNull();
+    }
+  });
+
   it("should handle field changes", () => {
     const { result } = renderHook(() =>
       useBookForm({

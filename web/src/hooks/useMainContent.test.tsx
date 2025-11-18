@@ -14,10 +14,11 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { act, renderHook } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
 // Mock Next.js navigation - using manual mock file
 import { mockGet, mockPush, mockToString } from "@/__mocks__/next-navigation";
+import { GlobalMessageProvider } from "@/contexts/GlobalMessageContext";
 
 // Mock all the hooks used by useMainContent
 vi.mock("./useLibrarySearch", () => ({
@@ -184,6 +185,10 @@ describe("useMainContent", () => {
     mockPush.mockImplementation(() => {});
   });
 
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <GlobalMessageProvider>{children}</GlobalMessageProvider>
+  );
+
   describe("initialization", () => {
     it.each([
       { tabParam: null, expected: "library" },
@@ -194,14 +199,14 @@ describe("useMainContent", () => {
       "should initialize with tab from URL: tabParam=$tabParam",
       ({ tabParam, expected }) => {
         mockGet.mockReturnValue(tabParam);
-        const { result } = renderHook(() => useMainContent());
+        const { result } = renderHook(() => useMainContent(), { wrapper });
 
         expect(result.current.activeTab).toBe(expected);
       },
     );
 
     it("should return all hook results", () => {
-      const { result } = renderHook(() => useMainContent());
+      const { result } = renderHook(() => useMainContent(), { wrapper });
 
       expect(result.current.search).toBe(mockSearch);
       expect(result.current.sorting).toBe(mockSorting);
@@ -213,7 +218,7 @@ describe("useMainContent", () => {
     });
 
     it("should initialize booksNavigationData with empty state", () => {
-      const { result } = renderHook(() => useMainContent());
+      const { result } = renderHook(() => useMainContent(), { wrapper });
 
       expect(result.current.setBooksNavigationData).toBeDefined();
       act(() => {
@@ -225,7 +230,7 @@ describe("useMainContent", () => {
     });
 
     it("should initialize booksGridBookDataUpdateRef", () => {
-      const { result } = renderHook(() => useMainContent());
+      const { result } = renderHook(() => useMainContent(), { wrapper });
 
       expect(result.current.booksGridBookDataUpdateRef.current).toBeDefined();
       expect(
@@ -240,7 +245,7 @@ describe("useMainContent", () => {
   describe("handleTabChange", () => {
     it("should change tab to library and update URL", () => {
       mockGet.mockReturnValue(null);
-      const { result } = renderHook(() => useMainContent());
+      const { result } = renderHook(() => useMainContent(), { wrapper });
 
       act(() => {
         result.current.handleTabChange("library");
@@ -253,7 +258,7 @@ describe("useMainContent", () => {
     it("should change tab to shelves and update URL", () => {
       mockGet.mockReturnValue(null);
       mockToString.mockReturnValue("");
-      const { result } = renderHook(() => useMainContent());
+      const { result } = renderHook(() => useMainContent(), { wrapper });
 
       expect(result.current.activeTab).toBe("library");
 
@@ -270,7 +275,7 @@ describe("useMainContent", () => {
 
     it("should remove tab param for library tab", () => {
       mockToString.mockReturnValue("other=value");
-      const { result } = renderHook(() => useMainContent());
+      const { result } = renderHook(() => useMainContent(), { wrapper });
 
       act(() => {
         result.current.handleTabChange("library");
@@ -283,7 +288,7 @@ describe("useMainContent", () => {
 
     it("should preserve other query params when changing to shelves", () => {
       mockToString.mockReturnValue("other=value");
-      const { result } = renderHook(() => useMainContent());
+      const { result } = renderHook(() => useMainContent(), { wrapper });
 
       act(() => {
         result.current.handleTabChange("shelves");
@@ -298,20 +303,24 @@ describe("useMainContent", () => {
   describe("tab sync with URL", () => {
     it("should sync tab when URL changes externally", () => {
       mockGet.mockReturnValue(null);
-      const { result } = renderHook(() => useMainContent());
+      const { result } = renderHook(() => useMainContent(), { wrapper });
 
       expect(result.current.activeTab).toBe("library");
 
       // Simulate URL change by creating new hook instance with different searchParams
       mockGet.mockReturnValue("shelves");
-      const { result: newResult } = renderHook(() => useMainContent());
+      const { result: newResult } = renderHook(() => useMainContent(), {
+        wrapper,
+      });
 
       expect(newResult.current.activeTab).toBe("shelves");
     });
 
     it("should not update if tab is already the same", () => {
       mockGet.mockReturnValue("library");
-      const { result, rerender } = renderHook(() => useMainContent());
+      const { result, rerender } = renderHook(() => useMainContent(), {
+        wrapper,
+      });
 
       const initialTab = result.current.activeTab;
       expect(initialTab).toBe("library");
@@ -331,7 +340,7 @@ describe("useMainContent", () => {
         onSortPanelChange: mockOnSortPanelChange,
       } as ReturnType<typeof useLibrarySorting>);
 
-      renderHook(() => useMainContent());
+      renderHook(() => useMainContent(), { wrapper });
 
       // The hook should set up coordination
       expect(useLibrarySorting).toHaveBeenCalled();
@@ -353,7 +362,7 @@ describe("useMainContent", () => {
         onFiltersPanelChange: mockOnFiltersPanelChange,
       } as ReturnType<typeof useLibraryFilters>);
 
-      renderHook(() => useMainContent());
+      renderHook(() => useMainContent(), { wrapper });
 
       const callArgs = vi.mocked(useLibraryFilters).mock.calls[0]?.[0];
       expect(callArgs?.onFiltersPanelChange).toBeDefined();
@@ -369,7 +378,7 @@ describe("useMainContent", () => {
 
   describe("book modal coordination", () => {
     it("should connect search onBookClick to book modal", () => {
-      renderHook(() => useMainContent());
+      renderHook(() => useMainContent(), { wrapper });
 
       const searchCallArgs = vi.mocked(useLibrarySearch).mock.calls[0]?.[0];
       expect(searchCallArgs?.onBookClick).toBeDefined();
@@ -384,7 +393,7 @@ describe("useMainContent", () => {
     });
 
     it("should update bookModalRef when bookModal changes", () => {
-      const { rerender } = renderHook(() => useMainContent());
+      const { rerender } = renderHook(() => useMainContent(), { wrapper });
 
       const newBookModal = {
         ...mockBookModal,
@@ -403,7 +412,7 @@ describe("useMainContent", () => {
 
   describe("book upload coordination", () => {
     it("should set up book upload with success handler", () => {
-      renderHook(() => useMainContent());
+      renderHook(() => useMainContent(), { wrapper });
 
       const uploadCallArgs = vi.mocked(useBookUpload).mock.calls[0]?.[0];
       expect(uploadCallArgs?.onUploadSuccess).toBeDefined();
@@ -412,7 +421,7 @@ describe("useMainContent", () => {
 
     it("should add book to grid and open edit modal on upload success", async () => {
       const mockAddBook = vi.fn().mockResolvedValue(undefined);
-      const { result } = renderHook(() => useMainContent());
+      const { result } = renderHook(() => useMainContent(), { wrapper });
 
       // Set up the ref
       result.current.booksGridBookDataUpdateRef.current = {
@@ -432,10 +441,7 @@ describe("useMainContent", () => {
     });
 
     it("should handle upload error", () => {
-      const consoleSpy = vi
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
-      renderHook(() => useMainContent());
+      renderHook(() => useMainContent(), { wrapper });
 
       const uploadCallArgs = vi.mocked(useBookUpload).mock.calls[0]?.[0];
       const error = "Upload failed";
@@ -444,24 +450,21 @@ describe("useMainContent", () => {
         uploadCallArgs?.onUploadError?.(error);
       });
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        "Book upload failed:",
-        "Upload failed",
-      );
-      consoleSpy.mockRestore();
+      // Error is handled by the global messaging system
+      // The test verifies that the error callback is called without throwing
     });
   });
 
   describe("view mode coordination", () => {
     it("should connect view mode to sort toggle", () => {
-      renderHook(() => useMainContent());
+      renderHook(() => useMainContent(), { wrapper });
 
       const viewModeCallArgs = vi.mocked(useLibraryViewMode).mock.calls[0]?.[0];
       expect(viewModeCallArgs?.onSortToggle).toBe(mockSorting.handleSortToggle);
     });
 
     it("should handle view mode change", () => {
-      const { result } = renderHook(() => useMainContent());
+      const { result } = renderHook(() => useMainContent(), { wrapper });
 
       act(() => {
         result.current.handleViewModeChange("list");
@@ -473,7 +476,7 @@ describe("useMainContent", () => {
 
   describe("booksNavigationData", () => {
     it("should update booksNavigationData", () => {
-      const { result } = renderHook(() => useMainContent());
+      const { result } = renderHook(() => useMainContent(), { wrapper });
 
       const newData = {
         bookIds: [1, 2, 3],
@@ -491,7 +494,7 @@ describe("useMainContent", () => {
     });
 
     it("should pass booksNavigationData to bookModal", () => {
-      const { result } = renderHook(() => useMainContent());
+      const { result } = renderHook(() => useMainContent(), { wrapper });
 
       const newData = {
         bookIds: [1, 2, 3],
@@ -518,7 +521,7 @@ describe("useMainContent", () => {
 
   describe("filters coordination", () => {
     it("should connect filters clearSearch to search clearSearch", () => {
-      renderHook(() => useMainContent());
+      renderHook(() => useMainContent(), { wrapper });
 
       const filtersCallArgs = vi.mocked(useLibraryFilters).mock.calls[0]?.[0];
       expect(filtersCallArgs?.onClearSearch).toBe(mockSearch.clearSearch);

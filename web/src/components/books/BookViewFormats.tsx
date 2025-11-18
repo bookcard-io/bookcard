@@ -16,6 +16,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { useUser } from "@/contexts/UserContext";
 import type { Book } from "@/types/book";
 import { formatFileSize } from "@/utils/format";
@@ -43,6 +44,7 @@ export interface BookViewFormatsProps {
  */
 export function BookViewFormats({ formats, book }: BookViewFormatsProps) {
   const { canPerformAction } = useUser();
+  const { showDanger } = useGlobalMessages();
   const bookContext = book ? buildBookPermissionContext(book) : undefined;
   const canRead = canPerformAction("books", "read", bookContext);
   const bookId = book?.id;
@@ -58,8 +60,8 @@ export function BookViewFormats({ formats, book }: BookViewFormatsProps) {
           method: "GET",
         });
         if (!response.ok) {
-          // eslint-disable-next-line no-console
-          console.error("Download failed", await response.text());
+          const errorText = await response.text();
+          showDanger(`Download failed: ${errorText || "Unknown error"}`);
           return;
         }
         const blob = await response.blob();
@@ -83,11 +85,12 @@ export function BookViewFormats({ formats, book }: BookViewFormatsProps) {
         link.remove();
         window.URL.revokeObjectURL(objectUrl);
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error("Download error", err);
+        const errorMessage =
+          err instanceof Error ? err.message : "Download error";
+        showDanger(errorMessage);
       }
     },
-    [bookId],
+    [bookId, showDanger],
   );
 
   if (formats.length === 0) {

@@ -14,6 +14,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { useCallback } from "react";
+import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { useUser } from "@/contexts/UserContext";
 import { updateDevice } from "@/services/deviceService";
 
@@ -36,6 +37,7 @@ export interface UseDeviceActionsResult {
  */
 export function useDeviceActions(): UseDeviceActionsResult {
   const { user, updateUser, refresh: refreshUser } = useUser();
+  const { showDanger } = useGlobalMessages();
 
   const setDefaultDevice = useCallback(
     async (deviceId: number) => {
@@ -67,11 +69,14 @@ export function useDeviceActions(): UseDeviceActionsResult {
       } catch (error) {
         // On error, refresh from server
         await refreshUser();
-        // eslint-disable-next-line no-console
-        console.error("Failed to set default device:", error);
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Failed to set default device";
+        showDanger(errorMessage);
       }
     },
-    [user, updateUser, refreshUser],
+    [user, updateUser, refreshUser, showDanger],
   );
 
   return { setDefaultDevice };

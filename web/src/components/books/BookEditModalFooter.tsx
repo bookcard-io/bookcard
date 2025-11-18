@@ -17,6 +17,7 @@
 
 import { useCallback, useRef } from "react";
 import { Button } from "@/components/forms/Button";
+import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { useUser } from "@/contexts/UserContext";
 import type { Book, BookUpdate } from "@/types/book";
 import { applyBookUpdateToForm } from "@/utils/metadata";
@@ -59,6 +60,7 @@ export function BookEditModalFooter({
   handleFieldChange,
 }: BookEditModalFooterProps) {
   const { getSetting, canPerformAction } = useUser();
+  const { showDanger } = useGlobalMessages();
 
   // Check permission
   const canWrite =
@@ -83,8 +85,8 @@ export function BookEditModalFooter({
         method: "GET",
       });
       if (!response.ok) {
-        // eslint-disable-next-line no-console
-        console.error("Download failed", await response.text());
+        const errorText = await response.text();
+        showDanger(`Download failed: ${errorText || "Unknown error"}`);
         return;
       }
       const blob = await response.blob();
@@ -108,10 +110,11 @@ export function BookEditModalFooter({
       link.remove();
       window.URL.revokeObjectURL(objectUrl);
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error("Download error", err);
+      const errorMessage =
+        err instanceof Error ? err.message : "Download error";
+      showDanger(errorMessage);
     }
-  }, [bookId, getSetting]);
+  }, [bookId, getSetting, showDanger]);
 
   /**
    * Handles importing metadata from file.
@@ -180,13 +183,10 @@ export function BookEditModalFooter({
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to import metadata";
-        // eslint-disable-next-line no-console
-        console.error("Import metadata error:", message);
-        // TODO: Show error message to user (could add error state prop)
-        alert(`Failed to import metadata: ${message}`);
+        showDanger(`Failed to import metadata: ${message}`);
       }
     },
-    [handleFieldChange],
+    [handleFieldChange, showDanger],
   );
 
   return (
