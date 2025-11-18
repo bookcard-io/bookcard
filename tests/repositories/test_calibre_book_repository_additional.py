@@ -53,7 +53,12 @@ def temp_repo() -> Generator[CalibreBookRepository, None, None]:
     with tempfile.TemporaryDirectory() as tmpdir:
         db_file = Path(tmpdir) / "metadata.db"
         db_file.touch()
-        yield CalibreBookRepository(str(tmpdir))
+        repo = CalibreBookRepository(str(tmpdir))
+        try:
+            yield repo
+        finally:
+            # Dispose engine to release database connections (important on Windows)
+            repo.dispose()
 
 
 @pytest.fixture

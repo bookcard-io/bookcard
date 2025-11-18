@@ -1024,9 +1024,13 @@ def test_delete_user_data_directory_undo_warns(
 
     with caplog.at_level(logging.WARNING):
         command.undo()
+        # On Windows, the path might be represented as WindowsPath(...) in the message
         assert any(
             "Cannot undo recursive directory deletion" in record.message
-            and str(user_data_dir) in record.message
+            and (
+                str(user_data_dir) in record.message
+                or repr(user_data_dir) in record.message
+            )
             for record in caplog.records
         )
 

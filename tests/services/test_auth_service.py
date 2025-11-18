@@ -635,29 +635,29 @@ def test_upload_profile_picture_deletes_old_absolute_path(
     """Test upload_profile_picture deletes old picture with absolute path (covers lines 387-391)."""
     import tempfile
 
-    user = user_factory(user_id=1, username="alice", email="a@example.com")
-    user.profile_picture = "/tmp/old_picture.jpg"
-    user_repo.seed(user)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        old_picture = Path(tmpdir) / "old_picture.jpg"
+        old_picture.write_bytes(b"old image")
 
-    # Create old picture file
-    old_picture = Path("/tmp/old_picture.jpg")
-    old_picture.write_bytes(b"old image")
+        user = user_factory(user_id=1, username="alice", email="a@example.com")
+        user.profile_picture = str(old_picture)
+        user_repo.seed(user)
 
-    temp_dir = tempfile.mkdtemp()
-    service = AuthService(
-        session,  # type: ignore[arg-type]
-        user_repo,  # type: ignore[arg-type]
-        auth_service._hasher,  # type: ignore[attr-defined]
-        auth_service._jwt,  # type: ignore[attr-defined]
-        data_directory=temp_dir,
-    )
+        temp_dir = tempfile.mkdtemp()
+        service = AuthService(
+            session,  # type: ignore[arg-type]
+            user_repo,  # type: ignore[arg-type]
+            auth_service._hasher,  # type: ignore[attr-defined]
+            auth_service._jwt,  # type: ignore[attr-defined]
+            data_directory=temp_dir,
+        )
 
-    file_content = b"new image data"
-    result = service.upload_profile_picture(1, file_content, "profile.jpg")
+        file_content = b"new image data"
+        result = service.upload_profile_picture(1, file_content, "profile.jpg")
 
-    assert result.profile_picture is not None
-    # Old file should be deleted (or at least attempted)
-    assert session.flush_count >= 1
+        assert result.profile_picture is not None
+        # Old file should be deleted (or at least attempted)
+        assert session.flush_count >= 1
 
 
 def test_upload_profile_picture_deletes_old_relative_path(
@@ -719,17 +719,25 @@ def test_upload_profile_picture_os_error(
         data_directory=temp_dir,
     )
 
-    # Make the directory read-only to cause OSError
+    # On Windows, making directory read-only might not prevent file creation
+    # Instead, create a file in the directory and make it read-only to prevent overwrite
     assets_dir = Path(temp_dir) / "1" / "assets"
     assets_dir.mkdir(parents=True, exist_ok=True)
-    assets_dir.chmod(0o444)  # Read-only
 
+    # Create a read-only file that will prevent writing
+    readonly_file = assets_dir / "profile_picture.jpg"
+    readonly_file.touch()
     try:
+        readonly_file.chmod(0o444)  # Read-only
         file_content = b"fake image data"
         with pytest.raises(ValueError, match=r"^failed_to_save_file"):
             service.upload_profile_picture(1, file_content, "profile.jpg")
     finally:
-        assets_dir.chmod(0o755)  # Restore permissions
+        try:
+            readonly_file.chmod(0o644)  # Restore permissions
+            readonly_file.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def test_delete_profile_picture_file_absolute_path(
@@ -746,23 +754,24 @@ def test_delete_profile_picture_file_absolute_path(
     user = user_factory(user_id=1, username="alice", email="a@example.com")
     user_repo.seed(user)
 
-    temp_dir = tempfile.mkdtemp()
-    service = AuthService(
-        session,  # type: ignore[arg-type]
-        user_repo,  # type: ignore[arg-type]
-        auth_service._hasher,  # type: ignore[attr-defined]
-        auth_service._jwt,  # type: ignore[attr-defined]
-        data_directory=temp_dir,
-    )
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a file to delete
+        picture_file = Path(tmpdir) / "test_picture.jpg"
+        picture_file.write_bytes(b"fake image")
 
-    # Create a file to delete
-    picture_file = Path("/tmp/test_picture.jpg")
-    picture_file.write_bytes(b"fake image")
+        temp_dir = tempfile.mkdtemp()
+        service = AuthService(
+            session,  # type: ignore[arg-type]
+            user_repo,  # type: ignore[arg-type]
+            auth_service._hasher,  # type: ignore[attr-defined]
+            auth_service._jwt,  # type: ignore[attr-defined]
+            data_directory=temp_dir,
+        )
 
-    service._delete_profile_picture_file(str(picture_file))
+        service._delete_profile_picture_file(str(picture_file))
 
-    # File should be deleted
-    assert not picture_file.exists()
+        # File should be deleted
+        assert not picture_file.exists()
 
 
 def test_upload_profile_picture_invalid_extension(

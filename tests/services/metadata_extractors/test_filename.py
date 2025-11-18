@@ -82,17 +82,22 @@ def test_extract_empty_stem(
     extractor: FilenameMetadataExtractor,
 ) -> None:
     """Test extract handles empty/whitespace stem (covers lines 51-53)."""
+    # On Windows, files with whitespace-only names cannot be created
+    # So we'll mock the Path.stem property to test the logic
+    import tempfile
+    from unittest.mock import patch
+
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Test with a file that has whitespace-only stem (no extension)
-        # This tests the "not stem or stem.strip() == ''" condition
-        file_path = Path(tmpdir) / "   "
+        file_path = Path(tmpdir) / "test.txt"
         file_path.write_text("dummy")
 
-        metadata = extractor.extract(file_path, "   ")
+        # Mock the stem property to return whitespace-only string
+        with patch.object(file_path.__class__, "stem", property(lambda self: "   ")):
+            metadata = extractor.extract(file_path, "   ")
 
-        # When stem is whitespace-only, it should return Unknown
-        assert metadata.title == "Unknown"
-        assert metadata.author == "Unknown"
+            # When stem is whitespace-only, it should return Unknown
+            assert metadata.title == "Unknown"
+            assert metadata.author == "Unknown"
 
 
 def test_extract_whitespace_stem(

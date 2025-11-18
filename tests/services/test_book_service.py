@@ -703,8 +703,10 @@ def test_get_thumbnail_path_with_library_root() -> None:
         result = service.get_thumbnail_path(book)
 
         assert result is not None
-        assert "/custom/library/root" in str(result)
-        assert str(result).endswith("cover.jpg")
+        # On Windows, paths use backslashes, so normalize for comparison
+        result_str = str(result).replace("\\", "/")
+        assert "/custom/library/root" in result_str
+        assert result_str.endswith("cover.jpg")
 
 
 def test_add_book_with_library_root() -> None:

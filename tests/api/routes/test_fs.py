@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import sys
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -67,6 +68,7 @@ def temp_dir() -> Iterator[Path]:  # type: ignore[type-arg]
         ("/root/.ssh", True),
     ],
 )
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific paths")
 def test_is_under_excluded(path_str: str, expected: bool) -> None:
     """Test _is_under_excluded identifies excluded paths (lines 83-88)."""
     path = Path(path_str)
@@ -74,6 +76,38 @@ def test_is_under_excluded(path_str: str, expected: bool) -> None:
     assert result == expected
 
 
+@pytest.mark.parametrize(
+    ("path_str", "expected"),
+    [
+        ("/bin", True),
+        ("/usr", True),
+        ("/usr/local", True),
+        ("/etc/config", True),
+        ("/home", False),
+        ("/home/user", False),
+        ("/media", False),
+        ("/mnt", False),
+        ("/opt/custom", True),
+        ("/var/log", True),
+        ("/root", True),
+        ("/root/.ssh", True),
+    ],
+)
+@pytest.mark.skipif(
+    sys.platform != "win32", reason="Windows-specific test with mocked paths"
+)
+def test_is_under_excluded_windows(path_str: str, expected: bool) -> None:
+    """Test _is_under_excluded identifies excluded paths on Windows (lines 83-88)."""
+    # On Windows, these Unix paths don't exist, so we need to mock the path resolution
+    with patch("pathlib.Path.resolve") as mock_resolve:
+        mock_path = Path(path_str)
+        # Make resolve return a path with the expected POSIX representation
+        mock_resolve.return_value = Path(path_str)
+        result = _is_under_excluded(mock_path)
+        assert result == expected
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific paths")
 def test_is_under_excluded_exact_match() -> None:
     """Test _is_under_excluded matches exact excluded prefix."""
     for prefix in EXCLUDED_FS_DIR_PREFIXES:
@@ -81,11 +115,36 @@ def test_is_under_excluded_exact_match() -> None:
         assert _is_under_excluded(path) is True
 
 
+@pytest.mark.skipif(
+    sys.platform != "win32", reason="Windows-specific test with mocked paths"
+)
+def test_is_under_excluded_exact_match_windows() -> None:
+    """Test _is_under_excluded matches exact excluded prefix on Windows."""
+    for prefix in EXCLUDED_FS_DIR_PREFIXES:
+        with patch("pathlib.Path.resolve") as mock_resolve:
+            mock_path = Path(prefix)
+            mock_resolve.return_value = Path(prefix)
+            assert _is_under_excluded(mock_path) is True
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific paths")
 def test_is_under_excluded_subdirectory() -> None:
     """Test _is_under_excluded matches subdirectories of excluded prefixes."""
     for prefix in EXCLUDED_FS_DIR_PREFIXES:
         subpath = Path(f"{prefix}/subdir")
         assert _is_under_excluded(subpath) is True
+
+
+@pytest.mark.skipif(
+    sys.platform != "win32", reason="Windows-specific test with mocked paths"
+)
+def test_is_under_excluded_subdirectory_windows() -> None:
+    """Test _is_under_excluded matches subdirectories of excluded prefixes on Windows."""
+    for prefix in EXCLUDED_FS_DIR_PREFIXES:
+        with patch("pathlib.Path.resolve") as mock_resolve:
+            subpath = Path(f"{prefix}/subdir")
+            mock_resolve.return_value = Path(f"{prefix}/subdir")
+            assert _is_under_excluded(subpath) is True
 
 
 # ==================== _list_subdirectories Tests ====================
@@ -235,10 +294,44 @@ def test_list_subdirectories_handles_scandir_exceptions(
         ("  ", ""),  # Whitespace-only returns empty (caller handles default to "/")
     ],
 )
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific paths")
 def test_normalize_query(input_query: str, expected: str) -> None:
     """Test _normalize_query normalizes various input formats (lines 139-144)."""
     result = _normalize_query(input_query)
     assert result == expected
+
+
+@pytest.mark.parametrize(
+    ("input_query", "expected"),
+    [
+        ("", ""),  # Empty string returns empty (caller handles default to "/")
+        ("/", "/"),
+        ("/home", "/home"),
+        ("/home/user", "/home/user"),
+        ("home", "/home"),
+        ("~", str(Path("~").expanduser())),
+        ("~/books", str(Path("~/books").expanduser())),
+        ("  /home  ", "/home"),
+        ("  ", ""),  # Whitespace-only returns empty (caller handles default to "/")
+    ],
+)
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific paths")
+def test_normalize_query_windows(input_query: str, expected: str) -> None:
+    """Test _normalize_query normalizes various input formats on Windows (lines 139-144)."""
+    result = _normalize_query(input_query)
+    # On Windows, expanduser returns a Windows path (e.g., C:\Users\...\books)
+    # Then _normalize_query prepends "/" if it doesn't start with "/"
+    if input_query.startswith("~"):
+        # The function expands ~ then prepends / if needed
+        expanded = str(Path(input_query).expanduser())
+        # On Windows, expanded path won't start with "/", so function prepends it
+        expected_result = "/" + expanded
+        assert result == expected_result
+    elif input_query in ("", "  "):
+        assert result == ""
+    else:
+        # For other cases, behavior should match Unix (prepend "/" if needed)
+        assert result == expected
 
 
 def test_normalize_query_strips_whitespace() -> None:

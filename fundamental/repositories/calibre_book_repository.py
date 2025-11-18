@@ -308,6 +308,20 @@ class CalibreBookRepository:
             event.listen(self._engine, "connect", _register_calibre_functions)
         return self._engine
 
+    def dispose(self) -> None:
+        """Dispose of the database engine and close all connections.
+
+        This is useful for cleanup in tests or when the repository is no longer needed.
+        After calling this method, the engine will be recreated on the next use.
+        """
+        if self._engine is not None:
+            # Force close all connections and dispose the engine
+            self._engine.dispose(close=True)
+            # On Windows, we need to ensure all connections are fully closed
+            # before the file can be deleted. The dispose(close=True) should handle this,
+            # but we set engine to None immediately to prevent reuse.
+            self._engine = None
+
     @contextmanager
     def _get_session(self) -> Iterator[Session]:
         """Get a SQLModel session for the Calibre database.

@@ -1144,7 +1144,9 @@ def test_upload_cover_picture_success() -> None:
         )
 
         assert result.cover_picture is not None
-        assert "shelves/1/cover.jpg" in result.cover_picture
+        # On Windows, paths use backslashes, so normalize for comparison
+        cover_picture_str = result.cover_picture.replace("\\", "/")
+        assert "shelves/1/cover.jpg" in cover_picture_str
         assert session.flush_count > 0
 
 

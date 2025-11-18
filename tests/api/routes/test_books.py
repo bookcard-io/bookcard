@@ -569,10 +569,12 @@ def test_get_book_cover_success(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     book_with_rels = BookWithRelations(book=book, authors=[], series=None)
 
-    cover_path = Path("/tmp/test_cover.jpg")
-    cover_path.touch()  # Create the file
+    import tempfile
 
-    try:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        cover_path = Path(tmpdir) / "test_cover.jpg"
+        cover_path.touch()  # Create the file
+
         mock_service = MockBookService(
             get_book_result=book_with_rels,
             get_thumbnail_path_result=cover_path,
@@ -588,8 +590,6 @@ def test_get_book_cover_success(monkeypatch: pytest.MonkeyPatch) -> None:
         result = books.get_book_cover(session, current_user=current_user, book_id=1)
         assert isinstance(result, FileResponse)
         assert result.path == str(cover_path)
-    finally:
-        cover_path.unlink(missing_ok=True)
 
 
 def test_get_book_cover_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
