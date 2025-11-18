@@ -17,7 +17,11 @@ import { QueryClient } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Book, BookListResponse } from "@/types/book";
-import { createQueryClientWrapper } from "./test-utils";
+import {
+  createMockFetchWithActiveLibrary,
+  createQueryClientWrapper,
+  getNonProviderFetchCalls,
+} from "./test-utils";
 import { useBooks } from "./useBooks";
 
 describe("useBooks", () => {
@@ -50,6 +54,10 @@ describe("useBooks", () => {
 
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
+    // Mock active library fetch by default (no other responses)
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(),
+    );
     queryClient = new QueryClient({
       defaultOptions: {
         queries: {
@@ -71,8 +79,8 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const { result } = renderHook(() => useBooks(), { wrapper });
@@ -90,8 +98,11 @@ describe("useBooks", () => {
     // React Query may still initialize, so wait a bit
     await waitFor(
       () => {
-        // With enabled: false, React Query won't fetch
-        expect(globalThis.fetch).not.toHaveBeenCalled();
+        // With enabled: false, React Query won't fetch (excluding provider calls)
+        const nonProviderCalls = getNonProviderFetchCalls(
+          globalThis.fetch as ReturnType<typeof vi.fn>,
+        );
+        expect(nonProviderCalls).toHaveLength(0);
       },
       { timeout: 100 },
     );
@@ -102,8 +113,8 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     renderHook(() => useBooks({ search: "test query" }), { wrapper });
@@ -121,8 +132,8 @@ describe("useBooks", () => {
       ok: false,
       json: vi.fn().mockResolvedValue({ detail: "Failed to fetch" }),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const { result } = renderHook(() => useBooks(), { wrapper });
@@ -140,8 +151,8 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const { result } = renderHook(() => useBooks(), { wrapper });
@@ -180,15 +191,18 @@ describe("useBooks", () => {
       total_pages: 2,
     };
 
-    (globalThis.fetch as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: vi.fn().mockResolvedValue(page1Response),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: vi.fn().mockResolvedValue(page2Response),
-      });
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(
+        {
+          ok: true,
+          json: vi.fn().mockResolvedValue(page1Response),
+        },
+        {
+          ok: true,
+          json: vi.fn().mockResolvedValue(page2Response),
+        },
+      ),
+    );
 
     const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
       wrapper,
@@ -212,8 +226,9 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    // Provide two responses: one for initial fetch, one for rerender
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse, mockFetchResponse),
     );
 
     const { result, rerender } = renderHook(
@@ -244,8 +259,8 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(multiPageResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
@@ -262,8 +277,9 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    // Provide two responses: one for initial fetch, one for rerender
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse, mockFetchResponse),
     );
 
     const { result, rerender } = renderHook(
@@ -290,8 +306,9 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    // Provide two responses: one for initial fetch, one for setQuery
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse, mockFetchResponse),
     );
 
     const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
@@ -316,8 +333,9 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    // Provide two responses: one for initial fetch, one for setQuery
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse, mockFetchResponse),
     );
 
     const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
@@ -346,8 +364,8 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(multiPageResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const { result } = renderHook(() => useBooks({ infiniteScroll: false }), {
@@ -389,9 +407,12 @@ describe("useBooks", () => {
       }
     });
 
-    // Should not cause any fetch calls since data is null
+    // Should not cause any fetch calls since data is null (excluding provider calls)
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledTimes(1); // Only initial fetch
+      const nonProviderCalls = getNonProviderFetchCalls(
+        globalThis.fetch as ReturnType<typeof vi.fn>,
+      );
+      expect(nonProviderCalls).toHaveLength(1); // Only initial fetch
     });
   });
 
@@ -405,8 +426,8 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(lastPageResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
@@ -440,8 +461,8 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const { result, rerender } = renderHook(
@@ -478,8 +499,9 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    // Provide two responses: one for initial fetch, one for setQuery
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse, mockFetchResponse),
     );
 
     const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
@@ -504,8 +526,9 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    // Provide two responses: one for initial fetch, one for setQuery
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse, mockFetchResponse),
     );
 
     const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
@@ -530,8 +553,8 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
@@ -574,10 +597,15 @@ describe("useBooks", () => {
     }
 
     // Mock fetch for the book
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: true,
-      json: vi.fn().mockResolvedValue(newBook),
-    });
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary({
+        matcher: (url: string) => url.includes("/api/books/"),
+        response: {
+          ok: true,
+          json: vi.fn().mockResolvedValue(newBook),
+        },
+      }),
+    );
 
     await act(async () => {
       await result.current.addBook?.(999);
@@ -626,8 +654,8 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const { result, unmount } = renderHook(
@@ -691,10 +719,15 @@ describe("useBooks", () => {
     });
 
     // Mock fetch for the book
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: true,
-      json: vi.fn().mockResolvedValue(newBook),
-    });
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary({
+        matcher: (url: string) => url.includes("/api/books/"),
+        response: {
+          ok: true,
+          json: vi.fn().mockResolvedValue(newBook),
+        },
+      }),
+    );
 
     await act(async () => {
       await result2.current.addBook?.(999);
@@ -714,8 +747,8 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
@@ -731,7 +764,8 @@ describe("useBooks", () => {
     });
 
     // Should call refetch (covers lines 529-532)
-    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    // Account for 3 provider calls + 1 initial + 1 refetch = 5 total
+    expect(globalThis.fetch).toHaveBeenCalledTimes(5);
   });
 
   it("should call refetch for list query", async () => {
@@ -739,8 +773,8 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const { result } = renderHook(() => useBooks({ infiniteScroll: false }), {
@@ -756,7 +790,8 @@ describe("useBooks", () => {
     });
 
     // Should call refetch for list query (covers lines 529-532)
-    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    // Account for 3 provider calls + 1 initial + 1 refetch = 5 total
+    expect(globalThis.fetch).toHaveBeenCalledTimes(5);
   });
 
   it("should reset accumulated books when sort_by changes in infinite scroll", async () => {
@@ -764,8 +799,9 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    // Provide two responses: one for initial fetch, one for rerender
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse, mockFetchResponse),
     );
 
     const { result, rerender } = renderHook(
@@ -813,8 +849,8 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(responseWithPageSize40),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const { result, rerender } = renderHook(
@@ -858,8 +894,8 @@ describe("useBooks", () => {
         total_pages: 3,
       }),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const { result } = renderHook(() => useBooks(), { wrapper });
@@ -882,8 +918,9 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    // Provide two responses: one for initial fetch, one for setQuery
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse, mockFetchResponse),
     );
 
     const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
@@ -922,9 +959,9 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(page2Response),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce(mockFetchResponse)
-      .mockResolvedValueOnce(page2FetchResponse);
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse, page2FetchResponse),
+    );
 
     const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
       wrapper,
@@ -961,8 +998,8 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(responseWithoutPage),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
@@ -992,8 +1029,8 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     renderHook(() => useBooks({ full: true }), { wrapper });
@@ -1011,8 +1048,8 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
@@ -1041,8 +1078,8 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
@@ -1090,9 +1127,16 @@ describe("useBooks", () => {
         has_cover: false,
       }),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce(mockFetchResponse)
-      .mockResolvedValueOnce(newBookResponse);
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(
+        {
+          matcher: (url: string) => url.includes("/api/books/"),
+          response: newBookResponse,
+        },
+        mockFetchResponse,
+        newBookResponse,
+      ),
+    );
 
     const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
       wrapper,
@@ -1123,9 +1167,16 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse.items[0]),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce(mockFetchResponse)
-      .mockResolvedValueOnce(existingBookResponse);
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(
+        {
+          matcher: (url: string) => url.includes("/api/books/"),
+          response: existingBookResponse,
+        },
+        mockFetchResponse,
+        existingBookResponse,
+      ),
+    );
 
     const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
       wrapper,
@@ -1157,9 +1208,16 @@ describe("useBooks", () => {
     const consoleErrorSpy = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
-    (globalThis.fetch as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce(mockFetchResponse)
-      .mockResolvedValueOnce(errorResponse);
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(
+        {
+          matcher: (url: string) => url.includes("/api/books/"),
+          response: errorResponse,
+        },
+        mockFetchResponse,
+        errorResponse,
+      ),
+    );
 
     const { result } = renderHook(() => useBooks({ infiniteScroll: true }), {
       wrapper,
@@ -1186,8 +1244,8 @@ describe("useBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const { result } = renderHook(() => useBooks({ infiniteScroll: false }), {

@@ -18,7 +18,11 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BookListResponse } from "@/types/book";
 import { createEmptyFilters } from "@/utils/filters";
-import { createQueryClientWrapper } from "./test-utils";
+import {
+  createMockFetchWithActiveLibrary,
+  createQueryClientWrapper,
+  getNonProviderFetchCalls,
+} from "./test-utils";
 import { useFilteredBooks } from "./useFilteredBooks";
 
 describe("useFilteredBooks", () => {
@@ -51,6 +55,10 @@ describe("useFilteredBooks", () => {
 
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
+    // Mock active library fetch by default (no other responses)
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(),
+    );
     queryClient = new QueryClient({
       defaultOptions: {
         queries: {
@@ -72,7 +80,11 @@ describe("useFilteredBooks", () => {
     // React Query may still initialize, so wait a bit
     await waitFor(
       () => {
-        expect(globalThis.fetch).not.toHaveBeenCalled();
+        // Excluding provider calls
+        const nonProviderCalls = getNonProviderFetchCalls(
+          globalThis.fetch as ReturnType<typeof vi.fn>,
+        );
+        expect(nonProviderCalls).toHaveLength(0);
       },
       { timeout: 100 },
     );
@@ -85,7 +97,11 @@ describe("useFilteredBooks", () => {
     // React Query may still initialize, so wait a bit
     await waitFor(
       () => {
-        expect(globalThis.fetch).not.toHaveBeenCalled();
+        // Excluding provider calls
+        const nonProviderCalls = getNonProviderFetchCalls(
+          globalThis.fetch as ReturnType<typeof vi.fn>,
+        );
+        expect(nonProviderCalls).toHaveLength(0);
       },
       { timeout: 100 },
     );
@@ -96,8 +112,8 @@ describe("useFilteredBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const filters = {
@@ -122,8 +138,8 @@ describe("useFilteredBooks", () => {
       ok: false,
       json: vi.fn().mockResolvedValue({ detail: "Failed to fetch" }),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const filters = {
@@ -165,15 +181,18 @@ describe("useFilteredBooks", () => {
       authorIds: [1],
     };
 
-    (globalThis.fetch as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: vi.fn().mockResolvedValue(page1Response),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: vi.fn().mockResolvedValue(page2Response),
-      });
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(
+        {
+          ok: true,
+          json: vi.fn().mockResolvedValue(page1Response),
+        },
+        {
+          ok: true,
+          json: vi.fn().mockResolvedValue(page2Response),
+        },
+      ),
+    );
 
     const { result } = renderHook(
       () => useFilteredBooks({ filters, infiniteScroll: true }),
@@ -198,8 +217,9 @@ describe("useFilteredBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    // Provide two responses: one for initial fetch, one for rerender
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse, mockFetchResponse),
     );
 
     const filters1 = {
@@ -248,9 +268,12 @@ describe("useFilteredBooks", () => {
       }
     });
 
-    // Should not cause any fetch calls since data is null
+    // Should not cause any fetch calls since data is null (excluding provider calls)
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledTimes(1); // Only initial fetch
+      const nonProviderCalls = getNonProviderFetchCalls(
+        globalThis.fetch as ReturnType<typeof vi.fn>,
+      );
+      expect(nonProviderCalls).toHaveLength(1); // Only initial fetch
     });
   });
 
@@ -264,8 +287,8 @@ describe("useFilteredBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(lastPageResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const filters = {
@@ -305,8 +328,9 @@ describe("useFilteredBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    // Provide two responses: one for initial fetch, one for rerender
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse, mockFetchResponse),
     );
 
     const filters1 = {
@@ -347,8 +371,8 @@ describe("useFilteredBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(lastPageResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const filters = {
@@ -393,8 +417,8 @@ describe("useFilteredBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(responseWithoutPage),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const filters = {
@@ -420,8 +444,8 @@ describe("useFilteredBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const filters = {
@@ -435,8 +459,11 @@ describe("useFilteredBooks", () => {
       expect(globalThis.fetch).toHaveBeenCalled();
     });
 
-    const fetchCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock
-      .calls[0];
+    // Get the first non-provider call (filtered books call)
+    const nonProviderCalls = getNonProviderFetchCalls(
+      globalThis.fetch as ReturnType<typeof vi.fn>,
+    );
+    const fetchCall = nonProviderCalls[0];
     const url = fetchCall?.[0] as string;
     expect(url).toContain("full=true");
   });
@@ -450,8 +477,8 @@ describe("useFilteredBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const filters = {
@@ -483,8 +510,8 @@ describe("useFilteredBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const filters = {
@@ -529,9 +556,9 @@ describe("useFilteredBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(newBook),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce(mockFetchResponse)
-      .mockResolvedValueOnce(bookFetchResponse);
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse, bookFetchResponse),
+    );
 
     const filters = {
       ...createEmptyFilters(),
@@ -571,9 +598,9 @@ describe("useFilteredBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(firstItem),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce(mockFetchResponse)
-      .mockResolvedValueOnce(bookFetchResponse);
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse, bookFetchResponse),
+    );
 
     const filters = {
       ...createEmptyFilters(),
@@ -617,9 +644,9 @@ describe("useFilteredBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(newBook),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce(mockFetchResponse)
-      .mockResolvedValueOnce(bookFetchResponse);
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse, bookFetchResponse),
+    );
 
     const filters = {
       ...createEmptyFilters(),
@@ -658,9 +685,9 @@ describe("useFilteredBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(firstItem),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce(mockFetchResponse)
-      .mockResolvedValueOnce(bookFetchResponse);
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse, bookFetchResponse),
+    );
 
     const filters = {
       ...createEmptyFilters(),
@@ -695,9 +722,9 @@ describe("useFilteredBooks", () => {
       ok: false,
       json: vi.fn().mockResolvedValue({ detail: "Book not found" }),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce(mockFetchResponse)
-      .mockResolvedValueOnce(bookFetchResponse);
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse, bookFetchResponse),
+    );
 
     const consoleErrorSpy = vi
       .spyOn(console, "error")
@@ -732,8 +759,8 @@ describe("useFilteredBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const filters = {
@@ -754,8 +781,11 @@ describe("useFilteredBooks", () => {
       await result.current.addBook?.(2);
     });
 
-    // Should not fetch or add book
-    expect(globalThis.fetch).toHaveBeenCalledTimes(1); // Only initial fetch
+    // Should not fetch or add book (excluding provider calls)
+    const nonProviderCalls = getNonProviderFetchCalls(
+      globalThis.fetch as ReturnType<typeof vi.fn>,
+    );
+    expect(nonProviderCalls).toHaveLength(1); // Only initial fetch
     expect(result.current.books).toHaveLength(1);
   });
 
@@ -773,8 +803,11 @@ describe("useFilteredBooks", () => {
       expect(result.current.total).toBe(0);
     });
 
-    // Verify that no fetch was called (query is disabled)
-    expect(globalThis.fetch).not.toHaveBeenCalled();
+    // Verify that no fetch was called (query is disabled, excluding provider calls)
+    const nonProviderCalls = getNonProviderFetchCalls(
+      globalThis.fetch as ReturnType<typeof vi.fn>,
+    );
+    expect(nonProviderCalls).toHaveLength(0);
 
     // Note: isLoading might be true initially even for disabled queries
     // because listQueryEnabled is true, but the query itself is disabled
@@ -786,8 +819,8 @@ describe("useFilteredBooks", () => {
       ok: false,
       json: vi.fn().mockResolvedValue({ detail: "Custom error message" }),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const filters = {
@@ -811,8 +844,8 @@ describe("useFilteredBooks", () => {
       ok: false,
       json: vi.fn().mockResolvedValue({}),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const filters = {
@@ -836,8 +869,8 @@ describe("useFilteredBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const filters = {
@@ -870,8 +903,8 @@ describe("useFilteredBooks", () => {
       ok: true,
       json: vi.fn().mockResolvedValue(mockResponse),
     };
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockFetchResponse,
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      createMockFetchWithActiveLibrary(mockFetchResponse),
     );
 
     const filters = {
