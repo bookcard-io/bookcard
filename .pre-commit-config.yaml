@@ -25,7 +25,8 @@ repos:
         args:
           - --generate-hashes
           - pyproject.toml
-          - -o requirements.txt
+          - -o
+          - requirements.txt
           - --universal
           - --python-version=3.12
         files: ^(pyproject\.toml|uv\.lock)$
@@ -34,7 +35,8 @@ repos:
         args:
           - --generate-hashes
           - pyproject.toml
-          - -o requirements-dev.txt
+          - -o
+          - requirements-dev.txt
           - --universal
           - --python-version=3.12
           - --group=dev
