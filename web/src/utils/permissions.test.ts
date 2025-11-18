@@ -133,12 +133,13 @@ describe("permissions", () => {
     });
 
     it("should handle role with null permissions", () => {
-      const role: Role = {
+      const role = {
         id: 1,
         name: "Test Role",
         description: null,
-        permissions: [],
-      };
+        // Simulate missing permissions array at runtime
+        permissions: undefined,
+      } as unknown as Role;
       const user: User = {
         id: 1,
         email: "test@example.com",
@@ -216,6 +217,12 @@ describe("permissions", () => {
       expect(evaluateCondition(condition, resourceData)).toBe(false);
     });
 
+    it("should fail author_ids condition when resource author_ids is missing", () => {
+      const condition = { author_ids: [1, 2] };
+      const resourceData = {};
+      expect(evaluateCondition(condition, resourceData)).toBe(false);
+    });
+
     it("should match tag condition", () => {
       const condition = { tag: "fiction" };
       const resourceData = { tags: ["fiction", "sci-fi"] };
@@ -249,6 +256,12 @@ describe("permissions", () => {
     it("should fail tags condition when expectedValue is not array", () => {
       const condition = { tags: "not an array" };
       const resourceData = { tags: ["fiction"] };
+      expect(evaluateCondition(condition, resourceData)).toBe(false);
+    });
+
+    it("should fail tags condition when resource tags is missing", () => {
+      const condition = { tags: ["fiction", "sci-fi"] };
+      const resourceData = {};
       expect(evaluateCondition(condition, resourceData)).toBe(false);
     });
 
@@ -421,12 +434,13 @@ describe("permissions", () => {
     });
 
     it("should handle role with null permissions", () => {
-      const role: Role = {
+      const role = {
         id: 1,
         name: "Test Role",
         description: null,
-        permissions: [],
-      };
+        // Simulate missing permissions array at runtime
+        permissions: undefined,
+      } as unknown as Role;
       const user: User = {
         id: 1,
         email: "test@example.com",
@@ -435,6 +449,25 @@ describe("permissions", () => {
         profile_picture: null,
         roles: [role],
       };
+      expect(canAccessResource(user, "books", "read")).toBe(false);
+    });
+
+    it("should return false when permission resource/action does not match", () => {
+      const mismatchedPermission = createMockRolePermission(
+        "books",
+        "write",
+        null,
+      );
+      const role = createMockRole([mismatchedPermission]);
+      const user: User = {
+        id: 1,
+        email: "test@example.com",
+        username: "test",
+        is_admin: false,
+        profile_picture: null,
+        roles: [role],
+      };
+
       expect(canAccessResource(user, "books", "read")).toBe(false);
     });
   });
@@ -458,6 +491,27 @@ describe("permissions", () => {
       };
       const context = buildBookPermissionContext(book);
       expect(context.authors).toEqual(["Author 1", "Author 2"]);
+    });
+
+    it("should default authors to empty array when missing", () => {
+      const book = {
+        id: 1,
+        title: "Test Book",
+        // Simulate missing authors array at runtime
+        authors: undefined,
+        author_sort: "Author 1",
+        pubdate: "2024-01-15T00:00:00Z",
+        timestamp: null,
+        series: null,
+        series_id: null,
+        series_index: null,
+        isbn: null,
+        uuid: "uuid-1",
+        thumbnail_url: null,
+        has_cover: false,
+      } as unknown as Book;
+      const context = buildBookPermissionContext(book);
+      expect(context.authors).toEqual([]);
     });
 
     it("should include series_id when available", () => {
