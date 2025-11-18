@@ -86,9 +86,9 @@ export function useBookDataUpdates(
 
   // Expose updateBook and updateCover methods via ref
   useEffect(() => {
-    if (updateRef?.current) {
+    if (updateRef) {
       // Preserve existing methods (removeBook, addBook) if they exist
-      const existing = updateRef.current;
+      const existing = updateRef.current || {};
       updateRef.current = {
         ...existing,
         updateBook,
