@@ -64,9 +64,9 @@ def upgrade() -> None:
     if int(total_roles or 0) > 0:
         return
 
-    username = os.getenv("ADMIN_USERNAME", "admin")
-    email = os.getenv("ADMIN_EMAIL", "admin@example.com")
-    password = os.getenv("ADMIN_PASSWORD", "admin123")
+    username = os.getenv("ADMIN_USERNAME", "admin").strip()
+    email = os.getenv("ADMIN_EMAIL", "admin@example.com").strip()
+    password = os.getenv("ADMIN_PASSWORD", "admin123").strip()
 
     # Idempotency on username/email too (paranoid check)
     exists = conn.execute(
@@ -282,8 +282,8 @@ def downgrade() -> None:
     different credentials or names.
     """
     conn = op.get_bind()
-    username = os.getenv("ADMIN_USERNAME", "admin")
-    email = os.getenv("ADMIN_EMAIL", "admin@example.com")
+    username = os.getenv("ADMIN_USERNAME", "admin").strip()
+    email = os.getenv("ADMIN_EMAIL", "admin@example.com").strip()
 
     # Remove user-role associations for the admin user
     conn.execute(

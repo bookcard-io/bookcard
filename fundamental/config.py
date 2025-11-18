@@ -46,6 +46,9 @@ class AppConfig:
         Base directory for user assets. User assets are organized as
         ``{data_directory}/{user_id}/assets/``, e.g., ``/data/1/profile_picture.jpg``.
         Can be overridden with ``DATA_DIRECTORY`` environment variable.
+    task_runner : str
+        Task runner type to use. Supported values: 'thread', 'dramatiq', 'celery'.
+        Defaults to 'thread'. Can be overridden with ``TASK_RUNNER`` environment variable.
     """
 
     jwt_secret: str
@@ -56,6 +59,43 @@ class AppConfig:
     database_url: str = "sqlite:///fundamental.db"
     echo_sql: bool = False
     data_directory: str = "/data"
+    task_runner: str = "thread"
+
+    @staticmethod
+    def _normalize_env_value(value: str | None) -> str | None:
+        """Normalize environment variable value by stripping whitespace.
+
+        Parameters
+        ----------
+        value : str | None
+            Environment variable value to normalize.
+
+        Returns
+        -------
+        str | None
+            Stripped value, or None if input was None.
+        """
+        if value is None:
+            return None
+        return value.strip()
+
+    @staticmethod
+    def _normalize_env_value_with_default(value: str | None, default: str) -> str:
+        """Normalize environment variable value with a default.
+
+        Parameters
+        ----------
+        value : str | None
+            Environment variable value to normalize.
+        default : str
+            Default value to use if value is None.
+
+        Returns
+        -------
+        str
+            Stripped value, or stripped default if value was None.
+        """
+        return (value or default).strip()
 
     @staticmethod
     def _get_jwt_secret() -> str:
@@ -71,7 +111,7 @@ class AppConfig:
         ValueError
             If FUNDAMENTAL_JWT_SECRET is not set.
         """
-        jwt_secret = os.getenv("FUNDAMENTAL_JWT_SECRET")
+        jwt_secret = AppConfig._normalize_env_value(os.getenv("FUNDAMENTAL_JWT_SECRET"))
         if jwt_secret is None:
             msg = "FUNDAMENTAL_JWT_SECRET is not set"
             raise ValueError(msg)
@@ -91,7 +131,7 @@ class AppConfig:
         ValueError
             If FUNDAMENTAL_JWT_ALG is not set.
         """
-        jwt_algorithm = os.getenv("FUNDAMENTAL_JWT_ALG")
+        jwt_algorithm = AppConfig._normalize_env_value(os.getenv("FUNDAMENTAL_JWT_ALG"))
         if jwt_algorithm is None:
             msg = "FUNDAMENTAL_JWT_ALG is not set"
             raise ValueError(msg)
@@ -111,7 +151,7 @@ class AppConfig:
         ValueError
             If FUNDAMENTAL_FERNET_KEY is not set.
         """
-        encryption_key = os.getenv("FUNDAMENTAL_FERNET_KEY")
+        encryption_key = AppConfig._normalize_env_value(os.getenv("FUNDAMENTAL_FERNET_KEY"))
         if encryption_key is None:
             msg = "FUNDAMENTAL_FERNET_KEY is not set"
             raise ValueError(msg)
@@ -133,7 +173,10 @@ class AppConfig:
         bool
             Parsed boolean value.
         """
-        return os.getenv(key, default).lower() == "true"
+        value = AppConfig._normalize_env_value_with_default(
+            os.getenv(key), default
+        )
+        return value.lower() == "true"
 
     @staticmethod
     def from_env() -> AppConfig:
@@ -144,17 +187,26 @@ class AppConfig:
         AppConfig
             Fully constructed configuration with env overrides applied.
         """
+        jwt_expires_min = AppConfig._normalize_env_value(os.getenv("FUNDAMENTAL_JWT_EXPIRES_MIN"))
+        if jwt_expires_min is None:
+            msg = "FUNDAMENTAL_JWT_EXPIRES_MIN is not set"
+            raise ValueError(msg)
         return AppConfig(
             jwt_secret=AppConfig._get_jwt_secret(),
             jwt_algorithm=AppConfig._get_jwt_algorithm(),
-            jwt_expires_minutes=int(os.getenv("FUNDAMENTAL_JWT_EXPIRES_MIN")),
+            jwt_expires_minutes=int(jwt_expires_min),
             encryption_key=AppConfig._get_encryption_key(),
-            database_url=os.getenv(
-                "FUNDAMENTAL_DATABASE_URL", "sqlite:///fundamental.db"
+            database_url=AppConfig._normalize_env_value_with_default(
+                os.getenv("FUNDAMENTAL_DATABASE_URL"), "sqlite:///fundamental.db"
             ),
             echo_sql=AppConfig._parse_bool_env("FUNDAMENTAL_ECHO_SQL", "false"),
             alembic_enabled=AppConfig._parse_bool_env(
                 "FUNDAMENTAL_ALEMBIC_ENABLED", "false"
             ),
-            data_directory=os.getenv("DATA_DIRECTORY", "/data"),
+            data_directory=AppConfig._normalize_env_value_with_default(
+                os.getenv("DATA_DIRECTORY"), "/data"
+            ),
+            task_runner=AppConfig._normalize_env_value_with_default(
+                os.getenv("TASK_RUNNER"), "thread"
+            ).lower(),
         )

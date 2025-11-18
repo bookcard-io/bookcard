@@ -71,7 +71,7 @@ def _setup_logging() -> None:
     will be visible in standard output when running with `make dev`.
     """
     # Get log level from environment, default to INFO for development
-    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+    log_level = os.getenv("LOG_LEVEL", "INFO").strip().upper()
     numeric_level = getattr(logging, log_level, logging.INFO)
 
     # Configure logging using basicConfig, which sets up root logger
@@ -160,7 +160,7 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
     # Catch specific exceptions: ValueError (invalid config), RuntimeError (runtime issues)
     # and OSError (file/network issues) to prevent startup failure
     try:
-        app.state.task_runner = create_task_runner(engine)
+        app.state.task_runner = create_task_runner(engine, cfg)
     except (ValueError, RuntimeError, OSError) as exc:
         # Log error but don't fail startup - tasks will fail gracefully
         logger.warning(

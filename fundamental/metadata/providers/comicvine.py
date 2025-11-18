@@ -62,7 +62,7 @@ class ComicVineProvider(MetadataProvider):
     # or by modifying the provider initialization
     DEFAULT_API_KEY = os.getenv(
         "COMICVINE_API_KEY", "57558043c53943d5d1e96a9ad425b0eb85532ee6"
-    )
+    ).strip()
 
     HEADERS: ClassVar[dict[str, str]] = {"User-Agent": "Not Evil Browser"}
 

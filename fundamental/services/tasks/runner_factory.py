@@ -21,7 +21,6 @@ Selects the appropriate task runner based on configuration.
 from __future__ import annotations
 
 import logging
-import os
 from typing import TYPE_CHECKING
 
 from fundamental.services.tasks.factory import create_task
@@ -32,21 +31,24 @@ from fundamental.services.tasks.runner_thread import ThreadTaskRunner
 if TYPE_CHECKING:
     from sqlalchemy import Engine
 
+    from fundamental.config import AppConfig
     from fundamental.services.tasks.base import TaskRunner
 
 logger = logging.getLogger(__name__)
 
 
-def create_task_runner(engine: Engine) -> TaskRunner:
+def create_task_runner(engine: Engine, config: AppConfig) -> TaskRunner:
     """Create a task runner instance based on configuration.
 
-    Reads TASK_RUNNER environment variable to determine which runner to use.
+    Uses task_runner from AppConfig to determine which runner to use.
     Defaults to 'thread' if not specified.
 
     Parameters
     ----------
     engine : Engine
         SQLAlchemy engine for database access.
+    config : AppConfig
+        Application configuration containing task runner setting.
 
     Returns
     -------
@@ -56,9 +58,9 @@ def create_task_runner(engine: Engine) -> TaskRunner:
     Raises
     ------
     ValueError
-        If TASK_RUNNER is set to an unsupported value.
+        If task_runner is set to an unsupported value.
     """
-    runner_type = os.getenv("TASK_RUNNER", "thread").lower()
+    runner_type = config.task_runner
 
     if runner_type == "thread":
         logger.info("Using thread-based task runner")
