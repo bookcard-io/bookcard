@@ -936,6 +936,46 @@ describe("useBookEditForm", () => {
     );
   });
 
+  it("should not set staged cover URL when bookId is null in onSuccess callback", async () => {
+    let onSuccessCallback: ((tempUrl: string) => void) | undefined;
+
+    vi.mocked(useBook).mockReturnValue({
+      book: null,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+      updateBook: mockUpdateBook as (
+        update: BookUpdate,
+      ) => Promise<Book | null>,
+      isUpdating: false,
+      updateError: null,
+    } as ReturnType<typeof useBook>);
+
+    vi.mocked(useCoverFromUrl).mockImplementation((options) => {
+      onSuccessCallback = options.onSuccess;
+      return {
+        isLoading: false,
+        error: null,
+        downloadCover: mockDownloadCover,
+        clearError: vi.fn(),
+      };
+    });
+
+    renderHook(() =>
+      useBookEditForm({
+        bookId: null,
+        onClose: mockOnClose,
+      }),
+    );
+
+    await act(async () => {
+      onSuccessCallback?.("/api/books/temp-covers/123");
+    });
+
+    expect(mockSetStagedCoverUrl).not.toHaveBeenCalled();
+    expect(getCoverUrlWithCacheBuster).not.toHaveBeenCalled();
+  });
+
   it("should setup keyboard navigation when book is loaded", () => {
     renderHook(() =>
       useBookEditForm({
@@ -1146,9 +1186,816 @@ describe("useBookEditForm", () => {
       expect(globalThis.fetch).not.toHaveBeenCalled();
     });
 
-    // Removed async/timer tests that were causing hangs
-    // These tests involved complex stream reading with while loops
-    // and were timing out. The functionality is still covered by
-    // the simpler tests above that verify the guard conditions.
+    it("should not run if isUpdating is true", () => {
+      vi.mocked(useBook).mockReturnValue({
+        book: mockBook,
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+        updateBook: mockUpdateBook as (
+          update: BookUpdate,
+        ) => Promise<Book | null>,
+        isUpdating: true,
+        updateError: null,
+      } as ReturnType<typeof useBook>);
+
+      const { result } = renderHook(() =>
+        useBookEditForm({
+          bookId: 1,
+          onClose: mockOnClose,
+        }),
+      );
+
+      act(() => {
+        result.current.handleFeelinLucky();
+      });
+
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+
+    it("should handle response not ok", async () => {
+      const mockResponse = {
+        ok: false,
+        text: vi.fn().mockResolvedValue("Error message"),
+      };
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      const { result } = renderHook(() =>
+        useBookEditForm({
+          bookId: 1,
+          onClose: mockOnClose,
+        }),
+      );
+
+      const consoleErrorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      await act(async () => {
+        await result.current.handleFeelinLucky();
+      });
+
+      expect(result.current.isLuckySearching).toBe(false);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Lucky search failed:",
+        "Error message",
+      );
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it("should handle response with no body", async () => {
+      const mockResponse = {
+        ok: true,
+        body: null,
+        text: vi.fn().mockResolvedValue(""),
+      };
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      const { result } = renderHook(() =>
+        useBookEditForm({
+          bookId: 1,
+          onClose: mockOnClose,
+        }),
+      );
+
+      const consoleErrorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      await act(async () => {
+        await result.current.handleFeelinLucky();
+      });
+
+      expect(result.current.isLuckySearching).toBe(false);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Lucky search failed:",
+        "Failed to open stream",
+      );
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it("should handle response.text() failure", async () => {
+      const mockResponse = {
+        ok: false,
+        text: vi.fn().mockRejectedValue(new Error("Text parse failed")),
+      };
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      const { result } = renderHook(() =>
+        useBookEditForm({
+          bookId: 1,
+          onClose: mockOnClose,
+        }),
+      );
+
+      const consoleErrorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      await act(async () => {
+        await result.current.handleFeelinLucky();
+      });
+
+      expect(result.current.isLuckySearching).toBe(false);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Lucky search failed:",
+        "Failed to open stream",
+      );
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it("should handle search.progress event with results", async () => {
+      const metadataRecord: MetadataRecord = {
+        title: "Found Book",
+        authors: ["Found Author"],
+        cover_url: "https://example.com/cover.jpg",
+        source_id: "test",
+        external_id: "123",
+        url: "https://example.com/book",
+      };
+
+      const encoder = new TextEncoder();
+      const sseData = encoder.encode(
+        'data: {"event":"search.progress","results":[{"title":"Found Book","authors":["Found Author"],"cover_url":"https://example.com/cover.jpg","source_id":"test","external_id":"123","url":"https://example.com/book"}]}\n\n',
+      );
+
+      let readCallCount = 0;
+      const mockReader = {
+        read: vi.fn().mockImplementation(async () => {
+          readCallCount++;
+          if (readCallCount === 1) {
+            return { done: false, value: sseData };
+          }
+          return { done: true, value: undefined };
+        }),
+        cancel: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockResponse = {
+        ok: true,
+        body: {
+          getReader: vi.fn().mockReturnValue(mockReader),
+        },
+      };
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      const { result } = renderHook(() =>
+        useBookEditForm({
+          bookId: 1,
+          onClose: mockOnClose,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.handleFeelinLucky();
+      });
+
+      expect(result.current.isLuckySearching).toBe(false);
+      expect(convertMetadataRecordToBookUpdate).toHaveBeenCalledWith(
+        metadataRecord,
+      );
+      expect(applyBookUpdateToForm).toHaveBeenCalled();
+      expect(mockReader.cancel).toHaveBeenCalled();
+    });
+
+    it("should handle search.progress event with empty results array", async () => {
+      const encoder = new TextEncoder();
+      const sseData = encoder.encode(
+        'data: {"event":"search.progress","results":[]}\n\n',
+      );
+
+      let readCallCount = 0;
+      const mockReader = {
+        read: vi.fn().mockImplementation(async () => {
+          readCallCount++;
+          if (readCallCount === 1) {
+            return { done: false, value: sseData };
+          }
+          return { done: true, value: undefined };
+        }),
+        cancel: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockResponse = {
+        ok: true,
+        body: {
+          getReader: vi.fn().mockReturnValue(mockReader),
+        },
+      };
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      const { result } = renderHook(() =>
+        useBookEditForm({
+          bookId: 1,
+          onClose: mockOnClose,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.handleFeelinLucky();
+      });
+
+      expect(result.current.isLuckySearching).toBe(false);
+      expect(convertMetadataRecordToBookUpdate).not.toHaveBeenCalled();
+      expect(applyBookUpdateToForm).not.toHaveBeenCalled();
+    });
+
+    it("should handle search.progress event with non-array results", async () => {
+      const encoder = new TextEncoder();
+      const sseData = encoder.encode(
+        'data: {"event":"search.progress","results":{}}\n\n',
+      );
+
+      let readCallCount = 0;
+      const mockReader = {
+        read: vi.fn().mockImplementation(async () => {
+          readCallCount++;
+          if (readCallCount === 1) {
+            return { done: false, value: sseData };
+          }
+          return { done: true, value: undefined };
+        }),
+        cancel: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockResponse = {
+        ok: true,
+        body: {
+          getReader: vi.fn().mockReturnValue(mockReader),
+        },
+      };
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      const { result } = renderHook(() =>
+        useBookEditForm({
+          bookId: 1,
+          onClose: mockOnClose,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.handleFeelinLucky();
+      });
+
+      expect(result.current.isLuckySearching).toBe(false);
+      expect(convertMetadataRecordToBookUpdate).not.toHaveBeenCalled();
+      expect(applyBookUpdateToForm).not.toHaveBeenCalled();
+    });
+
+    it("should handle search.completed event with results", async () => {
+      const metadataRecord: MetadataRecord = {
+        title: "Completed Book",
+        authors: ["Completed Author"],
+        cover_url: "https://example.com/cover.jpg",
+        source_id: "test",
+        external_id: "456",
+        url: "https://example.com/book2",
+      };
+
+      const encoder = new TextEncoder();
+      const sseData = encoder.encode(
+        'data: {"event":"search.completed","results":[{"title":"Completed Book","authors":["Completed Author"],"cover_url":"https://example.com/cover.jpg","source_id":"test","external_id":"456","url":"https://example.com/book2"}]}\n\n',
+      );
+
+      let readCallCount = 0;
+      const mockReader = {
+        read: vi.fn().mockImplementation(async () => {
+          readCallCount++;
+          if (readCallCount === 1) {
+            return { done: false, value: sseData };
+          }
+          return { done: true, value: undefined };
+        }),
+        cancel: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockResponse = {
+        ok: true,
+        body: {
+          getReader: vi.fn().mockReturnValue(mockReader),
+        },
+      };
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      const { result } = renderHook(() =>
+        useBookEditForm({
+          bookId: 1,
+          onClose: mockOnClose,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.handleFeelinLucky();
+      });
+
+      expect(result.current.isLuckySearching).toBe(false);
+      expect(convertMetadataRecordToBookUpdate).toHaveBeenCalledWith(
+        metadataRecord,
+      );
+      expect(applyBookUpdateToForm).toHaveBeenCalled();
+      expect(mockReader.cancel).toHaveBeenCalled();
+    });
+
+    it("should handle search.completed event with no results", async () => {
+      const encoder = new TextEncoder();
+      const sseData = encoder.encode(
+        'data: {"event":"search.completed","results":[]}\n\n',
+      );
+
+      let readCallCount = 0;
+      const mockReader = {
+        read: vi.fn().mockImplementation(async () => {
+          readCallCount++;
+          if (readCallCount === 1) {
+            return { done: false, value: sseData };
+          }
+          return { done: true, value: undefined };
+        }),
+        cancel: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockResponse = {
+        ok: true,
+        body: {
+          getReader: vi.fn().mockReturnValue(mockReader),
+        },
+      };
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      const { result } = renderHook(() =>
+        useBookEditForm({
+          bookId: 1,
+          onClose: mockOnClose,
+        }),
+      );
+
+      const consoleInfoSpy = vi
+        .spyOn(console, "info")
+        .mockImplementation(() => {});
+
+      await act(async () => {
+        await result.current.handleFeelinLucky();
+      });
+
+      expect(result.current.isLuckySearching).toBe(false);
+      expect(convertMetadataRecordToBookUpdate).not.toHaveBeenCalled();
+      expect(applyBookUpdateToForm).not.toHaveBeenCalled();
+      expect(consoleInfoSpy).toHaveBeenCalledWith(
+        "No metadata results found for lucky search",
+      );
+      expect(mockReader.cancel).toHaveBeenCalled();
+
+      consoleInfoSpy.mockRestore();
+    });
+
+    it("should handle search.completed event with non-array results", async () => {
+      const encoder = new TextEncoder();
+      const sseData = encoder.encode(
+        'data: {"event":"search.completed","results":{}}\n\n',
+      );
+
+      let readCallCount = 0;
+      const mockReader = {
+        read: vi.fn().mockImplementation(async () => {
+          readCallCount++;
+          if (readCallCount === 1) {
+            return { done: false, value: sseData };
+          }
+          return { done: true, value: undefined };
+        }),
+        cancel: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockResponse = {
+        ok: true,
+        body: {
+          getReader: vi.fn().mockReturnValue(mockReader),
+        },
+      };
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      const { result } = renderHook(() =>
+        useBookEditForm({
+          bookId: 1,
+          onClose: mockOnClose,
+        }),
+      );
+
+      const consoleInfoSpy = vi
+        .spyOn(console, "info")
+        .mockImplementation(() => {});
+
+      await act(async () => {
+        await result.current.handleFeelinLucky();
+      });
+
+      expect(result.current.isLuckySearching).toBe(false);
+      expect(convertMetadataRecordToBookUpdate).not.toHaveBeenCalled();
+      expect(applyBookUpdateToForm).not.toHaveBeenCalled();
+      expect(consoleInfoSpy).toHaveBeenCalledWith(
+        "No metadata results found for lucky search",
+      );
+
+      consoleInfoSpy.mockRestore();
+    });
+
+    it("should handle JSON parse error in SSE stream", async () => {
+      const encoder = new TextEncoder();
+      const sseData = encoder.encode("data: invalid json\n\n");
+
+      let readCallCount = 0;
+      const mockReader = {
+        read: vi.fn().mockImplementation(async () => {
+          readCallCount++;
+          if (readCallCount === 1) {
+            return { done: false, value: sseData };
+          }
+          return { done: true, value: undefined };
+        }),
+        cancel: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockResponse = {
+        ok: true,
+        body: {
+          getReader: vi.fn().mockReturnValue(mockReader),
+        },
+      };
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      const { result } = renderHook(() =>
+        useBookEditForm({
+          bookId: 1,
+          onClose: mockOnClose,
+        }),
+      );
+
+      const consoleErrorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      await act(async () => {
+        await result.current.handleFeelinLucky();
+      });
+
+      expect(result.current.isLuckySearching).toBe(false);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Lucky search parse error:",
+        expect.any(String),
+      );
+      expect(mockReader.cancel).toHaveBeenCalled();
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it("should handle non-Error exception in JSON parse catch block", async () => {
+      const encoder = new TextEncoder();
+      const sseData = encoder.encode("data: test\n\n");
+
+      // Mock JSON.parse to throw a non-Error value
+      const parseSpy = vi.spyOn(JSON, "parse").mockImplementation(() => {
+        // Throw a non-Error value to test the defensive check
+        throw "String error";
+      });
+
+      let readCallCount = 0;
+      const mockReader = {
+        read: vi.fn().mockImplementation(async () => {
+          readCallCount++;
+          if (readCallCount === 1) {
+            return { done: false, value: sseData };
+          }
+          return { done: true, value: undefined };
+        }),
+        cancel: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockResponse = {
+        ok: true,
+        body: {
+          getReader: vi.fn().mockReturnValue(mockReader),
+        },
+      };
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      const { result } = renderHook(() =>
+        useBookEditForm({
+          bookId: 1,
+          onClose: mockOnClose,
+        }),
+      );
+
+      const consoleErrorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      await act(async () => {
+        await result.current.handleFeelinLucky();
+      });
+
+      expect(result.current.isLuckySearching).toBe(false);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Lucky search parse error:",
+        "Failed to parse event",
+      );
+      expect(mockReader.cancel).toHaveBeenCalled();
+
+      parseSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+    });
+
+    it("should handle stream ending without results", async () => {
+      const mockReader = {
+        read: vi.fn().mockResolvedValue({ done: true, value: undefined }),
+        cancel: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockResponse = {
+        ok: true,
+        body: {
+          getReader: vi.fn().mockReturnValue(mockReader),
+        },
+      };
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      const { result } = renderHook(() =>
+        useBookEditForm({
+          bookId: 1,
+          onClose: mockOnClose,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.handleFeelinLucky();
+      });
+
+      expect(result.current.isLuckySearching).toBe(false);
+      expect(convertMetadataRecordToBookUpdate).not.toHaveBeenCalled();
+      expect(applyBookUpdateToForm).not.toHaveBeenCalled();
+    });
+
+    it("should handle AbortError", async () => {
+      const abortError = new Error("Aborted");
+      abortError.name = "AbortError";
+
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(
+        abortError,
+      );
+
+      const { result } = renderHook(() =>
+        useBookEditForm({
+          bookId: 1,
+          onClose: mockOnClose,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.handleFeelinLucky();
+      });
+
+      expect(result.current.isLuckySearching).toBe(false);
+    });
+
+    it("should handle other errors", async () => {
+      const error = new Error("Network error");
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(error);
+
+      const { result } = renderHook(() =>
+        useBookEditForm({
+          bookId: 1,
+          onClose: mockOnClose,
+        }),
+      );
+
+      const consoleErrorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      await act(async () => {
+        await result.current.handleFeelinLucky();
+      });
+
+      expect(result.current.isLuckySearching).toBe(false);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Lucky search failed:",
+        "Network error",
+      );
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it("should handle non-Error rejection", async () => {
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(
+        "String error",
+      );
+
+      const { result } = renderHook(() =>
+        useBookEditForm({
+          bookId: 1,
+          onClose: mockOnClose,
+        }),
+      );
+
+      const consoleErrorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      await act(async () => {
+        await result.current.handleFeelinLucky();
+      });
+
+      expect(result.current.isLuckySearching).toBe(false);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Lucky search failed:",
+        "Failed to search metadata",
+      );
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it("should handle empty providersForBackend", async () => {
+      vi.mocked(calculateProvidersForBackend).mockReturnValue([]);
+
+      const mockReader = {
+        read: vi.fn().mockResolvedValue({ done: true, value: undefined }),
+        cancel: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockResponse = {
+        ok: true,
+        body: {
+          getReader: vi.fn().mockReturnValue(mockReader),
+        },
+      };
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      const { result } = renderHook(() =>
+        useBookEditForm({
+          bookId: 1,
+          onClose: mockOnClose,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.handleFeelinLucky();
+      });
+
+      const fetchCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock
+        .calls[0];
+      if (fetchCall?.[0]) {
+        const url = new URL(fetchCall[0] as string);
+        expect(url.searchParams.has("enable_providers")).toBe(false);
+      }
+    });
+
+    it("should handle empty dataStr in SSE line", async () => {
+      const encoder = new TextEncoder();
+      const sseData = encoder.encode("data: \n\n");
+
+      let readCallCount = 0;
+      const mockReader = {
+        read: vi.fn().mockImplementation(async () => {
+          readCallCount++;
+          if (readCallCount === 1) {
+            return { done: false, value: sseData };
+          }
+          return { done: true, value: undefined };
+        }),
+        cancel: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockResponse = {
+        ok: true,
+        body: {
+          getReader: vi.fn().mockReturnValue(mockReader),
+        },
+      };
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      const { result } = renderHook(() =>
+        useBookEditForm({
+          bookId: 1,
+          onClose: mockOnClose,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.handleFeelinLucky();
+      });
+
+      expect(result.current.isLuckySearching).toBe(false);
+      expect(convertMetadataRecordToBookUpdate).not.toHaveBeenCalled();
+      expect(applyBookUpdateToForm).not.toHaveBeenCalled();
+    });
+
+    it("should handle lines not starting with 'data: '", async () => {
+      const encoder = new TextEncoder();
+      const sseData = encoder.encode("event: ping\n\n");
+
+      let readCallCount = 0;
+      const mockReader = {
+        read: vi.fn().mockImplementation(async () => {
+          readCallCount++;
+          if (readCallCount === 1) {
+            return { done: false, value: sseData };
+          }
+          return { done: true, value: undefined };
+        }),
+        cancel: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockResponse = {
+        ok: true,
+        body: {
+          getReader: vi.fn().mockReturnValue(mockReader),
+        },
+      };
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      const { result } = renderHook(() =>
+        useBookEditForm({
+          bookId: 1,
+          onClose: mockOnClose,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.handleFeelinLucky();
+      });
+
+      expect(result.current.isLuckySearching).toBe(false);
+      expect(convertMetadataRecordToBookUpdate).not.toHaveBeenCalled();
+      expect(applyBookUpdateToForm).not.toHaveBeenCalled();
+    });
+
+    it("should handle reader cleanup in finally block", async () => {
+      const mockReader = {
+        read: vi.fn().mockRejectedValue(new Error("Read error")),
+        cancel: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockResponse = {
+        ok: true,
+        body: {
+          getReader: vi.fn().mockReturnValue(mockReader),
+        },
+      };
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      const { result } = renderHook(() =>
+        useBookEditForm({
+          bookId: 1,
+          onClose: mockOnClose,
+        }),
+      );
+
+      const consoleErrorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      await act(async () => {
+        await result.current.handleFeelinLucky();
+      });
+
+      expect(result.current.isLuckySearching).toBe(false);
+      expect(mockReader.cancel).toHaveBeenCalled();
+
+      consoleErrorSpy.mockRestore();
+    });
   });
 });
