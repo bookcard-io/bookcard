@@ -78,6 +78,7 @@ class TaskType(StrEnum):
     THUMBNAIL_GENERATE = "thumbnail_generate"
     LIBRARY_SCAN = "library_scan"
     AUTHOR_METADATA_FETCH = "author_metadata_fetch"
+    OPENLIBRARY_DUMP_DOWNLOAD = "openlibrary_dump_download"
 
 
 class Task(SQLModel, table=True):

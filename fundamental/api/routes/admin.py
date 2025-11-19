@@ -17,12 +17,14 @@
 
 from __future__ import annotations
 
+import logging
 from contextlib import suppress
 from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import FileResponse, Response
+from pydantic import BaseModel
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -71,6 +73,41 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 SessionDep = Annotated[Session, Depends(get_db_session)]
 AdminUserDep = Annotated[User, Depends(get_admin_user)]
+
+logger = logging.getLogger(__name__)
+
+
+class DownloadFilesRequest(BaseModel):
+    """Request model for downloading files.
+
+    Attributes
+    ----------
+    urls : list[str]
+        List of file URLs to download.
+    """
+
+    urls: list[str]
+
+
+class DownloadFilesResponse(BaseModel):
+    """Response model for file download operation.
+
+    Attributes
+    ----------
+    message : str
+        Success message.
+    task_id : int
+        Task ID for tracking the download progress.
+    downloaded_files : list[str]
+        List of successfully downloaded file paths (empty until task completes).
+    failed_files : list[str]
+        List of URLs that failed to download (empty until task completes).
+    """
+
+    message: str
+    task_id: int
+    downloaded_files: list[str]
+    failed_files: list[str]
 
 
 def role_to_role_read(role: Role) -> RoleRead:
@@ -1844,3 +1881,80 @@ def activate_library(
         if msg == "library_not_found":
             raise HTTPException(status_code=404, detail=msg) from exc
         raise
+
+
+@router.post(
+    "/openlibrary/download-dumps",
+    response_model=DownloadFilesResponse,
+    dependencies=[Depends(get_admin_user)],
+)
+def download_openlibrary_dumps(
+    request: Request,
+    current_user: AdminUserDep,
+    payload: DownloadFilesRequest,
+) -> DownloadFilesResponse:
+    """Create a task to download OpenLibrary dump files from URLs.
+
+    Creates a background task that downloads files from the provided URLs
+    and saves them to ``{data_directory}/openlibrary/dump/`` directory.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+    session : SessionDep
+        Database session dependency.
+    current_user : AdminUserDep
+        Current admin user.
+    payload : DownloadFilesRequest
+        Request containing list of file URLs to download.
+
+    Returns
+    -------
+    DownloadFilesResponse
+        Response with task ID and message.
+
+    Raises
+    ------
+    HTTPException
+        If no URLs provided (400) or task runner unavailable (503).
+    """
+    if not payload.urls:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No URLs provided",
+        )
+
+    # Get task runner
+    if (
+        not hasattr(request.app.state, "task_runner")
+        or request.app.state.task_runner is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Task runner not available",
+        )
+    task_runner = request.app.state.task_runner
+
+    cfg = request.app.state.config
+
+    # Create download task
+    from fundamental.models.tasks import TaskType
+
+    task_id = task_runner.enqueue(
+        task_type=TaskType.OPENLIBRARY_DUMP_DOWNLOAD,
+        payload={"urls": payload.urls},
+        user_id=current_user.id or 0,  # type: ignore[arg-type]
+        metadata={
+            "task_type": TaskType.OPENLIBRARY_DUMP_DOWNLOAD,
+            "urls": payload.urls,
+            "data_directory": cfg.data_directory,
+        },
+    )
+
+    return DownloadFilesResponse(
+        message="Download task created",
+        task_id=task_id,
+        downloaded_files=[],
+        failed_files=[],
+    )

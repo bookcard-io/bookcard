@@ -15,8 +15,8 @@
 
 "use client";
 
-import { EmailServerConfig } from "../email/EmailServerConfig";
 import { LibraryManagement } from "../library/LibraryManagement";
+import { OpenLibrarySettings } from "../openlibrary/OpenLibrarySettings";
 
 export function ConfigurationTab() {
   return (
@@ -34,31 +34,14 @@ export function ConfigurationTab() {
 
       <div className="rounded-md border border-surface-a20 bg-surface-tonal-a0 p-6">
         <h2 className="mb-4 font-semibold text-text-a0 text-xl">
-          Email Server Settings
+          OpenLibrary Data Dumps
         </h2>
         <p className="mb-4 text-sm text-text-a30 leading-relaxed">
-          Configure email server settings for sending e-books to devices.
-          Supports both SMTP and Gmail server types.
+          OpenLibrary data dumps are automatically downloaded for library scans,
+          provided for free by OpenLibrary. You can trigger a manual download
+          here to fetch the latest data.
         </p>
-        <EmailServerConfig />
-      </div>
-
-      <div className="rounded-md border border-surface-a20 bg-surface-tonal-a0 p-6">
-        <h2 className="mb-4 font-semibold text-text-a0 text-xl">
-          Basic Configuration
-        </h2>
-        <p className="text-sm text-text-a30">
-          Basic system configuration will be implemented here.
-        </p>
-      </div>
-
-      <div className="rounded-md border border-surface-a20 bg-surface-tonal-a0 p-6">
-        <h2 className="mb-4 font-semibold text-text-a0 text-xl">
-          UI Configuration
-        </h2>
-        <p className="text-sm text-text-a30">
-          UI settings and preferences will be implemented here.
-        </p>
+        <OpenLibrarySettings />
       </div>
     </div>
   );

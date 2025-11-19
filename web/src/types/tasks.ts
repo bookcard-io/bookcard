@@ -34,6 +34,7 @@ export enum TaskType {
   METADATA_BACKUP = "metadata_backup",
   THUMBNAIL_GENERATE = "thumbnail_generate",
   LIBRARY_SCAN = "library_scan",
+  OPENLIBRARY_DUMP_DOWNLOAD = "openlibrary_dump_download",
 }
 
 export interface Task {

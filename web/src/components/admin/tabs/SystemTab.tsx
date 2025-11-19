@@ -22,6 +22,7 @@ import { TaskPagination } from "@/components/tasks/TaskPagination";
 import { useTaskCancellation } from "@/hooks/useTaskCancellation";
 import { useTaskFilters } from "@/hooks/useTaskFilters";
 import { useTasks } from "@/hooks/useTasks";
+import { EmailServerConfig } from "../email/EmailServerConfig";
 import styles from "./SystemTab.module.scss";
 
 /**
@@ -70,6 +71,15 @@ export function SystemTab() {
 
   return (
     <div className={styles.container}>
+      <div className={styles.section}>
+        <h2 className={styles.sectionTitle}>Email Server Settings</h2>
+        <p className="mb-4 text-sm text-text-a30 leading-relaxed">
+          Configure email server settings for sending e-books to devices.
+          Supports both SMTP and Gmail server types.
+        </p>
+        <EmailServerConfig />
+      </div>
+
       <div className={styles.section}>
         <h2 className={styles.sectionTitle}>Scheduled Tasks</h2>
 
