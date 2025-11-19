@@ -15,9 +15,8 @@
 
 """Tests for metadata service to achieve 100% coverage."""
 
-from __future__ import annotations
-
 import concurrent.futures
+import threading
 import time
 import unittest.mock
 from unittest.mock import MagicMock
@@ -858,3 +857,103 @@ def test_search_provider_cancellation_before_start(
             10,
             cancellation_event=cancellation_event,
         )
+
+
+def test_process_completed_future_cancelled_error_fully(
+    provider1: MockProvider,
+) -> None:
+    """Test _process_completed_future with CancelledError fully (covers lines 406-407)."""
+    service = MetadataService()
+    provider_start_times: dict[str, float] = {}
+    all_results: list[MetadataRecord] = []
+    providers_completed = 0
+    providers_failed = 0
+    events: list[MetadataSearchEvent] = []
+
+    def _now_ms() -> int:
+        return int(time.time() * 1000)
+
+    def _publish(event: MetadataSearchEvent) -> None:
+        events.append(event)
+
+    # Create a mock future that raises CancelledError
+    future = unittest.mock.MagicMock()
+    future.result.side_effect = concurrent.futures.CancelledError("Cancelled")
+
+    completed, failed = service._process_completed_future(
+        future=future,
+        provider=provider1,
+        provider_start_times=provider_start_times,
+        total_providers=1,
+        all_results=all_results,
+        request_id="test",
+        _now_ms=_now_ms,
+        _publish=_publish,
+        providers_completed=providers_completed,
+        providers_failed=providers_failed,
+    )
+
+    # Lines 406-407: CancelledError increments providers_failed
+    assert completed == 0
+    assert failed == 1
+
+
+def test_collect_provider_results_no_done_continue(
+    mock_registry: MetadataProviderRegistry,
+    provider1: MockProvider,
+) -> None:
+    """Test _collect_provider_results continue when no futures done (covers lines 476-478)."""
+    service = MetadataService(registry=mock_registry)
+    provider_start_times: dict[str, float] = {}
+    all_results: list[MetadataRecord] = []
+    events: list[MetadataSearchEvent] = []
+
+    def _now_ms() -> int:
+        return int(time.time() * 1000)
+
+    def _publish(event: MetadataSearchEvent) -> None:
+        events.append(event)
+
+    # Create a future that won't complete immediately
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    try:
+        future = executor.submit(time.sleep, 0.2)  # Takes time to complete
+        future_to_provider = {future: provider1}
+
+        # Mock _wait_for_futures to return empty set (no futures done)
+        with unittest.mock.patch.object(
+            service, "_wait_for_futures", return_value=set()
+        ) as mock_wait:
+            # Mock _check_cancellation to return False initially, then True after a bit
+            call_count = 0
+
+            def check_cancellation_side_effect(
+                event: threading.Event | None,
+                futures: dict[concurrent.futures.Future, MetadataProvider],
+            ) -> bool:
+                nonlocal call_count
+                call_count += 1
+                # After first check, allow cancellation to prevent infinite loop
+                return call_count > 2
+
+            with unittest.mock.patch.object(
+                service,
+                "_check_cancellation",
+                side_effect=check_cancellation_side_effect,
+            ):
+                # This should hit the continue path (lines 476-478)
+                _, __ = service._collect_provider_results(
+                    future_to_provider=future_to_provider,
+                    provider_start_times=provider_start_times,
+                    total_providers=1,
+                    all_results=all_results,
+                    request_id="test",
+                    _now_ms=_now_ms,
+                    _publish=_publish,
+                    cancellation_event=None,
+                )
+
+                # Should have called _wait_for_futures multiple times
+                assert mock_wait.call_count > 0
+    finally:
+        executor.shutdown(wait=True)

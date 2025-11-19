@@ -498,3 +498,73 @@ def test_parse_date_timezone_aware() -> None:
     assert result.tzinfo is not None
     # Should return the datetime as-is (line 367)
     assert result.hour == 12
+
+
+def test_find_meta_tag_fallback_property_attribute() -> None:
+    """Test _find_meta_tag fallback to default namespace with property attribute (line 299)."""
+    opf_content = """<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+        <dc:title>Test Book</dc:title>
+        <meta property="calibre:series">Test Series</meta>
+    </metadata>
+</package>"""
+    root = etree.fromstring(opf_content.encode("utf-8"))
+    metadata_elem = root.find(".//{http://www.idpf.org/2007/opf}metadata")
+    ns = {
+        "dc": "http://purl.org/dc/elements/1.1/",
+        "opf": "http://www.idpf.org/2007/opf",
+    }
+
+    # This should find the meta tag using the fallback path (line 299)
+    # The opf: prefix searches fail, so it falls back to default namespace
+    result = OpfImporter._find_meta_tag(metadata_elem, ns, "calibre:series")
+    assert result is not None
+    assert result.get("property") == "calibre:series"
+    assert result.text == "Test Series"
+
+
+def test_find_meta_tag_fallback_name_attribute() -> None:
+    """Test _find_meta_tag fallback to default namespace with name attribute (line 300)."""
+    opf_content = """<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+        <dc:title>Test Book</dc:title>
+        <meta name="calibre:series">Test Series</meta>
+    </metadata>
+</package>"""
+    root = etree.fromstring(opf_content.encode("utf-8"))
+    metadata_elem = root.find(".//{http://www.idpf.org/2007/opf}metadata")
+    ns = {
+        "dc": "http://purl.org/dc/elements/1.1/",
+        "opf": "http://www.idpf.org/2007/opf",
+    }
+
+    # This should find the meta tag using the fallback path (line 300)
+    result = OpfImporter._find_meta_tag(metadata_elem, ns, "calibre:series")
+    assert result is not None
+    assert result.get("name") == "calibre:series"
+    assert result.text == "Test Series"
+
+
+@pytest.mark.parametrize(
+    ("date_str", "expected_hour", "has_timezone"),
+    [
+        ("2020-01-01T12:00:00+05:00", 12, True),  # Timezone-aware, line 367
+        ("2020-01-01T12:00:00", 12, False),  # Naive, lines 362-363
+        ("2020-01-01", 0, False),  # Naive date only, lines 362-363
+    ],
+)
+def test_parse_date_strptime_paths(
+    date_str: str, expected_hour: int, has_timezone: bool
+) -> None:
+    """Test _parse_date with strptime paths covering lines 362-363, 367."""
+    result = OpfImporter._parse_date(date_str)
+    assert result is not None
+    assert result.hour == expected_hour
+    if has_timezone:
+        # Line 367: timezone-aware datetime returned as-is
+        assert result.tzinfo is not None
+    else:
+        # Lines 362-363: naive datetime made timezone-aware
+        assert result.tzinfo == UTC

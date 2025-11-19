@@ -18,20 +18,15 @@ Provides permission checking functionality with support for conditional permissi
 based on resource metadata (e.g., restrict by author, tags, series).
 """
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, Any
 
-from sqlmodel import select
+from fastapi import HTTPException, status
+from sqlmodel import Session, select
 
-from fundamental.models.auth import Permission, RolePermission, UserRole
+from fundamental.models.auth import Permission, RolePermission, User, UserRole
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-    from sqlmodel import Session
-
-    from fundamental.models.auth import User
 
 
 class PermissionService:
@@ -138,8 +133,6 @@ class PermissionService:
             If user does not have the required permission.
         """
         if not self.has_permission(user, resource, action, context):
-            from fastapi import HTTPException, status
-
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"permission_denied: {resource}:{action}",

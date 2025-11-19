@@ -393,3 +393,14 @@ def test_convert_identifier_dict() -> None:
     identifier_types = [id_item["type"] for id_item in result]
     assert "isbn" in identifier_types
     assert "asin" in identifier_types
+
+
+def test_yaml_import_error_handling() -> None:
+    """Test YAML importer handles ImportError (lines 28-29)."""
+    # This tests the ImportError handling when yaml module is not available
+    # The actual import happens at module level, so we test the behavior
+    # when yaml is None (which is set in lines 28-29)
+    with patch("fundamental.services.metadata_importers.yaml_importer.yaml", None):
+        importer = YamlImporter()
+        with pytest.raises(ValueError, match="YAML import requires PyYAML"):
+            importer.import_metadata("title: Test")

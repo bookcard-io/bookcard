@@ -22,7 +22,11 @@ import pytest
 from fastapi import HTTPException, Request, status
 from sqlmodel import Session
 
-from fundamental.api.deps import get_current_user, get_db_session
+from fundamental.api.deps import (
+    get_current_user,
+    get_db_session,
+    require_permission,
+)
 from fundamental.config import AppConfig
 from fundamental.database import create_db_engine
 from fundamental.models.auth import User
@@ -186,3 +190,117 @@ def test_get_admin_user_not_admin() -> None:
     assert isinstance(exc, HTTPException)
     assert exc.status_code == status.HTTP_403_FORBIDDEN
     assert exc.detail == "admin_required"
+
+
+def test_require_permission_no_context() -> None:
+    """Test require_permission with no context."""
+    session = DummySession()
+    user = User(
+        id=1,
+        username="testuser",
+        email="test@example.com",
+        password_hash="hash",
+    )
+
+    permission_checker = require_permission("books", "read")
+
+    with patch("fundamental.api.deps.PermissionService") as mock_service_class:
+        mock_service = MagicMock()
+        mock_service.check_permission.return_value = None  # Permission granted
+        mock_service_class.return_value = mock_service
+
+        # Should not raise
+        permission_checker(user, session)  # type: ignore[arg-type]
+
+        mock_service.check_permission.assert_called_once_with(
+            user, "books", "read", None
+        )
+
+
+def test_require_permission_with_dict_context() -> None:
+    """Test require_permission with dict context."""
+    session = DummySession()
+    user = User(
+        id=1,
+        username="testuser",
+        email="test@example.com",
+        password_hash="hash",
+    )
+
+    context = {"book_id": 123}
+    permission_checker = require_permission("books", "read", context=context)
+
+    with patch("fundamental.api.deps.PermissionService") as mock_service_class:
+        mock_service = MagicMock()
+        mock_service.check_permission.return_value = None  # Permission granted
+        mock_service_class.return_value = mock_service
+
+        # Should not raise
+        permission_checker(user, session)  # type: ignore[arg-type]
+
+        mock_service.check_permission.assert_called_once_with(
+            user, "books", "read", context
+        )
+
+
+def test_require_permission_with_callable_context() -> None:
+    """Test require_permission with callable context (resolves to None)."""
+    session = DummySession()
+    user = User(
+        id=1,
+        username="testuser",
+        email="test@example.com",
+        password_hash="hash",
+    )
+
+    # Test the callable context path by using a callable and type: ignore
+    # The implementation checks isinstance(context, dict) first, then callable
+    def context_provider() -> dict[str, object]:
+        return {"book_id": 123}
+
+    # Use type: ignore to bypass type checker since we're testing the callable path
+    permission_checker = require_permission(
+        "books",
+        "read",
+        context=context_provider,  # type: ignore[arg-type]
+    )
+
+    with patch("fundamental.api.deps.PermissionService") as mock_service_class:
+        mock_service = MagicMock()
+        mock_service.check_permission.return_value = None  # Permission granted
+        mock_service_class.return_value = mock_service
+
+        # Should not raise, but callable context resolves to None
+        permission_checker(user, session)  # type: ignore[arg-type]
+
+        # Callable context is not supported, so resolved_context should be None
+        mock_service.check_permission.assert_called_once_with(
+            user, "books", "read", None
+        )
+
+
+def test_require_permission_denied() -> None:
+    """Test require_permission raises HTTPException when permission denied."""
+    session = DummySession()
+    user = User(
+        id=1,
+        username="testuser",
+        email="test@example.com",
+        password_hash="hash",
+    )
+
+    permission_checker = require_permission("books", "write")
+
+    with patch("fundamental.api.deps.PermissionService") as mock_service_class:
+        mock_service = MagicMock()
+        mock_service.check_permission.side_effect = HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="permission_denied: books:write",
+        )
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            permission_checker(user, session)  # type: ignore[arg-type]
+        exc = exc_info.value
+        assert exc.status_code == status.HTTP_403_FORBIDDEN  # type: ignore[attr-defined]
+        assert "permission_denied" in exc.detail  # type: ignore[attr-defined]
