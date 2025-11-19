@@ -1405,7 +1405,7 @@ class AuthorIngestionUnitOfWork:
             self.session.flush()
         except Exception:
             logger.exception(
-                "Failed to ingest author %s: %s", match_result.matched_entity.key
+                "Failed to ingest author %s", match_result.matched_entity.key
             )
             self.session.rollback()
             raise

@@ -23,6 +23,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from fundamental.services.library_scanning.pipeline.crawl import CrawlStage
+from fundamental.services.library_scanning.pipeline.deduplicate import DeduplicateStage
 from fundamental.services.library_scanning.pipeline.ingest import IngestStage
 from fundamental.services.library_scanning.pipeline.link import LinkStage
 from fundamental.services.library_scanning.pipeline.match import MatchStage
@@ -174,16 +175,12 @@ class StandardPipelineFactory(PipelineFactory):
         # Build match stage kwargs from config
         match_kwargs: dict[str, Any] = {}
         if config.stale_data_max_age_days is not None:
-            match_kwargs["stale_data_max_age_days"] = (
-                None  # config.stale_data_max_age_days
-            )
+            match_kwargs["stale_data_max_age_days"] = config.stale_data_max_age_days
 
         # Build score stage kwargs from config
         score_kwargs: dict[str, Any] = {}
         if config.stale_data_max_age_days is not None:
-            score_kwargs["stale_data_max_age_days"] = (
-                None  # config.stale_data_max_age_days
-            )
+            score_kwargs["stale_data_max_age_days"] = config.stale_data_max_age_days
 
         # Note: MatchStage makes API calls via context.data_source.search_author()
         # The data source is already configured with rate limiting from provider config
@@ -197,6 +194,7 @@ class StandardPipelineFactory(PipelineFactory):
                 **ingest_kwargs
             ),  # Makes API calls via data_source.get_author()
             LinkStage(),  # Only database operations, no API calls
+            DeduplicateStage(),  # Merges duplicates and updates mappings
             ScoreStage(**score_kwargs),  # Only database operations, no API calls
         ]
 

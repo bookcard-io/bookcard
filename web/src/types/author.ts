@@ -137,6 +137,8 @@ export interface AuthorWithMetadata extends Author {
   }>;
   /** Similar authors. */
   similar_authors?: AuthorWithMetadata[];
+  /** Whether the author is unmatched in the library (no external metadata). */
+  is_unmatched?: boolean;
 }
 
 /**

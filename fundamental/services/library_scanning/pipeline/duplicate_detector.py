@@ -20,9 +20,11 @@ Uses Strategy pattern for different detection algorithms.
 """
 
 import logging
+from collections import defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import ClassVar
 
 from fundamental.models.author_metadata import AuthorMetadata
 from fundamental.services.library_scanning.matching.exact import normalize_name
@@ -60,7 +62,24 @@ class DuplicateDetector:
 
     Uses ONLY persisted data from the database (no API calls).
     Detects duplicates using name similarity with Levenshtein distance.
+    Optimized with token-based blocking to avoid O(N^2) comparisons.
     """
+
+    # Tokens to ignore during indexing (common particles)
+    IGNORED_TOKENS: ClassVar[set[str]] = {
+        "the",
+        "and",
+        "of",
+        "dr",
+        "mr",
+        "mrs",
+        "ms",
+        "jr",
+        "sr",
+        "ii",
+        "iii",
+        "iv",
+    }
 
     def __init__(
         self,
@@ -79,8 +98,39 @@ class DuplicateDetector:
         self._min_similarity = min_similarity
         self._quality_scorer = quality_scorer or QualityScorer()
 
+    def _tokenize(self, text: str) -> set[str]:
+        """Extract meaningful tokens from text for indexing.
+
+        Parameters
+        ----------
+        text : str
+            Text to tokenize.
+
+        Returns
+        -------
+        set[str]
+            Set of tokens.
+        """
+        normalized = normalize_name(text)
+        tokens = set()
+
+        for token in normalized.split():
+            # Keep only alphanumeric chars for indexing
+            clean_token = "".join(c for c in token if c.isalnum())
+
+            # Skip empty, short, or ignored tokens
+            if len(clean_token) < 2 or clean_token in self.IGNORED_TOKENS:
+                continue
+
+            tokens.add(clean_token)
+
+        return tokens
+
     def find_duplicates(self, authors: list[AuthorMetadata]) -> Iterator[DuplicatePair]:
         """Find all duplicate pairs in author list.
+
+        Uses token-based blocking (Inverted Index) to reduce comparisons.
+        Only compares authors that share at least one rare/meaningful token.
 
         Parameters
         ----------
@@ -92,21 +142,133 @@ class DuplicateDetector:
         DuplicatePair
             Pairs of duplicate authors.
         """
-        seen: set[int] = set()
+        # Map ID to author object for quick lookup
+        author_map = {a.id: a for a in authors if a.id is not None}
 
-        for i, author1 in enumerate(authors):
-            if author1.id is None or author1.id in seen:
+        # Build inverted index: token -> list[author_id]
+        token_index = self._build_token_index(authors)
+
+        logger.info(
+            "Index built with %d unique tokens. Starting candidate generation.",
+            len(token_index),
+        )
+
+        # Track processed pairs to avoid duplicates and self-comparisons
+        processed_pairs: set[tuple[int, int]] = set()
+
+        # Iterate through index to find candidates
+        for author_ids in token_index.values():
+            if not self._should_process_token(author_ids, len(authors)):
                 continue
 
-            for author2 in authors[i + 1 :]:
-                if author2.id is None or author2.id in seen:
+            # Compare all pairs within this bucket
+            yield from self._generate_pairs_from_bucket(
+                author_ids, author_map, processed_pairs
+            )
+
+    def _build_token_index(self, authors: list[AuthorMetadata]) -> dict[str, list[int]]:
+        """Build inverted index of tokens to author IDs.
+
+        Parameters
+        ----------
+        authors : list[AuthorMetadata]
+            List of authors to index.
+
+        Returns
+        -------
+        dict[str, list[int]]
+            Token index mapping tokens to author IDs.
+        """
+        token_index: dict[str, list[int]] = defaultdict(list)
+
+        logger.info("Building token index for %d authors", len(authors))
+
+        for author in authors:
+            if author.id is None:
+                continue
+
+            # Index primary name
+            tokens = self._tokenize(author.name)
+
+            # Index alternate names
+            if author.alternate_names:
+                for alt in author.alternate_names:
+                    tokens.update(self._tokenize(alt.name))
+
+            # Add author ID to index for each token
+            for token in tokens:
+                token_index[token].append(author.id)
+
+        return token_index
+
+    def _should_process_token(self, author_ids: list[int], total_authors: int) -> bool:
+        """Check if token bucket should be processed.
+
+        Parameters
+        ----------
+        author_ids : list[int]
+            List of author IDs in this token bucket.
+        total_authors : int
+            Total number of authors.
+
+        Returns
+        -------
+        bool
+            True if bucket should be processed, False otherwise.
+        """
+        # Skip tokens with too many authors (likely common names)
+        # Threshold: > 10% of DB or > 100 matches (heuristic)
+        if len(author_ids) > max(100, total_authors // 10):
+            return False
+
+        # If only one author has this token, no duplicates here
+        return len(author_ids) >= 2
+
+    def _generate_pairs_from_bucket(
+        self,
+        author_ids: list[int],
+        author_map: dict[int, AuthorMetadata],
+        processed_pairs: set[tuple[int, int]],
+    ) -> Iterator[DuplicatePair]:
+        """Generate duplicate pairs from a token bucket.
+
+        Parameters
+        ----------
+        author_ids : list[int]
+            Sorted list of author IDs in this bucket.
+        author_map : dict[int, AuthorMetadata]
+            Map of author ID to author object.
+        processed_pairs : set[tuple[int, int]]
+            Set of already processed pairs.
+
+        Yields
+        ------
+        DuplicatePair
+            Duplicate pairs found in this bucket.
+        """
+        # Sort to ensure consistent pair ordering
+        author_ids.sort()
+
+        for i in range(len(author_ids)):
+            id1 = author_ids[i]
+
+            for j in range(i + 1, len(author_ids)):
+                id2 = author_ids[j]
+
+                # Create pair key
+                pair_key = (id1, id2)
+
+                if pair_key in processed_pairs:
                     continue
 
+                processed_pairs.add(pair_key)
+
+                # Retrieve author objects
+                author1 = author_map[id1]
+                author2 = author_map[id2]
+
                 if self.are_duplicates(author1, author2):
-                    pair = self.score_and_pair(author1, author2)
-                    if pair.merge.id:
-                        seen.add(pair.merge.id)
-                    yield pair
+                    yield self.score_and_pair(author1, author2)
 
     def are_duplicates(self, author1: AuthorMetadata, author2: AuthorMetadata) -> bool:
         """Check if two author records are duplicates.

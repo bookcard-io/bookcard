@@ -92,7 +92,7 @@ class TestStandardPipelineFactory:
 
         stages = factory.create_stages(config)
 
-        assert len(stages) == 5
+        assert len(stages) == 6
         # Verify ingest stage has kwargs
         ingest_stage = stages[2]
         assert hasattr(ingest_stage, "_stale_data_max_age_days") or hasattr(
@@ -110,7 +110,7 @@ class TestStandardPipelineFactory:
 
         stages = factory.create_stages(config)
 
-        assert len(stages) == 5
+        assert len(stages) == 6
 
     def test_create_stages_with_no_config(self) -> None:
         """Test create_stages with minimal configuration."""
@@ -122,7 +122,7 @@ class TestStandardPipelineFactory:
 
         stages = factory.create_stages(config)
 
-        assert len(stages) == 5
+        assert len(stages) == 6
 
     def test_create_executor_with_callback(self) -> None:
         """Test create_executor with progress callback."""

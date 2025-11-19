@@ -316,9 +316,12 @@ export function AuthorsGrid() {
                           )}
                           className={cn(
                             "group cursor-pointer overflow-hidden rounded",
-                            "w-full border-2 border-transparent bg-gradient-to-b from-surface-a0 to-surface-a10 p-4 text-left",
+                            "w-full border-2 bg-gradient-to-b p-4 text-left",
+                            author.is_unmatched
+                              ? "border-primary-a0/30 from-surface-a0 to-surface-a10 hover:border-primary-a0 hover:shadow-[0_0_15px_rgba(144,170,249,0.15)]"
+                              : "border-transparent from-surface-a0 to-surface-a10 hover:shadow-card-hover",
                             "transition-[transform,box-shadow,border-color] duration-200 ease-out",
-                            "hover:-translate-y-0.5 hover:shadow-card-hover",
+                            "hover:-translate-y-0.5",
                             "focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2",
                             "focus:not-focus-visible:outline-none focus:outline-none",
                           )}

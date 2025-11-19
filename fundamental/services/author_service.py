@@ -444,6 +444,17 @@ class AuthorService:
         dict[str, object]
             Author data dictionary matching OpenLibrary format.
         """
+        # Handle unmatched authors (transient objects)
+        if getattr(author, "is_unmatched", False):
+            # For unmatched authors, we use a generated key
+            calibre_id = getattr(author, "calibre_id", 0)
+            return {
+                "name": author.name,
+                "key": f"calibre-{calibre_id}",
+                "is_unmatched": True,
+                "location": "Local Library (Unmatched)",  # Placeholder
+            }
+
         # Ensure relationships are loaded
         self._ensure_relationships_loaded(author)
 

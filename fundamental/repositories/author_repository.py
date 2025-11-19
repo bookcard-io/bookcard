@@ -19,6 +19,7 @@ Follows SRP by focusing solely on data access.
 Uses IOC by accepting session as dependency.
 """
 
+from sqlalchemy import func, literal, text, union_all
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -28,6 +29,7 @@ from fundamental.models.author_metadata import (
     AuthorSimilarity,
     AuthorWork,
 )
+from fundamental.models.core import Author
 from fundamental.repositories.base import Repository
 
 
@@ -55,6 +57,10 @@ class AuthorRepository(Repository[AuthorMetadata]):
     ) -> tuple[list[AuthorMetadata], int]:
         """List authors mapped to a specific library with pagination.
 
+        Includes both matched authors (AuthorMetadata) and unmatched authors (Author).
+        Unmatched authors are returned as transient AuthorMetadata objects with
+        is_unmatched=True.
+
         Parameters
         ----------
         library_id : int
@@ -67,42 +73,102 @@ class AuthorRepository(Repository[AuthorMetadata]):
         Returns
         -------
         tuple[list[AuthorMetadata], int]
-            Authors mapped to the library (ordered by name) and total count.
+            Authors (ordered by name) and total count.
         """
-        # Base query for counting - count distinct author IDs directly
-        from sqlalchemy import func
-
-        count_stmt = (
-            select(func.count(func.distinct(AuthorMetadata.id)))
-            .join(AuthorMapping, AuthorMetadata.id == AuthorMapping.author_metadata_id)
-            .where(AuthorMapping.library_id == library_id)
-        )
-        total = self._session.exec(count_stmt).one() or 0
-
-        # Base query for fetching
-        base_stmt = (
-            select(AuthorMetadata)
-            .join(AuthorMapping, AuthorMetadata.id == AuthorMapping.author_metadata_id)
-            .where(AuthorMapping.library_id == library_id)
-            .distinct()
-        )
-
-        # Paginated query
-        offset = (page - 1) * page_size
-        stmt = (
-            base_stmt.options(
-                selectinload(AuthorMetadata.remote_ids),
-                selectinload(AuthorMetadata.photos),
-                selectinload(AuthorMetadata.alternate_names),
-                selectinload(AuthorMetadata.links),
-                selectinload(AuthorMetadata.works).selectinload(AuthorWork.subjects),
+        # 1. Matched authors query part
+        # Select: name, type='matched', id (metadata_id)
+        matched_query = (
+            select(
+                AuthorMetadata.name.label("name"),  # type: ignore
+                literal("matched").label("type"),
+                AuthorMetadata.id.label("id"),  # type: ignore
             )
-            .order_by(AuthorMetadata.name)
-            .offset(offset)
-            .limit(page_size)
+            .join(AuthorMapping, AuthorMetadata.id == AuthorMapping.author_metadata_id)
+            .where(AuthorMapping.library_id == library_id)
         )
-        authors = list(self._session.exec(stmt).all())
-        return authors, total
+
+        # 2. Unmatched authors query part
+        # Select: name, type='unmatched', id (calibre_id)
+        # Find authors NOT in AuthorMapping for this library
+        mapped_calibre_ids = select(AuthorMapping.calibre_author_id).where(
+            AuthorMapping.library_id == library_id
+        )
+        unmatched_query = select(
+            Author.name.label("name"),  # type: ignore
+            literal("unmatched").label("type"),
+            Author.id.label("id"),  # type: ignore
+        ).where(Author.id.not_in(mapped_calibre_ids))  # type: ignore
+
+        # 3. Calculate total count (sum of both queries)
+        count_matched = self._session.exec(
+            select(func.count()).select_from(matched_query.subquery())
+        ).one()
+        count_unmatched = self._session.exec(
+            select(func.count()).select_from(unmatched_query.subquery())
+        ).one()
+        total = count_matched + count_unmatched
+
+        # 4. Pagination with UNION
+        # Union, order by name, limit/offset
+        union_query = (
+            union_all(matched_query, unmatched_query)
+            .order_by(text("name ASC"))
+            .limit(page_size)
+            .offset((page - 1) * page_size)
+        )
+
+        results = self._session.exec(union_query).all()  # type: ignore
+
+        # 5. Hydrate objects
+        matched_ids = [r.id for r in results if r.type == "matched"]
+        unmatched_ids = [r.id for r in results if r.type == "unmatched"]
+
+        # Fetch full objects
+        matched_objs = {}
+        if matched_ids:
+            stmt = (
+                select(AuthorMetadata)
+                .where(AuthorMetadata.id.in_(matched_ids))  # type: ignore
+                .options(
+                    selectinload(AuthorMetadata.remote_ids),
+                    selectinload(AuthorMetadata.photos),
+                    selectinload(AuthorMetadata.alternate_names),
+                    selectinload(AuthorMetadata.links),
+                    selectinload(AuthorMetadata.works).selectinload(
+                        AuthorWork.subjects
+                    ),
+                )
+            )
+            matched_objs = {a.id: a for a in self._session.exec(stmt).all()}
+
+        unmatched_objs = {}
+        if unmatched_ids:
+            stmt = select(Author).where(Author.id.in_(unmatched_ids))  # type: ignore
+            unmatched_objs = {a.id: a for a in self._session.exec(stmt).all()}
+
+        # 6. Construct final list in order
+        final_list = []
+        for row in results:
+            if row.type == "matched":
+                if obj := matched_objs.get(row.id):
+                    obj.is_unmatched = False  # Explicit flag
+                    final_list.append(obj)
+            else:
+                if obj := unmatched_objs.get(row.id):
+                    # Create transient AuthorMetadata for unmatched author
+                    # We use the Calibre ID but mark it as unmatched
+                    transient = AuthorMetadata(
+                        name=obj.name,
+                        openlibrary_key=None,  # No key
+                    )
+                    # Manually set ID to None to avoid DB conflicts if saved,
+                    # but we need to track it. We'll attach calibre_id.
+                    transient.id = None
+                    transient.calibre_id = obj.id  # Custom attr
+                    transient.is_unmatched = True  # Custom attr
+                    final_list.append(transient)
+
+        return final_list, total
 
     def get_by_id_and_library(
         self,
