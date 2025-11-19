@@ -99,7 +99,7 @@ class DummySession:
         """Record entity deletion from the session."""
         self.deleted.append(entity)
 
-    def refresh(self, entity: Any) -> None:  # noqa: ANN401
+    def refresh(self, entity: Any, attribute_names: list[str] | None = None) -> None:  # noqa: ANN401
         """Record entity refresh from the session."""
         self.refreshed.append(entity)
 

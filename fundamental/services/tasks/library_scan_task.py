@@ -79,6 +79,15 @@ class LibraryScanTask(BaseTask):
             msg = "library_id is required in task metadata"
             raise ValueError(msg)
 
+        # Extract data source configuration
+        data_source_config = metadata.get("data_source_config", {})
+        if isinstance(data_source_config, dict):
+            self.data_source_name = data_source_config.get("name", "openlibrary")
+            self.data_source_kwargs = data_source_config.get("kwargs", {})
+        else:
+            self.data_source_name = "openlibrary"
+            self.data_source_kwargs = {}
+
         self.orchestrator = orchestrator
 
     def run(self, worker_context: dict[str, Any]) -> None:
@@ -108,9 +117,18 @@ class LibraryScanTask(BaseTask):
             if update_progress:
                 update_progress(progress, metadata)
 
+        def _raise_library_id_required() -> None:
+            """Raise ValueError for missing library_id."""
+            msg = "library_id is required"
+            raise ValueError(msg)
+
         try:
+            # Validate library_id is present
+            if not self.library_id:
+                _raise_library_id_required()
+
             # Create orchestrator if not injected
-            if not self.orchestrator:
+            if not hasattr(self, "orchestrator") or not self.orchestrator:
                 self.orchestrator = self._create_orchestrator(session)
 
             # Execute scan

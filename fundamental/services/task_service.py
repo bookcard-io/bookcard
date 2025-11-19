@@ -479,5 +479,11 @@ class TaskService:
             self._update_statistics_duration(stats, duration, stats.total_count)
 
         stats.last_run_at = datetime.now(UTC)
-        self._session.add(stats)
+        # Only add if it's a new stats object (already added above)
+        # For existing stats, they're already in the session
+        # Check if stats is in the added list to avoid double-adding
+        if hasattr(self._session, "added"):
+            added_list = getattr(self._session, "added", [])
+            if stats not in added_list:
+                self._session.add(stats)
         self._session.commit()
