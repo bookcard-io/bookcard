@@ -1022,7 +1022,9 @@ class TestOpenLibraryDataSourceGetAuthorWorks:
 
         # Verify lang parameter was used in request
         call_args = mock_httpx_client.get.call_args
-        assert call_args[1]["params"]["lang"] == "fra"
+        assert call_args is not None
+        _, kwargs = call_args
+        assert kwargs["params"]["lang"] == "fra"
 
     def test_get_author_works_network_error(
         self,
@@ -1463,9 +1465,12 @@ class TestOpenLibraryDataSourceExtractAuthorsFromBookData:
         response1.raise_for_status.side_effect = httpx.HTTPStatusError(
             "Not found", request=MagicMock(), response=response1
         )
+
         response2 = MagicMock()
+        response2.status_code = 200
         response2.json.return_value = {"name": "Author 2"}
         response2.raise_for_status.return_value = None
+
         mock_httpx_client.get.side_effect = [response1, response2]
 
         with patch("httpx.Client", return_value=mock_httpx_client):
