@@ -29,6 +29,8 @@ export interface AuthorDetailViewProps {
   author: AuthorWithMetadata;
   /** Callback when back button is clicked. */
   onBack?: () => void;
+  /** Callback to refetch author data. */
+  onRefetch?: () => void;
 }
 
 /**
@@ -44,7 +46,11 @@ export interface AuthorDetailViewProps {
  * props : AuthorDetailViewProps
  *     Component props including author data and callbacks.
  */
-export function AuthorDetailView({ author, onBack }: AuthorDetailViewProps) {
+export function AuthorDetailView({
+  author,
+  onBack,
+  onRefetch,
+}: AuthorDetailViewProps) {
   const router = useRouter();
   const [showFullBio, setShowFullBio] = useState(false);
 
@@ -74,6 +80,7 @@ export function AuthorDetailView({ author, onBack }: AuthorDetailViewProps) {
           showFullBio={showFullBio}
           onToggleBio={handleToggleBio}
           onBack={onBack}
+          onMetadataFetched={onRefetch}
         />
 
         {/* Library Books Section */}

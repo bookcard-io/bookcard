@@ -21,6 +21,7 @@ import { BookViewFormats } from "@/components/books/BookViewFormats";
 import { BookViewHeader } from "@/components/books/BookViewHeader";
 import { BookViewMetadata } from "@/components/books/BookViewMetadata";
 import { Button } from "@/components/forms/Button";
+import { UserProvider } from "@/contexts/UserContext";
 import { useBook } from "@/hooks/useBook";
 import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
 import { useModal } from "@/hooks/useModal";
@@ -111,114 +112,116 @@ export default function BookViewPage({ params }: BookViewPageProps) {
     // This handler exists only to satisfy accessibility requirements
   }, []);
 
-  if (isLoading) {
-    return (
-      /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
-      <div
-        className={styles.modalOverlay}
-        onClick={handleOverlayClick}
-        onKeyDown={handleOverlayKeyDown}
-        role="presentation"
-      >
+  const modalContent = (
+    <>
+      {isLoading && (
+        /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
         <div
-          className={styles.modal}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Book details"
-          onMouseDown={handleModalClick}
+          className={styles.modalOverlay}
+          onClick={handleOverlayClick}
+          onKeyDown={handleOverlayKeyDown}
+          role="presentation"
         >
-          <div className={styles.loading}>Loading book data...</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !book) {
-    return (
-      /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
-      <div
-        className={styles.modalOverlay}
-        onClick={handleOverlayClick}
-        onKeyDown={handleOverlayKeyDown}
-        role="presentation"
-      >
-        <div
-          className={styles.modal}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Book details"
-          onMouseDown={handleModalClick}
-        >
-          <div className={styles.error}>
-            {error || "Book not found"}
-            <Button onClick={handleDismiss} variant="secondary" size="medium">
-              Close
-            </Button>
+          <div
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Book details"
+            onMouseDown={handleModalClick}
+          >
+            <div className={styles.loading}>Loading book data...</div>
           </div>
         </div>
-      </div>
-    );
-  }
+      )}
 
-  return (
-    /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
-    <div
-      className={styles.modalOverlay}
-      onClick={handleOverlayClick}
-      onKeyDown={handleOverlayKeyDown}
-      role="presentation"
-    >
-      <div
-        className={styles.modal}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Book details"
-        onMouseDown={handleModalClick}
-      >
-        <button
-          type="button"
-          onClick={handleDismiss}
-          className={styles.closeButton}
-          aria-label="Close"
+      {!isLoading && (error || !book) && (
+        /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
+        <div
+          className={styles.modalOverlay}
+          onClick={handleOverlayClick}
+          onKeyDown={handleOverlayKeyDown}
+          role="presentation"
         >
-          <i className="pi pi-times" aria-hidden="true" />
-        </button>
-
-        <div className={styles.content}>
-          <BookViewHeader book={book} />
-
-          <div className={styles.mainContent}>
-            {book.description && (
-              <section className={styles.section}>
-                <h2 className={styles.sectionTitle}>Description</h2>
-                <div
-                  className={styles.description}
-                  // biome-ignore lint/security/noDangerouslySetInnerHtml: Book descriptions from Calibre are trusted HTML content
-                  dangerouslySetInnerHTML={{ __html: book.description }}
-                />
-              </section>
-            )}
-
-            <BookViewMetadata book={book} />
-
-            {book.formats && book.formats.length > 0 && bookId && (
-              <BookViewFormats formats={book.formats} book={book} />
-            )}
+          <div
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Book details"
+            onMouseDown={handleModalClick}
+          >
+            <div className={styles.error}>
+              {error || "Book not found"}
+              <Button onClick={handleDismiss} variant="secondary" size="medium">
+                Close
+              </Button>
+            </div>
           </div>
+        </div>
+      )}
 
-          {/* Actions */}
-          <div className={styles.actions}>
-            <Button
+      {!isLoading && book && (
+        /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
+        <div
+          className={styles.modalOverlay}
+          onClick={handleOverlayClick}
+          onKeyDown={handleOverlayKeyDown}
+          role="presentation"
+        >
+          <div
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Book details"
+            onMouseDown={handleModalClick}
+          >
+            <button
               type="button"
-              variant="primary"
-              size="medium"
-              onClick={handleEdit}
+              onClick={handleDismiss}
+              className={styles.closeButton}
+              aria-label="Close"
             >
-              Edit Metadata
-            </Button>
+              <i className="pi pi-times" aria-hidden="true" />
+            </button>
+
+            <div className={styles.content}>
+              <BookViewHeader book={book} />
+
+              <div className={styles.mainContent}>
+                {book.description && (
+                  <section className={styles.section}>
+                    <h2 className={styles.sectionTitle}>Description</h2>
+                    <div
+                      className={styles.description}
+                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Book descriptions from Calibre are trusted HTML content
+                      dangerouslySetInnerHTML={{ __html: book.description }}
+                    />
+                  </section>
+                )}
+
+                <BookViewMetadata book={book} />
+
+                {book.formats && book.formats.length > 0 && bookId && (
+                  <BookViewFormats formats={book.formats} book={book} />
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className={styles.actions}>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="medium"
+                  onClick={handleEdit}
+                >
+                  Edit Metadata
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
+
+  return <UserProvider>{modalContent}</UserProvider>;
 }

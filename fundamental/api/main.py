@@ -32,6 +32,7 @@ from fastapi import FastAPI
 from fundamental.api.middleware.auth_middleware import AuthMiddleware
 from fundamental.api.routes.admin import router as admin_router
 from fundamental.api.routes.auth import router as auth_router
+from fundamental.api.routes.authors import router as authors_router
 from fundamental.api.routes.books import router as books_router
 from fundamental.api.routes.devices import router as devices_router
 from fundamental.api.routes.fs import router as fs_router
@@ -96,6 +97,7 @@ def _register_routers(app: FastAPI) -> None:
     """
     app.include_router(auth_router)
     app.include_router(admin_router)
+    app.include_router(authors_router)
     app.include_router(books_router)
     app.include_router(devices_router)
     app.include_router(fs_router)

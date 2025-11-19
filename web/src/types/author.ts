@@ -138,3 +138,19 @@ export interface AuthorWithMetadata extends Author {
   /** Similar authors. */
   similar_authors?: AuthorWithMetadata[];
 }
+
+/**
+ * Paginated response for authors list.
+ */
+export interface AuthorListResponse {
+  /** Array of authors. */
+  items: AuthorWithMetadata[];
+  /** Total number of authors. */
+  total: number;
+  /** Current page number. */
+  page: number;
+  /** Number of items per page. */
+  page_size: number;
+  /** Total number of pages. */
+  total_pages: number;
+}

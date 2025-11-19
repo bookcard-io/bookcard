@@ -19,7 +19,12 @@ import { useCallback, useState } from "react";
 import { FullscreenImageModal } from "@/components/common/FullscreenImageModal";
 import { ImageWithLoading } from "@/components/common/ImageWithLoading";
 import { cn } from "@/libs/utils";
+import { fetchAuthorMetadata } from "@/services/authorService";
 import type { AuthorWithMetadata } from "@/types/author";
+import {
+  categorizeGenresAndStyles,
+  getPrimaryGenre,
+} from "@/utils/genreCategorizer";
 
 export interface AuthorHeaderProps {
   /** Author data to display. */
@@ -30,6 +35,8 @@ export interface AuthorHeaderProps {
   onToggleBio?: () => void;
   /** Callback when back button is clicked. */
   onBack?: () => void;
+  /** Callback when metadata is successfully fetched. */
+  onMetadataFetched?: () => void;
 }
 
 /**
@@ -49,10 +56,42 @@ export function AuthorHeader({
   showFullBio = false,
   onToggleBio,
   onBack,
+  onMetadataFetched,
 }: AuthorHeaderProps) {
   const [isPhotoOpen, setIsPhotoOpen] = useState(false);
+  const [isFetchingMetadata, setIsFetchingMetadata] = useState(false);
+  const [showAllStyles, setShowAllStyles] = useState(false);
   const openPhoto = useCallback(() => setIsPhotoOpen(true), []);
   const closePhoto = useCallback(() => setIsPhotoOpen(false), []);
+
+  const handleFetchMetadata = useCallback(async () => {
+    if (isFetchingMetadata) {
+      return;
+    }
+
+    // Get author ID - use OpenLibrary key
+    const authorId = author.key || "";
+    if (!authorId) {
+      return;
+    }
+
+    setIsFetchingMetadata(true);
+    try {
+      const result = await fetchAuthorMetadata(authorId);
+      // Task is now running in background - refetch author data after a delay
+      // to allow task to complete (or user can check task status separately)
+      setTimeout(() => {
+        onMetadataFetched?.();
+      }, 2000); // Give task a moment to start
+      // TODO: Show success toast with task ID or poll task status
+      console.log("Metadata fetch task created:", result.task_id);
+    } catch (error) {
+      // TODO: Show error toast/notification
+      console.error("Failed to fetch metadata:", error);
+    } finally {
+      setIsFetchingMetadata(false);
+    }
+  }, [author.key, isFetchingMetadata, onMetadataFetched]);
 
   // Extract bio text
   const bioText = author.bio?.value || "";
@@ -61,8 +100,15 @@ export function AuthorHeader({
     ? `${bioText.substring(0, 300)}...`
     : bioText;
 
-  // Extract genres/styles
-  const genres = author.genres || [];
+  // Categorize genres and styles
+  const subjects = author.genres || [];
+  const { styles: allStyles } = categorizeGenresAndStyles(subjects);
+  // Limit to 1 primary genre
+  const primaryGenre = getPrimaryGenre(subjects);
+  // Show 3 styles initially, expand to 10 on "and more" click
+  const maxStyles = showAllStyles ? 10 : 3;
+  const displayedStyles = allStyles.slice(0, maxStyles);
+  const hasMoreStyles = allStyles.length > 3;
 
   return (
     <>
@@ -129,23 +175,12 @@ export function AuthorHeader({
             </div>
           )}
 
-          {/* Genres */}
-          {genres.length > 0 && (
+          {/* Genre */}
+          {primaryGenre && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium text-[var(--color-text-a30)] text-sm">
-                Genres:
+              <span className="text-[var(--color-text-a0)] text-sm">
+                {primaryGenre}
               </span>
-              <div className="flex flex-wrap gap-2">
-                {genres.map((genre, index) => (
-                  <span
-                    key={genre}
-                    className="text-[var(--color-text-a0)] text-sm"
-                  >
-                    {genre}
-                    {index < genres.length - 1 && ","}
-                  </span>
-                ))}
-              </div>
             </div>
           )}
 
@@ -164,27 +199,29 @@ export function AuthorHeader({
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
-              className="flex items-center gap-2 rounded-md bg-[var(--color-primary-a0)] px-4 py-2 font-medium text-[var(--color-text-primary-a0)] text-sm transition-colors hover:bg-[var(--color-primary-a10)] focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 active:bg-[var(--color-primary-a20)]"
-              aria-label="View all books by this author"
+              onClick={handleFetchMetadata}
+              disabled={isFetchingMetadata}
+              className="flex items-center gap-2 rounded-md bg-[var(--color-primary-a0)] px-4 py-2 font-medium text-[var(--color-text-primary-a0)] text-sm transition-colors hover:bg-[var(--color-primary-a10)] focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 active:bg-[var(--color-primary-a20)] disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Fetch metadata"
             >
-              <i className="pi pi-play" aria-hidden="true" />
-              <span>View Books</span>
+              <i
+                className={cn(
+                  "pi",
+                  isFetchingMetadata ? "pi-spin pi-spinner" : "pi-refresh",
+                )}
+                aria-hidden="true"
+              />
+              <span>
+                {isFetchingMetadata ? "Fetching..." : "Fetch metadata"}
+              </span>
             </button>
             <button
               type="button"
               className="flex h-9 w-9 items-center justify-center rounded-md border border-surface-a20 bg-surface-tonal-a10 text-text-a30 transition-[background-color,border-color] duration-200 hover:border-surface-a30 hover:bg-surface-tonal-a20 hover:text-text-a0 focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2"
-              aria-label="More options"
-              title="More options"
+              aria-label="Align justify"
+              title="Align justify"
             >
-              <i className="pi pi-ellipsis-h" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-md border border-surface-a20 bg-surface-tonal-a10 text-text-a30 transition-[background-color,border-color] duration-200 hover:border-surface-a30 hover:bg-surface-tonal-a20 hover:text-text-a0 focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2"
-              aria-label="Add to queue"
-              title="Add to queue"
-            >
-              <i className="pi pi-plus" aria-hidden="true" />
+              <i className="pi pi-align-justify" aria-hidden="true" />
             </button>
             <button
               type="button"
@@ -200,7 +237,7 @@ export function AuthorHeader({
               aria-label="More options"
               title="More options"
             >
-              <i className="pi pi-ellipsis-v" aria-hidden="true" />
+              <i className="pi pi-ellipsis-h" aria-hidden="true" />
             </button>
           </div>
 
@@ -209,7 +246,7 @@ export function AuthorHeader({
             <div className="mt-2 flex flex-col gap-2">
               <div
                 className={cn(
-                  "text-[var(--color-text-a20)] text-sm leading-relaxed",
+                  "max-w-[700px] text-[var(--color-text-a20)] text-sm leading-relaxed",
                   shouldTruncate && "line-clamp-3",
                 )}
               >
@@ -219,7 +256,7 @@ export function AuthorHeader({
                 <button
                   type="button"
                   onClick={onToggleBio}
-                  className="flex w-fit items-center gap-1 text-[var(--color-text-a30)] text-sm transition-colors hover:text-[var(--color-text-a0)] focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2"
+                  className="flex w-fit items-center gap-1 text-[var(--color-primary-a0)] text-sm transition-colors hover:text-[var(--color-primary-a10)] focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2"
                   aria-label={showFullBio ? "Show less" : "Show more"}
                 >
                   <span>{showFullBio ? "Show less" : "More"}</span>
@@ -235,20 +272,29 @@ export function AuthorHeader({
             </div>
           )}
 
-          {/* Style/Genres Section */}
-          {genres.length > 0 && (
-            <div className="mt-4 flex flex-col gap-2">
-              <h3 className="m-0 font-semibold text-[var(--color-text-a0)] text-sm">
+          {/* Styles Section */}
+          {displayedStyles.length > 0 && (
+            <div className="mt-4 flex flex-wrap items-center gap-20">
+              <span className="font-medium text-[var(--color-text-a30)] text-sm">
                 Style
-              </h3>
-              <div className="flex flex-wrap gap-2 text-[var(--color-text-a20)] text-sm">
-                {genres.map((genre, index) => (
-                  <span key={genre}>
-                    {genre}
-                    {index < genres.length - 1 && ","}
+              </span>
+              <div className="flex flex-wrap items-center gap-1 text-[var(--color-text-a20)] text-sm">
+                {displayedStyles.map((style, index) => (
+                  <span key={style}>
+                    {style}
+                    {index < displayedStyles.length - 1 && ","}
                   </span>
                 ))}
-                <span>and more</span>
+                {hasMoreStyles && !showAllStyles && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllStyles(true)}
+                    className="cursor-pointer text-[var(--color-text-a30)] transition-colors hover:text-[var(--color-text-a0)] focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2"
+                    aria-label="Show more styles"
+                  >
+                    and more
+                  </button>
+                )}
               </div>
             </div>
           )}

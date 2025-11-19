@@ -154,13 +154,15 @@ class BaseDataSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_book(self, key: str) -> BookData | None:
+    def get_book(self, key: str, skip_authors: bool = False) -> BookData | None:
         """Get full book details by key.
 
         Parameters
         ----------
         key : str
             Book key/identifier from the data source.
+        skip_authors : bool
+            If True, skip fetching author data (faster, useful when only subjects are needed).
 
         Returns
         -------

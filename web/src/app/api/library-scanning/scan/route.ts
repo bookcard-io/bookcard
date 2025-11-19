@@ -17,12 +17,11 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedClient } from "@/services/http/routeHelpers";
 
 /**
- * GET /api/authors
+ * POST /api/library-scanning/scan
  *
- * Proxies request to list authors from the active library.
- * Supports pagination with page and page_size parameters.
+ * Proxy request to initiate a library scan.
  */
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     const { client, error } = getAuthenticatedClient(request);
 
@@ -30,36 +29,45 @@ export async function GET(request: NextRequest) {
       return error;
     }
 
-    const { searchParams } = request.nextUrl;
-    const page = searchParams.get("page") || "1";
-    const pageSize = searchParams.get("page_size") || "20";
+    const body = await request.json();
 
-    const queryParams: Record<string, string> = {
-      page,
-      page_size: pageSize,
-    };
-
-    const response = await client.request("/authors", {
-      method: "GET",
+    const response = await client.request("/library-scanning/scan", {
+      method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      queryParams,
+      body: JSON.stringify(body),
     });
 
-    const data = await response.json();
+    const responseText = await response.text();
 
     if (!response.ok) {
+      let errorData: { detail?: string };
+      try {
+        errorData = JSON.parse(responseText) as { detail?: string };
+      } catch {
+        errorData = { detail: "Failed to initiate library scan" };
+      }
+      return NextResponse.json(errorData, { status: response.status });
+    }
+
+    let data: unknown;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
       return NextResponse.json(
-        { detail: data.detail || "Failed to fetch authors" },
-        { status: response.status },
+        { detail: "Invalid response from server" },
+        { status: 500 },
       );
     }
 
     return NextResponse.json(data);
-  } catch {
+  } catch (error) {
     return NextResponse.json(
-      { detail: "Internal server error" },
+      {
+        detail:
+          error instanceof Error ? error.message : "Internal server error",
+      },
       { status: 500 },
     );
   }

@@ -13,37 +13,48 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { useCallback, useEffect, useState } from "react";
-import { fetchAuthors } from "@/services/authorService";
-import type { AuthorWithMetadata } from "@/types/author";
-import { deduplicateFetch, generateFetchKey } from "@/utils/fetch";
+"use client";
+
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useCallback, useMemo } from "react";
+import { useActiveLibrary } from "@/contexts/ActiveLibraryContext";
+import { fetchAuthorsPage } from "@/services/authorService";
+import type { AuthorListResponse, AuthorWithMetadata } from "@/types/author";
 
 export interface UseAuthorsOptions {
-  /** Whether the query is enabled. */
+  /** Whether to automatically fetch on mount. */
   enabled?: boolean;
+  /** Whether to enable infinite scroll mode (accumulates authors across pages). */
+  infiniteScroll?: boolean;
+  /** Number of items per page. */
+  pageSize?: number;
 }
 
 export interface UseAuthorsResult {
-  /** Array of authors. */
+  /** List of authors (accumulated if infinite scroll is enabled). */
   authors: AuthorWithMetadata[];
-  /** Whether data is currently loading. */
+  /** Total number of authors. */
+  total: number;
+  /** Whether data is currently being fetched. */
   isLoading: boolean;
   /** Error message if fetch failed. */
   error: string | null;
-  /** Function to manually refetch authors. */
-  refetch: () => Promise<void>;
+  /** Function to load next page (only available when infiniteScroll is enabled). */
+  loadMore?: () => void;
+  /** Whether there are more pages to load (only available when infiniteScroll is enabled). */
+  hasMore?: boolean;
 }
 
 /**
- * Custom hook for fetching all authors.
+ * Custom hook for fetching and managing authors data.
  *
- * Provides loading state, error handling, and refetch functionality.
+ * Provides pagination and loading state management using react-query.
  * Follows IOC pattern by accepting options and returning state/actions.
  *
  * Parameters
  * ----------
  * options : UseAuthorsOptions
- *     Hook options.
+ *     Query parameters and options.
  *
  * Returns
  * -------
@@ -51,48 +62,114 @@ export interface UseAuthorsResult {
  *     Authors data, loading state, and control functions.
  */
 export function useAuthors(options: UseAuthorsOptions = {}): UseAuthorsResult {
-  const { enabled = true } = options;
+  const { enabled = true, infiniteScroll = false, pageSize = 20 } = options;
 
-  const [authors, setAuthors] = useState<AuthorWithMetadata[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { activeLibrary, isLoading: isActiveLibraryLoading } =
+    useActiveLibrary();
 
-  const fetchAuthorsData = useCallback(async () => {
-    if (!enabled) {
+  const listQueryKey = useMemo(
+    () => ["authors", { pageSize }] as const,
+    [pageSize],
+  );
+
+  const infiniteQueryKey = useMemo(
+    () => ["authors-infinite", { pageSize }] as const,
+    [pageSize],
+  );
+
+  // Only enable queries if there's an active library and not still loading
+  const hasActiveLibrary = activeLibrary !== null && !isActiveLibraryLoading;
+  const queryEnabled = enabled && hasActiveLibrary;
+
+  const listQuery = useQuery<AuthorListResponse, Error>({
+    queryKey: listQueryKey,
+    queryFn: () =>
+      fetchAuthorsPage({
+        page: 1,
+        pageSize,
+      }),
+    enabled: queryEnabled && !infiniteScroll,
+    staleTime: 60_000,
+  });
+
+  const infiniteQuery = useInfiniteQuery<AuthorListResponse, Error>({
+    queryKey: infiniteQueryKey,
+    queryFn: ({ pageParam }) =>
+      fetchAuthorsPage({
+        page: (pageParam as number | undefined) ?? 1,
+        pageSize,
+      }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      const currentPage = lastPage.page ?? 1;
+      const totalPages = lastPage.total_pages ?? 0;
+      return currentPage < totalPages ? currentPage + 1 : undefined;
+    },
+    enabled: queryEnabled && infiniteScroll,
+    staleTime: 60_000,
+  });
+
+  const data = listQuery.data;
+  const infiniteData = infiniteQuery.data;
+
+  const authors: AuthorWithMetadata[] = useMemo(() => {
+    if (infiniteScroll) {
+      if (!infiniteData) return [];
+      const allItems = infiniteData.pages.flatMap(
+        (pageData) => pageData?.items ?? [],
+      );
+      // Deduplicate by key or name
+      const seen = new Set<string>();
+      return allItems.filter((author) => {
+        const id = author.key || author.name;
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+    }
+    return data?.items ?? [];
+  }, [infiniteScroll, infiniteData, data]);
+
+  const total = useMemo(() => {
+    if (infiniteScroll) {
+      const firstPage = infiniteData?.pages[0];
+      return firstPage ? firstPage.total : 0;
+    }
+    return data?.total ?? 0;
+  }, [infiniteScroll, infiniteData, data]);
+
+  const isLoading =
+    isActiveLibraryLoading ||
+    (infiniteScroll
+      ? infiniteQuery.isPending || infiniteQuery.isFetching
+      : listQuery.isPending || listQuery.isFetching);
+
+  // Show friendly error if no active library, otherwise show API error
+  const error =
+    !isActiveLibraryLoading && !hasActiveLibrary
+      ? "no_active_library"
+      : (infiniteScroll && infiniteQuery.error?.message) ||
+        listQuery.error?.message ||
+        null;
+
+  const loadMore = useCallback(() => {
+    if (!infiniteScroll) {
       return;
     }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const url = "/api/authors";
-      const fetchKey = generateFetchKey(url, {
-        method: "GET",
-      });
-
-      const result = await deduplicateFetch(fetchKey, async () => {
-        return await fetchAuthors();
-      });
-
-      setAuthors(result);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown error";
-      setError(message);
-      setAuthors([]);
-    } finally {
-      setIsLoading(false);
+    if (!infiniteQuery.hasNextPage) {
+      return;
     }
-  }, [enabled]);
+    void infiniteQuery.fetchNextPage();
+  }, [infiniteScroll, infiniteQuery]);
 
-  useEffect(() => {
-    void fetchAuthorsData();
-  }, [fetchAuthorsData]);
+  const hasMore = !!(infiniteScroll && infiniteQuery.hasNextPage);
 
   return {
     authors,
+    total,
     isLoading,
     error,
-    refetch: fetchAuthorsData,
+    loadMore,
+    hasMore,
   };
 }

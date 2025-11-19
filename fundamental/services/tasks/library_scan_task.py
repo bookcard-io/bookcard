@@ -17,27 +17,28 @@
 
 Handles scanning Calibre libraries, matching authors/books to external
 data sources, and ingesting metadata.
+
+This task only handles task-specific concerns and delegates
+the actual scanning to the orchestrator.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any
 
-if TYPE_CHECKING:
-    from sqlmodel import Session
-
-    from fundamental.models.config import Library
+from sqlmodel import Session
 
 from fundamental.repositories.library_repository import LibraryRepository
-from fundamental.services.library_scanning.data_sources.registry import (
-    DataSourceRegistry,
+from fundamental.services.library_scanning.scan_configuration import (
+    DatabaseScanConfigurationProvider,
 )
-from fundamental.services.library_scanning.pipeline.context import PipelineContext
-from fundamental.services.library_scanning.pipeline.crawl import CrawlStage
-from fundamental.services.library_scanning.pipeline.executor import PipelineExecutor
-from fundamental.services.library_scanning.pipeline.ingest import IngestStage
-from fundamental.services.library_scanning.pipeline.link import LinkStage
-from fundamental.services.library_scanning.pipeline.match import MatchStage
-from fundamental.services.library_scanning.pipeline.score import ScoreStage
+from fundamental.services.library_scanning.scan_factories import (
+    PipelineContextFactory,
+    RegistryDataSourceFactory,
+    StandardPipelineFactory,
+)
+from fundamental.services.library_scanning.scan_orchestrator import (
+    LibraryScanOrchestrator,
+)
 from fundamental.services.tasks.base import BaseTask
 
 logger = logging.getLogger(__name__)
@@ -46,8 +47,8 @@ logger = logging.getLogger(__name__)
 class LibraryScanTask(BaseTask):
     """Task for scanning a Calibre library.
 
-    Crawls the library, matches authors/books to external data sources,
-    ingests metadata, creates linkages, and scores similarities.
+    This task only handles task-specific concerns and delegates
+    the actual scanning to the orchestrator.
     """
 
     def __init__(
@@ -55,6 +56,7 @@ class LibraryScanTask(BaseTask):
         task_id: int,
         user_id: int,
         metadata: dict[str, Any],
+        orchestrator: LibraryScanOrchestrator | None = None,
     ) -> None:
         """Initialize library scan task.
 
@@ -66,17 +68,18 @@ class LibraryScanTask(BaseTask):
             User ID creating the task.
         metadata : dict[str, Any]
             Task metadata containing library_id and optional data_source_config.
+        orchestrator : LibraryScanOrchestrator | None
+            Scan orchestrator (will be created if not provided).
         """
         super().__init__(task_id, user_id, metadata)
+
+        # Validate required metadata
         self.library_id = metadata.get("library_id")
         if not self.library_id:
             msg = "library_id is required in task metadata"
             raise ValueError(msg)
 
-        # Data source configuration
-        data_source_config = metadata.get("data_source_config", {})
-        self.data_source_name = data_source_config.get("name", "openlibrary")
-        self.data_source_kwargs = data_source_config.get("kwargs", {})
+        self.orchestrator = orchestrator
 
     def run(self, worker_context: dict[str, Any]) -> None:
         """Execute the library scan task.
@@ -86,97 +89,44 @@ class LibraryScanTask(BaseTask):
         worker_context : dict[str, Any]
             Worker context containing database session and task service.
         """
-        session: Session = worker_context["session"]
+        session = worker_context["session"]
         update_progress = worker_context.get("update_progress")
 
-        def _raise_library_id_error() -> None:
-            """Raise ValueError for missing library_id."""
-            error_msg = "library_id is required"
-            raise ValueError(error_msg)
+        def progress_callback(
+            progress: float,
+            metadata: dict[str, Any] | None = None,
+        ) -> None:
+            """Update task progress with optional metadata.
 
-        def _raise_library_not_found_error(library_id: int | None) -> None:
-            """Raise ValueError for library not found."""
-            if library_id is None:
-                error_msg = "Library not found (library_id is None)"
-            else:
-                error_msg = f"Library {library_id} not found"
-            raise ValueError(error_msg)
+            Parameters
+            ----------
+            progress : float
+                Progress value between 0.0 and 1.0.
+            metadata : dict[str, Any] | None
+                Optional metadata (stage, current_item, counts, etc.).
+            """
+            if update_progress:
+                update_progress(progress, metadata)
 
         try:
-            # Get library
-            if self.library_id is None:
-                _raise_library_id_error()
+            # Create orchestrator if not injected
+            if not self.orchestrator:
+                self.orchestrator = self._create_orchestrator(session)
 
-            # Type assertion: library_id is guaranteed to be int after check
-            library_id = cast("int", self.library_id)
-
-            library_repo = LibraryRepository(session)
-            library = library_repo.get(library_id)
-
-            if not library:
-                _raise_library_not_found_error(library_id)
-
-            # Type assertion: library is guaranteed to be Library after check
-            # (library is non-None after the check above)
-            library_obj = cast("Library", library)
-
-            # Create data source
-            data_source = DataSourceRegistry.create_source(
-                self.data_source_name,
-                **self.data_source_kwargs,
-            )
-
-            # Create pipeline context
-            def progress_callback(
-                progress: float,
-                metadata: dict[str, Any] | None = None,
-            ) -> None:
-                """Update task progress with optional metadata.
-
-                Parameters
-                ----------
-                progress : float
-                    Progress value between 0.0 and 1.0.
-                metadata : dict[str, Any] | None
-                    Optional metadata (stage, current_item, counts, etc.).
-                """
-                if update_progress:
-                    update_progress(progress, metadata)
-
-            context = PipelineContext(
+            # Execute scan
+            # Type assertion: library_id is guaranteed to be int after validation
+            library_id = int(self.library_id)
+            result = self.orchestrator.scan_library(
                 library_id=library_id,
-                library=library_obj,
+                metadata=self.metadata,
                 session=session,
-                data_source=data_source,
                 progress_callback=progress_callback,
             )
 
-            # Create pipeline stages
-            stages = [
-                CrawlStage(),
-                MatchStage(),
-                IngestStage(),
-                LinkStage(),
-                ScoreStage(),
-            ]
-
-            # Create pipeline executor
-            executor = PipelineExecutor(
-                stages=stages,
-                progress_callback=progress_callback,
-            )
-
-            # Execute pipeline
-            result = executor.execute(context)
-
-            if result["success"]:
-                logger.info(
-                    "Library scan completed successfully for library %d",
-                    self.library_id,
-                )
-            else:
-                logger.warning(
-                    "Library scan completed with errors for library %d: %s",
+            # Handle result if needed
+            if not result["success"]:
+                logger.error(
+                    "Scan failed for library %d: %s",
                     self.library_id,
                     result.get("message", "Unknown error"),
                 )
@@ -184,3 +134,32 @@ class LibraryScanTask(BaseTask):
         except Exception:
             logger.exception("Error executing library scan task")
             raise
+
+    def _create_orchestrator(
+        self,
+        session: Session,
+    ) -> LibraryScanOrchestrator:
+        """Create default orchestrator with standard dependencies.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+
+        Returns
+        -------
+        LibraryScanOrchestrator
+            Configured scan orchestrator.
+        """
+        library_repo = LibraryRepository(session)
+        config_provider = DatabaseScanConfigurationProvider(session)
+        data_source_factory = RegistryDataSourceFactory()
+        pipeline_factory = StandardPipelineFactory()
+        context_factory = PipelineContextFactory(library_repo)
+
+        return LibraryScanOrchestrator(
+            config_provider=config_provider,
+            data_source_factory=data_source_factory,
+            pipeline_factory=pipeline_factory,
+            context_factory=context_factory,
+        )

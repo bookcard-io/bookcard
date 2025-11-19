@@ -22,6 +22,7 @@ Highest confidence matching (0.95-1.0).
 from fundamental.models.core import Author
 from fundamental.services.library_scanning.data_sources.base import BaseDataSource
 from fundamental.services.library_scanning.matching.base import BaseMatchingStrategy
+from fundamental.services.library_scanning.matching.exact import normalize_name
 from fundamental.services.library_scanning.matching.types import MatchResult
 
 
@@ -74,19 +75,36 @@ class IdentifierMatchingStrategy(BaseMatchingStrategy):
             return None
 
         # For identifier matching, we'd ideally have identifiers from the
-        # Calibre author. Since we don't have that yet, we'll use the first
-        # result with high confidence if we find an exact name match
+        # Calibre author. Since we don't have that yet, we'll verify that
+        # the first result matches the author name before returning it.
         # This is a simplified implementation - full version would compare
         # identifiers from Calibre with identifiers from search results
 
-        # Check if any result has identifiers that we could match
-        # For now, return the first result with high confidence
-        # In practice, we'd compare identifiers here
-        first_result = search_results[0]
+        normalized_calibre_name = normalize_name(entity.name)
 
-        # High confidence for identifier-based matches
-        return MatchResult(
-            confidence_score=0.98,
-            matched_entity=first_result,
-            match_method="identifier",
-        )
+        # Find the first result that matches the author name exactly
+        # This ensures we don't return incorrect matches
+        for result in search_results:
+            normalized_result_name = normalize_name(result.name)
+
+            if normalized_calibre_name == normalized_result_name:
+                # Exact name match found - return with high confidence
+                return MatchResult(
+                    confidence_score=0.98,
+                    matched_entity=result,
+                    match_method="identifier",
+                )
+
+            # Also check alternate names
+            for alt_name in result.alternate_names:
+                normalized_alt_name = normalize_name(alt_name)
+                if normalized_calibre_name == normalized_alt_name:
+                    return MatchResult(
+                        confidence_score=0.97,
+                        matched_entity=result,
+                        match_method="identifier_alternate",
+                    )
+
+        # No exact name match found - return None to let other strategies handle it
+        # This prevents returning incorrect matches when identifiers aren't available
+        return None

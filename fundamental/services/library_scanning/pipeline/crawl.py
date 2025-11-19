@@ -37,13 +37,21 @@ class CrawlStage(PipelineStage):
     Tracks new/existing/updated entities via last_modified timestamps.
     """
 
-    def __init__(self) -> None:
-        """Initialize crawl stage."""
+    def __init__(self, author_limit: int | None = None) -> None:
+        """Initialize crawl stage.
+
+        Parameters
+        ----------
+        author_limit : int | None
+            Maximum number of authors to process (None = no limit).
+            Used for testing to limit processing.
+        """
         self._progress = 0.0
         self._total_authors = 0
         self._total_books = 0
         self._processed_authors = 0
         self._processed_books = 0
+        self._author_limit = author_limit
 
     @property
     def name(self) -> str:
@@ -82,6 +90,12 @@ class CrawlStage(PipelineStage):
         if context.check_cancelled():
             return StageResult(success=False, message="Crawl cancelled")
 
+        logger.info(
+            "Starting crawl stage for library %d (path: %s)",
+            context.library_id,
+            context.library.calibre_db_path,
+        )
+
         try:
             # Create Calibre repository
             calibre_repo = CalibreBookRepository(
@@ -89,21 +103,53 @@ class CrawlStage(PipelineStage):
                 calibre_db_file=context.library.calibre_db_file,
             )
 
-            context.update_progress(0.1)
+            context.update_progress(
+                0.1,
+                {
+                    "current_stage": {
+                        "name": "crawl",
+                        "status": "in_progress",
+                        "message": "Connecting to Calibre database...",
+                    },
+                },
+            )
 
             # Get all authors from Calibre database
             with calibre_repo.get_session() as calibre_session:
+                logger.debug("Fetching authors from Calibre database...")
                 authors_stmt = select(Author)
                 authors_result = calibre_session.exec(authors_stmt)
                 authors = list(authors_result.all())
+
+                # Apply author limit if set (for testing)
+                if self._author_limit is not None and self._author_limit > 0:
+                    authors = authors[: self._author_limit]
+                    logger.info(
+                        "Author limit applied: processing %d authors (limited from original count)",
+                        len(authors),
+                    )
 
                 context.crawled_authors = authors
                 self._total_authors = len(authors)
                 self._processed_authors = len(authors)
 
-                context.update_progress(0.3)
+                logger.debug(
+                    "Found %d authors in Calibre database", self._total_authors
+                )
+                context.update_progress(
+                    0.3,
+                    {
+                        "current_stage": {
+                            "name": "crawl",
+                            "status": "in_progress",
+                            "message": f"Found {self._total_authors} authors, fetching books...",
+                            "authors_found": self._total_authors,
+                        },
+                    },
+                )
 
                 # Get all books from Calibre database
+                logger.debug("Fetching books from Calibre database...")
                 books_stmt = select(Book)
                 books_result = calibre_session.exec(books_stmt)
                 books = list(books_result.all())
@@ -112,20 +158,40 @@ class CrawlStage(PipelineStage):
                 self._total_books = len(books)
                 self._processed_books = len(books)
 
-                context.update_progress(0.5)
+                logger.debug("Found %d books in Calibre database", self._total_books)
+                context.update_progress(
+                    0.5,
+                    {
+                        "current_stage": {
+                            "name": "crawl",
+                            "status": "in_progress",
+                            "message": f"Found {self._total_books} books, fetching relationships...",
+                            "authors_found": self._total_authors,
+                            "books_found": self._total_books,
+                        },
+                    },
+                )
 
                 # Get book-author links to understand relationships
                 # This will be used in LinkStage
+                logger.debug("Fetching book-author relationships...")
                 links_stmt = select(BookAuthorLink)
                 links_result = calibre_session.exec(links_stmt)
                 book_author_links = list(links_result.all())
 
+                logger.debug(
+                    "Found %d book-author relationships", len(book_author_links)
+                )
                 context.update_progress(
                     1.0,
                     {
-                        "status": "Crawl complete",
-                        "authors_found": len(authors),
-                        "books_found": len(books),
+                        "current_stage": {
+                            "name": "crawl",
+                            "status": "complete",
+                            "message": f"Crawled {self._total_authors} authors and {self._total_books} books",
+                            "authors_found": self._total_authors,
+                            "books_found": self._total_books,
+                        },
                     },
                 )
                 self._progress = 1.0

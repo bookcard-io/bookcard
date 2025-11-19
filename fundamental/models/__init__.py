@@ -34,7 +34,8 @@ from fundamental.models.author_metadata import (
     AuthorPhoto,
     AuthorRemoteId,
     AuthorSimilarity,
-    AuthorSubject,
+    AuthorWork,
+    WorkSubject,
 )
 from fundamental.models.config import (
     BasicConfig,
@@ -105,7 +106,7 @@ __all__ = [
     "AuthorPhoto",
     "AuthorRemoteId",
     "AuthorSimilarity",
-    "AuthorSubject",
+    "AuthorWork",
     "BasicConfig",
     "Book",
     "BookAuthorLink",
@@ -158,4 +159,5 @@ __all__ = [
     "User",
     "UserRole",
     "UserSetting",
+    "WorkSubject",
 ]

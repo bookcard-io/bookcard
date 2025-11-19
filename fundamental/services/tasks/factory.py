@@ -21,6 +21,9 @@ Maps task types to their corresponding task classes.
 from typing import Any
 
 from fundamental.models.tasks import TaskType
+from fundamental.services.tasks.author_metadata_fetch_task import (
+    AuthorMetadataFetchTask,
+)
 from fundamental.services.tasks.base import BaseTask
 from fundamental.services.tasks.book_upload_task import BookUploadTask
 from fundamental.services.tasks.library_scan_task import LibraryScanTask
@@ -71,5 +74,7 @@ def create_task(
         return MultiBookUploadTask(task_id, user_id, metadata)
     if task_type == TaskType.LIBRARY_SCAN:
         return LibraryScanTask(task_id, user_id, metadata)
+    if task_type == TaskType.AUTHOR_METADATA_FETCH:
+        return AuthorMetadataFetchTask(task_id, user_id, metadata)
     msg = f"Task type {task_type} not yet implemented"
     raise ValueError(msg)

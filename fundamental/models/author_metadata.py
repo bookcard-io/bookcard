@@ -112,7 +112,7 @@ class AuthorMetadata(SQLModel, table=True):
     photos: list["AuthorPhoto"] = Relationship(back_populates="author")
     alternate_names: list["AuthorAlternateName"] = Relationship(back_populates="author")
     links: list["AuthorLink"] = Relationship(back_populates="author")
-    subjects: list["AuthorSubject"] = Relationship(back_populates="author")
+    works: list["AuthorWork"] = Relationship(back_populates="author")
     mappings: list["AuthorMapping"] = Relationship(back_populates="author_metadata")
     similar_to: list["AuthorSimilarity"] = Relationship(
         back_populates="author1",
@@ -257,10 +257,11 @@ class AuthorLink(SQLModel, table=True):
     author: AuthorMetadata = Relationship(back_populates="links")
 
 
-class AuthorSubject(SQLModel, table=True):
-    """Author subject/genre model.
+class AuthorWork(SQLModel, table=True):
+    """Author work model.
 
-    Stores top subjects/genres associated with the author.
+    Stores OpenLibrary work keys associated with an author.
+    Used to persist work information for similarity calculations.
 
     Attributes
     ----------
@@ -268,27 +269,59 @@ class AuthorSubject(SQLModel, table=True):
         Primary key identifier.
     author_metadata_id : int
         Foreign key to AuthorMetadata.
+    work_key : str
+        OpenLibrary work key (e.g., "OL82563W").
+    rank : int
+        Rank/order (lower is more popular/relevant).
+    """
+
+    __tablename__ = "author_works"
+
+    id: int | None = Field(default=None, primary_key=True)
+    author_metadata_id: int = Field(foreign_key="author_metadata.id", index=True)
+    work_key: str = Field(max_length=50, index=True)
+    rank: int = Field(default=0, index=True)
+
+    # Relationships
+    author: AuthorMetadata = Relationship(back_populates="works")
+    subjects: list["WorkSubject"] = Relationship(back_populates="work")
+
+    __table_args__ = (
+        UniqueConstraint("author_metadata_id", "work_key", name="uq_author_work"),
+        Index("idx_author_work_rank", "author_metadata_id", "rank"),
+    )
+
+
+class WorkSubject(SQLModel, table=True):
+    """Work subject/genre model.
+
+    Stores subjects/genres associated with a work.
+
+    Attributes
+    ----------
+    id : int | None
+        Primary key identifier.
+    author_work_id : int
+        Foreign key to AuthorWork.
     subject_name : str
         Subject/genre name (e.g., "Fantasy", "Horror").
     rank : int
         Rank/order (lower is more popular).
     """
 
-    __tablename__ = "author_subjects"
+    __tablename__ = "work_subjects"
 
     id: int | None = Field(default=None, primary_key=True)
-    author_metadata_id: int = Field(foreign_key="author_metadata.id", index=True)
+    author_work_id: int = Field(foreign_key="author_works.id", index=True)
     subject_name: str = Field(max_length=200, index=True)
     rank: int = Field(default=0, index=True)
 
     # Relationships
-    author: AuthorMetadata = Relationship(back_populates="subjects")
+    work: AuthorWork = Relationship(back_populates="subjects")
 
     __table_args__ = (
-        UniqueConstraint(
-            "author_metadata_id", "subject_name", name="uq_author_subject"
-        ),
-        Index("idx_author_subject_rank", "author_metadata_id", "rank"),
+        UniqueConstraint("author_work_id", "subject_name", name="uq_work_subject"),
+        Index("idx_work_subject_rank", "author_work_id", "rank"),
     )
 
 
@@ -328,6 +361,7 @@ class AuthorMapping(SQLModel, table=True):
         ge=0.0,
         le=1.0,
     )
+    library_id: int = Field(foreign_key="libraries.id", index=True)
     is_verified: bool = Field(default=False, index=True)
     matched_by: str | None = Field(default=None, max_length=50)
     created_at: datetime = Field(

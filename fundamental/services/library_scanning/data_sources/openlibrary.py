@@ -17,7 +17,8 @@
 
 import logging
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -47,6 +48,292 @@ _SEARCH_AUTHORS_ERROR_MSG = "Error searching authors: {error}"
 _FETCH_AUTHOR_ERROR_MSG = "Error fetching author: {error}"
 _SEARCH_BOOKS_ERROR_MSG = "Error searching books: {error}"
 _FETCH_BOOK_ERROR_MSG = "Error fetching book: {error}"
+_FETCH_AUTHOR_WORKS_ERROR_MSG = "Error fetching author works: {error}"
+
+# Constants
+OPENLIBRARY_MAX_PAGE_SIZE = 100
+
+
+# ============================================================================
+# Pagination and Request Building Classes
+# ============================================================================
+
+
+@dataclass
+class PaginationState:
+    """State tracking for pagination operations.
+
+    Attributes
+    ----------
+    offset : int
+        Current offset in pagination.
+    collected_count : int
+        Number of items collected so far.
+    page_size : int
+        Size of each page.
+    """
+
+    offset: int = 0
+    collected_count: int = 0
+    page_size: int = OPENLIBRARY_MAX_PAGE_SIZE
+
+
+class PaginationStrategy:
+    """Strategy for handling pagination logic.
+
+    Determines when to stop pagination and calculates request limits.
+    """
+
+    def __init__(self, total_limit: int | None = None) -> None:
+        """Initialize pagination strategy.
+
+        Parameters
+        ----------
+        total_limit : int | None
+            Maximum total items to collect (None = no limit).
+        """
+        self.total_limit = total_limit
+
+    def calculate_request_limit(self, state: PaginationState, page_size: int) -> int:
+        """Calculate the limit for the next request.
+
+        Parameters
+        ----------
+        state : PaginationState
+            Current pagination state.
+        page_size : int
+            Maximum page size.
+
+        Returns
+        -------
+        int
+            Request limit for next page.
+        """
+        if self.total_limit is None:
+            return page_size
+
+        remaining = self.total_limit - state.collected_count
+        return min(page_size, max(0, remaining))
+
+    def should_continue(
+        self,
+        state: PaginationState,
+        docs_count: int,
+        total_found: int,
+    ) -> bool:
+        """Determine if pagination should continue.
+
+        Parameters
+        ----------
+        state : PaginationState
+            Current pagination state.
+        docs_count : int
+            Number of documents in current page.
+        total_found : int
+            Total number of items found (from API).
+
+        Returns
+        -------
+        bool
+            True if pagination should continue, False otherwise.
+        """
+        # Stop if no documents in current page
+        if docs_count == 0:
+            return False
+
+        # Stop if we've reached the total limit
+        if self.total_limit is not None and state.collected_count >= self.total_limit:
+            return False
+
+        # Stop if we've reached the end of all results
+        return state.offset + docs_count < total_found
+
+    def update_state(
+        self,
+        state: PaginationState,
+        docs_count: int,
+    ) -> None:
+        """Update pagination state after processing a page.
+
+        Parameters
+        ----------
+        state : PaginationState
+            Current pagination state.
+        docs_count : int
+            Number of documents processed.
+        """
+        state.collected_count += docs_count
+        state.offset += docs_count
+
+
+class WorkKeyExtractor:
+    """Extracts work keys from OpenLibrary API response documents."""
+
+    @staticmethod
+    def extract(docs: list[dict[str, Any]]) -> list[str]:
+        """Extract work keys from API response documents.
+
+        OpenLibrary returns keys like "/works/OL123456W" or "/books/OL123456M".
+
+        Parameters
+        ----------
+        docs : list[dict[str, Any]]
+            List of document dictionaries from API response.
+
+        Returns
+        -------
+        list[str]
+            List of extracted work keys.
+        """
+        work_keys: list[str] = []
+        for doc in docs:
+            key = doc.get("key", "")
+            if key:
+                # Remove "/works/" or "/books/" prefix
+                normalized_key = key.replace("/works/", "").replace("/books/", "")
+                if normalized_key:
+                    work_keys.append(normalized_key)
+        return work_keys
+
+
+class SearchRequestBuilder:
+    """Builds search request parameters for OpenLibrary API."""
+
+    def __init__(
+        self,
+        author_key: str,
+        lang: str = "eng",
+        fields: str = "key",
+    ) -> None:
+        """Initialize request builder.
+
+        Parameters
+        ----------
+        author_key : str
+            Author key to search for.
+        lang : str
+            Language code to filter works (default: "eng").
+        fields : str
+            Fields to request from API (default: "key").
+        """
+        self.author_key = author_key
+        self.lang = lang
+        self.fields = fields
+
+    def build_params(
+        self,
+        limit: int,
+        offset: int,
+    ) -> dict[str, Any]:
+        """Build request parameters.
+
+        Parameters
+        ----------
+        limit : int
+            Maximum number of results to return.
+        offset : int
+            Offset for pagination.
+
+        Returns
+        -------
+        dict[str, Any]
+            Request parameters dictionary.
+        """
+        return {
+            "author": self.author_key,
+            "lang": self.lang,
+            "fields": self.fields,
+            "limit": limit,
+            "offset": offset,
+        }
+
+
+class AuthorWorksPaginator:
+    """Handles pagination for fetching author works.
+
+    Coordinates pagination strategy, request building, and response parsing.
+    """
+
+    def __init__(
+        self,
+        request_builder: SearchRequestBuilder,
+        pagination_strategy: PaginationStrategy,
+        work_extractor: WorkKeyExtractor,
+        make_request: Callable[[str, dict[str, Any] | None], dict[str, Any]],
+        rate_limit: Callable[[], None],
+    ) -> None:
+        """Initialize paginator.
+
+        Parameters
+        ----------
+        request_builder : SearchRequestBuilder
+            Builder for API request parameters.
+        pagination_strategy : PaginationStrategy
+            Strategy for pagination logic.
+        work_extractor : WorkKeyExtractor
+            Extractor for work keys from responses.
+        make_request : callable
+            Function to make API requests.
+        rate_limit : callable
+            Function to enforce rate limiting.
+        """
+        self.request_builder = request_builder
+        self.pagination_strategy = pagination_strategy
+        self.work_extractor = work_extractor
+        self.make_request = make_request
+        self.rate_limit = rate_limit
+
+    def fetch_all(self) -> list[str]:
+        """Fetch all work keys using pagination.
+
+        Returns
+        -------
+        list[str]
+            List of all work keys.
+        """
+        all_work_keys: list[str] = []
+        state = PaginationState()
+
+        while True:
+            # Calculate request limit
+            request_limit = self.pagination_strategy.calculate_request_limit(
+                state, OPENLIBRARY_MAX_PAGE_SIZE
+            )
+
+            if request_limit <= 0:
+                break
+
+            # Build and make request
+            params = self.request_builder.build_params(request_limit, state.offset)
+            data = self.make_request("/search.json", params)
+            docs = data.get("docs", [])
+
+            # Check if we should continue
+            total_found = data.get("numFound", 0)
+            if not self.pagination_strategy.should_continue(
+                state, len(docs), total_found
+            ):
+                # Extract remaining keys before breaking
+                if docs:
+                    work_keys = self.work_extractor.extract(docs)
+                    all_work_keys.extend(work_keys)
+                break
+
+            # Extract work keys from this page
+            work_keys = self.work_extractor.extract(docs)
+            all_work_keys.extend(work_keys)
+
+            # Update pagination state
+            self.pagination_strategy.update_state(state, len(docs))
+
+            # Enforce rate limiting
+            self.rate_limit()
+
+        # Apply final limit if specified
+        if self.pagination_strategy.total_limit is not None:
+            return all_work_keys[: self.pagination_strategy.total_limit]
+
+        return all_work_keys
 
 
 class OpenLibraryDataSource(BaseDataSource):
@@ -295,6 +582,61 @@ class OpenLibraryDataSource(BaseDataSource):
         else:
             return results
 
+    def get_author_works(
+        self,
+        author_key: str,
+        limit: int | None = None,
+        lang: str = "eng",
+    ) -> Sequence[str]:
+        """Get work keys for an author.
+
+        Fetches all works by default, or up to limit if specified.
+        Uses pagination to fetch all results when limit is None.
+
+        Parameters
+        ----------
+        author_key : str
+            Author key (e.g., "OL23919A").
+        limit : int | None
+            Maximum number of work keys to return (None = fetch all).
+        lang : str
+            Language code to filter works (default: "eng").
+
+        Returns
+        -------
+        Sequence[str]
+            Sequence of work keys.
+
+        Raises
+        ------
+        DataSourceNetworkError
+            If network request fails.
+        DataSourceRateLimitError
+            If rate limit is exceeded.
+        """
+        try:
+            # Build components using dependency injection
+            request_builder = SearchRequestBuilder(author_key, lang=lang)
+            pagination_strategy = PaginationStrategy(total_limit=limit)
+            work_extractor = WorkKeyExtractor()
+
+            # Create paginator with injected dependencies
+            paginator = AuthorWorksPaginator(
+                request_builder=request_builder,
+                pagination_strategy=pagination_strategy,
+                work_extractor=work_extractor,
+                make_request=self._make_request,
+                rate_limit=self._rate_limit,
+            )
+
+            return paginator.fetch_all()
+        except (DataSourceNetworkError, DataSourceRateLimitError):
+            raise
+        except Exception as e:
+            logger.exception("Error fetching author works from OpenLibrary")
+            error_msg = _FETCH_AUTHOR_WORKS_ERROR_MSG.format(error=e)
+            raise DataSourceNetworkError(error_msg) from e
+
     def get_author(self, key: str) -> AuthorData | None:
         """Get full author details by key.
 
@@ -540,13 +882,15 @@ class OpenLibraryDataSource(BaseDataSource):
             return f"{OPENLIBRARY_COVERS_BASE}/b/id/{cover_id}-L.jpg"
         return None
 
-    def get_book(self, key: str) -> BookData | None:
+    def get_book(self, key: str, skip_authors: bool = False) -> BookData | None:
         """Get full book details by key.
 
         Parameters
         ----------
         key : str
             Book key (e.g., "OL82563W").
+        skip_authors : bool
+            If True, skip fetching author data (faster, useful when only subjects are needed).
 
         Returns
         -------
@@ -558,7 +902,9 @@ class OpenLibraryDataSource(BaseDataSource):
             path = f"/works/{normalized_key}.json"
             data = self._make_request(path)
 
-            author_names = self._extract_authors_from_book_data(data)
+            author_names = (
+                [] if skip_authors else self._extract_authors_from_book_data(data)
+            )
             isbn_10, isbn_13 = self._extract_isbns_from_book_data(data)
             cover_url = self._extract_cover_from_book_data(data)
 
@@ -574,7 +920,15 @@ class OpenLibraryDataSource(BaseDataSource):
                 isbn13=isbn_13,
                 publish_date=data.get("first_publish_date"),
                 publishers=[p.get("name", "") for p in data.get("publishers", [])],
-                subjects=list(data.get("subjects", [])),
+                subjects=[
+                    s
+                    if isinstance(s, str)
+                    else s.get("name", "")
+                    if isinstance(s, dict)
+                    else str(s)
+                    for s in data.get("subjects", [])
+                    if s
+                ],
                 description=description,
                 cover_url=cover_url,
             )

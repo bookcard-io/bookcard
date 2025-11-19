@@ -640,3 +640,64 @@ class IntegrationConfig(SQLModel, table=True):
         default_factory=lambda: datetime.now(UTC),
         sa_column_kwargs={"onupdate": lambda: datetime.now(UTC)},
     )
+
+
+class LibraryScanProviderConfig(SQLModel, table=True):
+    """Library scan provider configuration settings.
+
+    Stores provider-specific settings for external data sources used during
+    library scans. Each provider (e.g., OpenLibrary) can have its own configuration
+    for rate limiting, data freshness, and resource limits.
+
+    Attributes
+    ----------
+    id : int | None
+        Primary key identifier.
+    provider_name : str
+        Provider name (e.g., 'openlibrary'). Must be unique.
+    rate_limit_delay_seconds : float
+        Delay between API requests in seconds (default: 0.5).
+        Prevents overwhelming the provider's API.
+    max_requests_per_minute : int | None
+        Maximum number of requests per minute (None = no limit, default: None).
+        Additional throttling beyond rate_limit_delay_seconds.
+    max_requests_per_hour : int | None
+        Maximum number of requests per hour (None = no limit, default: None).
+        Long-term throttling to respect provider limits.
+    stale_data_max_age_days : int | None
+        Maximum age of cached data in days before considering it stale
+        (None = always refresh, default: 30).
+        Authors with last_synced_at older than this will be re-queried.
+    stale_data_refresh_interval_days : int | None
+        Minimum interval between refreshes in days (None = no minimum, default: 7).
+        Prevents excessive refreshes even if data is older than max_age.
+    max_works_per_author : int | None
+        Maximum number of works to fetch per author (None = no limit, default: 1000).
+        Prevents excessive pagination for prolific authors.
+    enabled : bool
+        Whether this provider is enabled for library scans (default: True).
+    created_at : datetime
+        Configuration creation timestamp.
+    updated_at : datetime
+        Last update timestamp.
+    """
+
+    __tablename__ = "library_scan_provider_config"
+
+    id: int | None = Field(default=None, primary_key=True)
+    provider_name: str = Field(unique=True, index=True, max_length=100)
+    rate_limit_delay_seconds: float = Field(default=0.5, ge=0.0)
+    max_requests_per_minute: int | None = Field(default=None, ge=1)
+    max_requests_per_hour: int | None = Field(default=None, ge=1)
+    stale_data_max_age_days: int | None = Field(default=30, ge=0)
+    stale_data_refresh_interval_days: int | None = Field(default=7, ge=0)
+    max_works_per_author: int | None = Field(default=1000, ge=1)
+    enabled: bool = Field(default=True, index=True)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        index=True,
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column_kwargs={"onupdate": lambda: datetime.now(UTC)},
+    )

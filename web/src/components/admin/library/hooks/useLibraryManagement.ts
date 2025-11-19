@@ -35,6 +35,8 @@ export interface UseLibraryManagementResult {
   error: string | null;
   /** ID of library currently being deleted. */
   deletingLibraryId: number | null;
+  /** ID of library currently being scanned. */
+  scanningLibraryId: number | null;
   /** Function to manually refresh libraries. */
   refresh: () => Promise<void>;
   /** Function to add a new library. */
@@ -43,6 +45,8 @@ export interface UseLibraryManagementResult {
   toggleLibrary: (library: Library) => Promise<void>;
   /** Function to delete a library. */
   deleteLibrary: (id: number) => Promise<void>;
+  /** Function to initiate a library scan. */
+  scanLibrary: (libraryId: number) => Promise<void>;
   /** Function to clear error state. */
   clearError: () => void;
 }
@@ -74,6 +78,9 @@ export function useLibraryManagement(
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deletingLibraryId, setDeletingLibraryId] = useState<number | null>(
+    null,
+  );
+  const [scanningLibraryId, setScanningLibraryId] = useState<number | null>(
     null,
   );
 
@@ -264,6 +271,45 @@ export function useLibraryManagement(
     [refresh, onRefresh],
   );
 
+  const scanLibrary = useCallback(async (libraryId: number) => {
+    setScanningLibraryId(libraryId);
+    setError(null);
+    try {
+      const response = await fetch("/api/library-scanning/scan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          library_id: libraryId,
+          data_source_config: {
+            name: "openlibrary",
+            kwargs: {},
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const data = (await response.json()) as { detail?: string };
+        throw new Error(data.detail || "Failed to start library scan");
+      }
+
+      // Note: The scan runs in the background, so we don't wait for completion
+      // The task_id from the response can be used to track progress if needed
+      await response.json();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to start library scan",
+      );
+      throw err;
+    } finally {
+      // Reset scanning state after a short delay to show the button was clicked
+      setTimeout(() => {
+        setScanningLibraryId(null);
+      }, 1000);
+    }
+  }, []);
+
   const clearError = useCallback(() => {
     setError(null);
   }, []);
@@ -274,10 +320,12 @@ export function useLibraryManagement(
     isBusy,
     error,
     deletingLibraryId,
+    scanningLibraryId,
     refresh,
     addLibrary,
     toggleLibrary,
     deleteLibrary,
+    scanLibrary,
     clearError,
   };
 }

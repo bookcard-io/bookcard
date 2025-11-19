@@ -27,6 +27,8 @@ export interface LibrarySectionProps {
   onToggle: () => void;
   /** Callback when home is clicked. */
   onHomeClick: () => void;
+  /** Callback when authors is clicked. */
+  onAuthorsClick: () => void;
   /** Callback when icon is clicked while sidebar is collapsed. */
   onIconClick?: () => void;
 }
@@ -48,6 +50,7 @@ export function LibrarySection({
   isExpanded,
   onToggle,
   onHomeClick,
+  onAuthorsClick,
   onIconClick,
 }: LibrarySectionProps) {
   const [showMoreView, setShowMoreView] = useState(false);
@@ -111,7 +114,7 @@ export function LibrarySection({
             {/* Main view */}
             <ul className="m-0 w-1/2 shrink-0 list-none p-0">
               <SidebarNavItem label="Home" onClick={onHomeClick} />
-              <SidebarNavItem label="Authors" onClick={() => {}} />
+              <SidebarNavItem label="Authors" onClick={onAuthorsClick} />
               <SidebarNavItem label="Genres" onClick={() => {}} />
               <li>
                 <button

@@ -77,6 +77,7 @@ class TaskType(StrEnum):
     METADATA_BACKUP = "metadata_backup"
     THUMBNAIL_GENERATE = "thumbnail_generate"
     LIBRARY_SCAN = "library_scan"
+    AUTHOR_METADATA_FETCH = "author_metadata_fetch"
 
 
 class Task(SQLModel, table=True):

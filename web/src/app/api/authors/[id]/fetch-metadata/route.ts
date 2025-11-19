@@ -17,12 +17,14 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedClient } from "@/services/http/routeHelpers";
 
 /**
- * GET /api/authors
+ * POST /api/authors/[id]/fetch-metadata
  *
- * Proxies request to list authors from the active library.
- * Supports pagination with page and page_size parameters.
+ * Proxies request to fetch and update metadata for a single author.
  */
-export async function GET(request: NextRequest) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   try {
     const { client, error } = getAuthenticatedClient(request);
 
@@ -30,28 +32,19 @@ export async function GET(request: NextRequest) {
       return error;
     }
 
-    const { searchParams } = request.nextUrl;
-    const page = searchParams.get("page") || "1";
-    const pageSize = searchParams.get("page_size") || "20";
-
-    const queryParams: Record<string, string> = {
-      page,
-      page_size: pageSize,
-    };
-
-    const response = await client.request("/authors", {
-      method: "GET",
+    const { id } = await params;
+    const response = await client.request(`/authors/${id}/fetch-metadata`, {
+      method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      queryParams,
     });
 
     const data = await response.json();
 
     if (!response.ok) {
       return NextResponse.json(
-        { detail: data.detail || "Failed to fetch authors" },
+        { detail: data.detail || "Failed to fetch metadata" },
         { status: response.status },
       );
     }

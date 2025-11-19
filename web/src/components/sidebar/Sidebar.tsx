@@ -62,6 +62,7 @@ export function Sidebar() {
   const { navRef, isScrolling } = useSidebarScroll();
   const {
     navigateHome,
+    navigateToAuthors,
     navigateToShelves,
     navigateToAdmin,
     navigateToManageDevices,
@@ -105,6 +106,7 @@ export function Sidebar() {
           isExpanded={expandedSections.has("MY LIBRARY")}
           onToggle={() => toggleSection("MY LIBRARY")}
           onHomeClick={navigateHome}
+          onAuthorsClick={navigateToAuthors}
           onIconClick={navigateHome}
         />
 

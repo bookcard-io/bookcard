@@ -38,6 +38,10 @@ export interface LibraryListProps {
   onDelete: (id: number) => void;
   /** ID of library currently being deleted. */
   deletingLibraryId: number | null;
+  /** Callback when library scan is initiated. */
+  onScan: (libraryId: number) => void;
+  /** ID of library currently being scanned. */
+  scanningLibraryId: number | null;
 }
 
 /**
@@ -56,6 +60,8 @@ export function LibraryList({
   onToggle,
   onDelete,
   deletingLibraryId,
+  onScan,
+  scanningLibraryId,
 }: LibraryListProps) {
   const { stats, loadingStats } = useLibraryStats(libraries);
 
@@ -70,6 +76,8 @@ export function LibraryList({
           onToggle={onToggle}
           onDelete={onDelete}
           deletingLibraryId={deletingLibraryId}
+          onScan={onScan}
+          scanningLibraryId={scanningLibraryId}
         />
       ))}
       {libraries.length === 0 && (

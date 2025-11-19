@@ -39,6 +39,10 @@ export interface LibraryListItemProps {
   onDelete: (id: number) => void;
   /** ID of library currently being deleted. */
   deletingLibraryId: number | null;
+  /** Callback when library scan is initiated. */
+  onScan: (libraryId: number) => void;
+  /** ID of library currently being scanned. */
+  scanningLibraryId: number | null;
 }
 
 /**
@@ -58,7 +62,11 @@ export function LibraryListItem({
   onToggle,
   onDelete,
   deletingLibraryId,
+  onScan,
+  scanningLibraryId,
 }: LibraryListItemProps) {
+  const isScanning = scanningLibraryId === library.id;
+
   return (
     <div className="flex items-center gap-3 rounded-md border border-[var(--color-surface-a20)] bg-[var(--color-surface-a10)] p-3">
       <div className="flex min-w-[250px] flex-1 items-center gap-3">
@@ -95,16 +103,30 @@ export function LibraryListItem({
           Loading stats...
         </div>
       )}
-      <Button
-        type="button"
-        variant="danger"
-        size="small"
-        onClick={() => onDelete(library.id)}
-        disabled={deletingLibraryId === library.id}
-        className="bg-[var(--color-danger-a-1)] text-[var(--color-white)] hover:bg-[var(--color-danger-a0)]"
-      >
-        Remove
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="success"
+          size="small"
+          onClick={() => onScan(library.id)}
+          disabled={isScanning || deletingLibraryId === library.id}
+          loading={isScanning}
+        >
+          <i className="pi pi-sync" aria-hidden="true" />
+          Scan
+        </Button>
+        <Button
+          type="button"
+          variant="danger"
+          size="small"
+          onClick={() => onDelete(library.id)}
+          disabled={deletingLibraryId === library.id || isScanning}
+          className="bg-[var(--color-danger-a-1)] text-[var(--color-white)] hover:bg-[var(--color-danger-a0)]"
+        >
+          <i className="pi pi-trash" aria-hidden="true" />
+          Remove
+        </Button>
+      </div>
     </div>
   );
 }

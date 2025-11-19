@@ -20,6 +20,8 @@ import { useSelectedShelf } from "@/contexts/SelectedShelfContext";
 export interface UseSidebarNavigationResult {
   /** Navigate to home page. */
   navigateHome: () => void;
+  /** Navigate to authors page. */
+  navigateToAuthors: () => void;
   /** Navigate to shelves management. */
   navigateToShelves: () => void;
   /** Navigate to admin page. */
@@ -64,6 +66,10 @@ export function useSidebarNavigation(): UseSidebarNavigationResult {
     router.push("/");
   }, [router, setSelectedShelfId]);
 
+  const navigateToAuthors = useCallback(() => {
+    router.push("/authors");
+  }, [router]);
+
   const navigateToShelves = useCallback(() => {
     router.push("/?tab=shelves");
   }, [router]);
@@ -99,6 +105,7 @@ export function useSidebarNavigation(): UseSidebarNavigationResult {
 
   return {
     navigateHome,
+    navigateToAuthors,
     navigateToShelves,
     navigateToAdmin,
     navigateToManageDevices,

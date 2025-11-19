@@ -83,7 +83,13 @@ class PipelineExecutor:
                     "total_stages": total_stages,
                 }
 
-            logger.info("Executing pipeline stage: %s", stage.name)
+            logger.info(
+                "Starting pipeline stage %d/%d: %s (library %d)",
+                idx + 1,
+                total_stages,
+                stage.name,
+                context.library_id,
+            )
 
             try:
                 # Execute stage
@@ -105,15 +111,26 @@ class PipelineExecutor:
                     )
                     # Continue to next stage (non-critical failure)
                     # In production, might want to make this configurable
+                else:
+                    logger.info(
+                        "Pipeline stage %s completed successfully: %s",
+                        stage.name,
+                        result.message,
+                    )
 
                 # Update overall progress with stage metadata
+                # Use nested structure to prevent stale metadata from previous stages
                 stage_progress = (idx + 1) / total_stages
                 if self.progress_callback:
                     stage_metadata = {
-                        "stage": stage.name,
-                        "stage_index": idx,
-                        "total_stages": total_stages,
-                        "stage_stats": result.stats,
+                        "current_stage": {
+                            "name": stage.name,
+                            "index": idx,
+                            "total_stages": total_stages,
+                            "status": "complete" if result.success else "failed",
+                            "stats": result.stats,
+                            "message": result.message,
+                        },
                     }
                     self.progress_callback(stage_progress, stage_metadata)
 

@@ -18,6 +18,9 @@
 from fundamental.services.library_scanning.pipeline.base import PipelineStage
 from fundamental.services.library_scanning.pipeline.context import PipelineContext
 from fundamental.services.library_scanning.pipeline.crawl import CrawlStage
+from fundamental.services.library_scanning.pipeline.deduplicate import (
+    DeduplicateStage,
+)
 from fundamental.services.library_scanning.pipeline.executor import PipelineExecutor
 from fundamental.services.library_scanning.pipeline.ingest import IngestStage
 from fundamental.services.library_scanning.pipeline.link import LinkStage
@@ -26,6 +29,7 @@ from fundamental.services.library_scanning.pipeline.score import ScoreStage
 
 __all__ = [
     "CrawlStage",
+    "DeduplicateStage",
     "IngestStage",
     "LinkStage",
     "MatchStage",

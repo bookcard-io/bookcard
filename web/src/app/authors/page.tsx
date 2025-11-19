@@ -18,6 +18,8 @@
 import { AuthorsGrid } from "@/components/authors/AuthorsGrid";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PageLayout } from "@/components/layout/PageLayout";
+import { AddBooksButton } from "@/components/library/widgets/AddBooksButton";
+import { useBookUpload } from "@/hooks/useBookUpload";
 
 /**
  * Authors page content component.
@@ -25,10 +27,21 @@ import { PageLayout } from "@/components/layout/PageLayout";
  * Displays a grid of authors with their information.
  */
 function AuthorsPageContent() {
+  const bookUpload = useBookUpload();
+
   return (
     <>
-      <PageHeader title="Authors" />
-      <div className="flex-1 overflow-y-auto px-8 pb-8">
+      <PageHeader title="Authors">
+        <div className="flex items-center gap-3">
+          <AddBooksButton
+            fileInputRef={bookUpload.fileInputRef}
+            onFileChange={bookUpload.handleFileChange}
+            accept={bookUpload.accept}
+            isUploading={bookUpload.isUploading}
+          />
+        </div>
+      </PageHeader>
+      <div className="flex-1 overflow-y-auto pb-8">
         <AuthorsGrid />
       </div>
     </>

@@ -39,9 +39,11 @@ export function LibraryManagement() {
     isBusy,
     error,
     deletingLibraryId,
+    scanningLibraryId,
     addLibrary,
     toggleLibrary,
     deleteLibrary,
+    scanLibrary,
     clearError,
   } = useLibraryManagement({
     onRefresh: refreshActiveLibrary,
@@ -121,6 +123,8 @@ export function LibraryManagement() {
         onToggle={toggleLibrary}
         onDelete={deleteLibrary}
         deletingLibraryId={deletingLibraryId}
+        onScan={scanLibrary}
+        scanningLibraryId={scanningLibraryId}
       />
     </div>
   );

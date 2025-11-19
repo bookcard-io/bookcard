@@ -18,9 +18,12 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AuthorDetailView } from "@/components/authors/AuthorDetailView";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { PageLayout } from "@/components/layout/PageLayout";
+import { AddBooksButton } from "@/components/library/widgets/AddBooksButton";
 import { SelectedBooksProvider } from "@/contexts/SelectedBooksContext";
 import { useAuthor } from "@/hooks/useAuthor";
+import { useBookUpload } from "@/hooks/useBookUpload";
 import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
 import { useModal } from "@/hooks/useModal";
 
@@ -37,6 +40,7 @@ interface AuthorDetailPageProps {
 export default function AuthorDetailPage({ params }: AuthorDetailPageProps) {
   const router = useRouter();
   const [authorId, setAuthorId] = useState<string | null>(null);
+  const bookUpload = useBookUpload();
 
   // Initialize author ID from params
   useEffect(() => {
@@ -45,7 +49,7 @@ export default function AuthorDetailPage({ params }: AuthorDetailPageProps) {
     });
   }, [params]);
 
-  const { author, isLoading, error } = useAuthor({
+  const { author, isLoading, error, refetch } = useAuthor({
     authorId: authorId || null,
     enabled: authorId !== null,
   });
@@ -97,7 +101,21 @@ export default function AuthorDetailPage({ params }: AuthorDetailPageProps) {
   return (
     <SelectedBooksProvider>
       <PageLayout>
-        <AuthorDetailView author={author} onBack={handleBack} />
+        <PageHeader title="Author">
+          <div className="flex items-center gap-3">
+            <AddBooksButton
+              fileInputRef={bookUpload.fileInputRef}
+              onFileChange={bookUpload.handleFileChange}
+              accept={bookUpload.accept}
+              isUploading={bookUpload.isUploading}
+            />
+          </div>
+        </PageHeader>
+        <AuthorDetailView
+          author={author}
+          onBack={handleBack}
+          onRefetch={refetch}
+        />
       </PageLayout>
     </SelectedBooksProvider>
   );
