@@ -79,6 +79,7 @@ class DummySession:
         self.expunged: list[Any] = []
         self.expunge_count: int = 0
         self.flush_count: int = 0
+        self.commit_count: int = 0
         self._next_id: int = 1
         self._exec_results: list[list[Any]] = []
         # Track entities by model class and id for get() lookups
@@ -123,7 +124,7 @@ class DummySession:
 
     def commit(self) -> None:
         """No-op commit to mimic real Session behavior in tests."""
-        # Intentionally do nothing
+        self.commit_count += 1
         return
 
     def rollback(self) -> None:

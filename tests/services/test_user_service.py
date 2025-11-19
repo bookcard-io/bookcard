@@ -904,3 +904,289 @@ def test_sync_default_device_invalid_format_suppressed_new_device() -> None:
         # Should use default EPUB format when invalid format is suppressed
         call_args = mock_device_service.create_device.call_args
         assert call_args[1]["preferred_format"] == EBookFormat.EPUB
+
+
+# Tests for create_admin_user (lines 162-219)
+def test_create_admin_user_success() -> None:
+    """Test create_admin_user creates user successfully (covers lines 162-219)."""
+    from unittest.mock import MagicMock
+
+    session = DummySession()
+    repo = UserRepository(session)  # type: ignore[arg-type]
+    service = UserService(session, repo)  # type: ignore[arg-type]
+
+    user = User(
+        id=1,
+        username="admin",
+        email="admin@example.com",
+        password_hash="hash",
+        is_admin=True,
+    )
+    user.ereader_devices = []  # type: ignore[attr-defined]
+    user.roles = []  # type: ignore[attr-defined]
+
+    session.add_exec_result([None])  # find_by_username
+    session.add_exec_result([None])  # find_by_email
+    session.add_exec_result([user])  # get_with_relationships
+
+    mock_hasher = MagicMock()
+    mock_hasher.hash.return_value = "hashed_password"
+
+    result = service.create_admin_user(
+        username="admin",
+        email="admin@example.com",
+        password="password",
+        password_hasher=mock_hasher,
+    )
+
+    assert result.username == "admin"
+    assert result.email == "admin@example.com"
+    assert session.flush_count >= 1
+    assert session.commit_count >= 1  # type: ignore[attr-defined]
+
+
+def test_create_admin_user_username_exists() -> None:
+    """Test create_admin_user raises ValueError when username exists (covers lines 162-164)."""
+    from unittest.mock import MagicMock
+
+    session = DummySession()
+    repo = UserRepository(session)  # type: ignore[arg-type]
+    service = UserService(session, repo)  # type: ignore[arg-type]
+
+    existing_user = User(
+        id=1,
+        username="admin",
+        email="admin@example.com",
+        password_hash="hash",
+    )
+
+    session.add_exec_result([existing_user])  # find_by_username
+
+    mock_hasher = MagicMock()
+
+    with pytest.raises(ValueError, match="username_already_exists"):
+        service.create_admin_user(
+            username="admin",
+            email="admin@example.com",
+            password="password",
+            password_hasher=mock_hasher,
+        )
+
+
+def test_create_admin_user_email_exists() -> None:
+    """Test create_admin_user raises ValueError when email exists (covers lines 165-167)."""
+    from unittest.mock import MagicMock
+
+    session = DummySession()
+    repo = UserRepository(session)  # type: ignore[arg-type]
+    service = UserService(session, repo)  # type: ignore[arg-type]
+
+    existing_user = User(
+        id=1,
+        username="other",
+        email="admin@example.com",
+        password_hash="hash",
+    )
+
+    session.add_exec_result([None])  # find_by_username
+    session.add_exec_result([existing_user])  # find_by_email
+
+    mock_hasher = MagicMock()
+
+    with pytest.raises(ValueError, match="email_already_exists"):
+        service.create_admin_user(
+            username="admin",
+            email="admin@example.com",
+            password="password",
+            password_hasher=mock_hasher,
+        )
+
+
+def test_create_admin_user_with_roles() -> None:
+    """Test create_admin_user assigns roles when provided (covers lines 182-186)."""
+    from unittest.mock import MagicMock
+
+    session = DummySession()
+    repo = UserRepository(session)  # type: ignore[arg-type]
+    service = UserService(session, repo)  # type: ignore[arg-type]
+
+    user = User(
+        id=1,
+        username="admin",
+        email="admin@example.com",
+        password_hash="hash",
+    )
+    user.ereader_devices = []  # type: ignore[attr-defined]
+    user.roles = []  # type: ignore[attr-defined]
+
+    session.add_exec_result([None])  # find_by_username
+    session.add_exec_result([None])  # find_by_email
+    session.add_exec_result([user])  # get_with_relationships
+
+    mock_hasher = MagicMock()
+    mock_hasher.hash.return_value = "hashed_password"
+
+    mock_role_service = MagicMock()
+
+    service.create_admin_user(
+        username="admin",
+        email="admin@example.com",
+        password="password",
+        role_ids=[1, 2],
+        password_hasher=mock_hasher,
+        role_service=mock_role_service,
+    )
+
+    assert mock_role_service.assign_role_to_user.call_count == 2
+
+
+def test_create_admin_user_with_device() -> None:
+    """Test create_admin_user creates device when email provided (covers lines 189-207)."""
+    from unittest.mock import MagicMock
+
+    session = DummySession()
+    repo = UserRepository(session)  # type: ignore[arg-type]
+    service = UserService(session, repo)  # type: ignore[arg-type]
+
+    user = User(
+        id=1,
+        username="admin",
+        email="admin@example.com",
+        password_hash="hash",
+    )
+    user.ereader_devices = []  # type: ignore[attr-defined]
+    user.roles = []  # type: ignore[attr-defined]
+
+    session.add_exec_result([None])  # find_by_username
+    session.add_exec_result([None])  # find_by_email
+    session.add_exec_result([user])  # get_with_relationships
+
+    mock_hasher = MagicMock()
+    mock_hasher.hash.return_value = "hashed_password"
+
+    mock_device_service = MagicMock()
+
+    service.create_admin_user(
+        username="admin",
+        email="admin@example.com",
+        password="password",
+        default_device_email="device@example.com",
+        password_hasher=mock_hasher,
+        device_service=mock_device_service,
+    )
+
+    mock_device_service.create_device.assert_called_once()
+    call_args = mock_device_service.create_device.call_args
+    assert call_args[0][0] == 1  # user_id
+    assert call_args[0][1] == "device@example.com"  # device_email
+    assert call_args[1]["is_default"] is True
+
+
+def test_create_admin_user_user_not_found_after_creation() -> None:
+    """Test create_admin_user raises ValueError when user not found after creation (covers lines 215-218)."""
+    from unittest.mock import MagicMock
+
+    session = DummySession()
+    repo = UserRepository(session)  # type: ignore[arg-type]
+    service = UserService(session, repo)  # type: ignore[arg-type]
+
+    session.add_exec_result([None])  # find_by_username
+    session.add_exec_result([None])  # find_by_email
+    session.add_exec_result([None])  # get_with_relationships returns None
+
+    mock_hasher = MagicMock()
+    mock_hasher.hash.return_value = "hashed_password"
+
+    with pytest.raises(ValueError, match="user_not_found"):
+        service.create_admin_user(
+            username="admin",
+            email="admin@example.com",
+            password="password",
+            password_hasher=mock_hasher,
+        )
+
+
+# Tests for _initialize_default_settings (lines 800-819)
+def test_initialize_default_settings_creates_all_settings() -> None:
+    """Test _initialize_default_settings creates all default settings (covers lines 800-819)."""
+    from fundamental.services.user_service import DEFAULT_USER_SETTINGS
+
+    session = DummySession()
+    repo = UserRepository(session)  # type: ignore[arg-type]
+    service = UserService(session, repo)  # type: ignore[arg-type]
+
+    service._initialize_default_settings(user_id=1)
+
+    # Should have added all default settings
+    assert len(session.added) == len(DEFAULT_USER_SETTINGS)
+    assert session.flush_count >= 1
+
+
+def test_initialize_default_settings_converts_bool() -> None:
+    """Test _initialize_default_settings converts boolean values (covers lines 802-803)."""
+    session = DummySession()
+    repo = UserRepository(session)  # type: ignore[arg-type]
+    service = UserService(session, repo)  # type: ignore[arg-type]
+
+    service._initialize_default_settings(user_id=1)
+
+    # Check that boolean values are converted to "true"/"false"
+    added_objects = session.added
+    bool_settings = [
+        obj
+        for obj in added_objects
+        if hasattr(obj, "key")
+        and obj.key
+        in [
+            "replace_cover_on_metadata_selection",
+            "auto_dismiss_book_edit_modal",
+            "always_warn_on_delete",
+            "default_delete_files_from_drive",
+        ]
+    ]
+    for setting in bool_settings:
+        assert setting.value in ["true", "false"]
+
+
+def test_initialize_default_settings_converts_list() -> None:
+    """Test _initialize_default_settings converts list values to JSON (covers lines 804-806)."""
+    import json
+
+    session = DummySession()
+    repo = UserRepository(session)  # type: ignore[arg-type]
+    service = UserService(session, repo)  # type: ignore[arg-type]
+
+    service._initialize_default_settings(user_id=1)
+
+    # Check that list values are JSON-encoded
+    added_objects = session.added
+    list_settings = [
+        obj
+        for obj in added_objects
+        if hasattr(obj, "key")
+        and obj.key in ["enabled_metadata_providers", "preferred_metadata_providers"]
+    ]
+    for setting in list_settings:
+        # Should be valid JSON
+        parsed = json.loads(setting.value)
+        assert isinstance(parsed, list)
+
+
+def test_initialize_default_settings_converts_string() -> None:
+    """Test _initialize_default_settings converts string values (covers lines 807-809)."""
+    session = DummySession()
+    repo = UserRepository(session)  # type: ignore[arg-type]
+    service = UserService(session, repo)  # type: ignore[arg-type]
+
+    service._initialize_default_settings(user_id=1)
+
+    # Check that string values are converted to strings
+    added_objects = session.added
+    string_settings = [
+        obj
+        for obj in added_objects
+        if hasattr(obj, "key")
+        and obj.key in ["theme_preference", "books_grid_display", "default_view_mode"]
+    ]
+    for setting in string_settings:
+        assert isinstance(setting.value, str)
