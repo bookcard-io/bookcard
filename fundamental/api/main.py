@@ -25,6 +25,10 @@ import os
 import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sqlalchemy import Engine
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -42,6 +46,7 @@ from fundamental.api.routes.shelves import router as shelves_router
 from fundamental.api.routes.tasks import router as tasks_router
 from fundamental.config import AppConfig
 from fundamental.database import create_db_engine
+from fundamental.services.library_scanning.workers.manager import ScanWorkerManager
 from fundamental.services.tasks.runner_factory import create_task_runner
 
 logger = logging.getLogger(__name__)
@@ -107,6 +112,54 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(tasks_router)
 
 
+def _initialize_task_runner(app: FastAPI, engine: "Engine", cfg: AppConfig) -> None:
+    """Initialize task runner for the application.
+
+    Parameters
+    ----------
+    app : FastAPI
+        FastAPI application instance.
+    engine : Any
+        Database engine.
+    cfg : AppConfig
+        Application configuration.
+    """
+    try:
+        app.state.task_runner = create_task_runner(engine, cfg)
+    except (ValueError, RuntimeError, OSError) as exc:
+        logger.warning(
+            "Failed to initialize task runner: %s. Tasks will not be available.",
+            exc,
+        )
+        app.state.task_runner = None
+
+
+def _initialize_scan_workers(app: FastAPI, cfg: AppConfig) -> None:
+    """Initialize scan worker manager and broker.
+
+    Parameters
+    ----------
+    app : FastAPI
+        FastAPI application instance.
+    cfg : AppConfig
+        Application configuration.
+    """
+    try:
+        from fundamental.services.messaging.redis_broker import RedisBroker
+
+        broker = RedisBroker(cfg.redis_url)
+        app.state.scan_worker_broker = broker
+        app.state.scan_worker_manager = ScanWorkerManager(cfg.redis_url)
+        logger.info("Initialized Redis broker for library scanning")
+    except (ConnectionError, ValueError, RuntimeError, ImportError) as exc:
+        logger.warning(
+            "Failed to initialize Redis broker for scanning: %s. Library scanning will not be available.",
+            exc,
+        )
+        app.state.scan_worker_broker = None
+        app.state.scan_worker_manager = None
+
+
 def create_app(config: AppConfig | None = None) -> FastAPI:
     """Create and configure the FastAPI application.
 
@@ -149,6 +202,17 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
             # Access app.state early to ensure it is created by Starlette.
             _ = getattr(app, "state", None)
 
+            # Start scan workers if Redis is configured
+            scan_worker_manager = getattr(app.state, "scan_worker_manager", None)
+            if scan_worker_manager:
+                try:
+                    scan_worker_manager.start_workers()
+                except (ConnectionError, ValueError, RuntimeError) as e:
+                    logger.warning(
+                        "Failed to start scan workers: %s. Library scanning will not be available.",
+                        e,
+                    )
+
             # Yield control to allow the application to serve requests.
             yield
 
@@ -159,6 +223,14 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
             # cleanly without surfacing noisy tracebacks.
             logger.info("Application lifespan cancelled; shutting down gracefully.")
         finally:
+            # Stop scan workers gracefully
+            scan_worker_manager = getattr(app.state, "scan_worker_manager", None)
+            if scan_worker_manager:
+                try:
+                    scan_worker_manager.stop_workers()
+                except (RuntimeError, OSError) as e:
+                    logger.warning("Error stopping scan workers: %s", e)
+
             # Ensure background task runners are stopped so that reload/shutdown
             # is clean and does not leak worker threads.
             task_runner = getattr(app.state, "task_runner", None)
@@ -179,17 +251,10 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
     app.state.config = cfg
 
     # Initialize task runner
-    # Catch specific exceptions: ValueError (invalid config), RuntimeError (runtime issues)
-    # and OSError (file/network issues) to prevent startup failure
-    try:
-        app.state.task_runner = create_task_runner(engine, cfg)
-    except (ValueError, RuntimeError, OSError) as exc:
-        # Log error but don't fail startup - tasks will fail gracefully
-        logger.warning(
-            "Failed to initialize task runner: %s. Tasks will not be available.",
-            exc,
-        )
-        app.state.task_runner = None
+    _initialize_task_runner(app, engine, cfg)
+
+    # Initialize scan worker manager and broker
+    _initialize_scan_workers(app, cfg)
 
     # Register routers
     _register_routers(app)

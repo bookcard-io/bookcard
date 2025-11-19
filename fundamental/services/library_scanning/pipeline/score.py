@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 from sqlmodel import select
 
 from fundamental.models.author_metadata import (
+    AuthorMapping,
     AuthorMetadata,
     AuthorSimilarity,
     AuthorWork,
@@ -131,11 +132,16 @@ class AuthorRepository:
         """
         self.session = session
 
-    def get_all(self, limit: int | None = None) -> list[AuthorMetadata]:
-        """Get all author metadata records.
+    def get_all(
+        self, library_id: int | None = None, limit: int | None = None
+    ) -> list[AuthorMetadata]:
+        """Get author metadata records, optionally filtered by library.
 
         Parameters
         ----------
+        library_id : int | None
+            If provided, only return authors mapped to this library.
+            If None, return all authors (for backward compatibility).
         limit : int | None
             Maximum number of authors to return (None = no limit).
 
@@ -144,7 +150,20 @@ class AuthorRepository:
         list[AuthorMetadata]
             List of author metadata records.
         """
-        stmt = select(AuthorMetadata)
+        if library_id is not None:
+            # Filter by library using AuthorMapping
+            stmt = (
+                select(AuthorMetadata)
+                .join(
+                    AuthorMapping, AuthorMetadata.id == AuthorMapping.author_metadata_id
+                )
+                .where(AuthorMapping.library_id == library_id)
+                .distinct()
+            )
+        else:
+            # Get all authors (backward compatibility)
+            stmt = select(AuthorMetadata)
+
         authors = list(self.session.exec(stmt).all())
         return authors[:limit] if limit else authors
 
@@ -657,7 +676,7 @@ class AuthorPairProcessor:
         self,
         similarity_calculator: SimilarityCalculator,
         similarity_repository: SimilarityRepository,
-        min_similarity: float = 0.5,
+        min_similarity: float = 0.2,
     ) -> None:
         """Initialize processor.
 
@@ -735,7 +754,7 @@ class ScoreStage(PipelineStage):
 
     def __init__(
         self,
-        min_similarity: float = 0.5,
+        min_similarity: float = 0.2,
         author_limit: int | None = None,
         author_repository: AuthorRepository | None = None,
         similarity_repository: SimilarityRepository | None = None,
@@ -1098,7 +1117,7 @@ class ScoreStage(PipelineStage):
             if self._similarity_calculator is None:
                 self._similarity_calculator = self._create_default_calculator()
 
-            # Get all authors
+            # Get all authors for this library
             self._ensure_author_repository_initialized()
             # Type narrowing: after _ensure_author_repository_initialized(),
             # _author_repository is guaranteed to be non-None
@@ -1112,8 +1131,10 @@ class ScoreStage(PipelineStage):
             if not callable(get_all_method):
                 self._raise_missing_get_all_method_error()
             # Type narrowing: get_all_method is confirmed to be callable
-            # Use the verified callable method
-            all_authors = get_all_method(self._author_limit)  # type: ignore[call-overload]
+            # Use the verified callable method, filtering by library_id
+            all_authors = get_all_method(
+                library_id=context.library_id, limit=self._author_limit
+            )  # type: ignore[call-overload]
             total_pairs = len(all_authors) * (len(all_authors) - 1) // 2
 
             logger.info(

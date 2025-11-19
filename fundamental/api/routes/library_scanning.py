@@ -92,22 +92,22 @@ def scan_library(
         If library is not found or scan cannot be initiated.
     """
 
-    def _raise_task_runner_error() -> None:
-        """Raise HTTPException for missing task runner."""
-        error_msg = "Task runner not available"
+    def _raise_broker_error() -> None:
+        """Raise HTTPException for missing message broker."""
+        error_msg = "Message broker not available"
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=error_msg,
         )
 
     try:
-        # Get task runner from app state
-        task_runner = http_request.app.state.task_runner
-        if task_runner is None:
-            _raise_task_runner_error()
+        # Get message broker from app state
+        message_broker = getattr(http_request.app.state, "scan_worker_broker", None)
+        if message_broker is None:
+            _raise_broker_error()
 
         # Create scanning service
-        scanning_service = LibraryScanningService(session, task_runner)
+        scanning_service = LibraryScanningService(session, message_broker)
 
         # Initiate scan
         task_id = scanning_service.scan_library(
@@ -117,8 +117,8 @@ def scan_library(
         )
 
         return ScanResponse(
-            task_id=task_id,
-            message=f"Library scan task {task_id} enqueued",
+            task_id=task_id,  # service.scan_library() now returns task_id
+            message=f"Library scan job for library {request.library_id} published to queue",
         )
 
     except ValueError as e:
@@ -161,7 +161,7 @@ def get_scan_state(
     """
     scanning_service = LibraryScanningService(
         session,
-        None,  # Task runner not needed for read operations
+        None,  # Message broker not needed for read operations
     )
 
     scan_state = scanning_service.get_scan_state(library_id)

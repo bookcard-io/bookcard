@@ -100,7 +100,7 @@ def upgrade() -> None:
                 3600,
                 30,
                 7,
-                999999,
+                200,
                 true,
                 :created_at,
                 :updated_at

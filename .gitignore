@@ -417,4 +417,4 @@ misc/
 
 # database files
 fundamental.db
-fundamental.db-journal
+fundamental.db-*

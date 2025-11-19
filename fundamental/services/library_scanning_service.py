@@ -24,9 +24,12 @@ from sqlmodel import Session, select
 from fundamental.models.library_scanning import LibraryScanState
 from fundamental.models.tasks import TaskType
 from fundamental.repositories.library_repository import LibraryRepository
+from fundamental.services.library_scanning.workers.progress import JobProgressTracker
+from fundamental.services.messaging.redis_broker import RedisBroker
+from fundamental.services.task_service import TaskService
 
 if TYPE_CHECKING:
-    from fundamental.services.tasks.base import TaskRunner
+    from fundamental.services.messaging.base import MessageBroker
 
 logger = logging.getLogger(__name__)
 
@@ -34,14 +37,14 @@ logger = logging.getLogger(__name__)
 class LibraryScanningService:
     """Service for managing library scans and task creation.
 
-    Handles creating and enqueuing LIBRARY_SCAN tasks, managing scan
+    Handles publishing scan jobs to Redis message queue, managing scan
     configuration, and tracking scan state.
     """
 
     def __init__(
         self,
         session: Session,
-        task_runner: "TaskRunner | None",
+        message_broker: "MessageBroker | None",
     ) -> None:
         """Initialize library scanning service.
 
@@ -49,11 +52,11 @@ class LibraryScanningService:
         ----------
         session : Session
             Database session.
-        task_runner : TaskRunner | None
-            Task runner for enqueuing tasks. Can be None for read-only operations.
+        message_broker : MessageBroker | None
+            Message broker for publishing scan jobs. Can be None for read-only operations.
         """
         self.session = session
-        self.task_runner = task_runner
+        self.message_broker = message_broker
         self.library_repo = LibraryRepository(session)
 
     def scan_library(
@@ -62,7 +65,7 @@ class LibraryScanningService:
         user_id: int,
         data_source_config: dict[str, Any] | None = None,
     ) -> int:
-        """Create and enqueue a library scan task.
+        """Publish a library scan job to Redis queue.
 
         Parameters
         ----------
@@ -82,7 +85,7 @@ class LibraryScanningService:
         Raises
         ------
         ValueError
-            If library is not found.
+            If library is not found or message broker not available.
         """
         # Verify library exists
         library = self.library_repo.get(library_id)
@@ -90,34 +93,56 @@ class LibraryScanningService:
             msg = f"Library {library_id} not found"
             raise ValueError(msg)
 
+        if self.message_broker is None:
+            msg = "Message broker not available"
+            raise ValueError(msg)
+
         # Default data source configuration
         if data_source_config is None:
             data_source_config = {"name": "openlibrary", "kwargs": {}}
 
-        # Create task payload
-        payload = {
+        # Create task record
+        task_service = TaskService(self.session)
+        task_metadata = {
             "library_id": library_id,
             "data_source_config": data_source_config,
         }
-
-        # Enqueue scan task
-        if self.task_runner is None:
-            msg = "Task runner not available"
-            raise ValueError(msg)
-
-        task_id = self.task_runner.enqueue(
+        task = task_service.create_task(
             task_type=TaskType.LIBRARY_SCAN,
-            payload=payload,
             user_id=user_id,
+            metadata=task_metadata,
         )
+
+        if task.id is None:
+            msg = "Failed to create task record"
+            raise RuntimeError(msg)
+
+        task_id = task.id
+
+        # Clear any existing scan job data in Redis
+        if isinstance(self.message_broker, RedisBroker):
+            tracker = JobProgressTracker(self.message_broker)
+            tracker.clear_job(library_id)
+
+        # Create scan job payload (include task_id for progress tracking)
+        payload = {
+            "task_id": task_id,
+            "library_id": library_id,
+            "calibre_db_path": library.calibre_db_path,
+            "calibre_db_file": library.calibre_db_file or "metadata.db",
+            "data_source_config": data_source_config,
+        }
+
+        # Publish to scan_jobs queue (CrawlWorker will pick it up)
+        self.message_broker.publish("scan_jobs", payload)
 
         # Update scan state
         self._update_scan_state(library_id, "pending", task_id)
 
         logger.info(
-            "Enqueued library scan task %d for library %d",
-            task_id,
+            "Published library scan job for library %d to Redis queue (task_id: %d)",
             library_id,
+            task_id,
         )
 
         return task_id

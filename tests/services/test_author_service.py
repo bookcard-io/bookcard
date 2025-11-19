@@ -271,7 +271,11 @@ class TestListAuthorsForActiveLibrary:
         assert total == 1
         assert authors[0]["name"] == "Test Author"
         mock_author_repo.list_by_library.assert_called_once_with(
-            1, page=1, page_size=20
+            1,
+            calibre_db_path="/path/to/library",
+            calibre_db_file="metadata.db",
+            page=1,
+            page_size=20,
         )
 
     def test_list_authors_with_pagination(
@@ -289,7 +293,11 @@ class TestListAuthorsForActiveLibrary:
 
         assert total == 1
         mock_author_repo.list_by_library.assert_called_once_with(
-            1, page=2, page_size=10
+            1,
+            calibre_db_path="/path/to/library",
+            calibre_db_file="metadata.db",
+            page=2,
+            page_size=10,
         )
 
     def test_list_authors_no_active_library(

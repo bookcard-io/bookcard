@@ -34,6 +34,8 @@ from fundamental.api.schemas.tasks import (
 )
 from fundamental.models.auth import User
 from fundamental.models.tasks import Task, TaskStatus, TaskType
+from fundamental.services.library_scanning.workers.progress import JobProgressTracker
+from fundamental.services.messaging.redis_broker import RedisBroker
 from fundamental.services.permission_service import PermissionService
 from fundamental.services.task_service import TaskService
 
@@ -291,6 +293,19 @@ def cancel_task(
     success = task_runner.cancel(task_id)
 
     if success:
+        # Propagate cancellation to distributed workers if it's a library scan task
+        if task.task_type == TaskType.LIBRARY_SCAN:
+            message_broker = getattr(request.app.state, "scan_worker_broker", None)
+            if isinstance(message_broker, RedisBroker):
+                tracker = JobProgressTracker(message_broker)
+                # Manually set cancellation key using client since JobProgressTracker doesn't have a set method exposed
+                # Or better: use client directly as we did in JobProgressTracker implementation
+                key = tracker._get_cancellation_key(task_id)  # noqa: SLF001
+                message_broker.client.setex(key, 86400, "1")
+                logging.getLogger(__name__).info(
+                    "Propagated cancellation to Redis for task %d", task_id
+                )
+
         return TaskCancelResponse(success=True, message="Task cancelled successfully")
     return TaskCancelResponse(success=False, message="Task could not be cancelled")
 

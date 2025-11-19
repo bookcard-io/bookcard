@@ -19,7 +19,9 @@ Follows SRP by focusing solely on data access.
 Uses IOC by accepting session as dependency.
 """
 
-from sqlalchemy import func, literal, text, union_all
+import logging
+from collections.abc import Sequence
+
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -29,8 +31,16 @@ from fundamental.models.author_metadata import (
     AuthorSimilarity,
     AuthorWork,
 )
-from fundamental.models.core import Author
+from fundamental.repositories.author_listing_components import (
+    AuthorHydrator,
+    AuthorResultCombiner,
+    MappedIdsFetcher,
+    MatchedAuthorQueryBuilder,
+    UnmatchedAuthorFetcher,
+)
 from fundamental.repositories.base import Repository
+
+logger = logging.getLogger(__name__)
 
 
 class AuthorRepository(Repository[AuthorMetadata]):
@@ -52,6 +62,8 @@ class AuthorRepository(Repository[AuthorMetadata]):
     def list_by_library(
         self,
         library_id: int,
+        calibre_db_path: str | None = None,
+        calibre_db_file: str = "metadata.db",
         page: int = 1,
         page_size: int = 20,
     ) -> tuple[list[AuthorMetadata], int]:
@@ -65,6 +77,11 @@ class AuthorRepository(Repository[AuthorMetadata]):
         ----------
         library_id : int
             Library identifier.
+        calibre_db_path : str | None
+            Path to Calibre database directory. If None, unmatched authors
+            will not be included.
+        calibre_db_file : str
+            Calibre database filename (default: 'metadata.db').
         page : int
             Page number (1-indexed, default: 1).
         page_size : int
@@ -75,100 +92,134 @@ class AuthorRepository(Repository[AuthorMetadata]):
         tuple[list[AuthorMetadata], int]
             Authors (ordered by name) and total count.
         """
-        # 1. Matched authors query part
-        # Select: name, type='matched', id (metadata_id)
-        matched_query = (
-            select(
-                AuthorMetadata.name.label("name"),  # type: ignore
-                literal("matched").label("type"),
-                AuthorMetadata.id.label("id"),  # type: ignore
-            )
-            .join(AuthorMapping, AuthorMetadata.id == AuthorMapping.author_metadata_id)
-            .where(AuthorMapping.library_id == library_id)
+        # Initialize components (IOC - dependency injection)
+        query_builder = MatchedAuthorQueryBuilder()
+        ids_fetcher = MappedIdsFetcher(self._session)
+        unmatched_fetcher = UnmatchedAuthorFetcher(self._session)
+        combiner = AuthorResultCombiner()
+        hydrator = AuthorHydrator(self._session)
+
+        # 1. Get mapped IDs
+        mapped_ids = ids_fetcher.get_mapped_ids(library_id)
+
+        # 2. Fetch unmatched authors
+        unmatched_authors = unmatched_fetcher.fetch_unmatched(
+            mapped_ids, calibre_db_path, calibre_db_file
         )
 
-        # 2. Unmatched authors query part
-        # Select: name, type='unmatched', id (calibre_id)
-        # Find authors NOT in AuthorMapping for this library
-        mapped_calibre_ids = select(AuthorMapping.calibre_author_id).where(
-            AuthorMapping.library_id == library_id
-        )
-        unmatched_query = select(
-            Author.name.label("name"),  # type: ignore
-            literal("unmatched").label("type"),
-            Author.id.label("id"),  # type: ignore
-        ).where(Author.id.not_in(mapped_calibre_ids))  # type: ignore
-
-        # 3. Calculate total count (sum of both queries)
-        count_matched = self._session.exec(
-            select(func.count()).select_from(matched_query.subquery())
-        ).one()
-        count_unmatched = self._session.exec(
-            select(func.count()).select_from(unmatched_query.subquery())
-        ).one()
+        # 3. Count matched authors
+        count_matched = self._count_matched(query_builder, library_id)
+        count_unmatched = len(unmatched_authors)
         total = count_matched + count_unmatched
 
-        # 4. Pagination with UNION
-        # Union, order by name, limit/offset
-        union_query = (
-            union_all(matched_query, unmatched_query)
-            .order_by(text("name ASC"))
-            .limit(page_size)
-            .offset((page - 1) * page_size)
+        # 4. Fetch matched results
+        matched_results = self._fetch_matched_results(query_builder, library_id)
+
+        # 5. Combine and paginate
+        paginated_results = combiner.combine_and_paginate(
+            matched_results, unmatched_authors, page, page_size
         )
 
-        results = self._session.exec(union_query).all()  # type: ignore
+        # 6. Hydrate full objects
+        final_results = self._hydrate_results(
+            paginated_results, hydrator, calibre_db_path, calibre_db_file
+        )
 
-        # 5. Hydrate objects
-        matched_ids = [r.id for r in results if r.type == "matched"]
-        unmatched_ids = [r.id for r in results if r.type == "unmatched"]
+        return final_results, total
 
-        # Fetch full objects
-        matched_objs = {}
-        if matched_ids:
-            stmt = (
-                select(AuthorMetadata)
-                .where(AuthorMetadata.id.in_(matched_ids))  # type: ignore
-                .options(
-                    selectinload(AuthorMetadata.remote_ids),
-                    selectinload(AuthorMetadata.photos),
-                    selectinload(AuthorMetadata.alternate_names),
-                    selectinload(AuthorMetadata.links),
-                    selectinload(AuthorMetadata.works).selectinload(
-                        AuthorWork.subjects
-                    ),
-                )
-            )
-            matched_objs = {a.id: a for a in self._session.exec(stmt).all()}
+    def _count_matched(
+        self, query_builder: MatchedAuthorQueryBuilder, library_id: int
+    ) -> int:
+        """Count matched authors.
+
+        Parameters
+        ----------
+        query_builder : MatchedAuthorQueryBuilder
+            Query builder instance.
+        library_id : int
+            Library identifier.
+
+        Returns
+        -------
+        int
+            Count of matched authors.
+        """
+        try:
+            count_query = query_builder.build_count_query(library_id)
+            return self._session.exec(count_query).one()  # type: ignore[no-matching-overload]
+        except Exception:
+            logger.exception("Error counting matched authors")
+            raise
+
+    def _fetch_matched_results(
+        self, query_builder: MatchedAuthorQueryBuilder, library_id: int
+    ) -> list:
+        """Fetch matched author results.
+
+        Parameters
+        ----------
+        query_builder : MatchedAuthorQueryBuilder
+            Query builder instance.
+        library_id : int
+            Library identifier.
+
+        Returns
+        -------
+        list
+            List of matched author result rows.
+        """
+        try:
+            matched_query = query_builder.build_query(library_id)
+            return list(self._session.exec(matched_query).all())  # type: ignore[no-matching-overload]
+        except Exception:
+            logger.exception("Error fetching matched authors")
+            raise
+
+    def _hydrate_results(
+        self,
+        paginated_results: Sequence,
+        hydrator: AuthorHydrator,
+        calibre_db_path: str | None,
+        calibre_db_file: str,
+    ) -> list[AuthorMetadata]:
+        """Hydrate full AuthorMetadata objects from result rows.
+
+        Parameters
+        ----------
+        paginated_results : list
+            Paginated result rows.
+        hydrator : AuthorHydrator
+            Author hydrator instance.
+        calibre_db_path : str | None
+            Path to Calibre database directory.
+        calibre_db_file : str
+            Calibre database filename.
+
+        Returns
+        -------
+        list[AuthorMetadata]
+            List of hydrated AuthorMetadata objects.
+        """
+        matched_ids = [r.id for r in paginated_results if r.type == "matched"]
+        unmatched_ids = [r.id for r in paginated_results if r.type == "unmatched"]
+
+        matched_objs = hydrator.hydrate_matched(matched_ids)
 
         unmatched_objs = {}
-        if unmatched_ids:
-            stmt = select(Author).where(Author.id.in_(unmatched_ids))  # type: ignore
-            unmatched_objs = {a.id: a for a in self._session.exec(stmt).all()}
+        if unmatched_ids and calibre_db_path:
+            unmatched_objs = hydrator.create_unmatched_metadata(
+                unmatched_ids, calibre_db_path, calibre_db_file
+            )
 
-        # 6. Construct final list in order
-        final_list = []
-        for row in results:
-            if row.type == "matched":
-                if obj := matched_objs.get(row.id):
-                    obj.is_unmatched = False  # Explicit flag
-                    final_list.append(obj)
-            else:
-                if obj := unmatched_objs.get(row.id):
-                    # Create transient AuthorMetadata for unmatched author
-                    # We use the Calibre ID but mark it as unmatched
-                    transient = AuthorMetadata(
-                        name=obj.name,
-                        openlibrary_key=None,  # No key
-                    )
-                    # Manually set ID to None to avoid DB conflicts if saved,
-                    # but we need to track it. We'll attach calibre_id.
-                    transient.id = None
-                    transient.calibre_id = obj.id  # Custom attr
-                    transient.is_unmatched = True  # Custom attr
-                    final_list.append(transient)
+        # Build final result list in the same order as paginated_results
+        final_results: list[AuthorMetadata] = []
+        for row in paginated_results:
+            if row.type == "matched" and row.id in matched_objs:
+                final_results.append(matched_objs[row.id])
+            elif row.type == "unmatched" and row.id in unmatched_objs:
+                final_results.append(unmatched_objs[row.id])
 
-        return final_list, total
+        return final_results
 
     def get_by_id_and_library(
         self,

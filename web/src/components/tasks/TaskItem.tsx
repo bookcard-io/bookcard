@@ -17,7 +17,6 @@
 
 import { useCallback } from "react";
 import { Button } from "@/components/forms/Button";
-import { TaskProgress } from "@/components/tasks/TaskProgress";
 import { cn } from "@/libs/utils";
 import { type Task, TaskStatus } from "@/types/tasks";
 
@@ -169,8 +168,6 @@ export function TaskItem({
           {formatMetadata(task.metadata)}
         </p>
       )}
-
-      <TaskProgress progress={task.progress} status={task.status} />
 
       {task.error_message && (
         <div className="mt-1.5 rounded border border-red-200 bg-red-50 p-1.5 text-red-800 text-xs dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">

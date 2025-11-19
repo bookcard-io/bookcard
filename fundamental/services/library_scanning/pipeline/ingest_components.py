@@ -925,10 +925,12 @@ class AuthorWorkService:
         Returns
         -------
         int
-            Number of new works persisted.
+            Total number of works persisted (after adding new ones).
         """
         if not work_keys:
-            return 0
+            # Return current count if no new works
+            existing_works = self.work_repo.find_by_author_id(author_id)
+            return len(existing_works)
 
         # Get existing work keys
         existing_works = {
@@ -947,15 +949,18 @@ class AuthorWorkService:
                 self.work_repo.create(work)
                 new_works_count += 1
 
+        # Get total count after persisting
+        total_works = len(self.work_repo.find_by_author_id(author_id))
+
         if new_works_count > 0:
             logger.info(
                 "Persisted %d new work keys for author %d (total: %d works)",
                 new_works_count,
                 author_id,
-                len(work_keys),
+                total_works,
             )
 
-        return new_works_count
+        return total_works
 
     def persist_work_subjects(self, work: AuthorWork, subjects: Sequence[str]) -> int:
         """Persist subjects for a work.
@@ -1134,6 +1139,9 @@ class WorkBasedSubjectStrategy(SubjectFetchStrategy):
             # Persist work keys if author metadata is provided
             if author_metadata and author_metadata.id:
                 self.work_service.persist_works(author_metadata.id, work_keys)
+                # Commit to release lock before loop
+                if hasattr(self.work_repo.session, "commit"):
+                    self.work_repo.session.commit()
 
             # Use all fetched work keys for metadata fetching (already limited by max_works_per_author)
             works_to_fetch = work_keys
@@ -1150,6 +1158,9 @@ class WorkBasedSubjectStrategy(SubjectFetchStrategy):
                         self.work_service.persist_work_subjects(
                             work, work_data.subjects
                         )
+                        # Commit to release lock after write
+                        if hasattr(self.work_repo.session, "commit"):
+                            self.work_repo.session.commit()
 
                     logger.info(
                         "Fetched work %s for author %s (%d/%d, %d unique subjects)",
@@ -1386,6 +1397,8 @@ class AuthorIngestionUnitOfWork:
         try:
             # Create/update author metadata
             author = self.author_service.upsert_author(author_data)
+            # Commit immediately to release DB lock before potentially long network calls
+            self.session.commit()
 
             # Fetch and persist works if data fetcher is available
             if self.data_fetcher and author.id:
@@ -1394,13 +1407,24 @@ class AuthorIngestionUnitOfWork:
                     limit=self.max_works_per_author,
                 )
                 if work_keys:
-                    self.work_service.persist_works(author.id, work_keys)
+                    total_works = self.work_service.persist_works(author.id, work_keys)
+                    # Update work_count to reflect actual persisted works
+                    author.work_count = total_works
+                    # Commit again to save works and release lock
+                    self.session.commit()
 
                     # Fetch subjects from works if strategy is provided
                     if self.subject_strategy:
                         # Note: This will also persist subjects to works
                         # Pass author metadata for work-based strategies
                         self.subject_strategy.fetch_subjects(author_data.key, author)
+                elif not work_keys and author.work_count is None:
+                    # If no works fetched and work_count is None, set to 0
+                    # (author might have no works, or fetching failed)
+                    existing_works = self.work_service.work_repo.find_by_author_id(
+                        author.id
+                    )
+                    author.work_count = len(existing_works) if existing_works else 0
 
             self.session.flush()
         except Exception:

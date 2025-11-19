@@ -120,6 +120,8 @@ class AuthorService:
 
         authors, total = self._author_repo.list_by_library(
             active_library.id,
+            calibre_db_path=active_library.calibre_db_path,
+            calibre_db_file=active_library.calibre_db_file,
             page=page,
             page_size=page_size,
         )
@@ -444,10 +446,12 @@ class AuthorService:
         dict[str, object]
             Author data dictionary matching OpenLibrary format.
         """
-        # Handle unmatched authors (transient objects)
-        if getattr(author, "is_unmatched", False):
-            # For unmatched authors, we use a generated key
-            calibre_id = getattr(author, "calibre_id", 0)
+        # Handle unmatched authors (transient objects without AuthorMapping)
+        # Check if this is an unmatched author by checking if it has an ID
+        # Unmatched authors have id=None and a _calibre_id attribute
+        calibre_id = getattr(author, "_calibre_id", None)
+        if author.id is None and calibre_id is not None:
+            # This is an unmatched author (no AuthorMapping exists)
             return {
                 "name": author.name,
                 "key": f"calibre-{calibre_id}",

@@ -60,6 +60,7 @@ class AppConfig:
     echo_sql: bool = False
     data_directory: str = "/data"
     task_runner: str = "thread"
+    redis_url: str = "redis://localhost:6379/0"
 
     @staticmethod
     def _normalize_env_value(value: str | None) -> str | None:
@@ -160,6 +161,27 @@ class AppConfig:
         return encryption_key
 
     @staticmethod
+    def _get_redis_url() -> str:
+        """Get Redis URL from environment.
+
+        Returns
+        -------
+        str
+            Redis connection URL.
+        """
+        redis_password = AppConfig._normalize_env_value(os.getenv("REDIS_PASSWORD"))
+        redis_host = AppConfig._normalize_env_value_with_default(
+            os.getenv("REDIS_HOST"), "localhost"
+        )
+        redis_port = AppConfig._normalize_env_value_with_default(
+            os.getenv("REDIS_PORT"), "6379"
+        )
+
+        if redis_password:
+            return f"redis://:{redis_password}@{redis_host}:{redis_port}/0"
+        return f"redis://{redis_host}:{redis_port}/0"
+
+    @staticmethod
     def _parse_bool_env(key: str, default: str = "false") -> bool:
         """Parse boolean environment variable.
 
@@ -211,4 +233,5 @@ class AppConfig:
             task_runner=AppConfig._normalize_env_value_with_default(
                 os.getenv("TASK_RUNNER"), "thread"
             ).lower(),
+            redis_url=AppConfig._get_redis_url(),
         )

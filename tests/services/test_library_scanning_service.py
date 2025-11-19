@@ -64,19 +64,19 @@ class TestLibraryScanningService:
     def test_init_stores_session_and_runner(
         self, mock_session: MagicMock, mock_task_runner: MagicMock
     ) -> None:
-        """Test __init__ stores session and task runner."""
+        """Test __init__ stores session and message broker."""
         service = LibraryScanningService(mock_session, mock_task_runner)
 
         assert service.session == mock_session
-        assert service.task_runner == mock_task_runner
+        assert service.message_broker == mock_task_runner
         assert isinstance(service.library_repo, LibraryRepository)
 
     def test_init_with_none_runner(self, mock_session: MagicMock) -> None:
-        """Test __init__ with None task runner."""
+        """Test __init__ with None message broker."""
         service = LibraryScanningService(mock_session, None)
 
         assert service.session == mock_session
-        assert service.task_runner is None
+        assert service.message_broker is None
 
     def test_scan_library_success(
         self,
@@ -144,11 +144,11 @@ class TestLibraryScanningService:
         mock_session: MagicMock,
         mock_library_repo: MagicMock,
     ) -> None:
-        """Test scan_library raises ValueError when task runner is None."""
+        """Test scan_library raises ValueError when message broker is None."""
         service = LibraryScanningService(mock_session, None)
         service.library_repo = mock_library_repo
 
-        with pytest.raises(ValueError, match=r"Task runner not available"):
+        with pytest.raises(ValueError, match=r"Message broker not available"):
             service.scan_library(library_id=1, user_id=1)
 
     def test_scan_library_updates_scan_state(
