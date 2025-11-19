@@ -25,16 +25,39 @@ import fundamental.database as db
 def test_create_db_engine_passes_config(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, object] = {}
 
-    def fake_create_engine(url: str, echo: bool, future: bool) -> object:
+    def fake_create_engine(
+        url: str, echo: bool, future: bool, **kwargs: object
+    ) -> object:
         captured["url"] = url
         captured["echo"] = echo
         captured["future"] = future
-        return object()
+        captured["kwargs"] = kwargs
+        # Return a mock engine that behaves like an SQLAlchemy engine
+        return SimpleNamespace()
 
     monkeypatch.setattr(db, "create_engine", fake_create_engine)
+
+    # Mock sqlalchemy.event.listens_for to avoid InvalidRequestError
+    # Since create_db_engine uses @event.listens_for(engine, "connect")
+    # we need the engine to be a valid target or mock the event system.
+    # Easier to mock event.listens_for
+
+    class MockEvent:
+        def listens_for(self, target: object, identifier: str) -> object:
+            def decorator(fn: object) -> object:
+                return fn
+
+            return decorator
+
+    monkeypatch.setattr(db, "event", MockEvent())
+
     cfg = SimpleNamespace(database_url="sqlite://", echo_sql=True)
     engine = db.create_db_engine(cfg)  # type: ignore[arg-type]
-    assert captured == {"url": "sqlite://", "echo": True, "future": True}
+
+    # Verify arguments passed to create_engine
+    assert captured["url"] == "sqlite://"
+    assert captured["echo"] is True
+    assert captured["future"] is True
     assert engine is not None
 
 

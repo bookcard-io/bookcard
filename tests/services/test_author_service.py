@@ -1030,15 +1030,16 @@ class TestBuildAuthorDict:
         self, author_service: AuthorService, author_metadata: AuthorMetadata
     ) -> None:
         """Test _build_author_dict with unmatched author."""
-        # Use object.__setattr__ to bypass Pydantic validation for dynamic attributes
-        object.__setattr__(author_metadata, "is_unmatched", True)
-        object.__setattr__(author_metadata, "calibre_id", 123)
+        # Unmatched authors have id=None and a _calibre_id attribute
+        author_metadata.id = None
+        object.__setattr__(author_metadata, "_calibre_id", 123)
+        object.__setattr__(author_metadata, "openlibrary_key", "")
 
         result = author_service._build_author_dict(author_metadata)
 
         assert result["name"] == "Test Author"
         assert result["key"] == "calibre-123"
-        assert result["is_unmatched"] is True
+        assert result.get("is_unmatched") is True
         assert result["location"] == "Local Library (Unmatched)"
 
     def test_build_author_dict_minimal(
