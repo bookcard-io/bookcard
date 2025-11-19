@@ -47,6 +47,7 @@ from fundamental.api.routes.tasks import router as tasks_router
 from fundamental.config import AppConfig
 from fundamental.database import create_db_engine
 from fundamental.services.library_scanning.workers.manager import ScanWorkerManager
+from fundamental.services.messaging.redis_broker import RedisBroker
 from fundamental.services.tasks.runner_factory import create_task_runner
 
 logger = logging.getLogger(__name__)
@@ -144,9 +145,13 @@ def _initialize_scan_workers(app: FastAPI, cfg: AppConfig) -> None:
     cfg : AppConfig
         Application configuration.
     """
-    try:
-        from fundamental.services.messaging.redis_broker import RedisBroker
+    if not cfg.redis_enabled:
+        logger.info("Redis features not enabled.")
+        app.state.scan_worker_broker = None
+        app.state.scan_worker_manager = None
+        return
 
+    try:
         broker = RedisBroker(cfg.redis_url)
         app.state.scan_worker_broker = broker
         app.state.scan_worker_manager = ScanWorkerManager(cfg.redis_url)

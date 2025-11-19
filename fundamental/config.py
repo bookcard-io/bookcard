@@ -61,6 +61,7 @@ class AppConfig:
     data_directory: str = "/data"
     task_runner: str = "thread"
     redis_url: str = "redis://localhost:6379/0"
+    redis_enabled: bool = True
 
     @staticmethod
     def _normalize_env_value(value: str | None) -> str | None:
@@ -234,4 +235,5 @@ class AppConfig:
                 os.getenv("TASK_RUNNER"), "thread"
             ).lower(),
             redis_url=AppConfig._get_redis_url(),
+            redis_enabled=AppConfig._parse_bool_env("ENABLE_REDIS", "true"),
         )
