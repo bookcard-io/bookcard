@@ -96,7 +96,7 @@ export function useDropdownPosition({
         const downTop = menuY + MENU_OFFSET_Y;
         const wouldOverflow = downTop + measuredHeight > window.innerHeight;
         const top = wouldOverflow
-          ? Math.max(0, buttonRect.bottom - measuredHeight)
+          ? Math.max(0, menuY - measuredHeight - MENU_OFFSET_Y)
           : downTop;
         setPosition({
           top,
@@ -111,7 +111,7 @@ export function useDropdownPosition({
         const downTop = cursorPosition.y + MENU_OFFSET_Y;
         const wouldOverflow = downTop + measuredHeight > window.innerHeight;
         const top = wouldOverflow
-          ? Math.max(0, cursorPosition.y - measuredHeight)
+          ? Math.max(0, cursorPosition.y - measuredHeight - MENU_OFFSET_Y)
           : downTop;
         setPosition({
           top,
