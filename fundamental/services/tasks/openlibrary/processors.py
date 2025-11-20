@@ -207,7 +207,16 @@ class WorkRecordProcessor(RecordProcessor[OpenLibraryWork]):
         if isinstance(authors, list):
             for author_ref in authors:
                 if isinstance(author_ref, dict):
-                    author_key = author_ref.get("author", {}).get("key")
+                    author_obj = author_ref.get("author")
+                    # Handle both dict format {"author": {"key": "/authors/OL123A"}}
+                    # and string format {"author": "/authors/OL123A"}
+                    if isinstance(author_obj, dict):
+                        author_key = author_obj.get("key")
+                    elif isinstance(author_obj, str):
+                        author_key = author_obj
+                    else:
+                        author_key = None
+
                     if author_key and isinstance(author_key, str):
                         pair = (author_key, work_key)
                         if pair not in seen_pairs:

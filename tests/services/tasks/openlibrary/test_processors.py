@@ -316,6 +316,17 @@ class TestWorkRecordProcessor:
             ({"authors": "not_a_list"}, 0),
             ({"authors": [{"author": {}}]}, 0),
             ({"authors": [{"not_author": "value"}]}, 0),
+            # Test case for string author format (fixes AttributeError)
+            ({"authors": [{"author": "/authors/OL1A"}]}, 1),
+            (
+                {
+                    "authors": [
+                        {"author": "/authors/OL1A"},
+                        {"author": {"key": "/authors/OL2A"}},
+                    ]
+                },
+                2,  # Mixed formats
+            ),
         ],
     )
     def test_extract_author_works(
