@@ -33,6 +33,10 @@ from sqlmodel import Session, select
 
 from fundamental.models.author_metadata import AuthorMapping, AuthorMetadata
 from fundamental.services.library_scanning.matching.types import MatchResult
+from fundamental.services.progress import (
+    BaseProgressTracker,
+    calculate_log_interval,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -300,8 +304,12 @@ class MappingService:
 # ============================================================================
 
 
-class ProgressReporter:
-    """Handle progress tracking and reporting."""
+class ProgressReporter(BaseProgressTracker):
+    """Handle progress tracking and reporting.
+
+    Uses shared base class for common functionality,
+    following DRY principles and improving code cohesion.
+    """
 
     def __init__(self, total_items: int, log_interval: int | None = None) -> None:
         """Initialize progress reporter.
@@ -313,15 +321,10 @@ class ProgressReporter:
         log_interval : int | None
             Interval for logging progress. If None, calculated automatically.
         """
-        self.total_items = total_items
-        self.processed_items = 0
-        self._progress = 0.0
-
-        # Calculate log interval: 10% or 25 items, whichever is more frequent
+        # Calculate log interval using shared utility
         if log_interval is None:
-            self.log_interval = max(1, min(25, total_items // 10))
-        else:
-            self.log_interval = log_interval
+            log_interval = calculate_log_interval(total_items)
+        super().__init__(total_items, log_interval)
 
     def update(self, current_index: int) -> float:
         """Update progress and return progress value.
@@ -336,10 +339,7 @@ class ProgressReporter:
         float
             Progress value between 0.0 and 1.0.
         """
-        self.processed_items = current_index
-        if self.total_items > 0:
-            self._progress = current_index / self.total_items
-        return self._progress
+        return self._update_progress(current_index)
 
     def should_log(self, current_index: int) -> bool:
         """Check if we should log progress at this index.
@@ -354,20 +354,7 @@ class ProgressReporter:
         bool
             True if should log, False otherwise.
         """
-        return (
-            current_index % self.log_interval == 0 or current_index == self.total_items
-        )
-
-    @property
-    def progress(self) -> float:
-        """Get current progress.
-
-        Returns
-        -------
-        float
-            Progress value between 0.0 and 1.0.
-        """
-        return self._progress
+        return self.should_log_at(current_index)
 
 
 # ============================================================================

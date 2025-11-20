@@ -31,11 +31,9 @@ from fundamental.services.tasks.book_upload_task import BookUploadTask
 from fundamental.services.tasks.email_send_task import EmailSendTask
 from fundamental.services.tasks.library_scan_task import LibraryScanTask
 from fundamental.services.tasks.multi_upload_task import MultiBookUploadTask
+from fundamental.services.tasks.openlibrary import OpenLibraryDumpIngestTask
 from fundamental.services.tasks.openlibrary_dump_download_task import (
     OpenLibraryDumpDownloadTask,
-)
-from fundamental.services.tasks.openlibrary_dump_ingest_task import (
-    OpenLibraryDumpIngestTask,
 )
 
 T = TypeVar("T", bound=BaseTask)

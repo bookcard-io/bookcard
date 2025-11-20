@@ -1952,6 +1952,24 @@ def download_openlibrary_dumps(
     )
 
 
+class IngestFilesRequest(BaseModel):
+    """Request model for ingesting files.
+
+    Attributes
+    ----------
+    process_authors : bool
+        Whether to process authors dump file. Defaults to True.
+    process_works : bool
+        Whether to process works dump file. Defaults to True.
+    process_editions : bool
+        Whether to process editions dump file. Defaults to True.
+    """
+
+    process_authors: bool = True
+    process_works: bool = True
+    process_editions: bool = True
+
+
 class IngestFilesResponse(BaseModel):
     """Response model for file ingest operation.
 
@@ -1975,6 +1993,7 @@ class IngestFilesResponse(BaseModel):
 def ingest_openlibrary_dumps(
     request: Request,
     current_user: AdminUserDep,
+    payload: IngestFilesRequest,
 ) -> IngestFilesResponse:
     """Create a task to ingest OpenLibrary dump files into local database.
 
@@ -1987,6 +2006,8 @@ def ingest_openlibrary_dumps(
         FastAPI request object.
     current_user : AdminUserDep
         Current admin user.
+    payload : IngestFilesRequest
+        Request containing flags for which file types to process.
 
     Returns
     -------
@@ -1996,8 +2017,19 @@ def ingest_openlibrary_dumps(
     Raises
     ------
     HTTPException
-        If task runner unavailable (503).
+        If task runner unavailable (503) or no file types selected (400).
     """
+    # Validate that at least one file type is enabled
+    if (
+        not payload.process_authors
+        and not payload.process_works
+        and not payload.process_editions
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one file type must be selected for processing",
+        )
+
     # Get task runner and config
     if (
         not hasattr(request.app.state, "task_runner")
@@ -2014,6 +2046,9 @@ def ingest_openlibrary_dumps(
     service = OpenLibraryService(task_runner=task_runner, config=cfg)
     task_id = service.create_ingest_task(
         user_id=current_user.id or 0,  # type: ignore[arg-type]
+        process_authors=payload.process_authors,
+        process_works=payload.process_works,
+        process_editions=payload.process_editions,
     )
 
     return IngestFilesResponse(

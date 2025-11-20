@@ -145,12 +145,23 @@ export function OpenLibrarySettings() {
           {/* Authors Dump Configuration */}
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <label
-                htmlFor="authors_url"
-                className="font-medium text-sm text-text-a10 leading-normal"
-              >
-                Authors Dump URL
-              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="process_authors"
+                  checked={formData.process_authors ?? true}
+                  onChange={(e) =>
+                    handleFieldChange("process_authors", e.target.checked)
+                  }
+                  className="h-4 w-4 rounded border-surface-a30 bg-surface-a0 text-primary-a0 transition-colors focus:ring-2 focus:ring-primary-a0 focus:ring-offset-2"
+                />
+                <label
+                  htmlFor="authors_url"
+                  className="font-medium text-sm text-text-a10 leading-normal"
+                >
+                  Authors Dump URL
+                </label>
+              </div>
               <input
                 type="url"
                 id="authors_url"
@@ -170,12 +181,23 @@ export function OpenLibrarySettings() {
           {/* Works Dump Configuration */}
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <label
-                htmlFor="works_url"
-                className="font-medium text-sm text-text-a10 leading-normal"
-              >
-                Works Dump URL
-              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="process_works"
+                  checked={formData.process_works ?? true}
+                  onChange={(e) =>
+                    handleFieldChange("process_works", e.target.checked)
+                  }
+                  className="h-4 w-4 rounded border-surface-a30 bg-surface-a0 text-primary-a0 transition-colors focus:ring-2 focus:ring-primary-a0 focus:ring-offset-2"
+                />
+                <label
+                  htmlFor="works_url"
+                  className="font-medium text-sm text-text-a10 leading-normal"
+                >
+                  Works Dump URL
+                </label>
+              </div>
               <input
                 type="url"
                 id="works_url"
@@ -193,12 +215,24 @@ export function OpenLibrarySettings() {
           {/* Editions Dump Configuration */}
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <label
-                htmlFor="editions_url"
-                className="font-medium text-sm text-text-a10 leading-normal"
-              >
-                Editions Dump URL
-              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="process_editions"
+                  checked={formData.process_editions ?? false}
+                  onChange={(e) =>
+                    handleFieldChange("process_editions", e.target.checked)
+                  }
+                  disabled
+                  className="h-4 w-4 rounded border-surface-a30 bg-surface-a0 text-primary-a0 transition-colors focus:ring-2 focus:ring-primary-a0 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <label
+                  htmlFor="editions_url"
+                  className="font-medium text-sm text-text-a10 leading-normal"
+                >
+                  Editions Dump URL
+                </label>
+              </div>
               <input
                 type="url"
                 id="editions_url"
@@ -206,8 +240,9 @@ export function OpenLibrarySettings() {
                 onChange={(e) =>
                   handleFieldChange("editions_url", e.target.value)
                 }
+                disabled
                 placeholder="https://openlibrary.org/data/ol_dump_editions_latest.txt.gz"
-                className="w-full rounded-md border border-surface-a20 bg-surface-a0 px-4 py-3 font-inherit text-base text-text-a0 leading-normal transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s] focus:border-primary-a0 focus:bg-surface-a10 focus:shadow-[var(--shadow-focus-ring)] focus:outline-none hover:not(:focus):border-surface-a30"
+                className="w-full rounded-md border border-surface-a20 bg-surface-a0 px-4 py-3 font-inherit text-base text-text-a0 leading-normal transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s] focus:border-primary-a0 focus:bg-surface-a10 focus:shadow-[var(--shadow-focus-ring)] focus:outline-none hover:not(:focus):border-surface-a30 disabled:cursor-not-allowed disabled:bg-surface-a5 disabled:opacity-50"
               />
               <p className="text-text-a30 text-xs">
                 URL for the OpenLibrary editions metadata dump.

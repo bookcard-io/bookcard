@@ -64,13 +64,17 @@ class OpenLibraryDumpIngestTask(BaseTask):
         user_id : int
             User ID creating the task.
         metadata : dict[str, Any]
-            Task metadata. Can contain 'data_directory'.
+            Task metadata. Can contain 'data_directory', 'process_authors',
+            'process_works', 'process_editions'.
         """
         super().__init__(task_id, user_id, metadata)
         data_directory = metadata.get("data_directory", "/data")
         self.base_dir = Path(data_directory) / "openlibrary"
         self.dump_dir = self.base_dir / "dump"
         self.batch_size = 10000
+        self.process_authors = metadata.get("process_authors", True)
+        self.process_works = metadata.get("process_works", True)
+        self.process_editions = metadata.get("process_editions", True)
 
     def _parse_line(
         self, line: str
@@ -220,6 +224,9 @@ class OpenLibraryDumpIngestTask(BaseTask):
     ) -> list[OpenLibraryAuthorWork]:
         """Extract author-works relationships from work data.
 
+        Deduplicates author-work pairs to prevent unique constraint violations.
+        A work may have duplicate author entries in the source data.
+
         Parameters
         ----------
         data : dict[str, Any]
@@ -230,21 +237,73 @@ class OpenLibraryDumpIngestTask(BaseTask):
         Returns
         -------
         list[OpenLibraryAuthorWork]
-            List of author-work relationships.
+            List of unique author-work relationships.
         """
         author_works = []
+        seen_pairs: set[tuple[str, str]] = set()
         authors = data.get("authors", [])
         if isinstance(authors, list):
             for author_ref in authors:
                 if isinstance(author_ref, dict):
                     author_key = author_ref.get("author", {}).get("key")
                     if author_key and isinstance(author_key, str):
-                        author_works.append(
-                            OpenLibraryAuthorWork(
-                                author_key=author_key, work_key=work_key
+                        pair = (author_key, work_key)
+                        if pair not in seen_pairs:
+                            seen_pairs.add(pair)
+                            author_works.append(
+                                OpenLibraryAuthorWork(
+                                    author_key=author_key, work_key=work_key
+                                )
                             )
-                        )
         return author_works
+
+    def _deduplicate_author_works_batch(
+        self, batch: list[OpenLibraryAuthorWork]
+    ) -> list[OpenLibraryAuthorWork]:
+        """Deduplicate author-work batch by composite key.
+
+        Parameters
+        ----------
+        batch : list[OpenLibraryAuthorWork]
+            Batch of author-work relationships.
+
+        Returns
+        -------
+        list[OpenLibraryAuthorWork]
+            Deduplicated batch.
+        """
+        seen: set[tuple[str, str]] = set()
+        unique: list[OpenLibraryAuthorWork] = []
+        for item in batch:
+            pair = (item.author_key, item.work_key)
+            if pair not in seen:
+                seen.add(pair)
+                unique.append(item)
+        return unique
+
+    def _deduplicate_isbns_batch(
+        self, batch: list[OpenLibraryEditionIsbn]
+    ) -> list[OpenLibraryEditionIsbn]:
+        """Deduplicate ISBN batch by composite key.
+
+        Parameters
+        ----------
+        batch : list[OpenLibraryEditionIsbn]
+            Batch of ISBN relationships.
+
+        Returns
+        -------
+        list[OpenLibraryEditionIsbn]
+            Deduplicated batch.
+        """
+        seen: set[tuple[str, str]] = set()
+        unique: list[OpenLibraryEditionIsbn] = []
+        for item in batch:
+            pair = (item.edition_key, item.isbn)
+            if pair not in seen:
+                seen.add(pair)
+                unique.append(item)
+        return unique
 
     def _commit_batches(
         self,
@@ -252,6 +311,10 @@ class OpenLibraryDumpIngestTask(BaseTask):
         *batches: list[Any],
     ) -> None:
         """Commit multiple batches to database.
+
+        Deduplicates author_works and edition_isbns batches before committing
+        to handle cases where the same work/edition appears multiple times
+        in the dump file.
 
         Parameters
         ----------
@@ -262,9 +325,21 @@ class OpenLibraryDumpIngestTask(BaseTask):
         """
         has_data = False
         for batch in batches:
+            if not batch:
+                continue
+
+            # Deduplicate author_works and edition_isbns batches
+            # Check first element to determine batch type
+            first_item = batch[0]
+            if isinstance(first_item, OpenLibraryAuthorWork):
+                batch = self._deduplicate_author_works_batch(batch)
+            elif isinstance(first_item, OpenLibraryEditionIsbn):
+                batch = self._deduplicate_isbns_batch(batch)
+
             if batch:
                 session.bulk_save_objects(batch)
                 has_data = True
+
         if has_data:
             session.commit()
 
@@ -391,6 +466,9 @@ class OpenLibraryDumpIngestTask(BaseTask):
     ) -> list[OpenLibraryEditionIsbn]:
         """Extract ISBNs from edition data.
 
+        Deduplicates ISBNs to prevent unique constraint violations.
+        The same ISBN may appear in multiple fields (isbn_13, isbn_10, isbn).
+
         Parameters
         ----------
         data : dict[str, Any]
@@ -401,18 +479,24 @@ class OpenLibraryDumpIngestTask(BaseTask):
         Returns
         -------
         list[OpenLibraryEditionIsbn]
-            List of ISBN objects.
+            List of unique ISBN objects.
         """
         isbns = []
+        seen_isbns: set[str] = set()
         isbn_fields = ["isbn_13", "isbn_10", "isbn"]
         for isbn_field in isbn_fields:
             isbn_list = data.get(isbn_field, [])
             if isinstance(isbn_list, list):
-                isbns.extend(
-                    OpenLibraryEditionIsbn(edition_key=edition_key, isbn=isbn.strip())
-                    for isbn in isbn_list
-                    if isinstance(isbn, str) and isbn.strip()
-                )
+                for isbn in isbn_list:
+                    if isinstance(isbn, str):
+                        isbn_clean = isbn.strip()
+                        if isbn_clean and isbn_clean not in seen_isbns:
+                            seen_isbns.add(isbn_clean)
+                            isbns.append(
+                                OpenLibraryEditionIsbn(
+                                    edition_key=edition_key, isbn=isbn_clean
+                                )
+                            )
         return isbns
 
     def _process_editions_file(
@@ -555,6 +639,163 @@ class OpenLibraryDumpIngestTask(BaseTask):
                 },
             )
 
+    def _get_tables_to_truncate(self) -> list[str]:
+        """Get list of tables to truncate based on enabled file types.
+
+        Returns
+        -------
+        list[str]
+            List of table names to truncate.
+        """
+        tables_to_truncate = []
+        if self.process_authors:
+            tables_to_truncate.append("openlibrary_authors")
+        if self.process_works:
+            tables_to_truncate.append("openlibrary_works")
+            tables_to_truncate.append("openlibrary_author_works")
+        if self.process_editions:
+            tables_to_truncate.append("openlibrary_editions")
+            tables_to_truncate.append("openlibrary_edition_isbns")
+        return tables_to_truncate
+
+    def _truncate_tables(
+        self,
+        session: Session,
+        update_progress: Callable[[float, dict[str, Any] | None], None],
+    ) -> None:
+        """Truncate tables for enabled file types.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        update_progress : Callable
+            Progress update callback.
+        """
+        update_progress(0.0, {"status": "Clearing existing data..."})
+        tables_to_truncate = self._get_tables_to_truncate()
+        if tables_to_truncate:
+            session.connection().execute(
+                text(f"TRUNCATE TABLE {', '.join(tables_to_truncate)} CASCADE")
+            )
+            session.commit()
+
+    def _validate_enabled_file_types(self) -> None:
+        """Validate that at least one file type is enabled.
+
+        Raises
+        ------
+        ValueError
+            If no file types are enabled.
+        """
+        enabled_count = sum([
+            self.process_authors,
+            self.process_works,
+            self.process_editions,
+        ])
+        if enabled_count == 0:
+            msg = "At least one file type must be enabled for processing"
+            raise ValueError(msg)
+
+    def _process_all_files(
+        self,
+        session: Session,
+        update_progress: Callable[[float, dict[str, Any] | None], None],
+        progress_per_file: float,
+    ) -> tuple[int, int, int, int, int]:
+        """Process all enabled file types.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        update_progress : Callable
+            Progress update callback.
+        progress_per_file : float
+            Progress increment per file.
+
+        Returns
+        -------
+        tuple[int, int, int, int, int]
+            Tuple of (authors_count, works_count, author_works_count, editions_count, isbns_count).
+        """
+        current_progress = 0.01
+        authors_count = 0
+        works_count = 0
+        author_works_count = 0
+        editions_count = 0
+        isbns_count = 0
+
+        # Process Authors
+        if self.process_authors:
+            authors_file = self.dump_dir / "ol_dump_authors_latest.txt.gz"
+            update_progress(
+                current_progress,
+                {
+                    "status": "Processing authors...",
+                    "current_file": authors_file.name,
+                    "processed_records": 0,
+                },
+            )
+            authors_count = self._process_authors_file(
+                authors_file,
+                session,
+                update_progress,
+                current_progress,
+                progress_per_file,
+            )
+            current_progress += progress_per_file
+
+        # Process Works
+        if self.process_works:
+            works_file = self.dump_dir / "ol_dump_works_latest.txt.gz"
+            update_progress(
+                current_progress,
+                {
+                    "status": "Processing works...",
+                    "current_file": works_file.name,
+                    "processed_records": 0,
+                },
+            )
+            works_count, author_works_count = self._process_works_file(
+                works_file,
+                session,
+                update_progress,
+                current_progress,
+                progress_per_file,
+            )
+            current_progress += progress_per_file
+
+        # Process Editions (if enabled and file exists)
+        if self.process_editions:
+            editions_file = self.dump_dir / "ol_dump_editions_latest.txt.gz"
+            if editions_file.exists():
+                update_progress(
+                    current_progress,
+                    {
+                        "status": "Processing editions...",
+                        "current_file": editions_file.name,
+                        "processed_records": 0,
+                    },
+                )
+                editions_count, isbns_count = self._process_editions_file(
+                    editions_file,
+                    session,
+                    update_progress,
+                    current_progress,
+                    progress_per_file,
+                )
+            else:
+                logger.warning("Editions file not found: %s", editions_file)
+
+        return (
+            authors_count,
+            works_count,
+            author_works_count,
+            editions_count,
+            isbns_count,
+        )
+
     def run(self, worker_context: dict[str, Any]) -> None:
         """Execute OpenLibrary dump ingestion task.
 
@@ -574,51 +815,46 @@ class OpenLibraryDumpIngestTask(BaseTask):
             if self.check_cancelled():
                 return
 
-            update_progress(0.0, {"status": "Clearing existing data..."})
-            # Clear existing data for fresh ingestion
-            session.connection().execute(
-                text(
-                    "TRUNCATE TABLE openlibrary_edition_isbns, openlibrary_author_works, "
-                    "openlibrary_editions, openlibrary_works, openlibrary_authors CASCADE"
-                )
-            )
-            session.commit()
+            self._truncate_tables(session, update_progress)
 
-            update_progress(0.01, {"status": "Starting ingestion..."})
-
-            # Process Authors
-            authors_file = self.dump_dir / "ol_dump_authors_latest.txt.gz"
-            update_progress(0.05, {"status": "Processing authors..."})
-            authors_count = self._process_authors_file(
-                authors_file, session, update_progress, 0.05, 0.30
+            update_progress(
+                0.01,
+                {
+                    "status": "Starting ingestion...",
+                    "current_file": "",
+                    "processed_records": 0,
+                },
             )
 
-            # Process Works
-            works_file = self.dump_dir / "ol_dump_works_latest.txt.gz"
-            update_progress(0.35, {"status": "Processing works..."})
-            works_count, author_works_count = self._process_works_file(
-                works_file, session, update_progress, 0.35, 0.30
-            )
+            self._validate_enabled_file_types()
 
-            # Process Editions (if file exists)
-            editions_file = self.dump_dir / "ol_dump_editions_latest.txt.gz"
-            editions_count = 0
-            isbns_count = 0
-            if editions_file.exists():
-                update_progress(0.65, {"status": "Processing editions..."})
-                editions_count, isbns_count = self._process_editions_file(
-                    editions_file, session, update_progress, 0.65, 0.30
-                )
+            enabled_count = sum([
+                self.process_authors,
+                self.process_works,
+                self.process_editions,
+            ])
+            progress_per_file = 0.98 / enabled_count
+
+            (
+                authors_count,
+                works_count,
+                author_works_count,
+                editions_count,
+                isbns_count,
+            ) = self._process_all_files(session, update_progress, progress_per_file)
 
             update_progress(
                 1.0,
                 {
                     "status": "Completed",
-                    "authors_processed": authors_count,
-                    "works_processed": works_count,
-                    "author_works_processed": author_works_count,
-                    "editions_processed": editions_count,
-                    "isbns_processed": isbns_count,
+                    "current_file": "",
+                    "processed_records": (
+                        authors_count
+                        + works_count
+                        + author_works_count
+                        + editions_count
+                        + isbns_count
+                    ),
                 },
             )
 

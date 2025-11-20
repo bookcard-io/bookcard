@@ -113,11 +113,22 @@ export async function downloadOpenLibraryDumps(
   return response.json();
 }
 
+export interface IngestFilesRequest {
+  process_authors?: boolean;
+  process_works?: boolean;
+  process_editions?: boolean;
+}
+
 /**
  * Ingest OpenLibrary dump files into local database.
  *
  * Creates a background task that processes downloaded dump files
  * and ingests them into a local SQLite database for fast lookups.
+ *
+ * Parameters
+ * ----------
+ * options : IngestFilesRequest
+ *     Options specifying which file types to process.
  *
  * Returns
  * -------
@@ -129,13 +140,16 @@ export async function downloadOpenLibraryDumps(
  * Error
  *     If the request fails.
  */
-export async function ingestOpenLibraryDumps(): Promise<IngestFilesResponse> {
+export async function ingestOpenLibraryDumps(
+  options: IngestFilesRequest = {},
+): Promise<IngestFilesResponse> {
   const response = await fetch(INGEST_API_BASE, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     credentials: "include",
+    body: JSON.stringify(options),
   });
 
   if (!response.ok) {

@@ -18,10 +18,11 @@
 import { useState } from "react";
 import { cn } from "@/libs/utils";
 import { ConfigurationTab } from "./tabs/ConfigurationTab";
+import { ScheduledTasksTab } from "./tabs/ScheduledTasksTab";
 import { SystemTab } from "./tabs/SystemTab";
 import { UsersAndRolesTab } from "./tabs/UsersAndRolesTab";
 
-type TabId = "users" | "configuration" | "system";
+type TabId = "users" | "configuration" | "system" | "scheduled-tasks";
 
 export function AdminSettings() {
   const [activeTab, setActiveTab] = useState<TabId>("users");
@@ -30,6 +31,7 @@ export function AdminSettings() {
     { id: "users", label: "Users & Permissions" },
     { id: "configuration", label: "Configuration" },
     { id: "system", label: "System" },
+    { id: "scheduled-tasks", label: "Scheduled Tasks" },
   ];
 
   return (
@@ -57,6 +59,7 @@ export function AdminSettings() {
           {activeTab === "users" && <UsersAndRolesTab />}
           {activeTab === "configuration" && <ConfigurationTab />}
           {activeTab === "system" && <SystemTab />}
+          {activeTab === "scheduled-tasks" && <ScheduledTasksTab />}
         </div>
       </div>
     </div>

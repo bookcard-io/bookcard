@@ -35,6 +35,7 @@ from fundamental.services.library_scanning.pipeline.base import (
     StageResult,
 )
 from fundamental.services.library_scanning.pipeline.context import PipelineContext
+from fundamental.services.progress import BaseProgressTracker
 
 if TYPE_CHECKING:
     from sqlmodel import Session
@@ -607,8 +608,12 @@ class CompositeSimilarityCalculator(SimilarityCalculator):
 # ============================================================================
 
 
-class ProgressTracker:
-    """Tracks progress for batch processing operations."""
+class ProgressTracker(BaseProgressTracker):
+    """Tracks progress for batch processing operations.
+
+    Uses shared base class for common functionality,
+    following DRY principles and improving code cohesion.
+    """
 
     def __init__(self, total_items: int, log_interval: int = 100) -> None:
         """Initialize progress tracker.
@@ -620,10 +625,7 @@ class ProgressTracker:
         log_interval : int
             Number of items between progress logs (default: 100).
         """
-        self.total_items = total_items
-        self.processed_items = 0
-        self.log_interval = log_interval
-        self._progress = 0.0
+        super().__init__(total_items, log_interval)
 
     def update(self, items_processed: int = 1) -> float:
         """Update progress.
@@ -639,10 +641,7 @@ class ProgressTracker:
             Current progress value between 0.0 and 1.0.
         """
         self.processed_items += items_processed
-        self._progress = (
-            self.processed_items / self.total_items if self.total_items > 0 else 0.0
-        )
-        return self._progress
+        return self._update_progress(self.processed_items)
 
     def should_log(self) -> bool:
         """Check if progress should be logged.
@@ -652,21 +651,7 @@ class ProgressTracker:
         bool
             True if progress should be logged, False otherwise.
         """
-        return (
-            self.processed_items % self.log_interval == 0
-            or self.processed_items == self.total_items
-        )
-
-    @property
-    def progress(self) -> float:
-        """Get current progress.
-
-        Returns
-        -------
-        float
-            Progress value between 0.0 and 1.0.
-        """
-        return self._progress
+        return self.should_log_at(self.processed_items)
 
 
 class AuthorPairProcessor:

@@ -102,6 +102,9 @@ class OpenLibraryService:
     def create_ingest_task(
         self,
         user_id: int,
+        process_authors: bool = True,
+        process_works: bool = True,
+        process_editions: bool = True,
     ) -> int:
         """Create a task to ingest OpenLibrary dump files into database.
 
@@ -109,6 +112,12 @@ class OpenLibraryService:
         ----------
         user_id : int
             ID of user creating the task.
+        process_authors : bool
+            Whether to process authors dump file. Defaults to True.
+        process_works : bool
+            Whether to process works dump file. Defaults to True.
+        process_editions : bool
+            Whether to process editions dump file. Defaults to True.
 
         Returns
         -------
@@ -122,5 +131,8 @@ class OpenLibraryService:
             metadata={
                 "task_type": TaskType.OPENLIBRARY_DUMP_INGEST,
                 "data_directory": self._config.data_directory,
+                "process_authors": process_authors,
+                "process_works": process_works,
+                "process_editions": process_editions,
             },
         )

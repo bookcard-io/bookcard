@@ -195,6 +195,10 @@ class TaskService:
     ) -> None:
         """Update task progress and optional metadata.
 
+        For progress updates, only progress-related fields are kept in metadata
+        to avoid cluttering the display. Non-progress fields from initial metadata
+        are preserved but not shown in progress updates.
+
         Parameters
         ----------
         task_id : int
@@ -203,6 +207,8 @@ class TaskService:
             Progress value between 0.0 and 1.0.
         metadata : dict | None
             Optional metadata to merge into existing metadata.
+            Progress-related fields (status, current_file, processed_records)
+            will replace existing values. Other fields are preserved.
         """
         task = self._session.get(Task, task_id)
         if task is None:
@@ -220,7 +226,22 @@ class TaskService:
             # Create a new dict to ensure SQLModel detects the change
             # SQLModel doesn't detect in-place updates to mutable objects
             updated_task_data = dict(task.task_data)
-            updated_task_data.update(metadata)
+
+            # For progress updates, only keep progress-related fields
+            # Filter out non-progress fields like task_type, data_directory, etc.
+            progress_fields = {"status", "current_file", "processed_records"}
+            if any(key in progress_fields for key in metadata):
+                # This is a progress update - replace task_data with only progress fields
+                # This ensures the display only shows progress-related information
+                filtered_metadata = {
+                    k: v for k, v in metadata.items() if k in progress_fields
+                }
+                # Only keep progress fields in task_data for display
+                updated_task_data = filtered_metadata
+            else:
+                # Not a progress update, merge all metadata normally
+                updated_task_data.update(metadata)
+
             task.task_data = updated_task_data
         self._session.add(task)
         self._session.commit()

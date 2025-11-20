@@ -29,11 +29,14 @@ export async function POST(request: NextRequest) {
       return error;
     }
 
+    const body = await request.json();
+
     const response = await client.request("/admin/openlibrary/ingest-dumps", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
+      body: JSON.stringify(body),
     });
 
     const data = await response.json();

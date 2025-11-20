@@ -24,6 +24,9 @@ export interface OpenLibrarySettingsFormData {
   authors_url: string | null;
   works_url: string | null;
   editions_url: string | null;
+  process_authors: boolean;
+  process_works: boolean;
+  process_editions: boolean;
 }
 
 export interface UseOpenLibrarySettingsOptions {
@@ -85,6 +88,9 @@ export function useOpenLibrarySettings(
     authors_url: defaults.authors_url,
     works_url: defaults.works_url,
     editions_url: defaults.editions_url,
+    process_authors: true,
+    process_works: true,
+    process_editions: false,
   });
   const [isDownloading, setIsDownloading] = useState(false);
   const [isIngesting, setIsIngesting] = useState(false);
@@ -107,6 +113,9 @@ export function useOpenLibrarySettings(
       authors_url: defaults.authors_url,
       works_url: defaults.works_url,
       editions_url: defaults.editions_url,
+      process_authors: true,
+      process_works: true,
+      process_editions: false,
     });
     setError(null);
   }, []);
@@ -156,7 +165,20 @@ export function useOpenLibrarySettings(
       setIsIngesting(true);
       setError(null);
 
-      await ingestOpenLibraryDumps();
+      // Check if at least one file type is enabled
+      if (
+        !formData.process_authors &&
+        !formData.process_works &&
+        !formData.process_editions
+      ) {
+        throw new Error("Please select at least one file type to process");
+      }
+
+      await ingestOpenLibraryDumps({
+        process_authors: formData.process_authors,
+        process_works: formData.process_works,
+        process_editions: formData.process_editions,
+      });
 
       // Task created successfully - it will be visible in the task list
       // The task will handle the actual ingest and report progress
@@ -173,7 +195,7 @@ export function useOpenLibrarySettings(
     } finally {
       setIsIngesting(false);
     }
-  }, [onIngestSuccess, onError]);
+  }, [formData, onIngestSuccess, onError]);
 
   return {
     formData,
