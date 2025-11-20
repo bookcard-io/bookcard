@@ -91,6 +91,20 @@ class TestLibraryScanTaskInit:
         assert task.data_source_name == "openlibrary"
         assert task.data_source_kwargs == {}
 
+    def test_init_data_source_config_not_dict(self) -> None:
+        """Test __init__ uses default data source when data_source_config is not a dict (covers lines 88-89)."""
+        metadata = {
+            "library_id": 1,
+            "data_source_config": "invalid",  # Not a dict
+        }
+        task = LibraryScanTask(
+            task_id=1,
+            user_id=1,
+            metadata=metadata,
+        )
+        assert task.data_source_name == "openlibrary"
+        assert task.data_source_kwargs == {}
+
 
 class TestLibraryScanTaskRun:
     """Test LibraryScanTask run method."""
@@ -236,3 +250,198 @@ class TestLibraryScanTaskRun:
 
         # Should still work without update_progress
         mock_orchestrator.scan_library.assert_called_once()
+
+    def test_run_creates_orchestrator_when_none(
+        self,
+        task: LibraryScanTask,
+        worker_context: dict[str, MagicMock],
+    ) -> None:
+        """Test run creates orchestrator when it's None (covers line 132)."""
+        # Set orchestrator to None
+        task.orchestrator = None
+
+        with (
+            patch(
+                "fundamental.services.tasks.library_scan_task.LibraryRepository"
+            ) as mock_repo_class,
+            patch(
+                "fundamental.services.tasks.library_scan_task.DatabaseScanConfigurationProvider"
+            ) as mock_config_class,
+            patch(
+                "fundamental.services.tasks.library_scan_task.RegistryDataSourceFactory"
+            ) as mock_ds_factory_class,
+            patch(
+                "fundamental.services.tasks.library_scan_task.StandardPipelineFactory"
+            ) as mock_pipeline_factory_class,
+            patch(
+                "fundamental.services.tasks.library_scan_task.PipelineContextFactory"
+            ) as mock_context_factory_class,
+            patch(
+                "fundamental.services.tasks.library_scan_task.LibraryScanOrchestrator"
+            ) as mock_orchestrator_class,
+        ):
+            # Setup mocks
+            mock_orchestrator = MagicMock()
+            mock_orchestrator.scan_library.return_value = {"success": True}
+            mock_orchestrator_class.return_value = mock_orchestrator
+
+            mock_repo = MagicMock()
+            mock_repo_class.return_value = mock_repo
+
+            mock_config = MagicMock()
+            mock_config_class.return_value = mock_config
+
+            mock_ds_factory = MagicMock()
+            mock_ds_factory_class.return_value = mock_ds_factory
+
+            mock_pipeline_factory = MagicMock()
+            mock_pipeline_factory_class.return_value = mock_pipeline_factory
+
+            mock_context_factory = MagicMock()
+            mock_context_factory_class.return_value = mock_context_factory
+
+            task.run(worker_context)
+
+            # Verify orchestrator was created and called
+            mock_orchestrator_class.assert_called_once()
+            mock_orchestrator.scan_library.assert_called_once()
+
+    def test_run_creates_orchestrator_when_not_exists(
+        self,
+        metadata: dict[str, int],
+        worker_context: dict[str, MagicMock],
+    ) -> None:
+        """Test run creates orchestrator when it doesn't exist (covers line 132)."""
+        # Create task without orchestrator attribute
+        task = LibraryScanTask(
+            task_id=1,
+            user_id=1,
+            metadata=metadata,
+        )
+        # Delete orchestrator attribute to simulate it not existing
+        delattr(task, "orchestrator")
+
+        with (
+            patch(
+                "fundamental.services.tasks.library_scan_task.LibraryRepository"
+            ) as mock_repo_class,
+            patch(
+                "fundamental.services.tasks.library_scan_task.DatabaseScanConfigurationProvider"
+            ) as mock_config_class,
+            patch(
+                "fundamental.services.tasks.library_scan_task.RegistryDataSourceFactory"
+            ) as mock_ds_factory_class,
+            patch(
+                "fundamental.services.tasks.library_scan_task.StandardPipelineFactory"
+            ) as mock_pipeline_factory_class,
+            patch(
+                "fundamental.services.tasks.library_scan_task.PipelineContextFactory"
+            ) as mock_context_factory_class,
+            patch(
+                "fundamental.services.tasks.library_scan_task.LibraryScanOrchestrator"
+            ) as mock_orchestrator_class,
+        ):
+            # Setup mocks
+            mock_orchestrator = MagicMock()
+            mock_orchestrator.scan_library.return_value = {"success": True}
+            mock_orchestrator_class.return_value = mock_orchestrator
+
+            mock_repo = MagicMock()
+            mock_repo_class.return_value = mock_repo
+
+            mock_config = MagicMock()
+            mock_config_class.return_value = mock_config
+
+            mock_ds_factory = MagicMock()
+            mock_ds_factory_class.return_value = mock_ds_factory
+
+            mock_pipeline_factory = MagicMock()
+            mock_pipeline_factory_class.return_value = mock_pipeline_factory
+
+            mock_context_factory = MagicMock()
+            mock_context_factory_class.return_value = mock_context_factory
+
+            task.run(worker_context)
+
+            # Verify orchestrator was created and called
+            mock_orchestrator_class.assert_called_once()
+            mock_orchestrator.scan_library.assert_called_once()
+
+
+class TestLibraryScanTaskCreateOrchestrator:
+    """Test LibraryScanTask._create_orchestrator method."""
+
+    @pytest.fixture
+    def task(self, metadata: dict[str, int]) -> LibraryScanTask:
+        """Create LibraryScanTask instance."""
+        return LibraryScanTask(
+            task_id=1,
+            user_id=1,
+            metadata=metadata,
+        )
+
+    def test_create_orchestrator(
+        self,
+        task: LibraryScanTask,
+        worker_context: dict[str, MagicMock],
+    ) -> None:
+        """Test _create_orchestrator creates orchestrator with correct dependencies (covers lines 172-178)."""
+        session = worker_context["session"]
+
+        with (
+            patch(
+                "fundamental.services.tasks.library_scan_task.LibraryRepository"
+            ) as mock_repo_class,
+            patch(
+                "fundamental.services.tasks.library_scan_task.DatabaseScanConfigurationProvider"
+            ) as mock_config_class,
+            patch(
+                "fundamental.services.tasks.library_scan_task.RegistryDataSourceFactory"
+            ) as mock_ds_factory_class,
+            patch(
+                "fundamental.services.tasks.library_scan_task.StandardPipelineFactory"
+            ) as mock_pipeline_factory_class,
+            patch(
+                "fundamental.services.tasks.library_scan_task.PipelineContextFactory"
+            ) as mock_context_factory_class,
+            patch(
+                "fundamental.services.tasks.library_scan_task.LibraryScanOrchestrator"
+            ) as mock_orchestrator_class,
+        ):
+            # Setup mocks
+            mock_repo = MagicMock()
+            mock_repo_class.return_value = mock_repo
+
+            mock_config = MagicMock()
+            mock_config_class.return_value = mock_config
+
+            mock_ds_factory = MagicMock()
+            mock_ds_factory_class.return_value = mock_ds_factory
+
+            mock_pipeline_factory = MagicMock()
+            mock_pipeline_factory_class.return_value = mock_pipeline_factory
+
+            mock_context_factory = MagicMock()
+            mock_context_factory_class.return_value = mock_context_factory
+
+            mock_orchestrator = MagicMock()
+            mock_orchestrator_class.return_value = mock_orchestrator
+
+            result = task._create_orchestrator(session)
+
+            # Verify all dependencies were created
+            mock_repo_class.assert_called_once_with(session)
+            mock_config_class.assert_called_once_with(session)
+            mock_ds_factory_class.assert_called_once()
+            mock_pipeline_factory_class.assert_called_once()
+            mock_context_factory_class.assert_called_once_with(mock_repo)
+
+            # Verify orchestrator was created with correct dependencies
+            mock_orchestrator_class.assert_called_once_with(
+                config_provider=mock_config,
+                data_source_factory=mock_ds_factory,
+                pipeline_factory=mock_pipeline_factory,
+                context_factory=mock_context_factory,
+            )
+
+            assert result == mock_orchestrator
