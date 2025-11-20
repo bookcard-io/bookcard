@@ -353,7 +353,7 @@ class AuthorMapping(SQLModel, table=True):
     __tablename__ = "author_mappings"
 
     id: int | None = Field(default=None, primary_key=True)
-    calibre_author_id: int = Field(index=True)
+    calibre_author_id: int = Field(None, description="Calibre author ID")
     author_metadata_id: int = Field(foreign_key="author_metadata.id", index=True)
     confidence_score: float | None = Field(
         default=None,

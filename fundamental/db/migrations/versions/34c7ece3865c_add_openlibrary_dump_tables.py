@@ -323,7 +323,7 @@ def downgrade() -> None:
             name="tasktype",
             native_enum=False,
         ),
-        type_=sa.VARCHAR(length=18),
+        type_=sa.VARCHAR(length=50),
         existing_nullable=False,
     )
     op.alter_column(
@@ -343,7 +343,7 @@ def downgrade() -> None:
             name="tasktype",
             native_enum=False,
         ),
-        type_=sa.VARCHAR(length=18),
+        type_=sa.VARCHAR(length=50),
         existing_nullable=False,
     )
     op.create_index(

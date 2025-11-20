@@ -182,12 +182,6 @@ def upgrade() -> None:
         unique=False,
     )
     op.create_index(
-        op.f("ix_author_mappings_calibre_author_id"),
-        "author_mappings",
-        ["calibre_author_id"],
-        unique=True,
-    )
-    op.create_index(
         op.f("ix_author_mappings_created_at"),
         "author_mappings",
         ["created_at"],
@@ -346,9 +340,6 @@ def downgrade() -> None:
     )
     op.drop_table("author_photos")
     op.drop_index(op.f("ix_author_mappings_is_verified"), table_name="author_mappings")
-    op.drop_index(
-        op.f("ix_author_mappings_calibre_author_id"), table_name="author_mappings"
-    )
     op.drop_index(
         op.f("ix_author_mappings_author_metadata_id"), table_name="author_mappings"
     )

@@ -21,9 +21,39 @@ These models represent data imported from OpenLibrary dump files.
 from datetime import date
 from typing import Any
 
-from sqlalchemy import Column, Date, Index, Integer, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import JSON, Column, Date, Index, Integer, Text, TypeDecorator
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.engine import Dialect
+from sqlalchemy.types import TypeEngine
 from sqlmodel import Field, SQLModel
+
+
+class JSONBType(TypeDecorator):
+    """Dialect-aware JSON type that uses JSONB for PostgreSQL and JSON for SQLite.
+
+    This ensures compatibility with both databases while using JSONB in PostgreSQL
+    for better performance and indexing capabilities.
+    """
+
+    impl = JSON
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect: Dialect) -> TypeEngine[Any]:
+        """Return the appropriate type based on the database dialect.
+
+        Parameters
+        ----------
+        dialect : Dialect
+            SQLAlchemy dialect instance.
+
+        Returns
+        -------
+        TypeEngine[Any]
+            JSONB for PostgreSQL, JSON for other databases.
+        """
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(postgresql.JSONB(astext_type=Text()))
+        return dialect.type_descriptor(JSON())
 
 
 class OpenLibraryAuthor(SQLModel, table=True):
@@ -42,7 +72,7 @@ class OpenLibraryAuthor(SQLModel, table=True):
     last_modified : date | None
         Last modification date of the record.
     data : dict[str, Any] | None
-        JSONB data containing full author information.
+        JSON data containing full author information.
     """
 
     __tablename__ = "openlibrary_authors"
@@ -55,7 +85,7 @@ class OpenLibraryAuthor(SQLModel, table=True):
     )
     data: dict[str, Any] | None = Field(
         default=None,
-        sa_column=Column(JSONB, nullable=True),
+        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
     )
 
     __table_args__ = (Index("cuix_openlibrary_authors_key", "key", unique=True),)
@@ -77,7 +107,7 @@ class OpenLibraryWork(SQLModel, table=True):
     last_modified : date | None
         Last modification date of the record.
     data : dict[str, Any] | None
-        JSONB data containing full work information.
+        JSON data containing full work information.
     """
 
     __tablename__ = "openlibrary_works"
@@ -90,7 +120,7 @@ class OpenLibraryWork(SQLModel, table=True):
     )
     data: dict[str, Any] | None = Field(
         default=None,
-        sa_column=Column(JSONB, nullable=True),
+        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
     )
 
     __table_args__ = (Index("cuix_openlibrary_works_key", "key", unique=True),)
@@ -112,7 +142,7 @@ class OpenLibraryEdition(SQLModel, table=True):
     last_modified : date | None
         Last modification date of the record.
     data : dict[str, Any] | None
-        JSONB data containing full edition information.
+        JSON data containing full edition information.
     work_key : str | None
         Foreign key to the work this edition belongs to.
     """
@@ -127,7 +157,7 @@ class OpenLibraryEdition(SQLModel, table=True):
     )
     data: dict[str, Any] | None = Field(
         default=None,
-        sa_column=Column(JSONB, nullable=True),
+        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
     )
     work_key: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
 

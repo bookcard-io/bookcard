@@ -113,6 +113,22 @@ EXCLUDED_TABLES = {
     "books_plugin_data",
 }
 
+# Define indices to exclude from autogenerate
+# These are manually created indices that use PostgreSQL-specific syntax
+# (GIN indices with jsonb_path_ops and gin_trgm_ops) that Alembic can't autogenerate,
+# or indices that exist in the database but are managed separately from the model
+EXCLUDED_INDICES = {
+    # OpenLibrary GIN indices created manually in migration 34c7ece3865c
+    "ix_openlibrary_authors_data",
+    "ix_openlibrary_authors_name",
+    "ix_openlibrary_editions_data",
+    "ix_openlibrary_editions_subtitle",
+    "ix_openlibrary_editions_title",
+    "ix_openlibrary_works_data",
+    "ix_openlibrary_works_subtitle",
+    "ix_openlibrary_works_title",
+}
+
 
 def include_object(
     _obj: SchemaItem,
@@ -128,10 +144,11 @@ def include_object(
     _reflected: bool,
     _compare_to: SchemaItem | None,
 ) -> bool:
-    """Filter objects to exclude Calibre database models.
+    """Filter objects to exclude Calibre database models and manually created indices.
 
     Excludes all tables from fundamental/models/core.py, media.py, reading.py,
-    and system.py from Alembic migrations. All other tables are included.
+    and system.py from Alembic migrations. Also excludes manually created
+    PostgreSQL-specific indices that use GIN operators.
 
     Parameters
     ----------
@@ -153,6 +170,8 @@ def include_object(
     """
     if type_ == "table" and name is not None:
         return name not in EXCLUDED_TABLES
+    if type_ == "index" and name is not None:
+        return name not in EXCLUDED_INDICES
     return True
 
 
