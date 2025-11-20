@@ -70,6 +70,13 @@ from fundamental.models.core import (
 )
 from fundamental.models.library_scanning import LibraryScanState
 from fundamental.models.media import ConversionOptions, Data
+from fundamental.models.openlibrary import (
+    OpenLibraryAuthor,
+    OpenLibraryAuthorWork,
+    OpenLibraryEdition,
+    OpenLibraryEditionIsbn,
+    OpenLibraryWork,
+)
 from fundamental.models.reading import (
     Annotation,
     AnnotationDirtied,
@@ -138,6 +145,11 @@ __all__ = [
     "LibraryScanState",
     "LogLevel",
     "MetadataDirtied",
+    "OpenLibraryAuthor",
+    "OpenLibraryAuthorWork",
+    "OpenLibraryEdition",
+    "OpenLibraryEditionIsbn",
+    "OpenLibraryWork",
     "Permission",
     "Preference",
     "Publisher",

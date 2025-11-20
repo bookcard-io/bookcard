@@ -37,6 +37,13 @@ from fundamental.models.auth import (
     UserRole,
     UserSetting,
 )
+from fundamental.models.openlibrary import (
+    OpenLibraryAuthor,
+    OpenLibraryAuthorWork,
+    OpenLibraryEdition,
+    OpenLibraryEditionIsbn,
+    OpenLibraryWork,
+)
 
 # Load environment variables from .env file
 # The .env file is at the project root, which is 4 levels up from this file

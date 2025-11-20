@@ -65,6 +65,7 @@ from fundamental.repositories.role_repository import (
 from fundamental.repositories.user_repository import UserRepository
 from fundamental.services.config_service import LibraryService
 from fundamental.services.ereader_service import EReaderService
+from fundamental.services.openlibrary_service import OpenLibraryService
 from fundamental.services.role_service import RoleService
 from fundamental.services.security import PasswordHasher
 from fundamental.services.user_service import UserService
@@ -1902,8 +1903,6 @@ def download_openlibrary_dumps(
     ----------
     request : Request
         FastAPI request object.
-    session : SessionDep
-        Database session dependency.
     current_user : AdminUserDep
         Current admin user.
     payload : DownloadFilesRequest
@@ -1919,13 +1918,7 @@ def download_openlibrary_dumps(
     HTTPException
         If no URLs provided (400) or task runner unavailable (503).
     """
-    if not payload.urls:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No URLs provided",
-        )
-
-    # Get task runner
+    # Get task runner and config
     if (
         not hasattr(request.app.state, "task_runner")
         or request.app.state.task_runner is None
@@ -1935,22 +1928,21 @@ def download_openlibrary_dumps(
             detail="Task runner not available",
         )
     task_runner = request.app.state.task_runner
-
     cfg = request.app.state.config
 
-    # Create download task
-    from fundamental.models.tasks import TaskType
+    # Create service and delegate to it
+    service = OpenLibraryService(task_runner=task_runner, config=cfg)
 
-    task_id = task_runner.enqueue(
-        task_type=TaskType.OPENLIBRARY_DUMP_DOWNLOAD,
-        payload={"urls": payload.urls},
-        user_id=current_user.id or 0,  # type: ignore[arg-type]
-        metadata={
-            "task_type": TaskType.OPENLIBRARY_DUMP_DOWNLOAD,
-            "urls": payload.urls,
-            "data_directory": cfg.data_directory,
-        },
-    )
+    try:
+        task_id = service.create_download_task(
+            urls=payload.urls,
+            user_id=current_user.id or 0,  # type: ignore[arg-type]
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
 
     return DownloadFilesResponse(
         message="Download task created",
@@ -1987,7 +1979,7 @@ def ingest_openlibrary_dumps(
     """Create a task to ingest OpenLibrary dump files into local database.
 
     Creates a background task that processes downloaded dump files
-    and ingests them into a local SQLite database for fast lookups.
+    and ingests them into PostgreSQL database for fast lookups.
 
     Parameters
     ----------
@@ -2006,7 +1998,7 @@ def ingest_openlibrary_dumps(
     HTTPException
         If task runner unavailable (503).
     """
-    # Get task runner
+    # Get task runner and config
     if (
         not hasattr(request.app.state, "task_runner")
         or request.app.state.task_runner is None
@@ -2016,20 +2008,12 @@ def ingest_openlibrary_dumps(
             detail="Task runner not available",
         )
     task_runner = request.app.state.task_runner
-
     cfg = request.app.state.config
 
-    # Create ingest task
-    from fundamental.models.tasks import TaskType
-
-    task_id = task_runner.enqueue(
-        task_type=TaskType.OPENLIBRARY_DUMP_INGEST,
-        payload={},
+    # Create service and delegate to it
+    service = OpenLibraryService(task_runner=task_runner, config=cfg)
+    task_id = service.create_ingest_task(
         user_id=current_user.id or 0,  # type: ignore[arg-type]
-        metadata={
-            "task_type": TaskType.OPENLIBRARY_DUMP_INGEST,
-            "data_directory": cfg.data_directory,
-        },
     )
 
     return IngestFilesResponse(
