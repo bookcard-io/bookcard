@@ -70,12 +70,11 @@ export function SendToDeviceFlyoutMenu({
   onCloseParent,
 }: SendToDeviceFlyoutMenuProps) {
   const [mounted, setMounted] = useState(false);
-  const [isSending, setIsSending] = useState(false);
   const [showEmailInput, setShowEmailInput] = useState(false);
   const [email, setEmail] = useState("");
   const emailInputRef = useRef<HTMLInputElement>(null);
   const { user, canPerformAction } = useUser();
-  const { showDanger } = useGlobalMessages();
+  const { showDanger, showSuccess } = useGlobalMessages();
 
   // Check permission - disable all actions if no permission
   const canSend = canPerformAction(
@@ -159,29 +158,38 @@ export function SendToDeviceFlyoutMenu({
 
   /**
    * Handle sending book to default device.
+   *
+   * Fire-and-forget: enqueues a background task and shows success message immediately.
    */
-  const handleSendToDefault = useCallback(async () => {
+  const handleSendToDefault = useCallback(() => {
     if (!defaultDevice) {
       return;
     }
-    try {
-      setIsSending(true);
-      await sendBookToDevice(book.id, {
-        toEmail: defaultDevice.email,
+
+    // Fire-and-forget: don't await, let it run in background
+    sendBookToDevice(book.id, {
+      toEmail: defaultDevice.email,
+    })
+      .then(() => {
+        // Task enqueued successfully (background processing)
+        const deviceName = defaultDevice.device_name || defaultDevice.email;
+        showSuccess(`Book queued for sending to ${deviceName}`);
+      })
+      .catch((error) => {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to send book";
+        showDanger(errorMessage);
       });
-      onClose();
-      onSuccess?.();
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to send book";
-      showDanger(errorMessage);
-    } finally {
-      setIsSending(false);
-    }
-  }, [book.id, defaultDevice, onClose, onSuccess, showDanger]);
+
+    // Close UI immediately
+    onClose();
+    onSuccess?.();
+  }, [book.id, defaultDevice, onClose, onSuccess, showDanger, showSuccess]);
 
   /**
    * Handle sending book to a specific device.
+   *
+   * Fire-and-forget: enqueues a background task and shows success message immediately.
    *
    * Parameters
    * ----------
@@ -189,23 +197,27 @@ export function SendToDeviceFlyoutMenu({
    *     Device to send book to.
    */
   const handleSendToDevice = useCallback(
-    async (device: EReaderDevice) => {
-      try {
-        setIsSending(true);
-        await sendBookToDevice(book.id, {
-          toEmail: device.email,
+    (device: EReaderDevice) => {
+      // Fire-and-forget: don't await, let it run in background
+      sendBookToDevice(book.id, {
+        toEmail: device.email,
+      })
+        .then(() => {
+          // Task enqueued successfully (background processing)
+          const deviceName = device.device_name || device.email;
+          showSuccess(`Book queued for sending to ${deviceName}`);
+        })
+        .catch((error) => {
+          const errorMessage =
+            error instanceof Error ? error.message : "Failed to send book";
+          showDanger(errorMessage);
         });
-        onClose();
-        onSuccess?.();
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Failed to send book";
-        showDanger(errorMessage);
-      } finally {
-        setIsSending(false);
-      }
+
+      // Close UI immediately
+      onClose();
+      onSuccess?.();
     },
-    [book.id, onClose, onSuccess, showDanger],
+    [book.id, onClose, onSuccess, showDanger, showSuccess],
   );
 
   /**
@@ -218,30 +230,35 @@ export function SendToDeviceFlyoutMenu({
 
   /**
    * Handle submitting email input.
+   *
+   * Fire-and-forget: enqueues a background task and shows success message immediately.
    */
-  const handleEmailSubmit = useCallback(async () => {
+  const handleEmailSubmit = useCallback(() => {
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
       return;
     }
 
-    try {
-      setIsSending(true);
-      await sendBookToDevice(book.id, {
-        toEmail: trimmedEmail,
+    // Fire-and-forget: don't await, let it run in background
+    sendBookToDevice(book.id, {
+      toEmail: trimmedEmail,
+    })
+      .then(() => {
+        // Task enqueued successfully (background processing)
+        showSuccess(`Book queued for sending to ${trimmedEmail}`);
+      })
+      .catch((error) => {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to send book";
+        showDanger(errorMessage);
       });
-      setShowEmailInput(false);
-      setEmail("");
-      onClose();
-      onSuccess?.();
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to send book";
-      showDanger(errorMessage);
-    } finally {
-      setIsSending(false);
-    }
-  }, [book.id, email, onClose, onSuccess, showDanger]);
+
+    // Close UI immediately
+    setShowEmailInput(false);
+    setEmail("");
+    onClose();
+    onSuccess?.();
+  }, [book.id, email, onClose, onSuccess, showDanger, showSuccess]);
 
   /**
    * Handle Enter key in email input.
@@ -282,13 +299,13 @@ export function SendToDeviceFlyoutMenu({
           <DropdownMenuItem
             label={`Send to ${defaultDevice.device_name || defaultDevice.email}`}
             onClick={handleSendToDefault}
-            disabled={isSending || !canSend}
+            disabled={!canSend}
           />
         )}
         <DevicesSection
           devices={otherDevices}
           onDeviceClick={handleSendToDevice}
-          disabled={isSending || !canSend}
+          disabled={!canSend}
         />
         <hr className={cn("my-1 h-px border-0 bg-surface-tonal-a20")} />
         {showEmailInput ? (
@@ -300,7 +317,7 @@ export function SendToDeviceFlyoutMenu({
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={handleEmailInputKeyDown}
               placeholder="Enter email address"
-              disabled={isSending || !canSend}
+              disabled={!canSend}
               className={cn(
                 "w-full rounded px-3 py-1.5 text-sm",
                 "border border-surface-tonal-a30 bg-surface-tonal-a10",
@@ -314,7 +331,7 @@ export function SendToDeviceFlyoutMenu({
           <DropdownMenuItem
             label="Send to email"
             onClick={handleSendToEmailClick}
-            disabled={isSending || !canSend}
+            disabled={!canSend}
           />
         )}
       </div>

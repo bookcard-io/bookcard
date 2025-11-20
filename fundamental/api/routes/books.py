@@ -15,14 +15,12 @@
 
 """Book endpoints: list, search, and retrieve books from Calibre library."""
 
-from __future__ import annotations
-
 import hashlib
 import io
 import math
 import tempfile
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import httpx
 from fastapi import (
@@ -56,16 +54,19 @@ from fundamental.api.schemas import (
     SearchSuggestionsResponse,
 )
 from fundamental.models.auth import User
+from fundamental.models.tasks import TaskType
 from fundamental.repositories.config_repository import LibraryRepository
 from fundamental.repositories.models import BookWithFullRelations, BookWithRelations
 from fundamental.services.book_service import BookService
 from fundamental.services.config_service import LibraryService
 from fundamental.services.email_config_service import EmailConfigService
-from fundamental.services.email_service import EmailService, EmailServiceError
 from fundamental.services.metadata_export_service import MetadataExportService
 from fundamental.services.metadata_import_service import MetadataImportService
 from fundamental.services.permission_service import PermissionService
 from fundamental.services.security import DataEncryptor
+
+if TYPE_CHECKING:
+    from fundamental.services.tasks.base import TaskRunner
 
 router = APIRouter(prefix="/books", tags=["books"])
 
@@ -975,10 +976,10 @@ def send_book_to_device(
     current_user: CurrentUserDep,
     send_request: BookSendRequest,
 ) -> None:
-    """Send a book via email.
+    """Send a book via email as a background task.
 
-    Sends to the specified email address, or to the user's default device
-    if no email is provided.
+    Enqueues a background task to send the book to the specified email address,
+    or to the user's default device if no email is provided.
 
     Parameters
     ----------
@@ -1003,7 +1004,8 @@ def send_book_to_device(
     HTTPException
         If book not found (404), no default device when email not provided (400),
         email server not configured (400), format not found (404),
-        permission denied (403), or email sending fails (500).
+        permission denied (403), task runner unavailable (503),
+        or user missing ID (500).
     """
     # Get book service and check if book exists
     book_service = _get_active_library_service(session)
@@ -1019,15 +1021,14 @@ def send_book_to_device(
     book_context = _build_book_permission_context(existing_book, book_id, session)
     permission_service.check_permission(current_user, "books", "send", book_context)
 
-    # Get email configuration
+    # Get email configuration to validate it's enabled
     email_config_service = _email_config_service(request, session)
-    email_config = email_config_service.get_config(decrypt=True)
+    email_config = email_config_service.get_config(decrypt=False)
     if email_config is None or not email_config.enabled:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="email_server_not_configured_or_disabled",
         )
-    email_service = EmailService(email_config)
 
     # Validate user ID
     if current_user.id is None:
@@ -1036,49 +1037,37 @@ def send_book_to_device(
             detail="user_missing_id",
         )
 
-    try:
-        # Unified send method handles all three cases:
-        # 1. Generic email (not a device)
-        # 2. Known device email (uses preferred_format)
-        # 3. No email (uses default/first device)
-        book_service.send_book(
-            book_id=book_id,
-            user_id=current_user.id,
-            email_service=email_service,
-            to_email=send_request.to_email,
-            file_format=send_request.file_format,
+    # Get task runner
+    if (
+        not hasattr(request.app.state, "task_runner")
+        or request.app.state.task_runner is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Task runner not available",
         )
-    except ValueError as exc:
-        error_msg = str(exc)
-        if "book_not_found" in error_msg or "book_missing_id" in error_msg:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=error_msg,
-            ) from exc
-        if "format_not_found" in error_msg or "no_formats_available" in error_msg:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=error_msg,
-            ) from exc
-        if "file_not_found" in error_msg:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=error_msg,
-            ) from exc
-        if "no_device_available" in error_msg:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=error_msg,
-            ) from exc
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=error_msg,
-        ) from exc
-    except EmailServiceError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        ) from exc
+    task_runner: TaskRunner = request.app.state.task_runner
+
+    # Get encryption key from app config
+    cfg = request.app.state.config
+    encryption_key = cfg.encryption_key
+
+    task_runner.enqueue(
+        task_type=TaskType.EMAIL_SEND,
+        payload={
+            "book_id": book_id,
+            "to_email": send_request.to_email,
+            "file_format": send_request.file_format,
+        },
+        user_id=current_user.id,
+        metadata={
+            "task_type": TaskType.EMAIL_SEND,
+            "book_id": book_id,
+            "to_email": send_request.to_email,
+            "file_format": send_request.file_format,
+            "encryption_key": encryption_key,
+        },
+    )
 
 
 # Temporary cover storage (in-memory for now, could be moved to disk/DB)

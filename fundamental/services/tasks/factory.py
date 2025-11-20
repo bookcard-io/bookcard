@@ -26,6 +26,7 @@ from fundamental.services.tasks.author_metadata_fetch_task import (
 )
 from fundamental.services.tasks.base import BaseTask
 from fundamental.services.tasks.book_upload_task import BookUploadTask
+from fundamental.services.tasks.email_send_task import EmailSendTask
 from fundamental.services.tasks.library_scan_task import LibraryScanTask
 from fundamental.services.tasks.multi_upload_task import MultiBookUploadTask
 from fundamental.services.tasks.openlibrary_dump_download_task import (
@@ -86,5 +87,7 @@ def create_task(
         return OpenLibraryDumpDownloadTask(task_id, user_id, metadata)
     if task_type == TaskType.OPENLIBRARY_DUMP_INGEST:
         return OpenLibraryDumpIngestTask(task_id, user_id, metadata)
+    if task_type == TaskType.EMAIL_SEND:
+        return EmailSendTask(task_id, user_id, metadata)
     msg = f"Task type {task_type} not yet implemented"
     raise ValueError(msg)
