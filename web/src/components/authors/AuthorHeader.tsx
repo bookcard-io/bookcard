@@ -274,7 +274,7 @@ export function AuthorHeader({
 
           {/* Styles Section */}
           {displayedStyles.length > 0 && (
-            <div className="mt-4 flex flex-wrap items-center gap-20">
+            <div className="mt-4 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2 md:gap-10">
               <span className="font-medium text-[var(--color-text-a30)] text-sm">
                 Style
               </span>

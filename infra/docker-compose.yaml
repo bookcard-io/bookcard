@@ -11,6 +11,7 @@ services:
       FUNDAMENTAL_JWT_ALG: ${FUNDAMENTAL_JWT_ALG:-HS256}
       FUNDAMENTAL_JWT_EXPIRES_MIN: ${FUNDAMENTAL_JWT_EXPIRES_MIN:-131400} # 3 months
       FUNDAMENTAL_ALEMBIC_ENABLED: ${FUNDAMENTAL_ALEMBIC_ENABLED:-true}
+      FUNDAMENTAL_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-fundamental}:${POSTGRES_PASSWORD:-fundamental123}@postgres:5432/${POSTGRES_DB:-fundamental}
 
       # library administration settings
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
@@ -36,6 +37,8 @@ services:
     depends_on:
       redis:
         condition: service_started
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health | grep -q 'ok'"]
       interval: 30s
@@ -69,3 +72,24 @@ services:
       - "6379:6379"
     env_file:
       - .env
+
+  postgres:
+    image: postgres:18.1-alpine3.22
+    container_name: fundamental-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fundamental}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fundamental123}
+      POSTGRES_DB: ${POSTGRES_DB:-fundamental}
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d postgres" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

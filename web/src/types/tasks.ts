@@ -35,6 +35,7 @@ export enum TaskType {
   THUMBNAIL_GENERATE = "thumbnail_generate",
   LIBRARY_SCAN = "library_scan",
   OPENLIBRARY_DUMP_DOWNLOAD = "openlibrary_dump_download",
+  OPENLIBRARY_DUMP_INGEST = "openlibrary_dump_ingest",
 }
 
 export interface Task {

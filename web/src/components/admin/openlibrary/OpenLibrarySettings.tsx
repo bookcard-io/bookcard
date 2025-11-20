@@ -43,14 +43,15 @@ export function OpenLibrarySettings() {
   const { showSuccess, showDanger } = useGlobalMessages();
 
   // Check for active download tasks - only poll when there's an active task
-  const { tasks: activeDownloadTasks, refresh: refreshTasks } = useTasks({
-    taskType: TaskType.OPENLIBRARY_DUMP_DOWNLOAD,
-    status: null, // Get all statuses, we'll filter for PENDING/RUNNING
-    page: 1,
-    pageSize: 100,
-    autoRefresh: false, // Disable continuous polling
-    enabled: true,
-  });
+  const { tasks: activeDownloadTasks, refresh: refreshDownloadTasks } =
+    useTasks({
+      taskType: TaskType.OPENLIBRARY_DUMP_DOWNLOAD,
+      status: null, // Get all statuses, we'll filter for PENDING/RUNNING
+      page: 1,
+      pageSize: 100,
+      autoRefresh: false, // Disable continuous polling
+      enabled: true,
+    });
 
   const hasActiveDownloadTask = activeDownloadTasks.some(
     (task) =>
@@ -59,36 +60,75 @@ export function OpenLibrarySettings() {
         task.status === TaskStatus.RUNNING),
   );
 
-  // Only poll when there's an active task
+  // Check for active ingest tasks - only poll when there's an active task
+  const { tasks: activeIngestTasks, refresh: refreshIngestTasks } = useTasks({
+    taskType: TaskType.OPENLIBRARY_DUMP_INGEST,
+    status: null, // Get all statuses, we'll filter for PENDING/RUNNING
+    page: 1,
+    pageSize: 100,
+    autoRefresh: false, // Disable continuous polling
+    enabled: true,
+  });
+
+  const hasActiveIngestTask = activeIngestTasks.some(
+    (task) =>
+      task.task_type === TaskType.OPENLIBRARY_DUMP_INGEST &&
+      (task.status === TaskStatus.PENDING ||
+        task.status === TaskStatus.RUNNING),
+  );
+
+  // Only poll when there's an active download task
   useEffect(() => {
     if (!hasActiveDownloadTask) {
       return;
     }
 
     const interval = setInterval(() => {
-      void refreshTasks();
+      void refreshDownloadTasks();
     }, 2000);
 
     return () => {
       clearInterval(interval);
     };
-  }, [hasActiveDownloadTask, refreshTasks]);
+  }, [hasActiveDownloadTask, refreshDownloadTasks]);
+
+  // Only poll when there's an active ingest task
+  useEffect(() => {
+    if (!hasActiveIngestTask) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      void refreshIngestTasks();
+    }, 2000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [hasActiveIngestTask, refreshIngestTasks]);
 
   const {
     formData,
     isDownloading,
+    isIngesting,
     error,
     handleFieldChange,
     handleDownload,
+    handleIngest,
     handleResetToDefaults,
   } = useOpenLibrarySettings({
     onDownloadSuccess: () => {
       showSuccess("Download task created. Check Scheduled Tasks for progress.");
       // Refresh task list to catch the newly created task
-      void refreshTasks();
+      void refreshDownloadTasks();
+    },
+    onIngestSuccess: () => {
+      showSuccess("Ingest task created. Check Scheduled Tasks for progress.");
+      // Refresh task list to catch the newly created task
+      void refreshIngestTasks();
     },
     onError: (errorMessage) => {
-      showDanger(`Failed to create download task: ${errorMessage}`);
+      showDanger(`Failed to create task: ${errorMessage}`);
     },
   });
 
@@ -160,24 +200,48 @@ export function OpenLibrarySettings() {
             variant="secondary"
             onClick={handleResetToDefaults}
           >
-            Reset to Defaults
+            Reset to defaults
           </Button>
-          <Button
-            type="button"
-            variant="success"
-            onClick={handleDownload}
-            disabled={hasActiveDownloadTask || isDownloading}
-            loading={isDownloading}
-          >
-            {hasActiveDownloadTask ? (
-              <>
-                <i className="pi pi-spinner animate-spin" aria-hidden="true" />
-                <span>Downloading...</span>
-              </>
-            ) : (
-              "Download Files"
-            )}
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleIngest}
+              disabled={hasActiveIngestTask || isIngesting}
+              loading={isIngesting}
+            >
+              {hasActiveIngestTask ? (
+                <>
+                  <i
+                    className="pi pi-spinner animate-spin"
+                    aria-hidden="true"
+                  />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                "Process Files"
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="success"
+              onClick={handleDownload}
+              disabled={hasActiveDownloadTask || isDownloading}
+              loading={isDownloading}
+            >
+              {hasActiveDownloadTask ? (
+                <>
+                  <i
+                    className="pi pi-spinner animate-spin"
+                    aria-hidden="true"
+                  />
+                  <span>Downloading...</span>
+                </>
+              ) : (
+                "Download files"
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

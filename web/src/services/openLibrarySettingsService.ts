@@ -39,6 +39,11 @@ export interface DownloadFilesResponse {
   failed_files: string[];
 }
 
+export interface IngestFilesResponse {
+  message: string;
+  task_id: number;
+}
+
 // Default URLs from Open Library dumps page
 const DEFAULT_AUTHORS_URL =
   "https://openlibrary.org/data/ol_dump_authors_latest.txt.gz";
@@ -46,6 +51,7 @@ const DEFAULT_WORKS_URL =
   "https://openlibrary.org/data/ol_dump_works_latest.txt.gz";
 
 const DOWNLOAD_API_BASE = "/api/admin/openlibrary/download-dumps";
+const INGEST_API_BASE = "/api/admin/openlibrary/ingest-dumps";
 
 /**
  * Get default URLs for OpenLibrary dumps.
@@ -97,6 +103,41 @@ export async function downloadOpenLibraryDumps(
       .json()
       .catch(() => ({ detail: "Failed to download files" }));
     throw new Error(error.detail || "Failed to download files");
+  }
+
+  return response.json();
+}
+
+/**
+ * Ingest OpenLibrary dump files into local database.
+ *
+ * Creates a background task that processes downloaded dump files
+ * and ingests them into a local SQLite database for fast lookups.
+ *
+ * Returns
+ * -------
+ * Promise<IngestFilesResponse>
+ *     Response with ingest task results.
+ *
+ * Throws
+ * ------
+ * Error
+ *     If the request fails.
+ */
+export async function ingestOpenLibraryDumps(): Promise<IngestFilesResponse> {
+  const response = await fetch(INGEST_API_BASE, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to ingest files" }));
+    throw new Error(error.detail || "Failed to ingest files");
   }
 
   return response.json();

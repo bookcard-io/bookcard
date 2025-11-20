@@ -79,6 +79,7 @@ class TaskType(StrEnum):
     LIBRARY_SCAN = "library_scan"
     AUTHOR_METADATA_FETCH = "author_metadata_fetch"
     OPENLIBRARY_DUMP_DOWNLOAD = "openlibrary_dump_download"
+    OPENLIBRARY_DUMP_INGEST = "openlibrary_dump_ingest"
 
 
 class Task(SQLModel, table=True):

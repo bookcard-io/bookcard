@@ -17,6 +17,7 @@ import { useCallback, useState } from "react";
 import {
   downloadOpenLibraryDumps,
   getDefaultDumpUrls,
+  ingestOpenLibraryDumps,
 } from "@/services/openLibrarySettingsService";
 
 export interface OpenLibrarySettingsFormData {
@@ -27,6 +28,8 @@ export interface OpenLibrarySettingsFormData {
 export interface UseOpenLibrarySettingsOptions {
   /** Callback when download is successful. */
   onDownloadSuccess?: () => void;
+  /** Callback when ingest is successful. */
+  onIngestSuccess?: () => void;
   /** Callback when an error occurs. */
   onError?: (error: string) => void;
 }
@@ -36,6 +39,8 @@ export interface UseOpenLibrarySettingsReturn {
   formData: OpenLibrarySettingsFormData;
   /** Whether download is in progress. */
   isDownloading: boolean;
+  /** Whether ingest is in progress. */
+  isIngesting: boolean;
   /** Error message, if any. */
   error: string | null;
   /** Handler for field changes. */
@@ -45,6 +50,8 @@ export interface UseOpenLibrarySettingsReturn {
   ) => void;
   /** Handler to trigger download. */
   handleDownload: () => Promise<void>;
+  /** Handler to trigger ingest. */
+  handleIngest: () => Promise<void>;
   /** Handler to reset to defaults. */
   handleResetToDefaults: () => void;
 }
@@ -70,7 +77,7 @@ export interface UseOpenLibrarySettingsReturn {
 export function useOpenLibrarySettings(
   options: UseOpenLibrarySettingsOptions = {},
 ): UseOpenLibrarySettingsReturn {
-  const { onDownloadSuccess, onError } = options;
+  const { onDownloadSuccess, onIngestSuccess, onError } = options;
 
   const defaults = getDefaultDumpUrls();
   const [formData, setFormData] = useState<OpenLibrarySettingsFormData>({
@@ -78,6 +85,7 @@ export function useOpenLibrarySettings(
     works_url: defaults.works_url,
   });
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isIngesting, setIsIngesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleFieldChange = useCallback(
@@ -137,12 +145,38 @@ export function useOpenLibrarySettings(
     }
   }, [formData, onDownloadSuccess, onError]);
 
+  const handleIngest = useCallback(async () => {
+    try {
+      setIsIngesting(true);
+      setError(null);
+
+      await ingestOpenLibraryDumps();
+
+      // Task created successfully - it will be visible in the task list
+      // The task will handle the actual ingest and report progress
+      if (onIngestSuccess) {
+        onIngestSuccess();
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to ingest files";
+      setError(message);
+      if (onError) {
+        onError(message);
+      }
+    } finally {
+      setIsIngesting(false);
+    }
+  }, [onIngestSuccess, onError]);
+
   return {
     formData,
     isDownloading,
+    isIngesting,
     error,
     handleFieldChange,
     handleDownload,
+    handleIngest,
     handleResetToDefaults,
   };
 }

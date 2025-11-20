@@ -81,7 +81,7 @@ export function AuthorSimilarAuthors({
       <h2 className="m-0 font-bold text-[var(--color-text-a0)] text-xl">
         Similar Authors
       </h2>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         {authorsToShow.map((similarAuthor) => (
           <button
             key={similarAuthor.key || similarAuthor.name}

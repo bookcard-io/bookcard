@@ -31,6 +31,9 @@ from fundamental.services.tasks.multi_upload_task import MultiBookUploadTask
 from fundamental.services.tasks.openlibrary_dump_download_task import (
     OpenLibraryDumpDownloadTask,
 )
+from fundamental.services.tasks.openlibrary_dump_ingest_task import (
+    OpenLibraryDumpIngestTask,
+)
 
 
 def create_task(
@@ -81,5 +84,7 @@ def create_task(
         return AuthorMetadataFetchTask(task_id, user_id, metadata)
     if task_type == TaskType.OPENLIBRARY_DUMP_DOWNLOAD:
         return OpenLibraryDumpDownloadTask(task_id, user_id, metadata)
+    if task_type == TaskType.OPENLIBRARY_DUMP_INGEST:
+        return OpenLibraryDumpIngestTask(task_id, user_id, metadata)
     msg = f"Task type {task_type} not yet implemented"
     raise ValueError(msg)

@@ -72,7 +72,7 @@ class ScanWorkerManager:
         for _ in range(self.threads_per_worker):
             self.workers.extend([
                 CrawlWorker(self.broker),
-                MatchWorker(self.broker),
+                MatchWorker(self.broker, data_source_name="openlibrary_dump"),
                 IngestWorker(self.broker),
                 LinkWorker(self.broker),
                 DeduplicateWorker(self.broker),

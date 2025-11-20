@@ -1958,3 +1958,81 @@ def download_openlibrary_dumps(
         downloaded_files=[],
         failed_files=[],
     )
+
+
+class IngestFilesResponse(BaseModel):
+    """Response model for file ingest operation.
+
+    Attributes
+    ----------
+    message : str
+        Success message.
+    task_id : int
+        Task ID for tracking the ingest progress.
+    """
+
+    message: str
+    task_id: int
+
+
+@router.post(
+    "/openlibrary/ingest-dumps",
+    response_model=IngestFilesResponse,
+    dependencies=[Depends(get_admin_user)],
+)
+def ingest_openlibrary_dumps(
+    request: Request,
+    current_user: AdminUserDep,
+) -> IngestFilesResponse:
+    """Create a task to ingest OpenLibrary dump files into local database.
+
+    Creates a background task that processes downloaded dump files
+    and ingests them into a local SQLite database for fast lookups.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+    current_user : AdminUserDep
+        Current admin user.
+
+    Returns
+    -------
+    IngestFilesResponse
+        Response with task ID and message.
+
+    Raises
+    ------
+    HTTPException
+        If task runner unavailable (503).
+    """
+    # Get task runner
+    if (
+        not hasattr(request.app.state, "task_runner")
+        or request.app.state.task_runner is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Task runner not available",
+        )
+    task_runner = request.app.state.task_runner
+
+    cfg = request.app.state.config
+
+    # Create ingest task
+    from fundamental.models.tasks import TaskType
+
+    task_id = task_runner.enqueue(
+        task_type=TaskType.OPENLIBRARY_DUMP_INGEST,
+        payload={},
+        user_id=current_user.id or 0,  # type: ignore[arg-type]
+        metadata={
+            "task_type": TaskType.OPENLIBRARY_DUMP_INGEST,
+            "data_directory": cfg.data_directory,
+        },
+    )
+
+    return IngestFilesResponse(
+        message="Ingest task created",
+        task_id=task_id,
+    )

@@ -153,36 +153,44 @@ export function useTasks(options: UseTasksOptions = {}): UseTasksResult {
 
       const data = (await response.json()) as TaskListResponse;
 
-      // Only update state if data actually changed to avoid unnecessary re-renders
+      // Update tasks - always update to ensure UI reflects latest state
       setTasks((prevTasks) => {
-        // Quick check: if arrays are same length and total is same, do deep comparison
-        if (prevTasks.length === data.items.length && data.total === total) {
-          // Compare each task to see if anything changed
-          let hasChanges = false;
-          for (let i = 0; i < data.items.length; i++) {
-            const newTask = data.items[i];
-            const oldTask = prevTasks[i];
+        // If list length changed, definitely update
+        if (prevTasks.length !== data.items.length) {
+          return data.items;
+        }
 
-            // If either task is missing, or IDs don't match, or task properties changed, we have changes
-            if (
-              !newTask ||
-              !oldTask ||
-              oldTask.id !== newTask.id ||
-              oldTask.status !== newTask.status ||
-              oldTask.progress !== newTask.progress ||
-              oldTask.error_message !== newTask.error_message ||
-              oldTask.completed_at !== newTask.completed_at ||
-              oldTask.started_at !== newTask.started_at
-            ) {
-              hasChanges = true;
-              break;
-            }
+        // Quick check: compare tasks by ID to handle reordering
+        const prevTaskMap = new Map(prevTasks.map((t) => [t.id, t]));
+        let hasChanges = false;
+
+        for (const newTask of data.items) {
+          const oldTask = prevTaskMap.get(newTask.id);
+
+          // New task or task removed
+          if (!oldTask) {
+            hasChanges = true;
+            break;
           }
 
-          // No changes detected, return previous state (no-op)
-          if (!hasChanges) {
-            return prevTasks;
+          // Check if any relevant fields changed
+          if (
+            oldTask.status !== newTask.status ||
+            oldTask.progress !== newTask.progress ||
+            oldTask.error_message !== newTask.error_message ||
+            oldTask.completed_at !== newTask.completed_at ||
+            oldTask.started_at !== newTask.started_at ||
+            oldTask.duration !== newTask.duration ||
+            oldTask.cancelled_at !== newTask.cancelled_at
+          ) {
+            hasChanges = true;
+            break;
           }
+        }
+
+        // No changes detected, return previous state (no-op)
+        if (!hasChanges) {
+          return prevTasks;
         }
 
         // Data changed, return new data
@@ -207,7 +215,7 @@ export function useTasks(options: UseTasksOptions = {}): UseTasksResult {
         setIsLoading(false);
       }
     }
-  }, [enabled, page, pageSize, status, taskType, total]);
+  }, [enabled, page, pageSize, status, taskType]);
 
   useEffect(() => {
     void fetchTasks();
