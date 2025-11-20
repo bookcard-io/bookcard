@@ -13,7 +13,22 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Base worker implementation."""
+"""Base worker implementation for distributed scan workers.
+
+This is the base class for scan workers in the library scanning pipeline.
+These workers are distinct from task runners (see fundamental/services/tasks/).
+
+Scan Workers:
+    - Process messages from Redis pub/sub topics
+    - Implement pipeline stages (crawl, match, ingest, link, etc.)
+    - Subscribe to input topics and publish to output topics
+    - Managed by ScanWorkerManager
+
+Task Runners:
+    - Execute BaseTask instances
+    - Use task factory/registry pattern
+    - Support thread/Celery/Dramatiq backends
+"""
 
 import logging
 from abc import ABC, abstractmethod
