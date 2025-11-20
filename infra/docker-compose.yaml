@@ -78,8 +78,8 @@ services:
     container_name: fundamental-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-fundamental}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fundamental123}
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin123}
       POSTGRES_DB: ${POSTGRES_DB:-fundamental}
     ports:
       - "5432:5432"
