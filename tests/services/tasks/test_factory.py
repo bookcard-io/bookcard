@@ -17,14 +17,21 @@
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from fundamental.models.tasks import TaskType
 from fundamental.services.tasks.author_metadata_fetch_task import (
     AuthorMetadataFetchTask,
 )
+from fundamental.services.tasks.base import BaseTask
 from fundamental.services.tasks.book_upload_task import BookUploadTask
-from fundamental.services.tasks.factory import create_task
+from fundamental.services.tasks.factory import (
+    TaskRegistry,
+    create_task,
+    register_task,
+)
 from fundamental.services.tasks.library_scan_task import LibraryScanTask
 from fundamental.services.tasks.multi_upload_task import MultiBookUploadTask
 
@@ -92,3 +99,122 @@ class TestCreateTask:
                 user_id=1,
                 metadata={"task_type": TaskType.BOOK_CONVERT.value},
             )
+
+
+class TestTaskRegistry:
+    """Test TaskRegistry class."""
+
+    def test_init(self) -> None:
+        """Test TaskRegistry initialization."""
+        registry = TaskRegistry()
+        assert registry._registry == {}
+
+    def test_register(self) -> None:
+        """Test register method."""
+        registry = TaskRegistry()
+        registry.register(TaskType.BOOK_UPLOAD, BookUploadTask)
+        assert registry._registry[TaskType.BOOK_UPLOAD] == BookUploadTask
+
+    def test_register_duplicate_raises_error(self) -> None:
+        """Test register raises ValueError when task type already registered (covers lines 78-79)."""
+        registry = TaskRegistry()
+        registry.register(TaskType.BOOK_UPLOAD, BookUploadTask)
+
+        with pytest.raises(
+            ValueError,
+            match=re.escape(f"Task type {TaskType.BOOK_UPLOAD} is already registered"),
+        ):
+            registry.register(TaskType.BOOK_UPLOAD, BookUploadTask)
+
+    def test_get_registered(self) -> None:
+        """Test get method returns registered task class."""
+        registry = TaskRegistry()
+        registry.register(TaskType.BOOK_UPLOAD, BookUploadTask)
+        result = registry.get(TaskType.BOOK_UPLOAD)
+        assert result == BookUploadTask
+
+    def test_get_not_registered(self) -> None:
+        """Test get method returns None for unregistered task type."""
+        registry = TaskRegistry()
+        result = registry.get(TaskType.BOOK_CONVERT)
+        assert result is None
+
+    def test_is_registered_true(self) -> None:
+        """Test is_registered returns True for registered task type (covers line 110)."""
+        registry = TaskRegistry()
+        registry.register(TaskType.BOOK_UPLOAD, BookUploadTask)
+        assert registry.is_registered(TaskType.BOOK_UPLOAD) is True
+
+    def test_is_registered_false(self) -> None:
+        """Test is_registered returns False for unregistered task type."""
+        registry = TaskRegistry()
+        assert registry.is_registered(TaskType.BOOK_CONVERT) is False
+
+    def test_create_instance_success(self) -> None:
+        """Test create_instance creates task instance."""
+        registry = TaskRegistry()
+        registry.register(TaskType.LIBRARY_SCAN, LibraryScanTask)
+
+        task = registry.create_instance(
+            TaskType.LIBRARY_SCAN,
+            task_id=1,
+            user_id=1,
+            metadata={"library_id": 1},
+        )
+
+        assert isinstance(task, LibraryScanTask)
+        assert task.task_id == 1
+        assert task.user_id == 1
+
+    def test_create_instance_not_registered(self) -> None:
+        """Test create_instance raises ValueError for unregistered task type."""
+        registry = TaskRegistry()
+
+        with pytest.raises(ValueError, match=r"Task type .* not yet implemented"):
+            registry.create_instance(
+                TaskType.BOOK_CONVERT,
+                task_id=1,
+                user_id=1,
+                metadata={},
+            )
+
+
+class TestRegisterTaskDecorator:
+    """Test register_task decorator."""
+
+    def test_register_task_decorator(self) -> None:
+        """Test register_task decorator registers task class (covers lines 179-183)."""
+
+        # Create a mock task class
+        class TestTask(BaseTask):
+            def run(self, worker_context: dict[str, object]) -> None:
+                pass
+
+        # Use the decorator with a task type that's not yet registered
+        # We'll use THUMBNAIL_GENERATE which should not be registered
+        # First, check if it's already registered and skip if so
+        from fundamental.services.tasks.factory import _registry
+
+        # Use a task type that's not registered in the global registry
+        # We need to find one that's not registered - let's use THUMBNAIL_GENERATE
+        # But first check if it exists and is not registered
+        if not _registry.is_registered(TaskType.THUMBNAIL_GENERATE):
+            decorated_class = register_task(TaskType.THUMBNAIL_GENERATE)(TestTask)
+
+            # Verify the class is returned unchanged
+            assert decorated_class == TestTask
+
+            # Verify it was registered in the global registry
+            assert _registry.is_registered(TaskType.THUMBNAIL_GENERATE)
+            assert _registry.get(TaskType.THUMBNAIL_GENERATE) == TestTask
+
+            # Clean up - unregister it
+            _registry._registry.pop(TaskType.THUMBNAIL_GENERATE, None)
+        else:
+            # If already registered, just verify the decorator pattern works
+            # by testing the decorator function directly
+            decorator_func = register_task(TaskType.THUMBNAIL_GENERATE)
+            assert callable(decorator_func)
+            # Call it to verify it returns the class
+            result = decorator_func(TestTask)
+            assert result == TestTask
