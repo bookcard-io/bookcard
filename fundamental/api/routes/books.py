@@ -1058,6 +1058,7 @@ def send_book_to_device(
             "book_id": book_id,
             "to_email": send_request.to_email,
             "file_format": send_request.file_format,
+            "encryption_key": encryption_key,  # In payload, not metadata (not stored in DB)
         },
         user_id=current_user.id,
         metadata={
@@ -1065,7 +1066,7 @@ def send_book_to_device(
             "book_id": book_id,
             "to_email": send_request.to_email,
             "file_format": send_request.file_format,
-            "encryption_key": encryption_key,
+            # encryption_key intentionally excluded from metadata to avoid exposing it
         },
     )
 

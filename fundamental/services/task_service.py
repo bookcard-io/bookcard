@@ -86,7 +86,7 @@ class TaskService:
             status=TaskStatus.PENDING,
             progress=0.0,
             user_id=user_id,
-            metadata=metadata,
+            task_data=metadata,
         )
         self._session.add(task)
         self._session.commit()
