@@ -2118,6 +2118,7 @@ def test_send_book_success_enqueues_task(monkeypatch: pytest.MonkeyPatch) -> Non
             "book_id": 1,
             "to_email": "device@example.com",
             "file_format": "EPUB",
+            "encryption_key": request.app.state.config.encryption_key,
         },
         user_id=1,
         metadata={
@@ -2125,7 +2126,7 @@ def test_send_book_success_enqueues_task(monkeypatch: pytest.MonkeyPatch) -> Non
             "book_id": 1,
             "to_email": "device@example.com",
             "file_format": "EPUB",
-            "encryption_key": request.app.state.config.encryption_key,
+            # encryption_key intentionally excluded from metadata to avoid exposing it
         },
     )
 

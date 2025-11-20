@@ -94,11 +94,8 @@ class TestCreateTask:
         assert task.status == TaskStatus.PENDING
         assert task.progress == 0.0
         assert task.user_id == user_id
-        # Note: Task model uses 'task_data' field, not 'metadata'
-        # The create_task method passes 'metadata=metadata' which SQLModel ignores
-        # So task_data will be None regardless of metadata parameter
-        # This appears to be a bug in the implementation, but we test the actual behavior
-        assert task.task_data is None
+        # Task model uses 'task_data' field, and create_task sets it to metadata
+        assert task.task_data == metadata
         assert task_service._session.commit_count == 1  # type: ignore[attr-defined]
         assert task in task_service._session.added  # type: ignore[attr-defined]
 
