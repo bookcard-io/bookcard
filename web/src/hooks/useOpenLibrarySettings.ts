@@ -23,6 +23,7 @@ import {
 export interface OpenLibrarySettingsFormData {
   authors_url: string | null;
   works_url: string | null;
+  editions_url: string | null;
 }
 
 export interface UseOpenLibrarySettingsOptions {
@@ -83,6 +84,7 @@ export function useOpenLibrarySettings(
   const [formData, setFormData] = useState<OpenLibrarySettingsFormData>({
     authors_url: defaults.authors_url,
     works_url: defaults.works_url,
+    editions_url: defaults.editions_url,
   });
   const [isDownloading, setIsDownloading] = useState(false);
   const [isIngesting, setIsIngesting] = useState(false);
@@ -104,6 +106,7 @@ export function useOpenLibrarySettings(
     setFormData({
       authors_url: defaults.authors_url,
       works_url: defaults.works_url,
+      editions_url: defaults.editions_url,
     });
     setError(null);
   }, []);
@@ -120,6 +123,9 @@ export function useOpenLibrarySettings(
       }
       if (formData.works_url) {
         urls.push(formData.works_url);
+      }
+      if (formData.editions_url) {
+        urls.push(formData.editions_url);
       }
 
       if (urls.length === 0) {

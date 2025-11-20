@@ -162,8 +162,7 @@ export function OpenLibrarySettings() {
                 className="w-full rounded-md border border-surface-a20 bg-surface-a0 px-4 py-3 font-inherit text-base text-text-a0 leading-normal transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s] focus:border-primary-a0 focus:bg-surface-a10 focus:shadow-[var(--shadow-focus-ring)] focus:outline-none hover:not(:focus):border-surface-a30"
               />
               <p className="text-text-a30 text-xs">
-                URL for the OpenLibrary authors metadata dump. Leave empty to
-                use the default OpenLibrary URL.
+                URL for the OpenLibrary authors metadata dump.
               </p>
             </div>
           </div>
@@ -186,8 +185,32 @@ export function OpenLibrarySettings() {
                 className="w-full rounded-md border border-surface-a20 bg-surface-a0 px-4 py-3 font-inherit text-base text-text-a0 leading-normal transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s] focus:border-primary-a0 focus:bg-surface-a10 focus:shadow-[var(--shadow-focus-ring)] focus:outline-none hover:not(:focus):border-surface-a30"
               />
               <p className="text-text-a30 text-xs">
-                URL for the OpenLibrary works metadata dump. Leave empty to use
-                the default OpenLibrary URL.
+                URL for the OpenLibrary works metadata dump.
+              </p>
+            </div>
+          </div>
+
+          {/* Editions Dump Configuration */}
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <label
+                htmlFor="editions_url"
+                className="font-medium text-sm text-text-a10 leading-normal"
+              >
+                Editions Dump URL
+              </label>
+              <input
+                type="url"
+                id="editions_url"
+                value={formData.editions_url || ""}
+                onChange={(e) =>
+                  handleFieldChange("editions_url", e.target.value)
+                }
+                placeholder="https://openlibrary.org/data/ol_dump_editions_latest.txt.gz"
+                className="w-full rounded-md border border-surface-a20 bg-surface-a0 px-4 py-3 font-inherit text-base text-text-a0 leading-normal transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s] focus:border-primary-a0 focus:bg-surface-a10 focus:shadow-[var(--shadow-focus-ring)] focus:outline-none hover:not(:focus):border-surface-a30"
+              />
+              <p className="text-text-a30 text-xs">
+                URL for the OpenLibrary editions metadata dump.
               </p>
             </div>
           </div>
@@ -219,7 +242,7 @@ export function OpenLibrarySettings() {
                   <span>Processing...</span>
                 </>
               ) : (
-                "Process Files"
+                "Process files"
               )}
             </Button>
             <Button

@@ -26,6 +26,8 @@ export interface OpenLibraryDumpConfig {
   authors_url: string | null;
   /** URL for the works dump file. */
   works_url: string | null;
+  /** URL for the editions dump file. */
+  editions_url: string | null;
 }
 
 export interface DownloadFilesRequest {
@@ -49,6 +51,8 @@ const DEFAULT_AUTHORS_URL =
   "https://openlibrary.org/data/ol_dump_authors_latest.txt.gz";
 const DEFAULT_WORKS_URL =
   "https://openlibrary.org/data/ol_dump_works_latest.txt.gz";
+const DEFAULT_EDITIONS_URL =
+  "https://openlibrary.org/data/ol_dump_editions_latest.txt.gz";
 
 const DOWNLOAD_API_BASE = "/api/admin/openlibrary/download-dumps";
 const INGEST_API_BASE = "/api/admin/openlibrary/ingest-dumps";
@@ -65,6 +69,7 @@ export function getDefaultDumpUrls(): OpenLibraryDumpConfig {
   return {
     authors_url: DEFAULT_AUTHORS_URL,
     works_url: DEFAULT_WORKS_URL,
+    editions_url: DEFAULT_EDITIONS_URL,
   };
 }
 
