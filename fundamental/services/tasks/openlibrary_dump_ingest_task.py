@@ -576,7 +576,7 @@ class OpenLibraryDumpIngestTask(BaseTask):
 
             update_progress(0.0, {"status": "Clearing existing data..."})
             # Clear existing data for fresh ingestion
-            session.execute(
+            session.connection().execute(
                 text(
                     "TRUNCATE TABLE openlibrary_edition_isbns, openlibrary_author_works, "
                     "openlibrary_editions, openlibrary_works, openlibrary_authors CASCADE"
