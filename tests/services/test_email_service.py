@@ -547,7 +547,7 @@ def test_send_ebook_cleanup_on_error(
         assert not temp_path.exists()
 
 
-# Tests for EmailService._build_attachment_filename (lines 448-481)
+# Tests for build_attachment_filename utility function
 @pytest.mark.parametrize(
     ("author", "title", "extension", "expected_start"),
     [
@@ -560,15 +560,15 @@ def test_send_ebook_cleanup_on_error(
     ],
 )
 def test_build_attachment_filename(
-    smtp_config: EmailServerConfig,
     author: str | None,
     title: str | None,
     extension: str | None,
     expected_start: str,
 ) -> None:
-    """Test EmailService._build_attachment_filename (covers lines 448-481)."""
-    service = EmailService(smtp_config)
-    result = service._build_attachment_filename(
+    """Test build_attachment_filename utility function."""
+    from fundamental.services.email_utils import build_attachment_filename
+
+    result = build_attachment_filename(
         author=author,
         title=title,
         extension=extension,
@@ -579,12 +579,11 @@ def test_build_attachment_filename(
         assert result.endswith(f".{extension.lower()}")
 
 
-def test_build_attachment_filename_sanitizes_unicode(
-    smtp_config: EmailServerConfig,
-) -> None:
-    """Test EmailService._build_attachment_filename sanitizes unicode (covers lines 463-468)."""
-    service = EmailService(smtp_config)
-    result = service._build_attachment_filename(
+def test_build_attachment_filename_sanitizes_unicode() -> None:
+    """Test build_attachment_filename sanitizes unicode."""
+    from fundamental.services.email_utils import build_attachment_filename
+
+    result = build_attachment_filename(
         author="José",
         title="Café",
         extension="epub",
@@ -594,12 +593,11 @@ def test_build_attachment_filename_sanitizes_unicode(
     assert "Jos" in result or "Caf" in result
 
 
-def test_build_attachment_filename_removes_invalid_chars(
-    smtp_config: EmailServerConfig,
-) -> None:
-    """Test EmailService._build_attachment_filename removes invalid characters (covers lines 465-468)."""
-    service = EmailService(smtp_config)
-    result = service._build_attachment_filename(
+def test_build_attachment_filename_removes_invalid_chars() -> None:
+    """Test build_attachment_filename removes invalid characters."""
+    from fundamental.services.email_utils import build_attachment_filename
+
+    result = build_attachment_filename(
         author="Author/With\\Invalid:Chars",
         title="Book*Name?",
         extension="epub",
@@ -611,13 +609,12 @@ def test_build_attachment_filename_removes_invalid_chars(
         assert char.isalnum() or char in allowed_chars or char == "."
 
 
-def test_build_attachment_filename_truncates_long_names(
-    smtp_config: EmailServerConfig,
-) -> None:
-    """Test EmailService._build_attachment_filename truncates long names (covers lines 473-476)."""
-    service = EmailService(smtp_config)
+def test_build_attachment_filename_truncates_long_names() -> None:
+    """Test build_attachment_filename truncates long names."""
+    from fundamental.services.email_utils import build_attachment_filename
+
     long_title = "A" * 200
-    result = service._build_attachment_filename(
+    result = build_attachment_filename(
         author=None,
         title=long_title,
         extension="epub",
@@ -627,18 +624,17 @@ def test_build_attachment_filename_truncates_long_names(
     assert len(result) <= 150 + len(".epub")
 
 
-def test_build_attachment_filename_handles_empty_after_sanitization(
-    smtp_config: EmailServerConfig,
-) -> None:
-    """Test EmailService._build_attachment_filename handles empty after sanitization (covers lines 470-471)."""
-    service = EmailService(smtp_config)
+def test_build_attachment_filename_handles_empty_after_sanitization() -> None:
+    """Test build_attachment_filename handles empty after sanitization."""
+    from fundamental.services.email_utils import build_attachment_filename
+
     # Use only characters that will be completely removed by sanitization
     # Allowed chars are: space, -, _, ., (, ), &, ,, ', +
     # Use characters like @#$%^[]{}|;:'\"<>?/~` that are NOT in allowed_chars
     # After normalization and filtering, if nothing remains, should use default
     # Note: The code checks `if not sanitized:` after strip, so we need to ensure
     # the result after strip is empty (not just whitespace/punctuation)
-    result = service._build_attachment_filename(
+    result = build_attachment_filename(
         author="   ",
         title="   ",
         extension="epub",
@@ -649,17 +645,16 @@ def test_build_attachment_filename_handles_empty_after_sanitization(
     assert result == "Unknown Author - Unknown Book.epub"
 
 
-def test_build_attachment_filename_empty_after_sanitization_triggers_fallback(
-    smtp_config: EmailServerConfig,
-) -> None:
-    """Test EmailService._build_attachment_filename falls back to default when sanitized is empty (covers line 471)."""
-    service = EmailService(smtp_config)
-    # To trigger line 471, we need sanitized to be empty after all processing
+def test_build_attachment_filename_empty_after_sanitization_triggers_fallback() -> None:
+    """Test build_attachment_filename falls back to default when sanitized is empty."""
+    from fundamental.services.email_utils import build_attachment_filename
+
+    # To trigger fallback, we need sanitized to be empty after all processing
     # If we provide only title (no author), base = title_part
     # Use only special characters that are not in allowed_chars
     # Allowed chars are: space, -, _, ., (, ), &, ,, ', +
     # After filtering, if nothing remains, sanitized is empty, triggering fallback
-    result = service._build_attachment_filename(
+    result = build_attachment_filename(
         author=None,  # No author
         title="...",  # Only dots, which are in allowed_chars but get stripped
         extension="epub",
@@ -667,16 +662,15 @@ def test_build_attachment_filename_empty_after_sanitization_triggers_fallback(
 
     # After normalization and filtering, dots remain (they're in allowed_chars)
     # After strip(" ."), dots are removed, leaving empty string
-    # This triggers fallback to default_base (line 471)
+    # This triggers fallback to default_base
     assert result == "Unknown Author - Unknown Book.epub"
 
 
-def test_build_attachment_filename_strips_extension_dot(
-    smtp_config: EmailServerConfig,
-) -> None:
-    """Test EmailService._build_attachment_filename strips leading dot from extension (covers line 478)."""
-    service = EmailService(smtp_config)
-    result = service._build_attachment_filename(
+def test_build_attachment_filename_strips_extension_dot() -> None:
+    """Test build_attachment_filename strips leading dot from extension."""
+    from fundamental.services.email_utils import build_attachment_filename
+
+    result = build_attachment_filename(
         author="Author",
         title="Book",
         extension=".epub",

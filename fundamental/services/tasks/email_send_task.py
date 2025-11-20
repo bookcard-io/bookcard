@@ -28,6 +28,7 @@ from fundamental.services.book_service import BookService
 from fundamental.services.config_service import LibraryService
 from fundamental.services.email_config_service import EmailConfigService
 from fundamental.services.email_service import EmailService, EmailServiceError
+from fundamental.services.email_utils import build_attachment_filename
 from fundamental.services.security import DataEncryptor
 from fundamental.services.tasks.base import BaseTask
 
@@ -103,6 +104,58 @@ class EmailSendTask(BaseTask):
             raise TypeError(msg)
         self.encryption_key: str = encryption_key
 
+    def _prepare_completion_metadata(
+        self, book_service: BookService
+    ) -> tuple[str, str]:
+        """Prepare book title and attachment filename for completion metadata.
+
+        Parameters
+        ----------
+        book_service : BookService
+            Book service instance to fetch book data.
+
+        Returns
+        -------
+        tuple[str, str]
+            Tuple of (book_title, attachment_filename).
+
+        Raises
+        ------
+        ValueError
+            If book not found.
+        """
+        book_with_rels = book_service.get_book_full(self.book_id)
+        if book_with_rels is None:
+            msg = "book_not_found"
+            raise ValueError(msg)
+
+        book = book_with_rels.book
+        book_title = book.title or "Unknown Book"
+        # Accessing static method for author name extraction
+        author_name = BookService._get_primary_author_name(  # noqa: SLF001
+            book_with_rels
+        )
+
+        # Determine format that will be sent
+        format_to_send = (
+            self.file_format.upper()
+            if self.file_format
+            else (
+                str(book_with_rels.formats[0].get("format", "")).upper()
+                if book_with_rels.formats and book_with_rels.formats[0].get("format")
+                else None
+            )
+        )
+
+        # Build attachment filename
+        attachment_filename = build_attachment_filename(
+            author=author_name,
+            title=book_title,
+            extension=format_to_send.lower() if format_to_send else None,
+        )
+
+        return book_title, attachment_filename
+
     def run(self, worker_context: dict[str, Any]) -> None:
         """Execute email send task.
 
@@ -167,6 +220,11 @@ class EmailSendTask(BaseTask):
             if self.check_cancelled():
                 return
 
+            # Get book information and prepare completion metadata
+            book_title, attachment_filename = self._prepare_completion_metadata(
+                book_service
+            )
+
             # Send book via email
             book_service.send_book(
                 book_id=self.book_id,
@@ -175,6 +233,11 @@ class EmailSendTask(BaseTask):
                 to_email=self.to_email,
                 file_format=self.file_format,
             )
+
+            # Store completion metadata (book title and attachment filename)
+            # This will be included when the task executor calls complete_task
+            self.set_metadata("book_title", book_title)
+            self.set_metadata("attachment_filename", attachment_filename)
 
             # Update progress: 1.0 - complete
             update_progress(1.0)

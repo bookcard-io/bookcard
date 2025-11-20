@@ -24,10 +24,8 @@ from __future__ import annotations
 
 import contextlib
 import logging
-import re
 import shutil
 import tempfile
-import unicodedata
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import ClassVar
@@ -35,6 +33,7 @@ from typing import ClassVar
 from ezmail import EzSender
 
 from fundamental.models.config import EmailServerConfig, EmailServerType
+from fundamental.services.email_utils import build_attachment_filename
 
 logger = logging.getLogger(__name__)
 
@@ -393,7 +392,7 @@ class EmailService:
             if preferred_format
             else book_file_path.suffix.lstrip(".").lower()
         )
-        attachment_filename = self._build_attachment_filename(
+        attachment_filename = build_attachment_filename(
             author=author,
             title=book_title,
             extension=extension or None,
@@ -421,61 +420,3 @@ class EmailService:
             # Best-effort cleanup of temporary attachment file
             with contextlib.suppress(OSError):
                 temp_path.unlink()
-
-    def _build_attachment_filename(
-        self,
-        *,
-        author: str | None,
-        title: str | None,
-        extension: str | None,
-    ) -> str:
-        """Build a sanitized attachment filename.
-
-        Parameters
-        ----------
-        author : str | None
-            Author name to use in the filename.
-        title : str | None
-            Book title to use in the filename.
-        extension : str | None
-            File extension (e.g., 'epub', 'mobi') without leading dot.
-
-        Returns
-        -------
-        str
-            Sanitized attachment filename.
-        """
-        default_base = "Unknown Author - Unknown Book"
-
-        author_part = (author or "").strip()
-        title_part = (title or "").strip()
-
-        if author_part and title_part:
-            base = f"{author_part} - {title_part}"
-        elif title_part:
-            base = title_part
-        elif author_part:
-            base = f"{author_part} - Unknown Book"
-        else:
-            base = default_base
-
-        # Normalize unicode characters
-        normalized = unicodedata.normalize("NFKD", base)
-
-        # Allow alphanumerics and a safe subset of punctuation
-        allowed_chars = {" ", "-", "_", ".", "(", ")", "&", ",", "'", "+"}
-        sanitized = "".join(c for c in normalized if c.isalnum() or c in allowed_chars)
-        sanitized = re.sub(r"\s+", " ", sanitized).strip(" .")
-
-        if not sanitized:
-            sanitized = default_base
-
-        # Limit base length to keep filenames manageable
-        max_len = 150
-        if len(sanitized) > max_len:
-            sanitized = sanitized[:max_len].rstrip()
-
-        ext = (extension or "").strip().lstrip(".")
-        if ext:
-            return f"{sanitized}.{ext.lower()}"
-        return sanitized
