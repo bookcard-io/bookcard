@@ -145,9 +145,7 @@ testpy:
 
 test-changed:
 	@echo "Finding changed test files..."; \
-	BASE_BRANCH=$$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo "main"); \
 	CHANGED_FILES=$$({ \
-		git diff --name-only --diff-filter=ACMR $$BASE_BRANCH...HEAD 2>/dev/null; \
 		git diff --name-only --cached --diff-filter=ACMR 2>/dev/null; \
 		git diff --name-only --diff-filter=ACMR 2>/dev/null; \
 	} | grep -E '(tests/.*test_.*\.py|web/.*\.test\.(ts|tsx))' | sort -u || true); \

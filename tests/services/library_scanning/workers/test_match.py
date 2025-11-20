@@ -15,6 +15,7 @@
 
 """Tests for MatchWorker to achieve 100% coverage."""
 
+from datetime import UTC
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -257,3 +258,380 @@ class TestMatchWorkerProcess:
 
             with pytest.raises(ValueError, match="Match error"):
                 worker.process(payload)
+
+
+class TestMatchWorkerCheckCompletion:
+    """Test MatchWorker._check_completion method."""
+
+    def test_check_completion_publishes_when_complete(
+        self, mock_redis_broker: MagicMock
+    ) -> None:
+        """Test _check_completion publishes when mark_item_processed returns True (covers line 100).
+
+        Parameters
+        ----------
+        mock_redis_broker : MagicMock
+            Mock Redis broker.
+        """
+        with (
+            patch(
+                "fundamental.services.library_scanning.workers.match.create_db_engine"
+            ),
+            patch(
+                "fundamental.services.library_scanning.workers.match.DataSourceRegistry"
+            ) as mock_registry,
+            patch(
+                "fundamental.services.library_scanning.workers.match.JobProgressTracker"
+            ) as mock_progress_class,
+        ):
+            mock_data_source = MagicMock()
+            mock_registry.create_source.return_value = mock_data_source
+
+            worker = MatchWorker(mock_redis_broker)
+
+            mock_progress_tracker = mock_progress_class.return_value
+            mock_progress_tracker.get_task_id.return_value = 123
+            mock_progress_tracker.mark_item_processed.return_value = True
+
+            library_id = 1
+            worker._check_completion(library_id)
+
+            mock_redis_broker.publish.assert_called_once_with(
+                worker.completion_topic,
+                {"library_id": library_id, "task_id": 123},
+            )
+
+    def test_check_completion_with_task_id(self, mock_redis_broker: MagicMock) -> None:
+        """Test _check_completion with provided task_id.
+
+        Parameters
+        ----------
+        mock_redis_broker : MagicMock
+            Mock Redis broker.
+        """
+        with (
+            patch(
+                "fundamental.services.library_scanning.workers.match.create_db_engine"
+            ),
+            patch(
+                "fundamental.services.library_scanning.workers.match.DataSourceRegistry"
+            ) as mock_registry,
+            patch(
+                "fundamental.services.library_scanning.workers.match.JobProgressTracker"
+            ) as mock_progress_class,
+        ):
+            mock_data_source = MagicMock()
+            mock_registry.create_source.return_value = mock_data_source
+
+            worker = MatchWorker(mock_redis_broker)
+
+            mock_progress_tracker = mock_progress_class.return_value
+            mock_progress_tracker.mark_item_processed.return_value = True
+
+            library_id = 1
+            task_id = 456
+            worker._check_completion(library_id, task_id)
+
+            # Should not call get_task_id when task_id is provided
+            mock_progress_tracker.get_task_id.assert_not_called()
+            mock_redis_broker.publish.assert_called_once_with(
+                worker.completion_topic,
+                {"library_id": library_id, "task_id": task_id},
+            )
+
+    def test_check_completion_not_redis_broker(self, mock_broker: MagicMock) -> None:
+        """Test _check_completion with non-Redis broker (no-op).
+
+        Parameters
+        ----------
+        mock_broker : MagicMock
+            Mock broker (not RedisBroker).
+        """
+        with (
+            patch(
+                "fundamental.services.library_scanning.workers.match.create_db_engine"
+            ),
+            patch(
+                "fundamental.services.library_scanning.workers.match.DataSourceRegistry"
+            ) as mock_registry,
+        ):
+            mock_data_source = MagicMock()
+            mock_registry.create_source.return_value = mock_data_source
+
+            worker = MatchWorker(mock_broker)
+
+            library_id = 1
+            worker._check_completion(library_id)
+
+            # Should not publish when not RedisBroker
+            mock_broker.publish.assert_not_called()
+
+
+class TestMatchWorkerShouldSkipMatch:
+    """Test MatchWorker._should_skip_match method."""
+
+    @pytest.mark.parametrize(
+        ("stale_max_age", "days_since_update", "expected"),
+        [
+            (None, 0, False),  # No stale check
+            (30, 10, True),  # Fresh (10 < 30)
+            (30, 40, False),  # Stale (40 >= 30)
+        ],
+    )
+    def test_should_skip_match_with_updated_at(
+        self,
+        mock_redis_broker: MagicMock,
+        stale_max_age: int | None,
+        days_since_update: int,
+        expected: bool,
+    ) -> None:
+        """Test _should_skip_match with updated_at (covers lines 114-130).
+
+        Parameters
+        ----------
+        mock_redis_broker : MagicMock
+            Mock Redis broker.
+        stale_max_age : int | None
+            Stale data max age in days.
+        days_since_update : int
+            Days since last update.
+        expected : bool
+            Expected result.
+        """
+        from datetime import UTC, datetime, timedelta
+
+        with (
+            patch(
+                "fundamental.services.library_scanning.workers.match.create_db_engine"
+            ),
+            patch(
+                "fundamental.services.library_scanning.workers.match.DataSourceRegistry"
+            ) as mock_registry,
+            patch(
+                "fundamental.services.library_scanning.workers.match.get_session"
+            ) as mock_get_session,
+            patch(
+                "fundamental.services.library_scanning.workers.match.AuthorMappingRepository"
+            ) as mock_mapping_repo_class,
+        ):
+            mock_data_source = MagicMock()
+            mock_registry.create_source.return_value = mock_data_source
+
+            worker = MatchWorker(
+                mock_redis_broker, stale_data_max_age_days=stale_max_age
+            )
+
+            mock_session = MagicMock()
+            mock_get_session.return_value.__enter__.return_value = mock_session
+
+            mock_mapping_repo = mock_mapping_repo_class.return_value
+
+            if stale_max_age is not None:
+                mock_mapping = MagicMock()
+                # Set updated_at to be days_since_update days ago
+                mock_mapping.updated_at = datetime.now(UTC) - timedelta(
+                    days=days_since_update
+                )
+                mock_mapping.created_at = None
+                mock_mapping_repo.find_by_calibre_author_id_and_library.return_value = (
+                    mock_mapping
+                )
+            else:
+                mock_mapping_repo.find_by_calibre_author_id_and_library.return_value = (
+                    None
+                )
+
+            result = worker._should_skip_match(calibre_author_id=1, library_id=1)
+            assert result == expected
+
+    def test_should_skip_match_with_created_at(
+        self, mock_redis_broker: MagicMock
+    ) -> None:
+        """Test _should_skip_match uses created_at when updated_at is None (covers line 125).
+
+        Parameters
+        ----------
+        mock_redis_broker : MagicMock
+            Mock Redis broker.
+        """
+        from datetime import UTC, datetime, timedelta
+
+        with (
+            patch(
+                "fundamental.services.library_scanning.workers.match.create_db_engine"
+            ),
+            patch(
+                "fundamental.services.library_scanning.workers.match.DataSourceRegistry"
+            ) as mock_registry,
+            patch(
+                "fundamental.services.library_scanning.workers.match.get_session"
+            ) as mock_get_session,
+            patch(
+                "fundamental.services.library_scanning.workers.match.AuthorMappingRepository"
+            ) as mock_mapping_repo_class,
+        ):
+            mock_data_source = MagicMock()
+            mock_registry.create_source.return_value = mock_data_source
+
+            worker = MatchWorker(mock_redis_broker, stale_data_max_age_days=30)
+
+            mock_session = MagicMock()
+            mock_get_session.return_value.__enter__.return_value = mock_session
+
+            mock_mapping_repo = mock_mapping_repo_class.return_value
+            mock_mapping = MagicMock()
+            mock_mapping.updated_at = None
+            # Set created_at to be 10 days ago (fresh)
+            mock_mapping.created_at = datetime.now(UTC) - timedelta(days=10)
+            mock_mapping_repo.find_by_calibre_author_id_and_library.return_value = (
+                mock_mapping
+            )
+
+            result = worker._should_skip_match(calibre_author_id=1, library_id=1)
+            assert result is True  # 10 < 30, so should skip
+
+    def test_should_skip_match_without_tzinfo(
+        self, mock_redis_broker: MagicMock
+    ) -> None:
+        """Test _should_skip_match handles datetime without tzinfo (covers lines 126-127).
+
+        Parameters
+        ----------
+        mock_redis_broker : MagicMock
+            Mock Redis broker.
+        """
+        from datetime import datetime, timedelta
+
+        with (
+            patch(
+                "fundamental.services.library_scanning.workers.match.create_db_engine"
+            ),
+            patch(
+                "fundamental.services.library_scanning.workers.match.DataSourceRegistry"
+            ) as mock_registry,
+            patch(
+                "fundamental.services.library_scanning.workers.match.get_session"
+            ) as mock_get_session,
+            patch(
+                "fundamental.services.library_scanning.workers.match.AuthorMappingRepository"
+            ) as mock_mapping_repo_class,
+        ):
+            mock_data_source = MagicMock()
+            mock_registry.create_source.return_value = mock_data_source
+
+            worker = MatchWorker(mock_redis_broker, stale_data_max_age_days=30)
+
+            mock_session = MagicMock()
+            mock_get_session.return_value.__enter__.return_value = mock_session
+
+            mock_mapping_repo = mock_mapping_repo_class.return_value
+            mock_mapping = MagicMock()
+            # Create datetime without tzinfo
+            naive_datetime = datetime.now(UTC) - timedelta(days=10)
+            mock_mapping.updated_at = None
+            mock_mapping.created_at = naive_datetime
+            mock_mapping_repo.find_by_calibre_author_id_and_library.return_value = (
+                mock_mapping
+            )
+
+            result = worker._should_skip_match(calibre_author_id=1, library_id=1)
+            assert result is True  # Should handle naive datetime and skip
+
+    def test_should_skip_match_no_mapping(self, mock_redis_broker: MagicMock) -> None:
+        """Test _should_skip_match returns False when no mapping exists.
+
+        Parameters
+        ----------
+        mock_redis_broker : MagicMock
+            Mock Redis broker.
+        """
+        with (
+            patch(
+                "fundamental.services.library_scanning.workers.match.create_db_engine"
+            ),
+            patch(
+                "fundamental.services.library_scanning.workers.match.DataSourceRegistry"
+            ) as mock_registry,
+            patch(
+                "fundamental.services.library_scanning.workers.match.get_session"
+            ) as mock_get_session,
+            patch(
+                "fundamental.services.library_scanning.workers.match.AuthorMappingRepository"
+            ) as mock_mapping_repo_class,
+        ):
+            mock_data_source = MagicMock()
+            mock_registry.create_source.return_value = mock_data_source
+
+            worker = MatchWorker(mock_redis_broker, stale_data_max_age_days=30)
+
+            mock_session = MagicMock()
+            mock_get_session.return_value.__enter__.return_value = mock_session
+
+            mock_mapping_repo = mock_mapping_repo_class.return_value
+            mock_mapping_repo.find_by_calibre_author_id_and_library.return_value = None
+
+            result = worker._should_skip_match(calibre_author_id=1, library_id=1)
+            assert result is False
+
+
+class TestMatchWorkerProcessSkipMatch:
+    """Test MatchWorker.process when skipping match due to fresh data."""
+
+    def test_process_skips_fresh_match(self, mock_redis_broker: MagicMock) -> None:
+        """Test process() skips match when data is fresh (covers lines 177-179).
+
+        Parameters
+        ----------
+        mock_redis_broker : MagicMock
+            Mock Redis broker.
+        """
+        from datetime import UTC, datetime, timedelta
+
+        with (
+            patch(
+                "fundamental.services.library_scanning.workers.match.create_db_engine"
+            ),
+            patch(
+                "fundamental.services.library_scanning.workers.match.DataSourceRegistry"
+            ) as mock_registry,
+            patch(
+                "fundamental.services.library_scanning.workers.match.JobProgressTracker"
+            ) as mock_progress_class,
+            patch(
+                "fundamental.services.library_scanning.workers.match.get_session"
+            ) as mock_get_session,
+            patch(
+                "fundamental.services.library_scanning.workers.match.AuthorMappingRepository"
+            ) as mock_mapping_repo_class,
+        ):
+            mock_data_source = MagicMock()
+            mock_registry.create_source.return_value = mock_data_source
+
+            worker = MatchWorker(mock_redis_broker, stale_data_max_age_days=30)
+
+            mock_progress_tracker = mock_progress_class.return_value
+            mock_progress_tracker.is_cancelled.return_value = False
+            mock_progress_tracker.mark_item_processed.return_value = False
+
+            mock_session = MagicMock()
+            mock_get_session.return_value.__enter__.return_value = mock_session
+
+            mock_mapping_repo = mock_mapping_repo_class.return_value
+            mock_mapping = MagicMock()
+            # Set updated_at to be 10 days ago (fresh, should skip)
+            mock_mapping.updated_at = datetime.now(UTC) - timedelta(days=10)
+            mock_mapping.created_at = None
+            mock_mapping_repo.find_by_calibre_author_id_and_library.return_value = (
+                mock_mapping
+            )
+
+            payload = {
+                "author": {"id": 1, "name": "Test Author"},
+                "library_id": 1,
+                "task_id": 123,
+            }
+
+            result = worker.process(payload)
+            assert result is None
+            # Verify _check_completion was called
+            mock_progress_tracker.mark_item_processed.assert_called_once()
