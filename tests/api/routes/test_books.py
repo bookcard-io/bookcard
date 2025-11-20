@@ -2021,30 +2021,15 @@ def test_send_book_user_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
     assert exc_info.value.detail == "user_missing_id"
 
 
-@pytest.mark.parametrize(
-    ("error_msg", "expected_status", "expected_detail"),
-    [
-        ("book_not_found", 404, "book_not_found"),
-        ("book_missing_id", 404, "book_missing_id"),
-        ("format_not_found", 404, "format_not_found"),
-        ("no_formats_available", 404, "no_formats_available"),
-        ("file_not_found", 404, "file_not_found"),
-        ("no_device_available", 400, "no_device_available"),
-        ("other_error", 400, "other_error"),
-    ],
-)
-def test_send_book_value_error_handling(
-    monkeypatch: pytest.MonkeyPatch,
-    error_msg: str,
-    expected_status: int,
-    expected_detail: str,
-) -> None:
-    """Test send_book handles various ValueError cases (covers lines 784-809)."""
+def test_send_book_success_enqueues_task(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test send_book successfully enqueues background task (covers lines 971-1070)."""
     from datetime import UTC, datetime
+    from unittest.mock import MagicMock
 
     from fundamental.api.schemas.books import BookSendRequest
     from fundamental.models.auth import User
     from fundamental.models.config import EmailServerConfig, EmailServerType
+    from fundamental.models.tasks import TaskType
 
     class DummyRequest:
         def __init__(self) -> None:
@@ -2053,9 +2038,15 @@ def test_send_book_value_error_handling(
             class DummyConfig:
                 encryption_key = TEST_ENCRYPTION_KEY
 
-            self.app = type(
-                "App", (), {"state": type("State", (), {"config": DummyConfig()})()}
-            )()
+            # Create mock task runner
+            mock_task_runner = MagicMock()
+            mock_task_runner.enqueue.return_value = 123  # Return a task_id
+
+            class DummyState:
+                config = DummyConfig()
+                task_runner = mock_task_runner
+
+            self.app = type("App", (), {"state": DummyState()})()
 
     session = DummySession()
     request = DummyRequest()
@@ -2065,101 +2056,7 @@ def test_send_book_value_error_handling(
         email="test@example.com",
         password_hash="hash",
     )
-    payload = BookSendRequest(to_email="device@example.com")
-
-    config = EmailServerConfig(
-        id=1,
-        server_type=EmailServerType.SMTP,
-        enabled=True,
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
-    )
-
-    class MockEmailConfigService:
-        def get_config(self, decrypt: bool) -> EmailServerConfig:
-            return config
-
-    class MockBookService:
-        def get_book_full(self, book_id: int) -> BookWithFullRelations | None:
-            # Return a mock book for testing
-            book = Book(id=1, title="Test Book", uuid="test-uuid")
-            return BookWithFullRelations(
-                book=book,
-                authors=[],
-                series=None,
-                series_id=None,
-                tags=[],
-                identifiers=[],
-                description=None,
-                publisher=None,
-                publisher_id=None,
-                languages=[],
-                language_ids=[],
-                rating=None,
-                rating_id=None,
-                formats=[],
-            )
-
-        def send_book(
-            self,
-            book_id: int,
-            user_id: int,
-            email_service: object,
-            to_email: str | None,
-            file_format: str | None,
-        ) -> None:
-            raise ValueError(error_msg)
-
-    def mock_email_config_service(req: object, sess: object) -> MockEmailConfigService:
-        return MockEmailConfigService()
-
-    def mock_get_active_library_service(sess: object) -> MockBookService:
-        return MockBookService()
-
-    monkeypatch.setattr(books, "_email_config_service", mock_email_config_service)
-    monkeypatch.setattr(
-        books, "_get_active_library_service", mock_get_active_library_service
-    )
-    _mock_permission_service(monkeypatch)
-
-    with pytest.raises(HTTPException) as exc_info:
-        books.send_book_to_device(
-            request, session, book_id=1, current_user=user, send_request=payload
-        )  # type: ignore[arg-type]
-    assert isinstance(exc_info.value, HTTPException)
-    assert exc_info.value.status_code == expected_status
-    assert exc_info.value.detail == expected_detail
-
-
-def test_send_book_email_service_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test send_book handles EmailServiceError (covers lines 810-814)."""
-    from datetime import UTC, datetime
-
-    from fundamental.api.schemas.books import BookSendRequest
-    from fundamental.models.auth import User
-    from fundamental.models.config import EmailServerConfig, EmailServerType
-    from fundamental.services.email_service import EmailServiceError
-
-    class DummyRequest:
-        def __init__(self) -> None:
-            from tests.conftest import TEST_ENCRYPTION_KEY
-
-            class DummyConfig:
-                encryption_key = TEST_ENCRYPTION_KEY
-
-            self.app = type(
-                "App", (), {"state": type("State", (), {"config": DummyConfig()})()}
-            )()
-
-    session = DummySession()
-    request = DummyRequest()
-    user = User(
-        id=1,
-        username="testuser",
-        email="test@example.com",
-        password_hash="hash",
-    )
-    payload = BookSendRequest(to_email="device@example.com")
+    payload = BookSendRequest(to_email="device@example.com", file_format="EPUB")
 
     config = EmailServerConfig(
         id=1,
@@ -2193,15 +2090,109 @@ def test_send_book_email_service_error(monkeypatch: pytest.MonkeyPatch) -> None:
                 formats=[],
             )
 
-        def send_book(
-            self,
-            book_id: int,
-            user_id: int,
-            email_service: object,
-            to_email: str | None,
-            file_format: str | None,
-        ) -> None:
-            raise EmailServiceError("email_send_failed")
+    def mock_email_config_service(req: object, sess: object) -> MockEmailConfigService:
+        return MockEmailConfigService()
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return MockBookService()
+
+    monkeypatch.setattr(books, "_email_config_service", mock_email_config_service)
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+    _mock_permission_service(monkeypatch)
+
+    # Should not raise an exception
+    result = books.send_book_to_device(
+        request, session, book_id=1, current_user=user, send_request=payload
+    )  # type: ignore[arg-type]
+
+    # Should return None (204 No Content)
+    assert result is None
+
+    # Verify task was enqueued with correct parameters
+    task_runner = request.app.state.task_runner
+    task_runner.enqueue.assert_called_once_with(
+        task_type=TaskType.EMAIL_SEND,
+        payload={
+            "book_id": 1,
+            "to_email": "device@example.com",
+            "file_format": "EPUB",
+        },
+        user_id=1,
+        metadata={
+            "task_type": TaskType.EMAIL_SEND,
+            "book_id": 1,
+            "to_email": "device@example.com",
+            "file_format": "EPUB",
+            "encryption_key": request.app.state.config.encryption_key,
+        },
+    )
+
+
+def test_send_book_task_runner_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test send_book raises 503 when task runner is unavailable (covers lines 1040-1048)."""
+    from datetime import UTC, datetime
+
+    from fundamental.api.schemas.books import BookSendRequest
+    from fundamental.models.auth import User
+    from fundamental.models.config import EmailServerConfig, EmailServerType
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            from tests.conftest import TEST_ENCRYPTION_KEY
+
+            class DummyConfig:
+                encryption_key = TEST_ENCRYPTION_KEY
+
+            # No task_runner in state
+            class DummyState:
+                config = DummyConfig()
+                # task_runner is missing
+
+            self.app = type("App", (), {"state": DummyState()})()
+
+    session = DummySession()
+    request = DummyRequest()
+    user = User(
+        id=1,
+        username="testuser",
+        email="test@example.com",
+        password_hash="hash",
+    )
+    payload = BookSendRequest(to_email="device@example.com")
+
+    config = EmailServerConfig(
+        id=1,
+        server_type=EmailServerType.SMTP,
+        enabled=True,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    class MockEmailConfigService:
+        def get_config(self, decrypt: bool) -> EmailServerConfig:
+            return config
+
+    class MockBookService:
+        def get_book_full(self, book_id: int) -> BookWithFullRelations | None:
+            book = Book(id=1, title="Test Book", uuid="test-uuid")
+            return BookWithFullRelations(
+                book=book,
+                authors=[],
+                series=None,
+                series_id=None,
+                tags=[],
+                identifiers=[],
+                description=None,
+                publisher=None,
+                publisher_id=None,
+                languages=[],
+                language_ids=[],
+                rating=None,
+                rating_id=None,
+                formats=[],
+            )
 
     def mock_email_config_service(req: object, sess: object) -> MockEmailConfigService:
         return MockEmailConfigService()
@@ -2220,8 +2211,165 @@ def test_send_book_email_service_error(monkeypatch: pytest.MonkeyPatch) -> None:
             request, session, book_id=1, current_user=user, send_request=payload
         )  # type: ignore[arg-type]
     assert isinstance(exc_info.value, HTTPException)
-    assert exc_info.value.status_code == 500
-    assert exc_info.value.detail == "email_send_failed"
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail == "Task runner not available"
+
+
+def test_send_book_task_runner_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test send_book raises 503 when task runner is None (covers lines 1040-1048)."""
+    from datetime import UTC, datetime
+
+    from fundamental.api.schemas.books import BookSendRequest
+    from fundamental.models.auth import User
+    from fundamental.models.config import EmailServerConfig, EmailServerType
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            from tests.conftest import TEST_ENCRYPTION_KEY
+
+            class DummyConfig:
+                encryption_key = TEST_ENCRYPTION_KEY
+
+            # task_runner is explicitly None
+            class DummyState:
+                config = DummyConfig()
+                task_runner = None
+
+            self.app = type("App", (), {"state": DummyState()})()
+
+    session = DummySession()
+    request = DummyRequest()
+    user = User(
+        id=1,
+        username="testuser",
+        email="test@example.com",
+        password_hash="hash",
+    )
+    payload = BookSendRequest(to_email="device@example.com")
+
+    config = EmailServerConfig(
+        id=1,
+        server_type=EmailServerType.SMTP,
+        enabled=True,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    class MockEmailConfigService:
+        def get_config(self, decrypt: bool) -> EmailServerConfig:
+            return config
+
+    class MockBookService:
+        def get_book_full(self, book_id: int) -> BookWithFullRelations | None:
+            book = Book(id=1, title="Test Book", uuid="test-uuid")
+            return BookWithFullRelations(
+                book=book,
+                authors=[],
+                series=None,
+                series_id=None,
+                tags=[],
+                identifiers=[],
+                description=None,
+                publisher=None,
+                publisher_id=None,
+                languages=[],
+                language_ids=[],
+                rating=None,
+                rating_id=None,
+                formats=[],
+            )
+
+    def mock_email_config_service(req: object, sess: object) -> MockEmailConfigService:
+        return MockEmailConfigService()
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return MockBookService()
+
+    monkeypatch.setattr(books, "_email_config_service", mock_email_config_service)
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+    _mock_permission_service(monkeypatch)
+
+    with pytest.raises(HTTPException) as exc_info:
+        books.send_book_to_device(
+            request, session, book_id=1, current_user=user, send_request=payload
+        )  # type: ignore[arg-type]
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail == "Task runner not available"
+
+
+def test_send_book_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test send_book raises 404 when book not found (covers lines 1012-1017)."""
+    from datetime import UTC, datetime
+    from unittest.mock import MagicMock
+
+    from fundamental.api.schemas.books import BookSendRequest
+    from fundamental.models.auth import User
+    from fundamental.models.config import EmailServerConfig, EmailServerType
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            from tests.conftest import TEST_ENCRYPTION_KEY
+
+            class DummyConfig:
+                encryption_key = TEST_ENCRYPTION_KEY
+
+            mock_task_runner = MagicMock()
+            mock_task_runner.enqueue.return_value = 123
+
+            class DummyState:
+                config = DummyConfig()
+                task_runner = mock_task_runner
+
+            self.app = type("App", (), {"state": DummyState()})()
+
+    session = DummySession()
+    request = DummyRequest()
+    user = User(
+        id=1,
+        username="testuser",
+        email="test@example.com",
+        password_hash="hash",
+    )
+    payload = BookSendRequest(to_email="device@example.com")
+
+    config = EmailServerConfig(
+        id=1,
+        server_type=EmailServerType.SMTP,
+        enabled=True,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    class MockEmailConfigService:
+        def get_config(self, decrypt: bool) -> EmailServerConfig:
+            return config
+
+    class MockBookService:
+        def get_book_full(self, book_id: int) -> BookWithFullRelations | None:
+            return None  # Book not found
+
+    def mock_email_config_service(req: object, sess: object) -> MockEmailConfigService:
+        return MockEmailConfigService()
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return MockBookService()
+
+    monkeypatch.setattr(books, "_email_config_service", mock_email_config_service)
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+    _mock_permission_service(monkeypatch)
+
+    with pytest.raises(HTTPException) as exc_info:
+        books.send_book_to_device(
+            request, session, book_id=999, current_user=user, send_request=payload
+        )  # type: ignore[arg-type]
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "book_not_found"
 
 
 def test_download_book_metadata_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
