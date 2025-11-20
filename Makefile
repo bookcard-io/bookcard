@@ -1,4 +1,4 @@
-.PHONY: dev setup-uv kill-ports format formatjs formatpy test testjs testpy
+.PHONY: dev setup-uv kill-ports format formatjs formatpy test testjs testpy test-changed
 
 setup-uv:
 	@if command -v uv >/dev/null 2>&1; then \
@@ -142,3 +142,31 @@ testjs:
 testpy:
 	@echo "Running Python tests with coverage..."; \
 	cd $(CURDIR) && uv run --frozen pytest --cov=fundamental --cov-report=term-missing -n auto
+
+test-changed:
+	@echo "Finding changed test files..."; \
+	BASE_BRANCH=$$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo "main"); \
+	CHANGED_FILES=$$({ \
+		git diff --name-only --diff-filter=ACMR $$BASE_BRANCH...HEAD 2>/dev/null; \
+		git diff --name-only --cached --diff-filter=ACMR 2>/dev/null; \
+		git diff --name-only --diff-filter=ACMR 2>/dev/null; \
+	} | grep -E '(tests/.*test_.*\.py|web/.*\.test\.(ts|tsx))' | sort -u || true); \
+	PYTHON_TESTS=$$(echo "$$CHANGED_FILES" | grep -E '^tests/.*test_.*\.py$$' || true); \
+	JS_TESTS=$$(echo "$$CHANGED_FILES" | grep -E '^web/.*\.test\.(ts|tsx)$$' || true); \
+	if [ -n "$$PYTHON_TESTS" ]; then \
+		echo "Running pytest on changed Python test files:"; \
+		echo "$$PYTHON_TESTS" | sed 's/^/  - /'; \
+		cd $(CURDIR) && uv run --frozen pytest $$(echo "$$PYTHON_TESTS" | tr '\n' ' '); \
+	else \
+		echo "No changed Python test files found."; \
+	fi; \
+	if [ -n "$$JS_TESTS" ]; then \
+		echo "Running npm test on changed JavaScript/TypeScript test files:"; \
+		echo "$$JS_TESTS" | sed 's|^web/||' | sed 's/^/  - /'; \
+		cd $(CURDIR)/web && npm run test -- $$(echo "$$JS_TESTS" | sed 's|^web/||' | tr '\n' ' '); \
+	else \
+		echo "No changed JavaScript/TypeScript test files found."; \
+	fi; \
+	if [ -z "$$PYTHON_TESTS" ] && [ -z "$$JS_TESTS" ]; then \
+		echo "No changed test files found."; \
+	fi

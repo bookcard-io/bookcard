@@ -259,3 +259,124 @@ class TestLibraryScanningService:
 
         assert existing_state.scan_status == "running"
         mock_session.commit.assert_called_once()
+
+    def test_scan_library_library_not_found(
+        self,
+        mock_session: MagicMock,
+        mock_library_repo: MagicMock,
+        mock_task_runner: MagicMock,
+    ) -> None:
+        """Test scan_library raises ValueError when library not found (covers lines 93-94).
+
+        Parameters
+        ----------
+        mock_session : MagicMock
+            Mock session.
+        mock_library_repo : MagicMock
+            Mock library repository.
+        mock_task_runner : MagicMock
+            Mock task runner.
+        """
+        mock_library_repo.get.return_value = None
+        service = LibraryScanningService(mock_session, mock_task_runner)
+        service.library_repo = mock_library_repo
+
+        with pytest.raises(ValueError, match="Library 1 not found"):
+            service.scan_library(library_id=1, user_id=1)
+
+    def test_scan_library_broker_not_available(
+        self,
+        mock_session: MagicMock,
+        mock_library_repo: MagicMock,
+    ) -> None:
+        """Test scan_library raises ValueError when broker not available (covers lines 97-98).
+
+        Parameters
+        ----------
+        mock_session : MagicMock
+            Mock session.
+        mock_library_repo : MagicMock
+            Mock library repository.
+        """
+        service = LibraryScanningService(mock_session, None)
+        service.library_repo = mock_library_repo
+
+        with pytest.raises(ValueError, match="Message broker not available"):
+            service.scan_library(library_id=1, user_id=1)
+
+    def test_scan_library_task_id_none(
+        self,
+        mock_session: MagicMock,
+        mock_library_repo: MagicMock,
+        mock_task_runner: MagicMock,
+    ) -> None:
+        """Test scan_library raises RuntimeError when task.id is None (covers lines 117-118).
+
+        Parameters
+        ----------
+        mock_session : MagicMock
+            Mock session.
+        mock_library_repo : MagicMock
+            Mock library repository.
+        mock_task_runner : MagicMock
+            Mock task runner.
+        """
+        mock_session.exec.return_value.first.return_value = None
+        service = LibraryScanningService(mock_session, mock_task_runner)
+        service.library_repo = mock_library_repo
+
+        from unittest.mock import patch
+
+        with patch(
+            "fundamental.services.library_scanning_service.TaskService"
+        ) as mock_task_service_cls:
+            mock_task_service_instance = mock_task_service_cls.return_value
+            mock_task = MagicMock()
+            mock_task.id = None
+            mock_task_service_instance.create_task.return_value = mock_task
+
+            with pytest.raises(RuntimeError, match="Failed to create task record"):
+                service.scan_library(library_id=1, user_id=1)
+
+    def test_scan_library_with_redis_broker(
+        self,
+        mock_session: MagicMock,
+        mock_library_repo: MagicMock,
+    ) -> None:
+        """Test scan_library with RedisBroker clears job (covers lines 124-125).
+
+        Parameters
+        ----------
+        mock_session : MagicMock
+            Mock session.
+        mock_library_repo : MagicMock
+            Mock library repository.
+        """
+        from fundamental.services.messaging.redis_broker import RedisBroker
+
+        mock_redis_broker = MagicMock(spec=RedisBroker)
+        mock_redis_broker.client = MagicMock()
+
+        mock_session.exec.return_value.first.return_value = None
+        service = LibraryScanningService(mock_session, mock_redis_broker)
+        service.library_repo = mock_library_repo
+
+        from unittest.mock import patch
+
+        with (
+            patch(
+                "fundamental.services.library_scanning_service.TaskService"
+            ) as mock_task_service_cls,
+            patch(
+                "fundamental.services.library_scanning_service.JobProgressTracker"
+            ) as mock_tracker_class,
+        ):
+            mock_task_service_instance = mock_task_service_cls.return_value
+            mock_task = MagicMock()
+            mock_task.id = 123
+            mock_task_service_instance.create_task.return_value = mock_task
+
+            mock_tracker = mock_tracker_class.return_value
+            service.scan_library(library_id=1, user_id=1)
+
+            mock_tracker.clear_job.assert_called_once_with(1)

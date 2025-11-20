@@ -69,7 +69,9 @@ export function ScheduledTasksTab() {
 
   return (
     <div className="rounded-md border border-surface-a20 bg-surface-tonal-a0 p-6">
-      <h2 className="mb-4 font-semibold text-text-a0 text-xl">Scheduled Tasks</h2>
+      <h2 className="mb-4 font-semibold text-text-a0 text-xl">
+        Scheduled Tasks
+      </h2>
 
       <TaskFiltersBar
         status={filters.selectedStatus}

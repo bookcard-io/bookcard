@@ -31,6 +31,7 @@ os.environ.setdefault("FUNDAMENTAL_JWT_EXPIRES_MIN", "15")
 os.environ.setdefault("FUNDAMENTAL_DATABASE_URL", "sqlite:///fundamental.db")
 os.environ.setdefault("FUNDAMENTAL_ALEMBIC_ENABLED", "false")
 os.environ.setdefault("FUNDAMENTAL_ECHO_SQL", "false")
+os.environ.setdefault("FUNDAMENTAL_FERNET_KEY", TEST_ENCRYPTION_KEY)
 
 
 class MockResult:
