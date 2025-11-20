@@ -33,6 +33,10 @@ from fundamental.models.tasks import Task, TaskStatistics, TaskStatus, TaskType
 
 logger = logging.getLogger(__name__)
 
+# Sensitive fields that should be filtered out from task metadata
+# before exposing to frontend (e.g., encryption keys, passwords, tokens)
+SENSITIVE_METADATA_FIELDS = {"encryption_key"}
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
@@ -308,10 +312,23 @@ class TaskService:
             else:
                 normalized_metadata = metadata
 
+            # Filter out sensitive fields before exposing to frontend
+            filtered_metadata = {
+                k: v
+                for k, v in normalized_metadata.items()
+                if k not in SENSITIVE_METADATA_FIELDS
+            }
+
             # Merge metadata, preserving existing values
             # Create a new dict to ensure SQLModel detects the change
             updated_task_data = dict(task.task_data)
-            updated_task_data.update(normalized_metadata)
+            # Also filter out sensitive fields from existing task_data
+            updated_task_data = {
+                k: v
+                for k, v in updated_task_data.items()
+                if k not in SENSITIVE_METADATA_FIELDS
+            }
+            updated_task_data.update(filtered_metadata)
             task.task_data = updated_task_data
 
         self._session.add(task)

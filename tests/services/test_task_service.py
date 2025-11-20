@@ -382,6 +382,56 @@ class TestCompleteTask:
         with pytest.raises(ValueError, match="Task 999 not found"):
             task_service.complete_task(999)
 
+    def test_complete_task_filters_encryption_key_from_metadata(
+        self, task_service: TaskService, task: Task, session: DummySession
+    ) -> None:
+        """Test complete_task filters out encryption_key from new metadata."""
+        session._entities_by_class_and_id[Task] = {1: task}
+        task.task_data = {}
+        metadata = {
+            "book_id": 355,
+            "to_email": "foo@bar.org",
+            "encryption_key": "fake_key_123o=",
+        }
+        task_service.complete_task(1, metadata)
+        # encryption_key should be filtered out
+        assert "encryption_key" not in task.task_data
+        # Other fields should be preserved
+        assert task.task_data["book_id"] == 355
+        assert task.task_data["to_email"] == "foo@bar.org"
+
+    def test_complete_task_filters_encryption_key_from_existing_task_data(
+        self, task_service: TaskService, task: Task, session: DummySession
+    ) -> None:
+        """Test complete_task filters out encryption_key from existing task_data."""
+        session._entities_by_class_and_id[Task] = {1: task}
+        # Simulate encryption_key somehow got into existing task_data
+        task.task_data = {
+            "book_id": 355,
+            "encryption_key": "fake_key_123o=",
+        }
+        task_service.complete_task(1, {"to_email": "foo@bar.org"})
+        # encryption_key should be filtered out from both existing and new metadata
+        assert "encryption_key" not in task.task_data
+        # Other fields should be preserved
+        assert task.task_data["book_id"] == 355
+        assert task.task_data["to_email"] == "foo@bar.org"
+
+    def test_complete_task_filters_encryption_key_with_normalize_false(
+        self, task_service: TaskService, task: Task, session: DummySession
+    ) -> None:
+        """Test complete_task filters encryption_key even with normalize_metadata=False."""
+        session._entities_by_class_and_id[Task] = {1: task}
+        task.task_data = {}
+        metadata = {
+            "book_id": 355,
+            "encryption_key": "fake_key_123o=",
+        }
+        task_service.complete_task(1, metadata, normalize_metadata=False)
+        # encryption_key should still be filtered out
+        assert "encryption_key" not in task.task_data
+        assert task.task_data["book_id"] == 355
+
 
 class TestFailTask:
     """Test fail_task method."""
