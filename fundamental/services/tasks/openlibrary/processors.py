@@ -295,6 +295,9 @@ class EditionRecordProcessor(RecordProcessor[OpenLibraryEdition]):
     def _extract_work_key(self, data: dict[str, Any]) -> str | None:
         """Extract work key from edition data.
 
+        Handles both dict format {"works": [{"key": "/works/OL123W"}]}
+        and string format {"works": ["/works/OL123W"]}.
+
         Parameters
         ----------
         data : dict[str, Any]
@@ -308,8 +311,12 @@ class EditionRecordProcessor(RecordProcessor[OpenLibraryEdition]):
         works = data.get("works", [])
         if isinstance(works, list) and len(works) > 0:
             work_ref = works[0]
+            # Handle both dict format {"key": "/works/OL123W"}
+            # and string format "/works/OL123W"
             if isinstance(work_ref, dict):
                 return work_ref.get("key")
+            if isinstance(work_ref, str):
+                return work_ref
         return None
 
     def _extract_isbns(

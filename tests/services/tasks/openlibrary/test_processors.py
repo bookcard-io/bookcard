@@ -461,6 +461,8 @@ class TestEditionRecordProcessor:
         ("data", "expected"),
         [
             ({"works": [{"key": "/works/OL1W"}]}, "/works/OL1W"),
+            # Test case for string work format (similar fix to author)
+            ({"works": ["/works/OL1W"]}, "/works/OL1W"),
             ({"works": []}, None),
             ({}, None),
             ({"works": "not_a_list"}, None),
