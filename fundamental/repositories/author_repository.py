@@ -33,10 +33,7 @@ from fundamental.models.author_metadata import (
 )
 from fundamental.repositories.author_listing_components import (
     AuthorHydrator,
-    AuthorResultCombiner,
-    MappedIdsFetcher,
     MatchedAuthorQueryBuilder,
-    UnmatchedAuthorFetcher,
 )
 from fundamental.repositories.base import Repository
 
@@ -62,30 +59,22 @@ class AuthorRepository(Repository[AuthorMetadata]):
     def list_by_library(
         self,
         library_id: int,
-        calibre_db_path: str | None = None,
-        calibre_db_file: str = "metadata.db",
         page: int = 1,
         page_size: int = 20,
+        **_kwargs: object,  # Allow unused kwargs for backward compatibility
     ) -> tuple[list[AuthorMetadata], int]:
         """List authors mapped to a specific library with pagination.
-
-        Includes both matched authors (AuthorMetadata) and unmatched authors (Author).
-        Unmatched authors are returned as transient AuthorMetadata objects with
-        is_unmatched=True.
 
         Parameters
         ----------
         library_id : int
             Library identifier.
-        calibre_db_path : str | None
-            Path to Calibre database directory. If None, unmatched authors
-            will not be included.
-        calibre_db_file : str
-            Calibre database filename (default: 'metadata.db').
         page : int
             Page number (1-indexed, default: 1).
         page_size : int
             Number of items per page (default: 20).
+        **_kwargs
+            Unused kwargs (calibre_db_path, calibre_db_file) for backward compatibility.
 
         Returns
         -------
@@ -94,36 +83,18 @@ class AuthorRepository(Repository[AuthorMetadata]):
         """
         # Initialize components (IOC - dependency injection)
         query_builder = MatchedAuthorQueryBuilder()
-        ids_fetcher = MappedIdsFetcher(self._session)
-        unmatched_fetcher = UnmatchedAuthorFetcher(self._session)
-        combiner = AuthorResultCombiner()
+
+        # Count total authors (only matched authors now)
+        total = self._count_matched(query_builder, library_id)
+
+        # Fetch paginated results
+        paginated_results = self._fetch_matched_results(
+            query_builder, library_id, page, page_size
+        )
+
+        # Hydrate full objects
         hydrator = AuthorHydrator(self._session)
-
-        # 1. Get mapped IDs
-        mapped_ids = ids_fetcher.get_mapped_ids(library_id)
-
-        # 2. Fetch unmatched authors
-        unmatched_authors = unmatched_fetcher.fetch_unmatched(
-            mapped_ids, calibre_db_path, calibre_db_file
-        )
-
-        # 3. Count matched authors
-        count_matched = self._count_matched(query_builder, library_id)
-        count_unmatched = len(unmatched_authors)
-        total = count_matched + count_unmatched
-
-        # 4. Fetch matched results
-        matched_results = self._fetch_matched_results(query_builder, library_id)
-
-        # 5. Combine and paginate
-        paginated_results = combiner.combine_and_paginate(
-            matched_results, unmatched_authors, page, page_size
-        )
-
-        # 6. Hydrate full objects
-        final_results = self._hydrate_results(
-            paginated_results, hydrator, calibre_db_path, calibre_db_file
-        )
+        final_results = self._hydrate_results(paginated_results, hydrator)
 
         return final_results, total
 
@@ -152,7 +123,11 @@ class AuthorRepository(Repository[AuthorMetadata]):
             raise
 
     def _fetch_matched_results(
-        self, query_builder: MatchedAuthorQueryBuilder, library_id: int
+        self,
+        query_builder: MatchedAuthorQueryBuilder,
+        library_id: int,
+        page: int = 1,
+        page_size: int = 20,
     ) -> list:
         """Fetch matched author results.
 
@@ -162,6 +137,10 @@ class AuthorRepository(Repository[AuthorMetadata]):
             Query builder instance.
         library_id : int
             Library identifier.
+        page : int
+            Page number (1-indexed, default: 1).
+        page_size : int
+            Number of items per page (default: 20).
 
         Returns
         -------
@@ -170,6 +149,15 @@ class AuthorRepository(Repository[AuthorMetadata]):
         """
         try:
             matched_query = query_builder.build_query(library_id)
+
+            # Apply pagination
+            matched_query = matched_query.offset((page - 1) * page_size).limit(
+                page_size
+            )
+
+            # Add ordering
+            matched_query = matched_query.order_by(AuthorMetadata.name)  # type: ignore
+
             return list(self._session.exec(matched_query).all())  # type: ignore[no-matching-overload]
         except Exception:
             logger.exception("Error fetching matched authors")
@@ -179,8 +167,6 @@ class AuthorRepository(Repository[AuthorMetadata]):
         self,
         paginated_results: Sequence,
         hydrator: AuthorHydrator,
-        calibre_db_path: str | None,
-        calibre_db_file: str,
     ) -> list[AuthorMetadata]:
         """Hydrate full AuthorMetadata objects from result rows.
 
@@ -190,36 +176,20 @@ class AuthorRepository(Repository[AuthorMetadata]):
             Paginated result rows.
         hydrator : AuthorHydrator
             Author hydrator instance.
-        calibre_db_path : str | None
-            Path to Calibre database directory.
-        calibre_db_file : str
-            Calibre database filename.
 
         Returns
         -------
         list[AuthorMetadata]
             List of hydrated AuthorMetadata objects.
         """
-        matched_ids = [r.id for r in paginated_results if r.type == "matched"]
-        unmatched_ids = [r.id for r in paginated_results if r.type == "unmatched"]
-
+        # We only have matched authors now, but method might be extended
+        matched_ids = [r.id for r in paginated_results]
         matched_objs = hydrator.hydrate_matched(matched_ids)
 
-        unmatched_objs = {}
-        if unmatched_ids and calibre_db_path:
-            unmatched_objs = hydrator.create_unmatched_metadata(
-                unmatched_ids, calibre_db_path, calibre_db_file
-            )
-
         # Build final result list in the same order as paginated_results
-        final_results: list[AuthorMetadata] = []
-        for row in paginated_results:
-            if row.type == "matched" and row.id in matched_objs:
-                final_results.append(matched_objs[row.id])
-            elif row.type == "unmatched" and row.id in unmatched_objs:
-                final_results.append(unmatched_objs[row.id])
-
-        return final_results
+        return [
+            matched_objs[row.id] for row in paginated_results if row.id in matched_objs
+        ]
 
     def get_by_id_and_library(
         self,
@@ -301,12 +271,52 @@ class AuthorRepository(Repository[AuthorMetadata]):
         )
         return self._session.exec(stmt).first()
 
+    def get_by_calibre_id_and_library(
+        self,
+        calibre_author_id: int,
+        library_id: int,
+    ) -> AuthorMetadata | None:
+        """Get author by Calibre author ID and library.
+
+        Parameters
+        ----------
+        calibre_author_id : int
+            Calibre author identifier.
+        library_id : int
+            Library identifier.
+
+        Returns
+        -------
+        AuthorMetadata | None
+            Author if found and mapped, None otherwise.
+        """
+        stmt = (
+            select(AuthorMetadata)
+            .join(AuthorMapping, AuthorMetadata.id == AuthorMapping.author_metadata_id)
+            .where(
+                AuthorMapping.calibre_author_id == calibre_author_id,
+                AuthorMapping.library_id == library_id,
+            )
+            .options(
+                selectinload(AuthorMetadata.remote_ids),
+                selectinload(AuthorMetadata.photos),
+                selectinload(AuthorMetadata.alternate_names),
+                selectinload(AuthorMetadata.links),
+                selectinload(AuthorMetadata.works).selectinload(AuthorWork.subjects),
+                selectinload(AuthorMetadata.similar_to),
+                selectinload(AuthorMetadata.similar_from),
+            )
+        )
+        return self._session.exec(stmt).first()
+
     def get_similar_author_ids(
         self,
         author_id: int,
         limit: int = 6,
     ) -> list[int]:
         """Get IDs of similar authors ordered by similarity score.
+
+        Optimized to use a single query with OR condition and CASE expression.
 
         Parameters
         ----------
@@ -320,44 +330,41 @@ class AuthorRepository(Repository[AuthorMetadata]):
         list[int]
             List of similar author IDs, ordered by similarity score (descending).
         """
-        # Get similarities where this author is author1 (similar_author is author2)
-        similar_stmt1 = (
-            select(AuthorSimilarity)
-            .where(AuthorSimilarity.author1_id == author_id)
+        from sqlalchemy import case
+
+        # Single query using OR to get similarities in both directions
+        # Use CASE to extract the "other" author ID
+        stmt = (
+            select(
+                case(
+                    (
+                        AuthorSimilarity.author1_id == author_id,
+                        AuthorSimilarity.author2_id,
+                    ),  # type: ignore[attr-defined]
+                    else_=AuthorSimilarity.author1_id,  # type: ignore[attr-defined]
+                ).label("similar_author_id"),  # type: ignore[attr-defined]
+                AuthorSimilarity.similarity_score,  # type: ignore[attr-defined]
+            )
+            .where(
+                (AuthorSimilarity.author1_id == author_id)
+                | (AuthorSimilarity.author2_id == author_id)
+            )
             .order_by(AuthorSimilarity.similarity_score.desc())  # type: ignore[attr-defined]
-            .limit(limit)
+            .limit(limit * 2)  # Get more than needed to handle potential duplicates
         )
 
-        # Get similarities where this author is author2 (similar_author is author1)
-        similar_stmt2 = (
-            select(AuthorSimilarity)
-            .where(AuthorSimilarity.author2_id == author_id)
-            .order_by(AuthorSimilarity.similarity_score.desc())  # type: ignore[attr-defined]
-            .limit(limit)
-        )
-
-        # Collect similar authors with their similarity scores
-        similar_author_scores: list[tuple[int, float]] = [
-            (similarity.author2_id, similarity.similarity_score)
-            for similarity in self._session.exec(similar_stmt1).all()
-            if similarity.author2_id
-        ]
-        similar_author_scores.extend(
-            (similarity.author1_id, similarity.similarity_score)
-            for similarity in self._session.exec(similar_stmt2).all()
-            if similarity.author1_id
-        )
-
-        # Sort by similarity score (descending) and get unique author IDs
-        similar_author_scores.sort(key=lambda x: x[1], reverse=True)
+        # Execute and deduplicate
+        results = list(self._session.exec(stmt).all())
         seen_ids: set[int] = set()
         similar_author_ids: list[int] = []
-        for similar_id, _score in similar_author_scores:
-            if similar_id not in seen_ids:
+        for similar_id, _score in results:
+            if similar_id and similar_id not in seen_ids:
                 seen_ids.add(similar_id)
                 similar_author_ids.append(similar_id)
+                if len(similar_author_ids) >= limit:
+                    break
 
-        return similar_author_ids[:limit]
+        return similar_author_ids
 
     def is_author_in_library(
         self,
@@ -383,6 +390,69 @@ class AuthorRepository(Repository[AuthorMetadata]):
             AuthorMapping.library_id == library_id,
         )
         return self._session.exec(mapping_check).first() is not None
+
+    def get_similar_authors_in_library(
+        self,
+        author_id: int,
+        library_id: int,
+        limit: int = 6,
+    ) -> list[AuthorMetadata]:
+        """Get similar authors that are in a specific library.
+
+        Optimized to batch fetch authors and filter by library in a single query.
+
+        Parameters
+        ----------
+        author_id : int
+            Author identifier.
+        library_id : int
+            Library identifier to filter similar authors.
+        limit : int
+            Maximum number of similar authors to return (default: 6).
+
+        Returns
+        -------
+        list[AuthorMetadata]
+            List of similar authors in the library, ordered by similarity score.
+        """
+        # Get similar author IDs
+        similar_author_ids = self.get_similar_author_ids(author_id, limit=limit * 2)
+
+        if not similar_author_ids:
+            return []
+
+        # Batch fetch authors with library filtering in a single query
+        # Join with AuthorMapping to ensure authors are in the library
+        stmt = (
+            select(AuthorMetadata)
+            .join(
+                AuthorMapping,
+                AuthorMetadata.id == AuthorMapping.author_metadata_id,
+            )
+            .where(
+                AuthorMapping.library_id == library_id,
+                AuthorMetadata.id.in_(similar_author_ids),  # type: ignore[attr-defined]
+            )
+            .options(
+                selectinload(AuthorMetadata.remote_ids),
+                selectinload(AuthorMetadata.photos),
+                selectinload(AuthorMetadata.alternate_names),
+                selectinload(AuthorMetadata.links),
+                selectinload(AuthorMetadata.works).selectinload(AuthorWork.subjects),
+            )
+            .distinct()
+            .limit(limit)
+        )
+
+        authors = list(self._session.exec(stmt).all())
+
+        # Sort by original similarity order (preserve order from get_similar_author_ids)
+        author_map = {author.id: author for author in authors}
+        return [
+            author_map[similar_id]
+            for similar_id in similar_author_ids
+            if similar_id in author_map
+        ][:limit]
 
     def get_by_id(
         self,

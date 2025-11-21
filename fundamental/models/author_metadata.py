@@ -80,7 +80,8 @@ class AuthorMetadata(SQLModel, table=True):
     __tablename__ = "author_metadata"
 
     id: int | None = Field(default=None, primary_key=True)
-    openlibrary_key: str = Field(
+    openlibrary_key: str | None = Field(
+        default=None,
         unique=True,
         index=True,
         max_length=50,
@@ -436,6 +437,7 @@ class AuthorSimilarity(SQLModel, table=True):
     __table_args__ = (
         UniqueConstraint("author1_id", "author2_id", name="uq_author_similarity"),
         Index("idx_author_similarity_score", "author1_id", "similarity_score"),
+        Index("idx_author_similarity_score_author2", "author2_id", "similarity_score"),
     )
 
 

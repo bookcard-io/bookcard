@@ -26,6 +26,7 @@ from sqlmodel import Session, select
 from fundamental.models.author_metadata import (
     AuthorAlternateName,
     AuthorLink,
+    AuthorMapping,
     AuthorMetadata,
     AuthorPhoto,
     AuthorRemoteId,
@@ -156,19 +157,7 @@ class AuthorService:
             msg = "No active library found"
             raise ValueError(msg)
 
-        # Try to parse as integer ID first, otherwise treat as OpenLibrary key
-        try:
-            author_metadata_id = int(author_id)
-            author = self._author_repo.get_by_id_and_library(
-                author_metadata_id,
-                active_library.id,
-            )
-        except ValueError:
-            # Treat as OpenLibrary key
-            author = self._author_repo.get_by_openlibrary_key_and_library(
-                author_id,
-                active_library.id,
-            )
+        author = self._lookup_author(author_id, active_library.id)
 
         if not author:
             msg = f"Author not found: {author_id}"
@@ -186,6 +175,55 @@ class AuthorService:
                 author_data["similar_authors"] = similar_authors
 
         return author_data
+
+    def _lookup_author(self, author_id: str, library_id: int) -> AuthorMetadata | None:
+        """Lookup author by various key formats.
+
+        Parameters
+        ----------
+        author_id : str
+            Author identifier string.
+        library_id : int
+            Library identifier.
+
+        Returns
+        -------
+        AuthorMetadata | None
+            Author metadata object or None if not found.
+        """
+        # 1. Check for custom "calibre-{id}" format
+        if author_id.startswith("calibre-"):
+            try:
+                calibre_id = int(author_id.replace("calibre-", ""))
+                return self._author_repo.get_by_calibre_id_and_library(
+                    calibre_id, library_id
+                )
+            except ValueError:
+                pass
+
+        # 2. Check for custom "local-{id}" format
+        if author_id.startswith("local-"):
+            try:
+                metadata_id = int(author_id.replace("local-", ""))
+                return self._author_repo.get_by_id_and_library(metadata_id, library_id)
+            except ValueError:
+                pass
+
+        # 3. Try to parse as integer ID (standard lookup by metadata ID)
+        try:
+            author_metadata_id = int(author_id)
+            return self._author_repo.get_by_id_and_library(
+                author_metadata_id,
+                library_id,
+            )
+        except ValueError:
+            pass
+
+        # 4. Treat as OpenLibrary key
+        return self._author_repo.get_by_openlibrary_key_and_library(
+            author_id,
+            library_id,
+        )
 
     def fetch_author_metadata(
         self,
@@ -300,6 +338,8 @@ class AuthorService:
     ) -> list[dict[str, object]]:
         """Get similar authors for a given author, filtered by library.
 
+        Optimized to batch fetch authors and filter by library in a single query.
+
         Parameters
         ----------
         author_id : int
@@ -314,26 +354,14 @@ class AuthorService:
         list[dict[str, object]]
             List of similar author dictionaries.
         """
-        similar_author_ids = self._author_repo.get_similar_author_ids(
+        # Batch fetch similar authors with library filtering in a single query
+        similar_authors = self._author_repo.get_similar_authors_in_library(
             author_id,
+            library_id,
             limit=limit,
         )
 
-        similar_authors: list[dict[str, object]] = []
-        for similar_author_id in similar_author_ids:
-            # Check if this similar author is in the active library
-            if not self._author_repo.is_author_in_library(
-                similar_author_id,
-                library_id,
-            ):
-                continue
-
-            # Fetch the similar author
-            similar_author = self._author_repo.get_by_id(similar_author_id)
-            if similar_author:
-                similar_authors.append(self._build_author_dict(similar_author))
-
-        return similar_authors
+        return [self._build_author_dict(author) for author in similar_authors]
 
     def _build_remote_ids_dict(self, author: AuthorMetadata) -> dict[str, str]:
         """Build remote IDs dictionary.
@@ -458,6 +486,62 @@ class AuthorService:
                 "is_unmatched": True,
                 "location": "Local Library (Unmatched)",  # Placeholder
             }
+
+        # Handle unmatched authors that have been persisted (matched_by="unmatched")
+        # These have an ID but openlibrary_key is None
+        if author.openlibrary_key is None:
+            # Use Calibre ID from mapping if available, otherwise fallback to metadata ID
+            key = f"local-{author.id}"
+
+            # Try to find the associated Calibre ID via mappings
+            # Ensure mappings are loaded if not present
+            if not getattr(author, "mappings", None):
+                author.mappings = list(
+                    self._session.exec(
+                        select(AuthorMapping).where(
+                            AuthorMapping.author_metadata_id == author.id
+                        )
+                    ).all()
+                )
+
+            if getattr(author, "mappings", None):
+                # Use the first mapping's calibre_author_id
+                # In practice, there should be one per library
+                calibre_id = author.mappings[0].calibre_author_id
+                key = f"calibre-{calibre_id}"
+
+            # Ensure relationships are loaded (even for unmatched, we might have local data later)
+            self._ensure_relationships_loaded(author)
+
+            # Build component dictionaries and lists
+            remote_ids = self._build_remote_ids_dict(author)
+            photos = self._build_photos_list(author)
+            alternate_names = [alt_name.name for alt_name in author.alternate_names]
+            links = self._build_links_list(author)
+            subjects = self._build_subjects_list(author)
+            bio = self._build_bio_dict(author.biography)
+
+            # Build author object matching OpenLibrary format but for local author
+            author_data: dict[str, object] = {
+                "name": author.name,
+                "key": key,
+                "is_unmatched": True,
+                "location": author.location or "Local Library (Unmatched)",
+            }
+
+            # Add optional fields
+            self._add_optional_fields(
+                author_data,
+                author,
+                bio,
+                remote_ids,
+                photos,
+                alternate_names,
+                links,
+                subjects,
+            )
+
+            return author_data
 
         # Ensure relationships are loaded
         self._ensure_relationships_loaded(author)

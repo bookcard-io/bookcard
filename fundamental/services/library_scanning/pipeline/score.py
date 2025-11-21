@@ -987,6 +987,11 @@ class ScoreStage(PipelineStage):
                         author2.name,
                     )
 
+                    # Batch commit every 100 similarities to ensure data is persisted
+                    # even if the process is interrupted or fails later
+                    if similarities_created % 100 == 0:
+                        context.session.commit()
+
                 pairs_processed += 1
 
                 # Update progress

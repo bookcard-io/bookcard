@@ -23,6 +23,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from fundamental.database import create_db_engine, get_session
+from fundamental.models.author_metadata import AuthorMetadata
 from fundamental.models.core import Author
 from fundamental.services.library_scanning.data_sources.registry import (
     DataSourceRegistry,
@@ -32,6 +33,7 @@ from fundamental.services.library_scanning.matching.orchestrator import (
 )
 from fundamental.services.library_scanning.pipeline.link_components import (
     AuthorMappingRepository,
+    MappingData,
 )
 from fundamental.services.library_scanning.workers.base import BaseWorker
 from fundamental.services.library_scanning.workers.progress import JobProgressTracker
@@ -133,6 +135,55 @@ class MatchWorker(BaseWorker):
             days_since = (now - mapping_date).days
             return days_since < self.stale_data_max_age_days
 
+    def _handle_unmatched_author(
+        self, author: Author, library_id: int, task_id: int | None
+    ) -> None:
+        """Handle case where no match is found for an author.
+
+        Creates an AuthorMetadata record with openlibrary_key=None and links it.
+        """
+        if author.id is None:
+            msg = "Author ID cannot be None for unmatched handling"
+            raise ValueError(msg)
+
+        logger.info("No match found for %s - creating unmatched record", author.name)
+
+        with get_session(self.engine) as session:
+            # Create unmatched metadata
+            unmatched_metadata = AuthorMetadata(
+                name=author.name,
+                openlibrary_key=None,
+            )
+            session.add(unmatched_metadata)
+            session.flush()
+
+            if unmatched_metadata.id is None:
+                msg = "Failed to generate ID for unmatched metadata"
+                raise ValueError(msg)
+
+            # Create or update mapping
+            mapping_repo = AuthorMappingRepository(session)
+            existing_mapping = mapping_repo.find_by_calibre_author_id_and_library(
+                author.id, library_id
+            )
+
+            mapping_data = MappingData(
+                library_id=library_id,
+                calibre_author_id=author.id,
+                author_metadata_id=unmatched_metadata.id,
+                confidence_score=0.0,
+                matched_by="unmatched",
+            )
+
+            if existing_mapping:
+                mapping_repo.update(existing_mapping, mapping_data)
+            else:
+                mapping_repo.create(mapping_data)
+
+            session.commit()
+
+        self._check_completion(library_id, task_id)
+
     def process(self, payload: dict[str, Any]) -> dict[str, Any] | None:
         """Process an author match request.
 
@@ -217,8 +268,8 @@ class MatchWorker(BaseWorker):
                     "calibre_author_id": author.id,
                     "author_name": author.name,
                 }
-            logger.info("No match found for %s", author.name)
-            self._check_completion(library_id, task_id)
+
+            self._handle_unmatched_author(author, library_id, task_id)
         except Exception:
             logger.exception("Error matching author %s", author.name)
             # On error, we also mark as processed (failed but done) to avoid hanging the job

@@ -20,7 +20,6 @@ import os
 
 from fundamental.services.library_scanning.workers.completion import CompletionWorker
 from fundamental.services.library_scanning.workers.crawl import CrawlWorker
-from fundamental.services.library_scanning.workers.deduplicate import DeduplicateWorker
 from fundamental.services.library_scanning.workers.ingest import IngestWorker
 from fundamental.services.library_scanning.workers.link import LinkWorker
 from fundamental.services.library_scanning.workers.match import MatchWorker
@@ -50,7 +49,6 @@ class ScanWorkerManager:
             | MatchWorker
             | IngestWorker
             | LinkWorker
-            | DeduplicateWorker
             | ScoreWorker
             | CompletionWorker
         ] = []
@@ -77,7 +75,6 @@ class ScanWorkerManager:
                 MatchWorker(self.broker, data_source_name="openlibrary"),
                 IngestWorker(self.broker, data_source_name="openlibrary_dump"),
                 LinkWorker(self.broker),
-                DeduplicateWorker(self.broker),
                 ScoreWorker(self.broker),
                 CompletionWorker(self.broker),
             ])

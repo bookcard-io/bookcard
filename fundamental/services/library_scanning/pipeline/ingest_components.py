@@ -61,6 +61,8 @@ logger = logging.getLogger(__name__)
 
 # OpenLibrary covers base URL
 OPENLIBRARY_COVERS_BASE = "https://covers.openlibrary.org"
+MAX_UNIQUE_SUBJECTS = 100
+MAX_WORKS_TO_QUERY = 1000
 
 
 # ============================================================================
@@ -1445,6 +1447,22 @@ class WorkBasedSubjectStrategy(SubjectFetchStrategy):
 
             # Fetch each work and extract subjects
             for idx, work_key in enumerate(work_keys, start=1):
+                if len(subjects) >= MAX_UNIQUE_SUBJECTS:
+                    logger.info(
+                        "Reached max unique subjects (%d) for author %s, stopping work fetch",
+                        MAX_UNIQUE_SUBJECTS,
+                        author_key,
+                    )
+                    break
+
+                if idx > MAX_WORKS_TO_QUERY:
+                    logger.info(
+                        "Reached max works to query (%d) for author %s, stopping work fetch",
+                        MAX_WORKS_TO_QUERY,
+                        author_key,
+                    )
+                    break
+
                 work_data = self.data_fetcher.fetch_work(work_key)
                 if work_data and work_data.subjects:
                     subjects.update(work_data.subjects)

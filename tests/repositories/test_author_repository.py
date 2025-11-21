@@ -373,8 +373,6 @@ class TestAuthorRepositoryListByLibrary:
         result = author_repo._hydrate_results(
             paginated_results,
             mock_hydrator,
-            "/path/to/db" if has_calibre_path else None,
-            "metadata.db",
         )
 
         if has_unmatched and has_calibre_path:
