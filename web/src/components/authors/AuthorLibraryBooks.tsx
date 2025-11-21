@@ -27,6 +27,20 @@ export interface AuthorLibraryBooksProps {
   onBookClick?: (book: Book) => void;
   /** Callback when a book edit button is clicked. */
   onBookEdit?: (bookId: number) => void;
+  /** Ref to expose methods for updating book data, cover, removing books, and adding books. */
+  bookDataUpdateRef?: React.RefObject<{
+    updateBook: (bookId: number, bookData: Partial<Book>) => void;
+    updateCover: (bookId: number) => void;
+    removeBook?: (bookId: number) => void;
+    addBook?: (bookId: number) => Promise<void>;
+  } | null>;
+  /** Callback to expose book navigation data (bookIds, loadMore, hasMore, isLoading) for modal navigation. */
+  onBooksDataChange?: (data: {
+    bookIds: number[];
+    loadMore?: () => void;
+    hasMore?: boolean;
+    isLoading: boolean;
+  }) => void;
 }
 
 /**
@@ -45,17 +59,31 @@ export function AuthorLibraryBooks({
   author,
   onBookClick,
   onBookEdit,
+  bookDataUpdateRef: externalBookDataUpdateRef,
+  onBooksDataChange,
 }: AuthorLibraryBooksProps) {
-  const bookDataUpdateRef = useRef<{
+  // Use external ref if provided, otherwise create internal one
+  const internalBookDataUpdateRef = useRef<{
     updateBook: (bookId: number, bookData: Partial<Book>) => void;
     updateCover: (bookId: number) => void;
     removeBook?: (bookId: number) => void;
     addBook?: (bookId: number) => Promise<void>;
   } | null>(null);
 
-  const handleBooksDataChange = useCallback(() => {
-    // No-op for now, can be used for navigation if needed
-  }, []);
+  const bookDataUpdateRef =
+    externalBookDataUpdateRef || internalBookDataUpdateRef;
+
+  const handleBooksDataChange = useCallback(
+    (data: {
+      bookIds: number[];
+      loadMore?: () => void;
+      hasMore?: boolean;
+      isLoading: boolean;
+    }) => {
+      onBooksDataChange?.(data);
+    },
+    [onBooksDataChange],
+  );
 
   return (
     <div className="flex flex-col gap-4">

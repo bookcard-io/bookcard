@@ -202,18 +202,16 @@ export function AuthorHeader({
               onClick={handleFetchMetadata}
               disabled={isFetchingMetadata}
               className="flex items-center gap-2 rounded-md bg-[var(--color-primary-a0)] px-4 py-2 font-medium text-[var(--color-text-primary-a0)] text-sm transition-colors hover:bg-[var(--color-primary-a10)] focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 active:bg-[var(--color-primary-a20)] disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label="Fetch metadata"
+              aria-label="Match author"
             >
               <i
                 className={cn(
                   "pi",
-                  isFetchingMetadata ? "pi-spin pi-spinner" : "pi-refresh",
+                  isFetchingMetadata ? "pi-spin pi-spinner" : "pi-id-card",
                 )}
                 aria-hidden="true"
               />
-              <span>
-                {isFetchingMetadata ? "Fetching..." : "Fetch metadata"}
-              </span>
+              <span>{isFetchingMetadata ? "Matching..." : "Match author"}</span>
             </button>
             <button
               type="button"

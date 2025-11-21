@@ -33,6 +33,13 @@ export interface AuthorCollaborationsProps {
   onBookClick?: (book: Book) => void;
   /** Callback when a book edit button is clicked. */
   onBookEdit?: (bookId: number) => void;
+  /** Ref to expose methods for updating book data, cover, removing books, and adding books. */
+  bookDataUpdateRef?: React.RefObject<{
+    updateBook: (bookId: number, bookData: Partial<Book>) => void;
+    updateCover: (bookId: number) => void;
+    removeBook?: (bookId: number) => void;
+    addBook?: (bookId: number) => Promise<void>;
+  } | null>;
 }
 
 /**
@@ -52,6 +59,7 @@ export function AuthorCollaborations({
   collaborationBooks,
   onBookClick,
   onBookEdit,
+  bookDataUpdateRef,
 }: AuthorCollaborationsProps) {
   // Don't render if no collaboration books
   if (!collaborationBooks || collaborationBooks.length === 0) {
@@ -75,6 +83,7 @@ export function AuthorCollaborations({
           searchQuery={author.name}
           onBookClick={onBookClick}
           onBookEdit={onBookEdit}
+          bookDataUpdateRef={bookDataUpdateRef}
           onBooksDataChange={handleBooksDataChange}
           sortBy="title"
           sortOrder="asc"

@@ -15,8 +15,11 @@
 
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { BookEditModal } from "@/components/books/BookEditModal";
+import { BookViewModal } from "@/components/books/BookViewModal";
+import { useBookEditModal } from "@/hooks/useBookEditModal";
+import { useBookViewModal } from "@/hooks/useBookViewModal";
 import type { AuthorWithMetadata } from "@/types/author";
 import type { Book } from "@/types/book";
 import { AuthorCollaborations } from "./AuthorCollaborations";
@@ -51,8 +54,37 @@ export function AuthorDetailView({
   onBack,
   onRefetch,
 }: AuthorDetailViewProps) {
-  const router = useRouter();
   const [showFullBio, setShowFullBio] = useState(false);
+
+  // Book data update ref for updating grid when books are edited
+  const bookDataUpdateRef = useRef<{
+    updateBook: (bookId: number, bookData: Partial<Book>) => void;
+    updateCover: (bookId: number) => void;
+    removeBook?: (bookId: number) => void;
+    addBook?: (bookId: number) => Promise<void>;
+  } | null>(null);
+
+  // Store book navigation data from BooksGrid (for modal navigation)
+  const [booksNavigationData, setBooksNavigationData] = useState<{
+    bookIds: number[];
+    loadMore?: () => void;
+    hasMore?: boolean;
+    isLoading: boolean;
+  }>({
+    bookIds: [],
+    isLoading: false,
+  });
+
+  // Book view modal state with book IDs for navigation
+  const bookModal = useBookViewModal({
+    bookIds: booksNavigationData.bookIds,
+    loadMore: booksNavigationData.loadMore,
+    hasMore: booksNavigationData.hasMore,
+    isLoading: booksNavigationData.isLoading,
+  });
+
+  // Book edit modal state
+  const bookEditModal = useBookEditModal();
 
   const handleToggleBio = useCallback(() => {
     setShowFullBio((prev) => !prev);
@@ -60,16 +92,16 @@ export function AuthorDetailView({
 
   const handleBookClick = useCallback(
     (book: Book) => {
-      router.push(`/books/${book.id}/view`);
+      bookModal.handleBookClick(book);
     },
-    [router],
+    [bookModal],
   );
 
   const handleBookEdit = useCallback(
     (bookId: number) => {
-      router.push(`/books/${bookId}/edit`);
+      bookEditModal.handleEditBook(bookId);
     },
-    [router],
+    [bookEditModal],
   );
 
   return (
@@ -89,6 +121,8 @@ export function AuthorDetailView({
             author={author}
             onBookClick={handleBookClick}
             onBookEdit={handleBookEdit}
+            bookDataUpdateRef={bookDataUpdateRef}
+            onBooksDataChange={setBooksNavigationData}
           />
         </div>
 
@@ -100,6 +134,7 @@ export function AuthorDetailView({
               collaborationBooks={author.collaborations}
               onBookClick={handleBookClick}
               onBookEdit={handleBookEdit}
+              bookDataUpdateRef={bookDataUpdateRef}
             />
           </div>
         )}
@@ -112,6 +147,36 @@ export function AuthorDetailView({
           />
         </div>
       </div>
+
+      {/* Book View Modal */}
+      <BookViewModal
+        bookId={bookModal.viewingBookId}
+        onClose={bookModal.handleCloseModal}
+        onNavigatePrevious={bookModal.handleNavigatePrevious}
+        onNavigateNext={bookModal.handleNavigateNext}
+        onEdit={bookEditModal.handleEditBook}
+        onBookDeleted={(bookId) => {
+          bookDataUpdateRef.current?.removeBook?.(bookId);
+        }}
+      />
+
+      {/* Book Edit Modal */}
+      {bookEditModal.editingBookId !== null && (
+        <BookEditModal
+          bookId={bookEditModal.editingBookId}
+          onClose={bookEditModal.handleCloseModal}
+          onCoverSaved={(bookId) => {
+            bookDataUpdateRef.current?.updateCover(bookId);
+          }}
+          onBookSaved={(book) => {
+            bookDataUpdateRef.current?.updateBook(book.id, {
+              title: book.title,
+              authors: book.authors,
+              thumbnail_url: book.thumbnail_url,
+            });
+          }}
+        />
+      )}
     </div>
   );
 }
