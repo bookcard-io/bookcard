@@ -50,7 +50,7 @@ class IngestWorker(BaseWorker):
         data_source_name: str = "openlibrary",
         stale_data_max_age_days: int | None = None,
         stale_data_refresh_interval_days: int | None = None,
-        completion_topic: str = "deduplicate_jobs",
+        completion_topic: str = "score_jobs",
     ) -> None:
         """Initialize ingest worker.
 

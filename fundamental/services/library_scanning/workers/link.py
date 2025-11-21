@@ -40,7 +40,7 @@ class LinkWorker(BaseWorker):
         broker: MessageBroker,
         input_topic: str = "link_queue",
         output_topic: str | None = None,  # End of per-item pipeline
-        completion_topic: str = "deduplicate_jobs",
+        completion_topic: str = "score_jobs",
     ) -> None:
         """Initialize link worker.
 

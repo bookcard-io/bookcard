@@ -54,7 +54,7 @@ class MatchWorker(BaseWorker):
         min_confidence: float = 0.5,
         stale_data_max_age_days: int | None = None,
         data_source_name: str = "openlibrary",
-        completion_topic: str = "deduplicate_jobs",
+        completion_topic: str = "score_jobs",
     ) -> None:
         """Initialize match worker.
 

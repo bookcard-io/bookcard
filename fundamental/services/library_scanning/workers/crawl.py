@@ -120,10 +120,10 @@ class CrawlWorker(BaseWorker):
 
                     if total_authors_count == 0:
                         # If no authors, we are done immediately.
-                        # Trigger deduplication directly as there is no work to flow down.
-                        logger.info("No authors found, skipping to deduplication")
+                        # Trigger scoring directly as there is no work to flow down.
+                        logger.info("No authors found, skipping to scoring")
                         self.broker.publish(
-                            "deduplicate_jobs",
+                            "score_jobs",
                             {"library_id": library_id, "task_id": task_id},
                         )
                         return None
