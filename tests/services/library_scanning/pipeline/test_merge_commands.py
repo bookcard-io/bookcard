@@ -903,9 +903,11 @@ class TestAuthorMerger:
         merge_author: AuthorMetadata,
     ) -> None:
         """Test merge executes all commands."""
-        pipeline_context.session.set_exec_result([])  # type: ignore[attr-defined]  # No library mappings
+        pipeline_context.session.set_exec_result([])  # type: ignore[attr-defined]  # Keep library mapping check
+        pipeline_context.session.add_exec_result([])  # type: ignore[attr-defined]  # Merge library mapping check
         pipeline_context.session.add_exec_result([])  # type: ignore[attr-defined]  # Keep works
         pipeline_context.session.add_exec_result([])  # type: ignore[attr-defined]  # Merge works
+        pipeline_context.session.add_exec_result([])  # type: ignore[attr-defined]  # Remaining works check
         pipeline_context.session.add_exec_result([])  # type: ignore[attr-defined]  # Final keep works
         merger = AuthorMerger()
 
@@ -927,10 +929,12 @@ class TestAuthorMerger:
             keep_score=0.9,
             merge_score=0.8,
         )
-        pipeline_context.session.set_exec_result([])  # type: ignore[attr-defined]
-        pipeline_context.session.add_exec_result([])  # type: ignore[attr-defined]
-        pipeline_context.session.add_exec_result([])  # type: ignore[attr-defined]
-        pipeline_context.session.add_exec_result([])  # type: ignore[attr-defined]
+        pipeline_context.session.set_exec_result([])  # type: ignore[attr-defined]  # Keep library mapping check
+        pipeline_context.session.add_exec_result([])  # type: ignore[attr-defined]  # Merge library mapping check
+        pipeline_context.session.add_exec_result([])  # type: ignore[attr-defined]  # Keep works
+        pipeline_context.session.add_exec_result([])  # type: ignore[attr-defined]  # Merge works
+        pipeline_context.session.add_exec_result([])  # type: ignore[attr-defined]  # Remaining works check
+        pipeline_context.session.add_exec_result([])  # type: ignore[attr-defined]  # Final keep works
         merger = AuthorMerger()
 
         merger.merge_pair(pipeline_context, pair)
@@ -956,8 +960,9 @@ class TestAuthorMerger:
             keep_score=0.9,
             merge_score=0.8,
         )
-        pipeline_context.session.set_exec_result([])  # type: ignore[attr-defined]
-        for _ in range(8):  # Multiple queries per merge
+        # Setup results for 2 merges, each needs 6 queries
+        pipeline_context.session.set_exec_result([])  # type: ignore[attr-defined]  # First merge: keep mapping
+        for _ in range(11):  # 5 more for first merge + 6 for second merge
             pipeline_context.session.add_exec_result([])  # type: ignore[attr-defined]
         merger = AuthorMerger()
 
@@ -986,10 +991,13 @@ class TestAuthorMerger:
             keep_score=0.9,
             merge_score=0.8,
         )
-        pipeline_context.session.set_exec_result([])  # type: ignore[attr-defined]
-        pipeline_context.session.add_exec_result([])  # type: ignore[attr-defined]
-        pipeline_context.session.add_exec_result([])  # type: ignore[attr-defined]
-        pipeline_context.session.add_exec_result([])  # type: ignore[attr-defined]
+        # Setup results for 2 merges, first succeeds, second fails
+        pipeline_context.session.set_exec_result([])  # type: ignore[attr-defined]  # First merge: keep mapping
+        for _ in range(5):  # Remaining queries for first merge
+            pipeline_context.session.add_exec_result([])  # type: ignore[attr-defined]
+        # Second merge will fail, but still needs mapping checks
+        pipeline_context.session.add_exec_result([])  # type: ignore[attr-defined]  # Second merge: keep mapping
+        pipeline_context.session.add_exec_result([])  # type: ignore[attr-defined]  # Second merge: merge mapping
         # Make second merge fail
         merger = AuthorMerger()
         merger.commands[0].execute = MagicMock(  # type: ignore[assignment]

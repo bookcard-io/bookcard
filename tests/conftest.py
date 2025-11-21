@@ -169,6 +169,23 @@ class DummySession:
     def close(self) -> None:
         """Simulate closing the session."""
 
+    @property
+    def no_autoflush(self) -> "DummySession":
+        """Context manager to disable autoflush (returns self for context manager)."""
+        return self
+
+    def __enter__(self) -> "DummySession":
+        """Enter context manager."""
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
+        """Exit context manager."""
+
 
 @dataclass
 class InMemoryUser:

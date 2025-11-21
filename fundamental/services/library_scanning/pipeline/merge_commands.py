@@ -383,19 +383,19 @@ class MergeWorks(MergeCommand):
             # Neither author has an ID, so there are no persisted works to merge.
             return
 
-        existing_work_keys = {work.work_key for work in final_author.works}
+        existing_work_keys = {w.work_key for w in final_author.works}
 
         logger.debug(
             "MergeWorks: final_author.id=%s initially has %d works (ids=%s)",
             getattr(final_author, "id", None),
             len(final_author.works),
-            [work.id for work in final_author.works],
+            [w.id for w in final_author.works],
         )
         logger.debug(
             "MergeWorks: source_author.id=%s initially has %d works (ids=%s)",
             getattr(source_author, "id", None),
             len(source_author.works),
-            [work.id for work in source_author.works],
+            [w.id for w in source_author.works],
         )
 
         # Use relationship-based operations so SQLAlchemy properly tracks
@@ -454,29 +454,16 @@ class MergeWorks(MergeCommand):
                         # Add to relationship for proper tracking
                         final_author.works.append(work)
                     existing_work_keys.add(work.work_key)
-            else:
-                logger.debug(
-                    "MergeWorks: moving work id=%s key=%s from source_author.id=%s "
-                    "to final_author.id=%s",
-                    work.id,
-                    work.work_key,
-                    getattr(source_author, "id", None),
-                    getattr(final_author, "id", None),
-                )
-                # Move work to final author - subjects will be preserved
-                # since author_work_id doesn't change (only author_metadata_id changes)
-                final_author.works.append(work)
-                existing_work_keys.add(work.work_key)
 
         logger.debug(
             "MergeWorks: after merge, final_author.id=%s has %d works (ids=%s); "
             "source_author.id=%s has %d works (ids=%s)",
             getattr(final_author, "id", None),
             len(final_author.works),
-            [work.id for work in final_author.works],
+            [w.id for w in final_author.works],
             getattr(source_author, "id", None),
             len(source_author.works),
-            [work.id for work in source_author.works],
+            [w.id for w in source_author.works],
         )
 
 
@@ -580,7 +567,7 @@ class UpdateReferences(MergeCommand):
             mapping.author_metadata_id = keep.id
             mapping.updated_at = datetime.now(UTC)
             logger.debug(
-                "Updated AuthorMapping %d to point to merged record %d",
+                "Updated AuthorMapping %s to point to merged record %s",
                 mapping.id,
                 keep.id,
             )
@@ -725,12 +712,12 @@ class AuthorMerger:
             keep_works = context.session.exec(
                 select(AuthorWork).where(AuthorWork.author_metadata_id == keep.id)
             ).all()
-            keep_work_ids = [work.id for work in keep_works]
+            keep_work_ids = [w.id for w in keep_works]
         if merge.id is not None:
             merge_works = context.session.exec(
                 select(AuthorWork).where(AuthorWork.author_metadata_id == merge.id)
             ).all()
-            merge_work_ids = [work.id for work in merge_works]
+            merge_work_ids = [w.id for w in merge_works]
 
         logger.debug(
             "AuthorMerger.merge: before commands, keep.id=%s has %d works (ids=%s); "
@@ -772,8 +759,8 @@ class AuthorMerger:
                 "integrity. work_ids=%s, work_keys=%s",
                 len(remaining_works),
                 merge.id,
-                [work.id for work in remaining_works],
-                [work.work_key for work in remaining_works],
+                [w.id for w in remaining_works],
+                [w.work_key for w in remaining_works],
             )
             # Delete subjects first to avoid NOT NULL constraint violations
             with context.session.no_autoflush:
@@ -846,7 +833,7 @@ class AuthorMerger:
                 "AuthorMerger.merge: after commands, keep.id=%s has %d works (ids=%s)",
                 keep.id,
                 len(final_keep_works),
-                [work.id for work in final_keep_works],
+                [w.id for w in final_keep_works],
             )
 
         # Finally, delete the merged record now that all related rows have been

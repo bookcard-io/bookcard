@@ -868,7 +868,7 @@ class TestOpenLibraryDataSourceSearchAuthor:
             result = data_source.search_author("Test Author")
 
         assert len(result) == 1
-        assert result[0].key == "OL123A"
+        assert result[0].key == "/authors/OL123A"
         assert result[0].name == "Test Author"
 
     def test_search_author_with_identifiers(
@@ -899,7 +899,7 @@ class TestOpenLibraryDataSourceSearchAuthor:
             result = data_source.search_author("Test Author")
 
         assert len(result) == 1
-        assert result[0].key == "OL123A"
+        assert result[0].key == "/authors/OL123A"
 
     def test_search_author_filters_photo_ids(
         self,
@@ -1091,7 +1091,7 @@ class TestOpenLibraryDataSourceGetAuthor:
             result = data_source.get_author("OL123A")
 
         assert result is not None
-        assert result.key == "OL123A"
+        assert result.key == "/authors/OL123A"
         assert result.name == "Test Author"
         assert result.biography == "Test biography"
 
@@ -1108,7 +1108,7 @@ class TestOpenLibraryDataSourceGetAuthor:
             result = data_source.get_author("/authors/OL123A")
 
         assert result is not None
-        assert result.key == "OL123A"
+        assert result.key == "/authors/OL123A"
 
     def test_get_author_not_found(
         self,
