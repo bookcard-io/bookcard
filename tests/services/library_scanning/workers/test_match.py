@@ -202,6 +202,9 @@ class TestMatchWorkerProcess:
             else:
                 worker.orchestrator.match = MagicMock(return_value=None)  # type: ignore[assignment]
 
+            # Mock _has_existing_match to avoid SQLAlchemy query with mocked AuthorMetadata
+            worker._has_existing_match = MagicMock(return_value=False)  # type: ignore[method-assign]
+
             # Mock session for _handle_unmatched_author when needed (when no match and author_id is not None)
             # This needs to be done for all cases where _handle_unmatched_author might be called
             with patch(
@@ -264,6 +267,11 @@ class TestMatchWorkerProcess:
             mock_progress_tracker = mock_progress_class.return_value
             mock_progress_tracker.is_cancelled.return_value = False
             mock_progress_tracker.mark_item_processed.return_value = False
+
+            # Mock _has_existing_match to avoid SQLAlchemy query issues
+            worker._has_existing_match = MagicMock(return_value=False)  # type: ignore[method-assign]
+            # Mock _check_completion to avoid any side effects
+            worker._check_completion = MagicMock()  # type: ignore[method-assign]
 
             worker.orchestrator.match = MagicMock(side_effect=ValueError("Match error"))  # type: ignore[assignment]
 
@@ -438,6 +446,9 @@ class TestMatchWorkerShouldSkipMatch:
                 mock_redis_broker, stale_data_max_age_days=stale_max_age
             )
 
+            # Mock _has_existing_match to avoid SQLAlchemy query issues
+            worker._has_existing_match = MagicMock(return_value=False)  # type: ignore[method-assign]
+
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
 
@@ -492,6 +503,9 @@ class TestMatchWorkerShouldSkipMatch:
 
             worker = MatchWorker(mock_redis_broker, stale_data_max_age_days=30)
 
+            # Mock _has_existing_match to avoid SQLAlchemy query issues
+            worker._has_existing_match = MagicMock(return_value=False)  # type: ignore[method-assign]
+
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
 
@@ -538,6 +552,9 @@ class TestMatchWorkerShouldSkipMatch:
 
             worker = MatchWorker(mock_redis_broker, stale_data_max_age_days=30)
 
+            # Mock _has_existing_match to avoid SQLAlchemy query issues
+            worker._has_existing_match = MagicMock(return_value=False)  # type: ignore[method-assign]
+
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
 
@@ -580,6 +597,9 @@ class TestMatchWorkerShouldSkipMatch:
             mock_registry.create_source.return_value = mock_data_source
 
             worker = MatchWorker(mock_redis_broker, stale_data_max_age_days=30)
+
+            # Mock _has_existing_match to avoid SQLAlchemy query issues
+            worker._has_existing_match = MagicMock(return_value=False)  # type: ignore[method-assign]
 
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -625,6 +645,9 @@ class TestMatchWorkerProcessSkipMatch:
             mock_registry.create_source.return_value = mock_data_source
 
             worker = MatchWorker(mock_redis_broker, stale_data_max_age_days=30)
+
+            # Mock _has_existing_match to avoid SQLAlchemy query issues
+            worker._has_existing_match = MagicMock(return_value=False)  # type: ignore[method-assign]
 
             mock_progress_tracker = mock_progress_class.return_value
             mock_progress_tracker.is_cancelled.return_value = False

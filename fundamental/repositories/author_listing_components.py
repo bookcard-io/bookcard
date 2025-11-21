@@ -109,8 +109,11 @@ class MatchedAuthorQueryBuilder:
         select
             SQLModel select statement for counting matched authors.
         """
-        matched_query = MatchedAuthorQueryBuilder.build_query(library_id)
-        return select(func.count()).select_from(matched_query.subquery())
+        return (
+            select(func.count(AuthorMetadata.id))  # type: ignore
+            .join(AuthorMapping, AuthorMetadata.id == AuthorMapping.author_metadata_id)
+            .where(AuthorMapping.library_id == library_id)
+        )
 
 
 class MappedIdsFetcher:

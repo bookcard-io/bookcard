@@ -21,9 +21,10 @@ from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import ValidationError
+from sqlmodel import select
 
 from fundamental.database import create_db_engine, get_session
-from fundamental.models.author_metadata import AuthorMetadata
+from fundamental.models.author_metadata import AuthorMapping, AuthorMetadata
 from fundamental.models.core import Author
 from fundamental.services.library_scanning.data_sources.registry import (
     DataSourceRegistry,
@@ -108,12 +109,78 @@ class MatchWorker(BaseWorker):
                     {"library_id": library_id, "task_id": task_id},
                 )
 
+    def _has_existing_match(
+        self,
+        calibre_author_id: int,
+        library_id: int,
+    ) -> bool:
+        """Check if author already has a valid match (not unmatched).
+
+        Parameters
+        ----------
+        calibre_author_id : int
+            Calibre author ID.
+        library_id : int
+            Library ID.
+
+        Returns
+        -------
+        bool
+            True if author has an existing valid match, False otherwise.
+        """
+        with get_session(self.engine) as session:
+            # Query mapping with join to check metadata
+            stmt = (
+                select(AuthorMapping, AuthorMetadata)
+                .join(
+                    AuthorMetadata,
+                    AuthorMapping.author_metadata_id == AuthorMetadata.id,
+                )
+                .where(
+                    AuthorMapping.calibre_author_id == calibre_author_id,
+                    AuthorMapping.library_id == library_id,
+                )
+            )
+            result = session.exec(stmt).first()
+
+            if not result:
+                return False
+
+            mapping, metadata = result
+
+            # Check if it's a valid match (not unmatched)
+            # Valid match means: matched_by != "unmatched" AND openlibrary_key is not None
+            return (
+                mapping.matched_by != "unmatched"
+                and metadata.openlibrary_key is not None
+            )
+
     def _should_skip_match(
         self,
         calibre_author_id: int,
         library_id: int,
     ) -> bool:
-        """Check if match should be skipped."""
+        """Check if match should be skipped.
+
+        Checks both for existing valid matches and stale data age.
+
+        Parameters
+        ----------
+        calibre_author_id : int
+            Calibre author ID.
+        library_id : int
+            Library ID.
+
+        Returns
+        -------
+        bool
+            True if match should be skipped, False otherwise.
+        """
+        # First check if author already has a valid match
+        if self._has_existing_match(calibre_author_id, library_id):
+            return True
+
+        # Then check staleness if configured
         if self.stale_data_max_age_days is None:
             return False
 
@@ -235,10 +302,12 @@ class MatchWorker(BaseWorker):
             self._check_completion(library_id, task_id)
             return None
 
-        # Check staleness
+        # Check if author already has a match or should be skipped
         if self._should_skip_match(author.id, library_id):
             logger.info(
-                "Skipping match for fresh author %s (ID: %s)", author.name, author.id
+                "Skipping match for author %s (ID: %s) - already matched or fresh",
+                author.name,
+                author.id,
             )
             self._check_completion(library_id, task_id)
             return None

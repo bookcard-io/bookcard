@@ -235,13 +235,13 @@ class TestCrawlWorkerProcess:
             else:
                 result = worker.process(payload)
                 assert result is None
-                # Should publish to deduplicate_jobs when no authors
-                deduplicate_calls = [
+                # Should publish to score_jobs when no authors
+                score_calls = [
                     call
                     for call in mock_redis_broker.publish.call_args_list
-                    if call[0][0] == "deduplicate_jobs"
+                    if call[0][0] == "score_jobs"
                 ]
-                assert len(deduplicate_calls) > 0
+                assert len(score_calls) > 0
 
     def test_process_exception_raises(self, mock_redis_broker: MagicMock) -> None:
         """Test process() raises exception on error.
