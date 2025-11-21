@@ -396,9 +396,7 @@ class TestGetAuthorByIdOrKey:
             name="Similar Author",
         )
         mock_author_repo.get_by_id_and_library.return_value = author_metadata
-        mock_author_repo.get_similar_author_ids.return_value = [2]
-        mock_author_repo.is_author_in_library.return_value = True
-        mock_author_repo.get_by_id.return_value = similar_author
+        mock_author_repo.get_similar_authors_in_library.return_value = [similar_author]
 
         result = author_service.get_author_by_id_or_key("1", include_similar=True)
 
@@ -458,11 +456,10 @@ class TestGetAuthorByIdOrKey:
         author_metadata: AuthorMetadata,
     ) -> None:
         """Test get_author_by_id_or_key filters similar authors not in library."""
-        mock_author_repo.get_by_id_and_library.return_value = author_metadata
-        mock_author_repo.get_similar_author_ids.return_value = [2, 3]
-        mock_author_repo.is_author_in_library.side_effect = [False, True]
         similar_author = AuthorMetadata(id=3, openlibrary_key="OL789A", name="Similar")
-        mock_author_repo.get_by_id.return_value = similar_author
+        mock_author_repo.get_by_id_and_library.return_value = author_metadata
+        # get_similar_authors_in_library already filters by library, so only returns authors in library
+        mock_author_repo.get_similar_authors_in_library.return_value = [similar_author]
 
         result = author_service.get_author_by_id_or_key("1", include_similar=True)
 
@@ -481,9 +478,8 @@ class TestGetAuthorByIdOrKey:
     ) -> None:
         """Test get_author_by_id_or_key handles similar author not found."""
         mock_author_repo.get_by_id_and_library.return_value = author_metadata
-        mock_author_repo.get_similar_author_ids.return_value = [2]
-        mock_author_repo.is_author_in_library.return_value = True
-        mock_author_repo.get_by_id.return_value = None
+        # get_similar_authors_in_library returns empty list when no similar authors found
+        mock_author_repo.get_similar_authors_in_library.return_value = []
 
         result = author_service.get_author_by_id_or_key("1", include_similar=True)
 
@@ -739,9 +735,7 @@ class TestGetSimilarAuthors:
             openlibrary_key="OL456A",
             name="Similar Author",
         )
-        mock_author_repo.get_similar_author_ids.return_value = [2]
-        mock_author_repo.is_author_in_library.return_value = True
-        mock_author_repo.get_by_id.return_value = similar_author
+        mock_author_repo.get_similar_authors_in_library.return_value = [similar_author]
 
         result = author_service._get_similar_authors(1, 1)
 
@@ -755,10 +749,9 @@ class TestGetSimilarAuthors:
         author_metadata: AuthorMetadata,
     ) -> None:
         """Test _get_similar_authors filters authors not in library."""
-        mock_author_repo.get_similar_author_ids.return_value = [2, 3]
-        mock_author_repo.is_author_in_library.side_effect = [False, True]
         similar_author = AuthorMetadata(id=3, openlibrary_key="OL789A", name="Similar")
-        mock_author_repo.get_by_id.return_value = similar_author
+        # get_similar_authors_in_library already filters by library
+        mock_author_repo.get_similar_authors_in_library.return_value = [similar_author]
 
         result = author_service._get_similar_authors(1, 1)
 
@@ -772,16 +765,20 @@ class TestGetSimilarAuthors:
         author_metadata: AuthorMetadata,
     ) -> None:
         """Test _get_similar_authors respects limit."""
-        similar_author = AuthorMetadata(id=2, openlibrary_key="OL456A", name="Similar")
+        similar_authors = [
+            AuthorMetadata(id=2, openlibrary_key="OL456A", name="Similar 2"),
+            AuthorMetadata(id=3, openlibrary_key="OL789A", name="Similar 3"),
+            AuthorMetadata(id=4, openlibrary_key="OL012A", name="Similar 4"),
+        ]
         # Repository should return only up to limit
-        mock_author_repo.get_similar_author_ids.return_value = [2, 3, 4]
-        mock_author_repo.is_author_in_library.return_value = True
-        mock_author_repo.get_by_id.return_value = similar_author
+        mock_author_repo.get_similar_authors_in_library.return_value = similar_authors
 
         result = author_service._get_similar_authors(1, 1, limit=3)
 
         assert len(result) == 3
-        mock_author_repo.get_similar_author_ids.assert_called_once_with(1, limit=3)
+        mock_author_repo.get_similar_authors_in_library.assert_called_once_with(
+            1, 1, limit=3
+        )
 
 
 # ============================================================================

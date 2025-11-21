@@ -24,9 +24,7 @@ import pytest
 from fundamental.models.author_metadata import (
     AuthorMapping,
     AuthorMetadata,
-    AuthorSimilarity,
 )
-from fundamental.models.core import Author
 from fundamental.repositories.author_repository import AuthorRepository
 
 
@@ -171,17 +169,13 @@ class TestAuthorRepositoryInit:
 class TestAuthorRepositoryListByLibrary:
     """Test AuthorRepository.list_by_library."""
 
-    @patch("fundamental.repositories.author_repository.MatchedAuthorQueryBuilder")
-    @patch("fundamental.repositories.author_repository.MappedIdsFetcher")
-    @patch("fundamental.repositories.author_repository.UnmatchedAuthorFetcher")
-    @patch("fundamental.repositories.author_repository.AuthorResultCombiner")
-    @patch("fundamental.repositories.author_repository.AuthorHydrator")
+    @patch(
+        "fundamental.repositories.author_listing_components.MatchedAuthorQueryBuilder"
+    )
+    @patch("fundamental.repositories.author_listing_components.AuthorHydrator")
     def test_list_by_library_success(
         self,
         mock_hydrator_class: MagicMock,
-        mock_combiner_class: MagicMock,
-        mock_unmatched_fetcher_class: MagicMock,
-        mock_ids_fetcher_class: MagicMock,
         mock_query_builder_class: MagicMock,
         author_repo: AuthorRepository,
         library_id: int,
@@ -192,12 +186,6 @@ class TestAuthorRepositoryListByLibrary:
         ----------
         mock_hydrator_class : MagicMock
             Mock hydrator class.
-        mock_combiner_class : MagicMock
-            Mock combiner class.
-        mock_unmatched_fetcher_class : MagicMock
-            Mock unmatched fetcher class.
-        mock_ids_fetcher_class : MagicMock
-            Mock IDs fetcher class.
         mock_query_builder_class : MagicMock
             Mock query builder class.
         author_repo : AuthorRepository
@@ -213,29 +201,9 @@ class TestAuthorRepositoryListByLibrary:
         mock_query_builder.build_count_query.return_value = mock_count_query
         mock_query_builder_class.return_value = mock_query_builder
 
-        mock_ids_fetcher = MagicMock()
-        mock_ids_fetcher.get_mapped_ids.return_value = {1, 2}
-        mock_ids_fetcher_class.return_value = mock_ids_fetcher
-
-        mock_unmatched_fetcher = MagicMock()
-        mock_unmatched_fetcher.fetch_unmatched.return_value = [
-            Author(id=3, name="Unmatched 3")
-        ]
-        mock_unmatched_fetcher_class.return_value = mock_unmatched_fetcher
-
-        mock_combiner = MagicMock()
-        mock_combiner.combine_and_paginate.return_value = [
-            type("Row", (), {"type": "matched", "id": 1})(),
-            type("Row", (), {"type": "unmatched", "id": 3})(),
-        ]
-        mock_combiner_class.return_value = mock_combiner
-
         mock_hydrator = MagicMock()
         mock_hydrator.hydrate_matched.return_value = {
             1: AuthorMetadata(id=1, name="Author 1", openlibrary_key="OL1A")
-        }
-        mock_hydrator.create_unmatched_metadata.return_value = {
-            3: AuthorMetadata(id=None, name="Unmatched 3", openlibrary_key="calibre-3")
         }
         mock_hydrator_class.return_value = mock_hydrator
 
@@ -271,8 +239,8 @@ class TestAuthorRepositoryListByLibrary:
             library_id, calibre_db_path="/path/to/db", page=1, page_size=20
         )
 
-        assert len(result) == 2
-        assert total == 3
+        assert len(result) == 1
+        assert total == 2
 
     @patch("fundamental.repositories.author_repository.logger")
     def test_count_matched_exception(
@@ -328,15 +296,9 @@ class TestAuthorRepositoryListByLibrary:
             author_repo._fetch_matched_results(MatchedAuthorQueryBuilder(), library_id)
         mock_logger.exception.assert_called_once()
 
-    @pytest.mark.parametrize(
-        ("has_unmatched", "has_calibre_path"),
-        [(True, True), (True, False), (False, True), (False, False)],
-    )
     def test_hydrate_results(
         self,
         author_repo: AuthorRepository,
-        has_unmatched: bool,
-        has_calibre_path: bool,
     ) -> None:
         """Test _hydrate_results.
 
@@ -344,41 +306,25 @@ class TestAuthorRepositoryListByLibrary:
         ----------
         author_repo : AuthorRepository
             Author repository.
-        has_unmatched : bool
-            Whether there are unmatched results.
-        has_calibre_path : bool
-            Whether calibre_db_path is provided.
 
         Covers lines 203-222.
         """
 
         matched_author = AuthorMetadata(id=1, name="Author 1", openlibrary_key="OL1A")
-        unmatched_author = AuthorMetadata(
-            id=None, name="Unmatched", openlibrary_key="calibre-3", is_unmatched=True
-        )
 
         mock_hydrator = MagicMock()
         mock_hydrator.hydrate_matched.return_value = {1: matched_author}
-        if has_unmatched and has_calibre_path:
-            mock_hydrator.create_unmatched_metadata.return_value = {3: unmatched_author}
-        else:
-            mock_hydrator.create_unmatched_metadata.return_value = {}
 
         paginated_results = [
             type("Row", (), {"type": "matched", "id": 1})(),
         ]
-        if has_unmatched:
-            paginated_results.append(type("Row", (), {"type": "unmatched", "id": 3})())
 
         result = author_repo._hydrate_results(
             paginated_results,
             mock_hydrator,
         )
 
-        if has_unmatched and has_calibre_path:
-            assert len(result) == 2
-        else:
-            assert len(result) == 1
+        assert len(result) == 1
 
 
 class TestAuthorRepositoryGetByIdAndLibrary:
@@ -488,17 +434,14 @@ class TestAuthorRepositoryGetSimilarAuthorIds:
 
         Covers lines 316-352.
         """
-        # Create similarity records where author is author1
-        similarity1 = AuthorSimilarity(author1_id=1, author2_id=2, similarity_score=0.9)
-        similarity2 = AuthorSimilarity(author1_id=1, author2_id=3, similarity_score=0.8)
 
-        # Create similarity records where author is author2
-        similarity3 = AuthorSimilarity(author1_id=4, author2_id=1, similarity_score=0.7)
+        # The query returns tuples of (similar_author_id, similarity_score)
+        # Mock the exec to return tuples
+        def mock_exec(stmt: object) -> MockResult:
+            """Mock exec that returns tuples."""
+            return MockResult([(2, 0.9), (3, 0.8), (4, 0.7)])
 
-        # First call returns similarities where author is author1
-        author_repo._session.set_exec_result([similarity1, similarity2])  # type: ignore[attr-defined]
-        # Second call returns similarities where author is author2
-        author_repo._session.set_exec_result([similarity3])  # type: ignore[attr-defined]
+        author_repo._session.exec = mock_exec  # type: ignore[assignment]
 
         result = author_repo.get_similar_author_ids(1, limit=6)
 
@@ -523,17 +466,13 @@ class TestAuthorRepositoryGetSimilarAuthorIds:
 
         Covers lines 316-352.
         """
-        # Create similarity with None author2_id
-        similarity1 = AuthorSimilarity(
-            author1_id=1, author2_id=None, similarity_score=0.9
-        )
-        # Create similarity with None author1_id
-        similarity2 = AuthorSimilarity(
-            author1_id=None, author2_id=1, similarity_score=0.8
-        )
 
-        author_repo._session.set_exec_result([similarity1])  # type: ignore[attr-defined]
-        author_repo._session.set_exec_result([similarity2])  # type: ignore[attr-defined]
+        # Mock the exec to return tuples with None IDs
+        def mock_exec(stmt: object) -> MockResult:
+            """Mock exec that returns tuples with None IDs."""
+            return MockResult([(None, 0.9), (None, 0.8)])
+
+        author_repo._session.exec = mock_exec  # type: ignore[assignment]
 
         result = author_repo.get_similar_author_ids(1, limit=6)
 
@@ -551,13 +490,13 @@ class TestAuthorRepositoryGetSimilarAuthorIds:
 
         Covers lines 316-352.
         """
-        similarities = [
-            AuthorSimilarity(author1_id=1, author2_id=i, similarity_score=1.0 - i * 0.1)
-            for i in range(2, 10)
-        ]
 
-        author_repo._session.set_exec_result(similarities)  # type: ignore[attr-defined]
-        author_repo._session.set_exec_result([])  # type: ignore[attr-defined]
+        # Mock the exec to return tuples
+        def mock_exec(stmt: object) -> MockResult:
+            """Mock exec that returns tuples."""
+            return MockResult([(i, 1.0 - i * 0.1) for i in range(2, 10)])
+
+        author_repo._session.exec = mock_exec  # type: ignore[assignment]
 
         result = author_repo.get_similar_author_ids(1, limit=3)
 
@@ -575,13 +514,18 @@ class TestAuthorRepositoryGetSimilarAuthorIds:
 
         Covers lines 316-352.
         """
-        # Same author appears in both queries
-        similarity1 = AuthorSimilarity(author1_id=1, author2_id=2, similarity_score=0.9)
-        similarity2 = AuthorSimilarity(author1_id=3, author2_id=1, similarity_score=0.8)
-        similarity3 = AuthorSimilarity(author1_id=4, author2_id=1, similarity_score=0.7)
 
-        author_repo._session.set_exec_result([similarity1])  # type: ignore[attr-defined]
-        author_repo._session.set_exec_result([similarity2, similarity3])  # type: ignore[attr-defined]
+        # Mock the exec to return tuples with duplicates
+        def mock_exec(stmt: object) -> MockResult:
+            """Mock exec that returns tuples with duplicates."""
+            return MockResult([
+                (2, 0.9),
+                (3, 0.8),
+                (4, 0.7),
+                (2, 0.6),
+            ])  # 2 appears twice
+
+        author_repo._session.exec = mock_exec  # type: ignore[assignment]
 
         result = author_repo.get_similar_author_ids(1, limit=6)
 

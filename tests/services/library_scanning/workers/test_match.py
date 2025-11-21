@@ -202,23 +202,40 @@ class TestMatchWorkerProcess:
             else:
                 worker.orchestrator.match = MagicMock(return_value=None)  # type: ignore[assignment]
 
-            author_data = {"id": author_id, "name": "Test Author"}
-            payload = {
-                "author": author_data,
-                "library_id": 1,
-                "task_id": task_id,
-            }
+            # Mock session for _handle_unmatched_author when needed (when no match and author_id is not None)
+            # This needs to be done for all cases where _handle_unmatched_author might be called
+            with patch(
+                "fundamental.services.library_scanning.workers.match.AuthorMetadata"
+            ) as mock_metadata_class:
+                mock_metadata_instance = MagicMock()
+                mock_metadata_instance.id = None
+                mock_metadata_class.return_value = mock_metadata_instance
 
-            if (is_cancelled and task_id) or author_id is None or should_skip:
-                result = worker.process(payload)
-                assert result is None
-            elif match_result == "has_match":
-                result = worker.process(payload)
-                assert result is not None
-                assert "match_result" in result
-            else:
-                result = worker.process(payload)
-                assert result is None
+                # Mock session to set id after flush (for unmatched author handling)
+                def mock_flush() -> None:
+                    mock_metadata_instance.id = 999
+
+                mock_session.flush = mock_flush
+                mock_session.add = MagicMock()
+                mock_session.commit = MagicMock()
+
+                author_data = {"id": author_id, "name": "Test Author"}
+                payload = {
+                    "author": author_data,
+                    "library_id": 1,
+                    "task_id": task_id,
+                }
+
+                if (is_cancelled and task_id) or author_id is None or should_skip:
+                    result = worker.process(payload)
+                    assert result is None
+                elif match_result == "has_match":
+                    result = worker.process(payload)
+                    assert result is not None
+                    assert "match_result" in result
+                else:
+                    result = worker.process(payload)
+                    assert result is None
 
     def test_process_exception_handling(self, mock_redis_broker: MagicMock) -> None:
         """Test process() exception handling.
