@@ -39,6 +39,8 @@ from fundamental.api.schemas import (
     LibraryRead,
     LibraryStats,
     LibraryUpdate,
+    OpenLibraryDumpConfigRead,
+    OpenLibraryDumpConfigUpdate,
     PermissionCreate,
     PermissionRead,
     PermissionUpdate,
@@ -63,11 +65,12 @@ from fundamental.repositories.role_repository import (
     UserRoleRepository,
 )
 from fundamental.repositories.user_repository import UserRepository
+from fundamental.services.auth_service import AuthService
 from fundamental.services.config_service import LibraryService
 from fundamental.services.ereader_service import EReaderService
 from fundamental.services.openlibrary_service import OpenLibraryService
 from fundamental.services.role_service import RoleService
-from fundamental.services.security import PasswordHasher
+from fundamental.services.security import DataEncryptor, JWTManager, PasswordHasher
 from fundamental.services.user_service import UserService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -76,6 +79,36 @@ SessionDep = Annotated[Session, Depends(get_db_session)]
 AdminUserDep = Annotated[User, Depends(get_admin_user)]
 
 logger = logging.getLogger(__name__)
+
+
+def _auth_service(request: Request, session: Session) -> AuthService:
+    """Create AuthService instance for admin routes.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+    session : Session
+        Database session.
+
+    Returns
+    -------
+    AuthService
+        Configured AuthService instance.
+    """
+    cfg = request.app.state.config
+    jwt = JWTManager(cfg)
+    hasher = PasswordHasher()
+    encryptor = DataEncryptor(cfg.encryption_key)
+    repo = UserRepository(session)
+    return AuthService(
+        session,
+        repo,
+        hasher,
+        jwt,
+        encryptor=encryptor,
+        data_directory=cfg.data_directory,
+    )
 
 
 class DownloadFilesRequest(BaseModel):
@@ -2055,3 +2088,94 @@ def ingest_openlibrary_dumps(
         message="Ingest task created",
         task_id=task_id,
     )
+
+
+@router.get(
+    "/openlibrary-dump-config",
+    response_model=OpenLibraryDumpConfigRead,
+    dependencies=[Depends(get_admin_user)],
+)
+def get_openlibrary_dump_config(
+    request: Request,
+    session: SessionDep,
+) -> OpenLibraryDumpConfigRead:
+    """Get the OpenLibrary dump configuration (admin only).
+
+    Returns default values if configuration has not been created yet.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+    session : SessionDep
+        Database session dependency.
+
+    Returns
+    -------
+    OpenLibraryDumpConfigRead
+        Configuration with defaults if not found.
+    """
+    service = _auth_service(request, session)
+    config = service.get_openlibrary_dump_config()
+    if config is None:
+        # Return defaults (no persisted record yet)
+        return OpenLibraryDumpConfigRead(
+            id=None,
+            authors_url="https://openlibrary.org/data/ol_dump_authors_latest.txt.gz",
+            works_url="https://openlibrary.org/data/ol_dump_works_latest.txt.gz",
+            editions_url="https://openlibrary.org/data/ol_dump_editions_latest.txt.gz",
+            default_process_authors=True,
+            default_process_works=True,
+            default_process_editions=False,
+            staleness_threshold_days=30,
+            enable_auto_download=False,
+            enable_auto_process=False,
+            auto_check_interval_hours=24,
+            created_at=None,
+            updated_at=None,
+        )
+    return OpenLibraryDumpConfigRead.model_validate(config)
+
+
+@router.put(
+    "/openlibrary-dump-config",
+    response_model=OpenLibraryDumpConfigRead,
+    dependencies=[Depends(get_admin_user)],
+)
+def upsert_openlibrary_dump_config(
+    request: Request,
+    session: SessionDep,
+    payload: OpenLibraryDumpConfigUpdate,
+) -> OpenLibraryDumpConfigRead:
+    """Create or update the OpenLibrary dump configuration (admin only).
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+    session : SessionDep
+        Database session dependency.
+    payload : OpenLibraryDumpConfigUpdate
+        Configuration payload.
+
+    Returns
+    -------
+    OpenLibraryDumpConfigRead
+        Created or updated configuration.
+    """
+    service = _auth_service(request, session)
+    current_user = get_current_user(request, session)
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    try:
+        cfg = service.upsert_openlibrary_dump_config(
+            **payload.model_dump(exclude_unset=True)
+        )
+        session.commit()
+        logger.info("OpenLibrary dump config updated: user_id=%s", current_user.id)
+    except ValueError as exc:
+        msg = str(exc)
+        raise HTTPException(status_code=400, detail=msg) from exc
+
+    return OpenLibraryDumpConfigRead.model_validate(cfg)

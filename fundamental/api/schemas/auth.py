@@ -477,3 +477,39 @@ class EmailServerConfigUpdate(BaseModel):
     max_email_size_mb: int | None = None
     gmail_token: dict[str, object] | None = None
     enabled: bool | None = None
+
+
+class OpenLibraryDumpConfigRead(BaseModel):
+    """OpenLibrary dump configuration representation (read)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int | None = None
+    authors_url: str | None = None
+    works_url: str | None = None
+    editions_url: str | None = None
+    default_process_authors: bool = True
+    default_process_works: bool = True
+    default_process_editions: bool = False
+    staleness_threshold_days: int = 30
+    enable_auto_download: bool = False
+    enable_auto_process: bool = False
+    auto_check_interval_hours: int = 24
+    # timestamps
+    updated_at: datetime | None = None
+    created_at: datetime | None = None
+
+
+class OpenLibraryDumpConfigUpdate(BaseModel):
+    """Payload to create or update OpenLibrary dump configuration."""
+
+    authors_url: str | None = Field(default=None, max_length=1000)
+    works_url: str | None = Field(default=None, max_length=1000)
+    editions_url: str | None = Field(default=None, max_length=1000)
+    default_process_authors: bool | None = None
+    default_process_works: bool | None = None
+    default_process_editions: bool | None = None
+    staleness_threshold_days: int | None = Field(default=None, ge=1)
+    enable_auto_download: bool | None = None
+    enable_auto_process: bool | None = None
+    auto_check_interval_hours: int | None = Field(default=None, ge=1, le=168)

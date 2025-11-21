@@ -701,3 +701,180 @@ class LibraryScanProviderConfig(SQLModel, table=True):
         default_factory=lambda: datetime.now(UTC),
         sa_column_kwargs={"onupdate": lambda: datetime.now(UTC)},
     )
+
+
+class OpenLibraryDumpConfig(SQLModel, table=True):
+    """OpenLibrary data dump configuration settings.
+
+    Manages configuration for downloading and processing OpenLibrary data dumps.
+    Controls staleness thresholds, automation, and default processing options.
+
+    Attributes
+    ----------
+    id : int | None
+        Primary key identifier. Only one record should exist (singleton).
+    authors_url : str | None
+        URL for authors dump file (default: latest OpenLibrary URL).
+    works_url : str | None
+        URL for works dump file (default: latest OpenLibrary URL).
+    editions_url : str | None
+        URL for editions dump file (default: latest OpenLibrary URL).
+    default_process_authors : bool
+        Whether to process authors by default (default: True).
+    default_process_works : bool
+        Whether to process works by default (default: True).
+    default_process_editions : bool
+        Whether to process editions by default (default: False).
+    staleness_threshold_days : int
+        Number of days before data is considered stale (default: 30).
+        When data is stale, the "Process files" button is enabled.
+    enable_auto_download : bool
+        Whether to automatically download dumps when stale (default: False).
+    enable_auto_process : bool
+        Whether to automatically process dumps after download (default: False).
+    auto_check_interval_hours : int
+        How often to check for staleness in hours (default: 24).
+        Only used when auto-download or auto-process is enabled.
+    created_at : datetime
+        Configuration creation timestamp.
+    updated_at : datetime
+        Last update timestamp.
+    """
+
+    __tablename__ = "openlibrary_dump_config"
+
+    id: int | None = Field(default=None, primary_key=True)
+    authors_url: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="URL for OpenLibrary authors dump",
+    )
+    works_url: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="URL for OpenLibrary works dump",
+    )
+    editions_url: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="URL for OpenLibrary editions dump",
+    )
+    default_process_authors: bool = Field(
+        default=True,
+        description="Process authors dump by default",
+    )
+    default_process_works: bool = Field(
+        default=True,
+        description="Process works dump by default",
+    )
+    default_process_editions: bool = Field(
+        default=False,
+        description="Process editions dump by default",
+    )
+    staleness_threshold_days: int = Field(
+        default=30,
+        ge=1,
+        description="Days before data is considered stale",
+    )
+    enable_auto_download: bool = Field(
+        default=False,
+        description="Automatically download dumps when stale",
+    )
+    enable_auto_process: bool = Field(
+        default=False,
+        description="Automatically process dumps after download",
+    )
+    auto_check_interval_hours: int = Field(
+        default=24,
+        ge=1,
+        le=168,  # Max 1 week
+        description="Hours between automatic staleness checks",
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        index=True,
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column_kwargs={"onupdate": lambda: datetime.now(UTC)},
+    )
+
+
+class OpenLibraryDumpState(SQLModel, table=True):
+    """OpenLibrary dump state tracking.
+
+    Tracks when dump files were last downloaded and when they were last ingested.
+    These are tracked separately because:
+    - A dump may be downloaded but not yet ingested
+    - A dump may need re-downloading if it's stale, even if recently ingested
+    - Download staleness determines when to fetch new dumps
+    - Ingestion staleness determines when to process existing dumps
+
+    Staleness checks:
+    - Download staleness: Compare `last_downloaded_at` to `staleness_threshold_days`
+      from OpenLibraryDumpConfig. If None or older than threshold, download is stale.
+    - Ingestion staleness: Compare `last_processed_at` to `staleness_threshold_days`.
+      If None or older than threshold, ingestion is stale and "Process files" is enabled.
+
+    Attributes
+    ----------
+    id : int | None
+        Primary key identifier.
+    dump_type : str
+        Type of dump: 'authors', 'works', or 'editions'. Unique per type.
+    last_downloaded_at : datetime | None
+        Timestamp when dump was last successfully downloaded.
+        Used to determine if a new download is needed.
+        Updated by download tasks upon successful completion.
+    last_processed_at : datetime | None
+        Timestamp when dump was last successfully processed/ingested into database.
+        Used to determine if processing is needed (enables "Process files" button).
+        Updated by ingest tasks upon successful completion.
+    file_path : str | None
+        Path to the downloaded dump file.
+        Set when download completes, cleared if file is deleted.
+    file_size_bytes : int | None
+        Size of the downloaded file in bytes.
+        Used for verification and progress tracking.
+    created_at : datetime
+        Record creation timestamp.
+    updated_at : datetime
+        Last update timestamp.
+    """
+
+    __tablename__ = "openlibrary_dump_states"
+
+    id: int | None = Field(default=None, primary_key=True)
+    dump_type: str = Field(
+        max_length=50,
+        unique=True,
+        index=True,
+        description="Type of dump: authors, works, or editions",
+    )
+    last_downloaded_at: datetime | None = Field(
+        default=None,
+        index=True,
+        description="When dump was last downloaded (for download staleness checks)",
+    )
+    last_processed_at: datetime | None = Field(
+        default=None,
+        index=True,
+        description="When dump was last ingested/processed (for ingestion staleness checks)",
+    )
+    file_path: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="Path to downloaded dump file",
+    )
+    file_size_bytes: int | None = Field(
+        default=None,
+        description="Size of downloaded file in bytes",
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        index=True,
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column_kwargs={"onupdate": lambda: datetime.now(UTC)},
+    )

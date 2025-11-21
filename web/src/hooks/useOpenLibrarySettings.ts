@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   downloadOpenLibraryDumps,
   getDefaultDumpUrls,
@@ -36,6 +36,18 @@ export interface UseOpenLibrarySettingsOptions {
   onIngestSuccess?: () => void;
   /** Callback when an error occurs. */
   onError?: (error: string) => void;
+  /** Initial URLs from backend config. */
+  initialUrls?: {
+    authors_url: string | null;
+    works_url: string | null;
+    editions_url: string | null;
+  };
+  /** Initial process flags from backend config. */
+  initialProcessFlags?: {
+    process_authors: boolean;
+    process_works: boolean;
+    process_editions: boolean;
+  };
 }
 
 export interface UseOpenLibrarySettingsReturn {
@@ -81,20 +93,51 @@ export interface UseOpenLibrarySettingsReturn {
 export function useOpenLibrarySettings(
   options: UseOpenLibrarySettingsOptions = {},
 ): UseOpenLibrarySettingsReturn {
-  const { onDownloadSuccess, onIngestSuccess, onError } = options;
+  const {
+    onDownloadSuccess,
+    onIngestSuccess,
+    onError,
+    initialUrls,
+    initialProcessFlags,
+  } = options;
 
   const defaults = getDefaultDumpUrls();
   const [formData, setFormData] = useState<OpenLibrarySettingsFormData>({
-    authors_url: defaults.authors_url,
-    works_url: defaults.works_url,
-    editions_url: defaults.editions_url,
-    process_authors: true,
-    process_works: true,
-    process_editions: false,
+    authors_url: initialUrls?.authors_url ?? defaults.authors_url,
+    works_url: initialUrls?.works_url ?? defaults.works_url,
+    editions_url: initialUrls?.editions_url ?? defaults.editions_url,
+    process_authors: initialProcessFlags?.process_authors ?? true,
+    process_works: initialProcessFlags?.process_works ?? true,
+    process_editions: initialProcessFlags?.process_editions ?? false,
   });
   const [isDownloading, setIsDownloading] = useState(false);
   const [isIngesting, setIsIngesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Sync formData when initial values are first provided (only once)
+  const hasInitializedRef = useRef(false);
+  useEffect(() => {
+    // Only sync once when initial values are first provided
+    if (!hasInitializedRef.current && (initialUrls || initialProcessFlags)) {
+      hasInitializedRef.current = true;
+      setFormData((prev) => ({
+        ...prev,
+        ...(initialUrls && {
+          authors_url: initialUrls.authors_url ?? prev.authors_url,
+          works_url: initialUrls.works_url ?? prev.works_url,
+          editions_url: initialUrls.editions_url ?? prev.editions_url,
+        }),
+        ...(initialProcessFlags && {
+          process_authors:
+            initialProcessFlags.process_authors ?? prev.process_authors,
+          process_works:
+            initialProcessFlags.process_works ?? prev.process_works,
+          process_editions:
+            initialProcessFlags.process_editions ?? prev.process_editions,
+        }),
+      }));
+    }
+  }, [initialUrls, initialProcessFlags]);
 
   const handleFieldChange = useCallback(
     <K extends keyof OpenLibrarySettingsFormData>(

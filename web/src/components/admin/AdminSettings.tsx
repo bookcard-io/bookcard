@@ -16,6 +16,7 @@
 "use client";
 
 import { useState } from "react";
+import { BlurAfterClickProvider } from "@/components/profile/BlurAfterClickContext";
 import { cn } from "@/libs/utils";
 import { ConfigurationTab } from "./tabs/ConfigurationTab";
 import { ScheduledTasksTab } from "./tabs/ScheduledTasksTab";
@@ -55,12 +56,14 @@ export function AdminSettings() {
           ))}
         </div>
 
-        <div className="px-0 py-3.5">
-          {activeTab === "users" && <UsersAndRolesTab />}
-          {activeTab === "configuration" && <ConfigurationTab />}
-          {activeTab === "system" && <SystemTab />}
-          {activeTab === "scheduled-tasks" && <ScheduledTasksTab />}
-        </div>
+        <BlurAfterClickProvider>
+          <div className="px-0 py-3.5">
+            {activeTab === "users" && <UsersAndRolesTab />}
+            {activeTab === "configuration" && <ConfigurationTab />}
+            {activeTab === "system" && <SystemTab />}
+            {activeTab === "scheduled-tasks" && <ScheduledTasksTab />}
+          </div>
+        </BlurAfterClickProvider>
       </div>
     </div>
   );

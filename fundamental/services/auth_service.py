@@ -29,7 +29,11 @@ from typing import TYPE_CHECKING
 from sqlmodel import select
 
 from fundamental.models.auth import User
-from fundamental.models.config import EmailServerConfig, EmailServerType
+from fundamental.models.config import (
+    EmailServerConfig,
+    EmailServerType,
+    OpenLibraryDumpConfig,
+)
 
 if TYPE_CHECKING:
     from sqlmodel import Session
@@ -528,6 +532,130 @@ class AuthService:
                 smtp_from_email=smtp_from_email,
                 smtp_from_name=smtp_from_name,
             )
+
+        config.updated_at = datetime.now(UTC)
+        self._session.flush()
+        return config
+
+    def get_openlibrary_dump_config(
+        self,
+    ) -> OpenLibraryDumpConfig | None:
+        """Get the singleton OpenLibrary dump configuration.
+
+        Returns
+        -------
+        OpenLibraryDumpConfig | None
+            The configuration if it exists, otherwise None.
+        """
+        from sqlmodel import select
+
+        from fundamental.models.config import OpenLibraryDumpConfig
+
+        stmt = select(OpenLibraryDumpConfig).limit(1)
+        return self._session.exec(stmt).first()
+
+    def _apply_openlibrary_dump_config(
+        self,
+        config: OpenLibraryDumpConfig,
+        *,
+        authors_url: str | None = None,
+        works_url: str | None = None,
+        editions_url: str | None = None,
+        default_process_authors: bool | None = None,
+        default_process_works: bool | None = None,
+        default_process_editions: bool | None = None,
+        staleness_threshold_days: int | None = None,
+        enable_auto_download: bool | None = None,
+        enable_auto_process: bool | None = None,
+        auto_check_interval_hours: int | None = None,
+    ) -> None:
+        """Apply OpenLibrary dump configuration fields.
+
+        Parameters
+        ----------
+        config : OpenLibraryDumpConfig
+            Configuration object to update.
+        authors_url, works_url, editions_url : str | None
+            URLs for dump files.
+        default_process_authors, default_process_works, default_process_editions : bool | None
+            Default processing flags.
+        staleness_threshold_days : int | None
+            Days before data is considered stale.
+        enable_auto_download, enable_auto_process : bool | None
+            Automation flags.
+        auto_check_interval_hours : int | None
+            Hours between automatic checks.
+        """
+        field_mapping = {
+            "authors_url": authors_url,
+            "works_url": works_url,
+            "editions_url": editions_url,
+            "default_process_authors": default_process_authors,
+            "default_process_works": default_process_works,
+            "default_process_editions": default_process_editions,
+            "staleness_threshold_days": staleness_threshold_days,
+            "enable_auto_download": enable_auto_download,
+            "enable_auto_process": enable_auto_process,
+            "auto_check_interval_hours": auto_check_interval_hours,
+        }
+        for field_name, value in field_mapping.items():
+            if value is not None:
+                setattr(config, field_name, value)
+
+    def upsert_openlibrary_dump_config(
+        self,
+        *,
+        authors_url: str | None = None,
+        works_url: str | None = None,
+        editions_url: str | None = None,
+        default_process_authors: bool | None = None,
+        default_process_works: bool | None = None,
+        default_process_editions: bool | None = None,
+        staleness_threshold_days: int | None = None,
+        enable_auto_download: bool | None = None,
+        enable_auto_process: bool | None = None,
+        auto_check_interval_hours: int | None = None,
+    ) -> OpenLibraryDumpConfig:
+        """Create or update the OpenLibrary dump configuration.
+
+        Parameters
+        ----------
+        authors_url, works_url, editions_url : str | None
+            URLs for dump files.
+        default_process_authors, default_process_works, default_process_editions : bool | None
+            Default processing flags.
+        staleness_threshold_days : int | None
+            Days before data is considered stale.
+        enable_auto_download, enable_auto_process : bool | None
+            Automation flags.
+        auto_check_interval_hours : int | None
+            Hours between automatic checks.
+
+        Returns
+        -------
+        OpenLibraryDumpConfig
+            The created or updated configuration.
+        """
+        from fundamental.models.config import OpenLibraryDumpConfig
+
+        config = self.get_openlibrary_dump_config()
+        if config is None:
+            config = OpenLibraryDumpConfig()
+            self._session.add(config)
+
+        self._apply_openlibrary_dump_config(
+            config,
+            authors_url=authors_url,
+            works_url=works_url,
+            editions_url=editions_url,
+            default_process_authors=default_process_authors,
+            default_process_works=default_process_works,
+            default_process_editions=default_process_editions,
+            staleness_threshold_days=staleness_threshold_days,
+            enable_auto_download=enable_auto_download,
+            enable_auto_process=enable_auto_process,
+            auto_check_interval_hours=auto_check_interval_hours,
+        )
 
         config.updated_at = datetime.now(UTC)
         self._session.flush()
