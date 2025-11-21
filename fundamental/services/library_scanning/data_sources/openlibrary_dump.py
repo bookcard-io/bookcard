@@ -15,17 +15,25 @@
 
 """OpenLibrary local dump data source implementation."""
 
-import json
 import logging
-import sqlite3
 from collections.abc import Sequence
-from pathlib import Path
 from typing import Any
 
-from fundamental.services.library_scanning.data_sources.base import (
-    BaseDataSource,
-    DataSourceNotFoundError,
+from sqlalchemy import Engine, Text, func
+from sqlalchemy import text as sql_text
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.exc import OperationalError
+from sqlmodel import Session, select
+
+from fundamental.database import create_db_engine, get_session
+from fundamental.models.openlibrary import (
+    OpenLibraryAuthor,
+    OpenLibraryAuthorWork,
+    OpenLibraryEdition,
+    OpenLibraryEditionIsbn,
+    OpenLibraryWork,
 )
+from fundamental.services.library_scanning.data_sources.base import BaseDataSource
 from fundamental.services.library_scanning.data_sources.types import (
     AuthorData,
     BookData,
@@ -36,55 +44,54 @@ logger = logging.getLogger(__name__)
 
 OPENLIBRARY_COVERS_BASE = "https://covers.openlibrary.org"
 
+# Minimum similarity threshold for trigram search (0.0 to 1.0)
+# Lower values return more results but may include false positives
+MIN_TRIGRAM_SIMILARITY = 0.6
+
 
 class OpenLibraryDumpDataSource(BaseDataSource):
-    """Data source using local OpenLibrary dump SQLite database.
+    """Data source using local OpenLibrary dump PostgreSQL database.
 
-    Queries a locally ingested SQLite database instead of the live API.
+    Queries a locally ingested PostgreSQL database instead of the live API.
+    Uses GIN indexes for efficient text search and JSONB queries.
     Suitable for high-volume scanning.
     """
 
     def __init__(
         self,
-        data_directory: str = "/data",
+        engine: Engine | None = None,
+        data_directory: str = "/data",  # noqa: ARG002
     ) -> None:
         """Initialize dump data source.
 
         Parameters
         ----------
+        engine : Engine | None
+            SQLAlchemy engine for database connection. If None, creates one
+            from application configuration.
         data_directory : str
-            Path to data directory containing openlibrary/openlibrary.db.
+            Deprecated parameter kept for backward compatibility. Ignored.
         """
-        self.db_path = Path(data_directory) / "openlibrary" / "openlibrary.db"
+        self._engine = engine or create_db_engine()
 
     @property
     def name(self) -> str:
         """Get data source name."""
         return "OpenLibraryDump"
 
-    def _get_connection(self) -> sqlite3.Connection:
-        """Get database connection.
+    def _extract_identifiers(self, data: dict[str, Any]) -> IdentifierDict:
+        """Extract identifiers from author data.
+
+        Parameters
+        ----------
+        data : dict[str, Any]
+            Author data dictionary.
 
         Returns
         -------
-        sqlite3.Connection
-            Database connection.
-
-        Raises
-        ------
-        DataSourceNotFoundError
-            If database file does not exist.
+        IdentifierDict
+            Extracted identifiers.
         """
-        if not self.db_path.exists():
-            msg = f"OpenLibrary dump DB not found at {self.db_path}"
-            raise DataSourceNotFoundError(msg)
-
-        conn = sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True)
-        conn.row_factory = sqlite3.Row
-        return conn
-
-    def _extract_identifiers(self, data: dict[str, Any]) -> IdentifierDict:
-        """Extract identifiers from author data."""
         remote_ids = data.get("remote_ids", {})
         return IdentifierDict(
             viaf=remote_ids.get("viaf"),
@@ -101,7 +108,18 @@ class OpenLibraryDumpDataSource(BaseDataSource):
         )
 
     def _extract_bio(self, data: dict[str, Any]) -> str | None:
-        """Extract biography text."""
+        """Extract biography text.
+
+        Parameters
+        ----------
+        data : dict[str, Any]
+            Author data dictionary.
+
+        Returns
+        -------
+        str | None
+            Biography text or None if not available.
+        """
         bio = data.get("bio")
         if isinstance(bio, dict):
             return bio.get("value")
@@ -109,165 +127,91 @@ class OpenLibraryDumpDataSource(BaseDataSource):
             return bio
         return None
 
-    def _generate_name_permutations(self, name: str) -> list[str]:
-        """Generate various name permutations for robust searching.
-
-        Parameters
-        ----------
-        name : str
-            Original author name.
-
-        Returns
-        -------
-        list[str]
-            List of name permutations to search for.
-        """
-        name = name.strip()
-        if not name:
-            return []
-
-        permutations = [name]
-
-        # Case variations
-        permutations.append(name.lower())
-        permutations.append(name.upper())
-        permutations.append(name.title())
-
-        # Handle "Last, First" format
-        if "," in name:
-            parts = [p.strip() for p in name.split(",", 1)]
-            if len(parts) == 2:
-                last, first = parts
-                # "First Last" format
-                permutations.append(f"{first} {last}")
-                permutations.append(f"{first} {last}".lower())
-                permutations.append(f"{first} {last}".title())
-                # "Last First" format (without comma)
-                permutations.append(f"{last} {first}")
-                permutations.append(f"{last} {first}".lower())
-                permutations.append(f"{last} {first}".title())
-
-        # Handle "First Last" format - convert to "Last, First"
-        else:
-            parts = name.split()
-            if len(parts) >= 2:
-                # Assume last word is last name, rest is first name
-                first = " ".join(parts[:-1])
-                last = parts[-1]
-                # "Last, First" format
-                permutations.append(f"{last}, {first}")
-                permutations.append(f"{last}, {first}".lower())
-                permutations.append(f"{last}, {first}".title())
-
-        # Remove duplicates while preserving order
-        seen = set()
-        unique_permutations = []
-        for perm in permutations:
-            if perm and perm not in seen:
-                seen.add(perm)
-                unique_permutations.append(perm)
-
-        return unique_permutations
-
     def search_author(
         self,
         name: str,
         identifiers: IdentifierDict | None = None,  # noqa: ARG002
     ) -> Sequence[AuthorData]:
-        """Search for authors by name with robust permutation matching.
+        """Search for authors by exact name match.
 
-        Searches across the name column and alternate_names JSON field,
-        handling various name formats (e.g., "Brandon Sanderson",
-        "Sanderson, Brandon", "brandon sanderson").
+        Uses simple JSONB operator for fast exact matching on the name field.
+        Case-insensitive matching for better results.
 
         Parameters
         ----------
         name : str
             Author name to search for.
         identifiers : IdentifierDict | None
-            Optional identifiers (not used in dump search).
+            Optional identifiers (not currently used in dump search).
 
         Returns
         -------
         Sequence[AuthorData]
             List of matching authors.
         """
-        # Note: Dump DB currently only indexes name.
-        # Identifier search would require additional indexing or
-        # full table scan (too slow). We fall back to name search.
-
         if not name or not name.strip():
             return []
 
         results: list[AuthorData] = []
-        seen_keys: set[str] = set()
 
         try:
-            with self._get_connection() as conn:
-                # Generate name permutations for robust matching
-                name_permutations = self._generate_name_permutations(name)
+            with get_session(self._engine) as session:
+                # Normalize search name
+                search_name = name.strip()
 
-                # Build query: search name column with all permutations
-                # and also check alternate_names JSON field
-                name_conditions = []
-                name_params: list[str] = []
-                for perm in name_permutations:
-                    name_conditions.append("LOWER(name) LIKE LOWER(?)")
-                    name_params.append(f"%{perm}%")
-
-                # Also search in alternate_names JSON array
-                # Use the original name and a few key permutations for JSON search
-                json_search_names = [name, *name_permutations[:3]]
-                json_conditions = []
-                json_params: list[str] = []
-                json_condition_template = (
-                    "EXISTS ("
-                    "SELECT 1 FROM json_each(data, '$.alternate_names') "
-                    "WHERE LOWER(json_each.value) LIKE LOWER(?)"
-                    ")"
-                )
-                for json_name in json_search_names:
-                    json_conditions.append(json_condition_template)
-                    json_params.append(f"%{json_name}%")
-
-                # Combine conditions: name column OR alternate_names
-                all_conditions = name_conditions + json_conditions
-                all_params = name_params + json_params
-
-                # Build query safely - conditions are hardcoded strings, only params are dynamic
-                where_clause = " OR ".join(all_conditions)
-                query = (
-                    "SELECT DISTINCT key, data FROM authors "  # noqa: S608
-                    "WHERE (" + where_clause + ") "
-                    "LIMIT 50"
+                # Simple exact match using JSONB operator (fast, uses GIN JSONB index)
+                # Case-sensitive matching for optimal performance (no function calls on indexed column)
+                # Use raw SQL text to avoid parameter binding issues with JSONB operators
+                stmt = select(OpenLibraryAuthor.key, OpenLibraryAuthor.data).where(
+                    sql_text(
+                        "openlibrary_authors.data->>'name' = :search_name"
+                    ).bindparams(search_name=search_name)
                 )
 
-                cursor = conn.execute(query, all_params)
+                rows = session.exec(stmt).all()
 
-                for row in cursor:
-                    # Avoid duplicates
-                    if row["key"] in seen_keys:
+                for row in rows:
+                    work_key, work_data = row
+                    if not work_data:
                         continue
-                    seen_keys.add(row["key"])
 
                     try:
-                        data = json.loads(row["data"])
-                        author = self._parse_author_data(row["key"], data)
+                        author = self._parse_author_data(work_key, work_data)
                         results.append(author)
-                    except (json.JSONDecodeError, KeyError):
+                    except (KeyError, TypeError):
+                        logger.debug("Error parsing author data for key %s", work_key)
                         continue
 
-        except DataSourceNotFoundError:
-            logger.warning("OpenLibrary dump DB not found, skipping search")
-            return []
-        except sqlite3.Error:
+        except OperationalError:
             logger.exception("Database error searching authors")
+            return []
+        except Exception:
+            logger.exception("Unexpected error searching authors")
             return []
 
         return results
 
     def _parse_author_data(self, key: str, data: dict[str, Any]) -> AuthorData:
-        """Parse raw JSON data into AuthorData."""
+        """Parse raw JSON data into AuthorData.
+
+        Parameters
+        ----------
+        key : str
+            Author key identifier (from DB, already has /authors/ prefix).
+        data : dict[str, Any]
+            Raw author data dictionary.
+
+        Returns
+        -------
+        AuthorData
+            Parsed author data.
+        """
+        # Ensure key has /authors/ prefix (OpenLibrary convention)
+        if not key.startswith("/authors/"):
+            normalized_key = f"/authors/{key.replace('authors/', '')}"
+        else:
+            normalized_key = key
+
         photos = data.get("photos", [])
         photo_ids = [p for p in photos if isinstance(p, int) and p > 0]
 
@@ -281,15 +225,10 @@ class OpenLibraryDumpDataSource(BaseDataSource):
             if isinstance(link, dict)
         ]
 
-        # Top subjects logic is complex in API, here we just take what's available
-        # or we might not have it pre-calculated in the dump.
-        # The dump usually contains raw author data, 'top_subjects' is often derived.
-        # We'll take direct 'subjects' field if present, or None.
         subjects = data.get("subjects", [])
-        # API response usually has top_work etc calculated. Dump might not.
 
         return AuthorData(
-            key=key,
+            key=normalized_key,
             name=data.get("name", ""),
             personal_name=data.get("personal_name"),
             fuller_name=data.get("fuller_name"),
@@ -310,68 +249,298 @@ class OpenLibraryDumpDataSource(BaseDataSource):
         )
 
     def get_author(self, key: str) -> AuthorData | None:
-        """Get author by key."""
+        """Get author by key.
+
+        Database stores keys with /authors/ prefix (e.g., '/authors/OL19981A').
+
+        Parameters
+        ----------
+        key : str
+            Author key identifier (with or without /authors/ prefix).
+
+        Returns
+        -------
+        AuthorData | None
+            Author data if found, None otherwise.
+        """
         try:
-            with self._get_connection() as conn:
-                # Normalize key
-                normalized_key = key.replace("/authors/", "").replace("authors/", "")
+            with get_session(self._engine) as session:
+                # Ensure key has /authors/ prefix (database stores with prefix)
+                if not key.startswith("/authors/"):
+                    normalized_key = f"/authors/{key.replace('authors/', '')}"
+                else:
+                    normalized_key = key
 
-                cursor = conn.execute(
-                    "SELECT key, data FROM authors WHERE key = ?", (normalized_key,)
+                stmt = select(OpenLibraryAuthor).where(
+                    OpenLibraryAuthor.key == normalized_key
                 )
-                row = cursor.fetchone()
+                author = session.exec(stmt).first()
 
-                if not row:
+                if not author or not author.data:
                     return None
 
-                data = json.loads(row["data"])
-                return self._parse_author_data(row["key"], data)
+                return self._parse_author_data(author.key, author.data)
 
-        except DataSourceNotFoundError:
+        except OperationalError:
+            logger.exception("Database error getting author %s", key)
             return None
-        except (sqlite3.Error, json.JSONDecodeError):
-            logger.exception("Error getting author %s", key)
+        except Exception:
+            logger.exception("Unexpected error getting author %s", key)
             return None
+
+    def get_author_works(
+        self,
+        author_key: str,
+        limit: int | None = None,
+        lang: str = "eng",  # noqa: ARG002
+    ) -> Sequence[str]:
+        """Get work keys for an author from the database.
+
+        Fetches work keys from openlibrary_author_works table.
+
+        Parameters
+        ----------
+        author_key : str
+            Author key (e.g., '/authors/OL19981A' or 'OL19981A').
+        limit : int | None
+            Maximum number of work keys to return (None = fetch all).
+        lang : str
+            Language code (not used for dump source, kept for API compatibility).
+
+        Returns
+        -------
+        Sequence[str]
+            Sequence of work keys.
+        """
+        try:
+            with get_session(self._engine) as session:
+                # Ensure author_key has /authors/ prefix
+                if not author_key.startswith("/authors/"):
+                    normalized_author_key = (
+                        f"/authors/{author_key.replace('authors/', '')}"
+                    )
+                else:
+                    normalized_author_key = author_key
+
+                # Query openlibrary_author_works table
+                # When selecting a single column, SQLModel returns the value directly, not a row object
+                stmt = select(OpenLibraryAuthorWork.work_key).where(
+                    OpenLibraryAuthorWork.author_key == normalized_author_key
+                )
+
+                if limit:
+                    stmt = stmt.limit(limit)
+
+                # Return work keys (they should already have /works/ prefix from DB)
+                # session.exec() returns the column values directly when selecting a single column
+                return list(session.exec(stmt).all())
+
+        except OperationalError:
+            logger.exception("Database error getting author works for %s", author_key)
+            return []
+        except Exception:
+            logger.exception("Unexpected error getting author works for %s", author_key)
+            return []
+
+    def _search_by_isbn(self, session: Session, isbn: str) -> list[BookData]:  # type: ignore[type-arg]
+        """Search for books by ISBN.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        isbn : str
+            ISBN identifier.
+
+        Returns
+        -------
+        list[BookData]
+            List of matching books.
+        """
+        results: list[BookData] = []
+        # Normalize ISBN (remove hyphens, spaces)
+        normalized_isbn = isbn.replace("-", "").replace(" ", "")
+
+        # Search in edition_isbns table (uses index on isbn column)
+        stmt = select(OpenLibraryEditionIsbn.edition_key).where(
+            OpenLibraryEditionIsbn.isbn == normalized_isbn
+        )
+        edition_keys = [row.edition_key for row in session.exec(stmt).all()]
+
+        if not edition_keys:
+            return results
+
+        # Get editions and their works
+        stmt = select(OpenLibraryEdition).where(
+            OpenLibraryEdition.key.in_(edition_keys)  # type: ignore[attr-defined]
+        )
+        editions = session.exec(stmt).all()
+
+        # Get work keys from editions
+        work_keys = [edition.work_key for edition in editions if edition.work_key]
+
+        if work_keys:
+            # Get works (uses primary key index)
+            stmt = select(OpenLibraryWork).where(
+                OpenLibraryWork.key.in_(work_keys)  # type: ignore[attr-defined]
+            )
+            works = session.exec(stmt).all()
+
+            for work in works:
+                if work.data:
+                    try:
+                        book = self._parse_book_data(work.key, work.data)
+                        results.append(book)
+                    except (KeyError, TypeError):
+                        logger.debug("Error parsing book data for key %s", work.key)
+                        continue
+
+        # Also include editions directly if they have title
+        for edition in editions:
+            if edition.data and edition.data.get("title"):
+                try:
+                    book = self._parse_book_data(edition.key, edition.data)
+                    results.append(book)
+                except (KeyError, TypeError):
+                    logger.debug("Error parsing edition data for key %s", edition.key)
+                    continue
+
+        return results[:20]
+
+    def _search_by_title(self, session: Session, title: str) -> list[BookData]:  # type: ignore[type-arg]
+        """Search for books by title using trigram similarity.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        title : str
+            Book title to search for.
+
+        Returns
+        -------
+        list[BookData]
+            List of matching books.
+        """
+        results: list[BookData] = []
+        search_title = title.strip()
+
+        # Access JSONB title field using -> operator with proper casting
+        work_data_col = func.cast(OpenLibraryWork.data, JSONB)  # type: ignore[arg-type]
+        title_field = func.cast(
+            work_data_col.op("->>")("title"),
+            Text(),  # type: ignore[attr-defined]
+        )
+
+        stmt = (
+            select(
+                OpenLibraryWork.key,
+                OpenLibraryWork.data,
+                func.similarity(
+                    title_field,
+                    search_title,
+                ).label("title_similarity"),
+            )
+            .where(
+                func.similarity(
+                    title_field,
+                    search_title,
+                )
+                >= MIN_TRIGRAM_SIMILARITY
+            )
+            .order_by(
+                func.similarity(
+                    title_field,
+                    search_title,
+                ).desc()
+            )
+            .limit(20)
+        )
+
+        rows = session.exec(stmt).all()
+
+        for row in rows:
+            work_key, work_data, _ = row
+            if not work_data:
+                continue
+
+            try:
+                book = self._parse_book_data(work_key, work_data)
+                results.append(book)
+            except (KeyError, TypeError):
+                logger.debug("Error parsing book data for key %s", work_key)
+                continue
+
+        return results
 
     def search_book(
         self,
         title: str | None = None,
-        isbn: str | None = None,  # noqa: ARG002
+        isbn: str | None = None,
         authors: Sequence[str] | None = None,  # noqa: ARG002
     ) -> Sequence[BookData]:
-        """Search for books."""
-        # Only title search is efficient with current schema
-        if not title:
-            return []
+        """Search for books by title or ISBN.
 
-        results: list[BookData] = []
+        Uses GIN trigram index on title field for efficient fuzzy text search.
+        Uses B-tree index on ISBN for exact ISBN lookups.
+
+        Parameters
+        ----------
+        title : str | None
+            Book title to search for.
+        isbn : str | None
+            ISBN identifier for exact lookup.
+        authors : Sequence[str] | None
+            Author names (not currently used in dump search).
+
+        Returns
+        -------
+        Sequence[BookData]
+            List of matching books.
+
+        Notes
+        -----
+        - Title search uses PostgreSQL trigram similarity with GIN trigram index.
+        - ISBN search uses the indexed ISBN table for fast lookups.
+        - If both title and ISBN are provided, ISBN takes precedence.
+        """
         try:
-            with self._get_connection() as conn:
-                cursor = conn.execute(
-                    "SELECT key, data FROM works WHERE title LIKE ? LIMIT 20",
-                    (f"%{title}%",),
-                )
+            with get_session(self._engine) as session:
+                # ISBN search takes precedence (uses indexed ISBN table)
+                if isbn:
+                    results = self._search_by_isbn(session, isbn)
+                    if results:
+                        return results
 
-                for row in cursor:
-                    try:
-                        data = json.loads(row["data"])
-                        book = self._parse_book_data(row["key"], data)
-                        results.append(book)
-                    except (json.JSONDecodeError, KeyError):
-                        continue
+                # Title search (uses GIN trigram index on title field)
+                if title:
+                    return self._search_by_title(session, title)
 
-        except DataSourceNotFoundError:
-            return []
-        except sqlite3.Error:
+        except OperationalError:
             logger.exception("Database error searching books")
             return []
+        except Exception:
+            logger.exception("Unexpected error searching books")
+            return []
 
-        return results
+        return []
 
     def _parse_book_data(self, key: str, data: dict[str, Any]) -> BookData:
-        """Parse raw JSON data into BookData."""
+        """Parse raw JSON data into BookData.
+
+        Parameters
+        ----------
+        key : str
+            Book/work key identifier.
+        data : dict[str, Any]
+            Raw book/work data dictionary.
+
+        Returns
+        -------
+        BookData
+            Parsed book data.
+        """
         # Authors in works dump are usually references: {"key": "/authors/OL..."}
-        _ = data.get("authors", [])
         # We can't easily resolve names here without extra lookups,
         # so we might just return empty list or keys.
         # The BaseDataSource expects names.
@@ -398,12 +567,24 @@ class OpenLibraryDumpDataSource(BaseDataSource):
             if s
         ]
 
+        # Extract ISBN from edition data if available
+        isbn = None
+        isbn13 = None
+        isbn_list = data.get("isbn_13") or data.get("isbn_10") or data.get("isbn")
+        if isbn_list and isinstance(isbn_list, list) and len(isbn_list) > 0:
+            # Take first ISBN
+            first_isbn = str(isbn_list[0])
+            if len(first_isbn) == 13:
+                isbn13 = first_isbn
+            else:
+                isbn = first_isbn
+
         return BookData(
             key=key,
             title=data.get("title", ""),
             authors=author_names,
-            isbn=None,  # Works don't usually have ISBNs (Editions do)
-            isbn13=None,
+            isbn=isbn,
+            isbn13=isbn13,
             publish_date=data.get("first_publish_date"),
             publishers=[],  # Works don't usually have publishers
             subjects=subjects,
@@ -412,24 +593,80 @@ class OpenLibraryDumpDataSource(BaseDataSource):
         )
 
     def get_book(self, key: str, skip_authors: bool = False) -> BookData | None:  # noqa: ARG002
-        """Get book by key."""
+        """Get book by key.
+
+        Database stores keys with /works/ prefix (e.g., '/works/OL10301079W').
+
+        Parameters
+        ----------
+        key : str
+            Book/work key identifier (with or without /works/ prefix).
+        skip_authors : bool
+            If True, skip fetching author data (not currently used).
+
+        Returns
+        -------
+        BookData | None
+            Book data if found, None otherwise.
+        """
         try:
-            with self._get_connection() as conn:
-                normalized_key = key.replace("/works/", "").replace("/books/", "")
+            with get_session(self._engine) as session:
+                # Ensure key has /works/ prefix (database stores with prefix)
+                if not key.startswith("/works/") and not key.startswith("/books/"):
+                    normalized_key = (
+                        f"/works/{key.replace('works/', '').replace('books/', '')}"
+                    )
+                elif key.startswith("/books/"):
+                    normalized_key = key.replace("/books/", "/works/")
+                else:
+                    normalized_key = key
 
-                cursor = conn.execute(
-                    "SELECT key, data FROM works WHERE key = ?", (normalized_key,)
+                stmt = select(OpenLibraryWork).where(
+                    OpenLibraryWork.key == normalized_key
                 )
-                row = cursor.fetchone()
+                work = session.exec(stmt).first()
 
-                if not row:
+                if not work or not work.data:
                     return None
 
-                data = json.loads(row["data"])
-                return self._parse_book_data(row["key"], data)
+                return self._parse_book_data(work.key, work.data)
 
-        except DataSourceNotFoundError:
+        except OperationalError:
+            logger.exception("Database error getting book %s", key)
             return None
-        except (sqlite3.Error, json.JSONDecodeError):
-            logger.exception("Error getting book %s", key)
+        except Exception:
+            logger.exception("Unexpected error getting book %s", key)
+            return None
+
+    def get_work_raw(self, key: str) -> dict[str, Any] | None:
+        """Get raw work JSON data by key from dump.
+
+        Parameters
+        ----------
+        key : str
+            Work key (e.g., "OL82563W" or "/works/OL82563W").
+
+        Returns
+        -------
+        dict[str, Any] | None
+            Raw work JSON data if found, None otherwise.
+        """
+        try:
+            with get_session(self._engine) as session:
+                # Normalize key (ensure it has /works/ prefix for DB lookup)
+                if not key.startswith("/works/"):
+                    normalized_key = f"/works/{key.replace('works/', '')}"
+                else:
+                    normalized_key = key
+
+                stmt = select(OpenLibraryWork.data).where(
+                    OpenLibraryWork.key == normalized_key
+                )
+                result = session.exec(stmt).first()
+                return result if result else None
+        except OperationalError:
+            logger.exception("Database error getting work data for %s", key)
+            return None
+        except Exception:
+            logger.exception("Unexpected error getting work data for %s", key)
             return None

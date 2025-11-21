@@ -21,10 +21,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlalchemy.exc import OperationalError
 
-from fundamental.services.library_scanning.data_sources.base import (
-    DataSourceNotFoundError,
-)
 from fundamental.services.library_scanning.data_sources.openlibrary_dump import (
     OPENLIBRARY_COVERS_BASE,
     OpenLibraryDumpDataSource,
@@ -204,10 +202,10 @@ class TestOpenLibraryDumpDataSourceInit:
     """Test OpenLibraryDumpDataSource initialization."""
 
     def test_init_default(self) -> None:
-        """Test __init__ with default data_directory."""
+        """Test __init__ with default parameters."""
         source = OpenLibraryDumpDataSource()
 
-        assert source.db_path == Path("/data") / "openlibrary" / "openlibrary.db"
+        assert source._engine is not None
 
     def test_init_custom(self, tmp_path: Path) -> None:
         """Test __init__ with custom data_directory.
@@ -219,7 +217,7 @@ class TestOpenLibraryDumpDataSourceInit:
         """
         source = OpenLibraryDumpDataSource(data_directory=str(tmp_path))
 
-        assert source.db_path == tmp_path / "openlibrary" / "openlibrary.db"
+        assert source._engine is not None
 
     def test_name_property(self, data_source: OpenLibraryDumpDataSource) -> None:
         """Test name property.
@@ -230,46 +228,6 @@ class TestOpenLibraryDumpDataSourceInit:
             Data source instance.
         """
         assert data_source.name == "OpenLibraryDump"
-
-
-class TestOpenLibraryDumpDataSourceGetConnection:
-    """Test OpenLibraryDumpDataSource._get_connection."""
-
-    def test_get_connection_success(
-        self, data_source: OpenLibraryDumpDataSource, tmp_db_path: Path
-    ) -> None:
-        """Test _get_connection when database exists.
-
-        Parameters
-        ----------
-        data_source : OpenLibraryDumpDataSource
-            Data source instance.
-        tmp_db_path : Path
-            Temporary database path.
-        """
-        # Create empty database
-        sqlite3.connect(tmp_db_path).close()
-
-        conn = data_source._get_connection()
-
-        assert conn is not None
-        assert conn.row_factory == sqlite3.Row
-        conn.close()
-
-    def test_get_connection_not_found(
-        self, data_source: OpenLibraryDumpDataSource
-    ) -> None:
-        """Test _get_connection when database does not exist.
-
-        Parameters
-        ----------
-        data_source : OpenLibraryDumpDataSource
-            Data source instance.
-        """
-        with pytest.raises(
-            DataSourceNotFoundError, match="OpenLibrary dump DB not found"
-        ):
-            data_source._get_connection()
 
 
 class TestOpenLibraryDumpDataSourceExtractIdentifiers:
@@ -391,8 +349,16 @@ class TestOpenLibraryDumpDataSourceExtractBio:
 
 
 class TestOpenLibraryDumpDataSourceGenerateNamePermutations:
-    """Test OpenLibraryDumpDataSource._generate_name_permutations."""
+    """Test OpenLibraryDumpDataSource._generate_name_permutations.
 
+    Note: This method was removed when migrating from SQLite to PostgreSQL.
+    PostgreSQL trigram similarity handles name matching more efficiently.
+    These tests are kept for reference but are skipped.
+    """
+
+    @pytest.mark.skip(
+        reason="Method removed - PostgreSQL trigram similarity handles this"
+    )
     @pytest.mark.parametrize(
         ("name", "expected_count", "expected_contains"),
         [
@@ -427,12 +393,15 @@ class TestOpenLibraryDumpDataSourceGenerateNamePermutations:
         data_source : OpenLibraryDumpDataSource
             Data source instance.
         """
-        result = data_source._generate_name_permutations(name)
+        result = data_source._generate_name_permutations(name)  # type: ignore[attr-defined]
 
         assert len(result) == expected_count
         for expected in expected_contains:
             assert expected in result
 
+    @pytest.mark.skip(
+        reason="Method removed - PostgreSQL trigram similarity handles this"
+    )
     def test_generate_name_permutations_removes_duplicates(
         self, data_source: OpenLibraryDumpDataSource
     ) -> None:
@@ -443,7 +412,7 @@ class TestOpenLibraryDumpDataSourceGenerateNamePermutations:
         data_source : OpenLibraryDumpDataSource
             Data source instance.
         """
-        result = data_source._generate_name_permutations("Test Test")
+        result = data_source._generate_name_permutations("Test Test")  # type: ignore[attr-defined]
 
         # Should not have duplicate entries
         assert len(result) == len(set(result))
@@ -598,8 +567,12 @@ class TestOpenLibraryDumpDataSourceSearchAuthor:
         """
         create_test_db(tmp_db_path)
 
-        with patch.object(data_source, "_get_connection") as mock_conn:
-            mock_conn.side_effect = sqlite3.Error("Database error")
+        with patch(
+            "fundamental.services.library_scanning.data_sources.openlibrary_dump.get_session"
+        ) as mock_get_session:
+            mock_get_session.side_effect = OperationalError(
+                "Database error", None, Exception("Database error")
+            )
 
             result = data_source.search_author("Test Author")
 
@@ -617,21 +590,31 @@ class TestOpenLibraryDumpDataSourceSearchAuthor:
         tmp_db_path : Path
             Temporary database path.
         """
-        conn = sqlite3.connect(tmp_db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            "CREATE TABLE authors (key TEXT PRIMARY KEY, name TEXT, data TEXT)"
-        )
-        cursor.execute(
-            "INSERT INTO authors (key, name, data) VALUES (?, ?, ?)",
-            ("OL123A", "", "invalid json"),
-        )
-        conn.commit()
-        conn.close()
+        # Note: This test is less relevant with PostgreSQL JSONB,
+        # but we keep it to test error handling in _parse_query_results
+        # For PostgreSQL, invalid JSON would be caught at insert time
+        # So we'll skip this test or mock the data to be invalid
+        create_test_db(tmp_db_path)
 
-        result = data_source.search_author("Test")
+        # Mock a row with invalid data structure
+        from unittest.mock import Mock
 
-        assert result == []
+        mock_row = Mock()
+        mock_row.key = "OL123A"
+        mock_row.data = "invalid"  # Not a dict
+
+        with patch(
+            "fundamental.services.library_scanning.data_sources.openlibrary_dump.get_session"
+        ) as mock_get_session:
+            mock_session = MagicMock()
+            mock_session.__enter__ = MagicMock(return_value=mock_session)
+            mock_session.__exit__ = MagicMock(return_value=False)
+            mock_session.exec.return_value.all.return_value = [mock_row]
+            mock_get_session.return_value = mock_session
+
+            result = data_source.search_author("Test")
+
+            assert result == []
 
     def test_search_author_duplicate_keys(
         self,
@@ -695,18 +678,24 @@ class TestOpenLibraryDumpDataSourceSearchAuthor:
                     return self._data
                 raise KeyError(key)
 
-        # Mock the connection and cursor to return duplicate rows
-        with patch.object(data_source, "_get_connection") as mock_get_conn:
-            mock_conn = MagicMock()
-            mock_conn.__enter__.return_value = mock_conn
-            mock_get_conn.return_value = mock_conn
+        # Mock the session to return duplicate rows
+        from unittest.mock import Mock
 
-            # Create a cursor that returns the same row twice
-            row1 = DuplicateRow("OL123A", json.dumps(sample_author_data))
-            row2 = DuplicateRow("OL123A", json.dumps(sample_author_data))  # Same key
-            mock_cursor = MagicMock()
-            mock_cursor.__iter__.return_value = iter([row1, row2])
-            mock_conn.execute.return_value = mock_cursor
+        row1 = Mock()
+        row1.key = "OL123A"
+        row1.data = sample_author_data
+        row2 = Mock()
+        row2.key = "OL123A"  # Same key
+        row2.data = sample_author_data
+
+        with patch(
+            "fundamental.services.library_scanning.data_sources.openlibrary_dump.get_session"
+        ) as mock_get_session:
+            mock_session = MagicMock()
+            mock_session.__enter__ = MagicMock(return_value=mock_session)
+            mock_session.__exit__ = MagicMock(return_value=False)
+            mock_session.exec.return_value.all.return_value = [row1, row2]
+            mock_get_session.return_value = mock_session
 
             result = data_source.search_author("Test Author")
 
@@ -919,8 +908,12 @@ class TestOpenLibraryDumpDataSourceGetAuthor:
         """
         create_test_db(tmp_db_path)
 
-        with patch.object(data_source, "_get_connection") as mock_conn:
-            mock_conn.side_effect = sqlite3.Error("Database error")
+        with patch(
+            "fundamental.services.library_scanning.data_sources.openlibrary_dump.get_session"
+        ) as mock_get_session:
+            mock_get_session.side_effect = OperationalError(
+                "Database error", None, Exception("Database error")
+            )
 
             result = data_source.get_author("OL123A")
 
@@ -938,21 +931,26 @@ class TestOpenLibraryDumpDataSourceGetAuthor:
         tmp_db_path : Path
             Temporary database path.
         """
-        conn = sqlite3.connect(tmp_db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            "CREATE TABLE authors (key TEXT PRIMARY KEY, name TEXT, data TEXT)"
-        )
-        cursor.execute(
-            "INSERT INTO authors (key, name, data) VALUES (?, ?, ?)",
-            ("OL123A", "", "invalid json"),
-        )
-        conn.commit()
-        conn.close()
+        # Note: With PostgreSQL JSONB, invalid JSON would be caught at insert time
+        # This test mocks invalid data structure instead
+        from unittest.mock import Mock
 
-        result = data_source.get_author("OL123A")
+        mock_row = Mock()
+        mock_row.key = "OL123A"
+        mock_row.data = "invalid"  # Not a dict
 
-        assert result is None
+        with patch(
+            "fundamental.services.library_scanning.data_sources.openlibrary_dump.get_session"
+        ) as mock_get_session:
+            mock_session = MagicMock()
+            mock_session.__enter__ = MagicMock(return_value=mock_session)
+            mock_session.__exit__ = MagicMock(return_value=False)
+            mock_session.exec.return_value.first.return_value = mock_row
+            mock_get_session.return_value = mock_session
+
+            result = data_source.get_author("OL123A")
+
+            assert result is None
 
 
 class TestOpenLibraryDumpDataSourceSearchBook:
@@ -1084,8 +1082,12 @@ class TestOpenLibraryDumpDataSourceSearchBook:
         """
         create_test_db(tmp_db_path)
 
-        with patch.object(data_source, "_get_connection") as mock_conn:
-            mock_conn.side_effect = sqlite3.Error("Database error")
+        with patch(
+            "fundamental.services.library_scanning.data_sources.openlibrary_dump.get_session"
+        ) as mock_get_session:
+            mock_get_session.side_effect = OperationalError(
+                "Database error", None, Exception("Database error")
+            )
 
             result = data_source.search_book(title="Test")
 
@@ -1103,21 +1105,26 @@ class TestOpenLibraryDumpDataSourceSearchBook:
         tmp_db_path : Path
             Temporary database path.
         """
-        conn = sqlite3.connect(tmp_db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            "CREATE TABLE works (key TEXT PRIMARY KEY, title TEXT, data TEXT)"
-        )
-        cursor.execute(
-            "INSERT INTO works (key, title, data) VALUES (?, ?, ?)",
-            ("OL123W", "", "invalid json"),
-        )
-        conn.commit()
-        conn.close()
+        # Note: With PostgreSQL JSONB, invalid JSON would be caught at insert time
+        # This test mocks invalid data structure instead
+        from unittest.mock import Mock
 
-        result = data_source.search_book(title="Test")
+        mock_row = Mock()
+        mock_row.key = "OL123W"
+        mock_row.data = "invalid"  # Not a dict
 
-        assert result == []
+        with patch(
+            "fundamental.services.library_scanning.data_sources.openlibrary_dump.get_session"
+        ) as mock_get_session:
+            mock_session = MagicMock()
+            mock_session.__enter__ = MagicMock(return_value=mock_session)
+            mock_session.__exit__ = MagicMock(return_value=False)
+            mock_session.exec.return_value.all.return_value = [mock_row]
+            mock_get_session.return_value = mock_session
+
+            result = data_source.search_book(title="Test")
+
+            assert result == []
 
     def test_search_author_handles_keyerror(
         self,
@@ -1438,8 +1445,12 @@ class TestOpenLibraryDumpDataSourceGetBook:
         """
         create_test_db(tmp_db_path)
 
-        with patch.object(data_source, "_get_connection") as mock_conn:
-            mock_conn.side_effect = sqlite3.Error("Database error")
+        with patch(
+            "fundamental.services.library_scanning.data_sources.openlibrary_dump.get_session"
+        ) as mock_get_session:
+            mock_get_session.side_effect = OperationalError(
+                "Database error", None, Exception("Database error")
+            )
 
             result = data_source.get_book("OL123W")
 
@@ -1457,18 +1468,23 @@ class TestOpenLibraryDumpDataSourceGetBook:
         tmp_db_path : Path
             Temporary database path.
         """
-        conn = sqlite3.connect(tmp_db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            "CREATE TABLE works (key TEXT PRIMARY KEY, title TEXT, data TEXT)"
-        )
-        cursor.execute(
-            "INSERT INTO works (key, title, data) VALUES (?, ?, ?)",
-            ("OL123W", "", "invalid json"),
-        )
-        conn.commit()
-        conn.close()
+        # Note: With PostgreSQL JSONB, invalid JSON would be caught at insert time
+        # This test mocks invalid data structure instead
+        from unittest.mock import Mock
 
-        result = data_source.get_book("OL123W")
+        mock_row = Mock()
+        mock_row.key = "OL123W"
+        mock_row.data = "invalid"  # Not a dict
 
-        assert result is None
+        with patch(
+            "fundamental.services.library_scanning.data_sources.openlibrary_dump.get_session"
+        ) as mock_get_session:
+            mock_session = MagicMock()
+            mock_session.__enter__ = MagicMock(return_value=mock_session)
+            mock_session.__exit__ = MagicMock(return_value=False)
+            mock_session.exec.return_value.first.return_value = mock_row
+            mock_get_session.return_value = mock_session
+
+            result = data_source.get_book("OL123W")
+
+            assert result is None

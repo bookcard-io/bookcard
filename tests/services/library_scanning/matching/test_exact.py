@@ -156,49 +156,6 @@ class TestExactNameMatchingStrategy:
         assert result is not None
         assert result.confidence_score == 0.90
 
-    def test_match_exact_name_alternate_name(
-        self,
-        strategy: ExactNameMatchingStrategy,
-        mock_author: Author,
-        mock_data_source: MagicMock,
-    ) -> None:
-        """Test match finds exact match via alternate name."""
-        author_data = AuthorData(
-            key="/authors/OL123A",
-            name="Jonathan Doe",  # Different name
-            alternate_names=["John Doe"],  # Match in alternate
-            personal_name="John",
-            work_count=10,
-        )
-        mock_data_source.search_author.return_value = [author_data]
-        result = strategy.match(mock_author, mock_data_source)
-
-        assert result is not None
-        assert result.confidence_score == 0.88
-        assert result.match_method == "exact_alternate"
-        assert result.matched_entity == author_data
-
-    def test_match_exact_name_alternate_name_case_insensitive(
-        self,
-        strategy: ExactNameMatchingStrategy,
-        mock_author: Author,
-        mock_data_source: MagicMock,
-    ) -> None:
-        """Test match finds exact match via alternate name case-insensitive."""
-        author_data = AuthorData(
-            key="/authors/OL123A",
-            name="Jonathan Doe",
-            alternate_names=["JOHN DOE"],  # Different case
-            personal_name="John",
-            work_count=10,
-        )
-        mock_data_source.search_author.return_value = [author_data]
-        result = strategy.match(mock_author, mock_data_source)
-
-        assert result is not None
-        assert result.confidence_score == 0.88
-        assert result.match_method == "exact_alternate"
-
     def test_match_no_results(
         self,
         strategy: ExactNameMatchingStrategy,

@@ -67,6 +67,12 @@ class CompletionWorker(BaseWorker):
             logger.error("Invalid completion payload: %s", payload)
             return None
 
+        logger.info(
+            "CompletionWorker: Processing completion for library %s (task: %s)",
+            library_id,
+            task_id,
+        )
+
         # Mark task as complete
         if task_id:
             task_tracker = ScanTaskTracker()

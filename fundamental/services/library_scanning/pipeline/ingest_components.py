@@ -30,6 +30,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from contextlib import suppress
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlmodel import Session, select
 
@@ -40,6 +41,7 @@ from fundamental.models.author_metadata import (
     AuthorPhoto,
     AuthorRemoteId,
     AuthorWork,
+    WorkMetadata,
     WorkSubject,
 )
 from fundamental.services.library_scanning.data_sources.base import (
@@ -152,6 +154,32 @@ class AuthorDataFetcher:
             logger.warning("Error fetching work %s: %s", work_key, e)
             return None
 
+    def fetch_work_raw(self, work_key: str) -> dict[str, Any] | None:
+        """Fetch raw work JSON data.
+
+        Parameters
+        ----------
+        work_key : str
+            Work key identifier.
+
+        Returns
+        -------
+        dict[str, Any] | None
+            Raw work JSON data if found, None otherwise.
+        """
+        try:
+            # Try to get raw data if data source supports it
+            if hasattr(self.data_source, "get_work_raw"):
+                return self.data_source.get_work_raw(work_key)  # type: ignore[attr-defined]
+        except DataSourceError as e:
+            logger.warning("Error fetching raw work data %s: %s", work_key, e)
+            return None
+        else:
+            # Fallback: fetch via get_book and reconstruct (limited)
+            # For now, return None if raw method not available
+            # This will be implemented in data sources
+            return None
+
 
 # ============================================================================
 # Photo URL Building
@@ -210,17 +238,27 @@ class AuthorMetadataRepository:
     def find_by_openlibrary_key(self, key: str) -> AuthorMetadata | None:
         """Find author metadata by OpenLibrary key.
 
+        Normalizes the key to OpenLibrary convention: "/authors/OL19981A".
+
         Parameters
         ----------
         key : str
-            OpenLibrary author key.
+            OpenLibrary author key (e.g., "OL23919A" or "/authors/OL23919A").
 
         Returns
         -------
         AuthorMetadata | None
             Author metadata if found, None otherwise.
         """
-        stmt = select(AuthorMetadata).where(AuthorMetadata.openlibrary_key == key)
+        # Normalize key to OpenLibrary convention: ensure /authors/ prefix
+        if not key.startswith("/authors/"):
+            normalized_key = f"/authors/{key.replace('authors/', '')}"
+        else:
+            normalized_key = key
+
+        stmt = select(AuthorMetadata).where(
+            AuthorMetadata.openlibrary_key == normalized_key
+        )
         return self.session.exec(stmt).first()
 
     def create(
@@ -240,6 +278,11 @@ class AuthorMetadataRepository:
         AuthorMetadata
             Created author metadata record.
         """
+        logger.debug(
+            "Creating AuthorMetadata with key: %s, name: %s",
+            author_data.key,
+            author_data.name,
+        )
         author = AuthorMetadata(
             openlibrary_key=author_data.key,
             name=author_data.name,
@@ -588,6 +631,76 @@ class AuthorWorkRepository:
         """
         self.session.add(work)
         return work
+
+
+class WorkMetadataRepository:
+    """Repository for WorkMetadata operations."""
+
+    def __init__(self, session: Session) -> None:
+        """Initialize repository.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        """
+        self.session = session
+
+    def find_by_work_key(self, work_key: str) -> WorkMetadata | None:
+        """Find work metadata by work key.
+
+        Parameters
+        ----------
+        work_key : str
+            OpenLibrary work key (normalized).
+
+        Returns
+        -------
+        WorkMetadata | None
+            Work metadata if found, None otherwise.
+        """
+        stmt = select(WorkMetadata).where(WorkMetadata.work_key == work_key)
+        return self.session.exec(stmt).first()
+
+    def create(self, work_metadata: WorkMetadata) -> WorkMetadata:
+        """Create new work metadata record.
+
+        Parameters
+        ----------
+        work_metadata : WorkMetadata
+            Work metadata record to create.
+
+        Returns
+        -------
+        WorkMetadata
+            Created work metadata record.
+        """
+        self.session.add(work_metadata)
+        return work_metadata
+
+    def update(
+        self, existing: WorkMetadata, work_metadata: WorkMetadata
+    ) -> WorkMetadata:
+        """Update existing work metadata record.
+
+        Parameters
+        ----------
+        existing : WorkMetadata
+            Existing work metadata record.
+        work_metadata : WorkMetadata
+            Updated work metadata record.
+
+        Returns
+        -------
+        WorkMetadata
+            Updated work metadata record.
+        """
+        for key, value in work_metadata.model_dump(
+            exclude={"id", "created_at"}
+        ).items():
+            setattr(existing, key, value)
+        existing.updated_at = datetime.now(UTC)
+        return existing
 
 
 class WorkSubjectRepository:
@@ -953,7 +1066,7 @@ class AuthorWorkService:
         total_works = len(self.work_repo.find_by_author_id(author_id))
 
         if new_works_count > 0:
-            logger.info(
+            logger.debug(
                 "Persisted %d new work keys for author %d (total: %d works)",
                 new_works_count,
                 author_id,
@@ -1000,6 +1113,163 @@ class AuthorWorkService:
             )
 
         return new_subjects_count
+
+
+class WorkMetadataService:
+    """Service for managing work metadata."""
+
+    def __init__(self, work_metadata_repo: WorkMetadataRepository) -> None:
+        """Initialize work metadata service.
+
+        Parameters
+        ----------
+        work_metadata_repo : WorkMetadataRepository
+            Work metadata repository.
+        """
+        self.work_metadata_repo = work_metadata_repo
+
+    def normalize_and_persist(
+        self, work_key: str, raw_data: dict[str, Any]
+    ) -> WorkMetadata:
+        """Normalize raw work JSON and persist to database.
+
+        Parameters
+        ----------
+        work_key : str
+            OpenLibrary work key (normalized, e.g., "OL81633W").
+        raw_data : dict[str, Any]
+            Raw work JSON data from OpenLibrary.
+
+        Returns
+        -------
+        WorkMetadata
+            Created or updated work metadata record.
+        """
+        # Normalize work key (remove /works/ prefix if present)
+        normalized_key = work_key.replace("/works/", "").replace("works/", "")
+
+        # Extract and normalize fields
+        title = raw_data.get("title")
+        description = self._extract_text_field(raw_data.get("description"))
+        first_sentence = self._extract_text_field(raw_data.get("first_sentence"))
+        first_publish_date = raw_data.get("first_publish_date")
+        covers = raw_data.get("covers", [])
+        if covers and isinstance(covers, list):
+            covers = [c for c in covers if isinstance(c, int) and c > 0]
+
+        subjects = raw_data.get("subjects", [])
+        if subjects and isinstance(subjects, list):
+            subjects = [
+                s
+                if isinstance(s, str)
+                else s.get("name", "")
+                if isinstance(s, dict)
+                else str(s)
+                for s in subjects
+                if s
+            ]
+
+        subject_people = raw_data.get("subject_people", [])
+        if subject_people and isinstance(subject_people, list):
+            subject_people = [p for p in subject_people if isinstance(p, str)]
+
+        subject_places = raw_data.get("subject_places", [])
+        if subject_places and isinstance(subject_places, list):
+            subject_places = [p for p in subject_places if isinstance(p, str)]
+
+        links = raw_data.get("links", [])
+        if links and isinstance(links, list):
+            links = [link for link in links if isinstance(link, dict)]
+
+        excerpts = raw_data.get("excerpts", [])
+        if excerpts and isinstance(excerpts, list):
+            excerpts = [e for e in excerpts if isinstance(e, dict)]
+
+        revision = raw_data.get("revision")
+        latest_revision = raw_data.get("latest_revision")
+        created = self._parse_datetime(raw_data.get("created"))
+        last_modified = self._parse_datetime(raw_data.get("last_modified"))
+
+        # Check if work metadata already exists
+        existing = self.work_metadata_repo.find_by_work_key(normalized_key)
+
+        work_metadata = WorkMetadata(
+            work_key=normalized_key,
+            title=title,
+            description=description,
+            first_sentence=first_sentence,
+            first_publish_date=first_publish_date,
+            covers=covers if covers else None,
+            subjects=subjects if subjects else None,
+            subject_people=subject_people if subject_people else None,
+            subject_places=subject_places if subject_places else None,
+            links=links if links else None,
+            excerpts=excerpts if excerpts else None,
+            revision=revision,
+            latest_revision=latest_revision,
+            created=created,
+            last_modified=last_modified,
+            raw_data=raw_data,
+        )
+
+        if existing:
+            return self.work_metadata_repo.update(existing, work_metadata)
+        return self.work_metadata_repo.create(work_metadata)
+
+    def _extract_text_field(self, value: str | dict[str, object] | None) -> str | None:
+        """Extract text from dict with type/value structure or return as-is.
+
+        Parameters
+        ----------
+        value : str | dict[str, object] | None
+            Value that may be a string or dict with type/value.
+
+        Returns
+        -------
+        str | None
+            Extracted text or None.
+        """
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return value
+        if isinstance(value, dict):
+            extracted = value.get("value")
+            return str(extracted) if extracted is not None else None
+        return None
+
+    def _parse_datetime(
+        self, value: str | dict[str, object] | datetime | None
+    ) -> datetime | None:
+        """Parse datetime from OpenLibrary format.
+
+        Parameters
+        ----------
+        value : str | dict[str, object] | datetime | None
+            Datetime value (may be dict with type/value or ISO string).
+
+        Returns
+        -------
+        datetime | None
+            Parsed datetime or None.
+        """
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, dict):
+            extracted_value = value.get("value")
+            if isinstance(extracted_value, str):
+                value = extracted_value
+            else:
+                return None
+        if isinstance(value, str):
+            try:
+                # Parse ISO format datetime
+                return datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except (ValueError, AttributeError):
+                return None
+        return None
 
 
 # ============================================================================
@@ -1074,6 +1344,7 @@ class WorkBasedSubjectStrategy(SubjectFetchStrategy):
         work_service: AuthorWorkService,
         work_repo: AuthorWorkRepository,
         subject_repo: WorkSubjectRepository,
+        work_metadata_service: WorkMetadataService | None = None,
         max_works_per_author: int | None = None,
     ) -> None:
         """Initialize strategy.
@@ -1088,6 +1359,8 @@ class WorkBasedSubjectStrategy(SubjectFetchStrategy):
             Work repository.
         subject_repo : WorkSubjectRepository
             Subject repository.
+        work_metadata_service : WorkMetadataService | None
+            Work metadata service for persisting work metadata.
         max_works_per_author : int | None
             Maximum number of work keys to fetch per author (None = no limit).
             Also limits how many works to fetch metadata for to extract subjects.
@@ -1096,7 +1369,48 @@ class WorkBasedSubjectStrategy(SubjectFetchStrategy):
         self.work_service = work_service
         self.work_repo = work_repo
         self.subject_repo = subject_repo
+        self.work_metadata_service = work_metadata_service
         self.max_works_per_author = max_works_per_author
+
+    def _persist_work_subjects(self, work_key: str, subjects: Sequence[str]) -> None:
+        """Persist subjects for a work.
+
+        Parameters
+        ----------
+        work_key : str
+            Work key identifier.
+        subjects : Sequence[str]
+            Sequence of subject names.
+        """
+        work = self.work_repo.find_by_work_key(work_key)
+        if work and work.id:
+            self.work_service.persist_work_subjects(work, subjects)
+            # Commit to release lock after write
+            if hasattr(self.work_repo.session, "commit"):
+                self.work_repo.session.commit()
+
+    def _persist_work_metadata(self, work_key: str) -> None:
+        """Persist work metadata if service is available.
+
+        Parameters
+        ----------
+        work_key : str
+            Work key identifier.
+        """
+        if not self.work_metadata_service:
+            return
+
+        raw_work_data = self.data_fetcher.fetch_work_raw(work_key)
+        if raw_work_data:
+            try:
+                self.work_metadata_service.normalize_and_persist(
+                    work_key, raw_work_data
+                )
+                # Commit work metadata
+                if hasattr(self.work_repo.session, "commit"):
+                    self.work_repo.session.commit()
+            except Exception:
+                logger.exception("Error persisting work metadata for %s", work_key)
 
     def fetch_subjects(
         self,
@@ -1125,53 +1439,65 @@ class WorkBasedSubjectStrategy(SubjectFetchStrategy):
             DataSourceNotFoundError,
             DataSourceError,
         ):
-            # Fetch work keys with a reasonable maximum limit to prevent excessive pagination
-            # for prolific authors (e.g., Cervantes has 3000+ works)
-            # We only need a small subset for subjects, but persist more for completeness
-            max_works_to_fetch = self.max_works_per_author
-            work_keys = self.data_fetcher.fetch_author_works(
-                author_key, limit=max_works_to_fetch
-            )
-            logger.info(
-                "Fetched %d work keys for author %s", len(work_keys), author_key
-            )
-
-            # Persist work keys if author metadata is provided
-            if author_metadata and author_metadata.id:
-                self.work_service.persist_works(author_metadata.id, work_keys)
-                # Commit to release lock before loop
-                if hasattr(self.work_repo.session, "commit"):
-                    self.work_repo.session.commit()
-
-            # Use all fetched work keys for metadata fetching (already limited by max_works_per_author)
-            works_to_fetch = work_keys
+            work_keys = self._fetch_and_persist_work_keys(author_key, author_metadata)
+            if not work_keys:
+                return list(subjects)
 
             # Fetch each work and extract subjects
-            for idx, work_key in enumerate(works_to_fetch, start=1):
+            for idx, work_key in enumerate(work_keys, start=1):
                 work_data = self.data_fetcher.fetch_work(work_key)
                 if work_data and work_data.subjects:
                     subjects.update(work_data.subjects)
+                    self._persist_work_subjects(work_key, work_data.subjects)
 
-                    # Persist subjects to the work if work exists in DB
-                    work = self.work_repo.find_by_work_key(work_key)
-                    if work and work.id:
-                        self.work_service.persist_work_subjects(
-                            work, work_data.subjects
-                        )
-                        # Commit to release lock after write
-                        if hasattr(self.work_repo.session, "commit"):
-                            self.work_repo.session.commit()
+                # Persist work metadata
+                self._persist_work_metadata(work_key)
 
-                    logger.info(
+                if work_data:
+                    logger.debug(
                         "Fetched work %s for author %s (%d/%d, %d unique subjects)",
                         work_key,
                         author_key,
                         idx,
-                        len(works_to_fetch),
+                        len(work_keys),
                         len(subjects),
                     )
 
         return list(subjects)
+
+    def _fetch_and_persist_work_keys(
+        self,
+        author_key: str,
+        author_metadata: AuthorMetadata | None,
+    ) -> Sequence[str]:
+        """Fetch work keys and persist them if author metadata is provided.
+
+        Parameters
+        ----------
+        author_key : str
+            Author key identifier.
+        author_metadata : AuthorMetadata | None
+            Optional author metadata for persisting works.
+
+        Returns
+        -------
+        Sequence[str]
+            Sequence of work keys.
+        """
+        max_works_to_fetch = self.max_works_per_author
+        work_keys = self.data_fetcher.fetch_author_works(
+            author_key, limit=max_works_to_fetch
+        )
+        logger.info("Fetched %d work keys for author %s", len(work_keys), author_key)
+
+        # Persist work keys if author metadata is provided
+        if author_metadata and author_metadata.id:
+            self.work_service.persist_works(author_metadata.id, work_keys)
+            # Commit to release lock before loop
+            if hasattr(self.work_repo.session, "commit"):
+                self.work_repo.session.commit()
+
+        return work_keys
 
 
 class HybridSubjectStrategy(SubjectFetchStrategy):

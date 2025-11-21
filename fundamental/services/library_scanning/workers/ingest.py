@@ -120,6 +120,17 @@ class IngestWorker(BaseWorker):
             logger.error("Invalid ingest payload: %s", payload)
             return None
 
+        # Extract author info early for logging
+        author_name = match_result_dict.get("matched_entity", {}).get("name", "Unknown")
+        author_key = match_result_dict.get("matched_entity", {}).get("key", "Unknown")
+        logger.info(
+            "IngestWorker: Processing author %s (%s) (library: %s, task: %s)",
+            author_name,
+            author_key,
+            library_id,
+            task_id,
+        )
+
         # Mark ingest stage as started (idempotent - only first item triggers this)
         if task_id and isinstance(self.broker, RedisBroker):
             tracker = JobProgressTracker(self.broker)
@@ -163,7 +174,7 @@ class IngestWorker(BaseWorker):
             if self._should_skip_fetch(
                 session, author_key, stale_max_age, stale_refresh_interval
             ):
-                logger.debug(
+                logger.info(
                     "Skipping fetch for author %s (%s) - data is fresh",
                     author_name,
                     author_key,
@@ -173,7 +184,13 @@ class IngestWorker(BaseWorker):
                 return payload
 
             # Create data source
-            data_source = DataSourceRegistry.create_source(self.data_source_name)
+            # Pass engine for openlibrary_dump data source
+            kwargs = {}
+            if self.data_source_name == "openlibrary_dump":
+                kwargs["engine"] = self.engine
+            data_source = DataSourceRegistry.create_source(
+                self.data_source_name, **kwargs
+            )
 
             # Create components
             components = IngestStageFactory.create_components(
@@ -258,9 +275,15 @@ class IngestWorker(BaseWorker):
         if stale_data_max_age_days is None and stale_data_refresh_interval_days is None:
             return False
 
+        # Normalize key to OpenLibrary convention: ensure /authors/ prefix
+        if not author_key.startswith("/authors/"):
+            normalized_key = f"/authors/{author_key.replace('authors/', '')}"
+        else:
+            normalized_key = author_key
+
         # Check if author exists in database
         stmt = select(AuthorMetadata).where(
-            AuthorMetadata.openlibrary_key == author_key
+            AuthorMetadata.openlibrary_key == normalized_key
         )
         existing = session.exec(stmt).first()
 

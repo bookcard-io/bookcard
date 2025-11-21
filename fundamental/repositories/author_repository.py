@@ -264,10 +264,12 @@ class AuthorRepository(Repository[AuthorMetadata]):
     ) -> AuthorMetadata | None:
         """Get an author by OpenLibrary key, ensuring it's mapped to the library.
 
+        Normalizes the key to OpenLibrary convention: "/authors/OL19981A".
+
         Parameters
         ----------
         openlibrary_key : str
-            OpenLibrary author key (e.g., "OL23919A").
+            OpenLibrary author key (e.g., "OL23919A" or "/authors/OL23919A").
         library_id : int
             Library identifier.
 
@@ -276,9 +278,15 @@ class AuthorRepository(Repository[AuthorMetadata]):
         AuthorMetadata | None
             Author if found and mapped to library, None otherwise.
         """
+        # Normalize key to OpenLibrary convention: ensure /authors/ prefix
+        if not openlibrary_key.startswith("/authors/"):
+            normalized_key = f"/authors/{openlibrary_key.replace('authors/', '')}"
+        else:
+            normalized_key = openlibrary_key
+
         stmt = (
             select(AuthorMetadata)
-            .where(AuthorMetadata.openlibrary_key == openlibrary_key)
+            .where(AuthorMetadata.openlibrary_key == normalized_key)
             .join(AuthorMapping, AuthorMetadata.id == AuthorMapping.author_metadata_id)
             .where(AuthorMapping.library_id == library_id)
             .options(

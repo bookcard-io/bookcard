@@ -546,9 +546,15 @@ class OpenLibraryDataSource(BaseDataSource):
             results: list[AuthorData] = []
 
             for doc in docs:
-                author_key = doc.get("key", "").replace("/authors/", "")
-                if not author_key:
+                raw_key = doc.get("key", "")
+                if not raw_key:
                     continue
+
+                # Normalize key: ensure it has /authors/ prefix (OpenLibrary convention)
+                if not raw_key.startswith("/authors/"):
+                    author_key = f"/authors/{raw_key.replace('authors/', '')}"
+                else:
+                    author_key = raw_key
 
                 # Extract photo IDs
                 photos = doc.get("photos", [])
@@ -643,7 +649,7 @@ class OpenLibraryDataSource(BaseDataSource):
         Parameters
         ----------
         key : str
-            Author key (e.g., "OL23919A").
+            Author key (e.g., "OL23919A" or "/authors/OL23919A").
 
         Returns
         -------
@@ -651,7 +657,7 @@ class OpenLibraryDataSource(BaseDataSource):
             Full author data if found, None otherwise.
         """
         try:
-            # Normalize key (remove /authors/ prefix if present)
+            # Normalize key for API request (remove /authors/ prefix if present)
             normalized_key = key.replace("/authors/", "").replace("authors/", "")
             path = f"/authors/{normalized_key}.json"
 
@@ -681,8 +687,9 @@ class OpenLibraryDataSource(BaseDataSource):
             identifiers = self._extract_identifiers(data)
             bio = self._extract_bio(data)
 
+            # Store key with /authors/ prefix (OpenLibrary convention)
             return AuthorData(
-                key=normalized_key,
+                key=f"/authors/{normalized_key}",
                 name=data.get("name", ""),
                 personal_name=data.get("personal_name"),
                 fuller_name=data.get("fuller_name"),
@@ -938,5 +945,31 @@ class OpenLibraryDataSource(BaseDataSource):
             raise
         except Exception as e:
             logger.exception("Error fetching book from OpenLibrary")
+            error_msg = _FETCH_BOOK_ERROR_MSG.format(error=e)
+            raise DataSourceNetworkError(error_msg) from e
+
+    def get_work_raw(self, key: str) -> dict[str, Any] | None:
+        """Get raw work JSON data by key.
+
+        Parameters
+        ----------
+        key : str
+            Work key (e.g., "OL82563W").
+
+        Returns
+        -------
+        dict[str, Any] | None
+            Raw work JSON data if found, None otherwise.
+        """
+        try:
+            normalized_key = key.replace("/works/", "").replace("/books/", "")
+            path = f"/works/{normalized_key}.json"
+            return self._make_request(path)
+        except DataSourceNotFoundError:
+            return None
+        except (DataSourceNetworkError, DataSourceRateLimitError):
+            raise
+        except Exception as e:
+            logger.exception("Error fetching raw work data from OpenLibrary")
             error_msg = _FETCH_BOOK_ERROR_MSG.format(error=e)
             raise DataSourceNetworkError(error_msg) from e

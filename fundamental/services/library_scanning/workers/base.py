@@ -66,14 +66,7 @@ class BaseWorker(ABC):
     def start(self) -> None:
         """Start the worker."""
         if self.input_topic:
-            logger.info(
-                "Worker %s subscribing to %s", self.__class__.__name__, self.input_topic
-            )
             self.broker.subscribe(self.input_topic, self._handle_message)
-        else:
-            logger.info(
-                "Worker %s has no input topic (producer only)", self.__class__.__name__
-            )
 
     def _handle_message(self, message: Message) -> None:
         """Handle incoming message from broker.

@@ -106,6 +106,17 @@ class LinkWorker(BaseWorker):
             # Can't check completion because we don't have library_id
             return None
 
+        # Extract author info early for logging
+        author_name = match_result_dict.get("matched_entity", {}).get("name", "Unknown")
+        author_key = match_result_dict.get("matched_entity", {}).get("key", "Unknown")
+        logger.info(
+            "LinkWorker: Processing author %s (%s) (library: %s, task: %s)",
+            author_name,
+            author_key,
+            library_id,
+            task_id,
+        )
+
         # Mark link stage as started (idempotent - only first item triggers this)
         if task_id and isinstance(self.broker, RedisBroker):
             tracker = JobProgressTracker(self.broker)

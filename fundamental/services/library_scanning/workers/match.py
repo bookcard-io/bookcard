@@ -79,7 +79,11 @@ class MatchWorker(BaseWorker):
         self.completion_topic = completion_topic
 
         # Create data source (assume no rate limit delay for worker for now, or config it)
-        self.data_source = DataSourceRegistry.create_source(data_source_name)
+        # Pass engine for openlibrary_dump data source
+        kwargs = {}
+        if data_source_name == "openlibrary_dump":
+            kwargs["engine"] = self.engine
+        self.data_source = DataSourceRegistry.create_source(data_source_name, **kwargs)
 
     def _check_completion(self, library_id: int, task_id: int | None = None) -> None:
         """Check if job is complete and trigger next stage if so.
@@ -150,6 +154,14 @@ class MatchWorker(BaseWorker):
             logger.error("Invalid match payload: %s", payload)
             return None
 
+        author_name = author_data.get("name", "Unknown")
+        logger.info(
+            "MatchWorker: Processing author %s (library: %s, task: %s)",
+            author_name,
+            library_id,
+            task_id,
+        )
+
         # Mark match stage as started (idempotent - only first item triggers this)
         if task_id and isinstance(self.broker, RedisBroker):
             tracker = JobProgressTracker(self.broker)
@@ -174,7 +186,9 @@ class MatchWorker(BaseWorker):
 
         # Check staleness
         if self._should_skip_match(author.id, library_id):
-            logger.debug("Skipping match for fresh author %s", author.name)
+            logger.info(
+                "Skipping match for fresh author %s (ID: %s)", author.name, author.id
+            )
             self._check_completion(library_id, task_id)
             return None
 
@@ -186,6 +200,13 @@ class MatchWorker(BaseWorker):
                 # Add calibre ID to result for tracking
                 match_result.calibre_author_id = author.id
 
+                logger.info(
+                    "Matched author %s -> %s (confidence: %.2f)",
+                    author.name,
+                    match_result.matched_entity.name,
+                    match_result.confidence_score,
+                )
+
                 # Serialize match result (MatchResult is a dataclass)
                 result_dict = dataclasses.asdict(match_result)
 
@@ -196,7 +217,7 @@ class MatchWorker(BaseWorker):
                     "calibre_author_id": author.id,
                     "author_name": author.name,
                 }
-            logger.debug("No match found for %s", author.name)
+            logger.info("No match found for %s", author.name)
             self._check_completion(library_id, task_id)
         except Exception:
             logger.exception("Error matching author %s", author.name)

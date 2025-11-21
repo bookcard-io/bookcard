@@ -203,8 +203,31 @@ class AuthorMetadataRepository:
         AuthorMetadata | None
             Author metadata if found, None otherwise.
         """
-        stmt = select(AuthorMetadata).where(AuthorMetadata.openlibrary_key == key)
-        return self.session.exec(stmt).first()
+        # Normalize key to OpenLibrary convention: ensure /authors/ prefix
+        if not key.startswith("/authors/"):
+            normalized_key = f"/authors/{key.replace('authors/', '')}"
+        else:
+            normalized_key = key
+
+        logger.debug(
+            "Looking up AuthorMetadata with key: %s (normalized: %s)",
+            key,
+            normalized_key,
+        )
+        stmt = select(AuthorMetadata).where(
+            AuthorMetadata.openlibrary_key == normalized_key
+        )
+        result = self.session.exec(stmt).first()
+        if result:
+            logger.debug(
+                "Found AuthorMetadata: ID=%s, key=%s, name=%s",
+                result.id,
+                result.openlibrary_key,
+                result.name,
+            )
+        else:
+            logger.debug("AuthorMetadata not found for key: %s", key)
+        return result
 
 
 # ============================================================================
@@ -255,16 +278,28 @@ class MappingService:
         if match_result.calibre_author_id is None:
             return None
 
+        # Normalize key to OpenLibrary convention: ensure /authors/ prefix
+        raw_key = match_result.matched_entity.key
+        if not raw_key.startswith("/authors/"):
+            lookup_key = f"/authors/{raw_key.replace('authors/', '')}"
+        else:
+            lookup_key = raw_key
+
         # Find the metadata
-        metadata = self.metadata_repo.find_by_openlibrary_key(
-            match_result.matched_entity.key
-        )
+        metadata = self.metadata_repo.find_by_openlibrary_key(lookup_key)
 
         if not metadata or not metadata.id:
             logger.warning(
-                "AuthorMetadata not found for key: %s (Calibre author ID: %d)",
+                "AuthorMetadata not found for key: %s (normalized: %s) (Calibre author ID: %d)",
                 match_result.matched_entity.key,
+                lookup_key,
                 match_result.calibre_author_id,
+            )
+            # Log available keys for debugging
+            logger.debug(
+                "Searching for AuthorMetadata with key: %s (tried normalized: %s)",
+                match_result.matched_entity.key,
+                lookup_key,
             )
             return None
 

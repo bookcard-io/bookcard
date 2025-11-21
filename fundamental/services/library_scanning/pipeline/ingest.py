@@ -53,6 +53,8 @@ from fundamental.services.library_scanning.pipeline.ingest_components import (
     ProgressTracker,
     RemoteIdService,
     WorkBasedSubjectStrategy,
+    WorkMetadataRepository,
+    WorkMetadataService,
     WorkSubjectRepository,
 )
 
@@ -253,9 +255,15 @@ class IngestStage(PipelineStage):
         ):
             return False
 
+        # Normalize key to OpenLibrary convention: ensure /authors/ prefix
+        if not author_key.startswith("/authors/"):
+            normalized_key = f"/authors/{author_key.replace('authors/', '')}"
+        else:
+            normalized_key = author_key
+
         # Check if author exists in database
         stmt = select(AuthorMetadata).where(
-            AuthorMetadata.openlibrary_key == author_key
+            AuthorMetadata.openlibrary_key == normalized_key
         )
         existing = context.session.exec(stmt).first()
 
@@ -612,6 +620,10 @@ class IngestStageFactory:
         )
         work_service = AuthorWorkService(work_repo, subject_repo)
 
+        # Create work metadata repository and service
+        work_metadata_repo = WorkMetadataRepository(session)
+        work_metadata_service = WorkMetadataService(work_metadata_repo)
+
         # Create data fetcher
         data_fetcher = AuthorDataFetcher(data_source)
 
@@ -622,6 +634,7 @@ class IngestStageFactory:
             work_service,
             work_repo,
             subject_repo,
+            work_metadata_service=work_metadata_service,
             max_works_per_author=max_works_per_author,
         )
         subject_strategy = HybridSubjectStrategy(direct_strategy, work_strategy)

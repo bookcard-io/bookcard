@@ -161,14 +161,17 @@ class DeduplicateWorker(BaseWorker):
             return None
 
         task_id = payload.get("task_id")
+        logger.info(
+            "DeduplicateWorker: Starting deduplication for library %s (task: %s)",
+            library_id,
+            task_id,
+        )
 
         if task_id and isinstance(self.broker, RedisBroker):
             tracker = JobProgressTracker(self.broker)
             if tracker.is_cancelled(task_id):
                 logger.info("Task %d cancelled, skipping deduplication", task_id)
                 return None
-
-        logger.info("Starting deduplication for library %s", library_id)
 
         with get_session(self.engine) as session:
             library_repo = LibraryRepository(session)
@@ -190,11 +193,13 @@ class DeduplicateWorker(BaseWorker):
 
             try:
                 result = stage.execute(context)
-                logger.info("Deduplication result: %s", result.message)
-
                 if result.success:
+                    logger.info("Deduplication completed: %s", result.message)
                     # Pass task_id to next stage
                     return payload.copy()  # Trigger next stage
+                logger.warning(
+                    "Deduplication completed with issues: %s", result.message
+                )
             except Exception:
                 if task_id:
                     task_tracker = ScanTaskTracker()

@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 class ScanWorkerManager:
     """Manages lifecycle of distributed scan workers."""
 
-    def __init__(self, redis_url: str, threads_per_worker: int = 2) -> None:
+    def __init__(self, redis_url: str, threads_per_worker: int = 1) -> None:
         """Initialize worker manager.
 
         Parameters
@@ -68,12 +68,14 @@ class ScanWorkerManager:
         )
 
         # Create workers (multiple instances for parallelism)
+        # MatchWorker uses HTTP data source for better performance
+        # IngestWorker uses PostgreSQL dump for fast data retrieval
         self.workers = []
         for _ in range(self.threads_per_worker):
             self.workers.extend([
                 CrawlWorker(self.broker),
-                MatchWorker(self.broker, data_source_name="openlibrary_dump"),
-                IngestWorker(self.broker),
+                MatchWorker(self.broker, data_source_name="openlibrary"),
+                IngestWorker(self.broker, data_source_name="openlibrary_dump"),
                 LinkWorker(self.broker),
                 DeduplicateWorker(self.broker),
                 ScoreWorker(self.broker),

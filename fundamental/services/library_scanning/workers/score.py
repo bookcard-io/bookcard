@@ -163,14 +163,17 @@ class ScoreWorker(BaseWorker):
             return None
 
         task_id = payload.get("task_id")
+        logger.info(
+            "ScoreWorker: Starting scoring for library %s (task: %s)",
+            library_id,
+            task_id,
+        )
 
         if task_id and isinstance(self.broker, RedisBroker):
             tracker = JobProgressTracker(self.broker)
             if tracker.is_cancelled(task_id):
                 logger.info("Task %d cancelled, skipping scoring", task_id)
                 return None
-
-        logger.info("Starting scoring for library %s", library_id)
 
         with get_session(self.engine) as session:
             library_repo = LibraryRepository(session)
@@ -194,12 +197,14 @@ class ScoreWorker(BaseWorker):
 
             try:
                 result = stage.execute(context)
-                logger.info("Scoring result: %s", result.message)
-
-                if result.success and self.output_topic:
-                    # Always publish to completion topic to trigger completion worker
-                    # Pass task_id to completion worker
-                    return payload.copy()
+                if result.success:
+                    logger.info("Scoring completed: %s", result.message)
+                    if self.output_topic:
+                        # Always publish to completion topic to trigger completion worker
+                        # Pass task_id to completion worker
+                        return payload.copy()
+                else:
+                    logger.warning("Scoring completed with issues: %s", result.message)
             except Exception:
                 if task_id:
                     task_tracker = ScanTaskTracker()

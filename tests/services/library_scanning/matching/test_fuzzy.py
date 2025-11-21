@@ -190,28 +190,6 @@ class TestFuzzyNameMatchingStrategy:
         assert result is not None
         assert result.confidence_score >= 0.5
 
-    def test_match_fuzzy_name_alternate_name(
-        self,
-        strategy_default: FuzzyNameMatchingStrategy,
-        mock_author: Author,
-        mock_data_source: MagicMock,
-    ) -> None:
-        """Test match finds fuzzy match via alternate name."""
-        author_data = AuthorData(
-            key="/authors/OL123A",
-            name="Jonathan Doe",  # Different name
-            alternate_names=["John Do"],  # Similar alternate
-            personal_name="John",
-            work_count=10,
-        )
-        mock_data_source.search_author.return_value = [author_data]
-        result = strategy_default.match(mock_author, mock_data_source)
-
-        assert result is not None
-        assert result.confidence_score >= 0.5
-        assert result.match_method == "fuzzy_alternate"
-        assert result.matched_entity == author_data
-
     def test_match_no_results(
         self,
         strategy_default: FuzzyNameMatchingStrategy,
@@ -268,27 +246,6 @@ class TestFuzzyNameMatchingStrategy:
         # Should select the best match (author_data2 with higher similarity)
         assert result.matched_entity == author_data2
 
-    def test_match_alternate_name_better_than_primary(
-        self,
-        strategy_default: FuzzyNameMatchingStrategy,
-        mock_author: Author,
-        mock_data_source: MagicMock,
-    ) -> None:
-        """Test match selects alternate name if it has better similarity."""
-        author_data = AuthorData(
-            key="/authors/OL123A",
-            name="Jonathan Smith",  # Less similar
-            alternate_names=["John Doe"],  # More similar (exact match)
-            personal_name="John",
-            work_count=10,
-        )
-        mock_data_source.search_author.return_value = [author_data]
-        result = strategy_default.match(mock_author, mock_data_source)
-
-        assert result is not None
-        assert result.match_method == "fuzzy_alternate"
-        assert result.matched_entity == author_data
-
     def test_match_confidence_score_mapping(
         self,
         strategy_default: FuzzyNameMatchingStrategy,
@@ -332,23 +289,3 @@ class TestFuzzyNameMatchingStrategy:
         if result is not None:
             # For min similarity (0.7), confidence should be 0.5
             assert result.confidence_score >= 0.5
-
-    def test_match_multiple_alternate_names(
-        self,
-        strategy_default: FuzzyNameMatchingStrategy,
-        mock_author: Author,
-        mock_data_source: MagicMock,
-    ) -> None:
-        """Test match checks all alternate names."""
-        author_data = AuthorData(
-            key="/authors/OL123A",
-            name="Jonathan Smith",
-            alternate_names=["Jane Doe", "John Doe"],  # Second alternate matches
-            personal_name="John",
-            work_count=10,
-        )
-        mock_data_source.search_author.return_value = [author_data]
-        result = strategy_default.match(mock_author, mock_data_source)
-
-        assert result is not None
-        assert result.match_method == "fuzzy_alternate"

@@ -21,9 +21,12 @@ Calibre metadata.db database.
 """
 
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import Column, Float, Index, Text, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
+
+from fundamental.models.openlibrary import JSONBType
 
 
 class AuthorMetadata(SQLModel, table=True):
@@ -433,4 +436,116 @@ class AuthorSimilarity(SQLModel, table=True):
     __table_args__ = (
         UniqueConstraint("author1_id", "author2_id", name="uq_author_similarity"),
         Index("idx_author_similarity_score", "author1_id", "similarity_score"),
+    )
+
+
+class WorkMetadata(SQLModel, table=True):
+    """Work metadata model for storing normalized OpenLibrary work data.
+
+    Stores enriched work information from OpenLibrary API/dump.
+    Normalizes fields from raw JSON for efficient querying.
+
+    Attributes
+    ----------
+    id : int | None
+        Primary key identifier.
+    work_key : str
+        OpenLibrary work key (normalized, e.g., "OL81633W" without /works/ prefix).
+        Unique identifier.
+    title : str | None
+        Work title.
+    description : str | None
+        Work description (extracted from dict if needed).
+    first_sentence : str | None
+        First sentence of the work (extracted from dict if needed).
+    first_publish_date : str | None
+        First publication date as string.
+    covers : list[int] | None
+        List of cover IDs (stored as JSONB array).
+    subjects : list[str] | None
+        List of subject/genre names (stored as JSONB array).
+        Also stored in work_subjects table for normalized queries.
+    subject_people : list[str] | None
+        List of people mentioned in the work (stored as JSONB array).
+    subject_places : list[str] | None
+        List of places mentioned in the work (stored as JSONB array).
+    links : list[dict[str, Any]] | None
+        List of link objects (stored as JSONB array).
+    excerpts : list[dict[str, Any]] | None
+        List of excerpt objects (stored as JSONB array).
+    revision : int | None
+        Revision number.
+    latest_revision : int | None
+        Latest revision number.
+    created : datetime | None
+        Creation timestamp from OpenLibrary.
+    last_modified : datetime | None
+        Last modification timestamp from OpenLibrary.
+    raw_data : dict[str, Any] | None
+        Full raw JSON data for flexibility (stored as JSONB).
+    created_at : datetime
+        Record creation timestamp in our database.
+    updated_at : datetime
+        Last update timestamp in our database.
+    """
+
+    __tablename__ = "work_metadata"
+
+    id: int | None = Field(default=None, primary_key=True)
+    work_key: str = Field(
+        unique=True,
+        index=True,
+        max_length=50,
+        description="OpenLibrary work key (normalized, e.g., 'OL81633W')",
+    )
+    title: str | None = Field(default=None, max_length=2000, index=True)
+    description: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    first_sentence: str | None = Field(
+        default=None, sa_column=Column(Text, nullable=True)
+    )
+    first_publish_date: str | None = Field(default=None, max_length=100)
+    covers: list[int] | None = Field(
+        default=None,
+        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
+    )
+    subjects: list[str] | None = Field(
+        default=None,
+        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
+    )
+    subject_people: list[str] | None = Field(
+        default=None,
+        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
+    )
+    subject_places: list[str] | None = Field(
+        default=None,
+        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
+    )
+    links: list[dict[str, Any]] | None = Field(
+        default=None,
+        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
+    )
+    excerpts: list[dict[str, Any]] | None = Field(
+        default=None,
+        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
+    )
+    revision: int | None = Field(default=None)
+    latest_revision: int | None = Field(default=None)
+    created: datetime | None = Field(default=None)
+    last_modified: datetime | None = Field(default=None)
+    raw_data: dict[str, Any] | None = Field(
+        default=None,
+        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        index=True,
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column_kwargs={"onupdate": lambda: datetime.now(UTC)},
+    )
+
+    __table_args__ = (
+        Index("idx_work_metadata_title", "title"),
+        Index("idx_work_metadata_work_key", "work_key"),
     )

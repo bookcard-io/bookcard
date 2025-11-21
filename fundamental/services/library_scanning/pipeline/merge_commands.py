@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, ClassVar
 
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
 if TYPE_CHECKING:
@@ -42,6 +43,7 @@ from fundamental.models.author_metadata import (
     AuthorRemoteId,
     AuthorSimilarity,
     AuthorWork,
+    WorkSubject,
 )
 from fundamental.services.library_scanning.pipeline.context import PipelineContext
 
@@ -122,6 +124,11 @@ class MergeRemoteIds(MergeCommand):
     ) -> None:
         """Merge remote IDs.
 
+        The unique constraint is on (author_metadata_id, identifier_type),
+        so we can only have one remote ID of each type per author.
+        We check if the identifier_type already exists for the keep author,
+        and only add if it doesn't exist.
+
         Parameters
         ----------
         context : PipelineContext
@@ -131,19 +138,72 @@ class MergeRemoteIds(MergeCommand):
         merge : AuthorMetadata
             Record to merge from.
         """
-        existing_ids = {
+        # Track existing identifier types for the keep author
+        # Unique constraint is on (author_metadata_id, identifier_type)
+        existing_types = {rid.identifier_type for rid in keep.remote_ids}
+
+        # Also track existing (type, value) pairs to avoid exact duplicates
+        existing_pairs = {
             (rid.identifier_type, rid.identifier_value) for rid in keep.remote_ids
         }
+
         for remote_id in merge.remote_ids:
+            # Skip if this identifier type already exists for keep author
+            # (unique constraint: one per type per author)
+            if remote_id.identifier_type in existing_types:
+                logger.debug(
+                    "Skipping remote ID %s=%s for author %s: type already exists",
+                    remote_id.identifier_type,
+                    remote_id.identifier_value,
+                    keep.id,
+                )
+                continue
+
+            # Skip if exact duplicate (type + value) already exists
             key = (remote_id.identifier_type, remote_id.identifier_value)
-            if key not in existing_ids:
+            if key in existing_pairs:
+                logger.debug(
+                    "Skipping duplicate remote ID %s=%s for author %s",
+                    remote_id.identifier_type,
+                    remote_id.identifier_value,
+                    keep.id,
+                )
+                continue
+
+            # Add new remote ID
+            try:
                 new_rid = AuthorRemoteId(
                     author_metadata_id=keep.id,
                     identifier_type=remote_id.identifier_type,
                     identifier_value=remote_id.identifier_value,
                 )
                 context.session.add(new_rid)
-                existing_ids.add(key)
+                # Flush to check for constraint violations immediately
+                context.session.flush()
+                existing_types.add(remote_id.identifier_type)
+                existing_pairs.add(key)
+            except IntegrityError as e:
+                # Handle unique constraint violations gracefully
+                # This can happen if the identifier_type was added between our check and the insert
+                # (e.g., by another process or due to race conditions)
+                logger.warning(
+                    "Skipping remote ID %s=%s for author %s: constraint violation (likely duplicate type): %s",
+                    remote_id.identifier_type,
+                    remote_id.identifier_value,
+                    keep.id,
+                    e,
+                )
+                # Rollback the session to clear the error state
+                context.session.rollback()
+                # Refresh the keep author to get updated remote_ids
+                context.session.refresh(keep)
+                # Update our tracking sets
+                existing_types = {rid.identifier_type for rid in keep.remote_ids}
+                existing_pairs = {
+                    (rid.identifier_type, rid.identifier_value)
+                    for rid in keep.remote_ids
+                }
+                continue
 
         # Remove all remote IDs from the merged author after copying to keep.
         for remote_id in list(merge.remote_ids):
@@ -341,17 +401,59 @@ class MergeWorks(MergeCommand):
         # Use relationship-based operations so SQLAlchemy properly tracks
         # parent/child associations and does not attempt to null out foreign keys
         # when the merged author record is deleted.
-        for work in list(source_author.works):
-            if work.work_key in existing_work_keys:
-                # Duplicate work for the merged author - remove it explicitly.
-                logger.debug(
-                    "MergeWorks: deleting duplicate work id=%s key=%s from "
-                    "source_author.id=%s",
-                    work.id,
-                    work.work_key,
-                    getattr(source_author, "id", None),
-                )
-                context.session.delete(work)
+        # Use no_autoflush to prevent premature flushes that could cause constraint violations
+        with context.session.no_autoflush:
+            for work in list(source_author.works):
+                if work.work_key in existing_work_keys:
+                    # Duplicate work for the merged author - remove it explicitly.
+                    # First, delete all subjects associated with this work to avoid
+                    # NOT NULL constraint violations on work_subjects.author_work_id
+                    if work.id is not None:
+                        # Load subjects if not already loaded
+                        if not hasattr(work, "subjects") or work.subjects is None:
+                            # Query subjects for this work
+                            subjects_stmt = select(WorkSubject).where(
+                                WorkSubject.author_work_id == work.id
+                            )
+                            subjects = list(context.session.exec(subjects_stmt).all())
+                        else:
+                            subjects = list(work.subjects)
+
+                        # Delete all subjects before deleting the work
+                        for subject in subjects:
+                            logger.debug(
+                                "MergeWorks: deleting subject id=%s (%s) from duplicate work id=%s",
+                                subject.id,
+                                subject.subject_name,
+                                work.id,
+                            )
+                            context.session.delete(subject)
+
+                    logger.debug(
+                        "MergeWorks: deleting duplicate work id=%s key=%s from "
+                        "source_author.id=%s",
+                        work.id,
+                        work.work_key,
+                        getattr(source_author, "id", None),
+                    )
+                    context.session.delete(work)
+                else:
+                    logger.debug(
+                        "MergeWorks: moving work id=%s key=%s from source_author.id=%s "
+                        "to final_author.id=%s",
+                        work.id,
+                        work.work_key,
+                        getattr(source_author, "id", None),
+                        getattr(final_author, "id", None),
+                    )
+                    # Move work to final author by explicitly updating author_metadata_id
+                    # This preserves the work's ID and all its subjects
+                    # (subjects' author_work_id doesn't change, only work's author_metadata_id changes)
+                    if final_author.id is not None:
+                        work.author_metadata_id = final_author.id
+                        # Add to relationship for proper tracking
+                        final_author.works.append(work)
+                    existing_work_keys.add(work.work_key)
             else:
                 logger.debug(
                     "MergeWorks: moving work id=%s key=%s from source_author.id=%s "
@@ -361,6 +463,8 @@ class MergeWorks(MergeCommand):
                     getattr(source_author, "id", None),
                     getattr(final_author, "id", None),
                 )
+                # Move work to final author - subjects will be preserved
+                # since author_work_id doesn't change (only author_metadata_id changes)
                 final_author.works.append(work)
                 existing_work_keys.add(work.work_key)
 
@@ -671,8 +775,25 @@ class AuthorMerger:
                 [work.id for work in remaining_works],
                 [work.work_key for work in remaining_works],
             )
-            for work in remaining_works:
-                context.session.delete(work)
+            # Delete subjects first to avoid NOT NULL constraint violations
+            with context.session.no_autoflush:
+                for work in remaining_works:
+                    if work.id is not None:
+                        # Delete all subjects for this work
+                        subjects_stmt = select(WorkSubject).where(
+                            WorkSubject.author_work_id == work.id
+                        )
+                        subjects = list(context.session.exec(subjects_stmt).all())
+                        for subject in subjects:
+                            logger.debug(
+                                "AuthorMerger._cleanup_remaining_works: deleting subject id=%s (%s) from work id=%s",
+                                subject.id,
+                                subject.subject_name,
+                                work.id,
+                            )
+                            context.session.delete(subject)
+                    # Then delete the work
+                    context.session.delete(work)
 
     def merge(
         self,
@@ -747,16 +868,47 @@ class AuthorMerger:
         pair : DuplicatePair
             Duplicate pair to merge.
         """
+        # Cache names and keys before merge to avoid accessing expired objects after rollback
+        keep_name = pair.keep.name
+        keep_key = pair.keep.openlibrary_key
+        merge_name = pair.merge.name
+        merge_key = pair.merge.openlibrary_key
+
         logger.info(
             "Found duplicate: '%s' (%s, score: %.2f) and '%s' (%s, score: %.2f)",
-            pair.keep.name,
-            pair.keep.openlibrary_key,
+            keep_name,
+            keep_key,
             pair.keep_score,
-            pair.merge.name,
-            pair.merge.openlibrary_key,
+            merge_name,
+            merge_key,
             pair.merge_score,
         )
-        self.merge(context, pair.keep, pair.merge)
+
+        try:
+            self.merge(context, pair.keep, pair.merge)
+        except IntegrityError as e:
+            # Handle constraint violations - rollback and log
+            logger.warning(
+                "Failed to merge authors '%s' (%s) and '%s' (%s): %s",
+                keep_name,
+                keep_key,
+                merge_name,
+                merge_key,
+                e,
+            )
+            context.session.rollback()
+            raise
+        except Exception:
+            # Handle other errors - rollback and re-raise
+            logger.exception(
+                "Unexpected error merging authors '%s' (%s) and '%s' (%s)",
+                keep_name,
+                keep_key,
+                merge_name,
+                merge_key,
+            )
+            context.session.rollback()
+            raise
 
     def merge_batch(
         self,
