@@ -13,7 +13,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import type { AuthorListResponse, AuthorWithMetadata } from "@/types/author";
+import type {
+  AuthorListResponse,
+  AuthorUpdate,
+  AuthorWithMetadata,
+} from "@/types/author";
 
 /**
  * Fetch a single author by ID.
@@ -36,7 +40,9 @@ import type { AuthorListResponse, AuthorWithMetadata } from "@/types/author";
 export async function fetchAuthor(
   authorId: string,
 ): Promise<AuthorWithMetadata> {
-  const response = await fetch(`/api/authors/${authorId}`, {
+  // Normalize authorId: strip any leading /authors/ or / prefix
+  const normalizedId = authorId.replace(/^\/authors\//, "").replace(/^\//, "");
+  const response = await fetch(`/api/authors/${normalizedId}`, {
     cache: "no-store",
   });
 
@@ -93,47 +99,6 @@ export async function fetchAuthorsPage({
 }
 
 /**
- * Create a background task to fetch and update metadata for a single author.
- *
- * Triggers the ingest stage of the pipeline for this author only.
- * Fetches latest biography, metadata, subjects, etc. from OpenLibrary.
- *
- * Parameters
- * ----------
- * authorId : string
- *     Author ID (can be numeric ID or OpenLibrary key).
- *
- * Returns
- * -------
- * Promise<{ task_id: number; message: string }>
- *     Response with task ID for tracking and message.
- *
- * Throws
- * ------
- * Error
- *     If the request fails.
- */
-export async function fetchAuthorMetadata(authorId: string): Promise<{
-  task_id: number;
-  message: string;
-}> {
-  const response = await fetch(`/api/authors/${authorId}/fetch-metadata`, {
-    method: "POST",
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    const errorData = (await response.json()) as { detail?: string };
-    throw new Error(errorData.detail || "Failed to fetch metadata");
-  }
-
-  return (await response.json()) as {
-    task_id: number;
-    message: string;
-  };
-}
-
-/**
  * Fetch all authors (deprecated - use fetchAuthorsPage for pagination).
  *
  * Returns
@@ -165,4 +130,179 @@ export async function fetchAuthors(): Promise<AuthorWithMetadata[]> {
     return data;
   }
   return data.items;
+}
+
+/**
+ * Update author metadata.
+ *
+ * Parameters
+ * ----------
+ * authorId : string
+ *     Author ID (can be numeric ID or OpenLibrary key).
+ * update : AuthorUpdate
+ *     Author update payload.
+ *
+ * Returns
+ * -------
+ * Promise<AuthorWithMetadata>
+ *     Updated author data.
+ *
+ * Throws
+ * ------
+ * Error
+ *     If the update fails.
+ */
+export async function updateAuthor(
+  authorId: string,
+  update: AuthorUpdate,
+): Promise<AuthorWithMetadata> {
+  // Normalize authorId: strip any leading /authors/ or / prefix
+  const normalizedId = authorId.replace(/^\/authors\//, "").replace(/^\//, "");
+  const response = await fetch(`/api/authors/${normalizedId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(update),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json()) as { detail?: string };
+    throw new Error(errorData.detail || "Failed to update author");
+  }
+
+  return (await response.json()) as AuthorWithMetadata;
+}
+
+/**
+ * Upload an author photo from file.
+ *
+ * Parameters
+ * ----------
+ * authorId : string
+ *     Author ID (can be numeric ID or OpenLibrary key).
+ * file : File
+ *     Image file to upload.
+ *
+ * Returns
+ * -------
+ * Promise<{ photo_id: number; photo_url: string; file_path: string }>
+ *     Photo info with ID, URL, and file path.
+ *
+ * Throws
+ * ------
+ * Error
+ *     If the upload fails.
+ */
+export async function uploadAuthorPhoto(
+  authorId: string,
+  file: File,
+): Promise<{ photo_id: number; photo_url: string; file_path: string }> {
+  // Normalize authorId: strip any leading /authors/ or / prefix
+  const normalizedId = authorId.replace(/^\/authors\//, "").replace(/^\//, "");
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`/api/authors/${normalizedId}/photos`, {
+    method: "POST",
+    body: formData,
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json()) as { detail?: string };
+    throw new Error(errorData.detail || "Failed to upload photo");
+  }
+
+  return (await response.json()) as {
+    photo_id: number;
+    photo_url: string;
+    file_path: string;
+  };
+}
+
+/**
+ * Upload an author photo from URL.
+ *
+ * Parameters
+ * ----------
+ * authorId : string
+ *     Author ID (can be numeric ID or OpenLibrary key).
+ * url : string
+ *     URL of the image to download and save.
+ *
+ * Returns
+ * -------
+ * Promise<{ photo_id: number; photo_url: string; file_path: string }>
+ *     Photo info with ID, URL, and file path.
+ *
+ * Throws
+ * ------
+ * Error
+ *     If the upload fails.
+ */
+export async function uploadPhotoFromUrl(
+  authorId: string,
+  url: string,
+): Promise<{ photo_id: number; photo_url: string; file_path: string }> {
+  // Normalize authorId: strip any leading /authors/ or / prefix
+  const normalizedId = authorId.replace(/^\/authors\//, "").replace(/^\//, "");
+  const response = await fetch(`/api/authors/${normalizedId}/photos-from-url`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ url }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json()) as { detail?: string };
+    throw new Error(errorData.detail || "Failed to upload photo from URL");
+  }
+
+  return (await response.json()) as {
+    photo_id: number;
+    photo_url: string;
+    file_path: string;
+  };
+}
+
+/**
+ * Delete an author photo.
+ *
+ * Deletes both the database record and the file from the filesystem
+ * in an atomic operation.
+ *
+ * Parameters
+ * ----------
+ * authorId : string
+ *     Author ID (can be numeric ID or OpenLibrary key).
+ * photoId : number
+ *     Photo ID to delete.
+ *
+ * Throws
+ * ------
+ * Error
+ *     If the deletion fails.
+ */
+export async function deleteAuthorPhoto(
+  authorId: string,
+  photoId: number,
+): Promise<void> {
+  // Normalize authorId: strip any leading /authors/ or / prefix
+  const normalizedId = authorId.replace(/^\/authors\//, "").replace(/^\//, "");
+  const response = await fetch(
+    `/api/authors/${normalizedId}/photos/${photoId}`,
+    {
+      method: "DELETE",
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    const errorData = (await response.json()) as { detail?: string };
+    throw new Error(errorData.detail || "Failed to delete photo");
+  }
 }

@@ -121,6 +121,8 @@ export interface BooksQueryParams {
   page_size?: number;
   /** Search query to filter by title or author. */
   search?: string;
+  /** Author ID to filter by. */
+  author_id?: number;
   /** Field to sort by. */
   sort_by?: "timestamp" | "pubdate" | "title" | "author_sort" | "series_index";
   /** Sort order. */

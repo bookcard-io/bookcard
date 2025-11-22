@@ -59,7 +59,12 @@ class LinkWorker(BaseWorker):
         self.completion_topic = completion_topic
         self.engine = create_db_engine()
 
-    def _check_completion(self, library_id: int, task_id: int | None = None) -> None:
+    def _check_completion(
+        self,
+        library_id: int,
+        task_id: int | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> None:
         """Check if job is complete and trigger next stage if so.
 
         Parameters
@@ -68,6 +73,8 @@ class LinkWorker(BaseWorker):
             Library ID.
         task_id : int | None
             Optional task ID (if not provided, will be retrieved from Redis).
+        payload : dict[str, Any] | None
+            Optional payload to pass through single-author mode flags.
         """
         if isinstance(self.broker, RedisBroker):
             tracker = JobProgressTracker(self.broker)
@@ -79,9 +86,17 @@ class LinkWorker(BaseWorker):
                 if task_id:
                     task_tracker = ScanTaskTracker()
                     task_tracker.update_stage_progress(task_id, "link", 1.0)
+                # Pass through single-author mode flags if present
+                completion_payload = {"library_id": library_id, "task_id": task_id}
+                if payload:
+                    if payload.get("single_author_mode"):
+                        completion_payload["single_author_mode"] = True
+                    target_id = payload.get("target_author_metadata_id")
+                    if target_id:
+                        completion_payload["target_author_metadata_id"] = target_id
                 self.broker.publish(
                     self.completion_topic,
-                    {"library_id": library_id, "task_id": task_id},
+                    completion_payload,
                 )
 
     def process(self, payload: dict[str, Any]) -> dict[str, Any] | None:
@@ -128,7 +143,7 @@ class LinkWorker(BaseWorker):
             match_result = deserialize_match_result(match_result_dict)
         except Exception:
             logger.exception("Failed to validate match result: %s", match_result_dict)
-            self._check_completion(library_id, task_id)
+            self._check_completion(library_id, task_id, payload)
             return None
 
         with get_session(self.engine) as session:
@@ -150,7 +165,7 @@ class LinkWorker(BaseWorker):
                         match_result.calibre_author_id,
                     )
                     # Mark completion - LinkWorker is the end of per-item pipeline
-                    self._check_completion(library_id, task_id)
+                    self._check_completion(library_id, task_id, payload)
                     if self.output_topic:
                         # Pass task_id through if present
                         return payload
@@ -161,13 +176,13 @@ class LinkWorker(BaseWorker):
                     match_result.calibre_author_id,
                 )
                 # Mark completion even on failure (item is done processing)
-                self._check_completion(library_id, task_id)
+                self._check_completion(library_id, task_id, payload)
             except Exception:
                 logger.exception(
                     "Error linking author %s", match_result.matched_entity.name
                 )
                 # Mark completion even on error (item is done processing)
-                self._check_completion(library_id, task_id)
+                self._check_completion(library_id, task_id, payload)
                 raise
             else:
                 return None

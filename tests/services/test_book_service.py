@@ -74,11 +74,12 @@ def test_list_books_calculates_offset() -> None:
             limit=20,
             offset=20,
             search_query=None,
+            author_id=None,
             sort_by="timestamp",
             sort_order="desc",
             full=False,
         )
-        mock_repo.count_books.assert_called_once_with(search_query=None)
+        mock_repo.count_books.assert_called_once_with(search_query=None, author_id=None)
         assert books == []
         assert total == 0
 
@@ -105,7 +106,9 @@ def test_list_books_with_search() -> None:
 
         mock_repo.list_books.assert_called_once()
         assert mock_repo.list_books.call_args[1]["search_query"] == "test query"
-        mock_repo.count_books.assert_called_once_with(search_query="test query")
+        mock_repo.count_books.assert_called_once_with(
+            search_query="test query", author_id=None
+        )
 
 
 def test_get_book_delegates_to_repo() -> None:

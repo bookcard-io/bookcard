@@ -26,208 +26,21 @@ Separates concerns following SOLID principles:
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import Any
 
-from sqlmodel import Session, select
-
-from fundamental.models.author_metadata import AuthorMapping, AuthorMetadata
+from fundamental.models.author_metadata import AuthorMapping
 from fundamental.services.library_scanning.matching.types import MatchResult
+from fundamental.services.library_scanning.repositories import (
+    AuthorMappingRepository,
+    AuthorMetadataRepository,
+    MappingData,
+)
 from fundamental.services.progress import (
     BaseProgressTracker,
     calculate_log_interval,
 )
 
 logger = logging.getLogger(__name__)
-
-
-# ============================================================================
-# Value Objects
-# ============================================================================
-
-
-@dataclass
-class MappingData:
-    """Value object for mapping data.
-
-    Parameters
-    ----------
-    library_id : int
-        Library identifier.
-    calibre_author_id : int
-        Calibre author ID.
-    author_metadata_id : int
-        Author metadata ID.
-    confidence_score : float | None
-        Matching confidence score.
-    matched_by : str | None
-        How the match was made.
-    """
-
-    library_id: int
-    calibre_author_id: int
-    author_metadata_id: int
-    confidence_score: float | None
-    matched_by: str | None
-
-
-# ============================================================================
-# Repository Layer
-# ============================================================================
-
-
-class AuthorMappingRepository:
-    """Repository for AuthorMapping operations."""
-
-    def __init__(self, session: Session) -> None:
-        """Initialize repository.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        """
-        self.session = session
-
-    def find_by_calibre_author_id(self, calibre_author_id: int) -> AuthorMapping | None:
-        """Find mapping by Calibre author ID.
-
-        Parameters
-        ----------
-        calibre_author_id : int
-            Calibre author ID.
-
-        Returns
-        -------
-        AuthorMapping | None
-            Mapping if found, None otherwise.
-        """
-        stmt = select(AuthorMapping).where(
-            AuthorMapping.calibre_author_id == calibre_author_id
-        )
-        return self.session.exec(stmt).first()
-
-    def find_by_calibre_author_id_and_library(
-        self, calibre_author_id: int, library_id: int
-    ) -> AuthorMapping | None:
-        """Find mapping by Calibre author ID and library ID.
-
-        Parameters
-        ----------
-        calibre_author_id : int
-            Calibre author ID.
-        library_id : int
-            Library ID.
-
-        Returns
-        -------
-        AuthorMapping | None
-            Mapping if found, None otherwise.
-        """
-        stmt = select(AuthorMapping).where(
-            AuthorMapping.calibre_author_id == calibre_author_id,
-            AuthorMapping.library_id == library_id,
-        )
-        return self.session.exec(stmt).first()
-
-    def create(self, mapping_data: MappingData) -> AuthorMapping:
-        """Create new mapping.
-
-        Parameters
-        ----------
-        mapping_data : MappingData
-            Mapping data.
-
-        Returns
-        -------
-        AuthorMapping
-            Created mapping record.
-        """
-        mapping = AuthorMapping(
-            library_id=mapping_data.library_id,
-            calibre_author_id=mapping_data.calibre_author_id,
-            author_metadata_id=mapping_data.author_metadata_id,
-            confidence_score=mapping_data.confidence_score,
-            matched_by=mapping_data.matched_by,
-        )
-        self.session.add(mapping)
-        return mapping
-
-    def update(
-        self, existing: AuthorMapping, mapping_data: MappingData
-    ) -> AuthorMapping:
-        """Update existing mapping.
-
-        Parameters
-        ----------
-        existing : AuthorMapping
-            Existing mapping record.
-        mapping_data : MappingData
-            Updated mapping data.
-
-        Returns
-        -------
-        AuthorMapping
-            Updated mapping record.
-        """
-        existing.author_metadata_id = mapping_data.author_metadata_id
-        existing.confidence_score = mapping_data.confidence_score
-        existing.matched_by = mapping_data.matched_by
-        existing.updated_at = datetime.now(UTC)
-        return existing
-
-
-class AuthorMetadataRepository:
-    """Repository for AuthorMetadata operations."""
-
-    def __init__(self, session: Session) -> None:
-        """Initialize repository.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        """
-        self.session = session
-
-    def find_by_openlibrary_key(self, key: str) -> AuthorMetadata | None:
-        """Find author metadata by OpenLibrary key.
-
-        Parameters
-        ----------
-        key : str
-            OpenLibrary author key.
-
-        Returns
-        -------
-        AuthorMetadata | None
-            Author metadata if found, None otherwise.
-        """
-        # Normalize key to OpenLibrary convention: ensure /authors/ prefix
-        if not key.startswith("/authors/"):
-            normalized_key = f"/authors/{key.replace('authors/', '')}"
-        else:
-            normalized_key = key
-
-        logger.debug(
-            "Looking up AuthorMetadata with key: %s (normalized: %s)",
-            key,
-            normalized_key,
-        )
-        stmt = select(AuthorMetadata).where(
-            AuthorMetadata.openlibrary_key == normalized_key
-        )
-        result = self.session.exec(stmt).first()
-        if result:
-            logger.debug(
-                "Found AuthorMetadata: ID=%s, key=%s, name=%s",
-                result.id,
-                result.openlibrary_key,
-                result.name,
-            )
-        else:
-            logger.debug("AuthorMetadata not found for key: %s", key)
-        return result
 
 
 # ============================================================================
@@ -312,9 +125,45 @@ class MappingService:
             matched_by=match_result.match_method,
         )
 
+        # Clean up old mappings for this metadata (force rematch case)
+        # If we are linking this Calibre author to this metadata, we should remove any
+        # OTHER mappings that point to this metadata but are NOT this Calibre author.
+        # However, multiple Calibre authors *could* legitimately map to the same OpenLibrary author
+        # (e.g. "J.K. Rowling" and "Joanne Rowling").
+
+        # BUT, the requirement is: "on successful rematch, it should delete the `author_mappings` table and remove all previous mappings belonging to the target `author_metadata.id`"
+        # This implies we want to reset mappings for this METADATA record.
+        # But we must be careful not to delete the mapping we are about to create/update.
+        # So we delete all mappings for this metadata_id EXCEPT the one for the current calibre_author_id.
+
+        # Actually, re-reading the requirement: "it should delete the `author_mappings` table and remove all previous mappings belonging to the target `author_metadata.id`"
+        # The user example shows two mappings for the SAME author_metadata_id (663).
+        # One is for calibre_author_id 256, one for 75.
+        # The user says "in this case, it should delete row 483" (the one for 256).
+        # This implies that when we map author 75 to metadata 663, we should remove other mappings to 663?
+        # That seems dangerous if multiple valid Calibre authors map to one real author.
+
+        # However, "rematch" usually implies fixing a bad match. If author 256 was wrongly mapped to 663,
+        # and now we map 75 to 663, maybe 256 should be unmapped?
+        # But maybe 256 IS also 663?
+
+        # Let's assume the user knows what they want: "remove all previous mappings belonging to the target `author_metadata.id`".
+        # I will implement: Delete all mappings for `metadata.id` where `calibre_author_id` != `match_result.calibre_author_id`.
+
+        deleted_count = self.mapping_repo.delete_mappings_for_metadata_exclude_author(
+            metadata.id, match_result.calibre_author_id
+        )
+        if deleted_count > 0:
+            logger.info(
+                "Deleted %d previous mappings for AuthorMetadata ID %d",
+                deleted_count,
+                metadata.id,
+            )
+
         # Check for existing mapping
-        existing = self.mapping_repo.find_by_calibre_author_id(
-            match_result.calibre_author_id
+        existing = self.mapping_repo.find_by_calibre_author_id_and_library(
+            match_result.calibre_author_id,
+            library_id,
         )
 
         if existing:

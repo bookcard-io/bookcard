@@ -34,6 +34,8 @@ export interface AuthorDetailViewProps {
   onBack?: () => void;
   /** Callback to refetch author data. */
   onRefetch?: () => void;
+  /** Callback to update author object in place. */
+  onAuthorUpdate?: (updatedAuthor: AuthorWithMetadata) => void;
 }
 
 /**
@@ -52,7 +54,7 @@ export interface AuthorDetailViewProps {
 export function AuthorDetailView({
   author,
   onBack,
-  onRefetch,
+  onAuthorUpdate,
 }: AuthorDetailViewProps) {
   const [showFullBio, setShowFullBio] = useState(false);
 
@@ -112,7 +114,7 @@ export function AuthorDetailView({
           showFullBio={showFullBio}
           onToggleBio={handleToggleBio}
           onBack={onBack}
-          onMetadataFetched={onRefetch}
+          onAuthorUpdate={onAuthorUpdate}
         />
 
         {/* Library Books Section */}

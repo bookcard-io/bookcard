@@ -19,7 +19,7 @@ import logging
 import re
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from sqlmodel import select
 
@@ -746,6 +746,7 @@ class ScoreStage(PipelineStage):
         subject_repository: SubjectRepository | None = None,
         similarity_calculator: SimilarityCalculator | None = None,
         stale_data_max_age_days: int | None = None,
+        target_author_metadata_id: int | None = None,
     ) -> None:
         """Initialize score stage.
 
@@ -768,6 +769,8 @@ class ScoreStage(PipelineStage):
             Maximum age in days for existing similarities to be considered fresh.
             If an author has similarities within this age, re-analysis will be skipped.
             None means always analyze (no staleness check).
+        target_author_metadata_id : int | None
+            If provided, only score links involving this author (single-author mode).
         """
         self._progress = 0.0
         self._min_similarity = min_similarity
@@ -777,6 +780,7 @@ class ScoreStage(PipelineStage):
         self._subject_repository = subject_repository
         self._similarity_calculator = similarity_calculator
         self._stale_data_max_age_days = stale_data_max_age_days
+        self._target_author_metadata_id = target_author_metadata_id
         self._progress_tracker: ProgressTracker | None = None
 
     def _create_repositories(self, session: "Session") -> None:
@@ -971,59 +975,127 @@ class ScoreStage(PipelineStage):
         similarities_created = 0
         pairs_processed = 0
 
-        for i, author1 in enumerate(authors_to_process):
-            if context.check_cancelled():
-                break
+        # Optimization for single author mode
+        if (
+            self._target_author_metadata_id is not None
+            and authors_to_process
+            and authors_to_process[0].id == self._target_author_metadata_id
+        ):
+            target_author = authors_to_process[0]
+            other_authors = authors_to_process[1:]
 
-            for _j, author2 in enumerate(authors_to_process[i + 1 :], start=i + 1):
+            for author2 in other_authors:
                 if context.check_cancelled():
                     break
 
-                if processor.process_pair(author1, author2):
+                if processor.process_pair(target_author, author2):
                     similarities_created += 1
-                    logger.debug(
-                        "Created similarity between '%s' and '%s'",
-                        author1.name,
-                        author2.name,
-                    )
-
-                    # Batch commit every 100 similarities to ensure data is persisted
-                    # even if the process is interrupted or fails later
-                    if similarities_created % 100 == 0:
-                        context.session.commit()
+                    self._maybe_commit(context, similarities_created)
 
                 pairs_processed += 1
+                self._update_progress(
+                    context=context,
+                    pairs_processed=pairs_processed,
+                    total_pairs=actual_total_pairs,
+                    similarities_created=similarities_created,
+                    skipped_count=skipped_count,
+                )
+        else:
+            # Normal full scan mode
+            for i, author1 in enumerate(authors_to_process):
+                if context.check_cancelled():
+                    break
 
-                # Update progress
-                if self._progress_tracker is None:
-                    msg = "Progress tracker must be initialized"
-                    raise ValueError(msg)
-                progress = self._progress_tracker.update(1)
+                for _j, author2 in enumerate(authors_to_process[i + 1 :], start=i + 1):
+                    if context.check_cancelled():
+                        break
 
-                # Log progress periodically
-                if self._progress_tracker.should_log():
-                    logger.info(
-                        "Score progress: %d/%d pairs processed (%d similarities created, %d authors skipped)",
-                        pairs_processed,
-                        actual_total_pairs,
-                        similarities_created,
-                        skipped_count,
+                    if processor.process_pair(author1, author2):
+                        similarities_created += 1
+                        logger.debug(
+                            "Created similarity between '%s' and '%s'",
+                            author1.name,
+                            author2.name,
+                        )
+                        self._maybe_commit(context, similarities_created)
+
+                    pairs_processed += 1
+                    self._update_progress(
+                        context=context,
+                        pairs_processed=pairs_processed,
+                        total_pairs=actual_total_pairs,
+                        similarities_created=similarities_created,
+                        skipped_count=skipped_count,
                     )
 
-                # Update progress with metadata
-                metadata = {
-                    "current_stage": {
-                        "name": "score",
-                        "status": "in_progress",
-                        "current_index": pairs_processed,
-                        "total_items": actual_total_pairs,
-                        "similarities_created": similarities_created,
-                        "authors_skipped": skipped_count,
-                    },
-                }
-                context.update_progress(progress, metadata)
-
         return similarities_created
+
+    def _maybe_commit(
+        self,
+        context: PipelineContext,
+        similarities_created: int,
+    ) -> None:
+        """Commit similarities periodically to avoid long-running transactions.
+
+        Parameters
+        ----------
+        context : PipelineContext
+            Pipeline context providing database session.
+        similarities_created : int
+            Total similarities created so far.
+        """
+        if similarities_created % 100 == 0:
+            context.session.commit()
+
+    def _update_progress(
+        self,
+        context: PipelineContext,
+        pairs_processed: int,
+        total_pairs: int,
+        similarities_created: int,
+        skipped_count: int,
+    ) -> None:
+        """Update progress tracker and emit progress metadata.
+
+        Parameters
+        ----------
+        context : PipelineContext
+            Pipeline context for progress callbacks.
+        pairs_processed : int
+            Number of pairs processed so far.
+        total_pairs : int
+            Total number of pairs to process.
+        similarities_created : int
+            Total similarities created so far.
+        skipped_count : int
+            Number of authors skipped due to fresh similarities.
+        """
+        if self._progress_tracker is None:
+            msg = "Progress tracker must be initialized"
+            raise ValueError(msg)
+
+        progress = self._progress_tracker.update(1)
+
+        if self._progress_tracker.should_log():
+            logger.info(
+                "Score progress: %d/%d pairs processed (%d similarities created, %d authors skipped)",
+                pairs_processed,
+                total_pairs,
+                similarities_created,
+                skipped_count,
+            )
+
+        metadata = {
+            "current_stage": {
+                "name": "score",
+                "status": "in_progress",
+                "current_index": pairs_processed,
+                "total_items": total_pairs,
+                "similarities_created": similarities_created,
+                "authors_skipped": skipped_count,
+            },
+        }
+        context.update_progress(progress, metadata)
 
     def _process_all_author_pairs(
         self,
@@ -1081,6 +1153,79 @@ class ScoreStage(PipelineStage):
 
         return similarities_created, skipped_count
 
+    def _get_authors_to_score(
+        self,
+        context: PipelineContext,
+    ) -> list[AuthorMetadata]:
+        """Get list of authors to score.
+
+        Handles repository initialization, fetching all authors, and filtering
+        for single-author mode if enabled.
+
+        Parameters
+        ----------
+        context : PipelineContext
+            Pipeline context.
+
+        Returns
+        -------
+        list[AuthorMetadata]
+            List of authors to include in scoring.
+
+        Raises
+        ------
+        RuntimeError
+            If repositories are not initialized properly.
+        AttributeError
+            If repository methods are missing.
+        """
+        # Get all authors for this library
+        self._ensure_author_repository_initialized()
+
+        # Type narrowing: after _ensure_author_repository_initialized(),
+        # _author_repository is guaranteed to be non-None
+        author_repo = self._author_repository
+        author_repo = cast("AuthorRepository", author_repo)
+
+        if author_repo is None:
+            self._raise_repository_not_initialized_error()
+
+        # Verify the repository has the get_all method and it's callable
+        get_all_method = getattr(author_repo, "get_all", None)
+        if get_all_method is None:
+            self._raise_missing_get_all_method_error()
+        if not callable(get_all_method):
+            self._raise_missing_get_all_method_error()
+
+        # Type narrowing: get_all_method is confirmed to be callable
+        # Use the verified callable method, filtering by library_id
+        all_authors = get_all_method(
+            library_id=context.library_id, limit=self._author_limit
+        )  # type: ignore[call-overload]
+
+        # If target_author_metadata_id is set, only score pairs involving that author
+        if self._target_author_metadata_id is not None:
+            target_author = author_repo.get_by_id(self._target_author_metadata_id)
+            if target_author:
+                # Filter to only authors that should be compared with target
+                # This includes the target author itself and all other authors in the library
+                authors_to_score = [target_author] + [
+                    a for a in all_authors if a.id != self._target_author_metadata_id
+                ]
+                logger.info(
+                    "Single-author mode: scoring only pairs involving author ID %d (%d total authors)",
+                    self._target_author_metadata_id,
+                    len(authors_to_score),
+                )
+                return authors_to_score
+
+            logger.warning(
+                "Target author ID %d not found, scoring all authors",
+                self._target_author_metadata_id,
+            )
+
+        return all_authors
+
     def execute(self, context: PipelineContext) -> StageResult:
         """Execute the score stage.
 
@@ -1107,24 +1252,9 @@ class ScoreStage(PipelineStage):
             if self._similarity_calculator is None:
                 self._similarity_calculator = self._create_default_calculator()
 
-            # Get all authors for this library
-            self._ensure_author_repository_initialized()
-            # Type narrowing: after _ensure_author_repository_initialized(),
-            # _author_repository is guaranteed to be non-None
-            author_repo = self._author_repository
-            if author_repo is None:
-                self._raise_repository_not_initialized_error()
-            # Verify the repository has the get_all method and it's callable
-            get_all_method = getattr(author_repo, "get_all", None)
-            if get_all_method is None:
-                self._raise_missing_get_all_method_error()
-            if not callable(get_all_method):
-                self._raise_missing_get_all_method_error()
-            # Type narrowing: get_all_method is confirmed to be callable
-            # Use the verified callable method, filtering by library_id
-            all_authors = get_all_method(
-                library_id=context.library_id, limit=self._author_limit
-            )  # type: ignore[call-overload]
+            # Get authors to process
+            all_authors = self._get_authors_to_score(context)
+
             total_pairs = len(all_authors) * (len(all_authors) - 1) // 2
 
             logger.info(

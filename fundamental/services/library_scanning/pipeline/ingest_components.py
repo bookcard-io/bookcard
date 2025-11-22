@@ -32,6 +32,7 @@ from contextlib import suppress
 from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from fundamental.models.author_metadata import (
@@ -1096,15 +1097,38 @@ class AuthorWorkService:
             return 0
 
         new_subjects_count = 0
+        max_subject_length = 200  # Match database column max_length
         for rank, subject_name in enumerate(subjects):
-            if not self.subject_repo.exists(work.id, subject_name):
-                subject = WorkSubject(
-                    author_work_id=work.id,
-                    subject_name=subject_name,
-                    rank=rank,
+            # Truncate subject name if it exceeds database limit
+            if len(subject_name) > max_subject_length:
+                original_name = subject_name
+                subject_name = subject_name[:max_subject_length]
+                logger.warning(
+                    "Truncating subject name for work %s (rank %d): %d -> %d characters",
+                    work.work_key,
+                    rank,
+                    len(original_name),
+                    len(subject_name),
                 )
-                self.subject_repo.create(subject)
-                new_subjects_count += 1
+
+            if not self.subject_repo.exists(work.id, subject_name):
+                try:
+                    subject = WorkSubject(
+                        author_work_id=work.id,
+                        subject_name=subject_name,
+                        rank=rank,
+                    )
+                    self.subject_repo.create(subject)
+                    new_subjects_count += 1
+                except (TypeError, ValueError) as exc:
+                    # Log but don't fail - invalid subject rows are safe to ignore
+                    logger.warning(
+                        "Failed to persist subject '%s' for work %s (rank %d): %s. Continuing...",
+                        subject_name[:100],  # Truncate for logging
+                        work.work_key,
+                        rank,
+                        exc,
+                    )
 
         if new_subjects_count > 0:
             logger.debug(
@@ -1386,10 +1410,22 @@ class WorkBasedSubjectStrategy(SubjectFetchStrategy):
         """
         work = self.work_repo.find_by_work_key(work_key)
         if work and work.id:
-            self.work_service.persist_work_subjects(work, subjects)
-            # Commit to release lock after write
-            if hasattr(self.work_repo.session, "commit"):
-                self.work_repo.session.commit()
+            try:
+                self.work_service.persist_work_subjects(work, subjects)
+                # Commit to release lock after write
+                if hasattr(self.work_repo.session, "commit"):
+                    self.work_repo.session.commit()
+            except (TypeError, ValueError) as exc:
+                # Log but don't fail - subject persistence errors are safe to ignore.
+                # This prevents long subject names or bad payloads from stopping the pipeline.
+                logger.warning(
+                    "Failed to persist subjects for work %s: %s. Continuing...",
+                    work_key,
+                    exc,
+                )
+                # Rollback to avoid leaving the session in a bad state
+                if hasattr(self.work_repo.session, "rollback"):
+                    self.work_repo.session.rollback()
 
     def _persist_work_metadata(self, work_key: str) -> None:
         """Persist work metadata if service is available.
@@ -1406,12 +1442,13 @@ class WorkBasedSubjectStrategy(SubjectFetchStrategy):
         if raw_work_data:
             try:
                 self.work_metadata_service.normalize_and_persist(
-                    work_key, raw_work_data
+                    work_key,
+                    raw_work_data,
                 )
                 # Commit work metadata
                 if hasattr(self.work_repo.session, "commit"):
                     self.work_repo.session.commit()
-            except Exception:
+            except (SQLAlchemyError, ValueError, TypeError):
                 logger.exception("Error persisting work metadata for %s", work_key)
 
     def fetch_subjects(
@@ -1771,9 +1808,10 @@ class AuthorIngestionUnitOfWork:
                     author.work_count = len(existing_works) if existing_works else 0
 
             self.session.flush()
-        except Exception:
+        except (SQLAlchemyError, DataSourceError, ValueError, TypeError):
             logger.exception(
-                "Failed to ingest author %s", match_result.matched_entity.key
+                "Failed to ingest author %s",
+                match_result.matched_entity.key,
             )
             self.session.rollback()
             raise

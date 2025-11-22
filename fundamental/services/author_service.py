@@ -20,8 +20,12 @@ Uses IOC by accepting repositories and services as dependencies.
 Separates concerns: data access (repository) vs business logic (service).
 """
 
+import contextlib
+import re
+from pathlib import Path
+
 from sqlalchemy.orm import selectinload
-from sqlmodel import Session, select
+from sqlmodel import Session, desc, select
 
 from fundamental.models.author_metadata import (
     AuthorAlternateName,
@@ -30,6 +34,8 @@ from fundamental.models.author_metadata import (
     AuthorMetadata,
     AuthorPhoto,
     AuthorRemoteId,
+    AuthorUserMetadata,
+    AuthorUserPhoto,
     AuthorWork,
 )
 from fundamental.repositories.author_repository import AuthorRepository
@@ -64,6 +70,7 @@ class AuthorService:
         author_repo: AuthorRepository | None = None,
         library_service: LibraryService | None = None,
         library_repo: LibraryRepository | None = None,
+        data_directory: str = "/data",
     ) -> None:
         """Initialize author service.
 
@@ -77,9 +84,13 @@ class AuthorService:
             Library service. If None, creates a new instance.
         library_repo : LibraryRepository | None
             Library repository. If None, creates a new instance.
+        data_directory : str
+            Data directory path for storing files (default: "/data").
         """
         self._session = session
         self._author_repo = author_repo or AuthorRepository(session)
+        self._data_directory = Path(data_directory)
+        self._ensure_data_directory_exists()
 
         if library_service is None:
             from fundamental.repositories.config_repository import LibraryRepository
@@ -89,6 +100,11 @@ class AuthorService:
             self._library_service = LibraryService(session, lib_repo)
         else:
             self._library_service = library_service
+
+    def _ensure_data_directory_exists(self) -> None:
+        """Ensure the data directory exists, creating it if necessary."""
+        self._data_directory.mkdir(parents=True, exist_ok=True)
+        (self._data_directory / "authors").mkdir(parents=True, exist_ok=True)
 
     def list_authors_for_active_library(
         self,
@@ -483,6 +499,7 @@ class AuthorService:
             return {
                 "name": author.name,
                 "key": f"calibre-{calibre_id}",
+                "calibre_id": calibre_id,
                 "is_unmatched": True,
                 "location": "Local Library (Unmatched)",  # Placeholder
             }
@@ -513,6 +530,16 @@ class AuthorService:
             # Ensure relationships are loaded (even for unmatched, we might have local data later)
             self._ensure_relationships_loaded(author)
 
+            # Load user photos if not already loaded
+            if not hasattr(author, "user_photos") or author.user_photos is None:
+                author.user_photos = list(
+                    self._session.exec(
+                        select(AuthorUserPhoto).where(
+                            AuthorUserPhoto.author_metadata_id == author.id
+                        )
+                    ).all()
+                )
+
             # Build component dictionaries and lists
             remote_ids = self._build_remote_ids_dict(author)
             photos = self._build_photos_list(author)
@@ -525,6 +552,7 @@ class AuthorService:
             author_data: dict[str, object] = {
                 "name": author.name,
                 "key": key,
+                "calibre_id": calibre_id,
                 "is_unmatched": True,
                 "location": author.location or "Local Library (Unmatched)",
             }
@@ -541,10 +569,47 @@ class AuthorService:
                 subjects,
             )
 
+            # Add user photos (if any)
+            self._add_user_photos_field(author_data, author)
+
             return author_data
 
         # Ensure relationships are loaded
         self._ensure_relationships_loaded(author)
+
+        # Load mappings to get calibre_id
+        if not getattr(author, "mappings", None):
+            author.mappings = list(
+                self._session.exec(
+                    select(AuthorMapping).where(
+                        AuthorMapping.author_metadata_id == author.id
+                    )
+                ).all()
+            )
+
+        calibre_id = None
+        if getattr(author, "mappings", None):
+            calibre_id = author.mappings[0].calibre_author_id
+
+        # Load user metadata if not already loaded
+        if not hasattr(author, "user_metadata") or author.user_metadata is None:
+            author.user_metadata = list(
+                self._session.exec(
+                    select(AuthorUserMetadata).where(
+                        AuthorUserMetadata.author_metadata_id == author.id
+                    )
+                ).all()
+            )
+
+        # Load user photos if not already loaded
+        if not hasattr(author, "user_photos") or author.user_photos is None:
+            author.user_photos = list(
+                self._session.exec(
+                    select(AuthorUserPhoto).where(
+                        AuthorUserPhoto.author_metadata_id == author.id
+                    )
+                ).all()
+            )
 
         # Build component dictionaries and lists
         remote_ids = self._build_remote_ids_dict(author)
@@ -558,6 +623,7 @@ class AuthorService:
         author_data: dict[str, object] = {
             "name": author.name,
             "key": author.openlibrary_key,
+            "calibre_id": calibre_id,
         }
 
         # Add optional fields
@@ -571,6 +637,12 @@ class AuthorService:
             links,
             subjects,
         )
+
+        # Add user-defined metadata (overrides auto-populated)
+        self._add_user_metadata_fields(author_data, author)
+
+        # Add user photos (and possibly override photo_url)
+        self._add_user_photos_field(author_data, author)
 
         return author_data
 
@@ -683,6 +755,125 @@ class AuthorService:
         if subjects:
             author_data["genres"] = subjects
 
+    def _add_user_metadata_fields(
+        self,
+        author_data: dict[str, object],
+        author: AuthorMetadata,
+    ) -> None:
+        """Add user-defined metadata fields to dictionary.
+
+        User-defined fields override auto-populated values.
+
+        Parameters
+        ----------
+        author_data : dict[str, object]
+            Author data dictionary to update.
+        author : AuthorMetadata
+            Author metadata record with user_metadata loaded.
+        """
+        if not hasattr(author, "user_metadata") or not author.user_metadata:
+            return
+
+        # Check for user-defined genres
+        user_genres = next(
+            (
+                um.field_value
+                for um in author.user_metadata
+                if um.field_name == "genres" and um.is_user_defined
+            ),
+            None,
+        )
+        if user_genres and isinstance(user_genres, list):
+            author_data["genres"] = user_genres
+
+        # Check for user-defined styles
+        user_styles = next(
+            (
+                um.field_value
+                for um in author.user_metadata
+                if um.field_name == "styles" and um.is_user_defined
+            ),
+            None,
+        )
+        if user_styles and isinstance(user_styles, list):
+            author_data["styles"] = user_styles
+
+        # Check for user-defined shelves
+        user_shelves = next(
+            (
+                um.field_value
+                for um in author.user_metadata
+                if um.field_name == "shelves" and um.is_user_defined
+            ),
+            None,
+        )
+        if user_shelves and isinstance(user_shelves, list):
+            author_data["shelves"] = user_shelves
+
+        # Check for user-defined similar_authors
+        # Note: similar_authors from relationships are added in get_author_by_id_or_key,
+        # so we only override if user-defined exists
+        user_similar = next(
+            (
+                um.field_value
+                for um in author.user_metadata
+                if um.field_name == "similar_authors" and um.is_user_defined
+            ),
+            None,
+        )
+        if user_similar is not None and isinstance(user_similar, list):
+            # User has defined similar authors - use them
+            author_data["similar_authors"] = user_similar
+
+    def _add_user_photos_field(
+        self,
+        author_data: dict[str, object],
+        author: AuthorMetadata,
+    ) -> None:
+        """Add user-uploaded photos to author data.
+
+        Parameters
+        ----------
+        author_data : dict[str, object]
+            Author data dictionary to update.
+        author : AuthorMetadata
+            Author metadata record with user_photos loaded.
+        """
+        if not hasattr(author, "user_photos") or not author.user_photos:
+            return
+
+        photos_payload: list[dict[str, object]] = []
+        for photo in author.user_photos:
+            if photo.id is None:
+                continue
+
+            photo_url = f"/api/authors/{author.id}/photos/{photo.id}"
+            photos_payload.append(
+                {
+                    "id": photo.id,
+                    "photo_url": photo_url,
+                    "file_name": photo.file_name,
+                    "file_path": photo.file_path,
+                    "is_primary": photo.is_primary,
+                    "order": photo.order,
+                    "created_at": photo.created_at.isoformat(),
+                },
+            )
+
+        if photos_payload:
+            author_data["user_photos"] = photos_payload
+
+        # Ensure primary user photo becomes the main photo_url if not already set
+        if "photo_url" not in author_data:
+            primary_photo = next(
+                (up for up in author.user_photos if up.is_primary),
+                None,
+            )
+            if primary_photo and primary_photo.id is not None:
+                author_data["photo_url"] = (
+                    f"/api/authors/{author.id}/photos/{primary_photo.id}"
+                )
+
     def _ensure_relationships_loaded(
         self,
         author: AuthorMetadata,
@@ -734,3 +925,658 @@ class AuthorService:
                 ).all()
             )
             author.works = works
+
+    def update_author(
+        self,
+        author_id: str,
+        update: dict[str, object],
+    ) -> dict[str, object]:
+        """Update author metadata and user-defined fields.
+
+        Parameters
+        ----------
+        author_id : str
+            Author ID (numeric) or OpenLibrary key (e.g., "OL23919A").
+        update : dict[str, object]
+            Update payload with fields to update.
+
+        Returns
+        -------
+        dict[str, object]
+            Updated author data dictionary.
+
+        Raises
+        ------
+        ValueError
+            If author is not found or no active library exists.
+        """
+        # Get active library
+        active_library = self._library_service.get_active_library()
+        if not active_library or active_library.id is None:
+            msg = "No active library found"
+            raise ValueError(msg)
+
+        # Get author
+        author = self._lookup_author(author_id, active_library.id)
+        if not author or author.id is None:
+            msg = f"Author not found: {author_id}"
+            raise ValueError(msg)
+
+        # Update AuthorMetadata fields
+        self._update_author_metadata_fields(author, update)
+
+        # Save user-defined metadata fields
+        self._update_user_metadata_fields(author.id, update)
+
+        # Handle photo_url update
+        self._handle_photo_url_update(author_id, author, update)
+
+        self._session.add(author)
+        self._session.commit()
+        self._session.refresh(author)
+
+        # Return updated author dict
+        return self._build_author_dict(author)
+
+    def _update_author_metadata_fields(
+        self, author: AuthorMetadata, update: dict[str, object]
+    ) -> None:
+        """Update AuthorMetadata fields from update dict.
+
+        Parameters
+        ----------
+        author : AuthorMetadata
+            Author metadata object to update.
+        update : dict[str, object]
+            Update payload with fields to update.
+        """
+        if update.get("name"):
+            author.name = str(update["name"])
+        if "personal_name" in update:
+            author.personal_name = (
+                str(update["personal_name"]) if update["personal_name"] else None
+            )
+        if "fuller_name" in update:
+            author.fuller_name = (
+                str(update["fuller_name"]) if update["fuller_name"] else None
+            )
+        if "title" in update:
+            author.title = str(update["title"]) if update["title"] else None
+        if "birth_date" in update:
+            author.birth_date = (
+                str(update["birth_date"]) if update["birth_date"] else None
+            )
+        if "death_date" in update:
+            author.death_date = (
+                str(update["death_date"]) if update["death_date"] else None
+            )
+        if "entity_type" in update:
+            author.entity_type = (
+                str(update["entity_type"]) if update["entity_type"] else None
+            )
+        if "biography" in update:
+            author.biography = str(update["biography"]) if update["biography"] else None
+        if "location" in update:
+            author.location = str(update["location"]) if update["location"] else None
+
+    def _update_user_metadata_fields(
+        self, author_id: int, update: dict[str, object]
+    ) -> None:
+        """Update user-defined metadata fields.
+
+        Parameters
+        ----------
+        author_id : int
+            Author metadata ID.
+        update : dict[str, object]
+            Update payload with fields to update.
+        """
+        user_metadata_fields = ["genres", "styles", "shelves", "similar_authors"]
+        for field_name in user_metadata_fields:
+            if field_name in update:
+                value = update[field_name]
+                if value is None:
+                    # Delete user-defined value to allow auto-population
+                    self._delete_user_metadata(author_id, field_name)
+                elif isinstance(value, list):
+                    # Save as user-defined - convert to list[str] for type safety
+                    str_list = [str(item) for item in value]
+                    self._save_user_metadata(author_id, field_name, str_list)
+
+    def _handle_photo_url_update(
+        self, author_id: str, author: AuthorMetadata, update: dict[str, object]
+    ) -> None:
+        """Handle photo_url update by setting selected photo as primary.
+
+        Parameters
+        ----------
+        author_id : str
+            Author ID (numeric) or OpenLibrary key.
+        author : AuthorMetadata
+            Author metadata object.
+        update : dict[str, object]
+            Update payload with fields to update.
+        """
+        if not update.get("photo_url"):
+            return
+
+        photo_url = str(update["photo_url"])
+        # Extract photo_id from URL format: /api/authors/{author_id}/photos/{photo_id}
+        match = re.search(r"/photos/(\d+)$", photo_url)
+        if not match:
+            return
+
+        photo_id = int(match.group(1))
+        # Verify photo belongs to this author
+        photo = self.get_author_photo_by_id(author_id, photo_id)
+        if photo:
+            # Set this photo as primary (will unset others)
+            with contextlib.suppress(ValueError):
+                self.set_primary_photo(author_id, photo_id)
+                # Expire user_photos relationship so it reloads with updated primary status
+                self._session.expire(author, ["user_photos"])
+
+    def _save_user_metadata(
+        self,
+        author_metadata_id: int,
+        field_name: str,
+        value: list[str] | dict[str, object] | str,
+    ) -> None:
+        """Save or update user-defined metadata field.
+
+        Parameters
+        ----------
+        author_metadata_id : int
+            Author metadata ID.
+        field_name : str
+            Field name (e.g., "genres", "styles").
+        value : list[str] | dict[str, object] | str
+            Field value to save.
+        """
+        # Check if user metadata already exists
+        existing = self._session.exec(
+            select(AuthorUserMetadata).where(
+                AuthorUserMetadata.author_metadata_id == author_metadata_id,
+                AuthorUserMetadata.field_name == field_name,
+            )
+        ).first()
+
+        if existing:
+            existing.field_value = value  # type: ignore[assignment]
+            existing.is_user_defined = True
+            self._session.add(existing)
+        else:
+            user_metadata = AuthorUserMetadata(
+                author_metadata_id=author_metadata_id,
+                field_name=field_name,
+                field_value=value,  # type: ignore[arg-type]
+                is_user_defined=True,
+            )
+            self._session.add(user_metadata)
+
+    def _delete_user_metadata(
+        self,
+        author_metadata_id: int,
+        field_name: str,
+    ) -> None:
+        """Delete user-defined metadata field (allows auto-population).
+
+        Parameters
+        ----------
+        author_metadata_id : int
+            Author metadata ID.
+        field_name : str
+            Field name to delete.
+        """
+        existing = self._session.exec(
+            select(AuthorUserMetadata).where(
+                AuthorUserMetadata.author_metadata_id == author_metadata_id,
+                AuthorUserMetadata.field_name == field_name,
+            )
+        ).first()
+
+        if existing:
+            self._session.delete(existing)
+
+    def _get_user_metadata(
+        self,
+        author_metadata_id: int,
+        field_name: str,
+    ) -> list[str] | dict[str, object] | str | None:
+        """Get user-defined metadata field value.
+
+        Parameters
+        ----------
+        author_metadata_id : int
+            Author metadata ID.
+        field_name : str
+            Field name to retrieve.
+
+        Returns
+        -------
+        list[str] | dict[str, object] | str | None
+            Field value if user-defined, None otherwise.
+        """
+        user_metadata = self._session.exec(
+            select(AuthorUserMetadata).where(
+                AuthorUserMetadata.author_metadata_id == author_metadata_id,
+                AuthorUserMetadata.field_name == field_name,
+                AuthorUserMetadata.is_user_defined == True,  # noqa: E712
+            )
+        ).first()
+
+        if user_metadata and user_metadata.field_value is not None:
+            return user_metadata.field_value
+        return None
+
+    def _get_author_photos_dir(self, author_metadata_id: int) -> Path:
+        """Get directory path for author photos.
+
+        Parameters
+        ----------
+        author_metadata_id : int
+            Author metadata ID.
+
+        Returns
+        -------
+        Path
+            Path to author photos directory.
+        """
+        photos_dir = self._data_directory / "authors" / str(author_metadata_id)
+        photos_dir.mkdir(parents=True, exist_ok=True)
+        return photos_dir
+
+    def upload_author_photo(
+        self,
+        author_id: str,
+        file_content: bytes,
+        filename: str,
+        set_as_primary: bool = False,
+    ) -> AuthorUserPhoto:
+        """Upload and save an author photo from file.
+
+        Parameters
+        ----------
+        author_id : str
+            Author ID (numeric) or OpenLibrary key.
+        file_content : bytes
+            File content to save.
+        filename : str
+            Original filename.
+        set_as_primary : bool
+            Whether to set this photo as primary (default: False).
+
+        Returns
+        -------
+        AuthorUserPhoto
+            Created photo record.
+
+        Raises
+        ------
+        ValueError
+            If author not found or invalid file type.
+        """
+        # Get active library
+        active_library = self._library_service.get_active_library()
+        if not active_library or active_library.id is None:
+            msg = "No active library found"
+            raise ValueError(msg)
+
+        # Get author
+        author = self._lookup_author(author_id, active_library.id)
+        if not author or author.id is None:
+            msg = f"Author not found: {author_id}"
+            raise ValueError(msg)
+
+        # Validate file extension
+        file_ext = Path(filename).suffix.lower()
+        if file_ext not in {".jpg", ".jpeg", ".png", ".gif", ".webp"}:
+            msg = "invalid_file_type"
+            raise ValueError(msg)
+
+        # Get photos directory
+        photos_dir = self._get_author_photos_dir(author.id)
+
+        # Generate unique filename (use timestamp + hash to avoid collisions)
+        from datetime import UTC, datetime
+        from hashlib import sha256
+
+        content_hash = sha256(file_content).hexdigest()[:8]
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+        safe_filename = f"{timestamp}_{content_hash}{file_ext}"
+        photo_path = photos_dir / safe_filename
+
+        # Save file
+        try:
+            photo_path.write_bytes(file_content)
+        except OSError as exc:
+            msg = f"failed_to_save_file: {exc!s}"
+            raise ValueError(msg) from exc
+
+        # Get MIME type
+        mime_type_map = {
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".gif": "image/gif",
+            ".webp": "image/webp",
+        }
+        mime_type = mime_type_map.get(file_ext, "image/jpeg")
+
+        # If setting as primary, unset other primary photos
+        if set_as_primary:
+            existing_primary = self._session.exec(
+                select(AuthorUserPhoto).where(
+                    AuthorUserPhoto.author_metadata_id == author.id,
+                    AuthorUserPhoto.is_primary == True,  # noqa: E712
+                )
+            ).all()
+            for photo in existing_primary:
+                photo.is_primary = False
+                self._session.add(photo)
+
+        # Create photo record
+        relative_path = photo_path.relative_to(self._data_directory)
+        user_photo = AuthorUserPhoto(
+            author_metadata_id=author.id,
+            file_path=str(relative_path),
+            file_name=filename,
+            file_size=len(file_content),
+            mime_type=mime_type,
+            is_primary=set_as_primary,
+            order=0,
+        )
+        self._session.add(user_photo)
+        self._session.commit()
+        self._session.refresh(user_photo)
+
+        return user_photo
+
+    def upload_photo_from_url(
+        self,
+        author_id: str,
+        url: str,
+        set_as_primary: bool = False,
+    ) -> AuthorUserPhoto:
+        """Upload and save an author photo from URL.
+
+        Parameters
+        ----------
+        author_id : str
+            Author ID (numeric) or OpenLibrary key.
+        url : str
+            URL of the image to download.
+        set_as_primary : bool
+            Whether to set this photo as primary (default: False).
+
+        Returns
+        -------
+        AuthorUserPhoto
+            Created photo record.
+
+        Raises
+        ------
+        ValueError
+            If author not found, download fails, or invalid image.
+        """
+        # Download image
+        import io
+
+        import httpx
+        from PIL import Image
+
+        content_type = "image/jpeg"  # Default fallback
+        try:
+            with httpx.Client(timeout=30.0, follow_redirects=True) as client:
+                response = client.get(url)
+                response.raise_for_status()
+
+                content_type = response.headers.get("content-type", "").lower()
+                if not content_type.startswith("image/"):
+                    msg = "url_not_an_image"
+                    raise ValueError(msg)
+
+                try:
+                    image = Image.open(io.BytesIO(response.content))
+                    image.verify()
+                except Exception as exc:
+                    msg = "invalid_image_format"
+                    raise ValueError(msg) from exc
+                else:
+                    # Reopen image after verify() closes it
+                    image = Image.open(io.BytesIO(response.content))
+                    file_content = response.content
+        except httpx.HTTPError as exc:
+            msg = f"failed_to_download_image: {exc!s}"
+            raise ValueError(msg) from exc
+
+        # Determine filename from URL or content type
+        # Always normalize extension based on content_type to ensure valid file type
+        from urllib.parse import unquote, urlparse
+
+        ext_map = {
+            "image/jpeg": ".jpg",
+            "image/jpg": ".jpg",
+            "image/png": ".png",
+            "image/gif": ".gif",
+            "image/webp": ".webp",
+        }
+        # Extract base filename from URL (remove query params, fragments)
+        parsed_url = urlparse(url)
+        url_path = unquote(parsed_url.path)
+        base_filename = Path(url_path).name or "photo"
+
+        # Remove any existing extension and add correct one based on content_type
+        base_name = Path(base_filename).stem
+        ext = ext_map.get(
+            content_type.split(";")[0].strip(), ".jpg"
+        )  # Handle "image/jpeg; charset=utf-8"
+        filename = f"{base_name}{ext}"
+
+        # Upload using file upload method, then update source_url
+        user_photo = self.upload_author_photo(
+            author_id=author_id,
+            file_content=file_content,
+            filename=filename,
+            set_as_primary=set_as_primary,
+        )
+        # Update source_url to track original URL
+        user_photo.source_url = url
+        self._session.add(user_photo)
+        self._session.commit()
+        self._session.refresh(user_photo)
+        return user_photo
+
+    def get_author_photos(self, author_id: str) -> list[AuthorUserPhoto]:
+        """Get all user-uploaded photos for an author.
+
+        Parameters
+        ----------
+        author_id : str
+            Author ID (numeric) or OpenLibrary key.
+
+        Returns
+        -------
+        list[AuthorUserPhoto]
+            List of photo records.
+
+        Raises
+        ------
+        ValueError
+            If author not found.
+        """
+        # Get active library
+        active_library = self._library_service.get_active_library()
+        if not active_library or active_library.id is None:
+            msg = "No active library found"
+            raise ValueError(msg)
+
+        # Get author
+        author = self._lookup_author(author_id, active_library.id)
+        if not author or author.id is None:
+            msg = f"Author not found: {author_id}"
+            raise ValueError(msg)
+
+        photos = self._session.exec(
+            select(AuthorUserPhoto)
+            .where(AuthorUserPhoto.author_metadata_id == author.id)
+            .order_by(
+                desc(AuthorUserPhoto.is_primary),
+                AuthorUserPhoto.order,
+                AuthorUserPhoto.created_at,
+            )
+        ).all()
+
+        return list(photos)
+
+    def get_author_photo_by_id(
+        self, author_id: str, photo_id: int
+    ) -> AuthorUserPhoto | None:
+        """Get a specific photo by ID for an author.
+
+        Parameters
+        ----------
+        author_id : str
+            Author ID (numeric) or OpenLibrary key.
+        photo_id : int
+            Photo ID to retrieve.
+
+        Returns
+        -------
+        AuthorUserPhoto | None
+            Photo record if found and belongs to author, None otherwise.
+        """
+        # Get active library
+        active_library = self._library_service.get_active_library()
+        if not active_library or active_library.id is None:
+            return None
+
+        # Get author
+        author = self._lookup_author(author_id, active_library.id)
+        if not author or author.id is None:
+            return None
+
+        # Get photo and verify it belongs to author
+        return self._session.exec(
+            select(AuthorUserPhoto).where(
+                AuthorUserPhoto.id == photo_id,
+                AuthorUserPhoto.author_metadata_id == author.id,
+            )
+        ).first()
+
+    def set_primary_photo(self, author_id: str, photo_id: int) -> AuthorUserPhoto:
+        """Set a photo as the primary photo for an author.
+
+        Parameters
+        ----------
+        author_id : str
+            Author ID (numeric) or OpenLibrary key.
+        photo_id : int
+            Photo ID to set as primary.
+
+        Returns
+        -------
+        AuthorUserPhoto
+            Updated photo record.
+
+        Raises
+        ------
+        ValueError
+            If author or photo not found.
+        """
+        # Get active library
+        active_library = self._library_service.get_active_library()
+        if not active_library or active_library.id is None:
+            msg = "No active library found"
+            raise ValueError(msg)
+
+        # Get author
+        author = self._lookup_author(author_id, active_library.id)
+        if not author or author.id is None:
+            msg = f"Author not found: {author_id}"
+            raise ValueError(msg)
+
+        # Get photo
+        photo = self._session.exec(
+            select(AuthorUserPhoto).where(
+                AuthorUserPhoto.id == photo_id,
+                AuthorUserPhoto.author_metadata_id == author.id,
+            )
+        ).first()
+
+        if not photo:
+            msg = f"Photo not found: {photo_id}"
+            raise ValueError(msg)
+
+        # Unset other primary photos
+        existing_primary = self._session.exec(
+            select(AuthorUserPhoto).where(
+                AuthorUserPhoto.author_metadata_id == author.id,
+                AuthorUserPhoto.is_primary == True,  # noqa: E712
+                AuthorUserPhoto.id != photo_id,
+            )
+        ).all()
+        for existing in existing_primary:
+            existing.is_primary = False
+            self._session.add(existing)
+
+        # Set this photo as primary
+        photo.is_primary = True
+        self._session.add(photo)
+        self._session.commit()
+        self._session.refresh(photo)
+
+        return photo
+
+    def delete_photo(self, author_id: str, photo_id: int) -> None:
+        """Delete an author photo and its file.
+
+        Parameters
+        ----------
+        author_id : str
+            Author ID (numeric) or OpenLibrary key.
+        photo_id : int
+            Photo ID to delete.
+
+        Raises
+        ------
+        ValueError
+            If author or photo not found.
+        """
+        # Get active library
+        active_library = self._library_service.get_active_library()
+        if not active_library or active_library.id is None:
+            msg = "No active library found"
+            raise ValueError(msg)
+
+        # Get author
+        author = self._lookup_author(author_id, active_library.id)
+        if not author or author.id is None:
+            msg = f"Author not found: {author_id}"
+            raise ValueError(msg)
+
+        # Get photo
+        photo = self._session.exec(
+            select(AuthorUserPhoto).where(
+                AuthorUserPhoto.id == photo_id,
+                AuthorUserPhoto.author_metadata_id == author.id,
+            )
+        ).first()
+
+        if not photo:
+            msg = f"Photo not found: {photo_id}"
+            raise ValueError(msg)
+
+        # Store file path before deletion
+        photo_path = self._data_directory / photo.file_path
+
+        # Delete record first (atomic DB operation)
+        self._session.delete(photo)
+        self._session.commit()
+
+        # Delete file after successful DB deletion (best effort)
+        if photo_path.exists():
+            from contextlib import suppress
+
+            with suppress(OSError):
+                photo_path.unlink()

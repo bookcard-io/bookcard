@@ -163,10 +163,14 @@ class ScoreWorker(BaseWorker):
             return None
 
         task_id = payload.get("task_id")
+        target_author_metadata_id = payload.get("target_author_metadata_id")
+        single_author_mode = payload.get("single_author_mode", False)
+
         logger.info(
-            "ScoreWorker: Starting scoring for library %s (task: %s)",
+            "ScoreWorker: Starting scoring for library %s (task: %s, single_author: %s)",
             library_id,
             task_id,
+            single_author_mode,
         )
 
         if task_id and isinstance(self.broker, RedisBroker):
@@ -188,11 +192,19 @@ class ScoreWorker(BaseWorker):
                 library=library,
                 session=session,
                 data_source=NoOpDataSource(),
+                target_author_metadata_id=target_author_metadata_id
+                if single_author_mode
+                else None,
+                single_author_mode=single_author_mode,
             )
 
+            # Pass target_author_metadata_id to ScoreStage for single-author mode
             stage = ScoreStage(
                 min_similarity=self.min_similarity,
                 stale_data_max_age_days=self.stale_data_max_age_days,
+                target_author_metadata_id=target_author_metadata_id
+                if single_author_mode
+                else None,
             )
 
             try:

@@ -17,9 +17,9 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedClient } from "@/services/http/routeHelpers";
 
 /**
- * POST /api/authors/[id]/fetch-metadata
+ * POST /api/authors/[id]/rematch
  *
- * Proxies request to fetch and update metadata for a single author.
+ * Proxies request to re-match a single author to a specific OpenLibrary ID.
  */
 export async function POST(
   request: NextRequest,
@@ -33,18 +33,30 @@ export async function POST(
     }
 
     const { id } = await params;
-    const response = await client.request(`/authors/${id}/fetch-metadata`, {
+
+    // Read request body if present
+    let body: string | undefined;
+    try {
+      const requestBody = await request.json();
+      body = JSON.stringify(requestBody);
+    } catch {
+      // No body or invalid JSON - that's okay, backend will handle it
+      body = undefined;
+    }
+
+    const response = await client.request(`/authors/${id}/rematch`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
+      body,
     });
 
     const data = await response.json();
 
     if (!response.ok) {
       return NextResponse.json(
-        { detail: data.detail || "Failed to fetch metadata" },
+        { detail: data.detail || "Failed to rematch author" },
         { status: response.status },
       );
     }

@@ -13,16 +13,20 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Book endpoints: list, search, and retrieve books from Calibre library."""
+"""Book endpoints: list, search, and retrieve books from Calibre library.
 
-import hashlib
-import io
+Routes handle only HTTP concerns: request/response, status codes, exceptions.
+Business logic is delegated to services following SOLID principles.
+"""
+
 import math
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
-import httpx
+if TYPE_CHECKING:
+    from fundamental.services.tasks.base import TaskRunner
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -34,8 +38,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import FileResponse
-from PIL import Image
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from fundamental.api.deps import get_current_user, get_db_session
 from fundamental.api.schemas import (
@@ -56,13 +59,15 @@ from fundamental.api.schemas import (
 from fundamental.models.auth import User
 from fundamental.models.tasks import TaskType
 from fundamental.repositories.config_repository import LibraryRepository
-from fundamental.repositories.models import BookWithFullRelations, BookWithRelations
+from fundamental.services.book_cover_service import BookCoverService
+from fundamental.services.book_exception_mapper import BookExceptionMapper
+from fundamental.services.book_permission_helper import BookPermissionHelper
+from fundamental.services.book_response_builder import BookResponseBuilder
 from fundamental.services.book_service import BookService
 from fundamental.services.config_service import LibraryService
 from fundamental.services.email_config_service import EmailConfigService
 from fundamental.services.metadata_export_service import MetadataExportService
 from fundamental.services.metadata_import_service import MetadataImportService
-from fundamental.services.permission_service import PermissionService
 from fundamental.services.security import DataEncryptor
 
 if TYPE_CHECKING:
@@ -72,6 +77,9 @@ router = APIRouter(prefix="/books", tags=["books"])
 
 SessionDep = Annotated[Session, Depends(get_db_session)]
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
+
+# Temporary cover storage (in-memory for now, could be moved to disk/DB)
+_temp_cover_storage: dict[str, Path] = {}
 
 # Media types mapping for book file formats
 FILE_FORMAT_MEDIA_TYPES = {
@@ -187,46 +195,6 @@ def _email_config_service(request: Request, session: Session) -> EmailConfigServ
     return EmailConfigService(session, encryptor=encryptor)
 
 
-def _build_book_permission_context(
-    book_with_rels: BookWithRelations | BookWithFullRelations,
-    _book_id: int,
-    _session: Session,
-) -> dict[str, object]:
-    """Build permission context from book metadata.
-
-    Parameters
-    ----------
-    book_with_rels : BookWithRelations | BookWithFullRelations
-        Book with related metadata.
-    _book_id : int
-        Book ID (unused, kept for API compatibility).
-    _session : Session
-        Database session (unused, kept for API compatibility).
-
-    Returns
-    -------
-    dict[str, object]
-        Permission context dictionary with authors, tags, series_id, etc.
-    """
-    context: dict[str, object] = {
-        "authors": book_with_rels.authors,
-    }
-
-    # Note: author_ids are not included here because BookAuthorLink exists
-    # in the Calibre metadata.db, not in fundamental.db. Permission conditions
-    # can use "author" (author names) instead of "author_id" or "author_ids".
-
-    # Add series_id if available
-    if isinstance(book_with_rels, BookWithFullRelations) and book_with_rels.series_id:
-        context["series_id"] = book_with_rels.series_id
-
-    # Add tags if available
-    if isinstance(book_with_rels, BookWithFullRelations) and book_with_rels.tags:
-        context["tags"] = book_with_rels.tags
-
-    return context
-
-
 def _get_active_library_service(
     session: SessionDep,
 ) -> BookService:
@@ -260,13 +228,83 @@ def _get_active_library_service(
     return BookService(library, session=session)
 
 
+def _get_permission_helper(session: SessionDep) -> BookPermissionHelper:
+    """Get book permission helper instance.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session.
+
+    Returns
+    -------
+    BookPermissionHelper
+        Permission helper instance.
+    """
+    return BookPermissionHelper(session)
+
+
+def _get_response_builder(
+    book_service: Annotated[BookService, Depends(_get_active_library_service)],
+) -> BookResponseBuilder:
+    """Get book response builder instance.
+
+    Parameters
+    ----------
+    book_service : BookService
+        Book service instance.
+
+    Returns
+    -------
+    BookResponseBuilder
+        Response builder instance.
+    """
+    return BookResponseBuilder(book_service)
+
+
+def _get_cover_service(
+    book_service: Annotated[BookService, Depends(_get_active_library_service)],
+) -> BookCoverService:
+    """Get book cover service instance.
+
+    Parameters
+    ----------
+    book_service : BookService
+        Book service instance.
+
+    Returns
+    -------
+    BookCoverService
+        Cover service instance.
+    """
+    return BookCoverService(book_service)
+
+
+BookServiceDep = Annotated[BookService, Depends(_get_active_library_service)]
+PermissionHelperDep = Annotated[
+    BookPermissionHelper,
+    Depends(_get_permission_helper),
+]
+ResponseBuilderDep = Annotated[
+    BookResponseBuilder,
+    Depends(_get_response_builder),
+]
+CoverServiceDep = Annotated[
+    BookCoverService,
+    Depends(_get_cover_service),
+]
+
+
 @router.get("", response_model=BookListResponse)
 def list_books(
-    session: SessionDep,
     current_user: CurrentUserDep,
+    book_service: BookServiceDep,
+    permission_helper: PermissionHelperDep,
+    response_builder: ResponseBuilderDep,
     page: int = 1,
     page_size: int = 20,
     search: str | None = None,
+    author_id: int | None = None,
     sort_by: str = "timestamp",
     sort_order: str = "desc",
     full: bool = False,
@@ -279,12 +317,20 @@ def list_books(
         Database session dependency.
     current_user : CurrentUserDep
         Current authenticated user.
+    book_service : BookServiceDep
+        Book service instance.
+    permission_helper : PermissionHelperDep
+        Permission helper instance.
+    response_builder : ResponseBuilderDep
+        Response builder instance.
     page : int
         Page number (1-indexed, default: 1).
     page_size : int
         Number of items per page (default: 20, max: 100).
     search : str | None
         Optional search query to filter by title or author.
+    author_id : int | None
+        Optional author ID to filter by.
     sort_by : str
         Field to sort by: 'timestamp', 'pubdate', 'title', 'author_sort',
         'series_index' (default: 'timestamp').
@@ -303,9 +349,7 @@ def list_books(
     HTTPException
         If no active library is configured (404) or permission denied (403).
     """
-    # Check permission
-    permission_service = PermissionService(session)
-    permission_service.check_permission(current_user, "books", "read")
+    permission_helper.check_read_permission(current_user)
 
     if page < 1:
         page = 1
@@ -314,56 +358,17 @@ def list_books(
     if page_size > 100:
         page_size = 100
 
-    book_service = _get_active_library_service(session)
     books, total = book_service.list_books(
         page=page,
         page_size=page_size,
         search_query=search,
+        author_id=author_id,
         sort_by=sort_by,
         sort_order=sort_order,
         full=full,
     )
 
-    # Convert to BookRead with thumbnail URLs
-    book_reads = []
-    for book_with_rels in books:
-        book = book_with_rels.book
-        # Skip books without IDs (should not happen in Calibre, but type safety)
-        if book.id is None:
-            continue
-        thumbnail_url = book_service.get_thumbnail_url(book_with_rels)
-        book_read = BookRead(
-            id=book.id,
-            title=book.title,
-            authors=book_with_rels.authors,
-            author_sort=book.author_sort,
-            pubdate=book.pubdate,
-            timestamp=book.timestamp,
-            series=book_with_rels.series,
-            series_index=book.series_index,
-            isbn=book.isbn,
-            uuid=book.uuid or "",
-            thumbnail_url=thumbnail_url,
-            has_cover=book.has_cover,
-        )
-        # Add full details if available
-        if full and hasattr(book_with_rels, "tags"):
-            from fundamental.repositories.models import BookWithFullRelations
-
-            if isinstance(book_with_rels, BookWithFullRelations):
-                book_read.tags = book_with_rels.tags
-                book_read.identifiers = book_with_rels.identifiers
-                book_read.description = book_with_rels.description
-                book_read.publisher = book_with_rels.publisher
-                book_read.publisher_id = book_with_rels.publisher_id
-                book_read.languages = book_with_rels.languages
-                book_read.language_ids = book_with_rels.language_ids
-                book_read.rating = book_with_rels.rating
-                book_read.rating_id = book_with_rels.rating_id
-                book_read.series_id = book_with_rels.series_id
-                book_read.formats = book_with_rels.formats
-        book_reads.append(book_read)
-
+    book_reads = response_builder.build_book_read_list(books, full=full)
     total_pages = math.ceil(total / page_size) if page_size > 0 else 0
 
     return BookListResponse(
@@ -377,9 +382,11 @@ def list_books(
 
 @router.get("/{book_id}", response_model=BookRead)
 def get_book(
-    session: SessionDep,
     current_user: CurrentUserDep,
     book_id: int,
+    book_service: BookServiceDep,
+    permission_helper: PermissionHelperDep,
+    response_builder: ResponseBuilderDep,
     full: bool = False,
 ) -> BookRead:
     """Get a book by ID.
@@ -392,6 +399,12 @@ def get_book(
         Current authenticated user.
     book_id : int
         Calibre book ID.
+    book_service : BookServiceDep
+        Book service instance.
+    permission_helper : PermissionHelperDep
+        Permission helper instance.
+    response_builder : ResponseBuilderDep
+        Response builder instance.
     full : bool
         If True, return full book details with all metadata (default: False).
 
@@ -405,8 +418,6 @@ def get_book(
     HTTPException
         If book not found (404), no active library (404), or permission denied (403).
     """
-    book_service = _get_active_library_service(session)
-
     if full:
         book_with_rels = book_service.get_book_full(book_id)
     else:
@@ -418,61 +429,22 @@ def get_book(
             detail="book_not_found",
         )
 
-    # Check permission with book context
-    permission_service = PermissionService(session)
-    book_context = _build_book_permission_context(book_with_rels, book_id, session)
-    permission_service.check_permission(current_user, "books", "read", book_context)
+    permission_helper.check_read_permission(current_user, book_with_rels)
 
-    book = book_with_rels.book
-    if book.id is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="book_missing_id",
-        )
-    thumbnail_url = book_service.get_thumbnail_url(book_with_rels)
-
-    # Build base BookRead
-    book_read = BookRead(
-        id=book.id,
-        title=book.title,
-        authors=book_with_rels.authors,
-        author_sort=book.author_sort,
-        pubdate=book.pubdate,
-        timestamp=book.timestamp,
-        series=book_with_rels.series,
-        series_index=book.series_index,
-        isbn=book.isbn,
-        uuid=book.uuid or "",
-        thumbnail_url=thumbnail_url,
-        has_cover=book.has_cover,
-    )
-
-    # Add full details if requested
-    if full and hasattr(book_with_rels, "tags"):
-        from fundamental.repositories.models import BookWithFullRelations
-
-        if isinstance(book_with_rels, BookWithFullRelations):
-            book_read.tags = book_with_rels.tags
-            book_read.identifiers = book_with_rels.identifiers
-            book_read.description = book_with_rels.description
-            book_read.publisher = book_with_rels.publisher
-            book_read.publisher_id = book_with_rels.publisher_id
-            book_read.languages = book_with_rels.languages
-            book_read.language_ids = book_with_rels.language_ids
-            book_read.rating = book_with_rels.rating
-            book_read.rating_id = book_with_rels.rating_id
-            book_read.series_id = book_with_rels.series_id
-            book_read.formats = book_with_rels.formats
-
-    return book_read
+    try:
+        return response_builder.build_book_read(book_with_rels, full=full)
+    except ValueError as exc:
+        raise BookExceptionMapper.map_value_error_to_http_exception(exc) from exc
 
 
 @router.put("/{book_id}", response_model=BookRead)
 def update_book(
-    session: SessionDep,
     current_user: CurrentUserDep,
     book_id: int,
     update: BookUpdate,
+    book_service: BookServiceDep,
+    permission_helper: PermissionHelperDep,
+    response_builder: ResponseBuilderDep,
 ) -> BookRead:
     """Update book metadata.
 
@@ -497,9 +469,6 @@ def update_book(
     HTTPException
         If book not found (404), no active library (404), or permission denied (403).
     """
-    book_service = _get_active_library_service(session)
-
-    # Check if book exists and get metadata for permission check
     existing_book = book_service.get_book_full(book_id)
     if existing_book is None:
         raise HTTPException(
@@ -507,12 +476,8 @@ def update_book(
             detail="book_not_found",
         )
 
-    # Check permission with book context
-    permission_service = PermissionService(session)
-    book_context = _build_book_permission_context(existing_book, book_id, session)
-    permission_service.check_permission(current_user, "books", "write", book_context)
+    permission_helper.check_write_permission(current_user, existing_book)
 
-    # Update book
     updated_book = book_service.update_book(
         book_id=book_id,
         title=update.title,
@@ -538,47 +503,19 @@ def update_book(
             detail="book_not_found",
         )
 
-    book = updated_book.book
-    if book.id is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="book_missing_id",
-        )
-
-    thumbnail_url = book_service.get_thumbnail_url(updated_book)
-
-    return BookRead(
-        id=book.id,
-        title=book.title,
-        authors=updated_book.authors,
-        author_sort=book.author_sort,
-        pubdate=book.pubdate,
-        timestamp=book.timestamp,
-        series=updated_book.series,
-        series_id=updated_book.series_id,
-        series_index=book.series_index,
-        isbn=book.isbn,
-        uuid=book.uuid or "",
-        thumbnail_url=thumbnail_url,
-        has_cover=book.has_cover,
-        tags=updated_book.tags,
-        identifiers=updated_book.identifiers,
-        description=updated_book.description,
-        publisher=updated_book.publisher,
-        publisher_id=updated_book.publisher_id,
-        languages=updated_book.languages,
-        language_ids=updated_book.language_ids,
-        rating=updated_book.rating,
-        rating_id=updated_book.rating_id,
-    )
+    try:
+        return response_builder.build_book_read(updated_book, full=True)
+    except ValueError as exc:
+        raise BookExceptionMapper.map_value_error_to_http_exception(exc) from exc
 
 
 @router.delete("/{book_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_book(
-    session: SessionDep,
     current_user: CurrentUserDep,
     book_id: int,
     delete_request: BookDeleteRequest,
+    book_service: BookServiceDep,
+    permission_helper: PermissionHelperDep,
 ) -> None:
     """Delete a book and all its related data.
 
@@ -599,9 +536,6 @@ def delete_book(
         If book not found (404), no active library (404), permission denied (403),
         or filesystem operation fails (500).
     """
-    book_service = _get_active_library_service(session)
-
-    # Check if book exists and get metadata for permission check
     existing_book = book_service.get_book_full(book_id)
     if existing_book is None:
         raise HTTPException(
@@ -609,10 +543,7 @@ def delete_book(
             detail="book_not_found",
         )
 
-    # Check permission with book context (delete is part of write)
-    permission_service = PermissionService(session)
-    book_context = _build_book_permission_context(existing_book, book_id, session)
-    permission_service.check_permission(current_user, "books", "write", book_context)
+    permission_helper.check_write_permission(current_user, existing_book)
 
     try:
         book_service.delete_book(
@@ -620,16 +551,7 @@ def delete_book(
             delete_files_from_drive=delete_request.delete_files_from_drive,
         )
     except ValueError as exc:
-        msg = str(exc)
-        if msg == "book_not_found":
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=msg,
-            ) from exc
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=msg,
-        ) from exc
+        raise BookExceptionMapper.map_value_error_to_http_exception(exc) from exc
     except OSError as exc:
         # Filesystem operation failed - return error but don't crash worker
         raise HTTPException(
@@ -640,9 +562,10 @@ def delete_book(
 
 @router.get("/{book_id}/cover", response_model=None)
 def get_book_cover(
-    session: SessionDep,
     current_user: CurrentUserDep,
     book_id: int,
+    book_service: BookServiceDep,
+    permission_helper: PermissionHelperDep,
 ) -> FileResponse | Response:
     """Get book cover thumbnail image.
 
@@ -663,7 +586,6 @@ def get_book_cover(
     HTTPException
         If book not found (404) or no active library (404).
     """
-    book_service = _get_active_library_service(session)
     book_with_rels = book_service.get_book(book_id)
 
     if book_with_rels is None:
@@ -672,10 +594,7 @@ def get_book_cover(
             detail="book_not_found",
         )
 
-    # Check permission with book context
-    permission_service = PermissionService(session)
-    book_context = _build_book_permission_context(book_with_rels, book_id, session)
-    permission_service.check_permission(current_user, "books", "read", book_context)
+    permission_helper.check_read_permission(current_user, book_with_rels)
 
     cover_path = book_service.get_thumbnail_path(book_with_rels)
     book_id_for_filename = book_with_rels.book.id
@@ -691,10 +610,11 @@ def get_book_cover(
 
 @router.get("/{book_id}/download/{file_format}", response_model=None)
 def download_book_file(
-    session: SessionDep,
     current_user: CurrentUserDep,
     book_id: int,
     file_format: str,
+    book_service: BookServiceDep,
+    permission_helper: PermissionHelperDep,
 ) -> FileResponse | Response:
     """Download a book file in the specified format.
 
@@ -719,7 +639,6 @@ def download_book_file(
     """
     from pathlib import Path
 
-    book_service = _get_active_library_service(session)
     book_with_rels = book_service.get_book_full(book_id)
 
     if book_with_rels is None:
@@ -728,10 +647,7 @@ def download_book_file(
             detail="book_not_found",
         )
 
-    # Check permission with book context
-    permission_service = PermissionService(session)
-    book_context = _build_book_permission_context(book_with_rels, book_id, session)
-    permission_service.check_permission(current_user, "books", "read", book_context)
+    permission_helper.check_read_permission(current_user, book_with_rels)
 
     book = book_with_rels.book
     if book.id is None:
@@ -812,10 +728,11 @@ def download_book_file(
 
 @router.get("/{book_id}/metadata", response_model=None)
 def download_book_metadata(
-    session: SessionDep,
     current_user: CurrentUserDep,
     book_id: int,
-    format: str = "opf",  # noqa: A002
+    format: str,  # noqa: A002
+    book_service: BookServiceDep,
+    permission_helper: PermissionHelperDep,
 ) -> Response:
     """Download book metadata in the specified format.
 
@@ -840,7 +757,6 @@ def download_book_metadata(
     HTTPException
         If book not found (404), no active library (404), or format unsupported (400).
     """
-    book_service = _get_active_library_service(session)
     book_with_rels = book_service.get_book_full(book_id)
 
     if book_with_rels is None:
@@ -849,26 +765,19 @@ def download_book_metadata(
             detail="book_not_found",
         )
 
-    # Check permission with book context
-    permission_service = PermissionService(session)
-    book_context = _build_book_permission_context(book_with_rels, book_id, session)
-    permission_service.check_permission(current_user, "books", "read", book_context)
+    permission_helper.check_read_permission(current_user, book_with_rels)
 
-    # Generate metadata using service (SRP, IOC, SOC)
-    # Service validates format and raises ValueError for unsupported formats
-    format_lower = format.lower()
+    format_lower = format.lower() if format else "opf"
     export_service = MetadataExportService()
     try:
         export_result = export_service.export_metadata(book_with_rels, format_lower)
     except ValueError as exc:
-        # ValueError from export_metadata indicates unsupported format (client error)
         error_msg = str(exc)
         if "Unsupported format" in error_msg:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=error_msg,
             ) from exc
-        # Other ValueError cases are treated as server errors
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=error_msg,
@@ -975,6 +884,8 @@ def send_book_to_device(
     book_id: int,
     current_user: CurrentUserDep,
     send_request: BookSendRequest,
+    book_service: BookServiceDep,
+    permission_helper: PermissionHelperDep,
 ) -> None:
     """Send a book via email as a background task.
 
@@ -1007,8 +918,6 @@ def send_book_to_device(
         permission denied (403), task runner unavailable (503),
         or user missing ID (500).
     """
-    # Get book service and check if book exists
-    book_service = _get_active_library_service(session)
     existing_book = book_service.get_book_full(book_id)
     if existing_book is None:
         raise HTTPException(
@@ -1016,10 +925,9 @@ def send_book_to_device(
             detail="book_not_found",
         )
 
-    # Check permission with book context
-    permission_service = PermissionService(session)
-    book_context = _build_book_permission_context(existing_book, book_id, session)
-    permission_service.check_permission(current_user, "books", "send", book_context)
+    permission_helper.check_send_permission(
+        current_user, existing_book, book_id, session
+    )
 
     # Get email configuration to validate it's enabled
     email_config_service = _email_config_service(request, session)
@@ -1075,135 +983,14 @@ def send_book_to_device(
 _temp_cover_storage: dict[str, Path] = {}
 
 
-def _validate_cover_url_request(
-    session: SessionDep,
-    book_id: int,
-    url: str,
-) -> None:
-    """Validate book existence and URL format.
-
-    Parameters
-    ----------
-    session : SessionDep
-        Database session dependency.
-    book_id : int
-        Calibre book ID.
-    url : str
-        Image URL to validate.
-
-    Raises
-    ------
-    HTTPException
-        If book not found (404) or URL is invalid (400).
-    """
-    book_service = _get_active_library_service(session)
-    book_with_rels = book_service.get_book(book_id)
-
-    if book_with_rels is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="book_not_found",
-        )
-
-    if not url:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="url_required",
-        )
-
-    if not url.startswith(("http://", "https://")):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="invalid_url_format",
-        )
-
-
-def _download_and_validate_image(url: str) -> tuple[bytes, Image.Image]:
-    """Download image from URL and validate it.
-
-    Parameters
-    ----------
-    url : str
-        Image URL to download.
-
-    Returns
-    -------
-    tuple[bytes, Image.Image]
-        Image content bytes and PIL Image object.
-
-    Raises
-    ------
-    HTTPException
-        If download fails (400) or image is invalid (400).
-    """
-    try:
-        with httpx.Client(timeout=30.0, follow_redirects=True) as client:
-            response = client.get(url)
-            response.raise_for_status()
-
-            content_type = response.headers.get("content-type", "").lower()
-            if not content_type.startswith("image/"):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="url_not_an_image",
-                )
-
-            try:
-                image = Image.open(io.BytesIO(response.content))
-                image.verify()
-            except Exception as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="invalid_image_format",
-                ) from exc
-            else:
-                # Reopen image after verify() closes it
-                image = Image.open(io.BytesIO(response.content))
-                return response.content, image
-    except httpx.HTTPError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"failed_to_download_image: {exc!s}",
-        ) from exc
-
-
-def _save_image_to_temp(content: bytes, image: Image.Image) -> str:
-    """Save image to temporary location and return URL.
-
-    Parameters
-    ----------
-    content : bytes
-        Image content bytes.
-    image : Image.Image
-        PIL Image object.
-
-    Returns
-    -------
-    str
-        Temporary URL to access the image.
-    """
-    content_hash = hashlib.sha256(content).hexdigest()[:16]
-    file_extension = image.format.lower() if image.format else "jpg"
-    if file_extension not in ("jpg", "jpeg", "png", "webp"):
-        file_extension = "jpg"
-
-    temp_dir = Path(tempfile.gettempdir()) / "calibre_covers"
-    temp_dir.mkdir(parents=True, exist_ok=True)
-    temp_filename = f"{content_hash}.{file_extension}"
-    temp_path = temp_dir / temp_filename
-
-    temp_path.write_bytes(content)
-    _temp_cover_storage[content_hash] = temp_path
-
-    return f"/api/books/temp-covers/{content_hash}.{file_extension}"
-
-
 @router.post("/{book_id}/cover-from-url", response_model=CoverFromUrlResponse)
 def download_cover_from_url(
-    session: SessionDep,
     current_user: CurrentUserDep,
     book_id: int,
     request: CoverFromUrlRequest,
+    book_service: BookServiceDep,
+    permission_helper: PermissionHelperDep,
+    cover_service: CoverServiceDep,
 ) -> CoverFromUrlResponse:
     """Download cover image from URL and save directly to book.
 
@@ -1231,10 +1018,7 @@ def download_cover_from_url(
         If book not found (404), URL is invalid (400), image download fails (400),
         or image validation fails (400).
     """
-    from datetime import UTC, datetime
-
     url = request.url.strip()
-    book_service = _get_active_library_service(session)
     book_with_rels = book_service.get_book_full(book_id)
 
     if book_with_rels is None:
@@ -1243,69 +1027,18 @@ def download_cover_from_url(
             detail="book_not_found",
         )
 
-    # Check permission with book context
-    permission_service = PermissionService(session)
-    book_context = _build_book_permission_context(book_with_rels, book_id, session)
-    permission_service.check_permission(current_user, "books", "write", book_context)
-
-    if not url:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="url_required",
-        )
-
-    if not url.startswith(("http://", "https://")):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="invalid_url_format",
-        )
+    permission_helper.check_write_permission(current_user, book_with_rels)
 
     try:
-        content, _image = _download_and_validate_image(url)
-
-        # Get book path
-        book_obj = book_with_rels.book
-        lib_root = getattr(book_service._library, "library_root", None)  # type: ignore[attr-defined]  # noqa: SLF001
-        if lib_root:
-            library_path = Path(lib_root)
-        else:
-            library_db_path = book_service._library.calibre_db_path  # type: ignore[attr-defined]  # noqa: SLF001
-            library_db_path_obj = Path(library_db_path)
-            if library_db_path_obj.is_dir():
-                library_path = library_db_path_obj
-            else:
-                library_path = library_db_path_obj.parent
-
-        book_path = library_path / book_obj.path
-        book_path.mkdir(parents=True, exist_ok=True)
-
-        # Save cover as cover.jpg (Calibre standard)
-        cover_path = book_path / "cover.jpg"
-        cover_path.write_bytes(content)
-
-        # Update database to mark book as having a cover
-        with book_service._book_repo._get_session() as calibre_session:  # type: ignore[attr-defined]  # noqa: SLF001
-            from fundamental.models.core import Book
-
-            book_stmt = select(Book).where(Book.id == book_id)
-            calibre_book = calibre_session.exec(book_stmt).first()
-            if calibre_book:
-                calibre_book.has_cover = True
-                calibre_book.last_modified = datetime.now(UTC)
-                calibre_session.add(calibre_book)
-                calibre_session.commit()
-
-        # Return the cover URL
-        cover_url = f"/api/books/{book_id}/cover"
-    except HTTPException:
-        raise
+        cover_url = cover_service.save_cover_from_url(book_id, url)
+        return CoverFromUrlResponse(temp_url=cover_url)
+    except ValueError as exc:
+        raise BookExceptionMapper.map_cover_error_to_http_exception(exc) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"internal_error: {exc!s}",
         ) from exc
-    else:
-        return CoverFromUrlResponse(temp_url=cover_url)
 
 
 @router.get("/temp-covers/{hash_and_ext}", response_model=None)
@@ -1347,9 +1080,10 @@ def get_temp_cover(
 
 @router.get("/search/suggestions", response_model=SearchSuggestionsResponse)
 def search_suggestions(
-    session: SessionDep,
     current_user: CurrentUserDep,
     q: str,
+    book_service: BookServiceDep,
+    permission_helper: PermissionHelperDep,
 ) -> SearchSuggestionsResponse:
     """Get search suggestions for autocomplete.
 
@@ -1373,14 +1107,11 @@ def search_suggestions(
     HTTPException
         If no active library is configured (404).
     """
-    # Check permission
-    permission_service = PermissionService(session)
-    permission_service.check_permission(current_user, "books", "read")
+    permission_helper.check_read_permission(current_user)
 
     if not q or not q.strip():
         return SearchSuggestionsResponse()
 
-    book_service = _get_active_library_service(session)
     results = book_service.search_suggestions(
         query=q,
         book_limit=5,
@@ -1411,10 +1142,11 @@ def search_suggestions(
 
 @router.get("/filter/suggestions", response_model=FilterSuggestionsResponse)
 def filter_suggestions(
-    session: SessionDep,
     current_user: CurrentUserDep,
     q: str,
     filter_type: str,
+    book_service: BookServiceDep,
+    permission_helper: PermissionHelperDep,
     limit: int = 10,
 ) -> FilterSuggestionsResponse:
     """Get filter suggestions for a specific filter type.
@@ -1441,14 +1173,11 @@ def filter_suggestions(
     HTTPException
         If no active library is configured (404).
     """
-    # Check permission
-    permission_service = PermissionService(session)
-    permission_service.check_permission(current_user, "books", "read")
+    permission_helper.check_read_permission(current_user)
 
     if not q or not q.strip():
         return FilterSuggestionsResponse()
 
-    book_service = _get_active_library_service(session)
     results = book_service.filter_suggestions(
         query=q,
         filter_type=filter_type,
@@ -1465,9 +1194,11 @@ def filter_suggestions(
 
 @router.post("/filter", response_model=BookListResponse)
 def filter_books(
-    session: SessionDep,
     current_user: CurrentUserDep,
     filter_request: BookFilterRequest,
+    book_service: BookServiceDep,
+    permission_helper: PermissionHelperDep,
+    response_builder: ResponseBuilderDep,
     page: int = 1,
     page_size: int = 20,
     sort_by: str = "timestamp",
@@ -1507,9 +1238,7 @@ def filter_books(
     HTTPException
         If no active library is configured (404) or permission denied (403).
     """
-    # Check permission
-    permission_service = PermissionService(session)
-    permission_service.check_permission(current_user, "books", "read")
+    permission_helper.check_read_permission(current_user)
 
     if page < 1:
         page = 1
@@ -1518,7 +1247,6 @@ def filter_books(
     if page_size > 100:
         page_size = 100
 
-    book_service = _get_active_library_service(session)
     books, total = book_service.list_books_with_filters(
         page=page,
         page_size=page_size,
@@ -1536,46 +1264,7 @@ def filter_books(
         full=full,
     )
 
-    # Convert to BookRead with thumbnail URLs
-    book_reads = []
-    for book_with_rels in books:
-        book = book_with_rels.book
-        # Skip books without IDs (should not happen in Calibre, but type safety)
-        if book.id is None:
-            continue
-        thumbnail_url = book_service.get_thumbnail_url(book_with_rels)
-        book_read = BookRead(
-            id=book.id,
-            title=book.title,
-            authors=book_with_rels.authors,
-            author_sort=book.author_sort,
-            pubdate=book.pubdate,
-            timestamp=book.timestamp,
-            series=book_with_rels.series,
-            series_index=book.series_index,
-            isbn=book.isbn,
-            uuid=book.uuid or "",
-            thumbnail_url=thumbnail_url,
-            has_cover=book.has_cover,
-        )
-        # Add full details if available
-        if full and hasattr(book_with_rels, "tags"):
-            from fundamental.repositories.models import BookWithFullRelations
-
-            if isinstance(book_with_rels, BookWithFullRelations):
-                book_read.tags = book_with_rels.tags
-                book_read.identifiers = book_with_rels.identifiers
-                book_read.description = book_with_rels.description
-                book_read.publisher = book_with_rels.publisher
-                book_read.publisher_id = book_with_rels.publisher_id
-                book_read.languages = book_with_rels.languages
-                book_read.language_ids = book_with_rels.language_ids
-                book_read.rating = book_with_rels.rating
-                book_read.rating_id = book_with_rels.rating_id
-                book_read.series_id = book_with_rels.series_id
-                book_read.formats = book_with_rels.formats
-        book_reads.append(book_read)
-
+    book_reads = response_builder.build_book_read_list(books, full=full)
     total_pages = math.ceil(total / page_size) if page_size > 0 else 0
 
     return BookListResponse(
@@ -1594,9 +1283,9 @@ def filter_books(
 )
 def upload_book(
     request: Request,
-    session: SessionDep,
     current_user: CurrentUserDep,
     file: UploadFile,
+    permission_helper: PermissionHelperDep,
 ) -> BookUploadResponse:
     """Upload a book file to the active library (asynchronous).
 
@@ -1625,9 +1314,7 @@ def upload_book(
         If no active library is configured (404), file is invalid (400),
         permission denied (403), or task runner unavailable (503).
     """
-    # Check permission
-    permission_service = PermissionService(session)
-    permission_service.check_permission(current_user, "books", "create")
+    permission_helper.check_create_permission(current_user)
 
     # Get task runner
     if (
@@ -1694,15 +1381,193 @@ def upload_book(
     return BookUploadResponse(task_id=task_id)
 
 
+def _get_task_runner(request: Request) -> "TaskRunner":
+    """Get and validate task runner from request app state.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+
+    Returns
+    -------
+    object
+        Task runner instance.
+
+    Raises
+    ------
+    HTTPException
+        If task runner is not available.
+    """
+    if (
+        not hasattr(request.app.state, "task_runner")
+        or request.app.state.task_runner is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Task runner not available",
+        )
+    return request.app.state.task_runner
+
+
+def _validate_files(files: list[UploadFile]) -> None:
+    """Validate that files list is not empty.
+
+    Parameters
+    ----------
+    files : list[UploadFile]
+        List of files to validate.
+
+    Raises
+    ------
+    HTTPException
+        If files list is empty.
+    """
+    if not files:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No files provided",
+        )
+
+
+def _save_file_to_temp(
+    file: UploadFile, temp_paths: list[Path]
+) -> dict[str, str | None]:
+    """Save a single file to temporary location.
+
+    Parameters
+    ----------
+    file : UploadFile
+        File to save.
+    temp_paths : list[Path]
+        List of temporary paths (mutated to add new path).
+
+    Returns
+    -------
+    dict[str, str | None]
+        File info dictionary with file_path, filename, file_format, title.
+
+    Raises
+    ------
+    HTTPException
+        If file extension is missing or file save fails.
+    """
+    # Validate file extension
+    file_ext = Path(file.filename or "").suffix.lower().lstrip(".")
+    if not file_ext:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"file_extension_required: {file.filename}",
+        )
+
+    # Save file to temporary location
+    with tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=f".{file_ext}",
+        prefix="calibre_upload_",
+    ) as temp_file:
+        temp_path = Path(temp_file.name)
+        try:
+            content = file.file.read()
+            temp_path.write_bytes(content)
+            temp_paths.append(temp_path)
+
+            filename = file.filename or "Unknown"
+            title = Path(filename).stem if filename else None
+
+            return {
+                "file_path": str(temp_path),
+                "filename": filename,
+                "file_format": file_ext,
+                "title": title,
+            }
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"failed_to_save_file: {exc!s}",
+            ) from exc
+
+
+def _save_files_to_temp(
+    files: list[UploadFile],
+) -> tuple[list[dict[str, str | None]], list[Path]]:
+    """Save all files to temporary locations.
+
+    Parameters
+    ----------
+    files : list[UploadFile]
+        List of files to save.
+
+    Returns
+    -------
+    tuple[list[dict[str, str | None]], list[Path]]
+        Tuple of (file_infos, temp_paths).
+
+    Raises
+    ------
+    HTTPException
+        If any file save fails.
+    """
+    file_infos = []
+    temp_paths = []
+
+    try:
+        for file in files:
+            file_info = _save_file_to_temp(file, temp_paths)
+            file_infos.append(file_info)
+    except HTTPException:
+        # Clean up already saved files
+        for path in temp_paths:
+            path.unlink(missing_ok=True)
+        raise
+    else:
+        return file_infos, temp_paths
+
+
+def _enqueue_batch_upload_task(
+    task_runner: "TaskRunner",
+    file_infos: list[dict[str, str | None]],
+    user_id: int,
+) -> int:
+    """Enqueue batch upload task.
+
+    Parameters
+    ----------
+    task_runner : object
+        Task runner instance.
+    file_infos : list[dict[str, str | None]]
+        List of file info dictionaries.
+    user_id : int
+        User ID for the task.
+
+    Returns
+    -------
+    str
+        Task ID.
+    """
+    from fundamental.models.tasks import TaskType
+
+    task_id = task_runner.enqueue(
+        task_type=TaskType.MULTI_BOOK_UPLOAD,
+        payload={"files": file_infos},
+        user_id=user_id,
+        metadata={
+            "task_type": TaskType.MULTI_BOOK_UPLOAD,
+            "total_files": len(file_infos),
+        },
+    )
+    return task_id  # noqa: RET504
+
+
 @router.post(
     "/upload/batch",
     response_model=BookBatchUploadResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def upload_books_batch(  # noqa: C901
+def upload_books_batch(
     request: Request,
-    session: SessionDep,
     current_user: CurrentUserDep,
+    permission_helper: PermissionHelperDep,
     files: list[UploadFile] = File(...),  # noqa: B008
 ) -> BookBatchUploadResponse:
     """Upload multiple book files to the active library (asynchronous).
@@ -1733,97 +1598,26 @@ def upload_books_batch(  # noqa: C901
         If no active library is configured (404), files are invalid (400),
         permission denied (403), or task runner unavailable (503).
     """
-    # Check permission
-    permission_service = PermissionService(session)
-    permission_service.check_permission(current_user, "books", "create")
+    permission_helper.check_create_permission(current_user)
 
-    # Get task runner
-    if (
-        not hasattr(request.app.state, "task_runner")
-        or request.app.state.task_runner is None
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Task runner not available",
-        )
-    task_runner = request.app.state.task_runner
+    task_runner = _get_task_runner(request)
+    _validate_files(files)
 
-    if not files:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No files provided",
-        )
-
-    # Save all files to temporary locations
-    file_infos = []
-    temp_paths = []
-
+    temp_paths: list[Path] = []
     try:
-        for file in files:
-            # Validate file extension
-            file_ext = Path(file.filename or "").suffix.lower().lstrip(".")
-            if not file_ext:
-                # Clean up already saved files
-                for path in temp_paths:
-                    path.unlink(missing_ok=True)
-                raise HTTPException(  # noqa: TRY301
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"file_extension_required: {file.filename}",
-                )
-
-            # Save file to temporary location
-            with tempfile.NamedTemporaryFile(
-                delete=False,
-                suffix=f".{file_ext}",
-                prefix="calibre_upload_",
-            ) as temp_file:
-                temp_path = Path(temp_file.name)
-                try:
-                    content = file.file.read()
-                    temp_path.write_bytes(content)
-                    temp_paths.append(temp_path)
-
-                    filename = file.filename or "Unknown"
-                    title = Path(filename).stem if filename else None
-
-                    file_infos.append({
-                        "file_path": str(temp_path),
-                        "filename": filename,
-                        "file_format": file_ext,
-                        "title": title,
-                    })
-                except Exception as exc:
-                    # Clean up on error
-                    for path in temp_paths:
-                        path.unlink(missing_ok=True)
-                    raise HTTPException(
-                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail=f"failed_to_save_file: {exc!s}",
-                    ) from exc
-
-        # Enqueue batch upload task
-        from fundamental.models.tasks import TaskType
-
-        task_id = task_runner.enqueue(
-            task_type=TaskType.MULTI_BOOK_UPLOAD,
-            payload={"files": file_infos},
-            user_id=current_user.id or 0,
-            metadata={
-                "task_type": TaskType.MULTI_BOOK_UPLOAD,
-                "total_files": len(file_infos),
-            },
+        file_infos, temp_paths = _save_files_to_temp(files)
+        task_id = _enqueue_batch_upload_task(
+            task_runner, file_infos, current_user.id or 0
         )
-
         return BookBatchUploadResponse(task_id=task_id, total_files=len(file_infos))
-
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
     except Exception as exc:
         # Clean up on unexpected error
         for path in temp_paths:
             path.unlink(missing_ok=True)
+        error_msg = f"failed_to_process_upload: {exc!s}"
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"failed_to_process_upload: {exc!s}",
+            detail=error_msg,
         ) from exc

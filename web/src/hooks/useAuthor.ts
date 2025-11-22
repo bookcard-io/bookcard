@@ -34,6 +34,8 @@ export interface UseAuthorResult {
   error: string | null;
   /** Function to manually refetch the author. */
   refetch: () => Promise<void>;
+  /** Function to update author object in place without refetching. */
+  updateAuthor: (updatedAuthor: AuthorWithMetadata) => void;
 }
 
 /**
@@ -68,13 +70,17 @@ export function useAuthor(options: UseAuthorOptions): UseAuthorResult {
     setError(null);
 
     try {
-      const url = `/api/authors/${authorId}`;
+      // Normalize authorId: strip any leading /authors/ or / prefix
+      const normalizedId = authorId
+        .replace(/^\/authors\//, "")
+        .replace(/^\//, "");
+      const url = `/api/authors/${normalizedId}`;
       const fetchKey = generateFetchKey(url, {
         method: "GET",
       });
 
       const result = await deduplicateFetch(fetchKey, async () => {
-        return await fetchAuthor(authorId);
+        return await fetchAuthor(normalizedId);
       });
 
       setAuthor(result);
@@ -91,10 +97,15 @@ export function useAuthor(options: UseAuthorOptions): UseAuthorResult {
     void fetchAuthorData();
   }, [fetchAuthorData]);
 
+  const updateAuthor = useCallback((updatedAuthor: AuthorWithMetadata) => {
+    setAuthor(updatedAuthor);
+  }, []);
+
   return {
     author,
     isLoading,
     error,
     refetch: fetchAuthorData,
+    updateAuthor,
   };
 }

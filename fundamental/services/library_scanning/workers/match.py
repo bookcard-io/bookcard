@@ -17,14 +17,11 @@
 
 import dataclasses
 import logging
-from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import ValidationError
-from sqlmodel import select
 
 from fundamental.database import create_db_engine, get_session
-from fundamental.models.author_metadata import AuthorMapping, AuthorMetadata
 from fundamental.models.core import Author
 from fundamental.services.library_scanning.data_sources.registry import (
     DataSourceRegistry,
@@ -32,10 +29,7 @@ from fundamental.services.library_scanning.data_sources.registry import (
 from fundamental.services.library_scanning.matching.orchestrator import (
     MatchingOrchestrator,
 )
-from fundamental.services.library_scanning.pipeline.link_components import (
-    AuthorMappingRepository,
-    MappingData,
-)
+from fundamental.services.library_scanning.matching.types import MatchResult
 from fundamental.services.library_scanning.workers.base import BaseWorker
 from fundamental.services.library_scanning.workers.progress import JobProgressTracker
 from fundamental.services.messaging.base import MessageBroker
@@ -88,7 +82,12 @@ class MatchWorker(BaseWorker):
             kwargs["engine"] = self.engine
         self.data_source = DataSourceRegistry.create_source(data_source_name, **kwargs)
 
-    def _check_completion(self, library_id: int, task_id: int | None = None) -> None:
+    def _check_completion(
+        self,
+        library_id: int,
+        task_id: int | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> None:
         """Check if job is complete and trigger next stage if so.
 
         Parameters
@@ -97,6 +96,8 @@ class MatchWorker(BaseWorker):
             Library ID.
         task_id : int | None
             Optional task ID (if not provided, will be retrieved from Redis).
+        payload : dict[str, Any] | None
+            Optional payload to pass through single-author mode flags.
         """
         if isinstance(self.broker, RedisBroker):
             tracker = JobProgressTracker(self.broker)
@@ -104,152 +105,15 @@ class MatchWorker(BaseWorker):
             if task_id is None:
                 task_id = tracker.get_task_id(library_id)
             if tracker.mark_item_processed(library_id):
-                self.broker.publish(
-                    self.completion_topic,
-                    {"library_id": library_id, "task_id": task_id},
-                )
-
-    def _has_existing_match(
-        self,
-        calibre_author_id: int,
-        library_id: int,
-    ) -> bool:
-        """Check if author already has a valid match (not unmatched).
-
-        Parameters
-        ----------
-        calibre_author_id : int
-            Calibre author ID.
-        library_id : int
-            Library ID.
-
-        Returns
-        -------
-        bool
-            True if author has an existing valid match, False otherwise.
-        """
-        with get_session(self.engine) as session:
-            # Query mapping with join to check metadata
-            stmt = (
-                select(AuthorMapping, AuthorMetadata)
-                .join(
-                    AuthorMetadata,
-                    AuthorMapping.author_metadata_id == AuthorMetadata.id,
-                )
-                .where(
-                    AuthorMapping.calibre_author_id == calibre_author_id,
-                    AuthorMapping.library_id == library_id,
-                )
-            )
-            result = session.exec(stmt).first()
-
-            if not result:
-                return False
-
-            mapping, metadata = result
-
-            # Check if it's a valid match (not unmatched)
-            # Valid match means: matched_by != "unmatched" AND openlibrary_key is not None
-            return (
-                mapping.matched_by != "unmatched"
-                and metadata.openlibrary_key is not None
-            )
-
-    def _should_skip_match(
-        self,
-        calibre_author_id: int,
-        library_id: int,
-    ) -> bool:
-        """Check if match should be skipped.
-
-        Checks both for existing valid matches and stale data age.
-
-        Parameters
-        ----------
-        calibre_author_id : int
-            Calibre author ID.
-        library_id : int
-            Library ID.
-
-        Returns
-        -------
-        bool
-            True if match should be skipped, False otherwise.
-        """
-        # First check if author already has a valid match
-        if self._has_existing_match(calibre_author_id, library_id):
-            return True
-
-        # Then check staleness if configured
-        if self.stale_data_max_age_days is None:
-            return False
-
-        with get_session(self.engine) as session:
-            mapping_repo = AuthorMappingRepository(session)
-            existing_mapping = mapping_repo.find_by_calibre_author_id_and_library(
-                calibre_author_id,
-                library_id,
-            )
-
-            if not existing_mapping:
-                return False
-
-            now = datetime.now(UTC)
-            mapping_date = existing_mapping.updated_at or existing_mapping.created_at
-            if mapping_date.tzinfo is None:
-                mapping_date = mapping_date.replace(tzinfo=UTC)
-
-            days_since = (now - mapping_date).days
-            return days_since < self.stale_data_max_age_days
-
-    def _handle_unmatched_author(
-        self, author: Author, library_id: int, task_id: int | None
-    ) -> None:
-        """Handle case where no match is found for an author.
-
-        Creates an AuthorMetadata record with openlibrary_key=None and links it.
-        """
-        if author.id is None:
-            msg = "Author ID cannot be None for unmatched handling"
-            raise ValueError(msg)
-
-        logger.info("No match found for %s - creating unmatched record", author.name)
-
-        with get_session(self.engine) as session:
-            # Create unmatched metadata
-            unmatched_metadata = AuthorMetadata(
-                name=author.name,
-                openlibrary_key=None,
-            )
-            session.add(unmatched_metadata)
-            session.flush()
-
-            if unmatched_metadata.id is None:
-                msg = "Failed to generate ID for unmatched metadata"
-                raise ValueError(msg)
-
-            # Create or update mapping
-            mapping_repo = AuthorMappingRepository(session)
-            existing_mapping = mapping_repo.find_by_calibre_author_id_and_library(
-                author.id, library_id
-            )
-
-            mapping_data = MappingData(
-                library_id=library_id,
-                calibre_author_id=author.id,
-                author_metadata_id=unmatched_metadata.id,
-                confidence_score=0.0,
-                matched_by="unmatched",
-            )
-
-            if existing_mapping:
-                mapping_repo.update(existing_mapping, mapping_data)
-            else:
-                mapping_repo.create(mapping_data)
-
-            session.commit()
-
-        self._check_completion(library_id, task_id)
+                # Pass through single-author mode flags if present
+                completion_payload = {"library_id": library_id, "task_id": task_id}
+                if payload:
+                    if payload.get("single_author_mode"):
+                        completion_payload["single_author_mode"] = True
+                    target_id = payload.get("target_author_metadata_id")
+                    if target_id:
+                        completion_payload["target_author_metadata_id"] = target_id
+                self.broker.publish(self.completion_topic, completion_payload)
 
     def process(self, payload: dict[str, Any]) -> dict[str, Any] | None:
         """Process an author match request.
@@ -264,13 +128,72 @@ class MatchWorker(BaseWorker):
         dict[str, Any] | None
             Match result payload or None if skipped/no match.
         """
+        author_data, library_id, task_id = self._extract_and_log_payload(payload)
+        if author_data is None or library_id is None:
+            return None
+
+        if self._is_cancelled(library_id, task_id, payload):
+            return None
+
+        try:
+            author = Author.model_validate(author_data)
+        except ValidationError:
+            logger.exception("Failed to validate author data: %s", author_data)
+            return None
+
+        force_rematch = payload.get("force_rematch", False)
+        openlibrary_key = payload.get("openlibrary_key")
+
+        try:
+            match_result = self._perform_match(
+                author=author,
+                library_id=library_id,
+                force_rematch=force_rematch,
+                openlibrary_key=openlibrary_key,
+            )
+
+            if match_result:
+                return self._build_match_result_payload(
+                    match_result=match_result,
+                    author=author,
+                    library_id=library_id,
+                    task_id=task_id,
+                    payload=payload,
+                )
+
+            self._handle_no_match(author, library_id, task_id, payload)
+        except Exception:
+            logger.exception("Error matching author %s", author.name)
+            # On error, we also mark as processed (failed but done) to avoid hanging the job
+            self._check_completion(library_id, task_id, payload)
+            raise
+        else:
+            return None
+
+    def _extract_and_log_payload(
+        self,
+        payload: dict[str, Any],
+    ) -> tuple[dict[str, Any] | None, int | None, int | None]:
+        """Extract core fields from payload and log the start of processing.
+
+        Parameters
+        ----------
+        payload : dict[str, Any]
+            Raw payload from message broker.
+
+        Returns
+        -------
+        tuple[dict[str, Any] | None, int | None, int | None]
+            Tuple of (author_data, library_id, task_id). Author or library may
+            be None for invalid payloads (already logged).
+        """
         author_data = payload.get("author")
         library_id = payload.get("library_id")
         task_id = payload.get("task_id")
 
         if not author_data or not library_id:
             logger.error("Invalid match payload: %s", payload)
-            return None
+            return None, None, task_id
 
         author_name = author_data.get("name", "Unknown")
         logger.info(
@@ -279,70 +202,136 @@ class MatchWorker(BaseWorker):
             library_id,
             task_id,
         )
+        return author_data, int(library_id), task_id
 
-        # Mark match stage as started (idempotent - only first item triggers this)
-        if task_id and isinstance(self.broker, RedisBroker):
-            tracker = JobProgressTracker(self.broker)
-            tracker.mark_stage_started(library_id, "match")
+    def _is_cancelled(
+        self,
+        library_id: int | None,
+        task_id: int | None,
+        payload: dict[str, Any],
+    ) -> bool:
+        """Check whether the job is cancelled and mark completion if so.
 
-            if tracker.is_cancelled(task_id):
-                logger.debug("Task %d cancelled, skipping match", task_id)
-                # Mark as processed to drain the queue
-                self._check_completion(library_id, task_id)
-                return None
+        Parameters
+        ----------
+        library_id : int | None
+            Library identifier from payload.
+        task_id : int | None
+            Optional task identifier.
+        payload : dict[str, Any]
+            Payload for passing through completion if needed.
 
-        try:
-            author = Author.model_validate(author_data)
-        except ValidationError:
-            logger.exception("Failed to validate author data: %s", author_data)
-            return None
+        Returns
+        -------
+        bool
+            True if job is cancelled and processing should stop, False otherwise.
+        """
+        if (
+            not task_id
+            or library_id is None
+            or not isinstance(self.broker, RedisBroker)
+        ):
+            return False
 
-        if author.id is None:
-            logger.warning("Author has no ID: %s", author.name)
-            self._check_completion(library_id, task_id)
-            return None
+        tracker = JobProgressTracker(self.broker)
+        tracker.mark_stage_started(library_id, "match")
 
-        # Check if author already has a match or should be skipped
-        if self._should_skip_match(author.id, library_id):
-            logger.info(
-                "Skipping match for author %s (ID: %s) - already matched or fresh",
-                author.name,
-                author.id,
+        if tracker.is_cancelled(task_id):
+            logger.debug("Task %d cancelled, skipping match", task_id)
+            self._check_completion(library_id, task_id, payload)
+            return True
+
+        return False
+
+    def _perform_match(
+        self,
+        author: Author,
+        library_id: int,
+        force_rematch: bool,
+        openlibrary_key: str | None,
+    ) -> MatchResult | None:
+        """Execute match orchestration and return MatchResult, if any.
+
+        Parameters
+        ----------
+        author : Author
+            Calibre author to match.
+        library_id : int
+            Library identifier.
+        force_rematch : bool
+            Whether to force rematching even if a fresh mapping exists.
+        openlibrary_key : str | None
+            Optional specific OpenLibrary key to match against.
+
+        Returns
+        -------
+        MatchResult | None
+            Match result if a new match was found, otherwise None.
+        """
+        with get_session(self.engine) as session:
+            return self.orchestrator.process_match_request(
+                session=session,
+                author=author,
+                library_id=library_id,
+                data_source=self.data_source,
+                force_rematch=force_rematch,
+                openlibrary_key=openlibrary_key,
+                stale_data_max_age_days=self.stale_data_max_age_days,
             )
-            self._check_completion(library_id, task_id)
-            return None
 
-        # Perform match
-        try:
-            match_result = self.orchestrator.match(author, self.data_source)
+    def _build_match_result_payload(
+        self,
+        match_result: MatchResult,
+        author: Author,
+        library_id: int,
+        task_id: int | None,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Build outgoing payload for a successful match result."""
+        result_dict = dataclasses.asdict(match_result)
 
-            if match_result:
-                # Add calibre ID to result for tracking
-                match_result.calibre_author_id = author.id
+        result: dict[str, Any] = {
+            "task_id": task_id,
+            "library_id": library_id,
+            "match_result": result_dict,
+            "calibre_author_id": author.id,
+            "author_name": author.name,
+        }
 
-                logger.info(
-                    "Matched author %s -> %s (confidence: %.2f)",
-                    author.name,
-                    match_result.matched_entity.name,
-                    match_result.confidence_score,
+        if payload.get("single_author_mode"):
+            result["single_author_mode"] = True
+            target_id = payload.get("target_author_metadata_id")
+            if target_id:
+                result["target_author_metadata_id"] = target_id
+
+        return result
+
+    def _handle_no_match(
+        self,
+        author: Author,
+        library_id: int,
+        task_id: int | None,
+        payload: dict[str, Any],
+    ) -> None:
+        """Handle completion logic when no match result is returned."""
+        # If no match_result (skipped or unmatched handled internally),
+        # check completion and return None
+        # For unmatched authors in single-author mode, we need to get the author_metadata_id
+        # from the mapping that was just created
+        target_author_metadata_id = None
+        if payload.get("single_author_mode") and author.id:
+            from fundamental.services.library_scanning.pipeline.link_components import (
+                AuthorMappingRepository,
+            )
+
+            with get_session(self.engine) as lookup_session:
+                mapping_repo = AuthorMappingRepository(lookup_session)
+                mapping = mapping_repo.find_by_calibre_author_id_and_library(
+                    author.id,
+                    library_id,
                 )
+                if mapping:
+                    target_author_metadata_id = mapping.author_metadata_id
+                    payload["target_author_metadata_id"] = target_author_metadata_id
 
-                # Serialize match result (MatchResult is a dataclass)
-                result_dict = dataclasses.asdict(match_result)
-
-                return {
-                    "task_id": task_id,
-                    "library_id": library_id,
-                    "match_result": result_dict,
-                    "calibre_author_id": author.id,
-                    "author_name": author.name,
-                }
-
-            self._handle_unmatched_author(author, library_id, task_id)
-        except Exception:
-            logger.exception("Error matching author %s", author.name)
-            # On error, we also mark as processed (failed but done) to avoid hanging the job
-            self._check_completion(library_id, task_id)
-            raise
-        else:
-            return None
+        self._check_completion(library_id, task_id, payload)

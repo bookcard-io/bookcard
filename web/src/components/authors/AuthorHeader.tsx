@@ -15,16 +15,52 @@
 
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AuthorEditModal } from "@/components/authors/AuthorEditModal";
 import { FullscreenImageModal } from "@/components/common/FullscreenImageModal";
 import { ImageWithLoading } from "@/components/common/ImageWithLoading";
 import { cn } from "@/libs/utils";
-import { fetchAuthorMetadata } from "@/services/authorService";
 import type { AuthorWithMetadata } from "@/types/author";
 import {
   categorizeGenresAndStyles,
   getPrimaryGenre,
 } from "@/utils/genreCategorizer";
+
+/**
+ * Normalize an OpenLibrary author key to a bare OLID.
+ *
+ * Examples
+ * --------
+ * - "/authors/OL52940A" -> "OL52940A"
+ * - "authors/OL52940A" -> "OL52940A"
+ * - "OL52940A" -> "OL52940A"
+ */
+const normalizeAuthorKey = (key?: string | null): string =>
+  key?.replace(/^\/?authors\//, "").replace(/^\//, "") ?? "";
+
+/**
+ * Build the author identifier used for rematch requests.
+ *
+ * The backend prefers a Calibre-based identifier so it can always
+ * resolve or create the appropriate mapping, regardless of whether
+ * the author is already matched:
+ *
+ * - If `calibre_id` is present, use `calibre-{calibre_id}`.
+ * - Otherwise, fall back to an existing `calibre-` style key.
+ * - As a last resort, use a normalized OpenLibrary key.
+ */
+const buildRematchAuthorId = (author: AuthorWithMetadata): string | null => {
+  if (author.calibre_id != null) {
+    return `calibre-${author.calibre_id}`;
+  }
+
+  if (author.key?.startsWith("calibre-")) {
+    return author.key;
+  }
+
+  const normalizedKey = normalizeAuthorKey(author.key);
+  return normalizedKey || null;
+};
 
 export interface AuthorHeaderProps {
   /** Author data to display. */
@@ -35,8 +71,8 @@ export interface AuthorHeaderProps {
   onToggleBio?: () => void;
   /** Callback when back button is clicked. */
   onBack?: () => void;
-  /** Callback when metadata is successfully fetched. */
-  onMetadataFetched?: () => void;
+  /** Callback to update author object in place. */
+  onAuthorUpdate?: (updatedAuthor: AuthorWithMetadata) => void;
 }
 
 /**
@@ -56,42 +92,107 @@ export function AuthorHeader({
   showFullBio = false,
   onToggleBio,
   onBack,
-  onMetadataFetched,
+  onAuthorUpdate,
 }: AuthorHeaderProps) {
   const [isPhotoOpen, setIsPhotoOpen] = useState(false);
-  const [isFetchingMetadata, setIsFetchingMetadata] = useState(false);
   const [showAllStyles, setShowAllStyles] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isRematching, setIsRematching] = useState(false);
+  const [showOlidInput, setShowOlidInput] = useState(false);
+  const [olidInput, setOlidInput] = useState("");
+  const olidInputRef = useRef<HTMLInputElement>(null);
+  // Track photo URL separately to avoid remounting on updates
+  const [photoUrl, setPhotoUrl] = useState<string | null | undefined>(
+    author.photo_url,
+  );
+  const authorKeyRef = useRef<string | undefined>(author.key);
+
+  // Update photo URL when author changes
+  useEffect(() => {
+    if (author.key !== authorKeyRef.current) {
+      // Different author - reset photo URL
+      authorKeyRef.current = author.key;
+    }
+    // Always update photo URL when author.photo_url changes (idempotent)
+    setPhotoUrl(author.photo_url);
+  }, [author.key, author.photo_url]);
+
   const openPhoto = useCallback(() => setIsPhotoOpen(true), []);
   const closePhoto = useCallback(() => setIsPhotoOpen(false), []);
+  const openEditModal = useCallback(() => setIsEditModalOpen(true), []);
+  const closeEditModal = useCallback(() => setIsEditModalOpen(false), []);
 
-  const handleFetchMetadata = useCallback(async () => {
-    if (isFetchingMetadata) {
-      return;
-    }
+  const handleShowOlidInput = useCallback(() => {
+    setShowOlidInput(true);
+    const normalizedKey = normalizeAuthorKey(author.key);
+    // For already-matched authors, prefill with existing OLID.
+    // For unmatched authors, leave blank so user must provide an OLID.
+    const initialOlid =
+      author.is_unmatched || author.key?.startsWith("calibre-")
+        ? ""
+        : normalizedKey;
+    setOlidInput(initialOlid);
+    // Focus the input after it's rendered
+    setTimeout(() => {
+      olidInputRef.current?.focus();
+    }, 0);
+  }, [author.is_unmatched, author.key]);
 
-    // Get author ID - use OpenLibrary key
-    const authorId = author.key || "";
-    if (!authorId) {
-      return;
-    }
+  const handleCancelOlidInput = useCallback(() => {
+    setShowOlidInput(false);
+    setOlidInput("");
+  }, []);
 
-    setIsFetchingMetadata(true);
-    try {
-      const result = await fetchAuthorMetadata(authorId);
-      // Task is now running in background - refetch author data after a delay
-      // to allow task to complete (or user can check task status separately)
-      setTimeout(() => {
-        onMetadataFetched?.();
-      }, 2000); // Give task a moment to start
-      // TODO: Show success toast with task ID or poll task status
-      console.log("Metadata fetch task created:", result.task_id);
-    } catch (error) {
-      // TODO: Show error toast/notification
-      console.error("Failed to fetch metadata:", error);
-    } finally {
-      setIsFetchingMetadata(false);
-    }
-  }, [author.key, isFetchingMetadata, onMetadataFetched]);
+  const handleRematch = useCallback(
+    async (olid?: string) => {
+      const authorIdForRematch = buildRematchAuthorId(author);
+      if (isRematching || !authorIdForRematch) {
+        return;
+      }
+
+      setIsRematching(true);
+      try {
+        const response = await fetch(
+          `/api/authors/${authorIdForRematch}/rematch`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(olid ? { openlibrary_key: olid } : {}),
+          },
+        );
+
+        if (!response.ok) {
+          const errorData = (await response.json()) as { detail?: string };
+          throw new Error(errorData.detail || "Failed to rematch author");
+        }
+
+        const result = (await response.json()) as { message: string };
+        console.log("Author rematch job enqueued:", result.message);
+        // TODO: Show success toast/notification
+        setShowOlidInput(false);
+        setOlidInput("");
+      } catch (error) {
+        console.error("Failed to rematch author:", error);
+        // TODO: Show error toast/notification
+      } finally {
+        setIsRematching(false);
+      }
+    },
+    [author, isRematching],
+  );
+
+  const handleSubmitOlid = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      const trimmedOlid = olidInput.trim();
+      if (trimmedOlid) {
+        handleRematch(trimmedOlid);
+      }
+    },
+    [olidInput, handleRematch],
+  );
 
   // Extract bio text
   const bioText = author.bio?.value || "";
@@ -127,11 +228,12 @@ export function AuthorHeader({
 
       <div className="flex flex-col gap-6 md:flex-row md:gap-8">
         {/* Author Photo */}
-        {author.photo_url && (
+        {photoUrl && (
           <div className="flex-shrink-0">
             <div className="group relative inline-block leading-none">
               <ImageWithLoading
-                src={author.photo_url}
+                key={author.key} // Stable key based on author key, not photo URL
+                src={photoUrl}
                 alt={`Photo of ${author.name}`}
                 width={250}
                 height={250}
@@ -153,7 +255,7 @@ export function AuthorHeader({
               </button>
             </div>
             <FullscreenImageModal
-              src={author.photo_url}
+              src={photoUrl}
               alt={`Photo of ${author.name}`}
               isOpen={isPhotoOpen}
               onClose={closePhoto}
@@ -197,22 +299,58 @@ export function AuthorHeader({
 
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={handleFetchMetadata}
-              disabled={isFetchingMetadata}
-              className="flex items-center gap-2 rounded-md bg-[var(--color-primary-a0)] px-4 py-2 font-medium text-[var(--color-text-primary-a0)] text-sm transition-colors hover:bg-[var(--color-primary-a10)] focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 active:bg-[var(--color-primary-a20)] disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label="Match author"
-            >
-              <i
-                className={cn(
-                  "pi",
-                  isFetchingMetadata ? "pi-spin pi-spinner" : "pi-id-card",
-                )}
-                aria-hidden="true"
-              />
-              <span>{isFetchingMetadata ? "Matching..." : "Match author"}</span>
-            </button>
+            {showOlidInput ? (
+              <form
+                onSubmit={handleSubmitOlid}
+                className="flex items-center gap-2"
+              >
+                <input
+                  ref={olidInputRef}
+                  type="text"
+                  value={olidInput}
+                  onChange={(e) => setOlidInput(e.target.value)}
+                  placeholder="Enter OLID (e.g., OL676009W)"
+                  disabled={isRematching}
+                  className="rounded-md border border-surface-a20 bg-surface-tonal-a10 px-3 py-2 text-[var(--color-text-a0)] text-sm placeholder:text-[var(--color-text-a40)] focus:border-[var(--color-primary-a0)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-a0)] disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <button
+                  type="submit"
+                  disabled={isRematching || !olidInput.trim()}
+                  className="flex items-center gap-2 rounded-md bg-[var(--color-primary-a0)] px-4 py-2 font-medium text-[var(--color-text-primary-a0)] text-sm transition-colors hover:bg-[var(--color-primary-a10)] focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 active:bg-[var(--color-primary-a20)] disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Submit OLID"
+                >
+                  <i
+                    className={cn(
+                      "pi",
+                      isRematching ? "pi-spin pi-spinner" : "pi-check",
+                    )}
+                    aria-hidden="true"
+                  />
+                  <span>{isRematching ? "Matching..." : "Match"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelOlidInput}
+                  disabled={isRematching}
+                  className="flex h-9 w-9 items-center justify-center rounded-md border border-surface-a20 bg-surface-tonal-a10 text-text-a30 transition-[background-color,border-color] duration-200 hover:border-surface-a30 hover:bg-surface-tonal-a20 hover:text-text-a0 focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Cancel"
+                  title="Cancel"
+                >
+                  <i className="pi pi-times" aria-hidden="true" />
+                </button>
+              </form>
+            ) : (
+              <button
+                type="button"
+                onClick={handleShowOlidInput}
+                disabled={!author.key}
+                className="flex items-center gap-2 rounded-md bg-[var(--color-primary-a0)] px-4 py-2 font-medium text-[var(--color-text-primary-a0)] text-sm transition-colors hover:bg-[var(--color-primary-a10)] focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 active:bg-[var(--color-primary-a20)] disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Match author"
+              >
+                <i className="pi pi-id-card" aria-hidden="true" />
+                <span>Match author</span>
+              </button>
+            )}
             <button
               type="button"
               className="flex h-9 w-9 items-center justify-center rounded-md border border-surface-a20 bg-surface-tonal-a10 text-text-a30 transition-[background-color,border-color] duration-200 hover:border-surface-a30 hover:bg-surface-tonal-a20 hover:text-text-a0 focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2"
@@ -223,6 +361,7 @@ export function AuthorHeader({
             </button>
             <button
               type="button"
+              onClick={openEditModal}
               className="flex h-9 w-9 items-center justify-center rounded-md border border-surface-a20 bg-surface-tonal-a10 text-text-a30 transition-[background-color,border-color] duration-200 hover:border-surface-a30 hover:bg-surface-tonal-a20 hover:text-text-a0 focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2"
               aria-label="Edit"
               title="Edit"
@@ -298,6 +437,25 @@ export function AuthorHeader({
           )}
         </div>
       </div>
+
+      {/* Author Edit Modal */}
+      {isEditModalOpen && author.key && (
+        <AuthorEditModal
+          authorId={author.key}
+          onClose={closeEditModal}
+          onAuthorSaved={(updatedAuthor) => {
+            // Update photo URL immediately from the updated author
+            if (updatedAuthor.photo_url !== photoUrl) {
+              setPhotoUrl(updatedAuthor.photo_url);
+            }
+            // Update parent author object in place to avoid remount
+            onAuthorUpdate?.(updatedAuthor);
+            closeEditModal();
+            // Only refetch if other metadata might have changed (not just photo)
+            // onMetadataFetched?.();
+          }}
+        />
+      )}
     </>
   );
 }

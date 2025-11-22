@@ -68,6 +68,7 @@ class BookService:
         page: int = 1,
         page_size: int = 20,
         search_query: str | None = None,
+        author_id: int | None = None,
         sort_by: str = "timestamp",
         sort_order: str = "desc",
         full: bool = False,
@@ -82,6 +83,8 @@ class BookService:
             Number of items per page.
         search_query : str | None
             Optional search query to filter by title or author.
+        author_id : int | None
+            Optional author ID to filter by.
         sort_by : str
             Field to sort by (default: 'timestamp').
         sort_order : str
@@ -99,11 +102,14 @@ class BookService:
             limit=page_size,
             offset=offset,
             search_query=search_query,
+            author_id=author_id,
             sort_by=sort_by,
             sort_order=sort_order,
             full=full,
         )
-        total = self._book_repo.count_books(search_query=search_query)
+        total = self._book_repo.count_books(
+            search_query=search_query, author_id=author_id
+        )
         return books, total
 
     def get_book(self, book_id: int) -> BookWithRelations | None:

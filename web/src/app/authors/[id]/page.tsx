@@ -49,7 +49,7 @@ export default function AuthorDetailPage({ params }: AuthorDetailPageProps) {
     });
   }, [params]);
 
-  const { author, isLoading, error, refetch } = useAuthor({
+  const { author, isLoading, error, refetch, updateAuthor } = useAuthor({
     authorId: authorId || null,
     enabled: authorId !== null,
   });
@@ -115,6 +115,7 @@ export default function AuthorDetailPage({ params }: AuthorDetailPageProps) {
           author={author}
           onBack={handleBack}
           onRefetch={refetch}
+          onAuthorUpdate={updateAuthor}
         />
       </PageLayout>
     </SelectedBooksProvider>

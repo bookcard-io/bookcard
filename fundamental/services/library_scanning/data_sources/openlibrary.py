@@ -416,8 +416,16 @@ class OpenLibraryDataSource(BaseDataSource):
 
         url = f"{self.base_url}{path}"
         try:
-            with httpx.Client(timeout=self.timeout) as client:
+            with httpx.Client(timeout=self.timeout, follow_redirects=True) as client:
                 response = client.get(url, params=params)
+                # Check if we were redirected to a different resource type
+                # (e.g., /authors/ redirecting to /works/ means wrong ID type)
+                if response.history:
+                    final_url = str(response.url)
+                    # If we requested /authors/ but got redirected to /works/, that's an error
+                    if "/authors/" in path and "/works/" in final_url:
+                        error_msg = f"OLID {path} is a work ID, not an author ID (redirected to {final_url})"
+                        raise DataSourceNotFoundError(error_msg)
                 response.raise_for_status()
 
                 if response.status_code == 429:

@@ -381,6 +381,17 @@ html[data-theme="light"] {
   }
 }
 
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @layer utilities {
   .scrollbar-custom {
     &::-webkit-scrollbar {

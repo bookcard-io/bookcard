@@ -126,6 +126,8 @@ class AuthorMetadata(SQLModel, table=True):
         back_populates="author2",
         sa_relationship_kwargs={"foreign_keys": "[AuthorSimilarity.author2_id]"},
     )
+    user_metadata: list["AuthorUserMetadata"] = Relationship(back_populates="author")
+    user_photos: list["AuthorUserPhoto"] = Relationship(back_populates="author")
 
     __table_args__ = (
         Index("idx_author_metadata_name", "name"),
@@ -550,4 +552,119 @@ class WorkMetadata(SQLModel, table=True):
     __table_args__ = (
         Index("idx_work_metadata_title", "title"),
         Index("idx_work_metadata_work_key", "work_key"),
+    )
+
+
+class AuthorUserMetadata(SQLModel, table=True):
+    """Author user-defined metadata model.
+
+    Stores user-defined metadata fields that override auto-populated values.
+    Generic model that can be extended for any field type.
+
+    Attributes
+    ----------
+    id : int | None
+        Primary key identifier.
+    author_metadata_id : int
+        Foreign key to AuthorMetadata.
+    field_name : str
+        Field name (e.g., "genres", "styles", "shelves", "similar_authors").
+    field_value : dict[str, Any] | list[str] | str | None
+        Field value stored as JSONB (can be array of strings, dict, etc.).
+    is_user_defined : bool
+        Whether this is user-defined (default True).
+    created_at : datetime
+        Record creation timestamp.
+    updated_at : datetime
+        Last update timestamp.
+    """
+
+    __tablename__ = "author_user_metadata"
+
+    id: int | None = Field(default=None, primary_key=True)
+    author_metadata_id: int = Field(foreign_key="author_metadata.id", index=True)
+    field_name: str = Field(max_length=100, index=True)
+    field_value: dict[str, Any] | list[str] | str | None = Field(
+        default=None,
+        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
+    )
+    is_user_defined: bool = Field(default=True, index=True)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        index=True,
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column_kwargs={"onupdate": lambda: datetime.now(UTC)},
+    )
+
+    # Relationships
+    author: AuthorMetadata = Relationship(back_populates="user_metadata")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "author_metadata_id", "field_name", name="uq_author_user_metadata"
+        ),
+        Index("idx_author_user_metadata_field", "author_metadata_id", "field_name"),
+    )
+
+
+class AuthorUserPhoto(SQLModel, table=True):
+    """Author user-uploaded photo model.
+
+    Stores locally saved author photos uploaded by users.
+
+    Attributes
+    ----------
+    id : int | None
+        Primary key identifier.
+    author_metadata_id : int
+        Foreign key to AuthorMetadata.
+    file_path : str
+        Relative path from data_directory to the photo file.
+    file_name : str
+        Original filename.
+    file_size : int
+        File size in bytes.
+    mime_type : str
+        MIME type of the image.
+    is_primary : bool
+        Whether this is the primary photo for the author.
+    order : int
+        Display order (default 0).
+    source_url : str | None
+        Original URL if uploaded from URL.
+    created_at : datetime
+        Record creation timestamp.
+    updated_at : datetime
+        Last update timestamp.
+    """
+
+    __tablename__ = "author_user_photos"
+
+    id: int | None = Field(default=None, primary_key=True)
+    author_metadata_id: int = Field(foreign_key="author_metadata.id", index=True)
+    file_path: str = Field(
+        max_length=1000, description="Relative path from data_directory"
+    )
+    file_name: str = Field(max_length=500)
+    file_size: int = Field(ge=0)
+    mime_type: str = Field(max_length=100)
+    is_primary: bool = Field(default=False, index=True)
+    order: int = Field(default=0)
+    source_url: str | None = Field(default=None, max_length=1000)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        index=True,
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column_kwargs={"onupdate": lambda: datetime.now(UTC)},
+    )
+
+    # Relationships
+    author: AuthorMetadata = Relationship(back_populates="user_photos")
+
+    __table_args__ = (
+        Index("idx_author_user_photo_primary", "author_metadata_id", "is_primary"),
     )

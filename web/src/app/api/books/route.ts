@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
     const page = searchParams.get("page") || "1";
     const pageSize = searchParams.get("page_size") || "20";
     const search = searchParams.get("search") || "";
+    const authorId = searchParams.get("author_id");
     const sortBy = searchParams.get("sort_by") || "timestamp";
     const sortOrder = searchParams.get("sort_order") || "desc";
     const full = searchParams.get("full") === "true";
@@ -47,6 +48,9 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       queryParams.search = search;
+    }
+    if (authorId) {
+      queryParams.author_id = authorId;
     }
     if (full) {
       queryParams.full = "true";

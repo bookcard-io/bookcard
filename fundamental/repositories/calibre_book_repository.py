@@ -77,6 +77,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
     from sqlalchemy import Engine
+    from sqlalchemy.sql import Select, Subquery
 
     from fundamental.services.book_metadata import BookMetadata
 
@@ -354,13 +355,19 @@ class CalibreBookRepository:
         finally:
             session.close()
 
-    def count_books(self, search_query: str | None = None) -> int:
+    def count_books(
+        self,
+        search_query: str | None = None,
+        author_id: int | None = None,
+    ) -> int:
         """Count total number of books, optionally filtered by search.
 
         Parameters
         ----------
         search_query : str | None
             Optional search query to filter by title, author, or tag.
+        author_id : int | None
+            Optional author ID to filter by.
 
         Returns
         -------
@@ -368,6 +375,21 @@ class CalibreBookRepository:
             Total number of books.
         """
         with self._get_session() as session:
+            logger.debug(
+                "count_books called with search_query=%r, author_id=%r",
+                search_query,
+                author_id,
+            )
+
+            # Optional subquery for author filter to avoid join conflicts with search
+            author_books_subquery = None
+            if author_id is not None:
+                author_books_subquery = (
+                    select(BookAuthorLink.book)
+                    .where(BookAuthorLink.author == author_id)
+                    .subquery()
+                )
+
             if search_query:
                 # Use case-insensitive search for SQLite
                 query_lower = search_query.lower()
@@ -395,7 +417,24 @@ class CalibreBookRepository:
                 )
             else:
                 stmt = select(func.count(Book.id))
+
+            # Apply author filter if present
+            if author_books_subquery is not None:
+                # Log how many books are linked to this author_id
+                author_book_count = session.exec(
+                    select(func.count()).select_from(author_books_subquery)
+                ).one()
+                logger.debug(
+                    "Author filter active in count_books: author_id=%s, linked_books=%s",
+                    author_id,
+                    author_book_count,
+                )
+                stmt = stmt.where(Book.id.in_(author_books_subquery))  # type: ignore[arg-type]
+
+            logger.debug("count_books SQL statement: %s", stmt)
+
             result = session.exec(stmt).one()
+            logger.debug("count_books result=%s", result)
             return result if result else 0
 
     def list_books(
@@ -403,6 +442,7 @@ class CalibreBookRepository:
         limit: int = 20,
         offset: int = 0,
         search_query: str | None = None,
+        author_id: int | None = None,
         sort_by: str = "timestamp",
         sort_order: str = "desc",
         full: bool = False,
@@ -417,6 +457,8 @@ class CalibreBookRepository:
             Number of books to skip.
         search_query : str | None
             Optional search query to filter by title or author.
+        author_id : int | None
+            Optional author ID to filter by.
         sort_by : str
             Field to sort by (default: 'timestamp').
         sort_order : str
@@ -429,95 +471,198 @@ class CalibreBookRepository:
         list[BookWithRelations | BookWithFullRelations]
             List of books with authors and series. If full=True, includes all metadata.
         """
-        # Validate sort_by to prevent SQL injection
-        valid_sort_fields = {
-            "timestamp": Book.timestamp,
-            "pubdate": Book.pubdate,
-            "title": Book.title,
-            "author_sort": Book.author_sort,
-            "series_index": Book.series_index,
-        }
-        sort_field = valid_sort_fields.get(sort_by, Book.timestamp)
+        logger.debug(
+            "list_books called with limit=%s, offset=%s, search_query=%r, author_id=%r, sort_by=%s, sort_order=%s, full=%s",
+            limit,
+            offset,
+            search_query,
+            author_id,
+            sort_by,
+            sort_order,
+            full,
+        )
 
-        if sort_order.lower() not in {"asc", "desc"}:
-            sort_order = "desc"
+        sort_field = self._get_sort_field(sort_by)
+        normalized_sort_order = sort_order.lower()
+        if normalized_sort_order not in {"asc", "desc"}:
+            normalized_sort_order = "desc"
 
         with self._get_session() as session:
-            # Build base query with series
-            series_alias = aliased(Series)
-            stmt = (
-                select(Book, series_alias.name.label("series_name"))  # type: ignore[attr-defined]
-                .outerjoin(BookSeriesLink, Book.id == BookSeriesLink.book)
-                .outerjoin(series_alias, BookSeriesLink.series == series_alias.id)
+            # Optional subquery for author filter to avoid join conflicts with search
+            author_books_subquery = self._build_author_books_subquery(
+                session,
+                author_id,
             )
 
-            # Add search filter if provided
-            if search_query:
-                # Use case-insensitive search for SQLite
-                query_lower = search_query.lower()
-                pattern_lower = f"%{query_lower}%"
-                author_alias = aliased(Author)
-                tag_alias = aliased(Tag)
-                # Reuse the existing series_alias from the base query for search
-                stmt = (
-                    stmt.outerjoin(BookAuthorLink, Book.id == BookAuthorLink.book)
-                    .outerjoin(author_alias, BookAuthorLink.author == author_alias.id)
-                    .outerjoin(BookTagLink, Book.id == BookTagLink.book)
-                    .outerjoin(tag_alias, BookTagLink.tag == tag_alias.id)
-                    .distinct()
-                    .where(
-                        (func.lower(Book.title).like(pattern_lower))  # type: ignore[attr-defined]
-                        | (func.lower(author_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
-                        | (func.lower(tag_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
-                        | (func.lower(series_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
-                    )
+            # Build base query with series and apply search conditions
+            stmt = self._build_list_books_base_query(
+                search_query=search_query,
+            )
+
+            # Apply author filter if present
+            if author_books_subquery is not None:
+                author_filter_condition = Book.id.in_(  # type: ignore[union-attr]
+                    author_books_subquery,
                 )
+                stmt = stmt.where(author_filter_condition)
 
-            # Add ordering
-            if sort_order.lower() == "desc":
-                stmt = stmt.order_by(sort_field.desc())  # type: ignore[attr-defined]
-            else:
-                stmt = stmt.order_by(sort_field.asc())  # type: ignore[attr-defined]
+            logger.debug("list_books SQL statement: %s", stmt)
 
-            # Add pagination
-            stmt = stmt.limit(limit).offset(offset)
+            # Add ordering and pagination
+            stmt = self._apply_ordering_and_pagination(
+                stmt=stmt,
+                sort_field=sort_field,
+                sort_order=normalized_sort_order,
+                limit=limit,
+                offset=offset,
+            )
 
             # Execute query
             results = session.exec(stmt).all()
+            logger.debug(
+                "list_books raw result rows=%s (before unwrap)",
+                len(results),
+            )
 
-            books = []
-            for result in results:
-                book = self._unwrap_book_from_result(result)
-                if book is None:
-                    continue
+            books = self._build_books_from_results(session, results)
 
-                series_name = self._unwrap_series_name_from_result(result)
-
-                # Get authors for this book
-                if book.id is None:
-                    continue
-
-                authors_stmt = (
-                    select(Author.name)
-                    .join(BookAuthorLink, Author.id == BookAuthorLink.author)
-                    .where(BookAuthorLink.book == book.id)
-                    .order_by(BookAuthorLink.id)
-                )
-                authors = list(session.exec(authors_stmt).all())
-
-                books.append(
-                    BookWithRelations(
-                        book=book,
-                        authors=authors,
-                        series=series_name,
-                    )
+            if author_id is not None:
+                sample_ids = [b.book.id for b in books[:5] if b.book.id is not None]
+                logger.debug(
+                    "list_books after unwrap: books_count=%s, sample_book_ids=%s",
+                    len(books),
+                    sample_ids,
                 )
 
             # Enrich with full details if requested
             if full:
-                return self._enrich_books_with_full_details(session, books)  # type: ignore[invalid-return-type]
+                base_books: list[BookWithRelations] = [
+                    b for b in books if isinstance(b, BookWithRelations)
+                ]
+                return self._enrich_books_with_full_details(
+                    session,
+                    base_books,
+                )  # type: ignore[invalid-return-type]
 
             return books
+
+    def _build_author_books_subquery(
+        self,
+        session: Session,
+        author_id: int | None,
+    ) -> Subquery | None:
+        """Build optional subquery for author filter in list_books.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        author_id : int | None
+            Optional author identifier for filtering.
+
+        Returns
+        -------
+        Subquery | None
+            Subquery for filtering books by author, or None if no author_id.
+        """
+        if author_id is None:
+            return None
+
+        author_books_subquery: Subquery = (
+            select(BookAuthorLink.book)
+            .where(BookAuthorLink.author == author_id)
+            .subquery()
+        )
+        author_book_count = session.exec(
+            select(func.count()).select_from(author_books_subquery)
+        ).one()
+        logger.debug(
+            "Author filter active in list_books: author_id=%s, linked_books=%s",
+            author_id,
+            author_book_count,
+        )
+        return author_books_subquery
+
+    def _build_list_books_base_query(
+        self,
+        search_query: str | None,
+    ) -> Select:
+        """Build base query for list_books including series and optional search.
+
+        Parameters
+        ----------
+        search_query : str | None
+            Optional search query to filter by title, author, tag, or series.
+
+        Returns
+        -------
+        Select
+            SQLModel selectable representing the base query.
+        """
+        series_alias = aliased(Series)
+        stmt = (
+            select(Book, series_alias.name.label("series_name"))  # type: ignore[attr-defined]
+            .outerjoin(BookSeriesLink, Book.id == BookSeriesLink.book)
+            .outerjoin(series_alias, BookSeriesLink.series == series_alias.id)
+        )
+
+        if not search_query:
+            return stmt
+
+        # Use case-insensitive search for SQLite
+        query_lower = search_query.lower()
+        pattern_lower = f"%{query_lower}%"
+        author_alias = aliased(Author)
+        tag_alias = aliased(Tag)
+
+        return (
+            stmt.outerjoin(BookAuthorLink, Book.id == BookAuthorLink.book)
+            .outerjoin(author_alias, BookAuthorLink.author == author_alias.id)
+            .outerjoin(BookTagLink, Book.id == BookTagLink.book)
+            .outerjoin(tag_alias, BookTagLink.tag == tag_alias.id)
+            .distinct()
+            .where(
+                (func.lower(Book.title).like(pattern_lower))  # type: ignore[attr-defined]
+                | (func.lower(author_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
+                | (func.lower(tag_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
+                | (func.lower(series_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
+            )
+        )
+
+    def _apply_ordering_and_pagination(
+        self,
+        stmt: Select,
+        sort_field: object,
+        sort_order: str,
+        limit: int,
+        offset: int,
+    ) -> Select:
+        """Apply ordering and pagination to a list_books query.
+
+        Parameters
+        ----------
+        stmt : object
+            Base SQLModel selectable.
+        sort_field : object
+            Field to sort by.
+        sort_order : str
+            Sort order ('asc' or 'desc').
+        limit : int
+            Result limit.
+        offset : int
+            Result offset.
+
+        Returns
+        -------
+        object
+            Updated selectable with ordering and pagination applied.
+        """
+        if sort_order == "desc":
+            stmt = stmt.order_by(sort_field.desc())  # type: ignore[attr-defined]
+        else:
+            stmt = stmt.order_by(sort_field.asc())  # type: ignore[attr-defined]
+
+        return stmt.limit(limit).offset(offset)
 
     def _build_book_with_relations(
         self, session: Session, result: object
@@ -577,6 +722,32 @@ class CalibreBookRepository:
             "series_index": Book.series_index,
         }
         return valid_sort_fields.get(sort_by, Book.timestamp)  # type: ignore[return-value]
+
+    def _build_books_from_results(
+        self,
+        session: Session,
+        results: list[object],
+    ) -> list[BookWithRelations | BookWithFullRelations]:
+        """Build list of `BookWithRelations` from raw query results.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        results : list[object]
+            Raw query results from SQLModel.
+
+        Returns
+        -------
+        list[BookWithRelations | BookWithFullRelations]
+            List of books with their related authors and series.
+        """
+        books: list[BookWithRelations | BookWithFullRelations] = []
+        for result in results:
+            book_with_relations = self._build_book_with_relations(session, result)
+            if book_with_relations is not None:
+                books.append(book_with_relations)
+        return books
 
     def list_books_with_filters(
         self,

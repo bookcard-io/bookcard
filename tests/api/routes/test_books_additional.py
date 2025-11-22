@@ -22,7 +22,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 
 import fundamental.api.routes.books as books
 from fundamental.models.auth import User
@@ -67,22 +67,93 @@ def _mock_permission_service(monkeypatch: pytest.MonkeyPatch) -> None:
         ) -> None:
             pass  # Always allow
 
-    monkeypatch.setattr(books, "PermissionService", MockPermissionService)
+    # Patch PermissionService in the permission_service module where it's actually used
+    monkeypatch.setattr(
+        "fundamental.services.permission_service.PermissionService",
+        MockPermissionService,
+    )
 
 
 class MockBookService:
     """Mock BookService for testing."""
 
-    def __init__(self, library: Library) -> None:
+    def __init__(self, library: Library | None = None) -> None:
         self._library = library
+        self._get_book_full_result: BookWithFullRelations | None = None
+        self._get_book_result: BookWithRelations | None = None
+        self.get_thumbnail_path = None
 
     def get_book_full(self, book_id: int) -> BookWithFullRelations | None:
         """Mock get_book_full method."""
         return self._get_book_full_result
 
+    def get_book(self, book_id: int) -> BookWithRelations | None:
+        """Mock get_book method."""
+        return self._get_book_result
+
     def set_get_book_full_result(self, result: BookWithFullRelations | None) -> None:
         """Set the result for get_book_full."""
         self._get_book_full_result = result
+
+    def set_get_book_result(self, result: BookWithRelations | None) -> None:
+        """Set the result for get_book."""
+        self._get_book_result = result
+
+
+class MockPermissionHelper:
+    """Mock BookPermissionHelper for testing."""
+
+    def __init__(self, session: object) -> None:
+        """Initialize mock permission helper."""
+
+    def check_read_permission(
+        self,
+        user: User,
+        book_with_rels: object | None = None,
+    ) -> None:
+        """Mock check_read_permission - always allows."""
+
+    def check_write_permission(
+        self,
+        user: User,
+        book_with_rels: object | None = None,
+    ) -> None:
+        """Mock check_write_permission - always allows."""
+
+
+def _setup_route_mocks(
+    monkeypatch: pytest.MonkeyPatch,
+    session: DummySession,
+    mock_service: MockBookService,
+) -> tuple[MockPermissionHelper, object]:
+    """Set up mocks for route dependencies.
+
+    Parameters
+    ----------
+    monkeypatch : pytest.MonkeyPatch
+        Monkeypatch fixture.
+    session : DummySession
+        Dummy session.
+    mock_service : MockBookService
+        Mock book service.
+
+    Returns
+    -------
+    tuple[MockPermissionHelper, object]
+        Tuple of (permission_helper, response_builder).
+    """
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+    _mock_permission_service(monkeypatch)
+
+    mock_permission_helper = MockPermissionHelper(session)
+
+    return mock_permission_helper, None
 
 
 @pytest.fixture
@@ -212,8 +283,16 @@ def test_download_book_file_success(
         current_user = _create_mock_user()
         _mock_permission_service(monkeypatch)
 
+        mock_permission_helper, _ = _setup_route_mocks(
+            monkeypatch, session, mock_service
+        )
+
         result = books.download_book_file(
-            session, current_user=current_user, book_id=1, file_format="EPUB"
+            current_user=current_user,
+            book_id=1,
+            file_format="EPUB",
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
         )
 
         assert result is not None
@@ -276,8 +355,16 @@ def test_download_book_file_with_library_root(
         current_user = _create_mock_user()
         _mock_permission_service(monkeypatch)
 
+        mock_permission_helper, _ = _setup_route_mocks(
+            monkeypatch, session, mock_service
+        )
+
         result = books.download_book_file(
-            session, current_user=current_user, book_id=1, file_format="EPUB"
+            current_user=current_user,
+            book_id=1,
+            file_format="EPUB",
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
         )
 
         assert result is not None
@@ -342,8 +429,16 @@ def test_download_book_file_alt_path_exists(
         current_user = _create_mock_user()
         _mock_permission_service(monkeypatch)
 
+        mock_permission_helper, _ = _setup_route_mocks(
+            monkeypatch, session, mock_service
+        )
+
         result = books.download_book_file(
-            session, current_user=current_user, book_id=1, file_format="EPUB"
+            current_user=current_user,
+            book_id=1,
+            file_format="EPUB",
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
         )
 
         assert result is not None
@@ -404,8 +499,16 @@ def test_download_book_file_sanitizes_author_title(
         current_user = _create_mock_user()
         _mock_permission_service(monkeypatch)
 
+        mock_permission_helper, _ = _setup_route_mocks(
+            monkeypatch, session, mock_service
+        )
+
         result = books.download_book_file(
-            session, current_user=current_user, book_id=1, file_format="EPUB"
+            current_user=current_user,
+            book_id=1,
+            file_format="EPUB",
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
         )
 
         assert result is not None
@@ -431,9 +534,15 @@ def test_download_book_file_not_found(
     current_user = _create_mock_user()
     _mock_permission_service(monkeypatch)
 
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
     with pytest.raises(HTTPException) as exc_info:
         books.download_book_file(
-            session, current_user=current_user, book_id=999, file_format="EPUB"
+            current_user=current_user,
+            book_id=999,
+            file_format="EPUB",
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
         )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -483,9 +592,15 @@ def test_download_book_file_missing_id(
     current_user = _create_mock_user()
     _mock_permission_service(monkeypatch)
 
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
     with pytest.raises(HTTPException) as exc_info:
         books.download_book_file(
-            session, current_user=current_user, book_id=1, file_format="EPUB"
+            current_user=current_user,
+            book_id=1,
+            file_format="EPUB",
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
         )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -535,9 +650,15 @@ def test_download_book_file_format_not_found(
     current_user = _create_mock_user()
     _mock_permission_service(monkeypatch)
 
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
     with pytest.raises(HTTPException) as exc_info:
         books.download_book_file(
-            session, current_user=current_user, book_id=1, file_format="EPUB"
+            current_user=current_user,
+            book_id=1,
+            file_format="EPUB",
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
         )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -603,8 +724,16 @@ def test_download_book_file_db_path_is_file(
         current_user = _create_mock_user()
         _mock_permission_service(monkeypatch)
 
+        mock_permission_helper, _ = _setup_route_mocks(
+            monkeypatch, session, mock_service
+        )
+
         result = books.download_book_file(
-            session, current_user=current_user, book_id=1, file_format="EPUB"
+            current_user=current_user,
+            book_id=1,
+            file_format="EPUB",
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
         )
 
         assert result is not None
@@ -664,9 +793,17 @@ def test_download_book_file_not_found_both_paths(
         current_user = _create_mock_user()
         _mock_permission_service(monkeypatch)
 
+        mock_permission_helper, _ = _setup_route_mocks(
+            monkeypatch, session, mock_service
+        )
+
         with pytest.raises(HTTPException) as exc_info:
             books.download_book_file(
-                session, current_user=current_user, book_id=1, file_format="EPUB"
+                current_user=current_user,
+                book_id=1,
+                file_format="EPUB",
+                book_service=mock_service,
+                permission_helper=mock_permission_helper,
             )
 
         assert isinstance(exc_info.value, HTTPException)
@@ -729,8 +866,16 @@ def test_download_book_file_empty_author(
         current_user = _create_mock_user()
         _mock_permission_service(monkeypatch)
 
+        mock_permission_helper, _ = _setup_route_mocks(
+            monkeypatch, session, mock_service
+        )
+
         result = books.download_book_file(
-            session, current_user=current_user, book_id=1, file_format="EPUB"
+            current_user=current_user,
+            book_id=1,
+            file_format="EPUB",
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
         )
 
         assert result is not None
@@ -791,287 +936,19 @@ def test_download_book_file_empty_title(
         current_user = _create_mock_user()
         _mock_permission_service(monkeypatch)
 
+        mock_permission_helper, _ = _setup_route_mocks(
+            monkeypatch, session, mock_service
+        )
+
         result = books.download_book_file(
-            session, current_user=current_user, book_id=1, file_format="EPUB"
+            current_user=current_user,
+            book_id=1,
+            file_format="EPUB",
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
         )
 
         assert result is not None
-
-
-def test_validate_cover_url_request_book_not_found(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test _validate_cover_url_request raises 404 when book not found (covers lines 642-649)."""
-    session = DummySession()
-
-    mock_service = MockBookService(mock_library)  # type: ignore[arg-type]
-    mock_service.get_book = lambda book_id: None  # type: ignore[method-assign]
-
-    def mock_get_active_library_service(sess: object) -> MockBookService:
-        return mock_service
-
-    monkeypatch.setattr(
-        books, "_get_active_library_service", mock_get_active_library_service
-    )
-
-    with pytest.raises(HTTPException) as exc_info:
-        books._validate_cover_url_request(
-            session, book_id=999, url="https://example.com/image.jpg"
-        )
-
-    assert isinstance(exc_info.value, HTTPException)
-    assert exc_info.value.status_code == 404
-    assert exc_info.value.detail == "book_not_found"
-
-
-def test_validate_cover_url_request_empty_url(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test _validate_cover_url_request raises 400 when URL is empty (covers lines 651-655)."""
-    session = DummySession()
-
-    book = Book(
-        id=1,
-        title="Test Book",
-        uuid="test-uuid",
-        has_cover=True,
-        path="test/path",
-    )
-    book_with_rels = BookWithRelations(book=book, authors=[], series=None)
-
-    mock_service = MockBookService(mock_library)  # type: ignore[arg-type]
-    mock_service.get_book = lambda book_id: book_with_rels  # type: ignore[method-assign]
-
-    def mock_get_active_library_service(sess: object) -> MockBookService:
-        return mock_service
-
-    monkeypatch.setattr(
-        books, "_get_active_library_service", mock_get_active_library_service
-    )
-
-    with pytest.raises(HTTPException) as exc_info:
-        books._validate_cover_url_request(session, book_id=1, url="")
-
-    assert isinstance(exc_info.value, HTTPException)
-    assert exc_info.value.status_code == 400
-    assert exc_info.value.detail == "url_required"
-
-
-def test_validate_cover_url_request_invalid_url_format(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test _validate_cover_url_request raises 400 when URL format is invalid (covers lines 657-661)."""
-    session = DummySession()
-
-    book = Book(
-        id=1,
-        title="Test Book",
-        uuid="test-uuid",
-        has_cover=True,
-        path="test/path",
-    )
-    book_with_rels = BookWithRelations(book=book, authors=[], series=None)
-
-    mock_service = MockBookService(mock_library)  # type: ignore[arg-type]
-    mock_service.get_book = lambda book_id: book_with_rels  # type: ignore[method-assign]
-
-    def mock_get_active_library_service(sess: object) -> MockBookService:
-        return mock_service
-
-    monkeypatch.setattr(
-        books, "_get_active_library_service", mock_get_active_library_service
-    )
-
-    with pytest.raises(HTTPException) as exc_info:
-        books._validate_cover_url_request(
-            session, book_id=1, url="ftp://example.com/image.jpg"
-        )
-
-    assert isinstance(exc_info.value, HTTPException)
-    assert exc_info.value.status_code == 400
-    assert exc_info.value.detail == "invalid_url_format"
-
-
-def test_download_and_validate_image_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test _download_and_validate_image succeeds with valid image (covers lines 682-705)."""
-    from io import BytesIO
-    from unittest.mock import MagicMock
-
-    from PIL import Image
-
-    # Create a simple test image
-    test_image = Image.new("RGB", (100, 100), color="red")
-    image_bytes = BytesIO()
-    test_image.save(image_bytes, format="JPEG")
-    image_bytes.seek(0)
-    image_content = image_bytes.getvalue()
-
-    mock_response = MagicMock()
-    mock_response.content = image_content
-    mock_response.headers = {"content-type": "image/jpeg"}
-    mock_response.raise_for_status = MagicMock()
-
-    mock_client = MagicMock()
-    mock_client.get.return_value = mock_response
-    mock_client.__enter__ = MagicMock(return_value=mock_client)
-    mock_client.__exit__ = MagicMock(return_value=False)
-
-    with patch("fundamental.api.routes.books.httpx.Client", return_value=mock_client):
-        content, image = books._download_and_validate_image(
-            "https://example.com/image.jpg"
-        )
-
-        assert content == image_content
-        assert isinstance(image, Image.Image)
-
-
-def test_download_and_validate_image_invalid_content_type(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test _download_and_validate_image raises 400 when content type is not image (covers lines 687-692)."""
-    from unittest.mock import MagicMock
-
-    mock_response = MagicMock()
-    mock_response.content = b"not an image"
-    mock_response.headers = {"content-type": "text/html"}
-    mock_response.raise_for_status = MagicMock()
-
-    mock_client = MagicMock()
-    mock_client.get.return_value = mock_response
-    mock_client.__enter__ = MagicMock(return_value=mock_client)
-    mock_client.__exit__ = MagicMock(return_value=False)
-
-    with patch("fundamental.api.routes.books.httpx.Client", return_value=mock_client):
-        with pytest.raises(HTTPException) as exc_info:
-            books._download_and_validate_image("https://example.com/page.html")
-
-        assert isinstance(exc_info.value, HTTPException)
-        assert exc_info.value.status_code == 400
-        assert exc_info.value.detail == "url_not_an_image"
-
-
-def test_download_and_validate_image_invalid_image_format(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test _download_and_validate_image raises 400 when image format is invalid (covers lines 694-701)."""
-    from unittest.mock import MagicMock
-
-    mock_response = MagicMock()
-    mock_response.content = b"invalid image data"
-    mock_response.headers = {"content-type": "image/jpeg"}
-    mock_response.raise_for_status = MagicMock()
-
-    mock_client = MagicMock()
-    mock_client.get.return_value = mock_response
-    mock_client.__enter__ = MagicMock(return_value=mock_client)
-    mock_client.__exit__ = MagicMock(return_value=False)
-
-    with patch("fundamental.api.routes.books.httpx.Client", return_value=mock_client):
-        with pytest.raises(HTTPException) as exc_info:
-            books._download_and_validate_image("https://example.com/invalid.jpg")
-
-        assert isinstance(exc_info.value, HTTPException)
-        assert exc_info.value.status_code == 400
-        assert exc_info.value.detail == "invalid_image_format"
-
-
-def test_download_and_validate_image_http_error(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test _download_and_validate_image raises 400 when HTTP error occurs (covers lines 706-710)."""
-    from unittest.mock import MagicMock
-
-    import httpx
-
-    mock_client = MagicMock()
-    mock_client.get.side_effect = httpx.HTTPError("Connection error")
-    mock_client.__enter__ = MagicMock(return_value=mock_client)
-    mock_client.__exit__ = MagicMock(return_value=False)
-
-    with patch("fundamental.api.routes.books.httpx.Client", return_value=mock_client):
-        with pytest.raises(HTTPException) as exc_info:
-            books._download_and_validate_image("https://example.com/image.jpg")
-
-        assert isinstance(exc_info.value, HTTPException)
-        assert exc_info.value.status_code == 400
-        assert "failed_to_download_image" in exc_info.value.detail
-
-
-def test_save_image_to_temp_jpeg(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test _save_image_to_temp saves JPEG image (covers lines 728-741)."""
-    from io import BytesIO
-
-    from PIL import Image
-
-    test_image = Image.new("RGB", (100, 100), color="red")
-    image_bytes = BytesIO()
-    test_image.save(image_bytes, format="JPEG")
-    image_bytes.seek(0)
-    image_content = image_bytes.getvalue()
-
-    # Reopen image for the function
-    image = Image.open(BytesIO(image_content))
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        monkeypatch.setattr(tempfile, "gettempdir", lambda: tmpdir)
-
-        result_url = books._save_image_to_temp(image_content, image)
-
-        assert result_url.startswith("/api/books/temp-covers/")
-        # JPEG format can be saved as .jpg or .jpeg, check for either
-        assert result_url.endswith((".jpg", ".jpeg"))
-
-        # Verify file was saved
-        content_hash = result_url.split("/")[-1].split(".")[0]
-        assert content_hash in books._temp_cover_storage
-
-
-def test_save_image_to_temp_png(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test _save_image_to_temp saves PNG image (covers lines 728-741)."""
-    from io import BytesIO
-
-    from PIL import Image
-
-    test_image = Image.new("RGB", (100, 100), color="blue")
-    image_bytes = BytesIO()
-    test_image.save(image_bytes, format="PNG")
-    image_bytes.seek(0)
-    image_content = image_bytes.getvalue()
-
-    # Reopen image for the function
-    image = Image.open(BytesIO(image_content))
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        monkeypatch.setattr(tempfile, "gettempdir", lambda: tmpdir)
-
-        result_url = books._save_image_to_temp(image_content, image)
-
-        assert result_url.startswith("/api/books/temp-covers/")
-        assert result_url.endswith(".png")
-
-
-def test_save_image_to_temp_unknown_format(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test _save_image_to_temp defaults to jpg for unknown format (covers lines 730-731)."""
-    from io import BytesIO
-
-    from PIL import Image
-
-    test_image = Image.new("RGB", (100, 100), color="green")
-    image_bytes = BytesIO()
-    test_image.save(image_bytes, format="JPEG")
-    image_bytes.seek(0)
-    image_content = image_bytes.getvalue()
-
-    # Create image without format attribute
-    image = Image.open(BytesIO(image_content))
-    image.format = None  # type: ignore[assignment]
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        monkeypatch.setattr(tempfile, "gettempdir", lambda: tmpdir)
-
-        result_url = books._save_image_to_temp(image_content, image)
-
-        assert result_url.endswith(".jpg")
 
 
 def test_download_cover_from_url_success(
@@ -1171,11 +1048,24 @@ def test_download_cover_from_url_success(
         _mock_permission_service(monkeypatch)
 
         with patch(
-            "fundamental.api.routes.books.httpx.Client", return_value=mock_client
+            "fundamental.services.book_cover_service.httpx.Client",
+            return_value=mock_client,
         ):
             request = CoverFromUrlRequest(url="https://example.com/cover.jpg")
+            from fundamental.services.book_cover_service import BookCoverService
+
+            mock_permission_helper, _ = _setup_route_mocks(
+                monkeypatch, session, mock_service
+            )
+            cover_service = BookCoverService(mock_service)  # type: ignore[arg-type]
+
             result = books.download_cover_from_url(
-                session, current_user=current_user, book_id=1, request=request
+                current_user=current_user,
+                book_id=1,
+                request=request,
+                book_service=mock_service,
+                permission_helper=mock_permission_helper,
+                cover_service=cover_service,
             )
 
             assert result.temp_url == "/api/books/1/cover"
@@ -1282,11 +1172,24 @@ def test_download_cover_from_url_with_library_root(
         _mock_permission_service(monkeypatch)
 
         with patch(
-            "fundamental.api.routes.books.httpx.Client", return_value=mock_client
+            "fundamental.services.book_cover_service.httpx.Client",
+            return_value=mock_client,
         ):
             request = CoverFromUrlRequest(url="https://example.com/cover.jpg")
+            from fundamental.services.book_cover_service import BookCoverService
+
+            mock_permission_helper, _ = _setup_route_mocks(
+                monkeypatch, session, mock_service
+            )
+            cover_service = BookCoverService(mock_service)  # type: ignore[arg-type]
+
             result = books.download_cover_from_url(
-                session, current_user=current_user, book_id=1, request=request
+                current_user=current_user,
+                book_id=1,
+                request=request,
+                book_service=mock_service,
+                permission_helper=mock_permission_helper,
+                cover_service=cover_service,
             )
 
             assert result.temp_url == "/api/books/1/cover"
@@ -1392,87 +1295,27 @@ def test_download_cover_from_url_db_path_is_file(
         _mock_permission_service(monkeypatch)
 
         with patch(
-            "fundamental.api.routes.books.httpx.Client", return_value=mock_client
+            "fundamental.services.book_cover_service.httpx.Client",
+            return_value=mock_client,
         ):
             request = CoverFromUrlRequest(url="https://example.com/cover.jpg")
+            from fundamental.services.book_cover_service import BookCoverService
+
+            mock_permission_helper, _ = _setup_route_mocks(
+                monkeypatch, session, mock_service
+            )
+            cover_service = BookCoverService(mock_service)  # type: ignore[arg-type]
+
             result = books.download_cover_from_url(
-                session, current_user=current_user, book_id=1, request=request
+                current_user=current_user,
+                book_id=1,
+                request=request,
+                book_service=mock_service,
+                permission_helper=mock_permission_helper,
+                cover_service=cover_service,
             )
 
             assert result.temp_url == "/api/books/1/cover"
-
-
-def test_download_cover_from_url_internal_error(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test download_cover_from_url handles internal errors (covers lines 839-843)."""
-
-    from fundamental.api.schemas import CoverFromUrlRequest
-
-    session = DummySession()
-
-    book = Book(
-        id=1,
-        title="Test Book",
-        uuid="test-uuid",
-        has_cover=False,
-        path="test/path",
-    )
-    book_with_rels = BookWithRelations(book=book, authors=[], series=None)
-
-    library_with_path = Library(
-        id=1,
-        name="Test Library",
-        calibre_db_path="/path/to/library",
-        calibre_db_file="metadata.db",
-    )
-
-    mock_service = MockBookService(library_with_path)
-    mock_service.get_book = lambda book_id: book_with_rels  # type: ignore[method-assign]
-    # Also need to set get_book_full for download_cover_from_url
-    book_with_full_rels = BookWithFullRelations(
-        book=book,
-        authors=[],
-        series=None,
-        series_id=None,
-        tags=[],
-        identifiers=[],
-        description=None,
-        publisher=None,
-        publisher_id=None,
-        languages=[],
-        language_ids=[],
-        rating=None,
-        rating_id=None,
-        formats=[],
-    )
-    mock_service.set_get_book_full_result(book_with_full_rels)
-
-    def mock_get_active_library_service(sess: object) -> MockBookService:
-        return mock_service
-
-    monkeypatch.setattr(
-        books, "_get_active_library_service", mock_get_active_library_service
-    )
-    current_user = _create_mock_user()
-    _mock_permission_service(monkeypatch)
-
-    # Mock _download_and_validate_image to raise a non-HTTPException
-    def mock_download(*args: object, **kwargs: object) -> None:
-        raise ValueError("Some internal error")
-
-    monkeypatch.setattr(books, "_download_and_validate_image", mock_download)
-
-    request = CoverFromUrlRequest(url="https://example.com/cover.jpg")
-
-    with pytest.raises(HTTPException) as exc_info:
-        books.download_cover_from_url(
-            session, current_user=current_user, book_id=1, request=request
-        )
-
-    assert isinstance(exc_info.value, HTTPException)
-    assert exc_info.value.status_code == 500
-    assert "internal_error" in exc_info.value.detail
 
 
 def test_get_temp_cover_no_dot(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1538,32 +1381,6 @@ def test_get_temp_cover_success(monkeypatch: pytest.MonkeyPatch) -> None:
             books._temp_cover_storage.pop(fake_hash, None)
 
 
-def test_save_image_to_temp_unsupported_format(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test _save_image_to_temp defaults to jpg for unsupported format (covers line 731)."""
-    from io import BytesIO
-
-    from PIL import Image
-
-    # Create a GIF image (not in the allowed list: jpg, jpeg, png, webp)
-    test_image = Image.new("RGB", (100, 100), color="red")
-    image_bytes = BytesIO()
-    test_image.save(image_bytes, format="GIF")
-    image_bytes.seek(0)
-    image_content = image_bytes.getvalue()
-
-    # Reopen image and set format to GIF
-    image = Image.open(BytesIO(image_content))
-    image.format = "GIF"  # type: ignore[assignment]
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        monkeypatch.setattr(tempfile, "gettempdir", lambda: tmpdir)
-
-        result_url = books._save_image_to_temp(image_content, image)
-
-        # Should default to .jpg for unsupported format
-        assert result_url.endswith(".jpg")
-
-
 def test_download_cover_from_url_book_not_found(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1595,9 +1412,19 @@ def test_download_cover_from_url_book_not_found(
 
     request = CoverFromUrlRequest(url="https://example.com/cover.jpg")
 
+    from fundamental.services.book_cover_service import BookCoverService
+
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+    cover_service = BookCoverService(mock_service)  # type: ignore[arg-type]
+
     with pytest.raises(HTTPException) as exc_info:
         books.download_cover_from_url(
-            session, current_user=current_user, book_id=999, request=request
+            current_user=current_user,
+            book_id=999,
+            request=request,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
+            cover_service=cover_service,
         )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -1663,9 +1490,19 @@ def test_download_cover_from_url_empty_url(
         url="   "
     )  # Whitespace only, will be stripped to empty
 
+    from fundamental.services.book_cover_service import BookCoverService
+
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+    cover_service = BookCoverService(mock_service)  # type: ignore[arg-type]
+
     with pytest.raises(HTTPException) as exc_info:
         books.download_cover_from_url(
-            session, current_user=current_user, book_id=1, request=request
+            current_user=current_user,
+            book_id=1,
+            request=request,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
+            cover_service=cover_service,
         )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -1729,93 +1566,21 @@ def test_download_cover_from_url_invalid_url_format(
 
     request = CoverFromUrlRequest(url="ftp://example.com/cover.jpg")
 
+    from fundamental.services.book_cover_service import BookCoverService
+
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+    cover_service = BookCoverService(mock_service)  # type: ignore[arg-type]
+
     with pytest.raises(HTTPException) as exc_info:
         books.download_cover_from_url(
-            session, current_user=current_user, book_id=1, request=request
+            current_user=current_user,
+            book_id=1,
+            request=request,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
+            cover_service=cover_service,
         )
 
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail == "invalid_url_format"
-
-
-def test_download_cover_from_url_http_exception_re_raise(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test download_cover_from_url re-raises HTTPException from _download_and_validate_image (covers line 838)."""
-
-    from fundamental.api.schemas import CoverFromUrlRequest
-
-    session = DummySession()
-
-    book = Book(
-        id=1,
-        title="Test Book",
-        uuid="test-uuid",
-        has_cover=False,
-        path="test/path",
-    )
-    book_with_rels = BookWithRelations(book=book, authors=[], series=None)
-
-    library_with_path = Library(
-        id=1,
-        name="Test Library",
-        calibre_db_path="/path/to/library",
-        calibre_db_file="metadata.db",
-    )
-
-    mock_service = MockBookService(library_with_path)
-    mock_service.get_book = lambda book_id: book_with_rels  # type: ignore[method-assign]
-    # Ensure _library attribute exists to avoid AttributeError
-    mock_service._library = library_with_path  # type: ignore[attr-defined]
-    # Also need to set get_book_full for download_cover_from_url
-    book_with_full_rels = BookWithFullRelations(
-        book=book,
-        authors=[],
-        series=None,
-        series_id=None,
-        tags=[],
-        identifiers=[],
-        description=None,
-        publisher=None,
-        publisher_id=None,
-        languages=[],
-        language_ids=[],
-        rating=None,
-        rating_id=None,
-        formats=[],
-    )
-    mock_service.set_get_book_full_result(book_with_full_rels)
-
-    def mock_get_active_library_service(sess: object) -> MockBookService:
-        return mock_service
-
-    monkeypatch.setattr(
-        books, "_get_active_library_service", mock_get_active_library_service
-    )
-    current_user = _create_mock_user()
-    _mock_permission_service(monkeypatch)
-
-    # Create the HTTPException that will be raised
-    http_exception = HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        detail="invalid_image_format",
-    )
-
-    # Mock _download_and_validate_image to raise an HTTPException
-    def mock_download(*args: object, **kwargs: object) -> tuple[bytes, object]:
-        raise http_exception
-
-    monkeypatch.setattr(books, "_download_and_validate_image", mock_download)
-
-    request = CoverFromUrlRequest(url="https://example.com/cover.jpg")
-
-    with pytest.raises(HTTPException) as exc_info:
-        books.download_cover_from_url(
-            session, current_user=current_user, book_id=1, request=request
-        )
-
-    # Should re-raise the same HTTPException (line 838)
-    assert isinstance(exc_info.value, HTTPException)
-    assert exc_info.value.status_code == 400
-    assert exc_info.value.detail == "invalid_image_format"

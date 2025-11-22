@@ -57,3 +57,48 @@ export async function GET(
     );
   }
 }
+
+/**
+ * PUT /api/authors/[id]
+ *
+ * Proxies request to update an author's metadata.
+ */
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { client, error } = getAuthenticatedClient(request);
+
+    if (error) {
+      return error;
+    }
+
+    const { id } = await params;
+    const body = await request.json();
+
+    const response = await client.request(`/authors/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return NextResponse.json(
+        { detail: data.detail || "Failed to update author" },
+        { status: response.status },
+      );
+    }
+
+    return NextResponse.json(data);
+  } catch {
+    return NextResponse.json(
+      { detail: "Internal server error" },
+      { status: 500 },
+    );
+  }
+}

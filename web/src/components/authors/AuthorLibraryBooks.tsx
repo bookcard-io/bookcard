@@ -92,7 +92,8 @@ export function AuthorLibraryBooks({
       </h2>
       <div className="-mx-8">
         <BooksGrid
-          searchQuery={author.name}
+          authorId={author.calibre_id}
+          searchQuery={author.calibre_id ? undefined : author.name}
           onBookClick={onBookClick}
           onBookEdit={onBookEdit}
           bookDataUpdateRef={bookDataUpdateRef}

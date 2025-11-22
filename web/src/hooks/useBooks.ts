@@ -68,6 +68,7 @@ interface FetchBooksPageParams {
   page: number;
   pageSize: number;
   search: string;
+  authorId?: number;
   sortBy: "timestamp" | "pubdate" | "title" | "author_sort" | "series_index";
   sortOrder: "asc" | "desc";
   full: boolean;
@@ -77,6 +78,7 @@ async function fetchBooksPage({
   page,
   pageSize,
   search,
+  authorId,
   sortBy,
   sortOrder,
   full,
@@ -90,6 +92,9 @@ async function fetchBooksPage({
 
   if (search.trim()) {
     queryParams.append("search", search.trim());
+  }
+  if (authorId !== undefined) {
+    queryParams.append("author_id", authorId.toString());
   }
   if (full) {
     queryParams.append("full", "true");
@@ -132,6 +137,7 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
     page: initialPage = 1,
     page_size: initialPageSize = 20,
     search: initialSearch,
+    author_id: initialAuthorId,
     sort_by: initialSortBy = "timestamp",
     sort_order: initialSortOrder = "desc",
     full = false,
@@ -151,11 +157,13 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
   const [page, setPage] = useState(initialPage);
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [search, setSearch] = useState(initialSearch || "");
+  const [authorId, setAuthorId] = useState(initialAuthorId);
   const [sortBy, setSortBy] = useState(initialSortBy);
   const [sortOrder, setSortOrder] = useState(initialSortOrder);
 
   // Track previous prop values to detect changes
   const prevSearchRef = useRef<string | undefined>(initialSearch);
+  const prevAuthorIdRef = useRef<number | undefined>(initialAuthorId);
   const prevSortByRef = useRef<string | undefined>(initialSortBy);
   const prevSortOrderRef = useRef<string | undefined>(initialSortOrder);
   const prevPageSizeRef = useRef<number | undefined>(initialPageSize);
@@ -169,6 +177,14 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
       setPage(1); // Reset to first page when search changes
     }
   }, [options.search]);
+
+  useEffect(() => {
+    if (options.author_id !== prevAuthorIdRef.current) {
+      prevAuthorIdRef.current = options.author_id;
+      setAuthorId(options.author_id);
+      setPage(1);
+    }
+  }, [options.author_id]);
 
   useEffect(() => {
     if (options.sort_by !== prevSortByRef.current) {
@@ -208,12 +224,13 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
           page,
           pageSize,
           search,
+          authorId,
           sortBy,
           sortOrder,
           full,
         },
       ] as const,
-    [page, pageSize, search, sortBy, sortOrder, full],
+    [page, pageSize, search, authorId, sortBy, sortOrder, full],
   );
 
   const infiniteQueryKey = useMemo(
@@ -223,12 +240,13 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
         {
           pageSize,
           search,
+          authorId,
           sortBy,
           sortOrder,
           full,
         },
       ] as const,
-    [pageSize, search, sortBy, sortOrder, full],
+    [pageSize, search, authorId, sortBy, sortOrder, full],
   );
 
   // Only enable queries if there's an active library and not still loading
@@ -243,6 +261,7 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
         page,
         pageSize,
         search,
+        authorId,
         sortBy,
         sortOrder,
         full,
@@ -258,6 +277,7 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
         page: (pageParam as number | undefined) ?? 1,
         pageSize,
         search,
+        authorId,
         sortBy,
         sortOrder,
         full,
@@ -283,6 +303,10 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
     if (params.search !== undefined) {
       setSearch(params.search);
       setPage(1); // Reset to first page when search changes
+    }
+    if (params.author_id !== undefined) {
+      setAuthorId(params.author_id);
+      setPage(1);
     }
     if (params.sort_by !== undefined) {
       setSortBy(params.sort_by);

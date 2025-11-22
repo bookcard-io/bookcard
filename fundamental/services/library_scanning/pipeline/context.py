@@ -53,6 +53,8 @@ class PipelineContext:
     data_source: BaseDataSource
     progress_callback: Callable[[float, dict[str, Any] | None], None] | None = None
     cancelled: bool = False
+    target_author_metadata_id: int | None = None
+    single_author_mode: bool = False
 
     # Stage results (populated as stages execute)
     crawled_authors: list[Author] = field(default_factory=list)

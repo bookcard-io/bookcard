@@ -94,6 +94,8 @@ export interface Author {
   death_date?: string;
   /** Author key (OpenLibrary identifier). */
   key?: string;
+  /** Calibre author ID. */
+  calibre_id?: number;
   /** Latest revision number. */
   latest_revision?: number;
   /** Revision number. */
@@ -111,11 +113,33 @@ export interface Author {
 }
 
 /**
+ * User-uploaded photo for an author.
+ */
+export interface AuthorUserPhoto {
+  /** Photo ID. */
+  id: number;
+  /** Photo URL for accessing the image. */
+  photo_url: string;
+  /** Original filename. */
+  file_name: string;
+  /** File path relative to data directory. */
+  file_path: string;
+  /** Whether this is the primary photo. */
+  is_primary: boolean;
+  /** Display order. */
+  order: number;
+  /** Creation timestamp (ISO format). */
+  created_at: string;
+}
+
+/**
  * Author with additional metadata for display.
  */
 export interface AuthorWithMetadata extends Author {
-  /** Photo URL (derived from photos array). */
+  /** Photo URL (derived from photos array or user-uploaded photos). */
   photo_url?: string | null;
+  /** User-uploaded photos array. */
+  user_photos?: AuthorUserPhoto[];
   /** Location/country (derived from bio or other fields). */
   location?: string;
   /** Genres/styles associated with author. */
@@ -155,4 +179,38 @@ export interface AuthorListResponse {
   page_size: number;
   /** Total number of pages. */
   total_pages: number;
+}
+
+/**
+ * Author update payload for editing author metadata.
+ */
+export interface AuthorUpdate {
+  /** Author name. */
+  name?: string;
+  /** Personal name (if different from name). */
+  personal_name?: string | null;
+  /** Fuller name. */
+  fuller_name?: string | null;
+  /** Title (e.g., "OBE"). */
+  title?: string | null;
+  /** Birth date. */
+  birth_date?: string | null;
+  /** Death date. */
+  death_date?: string | null;
+  /** Entity type. */
+  entity_type?: string | null;
+  /** Biography text. */
+  biography?: string | null;
+  /** Location/country. */
+  location?: string | null;
+  /** Photo URL. */
+  photo_url?: string | null;
+  /** Genres associated with author. */
+  genres?: string[] | null;
+  /** Styles associated with author. */
+  styles?: string[] | null;
+  /** Shelves associated with author. */
+  shelves?: string[] | null;
+  /** Similar authors (array of author keys or names). */
+  similar_authors?: string[] | null;
 }

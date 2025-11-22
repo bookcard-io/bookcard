@@ -27,6 +27,8 @@ export interface UseLibraryBooksOptions {
   filters?: FilterValues;
   /** Search query to filter books. */
   searchQuery?: string;
+  /** Author ID to filter books by author (alternative to search). */
+  authorId?: number;
   /** Shelf ID to filter books by shelf. */
   shelfId?: number;
   /** Sort field. */
@@ -83,6 +85,7 @@ export function useLibraryBooks(
   const {
     filters,
     searchQuery,
+    authorId,
     shelfId,
     sortBy = "timestamp",
     sortOrder = "desc",
@@ -120,6 +123,7 @@ export function useLibraryBooks(
     enabled: !filtersActive && !hasShelfFilter,
     infiniteScroll: true,
     search: hasActiveSearch ? searchQuery : undefined,
+    author_id: authorId,
     sort_by: sortBy,
     sort_order: sortOrder,
     page_size: pageSize,
@@ -140,6 +144,7 @@ export function useLibraryBooks(
     enabled: hasShelfFilter,
     infiniteScroll: false, // Disable infinite scroll for shelf filtering
     search: hasActiveSearch ? searchQuery : undefined,
+    author_id: authorId,
     sort_by: sortBy,
     sort_order: sortOrder,
     page_size: initialPageSizeForShelf,

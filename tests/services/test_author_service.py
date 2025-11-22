@@ -17,9 +17,13 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from fundamental.models.author_metadata import (
     AuthorAlternateName,
@@ -174,12 +178,14 @@ def author_service(
     session: DummySession,
     mock_author_repo: MagicMock,
     mock_library_service: MagicMock,
+    tmp_path: Path,
 ) -> AuthorService:
     """Create AuthorService instance with mocked dependencies."""
     return AuthorService(
         session,  # type: ignore[arg-type]
         author_repo=mock_author_repo,
         library_service=mock_library_service,
+        data_directory=str(tmp_path),
     )
 
 
@@ -197,6 +203,7 @@ class TestAuthorServiceInit:
         mock_author_repo: MagicMock,
         mock_library_service: MagicMock,
         mock_library_repo: MagicMock,
+        tmp_path: Path,
     ) -> None:
         """Test __init__ with all dependencies provided."""
         service = AuthorService(
@@ -204,6 +211,7 @@ class TestAuthorServiceInit:
             author_repo=mock_author_repo,
             library_service=mock_library_service,
             library_repo=mock_library_repo,
+            data_directory=str(tmp_path),
         )
 
         assert service._session == session
@@ -211,12 +219,13 @@ class TestAuthorServiceInit:
         assert service._library_service == mock_library_service
 
     def test_init_without_author_repo(
-        self, session: DummySession, mock_library_service: MagicMock
+        self, session: DummySession, mock_library_service: MagicMock, tmp_path: Path
     ) -> None:
         """Test __init__ creates AuthorRepository when not provided."""
         service = AuthorService(
             session,  # type: ignore[arg-type]
             library_service=mock_library_service,
+            data_directory=str(tmp_path),
         )
 
         assert service._session == session
@@ -224,12 +233,13 @@ class TestAuthorServiceInit:
         assert service._library_service == mock_library_service
 
     def test_init_without_library_service(
-        self, session: DummySession, mock_author_repo: MagicMock
+        self, session: DummySession, mock_author_repo: MagicMock, tmp_path: Path
     ) -> None:
         """Test __init__ creates LibraryService when not provided."""
         service = AuthorService(
             session,  # type: ignore[arg-type]
             author_repo=mock_author_repo,
+            data_directory=str(tmp_path),
         )
 
         assert service._session == session
@@ -237,12 +247,13 @@ class TestAuthorServiceInit:
         assert isinstance(service._library_service, LibraryService)
 
     def test_init_without_library_repo(
-        self, session: DummySession, mock_author_repo: MagicMock
+        self, session: DummySession, mock_author_repo: MagicMock, tmp_path: Path
     ) -> None:
         """Test __init__ creates LibraryRepository when not provided."""
         service = AuthorService(
             session,  # type: ignore[arg-type]
             author_repo=mock_author_repo,
+            data_directory=str(tmp_path),
         )
 
         assert isinstance(service._library_service, LibraryService)
@@ -305,6 +316,7 @@ class TestListAuthorsForActiveLibrary:
         session: DummySession,
         mock_author_repo: MagicMock,
         mock_library_service: MagicMock,
+        tmp_path: Path,
     ) -> None:
         """Test list_authors_for_active_library raises ValueError when no active library."""
         mock_library_service.get_active_library.return_value = None
@@ -312,6 +324,7 @@ class TestListAuthorsForActiveLibrary:
             session,  # type: ignore[arg-type]
             author_repo=mock_author_repo,
             library_service=mock_library_service,
+            data_directory=str(tmp_path),
         )
 
         with pytest.raises(ValueError, match="No active library found"):
@@ -322,6 +335,7 @@ class TestListAuthorsForActiveLibrary:
         session: DummySession,
         mock_author_repo: MagicMock,
         mock_library_service: MagicMock,
+        tmp_path: Path,
     ) -> None:
         """Test list_authors_for_active_library raises ValueError when library has no ID."""
         library = Library(
@@ -335,6 +349,7 @@ class TestListAuthorsForActiveLibrary:
             session,  # type: ignore[arg-type]
             author_repo=mock_author_repo,
             library_service=mock_library_service,
+            data_directory=str(tmp_path),
         )
 
         with pytest.raises(ValueError, match="No active library found"):
@@ -425,6 +440,7 @@ class TestGetAuthorByIdOrKey:
         session: DummySession,
         mock_author_repo: MagicMock,
         mock_library_service: MagicMock,
+        tmp_path: Path,
     ) -> None:
         """Test get_author_by_id_or_key raises ValueError when no active library."""
         mock_library_service.get_active_library.return_value = None
@@ -432,6 +448,7 @@ class TestGetAuthorByIdOrKey:
             session,  # type: ignore[arg-type]
             author_repo=mock_author_repo,
             library_service=mock_library_service,
+            data_directory=str(tmp_path),
         )
 
         with pytest.raises(ValueError, match="No active library found"):
@@ -613,6 +630,7 @@ class TestFetchAuthorMetadata:
         session: DummySession,
         mock_author_repo: MagicMock,
         mock_library_service: MagicMock,
+        tmp_path: Path,
     ) -> None:
         """Test fetch_author_metadata raises ValueError when no active library."""
         mock_library_service.get_active_library.return_value = None
@@ -620,6 +638,7 @@ class TestFetchAuthorMetadata:
             session,  # type: ignore[arg-type]
             author_repo=mock_author_repo,
             library_service=mock_library_service,
+            data_directory=str(tmp_path),
         )
         service.get_author_by_id_or_key = MagicMock(  # type: ignore[assignment]
             return_value={"key": "OL123A", "name": "Test Author"}

@@ -42,6 +42,42 @@ def _create_mock_user() -> User:
     )
 
 
+def _setup_route_mocks(
+    monkeypatch: pytest.MonkeyPatch,
+    session: DummySession,
+    mock_service: MockBookService,
+) -> tuple[MockPermissionHelper, MockResponseBuilder]:
+    """Set up mocks for route dependencies.
+
+    Parameters
+    ----------
+    monkeypatch : pytest.MonkeyPatch
+        Monkeypatch fixture.
+    session : DummySession
+        Dummy session.
+    mock_service : MockBookService
+        Mock book service.
+
+    Returns
+    -------
+    tuple[MockPermissionHelper, MockResponseBuilder]
+        Tuple of (permission_helper, response_builder).
+    """
+
+    def mock_get_active_library_service(sess: object) -> MockBookService:
+        return mock_service
+
+    monkeypatch.setattr(
+        books, "_get_active_library_service", mock_get_active_library_service
+    )
+    _mock_permission_service(monkeypatch)
+
+    mock_permission_helper = MockPermissionHelper(session)
+    mock_response_builder = MockResponseBuilder(mock_service)
+
+    return mock_permission_helper, mock_response_builder
+
+
 def _mock_permission_service(monkeypatch: pytest.MonkeyPatch) -> None:
     """Mock PermissionService to allow all permissions."""
 
@@ -67,7 +103,110 @@ def _mock_permission_service(monkeypatch: pytest.MonkeyPatch) -> None:
         ) -> None:
             pass  # Always allow
 
-    monkeypatch.setattr(books, "PermissionService", MockPermissionService)
+    # Patch PermissionService in the permission_service module where it's actually used
+    monkeypatch.setattr(
+        "fundamental.services.permission_service.PermissionService",
+        MockPermissionService,
+    )
+
+
+class MockPermissionHelper:
+    """Mock BookPermissionHelper for testing."""
+
+    def __init__(self, session: object) -> None:
+        """Initialize mock permission helper."""
+
+    def check_read_permission(
+        self,
+        user: User,
+        book_with_rels: object | None = None,
+    ) -> None:
+        """Mock check_read_permission - always allows."""
+
+    def check_write_permission(
+        self,
+        user: User,
+        book_with_rels: object | None = None,
+    ) -> None:
+        """Mock check_write_permission - always allows."""
+
+    def check_create_permission(self, user: User) -> None:
+        """Mock check_create_permission - always allows."""
+
+    def check_send_permission(
+        self,
+        user: User,
+        book_with_rels: object,
+        book_id: int,
+        session: object,
+    ) -> None:
+        """Mock check_send_permission - always allows."""
+
+
+class MockResponseBuilder:
+    """Mock BookResponseBuilder for testing."""
+
+    def __init__(self, book_service: object) -> None:
+        """Initialize mock response builder."""
+        self._book_service = book_service
+
+    def build_book_read(
+        self,
+        book_with_rels: BookWithRelations | BookWithFullRelations,
+        full: bool = False,
+    ) -> object:
+        """Mock build_book_read method."""
+        from fundamental.api.schemas import BookRead
+
+        book = book_with_rels.book
+        if book.id is None:
+            raise ValueError("book_missing_id")
+
+        thumbnail_url = None
+        if hasattr(self._book_service, "get_thumbnail_url"):
+            thumbnail_url = self._book_service.get_thumbnail_url(book_with_rels)  # type: ignore[call-arg]
+
+        book_read = BookRead(
+            id=book.id,
+            title=book.title,
+            authors=book_with_rels.authors,
+            author_sort=book.author_sort,
+            pubdate=book.pubdate,
+            timestamp=book.timestamp,
+            series=book_with_rels.series,
+            series_index=book.series_index,
+            isbn=book.isbn,
+            uuid=book.uuid or "",
+            thumbnail_url=thumbnail_url,
+            has_cover=book.has_cover,
+        )
+
+        if full and isinstance(book_with_rels, BookWithFullRelations):
+            book_read.tags = book_with_rels.tags
+            book_read.identifiers = book_with_rels.identifiers
+            book_read.description = book_with_rels.description
+            book_read.publisher = book_with_rels.publisher
+            book_read.publisher_id = book_with_rels.publisher_id
+            book_read.languages = book_with_rels.languages
+            book_read.language_ids = book_with_rels.language_ids
+            book_read.rating = book_with_rels.rating
+            book_read.rating_id = book_with_rels.rating_id
+            book_read.series_id = book_with_rels.series_id
+            book_read.formats = getattr(book_with_rels, "formats", [])
+
+        return book_read
+
+    def build_book_read_list(
+        self,
+        books: list[BookWithRelations | BookWithFullRelations],
+        full: bool = False,
+    ) -> list[object]:
+        """Mock build_book_read_list method."""
+        return [
+            self.build_book_read(book_with_rels, full=full)
+            for book_with_rels in books
+            if book_with_rels.book.id is not None
+        ]
 
 
 class MockBookService:
@@ -113,6 +252,7 @@ class MockBookService:
         page: int = 1,
         page_size: int = 20,
         search_query: str | None = None,
+        author_id: int | None = None,
         sort_by: str = "timestamp",
         sort_order: str = "desc",
         full: bool = False,
@@ -288,7 +428,17 @@ def test_list_books_success(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     _mock_permission_service(monkeypatch)
 
-    result = books.list_books(session, current_user=current_user, page=1, page_size=20)
+    mock_permission_helper = MockPermissionHelper(session)
+    mock_response_builder = MockResponseBuilder(mock_service)
+
+    result = books.list_books(
+        current_user=current_user,
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
+        response_builder=mock_response_builder,
+        page=1,
+        page_size=20,
+    )
     assert result.total == 1
     assert len(result.items) == 1
     assert result.items[0].id == 1
@@ -310,16 +460,40 @@ def test_list_books_pagination_adjustments(monkeypatch: pytest.MonkeyPatch) -> N
     )
     _mock_permission_service(monkeypatch)
 
+    mock_permission_helper = MockPermissionHelper(session)
+    mock_response_builder = MockResponseBuilder(mock_service)
+
     # Test page < 1
-    result = books.list_books(session, current_user=current_user, page=0, page_size=20)
+    result = books.list_books(
+        current_user=current_user,
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
+        response_builder=mock_response_builder,
+        page=0,
+        page_size=20,
+    )
     assert result.page == 1
 
     # Test page_size < 1
-    result = books.list_books(session, current_user=current_user, page=1, page_size=0)
+    result = books.list_books(
+        current_user=current_user,
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
+        response_builder=mock_response_builder,
+        page=1,
+        page_size=0,
+    )
     assert result.page_size == 20
 
     # Test page_size > 100
-    result = books.list_books(session, current_user=current_user, page=1, page_size=200)
+    result = books.list_books(
+        current_user=current_user,
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
+        response_builder=mock_response_builder,
+        page=1,
+        page_size=200,
+    )
     assert result.page_size == 100
 
 
@@ -371,7 +545,17 @@ def test_list_books_skips_books_without_id(monkeypatch: pytest.MonkeyPatch) -> N
     _mock_permission_service(monkeypatch)
     current_user = _create_mock_user()
 
-    result = books.list_books(session, current_user=current_user, page=1, page_size=20)
+    mock_permission_helper = MockPermissionHelper(session)
+    mock_response_builder = MockResponseBuilder(mock_service)
+
+    result = books.list_books(
+        current_user=current_user,
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
+        response_builder=mock_response_builder,
+        page=1,
+        page_size=20,
+    )
     # Should only include book with ID
     assert len(result.items) == 1
     assert result.items[0].id == 2
@@ -425,8 +609,17 @@ def test_list_books_with_full_true(monkeypatch: pytest.MonkeyPatch) -> None:
     _mock_permission_service(monkeypatch)
     current_user = _create_mock_user()
 
+    mock_permission_helper = MockPermissionHelper(session)
+    mock_response_builder = MockResponseBuilder(mock_service)
+
     result = books.list_books(
-        session, current_user=current_user, page=1, page_size=20, full=True
+        current_user=current_user,
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
+        response_builder=mock_response_builder,
+        page=1,
+        page_size=20,
+        full=True,
     )
     assert result.total == 1
     assert len(result.items) == 1
@@ -482,7 +675,17 @@ def test_get_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
     _mock_permission_service(monkeypatch)
     current_user = _create_mock_user()
 
-    result = books.get_book(session, current_user=current_user, book_id=1)
+    mock_permission_helper, mock_response_builder = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+
+    result = books.get_book(
+        current_user=current_user,
+        book_id=1,
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
+        response_builder=mock_response_builder,
+    )
     assert result.id == 1
     assert result.title == "Test Book"
 
@@ -503,8 +706,18 @@ def test_get_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     _mock_permission_service(monkeypatch)
     current_user = _create_mock_user()
 
+    mock_permission_helper, mock_response_builder = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+
     with pytest.raises(HTTPException) as exc_info:
-        books.get_book(session, current_user=current_user, book_id=999)
+        books.get_book(
+            current_user=current_user,
+            book_id=999,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
+            response_builder=mock_response_builder,
+        )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == "book_not_found"
@@ -540,8 +753,18 @@ def test_get_book_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
     _mock_permission_service(monkeypatch)
     current_user = _create_mock_user()
 
+    mock_permission_helper, mock_response_builder = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+
     with pytest.raises(HTTPException) as exc_info:
-        books.get_book(session, current_user=current_user, book_id=1)
+        books.get_book(
+            current_user=current_user,
+            book_id=1,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
+            response_builder=mock_response_builder,
+        )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 500
     assert exc_info.value.detail == "book_missing_id"
@@ -587,7 +810,16 @@ def test_get_book_cover_success(monkeypatch: pytest.MonkeyPatch) -> None:
             books, "_get_active_library_service", mock_get_active_library_service
         )
 
-        result = books.get_book_cover(session, current_user=current_user, book_id=1)
+        mock_permission_helper, _ = _setup_route_mocks(
+            monkeypatch, session, mock_service
+        )
+
+        result = books.get_book_cover(
+            current_user=current_user,
+            book_id=1,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
+        )
         assert isinstance(result, FileResponse)
         assert result.path == str(cover_path)
 
@@ -607,8 +839,15 @@ def test_get_book_cover_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
         books, "_get_active_library_service", mock_get_active_library_service
     )
 
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
     with pytest.raises(HTTPException) as exc_info:
-        books.get_book_cover(session, current_user=current_user, book_id=999)
+        books.get_book_cover(
+            current_user=current_user,
+            book_id=999,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
+        )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == "book_not_found"
@@ -651,7 +890,15 @@ def test_get_book_cover_file_not_exists(monkeypatch: pytest.MonkeyPatch) -> None
         books, "_get_active_library_service", mock_get_active_library_service
     )
 
-    result = books.get_book_cover(session, current_user=current_user, book_id=1)
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
+    result = books.get_book_cover(
+        current_user=current_user,
+        book_id=1,
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
+    )
+
     assert isinstance(result, Response)
     assert result.status_code == 404
 
@@ -669,7 +916,15 @@ def test_search_suggestions_empty_query(monkeypatch: pytest.MonkeyPatch) -> None
         books, "_get_active_library_service", mock_get_active_library_service
     )
 
-    result = books.search_suggestions(session, current_user=current_user, q="")
+    mock_service = MockBookService()
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
+    result = books.search_suggestions(
+        current_user=current_user,
+        q="",
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
+    )
     assert result.books == []
     assert result.authors == []
     assert result.tags == []
@@ -689,7 +944,15 @@ def test_search_suggestions_whitespace_query(monkeypatch: pytest.MonkeyPatch) ->
         books, "_get_active_library_service", mock_get_active_library_service
     )
 
-    result = books.search_suggestions(session, current_user=current_user, q="   ")
+    mock_service = MockBookService()
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
+    result = books.search_suggestions(
+        current_user=current_user,
+        q="   ",
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
+    )
     assert result.books == []
     assert result.authors == []
     assert result.tags == []
@@ -711,14 +974,14 @@ def test_search_suggestions_success(monkeypatch: pytest.MonkeyPatch) -> None:
         }
     )
 
-    def mock_get_active_library_service(sess: object) -> MockBookService:
-        return mock_service
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
 
-    monkeypatch.setattr(
-        books, "_get_active_library_service", mock_get_active_library_service
+    result = books.search_suggestions(
+        current_user=current_user,
+        q="test",
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
     )
-
-    result = books.search_suggestions(session, current_user=current_user, q="test")
     assert len(result.books) == 1
     assert len(result.authors) == 1
     assert len(result.tags) == 1
@@ -740,8 +1003,15 @@ def test_filter_suggestions_empty_query(monkeypatch: pytest.MonkeyPatch) -> None
         books, "_get_active_library_service", mock_get_active_library_service
     )
 
+    mock_service = MockBookService()
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
     result = books.filter_suggestions(
-        session, current_user=current_user, q="", filter_type="author"
+        current_user=current_user,
+        q="",
+        filter_type="author",
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
     )
     assert result.suggestions == []
 
@@ -759,8 +1029,15 @@ def test_filter_suggestions_whitespace_query(monkeypatch: pytest.MonkeyPatch) ->
         books, "_get_active_library_service", mock_get_active_library_service
     )
 
+    mock_service = MockBookService()
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
     result = books.filter_suggestions(
-        session, current_user=current_user, q="   ", filter_type="author"
+        current_user=current_user,
+        q="   ",
+        filter_type="author",
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
     )
     assert result.suggestions == []
 
@@ -785,8 +1062,15 @@ def test_filter_suggestions_success(monkeypatch: pytest.MonkeyPatch) -> None:
         books, "_get_active_library_service", mock_get_active_library_service
     )
 
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
     result = books.filter_suggestions(
-        session, current_user=current_user, q="author", filter_type="author", limit=10
+        current_user=current_user,
+        q="author",
+        filter_type="author",
+        limit=10,
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
     )
     assert len(result.suggestions) == 2
     assert result.suggestions[0].id == 1
@@ -839,10 +1123,16 @@ def test_filter_books_success(monkeypatch: pytest.MonkeyPatch) -> None:
         genre_ids=[5, 6],
     )
 
+    mock_permission_helper, mock_response_builder = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+
     result = books.filter_books(
-        session,
         current_user=current_user,
         filter_request=filter_request,
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
+        response_builder=mock_response_builder,
         page=1,
         page_size=20,
         sort_by="timestamp",
@@ -880,11 +1170,17 @@ def test_filter_books_pagination_adjustments(monkeypatch: pytest.MonkeyPatch) ->
 
     filter_request = BookFilterRequest()
 
+    mock_permission_helper, mock_response_builder = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+
     # Test page < 1
     result = books.filter_books(
-        session,
         current_user=current_user,
         filter_request=filter_request,
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
+        response_builder=mock_response_builder,
         page=0,
         page_size=20,
     )
@@ -892,9 +1188,11 @@ def test_filter_books_pagination_adjustments(monkeypatch: pytest.MonkeyPatch) ->
 
     # Test page_size < 1
     result = books.filter_books(
-        session,
         current_user=current_user,
         filter_request=filter_request,
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
+        response_builder=mock_response_builder,
         page=1,
         page_size=0,
     )
@@ -902,9 +1200,11 @@ def test_filter_books_pagination_adjustments(monkeypatch: pytest.MonkeyPatch) ->
 
     # Test page_size > 100
     result = books.filter_books(
-        session,
         current_user=current_user,
         filter_request=filter_request,
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
+        response_builder=mock_response_builder,
         page=1,
         page_size=200,
     )
@@ -966,10 +1266,16 @@ def test_filter_books_skips_books_without_id(monkeypatch: pytest.MonkeyPatch) ->
 
     filter_request = BookFilterRequest()
 
+    mock_permission_helper, mock_response_builder = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+
     result = books.filter_books(
-        session,
         current_user=current_user,
         filter_request=filter_request,
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
+        response_builder=mock_response_builder,
         page=1,
         page_size=20,
     )
@@ -1033,10 +1339,16 @@ def test_filter_books_with_full_true(monkeypatch: pytest.MonkeyPatch) -> None:
         genre_ids=[5, 6],
     )
 
+    mock_permission_helper, mock_response_builder = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+
     result = books.filter_books(
-        session,
         current_user=current_user,
         filter_request=filter_request,
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
+        response_builder=mock_response_builder,
         page=1,
         page_size=20,
         sort_by="timestamp",
@@ -1109,7 +1421,18 @@ def test_get_book_with_full_true(monkeypatch: pytest.MonkeyPatch) -> None:
     _mock_permission_service(monkeypatch)
     current_user = _create_mock_user()
 
-    result = books.get_book(session, current_user=current_user, book_id=1, full=True)
+    mock_permission_helper, mock_response_builder = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+
+    result = books.get_book(
+        current_user=current_user,
+        book_id=1,
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
+        response_builder=mock_response_builder,
+        full=True,
+    )
     assert result.id == 1
     assert result.title == "Test Book"
     assert result.tags == ["Fiction", "Adventure"]
@@ -1161,7 +1484,18 @@ def test_get_book_with_full_false(monkeypatch: pytest.MonkeyPatch) -> None:
     _mock_permission_service(monkeypatch)
     current_user = _create_mock_user()
 
-    result = books.get_book(session, current_user=current_user, book_id=1, full=False)
+    mock_permission_helper, mock_response_builder = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+
+    result = books.get_book(
+        current_user=current_user,
+        book_id=1,
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
+        response_builder=mock_response_builder,
+        full=False,
+    )
     assert result.id == 1
     assert result.title == "Test Book"
     assert result.tags == []
@@ -1257,8 +1591,17 @@ def test_update_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
         rating_value=4,
     )
 
+    mock_permission_helper, mock_response_builder = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+
     result = books.update_book(
-        session, current_user=current_user, book_id=1, update=update
+        current_user=current_user,
+        book_id=1,
+        update=update,
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
+        response_builder=mock_response_builder,
     )
     assert result.id == 1
     assert result.title == "Updated Book"
@@ -1296,9 +1639,18 @@ def test_update_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
 
     update = BookUpdate(title="Updated Book")
 
+    mock_permission_helper, mock_response_builder = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+
     with pytest.raises(HTTPException) as exc_info:
         books.update_book(
-            session, current_user=current_user, book_id=999, update=update
+            current_user=current_user,
+            book_id=999,
+            update=update,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
+            response_builder=mock_response_builder,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
@@ -1350,8 +1702,19 @@ def test_update_book_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
 
     update = BookUpdate(title="Updated Book")
 
+    mock_permission_helper, mock_response_builder = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+
     with pytest.raises(HTTPException) as exc_info:
-        books.update_book(session, current_user=current_user, book_id=1, update=update)
+        books.update_book(
+            current_user=current_user,
+            book_id=1,
+            update=update,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
+            response_builder=mock_response_builder,
+        )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == "book_not_found"
@@ -1424,8 +1787,19 @@ def test_update_book_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
 
     update = BookUpdate(title="Updated Book")
 
+    mock_permission_helper, mock_response_builder = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+
     with pytest.raises(HTTPException) as exc_info:
-        books.update_book(session, current_user=current_user, book_id=1, update=update)
+        books.update_book(
+            current_user=current_user,
+            book_id=1,
+            update=update,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
+            response_builder=mock_response_builder,
+        )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 500
     assert exc_info.value.detail == "book_missing_id"
@@ -1465,8 +1839,14 @@ def test_delete_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
     current_user = _create_mock_user()
 
     delete_request = books.BookDeleteRequest(delete_files_from_drive=True)
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
     result = books.delete_book(
-        session, current_user=current_user, book_id=1, delete_request=delete_request
+        current_user=current_user,
+        book_id=1,
+        delete_request=delete_request,
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
     )
     assert result is None
     mock_service.delete_book.assert_called_once_with(
@@ -1509,12 +1889,15 @@ def test_delete_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
 
     delete_request = books.BookDeleteRequest(delete_files_from_drive=False)
 
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
     with pytest.raises(HTTPException) as exc_info:
         books.delete_book(
-            session,
             current_user=current_user,
             book_id=999,
             delete_request=delete_request,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
@@ -1557,9 +1940,15 @@ def test_delete_book_other_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
 
     delete_request = books.BookDeleteRequest(delete_files_from_drive=False)
 
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
     with pytest.raises(HTTPException) as exc_info:
         books.delete_book(
-            session, current_user=current_user, book_id=1, delete_request=delete_request
+            current_user=current_user,
+            book_id=1,
+            delete_request=delete_request,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
         )
     # This should execute line 496-499 (the else branch for ValueError)
     assert isinstance(exc_info.value, HTTPException)
@@ -1602,9 +1991,15 @@ def test_delete_book_os_error(monkeypatch: pytest.MonkeyPatch) -> None:
 
     delete_request = books.BookDeleteRequest(delete_files_from_drive=True)
 
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
     with pytest.raises(HTTPException) as exc_info:
         books.delete_book(
-            session, current_user=current_user, book_id=1, delete_request=delete_request
+            current_user=current_user,
+            book_id=1,
+            delete_request=delete_request,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 500
@@ -1648,12 +2043,14 @@ def test_upload_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_file.file = MagicMock()
     mock_file.file.read.return_value = b"fake epub content"
 
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
     # This should execute lines 1174-1218
     result = books.upload_book(
         request,
-        session,
         current_user=current_user,
         file=mock_file,  # type: ignore[arg-type]
+        permission_helper=mock_permission_helper,
     )
     assert result.task_id == 123
     mock_task_runner.enqueue.assert_called_once()
@@ -1693,8 +2090,15 @@ def test_upload_book_no_extension(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_file = MagicMock()
     mock_file.filename = "test"  # No extension
 
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
     with pytest.raises(HTTPException) as exc_info:
-        books.upload_book(request, session, current_user=current_user, file=mock_file)  # type: ignore[arg-type]
+        books.upload_book(
+            request,
+            current_user=current_user,
+            file=mock_file,  # type: ignore[arg-type]
+            permission_helper=mock_permission_helper,
+        )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail == "file_extension_required"
@@ -1742,10 +2146,17 @@ def test_upload_book_save_error(monkeypatch: pytest.MonkeyPatch) -> None:
         mock_temp_file.__enter__.return_value = mock_temp_file
         mock_temp.return_value = mock_temp_file
 
+        mock_permission_helper, _ = _setup_route_mocks(
+            monkeypatch, session, mock_service
+        )
+
         with patch("pathlib.Path.unlink"):
             with pytest.raises(HTTPException) as exc_info:
                 books.upload_book(
-                    request, session, current_user=current_user, file=mock_file
+                    request,
+                    current_user=current_user,
+                    file=mock_file,
+                    permission_helper=mock_permission_helper,
                 )  # type: ignore[arg-type]
             assert isinstance(exc_info.value, HTTPException)
             assert exc_info.value.status_code == 500
@@ -1838,8 +2249,10 @@ def test_send_book_email_server_not_configured(monkeypatch: pytest.MonkeyPatch) 
                 formats=[],
             )
 
+    mock_service = MockBookService()
+
     def mock_get_active_library_service(sess: object) -> MockBookService:
-        return MockBookService()
+        return mock_service
 
     monkeypatch.setattr(books, "_email_config_service", mock_email_config_service)
     monkeypatch.setattr(
@@ -1847,9 +2260,17 @@ def test_send_book_email_server_not_configured(monkeypatch: pytest.MonkeyPatch) 
     )
     _mock_permission_service(monkeypatch)
 
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)  # type: ignore[arg-type]
+
     with pytest.raises(HTTPException) as exc_info:
         books.send_book_to_device(
-            request, session, book_id=1, current_user=user, send_request=payload
+            request,
+            session,
+            book_id=1,
+            current_user=user,
+            send_request=payload,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
         )  # type: ignore[arg-type]
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 400
@@ -1920,8 +2341,10 @@ def test_send_book_email_server_disabled(monkeypatch: pytest.MonkeyPatch) -> Non
                 formats=[],
             )
 
+    mock_service = MockBookService()
+
     def mock_get_active_library_service(sess: object) -> MockBookService:
-        return MockBookService()
+        return mock_service
 
     monkeypatch.setattr(books, "_email_config_service", mock_email_config_service)
     monkeypatch.setattr(
@@ -1929,9 +2352,17 @@ def test_send_book_email_server_disabled(monkeypatch: pytest.MonkeyPatch) -> Non
     )
     _mock_permission_service(monkeypatch)
 
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)  # type: ignore[arg-type]
+
     with pytest.raises(HTTPException) as exc_info:
         books.send_book_to_device(
-            request, session, book_id=1, current_user=user, send_request=payload
+            request,
+            session,
+            book_id=1,
+            current_user=user,
+            send_request=payload,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
         )  # type: ignore[arg-type]
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 400
@@ -2000,11 +2431,13 @@ def test_send_book_user_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
                 formats=[],
             )
 
+    mock_service = MockBookService()
+
     def mock_email_config_service(req: object, sess: object) -> MockEmailConfigService:
         return MockEmailConfigService()
 
     def mock_get_active_library_service(sess: object) -> MockBookService:
-        return MockBookService()
+        return mock_service
 
     monkeypatch.setattr(books, "_email_config_service", mock_email_config_service)
     monkeypatch.setattr(
@@ -2012,9 +2445,17 @@ def test_send_book_user_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     _mock_permission_service(monkeypatch)
 
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)  # type: ignore[arg-type]
+
     with pytest.raises(HTTPException) as exc_info:
         books.send_book_to_device(
-            request, session, book_id=1, current_user=user, send_request=payload
+            request,
+            session,
+            book_id=1,
+            current_user=user,
+            send_request=payload,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
         )  # type: ignore[arg-type]
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 500
@@ -2090,11 +2531,13 @@ def test_send_book_success_enqueues_task(monkeypatch: pytest.MonkeyPatch) -> Non
                 formats=[],
             )
 
+    mock_service = MockBookService()
+
     def mock_email_config_service(req: object, sess: object) -> MockEmailConfigService:
         return MockEmailConfigService()
 
     def mock_get_active_library_service(sess: object) -> MockBookService:
-        return MockBookService()
+        return mock_service
 
     monkeypatch.setattr(books, "_email_config_service", mock_email_config_service)
     monkeypatch.setattr(
@@ -2102,9 +2545,17 @@ def test_send_book_success_enqueues_task(monkeypatch: pytest.MonkeyPatch) -> Non
     )
     _mock_permission_service(monkeypatch)
 
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)  # type: ignore[arg-type]
+
     # Should not raise an exception
     result = books.send_book_to_device(
-        request, session, book_id=1, current_user=user, send_request=payload
+        request,
+        session,
+        book_id=1,
+        current_user=user,
+        send_request=payload,
+        book_service=mock_service,
+        permission_helper=mock_permission_helper,
     )  # type: ignore[arg-type]
 
     # Should return None (204 No Content)
@@ -2195,11 +2646,13 @@ def test_send_book_task_runner_unavailable(monkeypatch: pytest.MonkeyPatch) -> N
                 formats=[],
             )
 
+    mock_service = MockBookService()
+
     def mock_email_config_service(req: object, sess: object) -> MockEmailConfigService:
         return MockEmailConfigService()
 
     def mock_get_active_library_service(sess: object) -> MockBookService:
-        return MockBookService()
+        return mock_service
 
     monkeypatch.setattr(books, "_email_config_service", mock_email_config_service)
     monkeypatch.setattr(
@@ -2207,9 +2660,17 @@ def test_send_book_task_runner_unavailable(monkeypatch: pytest.MonkeyPatch) -> N
     )
     _mock_permission_service(monkeypatch)
 
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)  # type: ignore[arg-type]
+
     with pytest.raises(HTTPException) as exc_info:
         books.send_book_to_device(
-            request, session, book_id=1, current_user=user, send_request=payload
+            request,
+            session,
+            book_id=1,
+            current_user=user,
+            send_request=payload,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
         )  # type: ignore[arg-type]
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 503
@@ -2280,11 +2741,13 @@ def test_send_book_task_runner_none(monkeypatch: pytest.MonkeyPatch) -> None:
                 formats=[],
             )
 
+    mock_service = MockBookService()
+
     def mock_email_config_service(req: object, sess: object) -> MockEmailConfigService:
         return MockEmailConfigService()
 
     def mock_get_active_library_service(sess: object) -> MockBookService:
-        return MockBookService()
+        return mock_service
 
     monkeypatch.setattr(books, "_email_config_service", mock_email_config_service)
     monkeypatch.setattr(
@@ -2292,9 +2755,17 @@ def test_send_book_task_runner_none(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     _mock_permission_service(monkeypatch)
 
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)  # type: ignore[arg-type]
+
     with pytest.raises(HTTPException) as exc_info:
         books.send_book_to_device(
-            request, session, book_id=1, current_user=user, send_request=payload
+            request,
+            session,
+            book_id=1,
+            current_user=user,
+            send_request=payload,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
         )  # type: ignore[arg-type]
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 503
@@ -2358,15 +2829,24 @@ def test_send_book_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     def mock_get_active_library_service(sess: object) -> MockBookService:
         return MockBookService()
 
+    mock_service = MockBookService()
     monkeypatch.setattr(books, "_email_config_service", mock_email_config_service)
     monkeypatch.setattr(
         books, "_get_active_library_service", mock_get_active_library_service
     )
     _mock_permission_service(monkeypatch)
 
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)  # type: ignore[arg-type]
+
     with pytest.raises(HTTPException) as exc_info:
         books.send_book_to_device(
-            request, session, book_id=999, current_user=user, send_request=payload
+            request,
+            session,
+            book_id=999,
+            current_user=user,
+            send_request=payload,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
         )  # type: ignore[arg-type]
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
@@ -2383,9 +2863,17 @@ def test_download_book_metadata_not_found(monkeypatch: pytest.MonkeyPatch) -> No
     with patch("fundamental.api.routes.books._get_active_library_service") as mock_get:
         mock_get.return_value = mock_service
 
+        mock_permission_helper, _ = _setup_route_mocks(
+            monkeypatch, session, mock_service
+        )
+
         with pytest.raises(HTTPException) as exc_info:
             books.download_book_metadata(
-                session, current_user=current_user, book_id=1, format="json"
+                current_user=current_user,
+                book_id=1,
+                format="json",
+                book_service=mock_service,
+                permission_helper=mock_permission_helper,
             )
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 404
@@ -2433,9 +2921,17 @@ def test_download_book_metadata_unsupported_format(
     with patch("fundamental.api.routes.books._get_active_library_service") as mock_get:
         mock_get.return_value = mock_service
 
+        mock_permission_helper, _ = _setup_route_mocks(
+            monkeypatch, session, mock_service
+        )
+
         with pytest.raises(HTTPException) as exc_info:
             books.download_book_metadata(
-                session, current_user=current_user, book_id=1, format="invalid"
+                current_user=current_user,
+                book_id=1,
+                format="invalid",
+                book_service=mock_service,
+                permission_helper=mock_permission_helper,
             )
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 400
@@ -2490,9 +2986,17 @@ def test_download_book_metadata_other_value_error(
             mock_instance.export_metadata.side_effect = ValueError("Other error")
             mock_export_service.return_value = mock_instance
 
+            mock_permission_helper, _ = _setup_route_mocks(
+                monkeypatch, session, mock_service
+            )
+
             with pytest.raises(HTTPException) as exc_info:
                 books.download_book_metadata(
-                    session, current_user=current_user, book_id=1, format="json"
+                    current_user=current_user,
+                    book_id=1,
+                    format="json",
+                    book_service=mock_service,
+                    permission_helper=mock_permission_helper,
                 )
             assert isinstance(exc_info.value, HTTPException)
             assert exc_info.value.status_code == 500

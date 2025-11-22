@@ -25,6 +25,8 @@ export interface UseBooksViewDataOptions {
   filters?: FilterValues;
   /** Search query to filter books. */
   searchQuery?: string;
+  /** Author ID to filter books by author (alternative to search). */
+  authorId?: number;
   /** Shelf ID to filter books by shelf. */
   shelfId?: number;
   /** Sort field. */
@@ -89,6 +91,7 @@ export function useBooksViewData(
   const {
     filters,
     searchQuery,
+    authorId,
     shelfId,
     sortBy,
     sortOrder,
@@ -110,6 +113,7 @@ export function useBooksViewData(
   } = useLibraryBooks({
     filters,
     searchQuery,
+    authorId,
     shelfId,
     sortBy,
     sortOrder,

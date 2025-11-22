@@ -37,6 +37,8 @@ export interface BooksGridProps {
   onBookEdit?: (bookId: number) => void;
   /** Search query to filter books. */
   searchQuery?: string;
+  /** Author ID to filter books by author. */
+  authorId?: number;
   /** Filter values for advanced filtering. */
   filters?: FilterValues;
   /** Shelf ID to filter books by shelf. */
@@ -77,6 +79,7 @@ export function BooksGrid({
   onBookClick,
   onBookEdit,
   searchQuery,
+  authorId,
   filters,
   shelfId,
   sortBy,
@@ -99,6 +102,7 @@ export function BooksGrid({
   } = useBooksViewData({
     filters,
     searchQuery,
+    authorId,
     shelfId,
     sortBy,
     sortOrder,
