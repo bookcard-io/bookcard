@@ -990,34 +990,27 @@ class AuthorService:
         update : dict[str, object]
             Update payload with fields to update.
         """
+        # Handle name field separately (only update if truthy)
         if update.get("name"):
             author.name = str(update["name"])
-        if "personal_name" in update:
-            author.personal_name = (
-                str(update["personal_name"]) if update["personal_name"] else None
-            )
-        if "fuller_name" in update:
-            author.fuller_name = (
-                str(update["fuller_name"]) if update["fuller_name"] else None
-            )
-        if "title" in update:
-            author.title = str(update["title"]) if update["title"] else None
-        if "birth_date" in update:
-            author.birth_date = (
-                str(update["birth_date"]) if update["birth_date"] else None
-            )
-        if "death_date" in update:
-            author.death_date = (
-                str(update["death_date"]) if update["death_date"] else None
-            )
-        if "entity_type" in update:
-            author.entity_type = (
-                str(update["entity_type"]) if update["entity_type"] else None
-            )
-        if "biography" in update:
-            author.biography = str(update["biography"]) if update["biography"] else None
-        if "location" in update:
-            author.location = str(update["location"]) if update["location"] else None
+
+        # Map field names to author attributes for optional string fields
+        optional_string_fields = [
+            "personal_name",
+            "fuller_name",
+            "title",
+            "birth_date",
+            "death_date",
+            "entity_type",
+            "biography",
+            "location",
+            "photo_url",
+        ]
+
+        for field_name in optional_string_fields:
+            if field_name in update:
+                value = update[field_name]
+                setattr(author, field_name, str(value) if value else None)
 
     def _update_user_metadata_fields(
         self, author_id: int, update: dict[str, object]

@@ -50,10 +50,23 @@ export function PhotoThumbnailGrid({
     }
   };
 
-  const handleDelete = (e: React.MouseEvent, url: string) => {
+  const handleDelete = (
+    e: React.MouseEvent | React.KeyboardEvent,
+    url: string,
+  ) => {
     e.stopPropagation();
     if (onDelete) {
       onDelete(url);
+    }
+  };
+
+  const handleDeleteKeyDown = (
+    e: React.KeyboardEvent<HTMLDivElement>,
+    url: string,
+  ) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleDelete(e, url);
     }
   };
 
@@ -89,9 +102,12 @@ export function PhotoThumbnailGrid({
               </div>
             )}
             {onDelete && (!canDelete || canDelete(url)) && (
-              <button
-                type="button"
+              /* biome-ignore lint/a11y/useSemanticElements: Cannot use <button> here as it would be nested inside the parent <button> element, which is invalid HTML and causes hydration errors. */
+              <div
+                role="button"
+                tabIndex={0}
                 onClick={(e) => handleDelete(e, url)}
+                onKeyDown={(e) => handleDeleteKeyDown(e, url)}
                 className={cn(
                   /* Position */
                   "absolute right-2 bottom-2 z-10",
@@ -100,7 +116,7 @@ export function PhotoThumbnailGrid({
                   /* Background */
                   "bg-surface-a20/80 backdrop-blur-sm",
                   /* Interactions */
-                  "transition-colors duration-200",
+                  "cursor-pointer transition-colors duration-200",
                   "hover:bg-surface-a30",
                   /* Focus states */
                   "focus:outline-2 focus:outline-primary-a0 focus:outline-offset-2",
@@ -113,7 +129,7 @@ export function PhotoThumbnailGrid({
                   style={{ color: "var(--color-danger-a20)" }}
                   aria-hidden="true"
                 />
-              </button>
+              </div>
             )}
           </button>
         );

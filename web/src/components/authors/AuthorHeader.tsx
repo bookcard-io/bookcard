@@ -15,6 +15,7 @@
 
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthorEditModal } from "@/components/authors/AuthorEditModal";
 import { FullscreenImageModal } from "@/components/common/FullscreenImageModal";
@@ -94,6 +95,7 @@ export function AuthorHeader({
   onBack,
   onAuthorUpdate,
 }: AuthorHeaderProps) {
+  const router = useRouter();
   const [isPhotoOpen, setIsPhotoOpen] = useState(false);
   const [showAllStyles, setShowAllStyles] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -101,6 +103,7 @@ export function AuthorHeader({
   const [showOlidInput, setShowOlidInput] = useState(false);
   const [olidInput, setOlidInput] = useState("");
   const olidInputRef = useRef<HTMLInputElement>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   // Track photo URL separately to avoid remounting on updates
   const [photoUrl, setPhotoUrl] = useState<string | null | undefined>(
     author.photo_url,
@@ -143,6 +146,72 @@ export function AuthorHeader({
     setOlidInput("");
   }, []);
 
+  /**
+   * Poll for author availability after rematch.
+   *
+   * Checks if the author with the given OpenLibrary key is available,
+   * then navigates to the new author page once found.
+   *
+   * Parameters
+   * ----------
+   * openlibraryKey : string
+   *     Normalized OpenLibrary key (e.g., "OL52940A").
+   * maxAttempts : number
+   *     Maximum number of polling attempts (default: 15).
+   * pollIntervalMs : number
+   *     Polling interval in milliseconds (default: 2000).
+   */
+  const pollForNewAuthor = useCallback(
+    async (openlibraryKey: string, maxAttempts = 15, pollIntervalMs = 2000) => {
+      // Normalize the key: remove /authors/ prefix if present
+      const normalizedKey = normalizeAuthorKey(openlibraryKey);
+      let attempts = 0;
+
+      const poll = async (): Promise<void> => {
+        attempts += 1;
+
+        try {
+          const response = await fetch(`/api/authors/${normalizedKey}`);
+          if (response.ok) {
+            // Author is available, navigate to the new page
+            router.push(`/authors/${normalizedKey}`);
+            return;
+          }
+        } catch (error) {
+          // Author not available yet, continue polling
+          console.debug(
+            `Polling for author ${normalizedKey}, attempt ${attempts}/${maxAttempts}:`,
+            error,
+          );
+        }
+
+        if (attempts < maxAttempts) {
+          pollingIntervalRef.current = setTimeout(poll, pollIntervalMs);
+        } else {
+          // Max attempts reached, navigate anyway (user can refresh if needed)
+          console.warn(
+            `Max polling attempts reached for author ${normalizedKey}, navigating anyway`,
+          );
+          router.push(`/authors/${normalizedKey}`);
+        }
+      };
+
+      // Start polling after initial delay
+      pollingIntervalRef.current = setTimeout(poll, pollIntervalMs);
+    },
+    [router],
+  );
+
+  // Cleanup polling interval on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearTimeout(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, []);
+
   const handleRematch = useCallback(
     async (olid?: string) => {
       const authorIdForRematch = buildRematchAuthorId(author);
@@ -168,11 +237,24 @@ export function AuthorHeader({
           throw new Error(errorData.detail || "Failed to rematch author");
         }
 
-        const result = (await response.json()) as { message: string };
+        const result = (await response.json()) as {
+          message: string;
+          openlibrary_key?: string;
+        };
         console.log("Author rematch job enqueued:", result.message);
-        // TODO: Show success toast/notification
-        setShowOlidInput(false);
-        setOlidInput("");
+
+        // If we have the new OpenLibrary key, poll for the author and navigate
+        if (result.openlibrary_key) {
+          // Close the input form
+          setShowOlidInput(false);
+          setOlidInput("");
+          // Start polling for the new author and navigate when available
+          await pollForNewAuthor(result.openlibrary_key);
+        } else {
+          // No key in response, just close the form
+          setShowOlidInput(false);
+          setOlidInput("");
+        }
       } catch (error) {
         console.error("Failed to rematch author:", error);
         // TODO: Show error toast/notification
@@ -180,7 +262,7 @@ export function AuthorHeader({
         setIsRematching(false);
       }
     },
-    [author, isRematching],
+    [author, isRematching, pollForNewAuthor],
   );
 
   const handleSubmitOlid = useCallback(
