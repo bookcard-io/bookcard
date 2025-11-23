@@ -445,7 +445,7 @@ export default function BookEditPage({ params }: BookEditPageProps) {
               loading={isUpdating}
               disabled={!hasChanges}
             >
-              Save Changes
+              Save changes
             </Button>
           </div>
         </div>

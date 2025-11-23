@@ -17,12 +17,11 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedClient } from "@/services/http/routeHelpers";
 
 /**
- * GET /api/authors
+ * POST /api/authors/merge
  *
- * Proxies request to list authors from the active library.
- * Supports pagination with page and page_size parameters.
+ * Proxies request to merge multiple authors into one.
  */
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     const { client, error } = getAuthenticatedClient(request);
 
@@ -30,39 +29,28 @@ export async function GET(request: NextRequest) {
       return error;
     }
 
-    const { searchParams } = request.nextUrl;
-    const page = searchParams.get("page") || "1";
-    const pageSize = searchParams.get("page_size") || "20";
-    const filter = searchParams.get("filter");
+    const body = await request.json();
 
-    const queryParams: Record<string, string> = {
-      page,
-      page_size: pageSize,
-    };
-
-    if (filter) {
-      queryParams.filter = filter;
-    }
-
-    const response = await client.request("/authors", {
-      method: "GET",
+    const response = await client.request("/authors/merge", {
+      method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      queryParams,
+      body: JSON.stringify(body),
     });
 
     const data = await response.json();
 
     if (!response.ok) {
       return NextResponse.json(
-        { detail: data.detail || "Failed to fetch authors" },
+        { detail: data.detail || "Failed to merge authors" },
         { status: response.status },
       );
     }
 
     return NextResponse.json(data);
-  } catch {
+  } catch (error) {
+    console.error("Error in merge route:", error);
     return NextResponse.json(
       { detail: "Internal server error" },
       { status: 500 },

@@ -15,8 +15,9 @@
 
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { DeleteBookConfirmationModal } from "@/components/books/DeleteBookConfirmationModal";
+import { AddToShelfModal } from "@/components/library/AddToShelfModal";
 import { BookCardCheckbox } from "@/components/library/BookCardCheckbox";
 import { BookCardCover } from "@/components/library/BookCardCover";
 import { BookCardEditButton } from "@/components/library/BookCardEditButton";
@@ -75,6 +76,7 @@ export function BookCard({
   const shelfCreation = useCreateShelfWithBook({
     bookId: book.id,
   });
+  const [showAddToShelfModal, setShowAddToShelfModal] = useState(false);
 
   /**
    * Handle book card click.
@@ -203,6 +205,7 @@ export function BookCard({
           onDelete={menuActions.handleDelete}
           onMore={menuActions.handleMore}
           isSendDisabled={menuActions.isSendDisabled}
+          onOpenAddToShelfModal={() => setShowAddToShelfModal(true)}
         />
       </button>
       <DeleteBookConfirmationModal
@@ -229,6 +232,13 @@ export function BookCard({
           shelf={null}
           onClose={shelfCreation.closeCreateModal}
           onSave={shelfCreation.handleCreateShelf}
+        />
+      )}
+      {showAddToShelfModal && (
+        <AddToShelfModal
+          bookId={book.id}
+          onClose={() => setShowAddToShelfModal(false)}
+          onSuccess={menu.handleMenuClose}
         />
       )}
     </>

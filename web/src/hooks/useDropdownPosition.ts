@@ -30,11 +30,13 @@ export interface UseDropdownPositionOptions {
   cursorPosition: { x: number; y: number } | null;
   /** Optional ref to the menu element to allow measuring height for auto-flip. */
   menuRef?: React.RefObject<HTMLElement | null>;
+  /** Whether to align left edge instead of cursor position. */
+  alignLeftEdge?: boolean;
 }
 
 export interface UseDropdownPositionResult {
-  /** Calculated position for the menu (top and right in pixels). */
-  position: { top: number; right: number };
+  /** Calculated position for the menu (top and right/left in pixels). */
+  position: { top: number; right?: number; left?: number };
 }
 
 /**
@@ -60,8 +62,13 @@ export function useDropdownPosition({
   buttonRef,
   cursorPosition,
   menuRef,
+  alignLeftEdge = false,
 }: UseDropdownPositionOptions): UseDropdownPositionResult {
-  const [position, setPosition] = useState({ top: 0, right: 0 });
+  const [position, setPosition] = useState<{
+    top: number;
+    right?: number;
+    left?: number;
+  }>({ top: 0, right: 0 });
   const cursorOffsetRef = useRef<{ x: number; y: number } | null>(null);
 
   // Use layout effect so the first measurement/position happens before paint,
@@ -95,13 +102,23 @@ export function useDropdownPosition({
           0;
         const downTop = menuY + MENU_OFFSET_Y;
         const wouldOverflow = downTop + measuredHeight > window.innerHeight;
-        const top = wouldOverflow
+        let top = wouldOverflow
           ? Math.max(0, menuY - measuredHeight - MENU_OFFSET_Y)
           : downTop;
-        setPosition({
-          top,
-          right: window.innerWidth - menuX - MENU_OFFSET_X,
-        });
+        if (alignLeftEdge) {
+          // Align left edge of dropdown with the specified x position
+          // Add 1rem (16px) vertical offset for left-edge aligned menus
+          top += 8;
+          setPosition({
+            top,
+            left: menuX,
+          });
+        } else {
+          setPosition({
+            top,
+            right: window.innerWidth - menuX - MENU_OFFSET_X,
+          });
+        }
       } else if (cursorPosition) {
         // Fallback to cursor position if button ref is not available
         const measuredHeight =
@@ -110,13 +127,23 @@ export function useDropdownPosition({
           0;
         const downTop = cursorPosition.y + MENU_OFFSET_Y;
         const wouldOverflow = downTop + measuredHeight > window.innerHeight;
-        const top = wouldOverflow
+        let top = wouldOverflow
           ? Math.max(0, cursorPosition.y - measuredHeight - MENU_OFFSET_Y)
           : downTop;
-        setPosition({
-          top,
-          right: window.innerWidth - cursorPosition.x - MENU_OFFSET_X,
-        });
+        if (alignLeftEdge) {
+          // Align left edge of dropdown with the specified x position
+          // Add 1rem (16px) vertical offset for left-edge aligned menus
+          top += 8;
+          setPosition({
+            top,
+            left: cursorPosition.x,
+          });
+        } else {
+          setPosition({
+            top,
+            right: window.innerWidth - cursorPosition.x - MENU_OFFSET_X,
+          });
+        }
       }
     };
 
@@ -128,7 +155,7 @@ export function useDropdownPosition({
       window.removeEventListener("scroll", updatePosition, true);
       window.removeEventListener("resize", updatePosition);
     };
-  }, [isOpen, buttonRef, cursorPosition, menuRef]);
+  }, [isOpen, buttonRef, cursorPosition, menuRef, alignLeftEdge]);
 
   return { position };
 }

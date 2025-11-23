@@ -16,6 +16,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { ImageWithLoading } from "@/components/common/ImageWithLoading";
 import { Button } from "@/components/forms/Button";
 import { TextInput } from "@/components/forms/TextInput";
@@ -256,7 +257,7 @@ export function AddToShelfModal({
     }
   }, [newShelfName, canCreateShelves]);
 
-  return (
+  const modalContent = (
     <>
       {/* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */}
       <div
@@ -266,7 +267,7 @@ export function AddToShelfModal({
         role="presentation"
       >
         <div
-          className="modal-container modal-container-shadow-default h-[480px] w-[528px] flex-col overflow-hidden"
+          className="modal-container modal-container-shadow-default mx-auto my-auto max-h-[90vh] w-full max-w-lg flex-col overflow-hidden"
           role="dialog"
           aria-modal="true"
           aria-label="Add to shelf"
@@ -398,4 +399,7 @@ export function AddToShelfModal({
       )}
     </>
   );
+
+  // Render modal in a portal to ensure consistent positioning
+  return createPortal(modalContent, document.body);
 }

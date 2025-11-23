@@ -19,6 +19,8 @@ import { useAuthors } from "./useAuthors";
 export interface UseAuthorsViewDataOptions {
   /** Number of items per page. */
   pageSize?: number;
+  /** Filter type: "all" shows all authors, "unmatched" shows only unmatched authors. */
+  filterType?: "all" | "unmatched";
 }
 
 export interface UseAuthorsViewDataResult {
@@ -57,12 +59,13 @@ export interface UseAuthorsViewDataResult {
 export function useAuthorsViewData(
   options: UseAuthorsViewDataOptions = {},
 ): UseAuthorsViewDataResult {
-  const { pageSize = 20 } = options;
+  const { pageSize = 20, filterType = "all" } = options;
 
-  // Fetch authors using centralized hook (SOC: data fetching separated)
+  // Fetch authors using centralized hook with server-side filtering (SOC: data fetching separated)
   const { authors, isLoading, error, total, loadMore, hasMore } = useAuthors({
     infiniteScroll: true,
     pageSize,
+    filter: filterType === "unmatched" ? "unmatched" : undefined,
   });
 
   return {

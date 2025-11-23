@@ -111,3 +111,30 @@ class PhotoUploadResponse(BaseModel):
     photo_id: int
     photo_url: str
     file_path: str
+
+
+class AuthorMergeRecommendRequest(BaseModel):
+    """Request model for author merge recommendation.
+
+    Attributes
+    ----------
+    author_ids : list[str]
+        List of author IDs to merge (author_metadata IDs or OpenLibrary keys).
+    """
+
+    author_ids: list[str] = Field(..., min_length=2, description="Author IDs to merge")
+
+
+class AuthorMergeRequest(BaseModel):
+    """Request model for author merge operation.
+
+    Attributes
+    ----------
+    author_ids : list[str]
+        List of author IDs to merge (author_metadata IDs or OpenLibrary keys).
+    keep_author_id : str
+        Author ID to keep (others will be merged into this one).
+    """
+
+    author_ids: list[str] = Field(..., min_length=2, description="Author IDs to merge")
+    keep_author_id: str = Field(..., description="Author ID to keep")

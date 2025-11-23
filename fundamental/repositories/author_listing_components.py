@@ -218,6 +218,61 @@ class UnmatchedAuthorFetcher:
             return []
 
 
+class MappedAuthorWithoutKeyFetcher:
+    """Fetches mapped authors with null openlibrary_key.
+
+    Follows SRP by focusing solely on retrieving mapped authors without OpenLibrary keys.
+    """
+
+    def __init__(self, session: Session) -> None:
+        """Initialize mapped author without key fetcher.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        """
+        self._session = session
+
+    def fetch_mapped_without_key(self, library_id: int) -> list[AuthorMetadata]:
+        """Fetch mapped authors with null openlibrary_key for a library.
+
+        Parameters
+        ----------
+        library_id : int
+            Library identifier.
+
+        Returns
+        -------
+        list[AuthorMetadata]
+            List of mapped authors with null openlibrary_key.
+        """
+        try:
+            stmt = (
+                select(AuthorMetadata)
+                .join(
+                    AuthorMapping, AuthorMetadata.id == AuthorMapping.author_metadata_id
+                )
+                .where(
+                    AuthorMapping.library_id == library_id,
+                    AuthorMetadata.openlibrary_key.is_(None),  # type: ignore[attr-defined]
+                )
+                .options(
+                    selectinload(AuthorMetadata.remote_ids),
+                    selectinload(AuthorMetadata.photos),
+                    selectinload(AuthorMetadata.alternate_names),
+                    selectinload(AuthorMetadata.links),
+                    selectinload(AuthorMetadata.works).selectinload(
+                        AuthorWork.subjects
+                    ),
+                )
+            )
+            return list(self._session.exec(stmt).all())
+        except Exception:
+            logger.exception("Error fetching mapped authors without openlibrary_key")
+            raise
+
+
 class AuthorResultCombiner:
     """Combines and paginates author results.
 

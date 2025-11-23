@@ -58,17 +58,28 @@ export function PhotoTab({ author, form, onFieldChange }: PhotoTabProps) {
       .filter((url): url is string => Boolean(url))
       .filter((url) => !deletedPhotos.has(url)); // Exclude deleted photos
 
-    const currentPhoto = form.photo_url || author.photo_url || null;
-    // Don't include current photo if it's been deleted
-    const validCurrentPhoto =
-      currentPhoto && !deletedPhotos.has(currentPhoto) ? currentPhoto : null;
+    // Include both the original author.photo_url (from author_metadata) and form.photo_url
+    // They may be different, and both should be available as options
+    const originalPhotoUrl =
+      author.photo_url && !deletedPhotos.has(author.photo_url)
+        ? author.photo_url
+        : null;
+    const formPhotoUrl =
+      form.photo_url && !deletedPhotos.has(form.photo_url)
+        ? form.photo_url
+        : null;
 
     const allUrlsSet = new Set<string>();
     userPhotoUrls.forEach((url) => {
       allUrlsSet.add(url);
     });
-    if (validCurrentPhoto) {
-      allUrlsSet.add(validCurrentPhoto);
+    // Add original photo URL from author_metadata if it exists and is valid
+    if (originalPhotoUrl) {
+      allUrlsSet.add(originalPhotoUrl);
+    }
+    // Add form photo URL if it exists and is different from original
+    if (formPhotoUrl) {
+      allUrlsSet.add(formPhotoUrl);
     }
 
     if (allUrlsSet.size === 0) {
@@ -80,9 +91,14 @@ export function PhotoTab({ author, form, onFieldChange }: PhotoTabProps) {
     const allUrls = Array.from(allUrlsSet);
     setThumbnails(allUrls);
 
-    // Prefer current form value, then primary user photo, then first available
-    if (validCurrentPhoto) {
-      setSelectedThumbnail(validCurrentPhoto);
+    // Prefer current form value, then original author photo, then primary user photo, then first available
+    if (formPhotoUrl) {
+      setSelectedThumbnail(formPhotoUrl);
+      return;
+    }
+
+    if (originalPhotoUrl) {
+      setSelectedThumbnail(originalPhotoUrl);
       return;
     }
 

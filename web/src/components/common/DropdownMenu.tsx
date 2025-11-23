@@ -36,6 +36,8 @@ export interface DropdownMenuProps {
   ariaLabel: string;
   /** Optional minimum width for the menu. */
   minWidth?: number;
+  /** Whether to align left edge instead of cursor position. */
+  alignLeftEdge?: boolean;
 }
 
 /**
@@ -59,6 +61,7 @@ export function DropdownMenu({
   children,
   ariaLabel,
   minWidth = 180,
+  alignLeftEdge = false,
 }: DropdownMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
@@ -68,6 +71,7 @@ export function DropdownMenu({
     buttonRef,
     cursorPosition,
     menuRef,
+    alignLeftEdge,
   });
 
   useDropdownClickOutside({
@@ -96,7 +100,9 @@ export function DropdownMenu({
       )}
       style={{
         top: `${position.top}px`,
-        right: `${position.right}px`,
+        ...(position.left !== undefined
+          ? { left: `${position.left}px` }
+          : { right: `${position.right}px` }),
         minWidth: `${minWidth}px`,
       }}
       role="menu"

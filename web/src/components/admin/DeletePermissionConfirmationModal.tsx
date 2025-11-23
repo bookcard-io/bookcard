@@ -118,7 +118,7 @@ export function DeletePermissionConfirmationModal({
               onClick={onConfirm}
               loading={isDeleting}
             >
-              Delete Permission
+              Delete permission
             </Button>
           </div>
         </div>

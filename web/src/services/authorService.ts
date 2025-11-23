@@ -63,6 +63,8 @@ export async function fetchAuthor(
  *     Page number (1-indexed, default: 1).
  * pageSize : number
  *     Number of items per page (default: 20).
+ * filter : "all" | "unmatched" | undefined
+ *     Filter type: "unmatched" to show only unmatched authors, "all" or undefined for all authors.
  *
  * Returns
  * -------
@@ -77,14 +79,20 @@ export async function fetchAuthor(
 export async function fetchAuthorsPage({
   page,
   pageSize,
+  filter,
 }: {
   page: number;
   pageSize: number;
+  filter?: "all" | "unmatched";
 }): Promise<AuthorListResponse> {
   const queryParams = new URLSearchParams({
     page: page.toString(),
     page_size: pageSize.toString(),
   });
+
+  if (filter === "unmatched") {
+    queryParams.set("filter", "unmatched");
+  }
 
   const response = await fetch(`/api/authors?${queryParams.toString()}`, {
     cache: "no-store",
@@ -305,4 +313,132 @@ export async function deleteAuthorPhoto(
     const errorData = (await response.json()) as { detail?: string };
     throw new Error(errorData.detail || "Failed to delete photo");
   }
+}
+
+/**
+ * Recommend which author to keep when merging.
+ *
+ * Parameters
+ * ----------
+ * authorIds : string[]
+ *     List of author IDs to merge.
+ *
+ * Returns
+ * -------
+ * Promise<{ recommended_keep_id: string | null; authors: AuthorDetail[] }>
+ *     Recommendation with author details.
+ *
+ * Throws
+ * ------
+ * Error
+ *     If the request fails.
+ */
+export async function recommendMergeAuthor(authorIds: string[]): Promise<{
+  recommended_keep_id: string | null;
+  authors: Array<{
+    id: string | null;
+    key: string | null;
+    name: string;
+    book_count: number;
+    is_verified: boolean;
+    metadata_score: number;
+    photo_url: string | null;
+    relationship_counts?: {
+      alternate_names: number;
+      remote_ids: number;
+      photos: number;
+      links: number;
+      works: number;
+      work_subjects: number;
+      similarities: number;
+      user_metadata: number;
+      user_photos: number;
+    };
+  }>;
+}> {
+  const response = await fetch("/api/authors/merge/recommend", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ author_ids: authorIds }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json()) as { detail?: string };
+    throw new Error(errorData.detail || "Failed to get merge recommendation");
+  }
+
+  return (await response.json()) as {
+    recommended_keep_id: string | null;
+    authors: Array<{
+      id: string | null;
+      key: string | null;
+      name: string;
+      book_count: number;
+      is_verified: boolean;
+      metadata_score: number;
+      photo_url: string | null;
+      relationship_counts?: {
+        alternate_names: number;
+        remote_ids: number;
+        photos: number;
+        links: number;
+        works: number;
+        work_subjects: number;
+        similarities: number;
+        user_metadata: number;
+        user_photos: number;
+      };
+    }>;
+  };
+}
+
+/**
+ * Merge multiple authors into one.
+ *
+ * Parameters
+ * ----------
+ * authorIds : string[]
+ *     List of author IDs to merge.
+ * keepAuthorId : string
+ *     Author ID to keep (others will be merged into this one).
+ *
+ * Returns
+ * -------
+ * Promise<{ id: string | null; key: string | null; name: string }>
+ *     Merged author details.
+ *
+ * Throws
+ * ------
+ * Error
+ *     If the merge fails.
+ */
+export async function mergeAuthors(
+  authorIds: string[],
+  keepAuthorId: string,
+): Promise<{ id: string | null; key: string | null; name: string }> {
+  const response = await fetch("/api/authors/merge", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      author_ids: authorIds,
+      keep_author_id: keepAuthorId,
+    }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json()) as { detail?: string };
+    throw new Error(errorData.detail || "Failed to merge authors");
+  }
+
+  return (await response.json()) as {
+    id: string | null;
+    key: string | null;
+    name: string;
+  };
 }

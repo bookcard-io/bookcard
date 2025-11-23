@@ -33,7 +33,10 @@ from fundamental.models.author_metadata import (
 )
 from fundamental.repositories.author_listing_components import (
     AuthorHydrator,
+    MappedAuthorWithoutKeyFetcher,
+    MappedIdsFetcher,
     MatchedAuthorQueryBuilder,
+    UnmatchedAuthorFetcher,
 )
 from fundamental.repositories.base import Repository
 
@@ -97,6 +100,88 @@ class AuthorRepository(Repository[AuthorMetadata]):
         final_results = self._hydrate_results(paginated_results, hydrator)
 
         return final_results, total
+
+    def list_unmatched_by_library(
+        self,
+        library_id: int,
+        page: int = 1,
+        page_size: int = 20,
+        calibre_db_path: str | None = None,
+        calibre_db_file: str = "metadata.db",
+    ) -> tuple[list[AuthorMetadata], int]:
+        """List unmatched authors for a specific library with pagination.
+
+        Unmatched authors include:
+        1. Calibre authors that are NOT mapped in author_mappings
+        2. Authors that ARE mapped in author_mappings but have null openlibrary_key
+
+        Parameters
+        ----------
+        library_id : int
+            Library identifier.
+        page : int
+            Page number (1-indexed, default: 1).
+        page_size : int
+            Number of items per page (default: 20).
+        calibre_db_path : str | None
+            Path to Calibre database directory.
+        calibre_db_file : str
+            Calibre database filename (default: "metadata.db").
+
+        Returns
+        -------
+        tuple[list[AuthorMetadata], int]
+            Unmatched authors (ordered by name) and total count.
+        """
+        # Fetch mapped authors with null openlibrary_key
+        mapped_without_key_fetcher = MappedAuthorWithoutKeyFetcher(self._session)
+        mapped_without_key = mapped_without_key_fetcher.fetch_mapped_without_key(
+            library_id
+        )
+
+        # Prepare list of all unmatched authors (both types)
+        all_unmatched_metadata: list[AuthorMetadata] = list(mapped_without_key)
+
+        # Fetch unmatched Calibre authors if calibre_db_path is provided
+        if calibre_db_path:
+            # Get mapped Calibre author IDs for this library
+            mapped_ids_fetcher = MappedIdsFetcher(self._session)
+            mapped_ids = mapped_ids_fetcher.get_mapped_ids(library_id)
+
+            # Fetch all unmatched authors from Calibre
+            unmatched_fetcher = UnmatchedAuthorFetcher(self._session)
+            unmatched_calibre_authors = unmatched_fetcher.fetch_unmatched(
+                mapped_ids, calibre_db_path, calibre_db_file
+            )
+
+            # Create transient AuthorMetadata objects for unmatched Calibre authors
+            if unmatched_calibre_authors:
+                hydrator = AuthorHydrator(self._session)
+                unmatched_ids = [
+                    author.id
+                    for author in unmatched_calibre_authors
+                    if author.id is not None
+                ]
+                unmatched_metadata = hydrator.create_unmatched_metadata(
+                    unmatched_ids, calibre_db_path, calibre_db_file
+                )
+                # Add transient objects to the list
+                all_unmatched_metadata.extend(
+                    unmatched_metadata[author.id]
+                    for author in unmatched_calibre_authors
+                    if author.id is not None and author.id in unmatched_metadata
+                )
+
+        # Sort by name for consistent pagination
+        all_unmatched_metadata.sort(key=lambda a: a.name if a.name else "")
+
+        # Calculate pagination
+        total = len(all_unmatched_metadata)
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        paginated_results = all_unmatched_metadata[start_idx:end_idx]
+
+        return paginated_results, total
 
     def _count_matched(
         self, query_builder: MatchedAuthorQueryBuilder, library_id: int

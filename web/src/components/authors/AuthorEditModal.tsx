@@ -209,7 +209,7 @@ export function AuthorEditModal({
               loading={isUpdating}
               disabled={!hasChanges}
             >
-              Save Changes
+              Save changes
             </Button>
           </div>
         </div>

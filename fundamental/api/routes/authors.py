@@ -22,12 +22,23 @@ Business logic is delegated to services following SOLID principles.
 import logging
 from typing import TYPE_CHECKING, Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse, Response
 from sqlmodel import Session
 
 from fundamental.api.deps import get_current_user, get_db_session
 from fundamental.api.schemas.author import (
+    AuthorMergeRecommendRequest,
+    AuthorMergeRequest,
     AuthorUpdate,
     PhotoFromUrlRequest,
     PhotoUploadResponse,
@@ -36,6 +47,7 @@ from fundamental.models.auth import User
 from fundamental.repositories.author_repository import AuthorRepository
 from fundamental.repositories.config_repository import LibraryRepository
 from fundamental.services.author_exception_mapper import AuthorExceptionMapper
+from fundamental.services.author_merge_service import AuthorMergeService
 from fundamental.services.author_permission_helper import AuthorPermissionHelper
 from fundamental.services.author_rematch_service import AuthorRematchService
 from fundamental.services.author_service import AuthorService
@@ -145,6 +157,40 @@ PermissionHelperDep = Annotated[
 ]
 
 
+def _get_merge_service(
+    session: SessionDep,
+    request: Request,
+) -> AuthorMergeService:
+    """Get author merge service instance.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session.
+    request : Request
+        FastAPI request object for accessing app state.
+
+    Returns
+    -------
+    AuthorMergeService
+        Author merge service instance.
+    """
+    author_repo = AuthorRepository(session)
+    library_repo = LibraryRepository(session)
+    library_service = LibraryService(session, library_repo)
+    cfg = request.app.state.config
+    return AuthorMergeService(
+        session,
+        author_repo,
+        library_service,
+        library_repo,
+        data_directory=cfg.data_directory,
+    )
+
+
+MergeServiceDep = Annotated[AuthorMergeService, Depends(_get_merge_service)]
+
+
 async def _parse_rematch_request(request: Request) -> dict[str, object] | None:
     """Parse optional rematch request body.
 
@@ -210,6 +256,7 @@ def list_authors(
     author_service: AuthorServiceDep,
     page: int = 1,
     page_size: int = 20,
+    filter_type: str | None = Query(None, alias="filter"),
 ) -> dict[str, object]:
     """List authors with metadata for the active library with pagination.
 
@@ -224,6 +271,8 @@ def list_authors(
         Page number (1-indexed, default: 1).
     page_size : int
         Number of items per page (default: 20, max: 100).
+    filter_type : str | None
+        Filter type: "unmatched" to show only unmatched authors, None for all authors.
 
     Returns
     -------
@@ -246,6 +295,7 @@ def list_authors(
         items, total = author_service.list_authors_for_active_library(
             page=page,
             page_size=page_size,
+            filter_type=filter_type,
         )
         total_pages = (total + page_size - 1) // page_size if total > 0 else 0
     except ValueError as exc:
@@ -427,6 +477,111 @@ async def rematch_author(
             "openlibrary_key": openlibrary_key,
             "library_id": library_id,
         }
+    except ValueError as exc:
+        raise AuthorExceptionMapper.map_value_error_to_http_exception(exc) from exc
+
+
+@router.post(
+    "/merge/recommend",
+    response_model=dict[str, object],
+    dependencies=[Depends(get_current_user)],
+)
+def recommend_merge_author(
+    request_body: AuthorMergeRecommendRequest,
+    current_user: CurrentUserDep,
+    author_service: AuthorServiceDep,
+    merge_service: MergeServiceDep,
+    permission_helper: PermissionHelperDep,
+) -> dict[str, object]:
+    """Recommend which author to keep when merging.
+
+    Parameters
+    ----------
+    request_body : AuthorMergeRecommendRequest
+        Request with list of author IDs to merge.
+    current_user : CurrentUserDep
+        Current authenticated user.
+    author_service : AuthorServiceDep
+        Author service instance.
+    merge_service : MergeServiceDep
+        Author merge service instance.
+    permission_helper : PermissionHelperDep
+        Permission helper instance.
+
+    Returns
+    -------
+    dict[str, object]
+        Dictionary with recommended keep author ID and author details.
+
+    Raises
+    ------
+    HTTPException
+        If validation fails, authors not found, or permission denied.
+    """
+    # Check write permission for all authors being merged
+    for author_id in request_body.author_ids:
+        try:
+            author_data = _get_author_or_raise(author_id, author_service)
+            permission_helper.check_write_permission(current_user, author_data)
+        except ValueError as exc:
+            raise AuthorExceptionMapper.map_value_error_to_http_exception(exc) from exc
+
+    try:
+        return merge_service.recommend_keep_author(request_body.author_ids)
+    except ValueError as exc:
+        raise AuthorExceptionMapper.map_value_error_to_http_exception(exc) from exc
+
+
+@router.post(
+    "/merge",
+    response_model=dict[str, object],
+    dependencies=[Depends(get_current_user)],
+)
+def merge_authors(
+    request_body: AuthorMergeRequest,
+    current_user: CurrentUserDep,
+    author_service: AuthorServiceDep,
+    merge_service: MergeServiceDep,
+    permission_helper: PermissionHelperDep,
+) -> dict[str, object]:
+    """Merge multiple authors into one.
+
+    Parameters
+    ----------
+    request_body : AuthorMergeRequest
+        Request with list of author IDs and keep author ID.
+    current_user : CurrentUserDep
+        Current authenticated user.
+    author_service : AuthorServiceDep
+        Author service instance.
+    merge_service : MergeServiceDep
+        Author merge service instance.
+    permission_helper : PermissionHelperDep
+        Permission helper instance.
+
+    Returns
+    -------
+    dict[str, object]
+        Dictionary with merged author details.
+
+    Raises
+    ------
+    HTTPException
+        If validation fails, authors not found, merge fails, or permission denied.
+    """
+    # Check write permission for all authors being merged
+    for author_id in request_body.author_ids:
+        try:
+            author_data = _get_author_or_raise(author_id, author_service)
+            permission_helper.check_write_permission(current_user, author_data)
+        except ValueError as exc:
+            raise AuthorExceptionMapper.map_value_error_to_http_exception(exc) from exc
+
+    try:
+        return merge_service.merge_authors(
+            request_body.author_ids,
+            request_body.keep_author_id,
+        )
     except ValueError as exc:
         raise AuthorExceptionMapper.map_value_error_to_http_exception(exc) from exc
 

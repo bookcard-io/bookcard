@@ -110,6 +110,7 @@ class AuthorService:
         self,
         page: int = 1,
         page_size: int = 20,
+        filter_type: str | None = None,
     ) -> tuple[list[dict[str, object]], int]:
         """List authors for the active library with pagination.
 
@@ -119,6 +120,8 @@ class AuthorService:
             Page number (1-indexed, default: 1).
         page_size : int
             Number of items per page (default: 20).
+        filter_type : str | None
+            Filter type: "unmatched" to show only unmatched authors, None for all authors.
 
         Returns
         -------
@@ -135,13 +138,22 @@ class AuthorService:
             msg = "No active library found"
             raise ValueError(msg)
 
-        authors, total = self._author_repo.list_by_library(
-            active_library.id,
-            calibre_db_path=active_library.calibre_db_path,
-            calibre_db_file=active_library.calibre_db_file,
-            page=page,
-            page_size=page_size,
-        )
+        if filter_type == "unmatched":
+            authors, total = self._author_repo.list_unmatched_by_library(
+                active_library.id,
+                calibre_db_path=active_library.calibre_db_path,
+                calibre_db_file=active_library.calibre_db_file,
+                page=page,
+                page_size=page_size,
+            )
+        else:
+            authors, total = self._author_repo.list_by_library(
+                active_library.id,
+                calibre_db_path=active_library.calibre_db_path,
+                calibre_db_file=active_library.calibre_db_file,
+                page=page,
+                page_size=page_size,
+            )
         return [self._build_author_dict(author) for author in authors], total
 
     def get_author_by_id_or_key(

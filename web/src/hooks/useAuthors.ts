@@ -28,6 +28,8 @@ export interface UseAuthorsOptions {
   infiniteScroll?: boolean;
   /** Number of items per page. */
   pageSize?: number;
+  /** Filter type: "unmatched" to show only unmatched authors, "all" or undefined for all authors. */
+  filter?: "all" | "unmatched";
 }
 
 export interface UseAuthorsResult {
@@ -62,19 +64,24 @@ export interface UseAuthorsResult {
  *     Authors data, loading state, and control functions.
  */
 export function useAuthors(options: UseAuthorsOptions = {}): UseAuthorsResult {
-  const { enabled = true, infiniteScroll = false, pageSize = 20 } = options;
+  const {
+    enabled = true,
+    infiniteScroll = false,
+    pageSize = 20,
+    filter,
+  } = options;
 
   const { activeLibrary, isLoading: isActiveLibraryLoading } =
     useActiveLibrary();
 
   const listQueryKey = useMemo(
-    () => ["authors", { pageSize }] as const,
-    [pageSize],
+    () => ["authors", { pageSize, filter }] as const,
+    [pageSize, filter],
   );
 
   const infiniteQueryKey = useMemo(
-    () => ["authors-infinite", { pageSize }] as const,
-    [pageSize],
+    () => ["authors-infinite", { pageSize, filter }] as const,
+    [pageSize, filter],
   );
 
   // Only enable queries if there's an active library and not still loading
@@ -87,6 +94,7 @@ export function useAuthors(options: UseAuthorsOptions = {}): UseAuthorsResult {
       fetchAuthorsPage({
         page: 1,
         pageSize,
+        filter,
       }),
     enabled: queryEnabled && !infiniteScroll,
     staleTime: 60_000,
@@ -98,6 +106,7 @@ export function useAuthors(options: UseAuthorsOptions = {}): UseAuthorsResult {
       fetchAuthorsPage({
         page: (pageParam as number | undefined) ?? 1,
         pageSize,
+        filter,
       }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {

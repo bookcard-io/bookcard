@@ -490,7 +490,7 @@ export function PermissionEditModal({
                   disabled={isSubmitting || isDeleting}
                   loading={isDeleting}
                 >
-                  Delete Permission
+                  Delete permission
                 </Button>
               )}
               <Button

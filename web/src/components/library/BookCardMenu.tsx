@@ -15,10 +15,9 @@
 
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { DropdownMenu } from "@/components/common/DropdownMenu";
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
-import { AddToShelfModal } from "@/components/library/AddToShelfModal";
 import { useUser } from "@/contexts/UserContext";
 import { useExclusiveFlyoutMenus } from "@/hooks/useExclusiveFlyoutMenus";
 import { useFlyoutMenu } from "@/hooks/useFlyoutMenu";
@@ -54,6 +53,8 @@ export interface BookCardMenuProps {
   onDelete?: () => void;
   /** Callback when More is clicked. */
   onMore?: () => void;
+  /** Callback when Add to shelf modal should be opened. */
+  onOpenAddToShelfModal?: () => void;
 }
 
 /**
@@ -76,6 +77,7 @@ export function BookCardMenu({
   onDelete,
   onMore,
   isSendDisabled = false,
+  onOpenAddToShelfModal,
 }: BookCardMenuProps) {
   const { user, canPerformAction } = useUser();
   const bookContext = buildBookPermissionContext(book);
@@ -86,7 +88,6 @@ export function BookCardMenu({
 
   const flyoutMenu = useFlyoutMenu({ parentMenuOpen: isOpen });
   const sendFlyoutMenu = useFlyoutMenu({ parentMenuOpen: isOpen });
-  const [showAddToShelfModal, setShowAddToShelfModal] = useState(false);
 
   // Ensure only one flyout menu is open at a time
   const { handleFirstMouseEnter, handleSecondMouseEnter } =
@@ -193,7 +194,7 @@ export function BookCardMenu({
         parentItemRef={flyoutMenu.parentItemRef}
         bookId={book.id}
         onOpenModal={() => {
-          setShowAddToShelfModal(true);
+          onOpenAddToShelfModal?.();
           flyoutMenu.handleFlyoutClose();
           onClose();
         }}
@@ -210,13 +211,6 @@ export function BookCardMenu({
         onSuccess={onClose}
         onCloseParent={onClose}
       />
-      {showAddToShelfModal && (
-        <AddToShelfModal
-          bookId={book.id}
-          onClose={() => setShowAddToShelfModal(false)}
-          onSuccess={onClose}
-        />
-      )}
     </>
   );
 }

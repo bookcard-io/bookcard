@@ -29,7 +29,11 @@ interface GeneralTabProps {
  *
  * Follows SRP by handling only general form fields.
  */
-export function GeneralTab({ author, form, onFieldChange }: GeneralTabProps) {
+export function GeneralTab({
+  author: _author,
+  form,
+  onFieldChange,
+}: GeneralTabProps) {
   const inputBaseClasses =
     "w-full min-h-[38px] rounded-md border border-surface-a20 bg-surface-a20 px-[10px] py-1.5 text-sm text-text-a0 transition-colors focus:outline-none focus:border-primary-a0 focus:bg-surface-a10 disabled:cursor-not-allowed disabled:opacity-50";
   const textareaBaseClasses =
@@ -40,18 +44,12 @@ export function GeneralTab({ author, form, onFieldChange }: GeneralTabProps) {
     <div className="flex h-full w-full flex-col">
       <div className="flex flex-col gap-4">
         <label className="flex flex-col gap-2">
-          <div className={`${labelDivClasses} flex items-center gap-2`}>
-            <i
-              className="pi pi-lock text-sm text-text-a30"
-              aria-hidden="true"
-            />
-            <div>Author</div>
-          </div>
+          <div className={labelDivClasses}>Author</div>
           <input
             className={inputBaseClasses}
-            value={author.name}
-            disabled
-            readOnly
+            value={form.name || ""}
+            onChange={(e) => onFieldChange("name", e.target.value || undefined)}
+            placeholder="Author name"
           />
         </label>
         <label className="flex flex-col gap-2">

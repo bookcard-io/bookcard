@@ -14,6 +14,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useUser } from "@/contexts/UserContext";
 import { useAuthor } from "@/hooks/useAuthor";
 import { updateAuthor } from "@/services/authorService";
 import type { AuthorUpdate, AuthorWithMetadata } from "@/types/author";
@@ -85,6 +86,11 @@ export function useAuthorEditForm({
     authorId,
     enabled: authorId !== null,
   });
+
+  const { getSetting } = useUser();
+
+  // Use ref to store close handler so it can be accessed in handleSubmit
+  const handleCloseRef = useRef<(() => void) | null>(null);
 
   const [formData, setFormData] = useState<AuthorUpdate>({});
   const [hasChanges, setHasChanges] = useState(false);
@@ -171,6 +177,14 @@ export function useAuthorEditForm({
 
         // Call callback with updated author
         onAuthorSaved?.(updatedAuthor);
+
+        // Check if auto-dismiss is enabled
+        // Use the same setting as book edit modal for consistency
+        const autoDismiss = getSetting("auto_dismiss_book_edit_modal");
+        if (autoDismiss !== "false") {
+          // Default to true if setting is not set
+          handleCloseRef.current?.();
+        }
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to update author";
@@ -179,7 +193,7 @@ export function useAuthorEditForm({
         setIsUpdating(false);
       }
     },
-    [author, formData, hasChanges, isUpdating, onAuthorSaved],
+    [author, formData, hasChanges, isUpdating, onAuthorSaved, getSetting],
   );
 
   /**
@@ -193,6 +207,11 @@ export function useAuthorEditForm({
     setStagedPhotoUrl(null);
     onClose();
   }, [onClose]);
+
+  // Store close handler in ref so it can be accessed in handleSubmit
+  useEffect(() => {
+    handleCloseRef.current = handleClose;
+  }, [handleClose]);
 
   /**
    * Handles photo save completion.
