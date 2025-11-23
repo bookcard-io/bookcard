@@ -13,10 +13,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Repository for querying Calibre SQLite database.
+"""Refactored repository for querying Calibre SQLite database.
 
-This repository connects directly to Calibre's metadata.db SQLite database
-to query book information using SQLAlchemy ORM.
+This repository has been refactored to follow SOLID principles:
+- Single Responsibility: Delegates to specialized services
+- Open/Closed: Extensible through dependency injection
+- Liskov Substitution: Implements IBookRepository interface
+- Interface Segregation: Uses focused interfaces
+- Dependency Inversion: Depends on abstractions, not concretions
 """
 
 from __future__ import annotations
@@ -28,9 +32,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from sqlalchemy import event, func
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+from sqlalchemy import func
 from sqlalchemy.orm import aliased
-from sqlmodel import Session, create_engine, select
+from sqlmodel import Session, select
 
 from fundamental.models.core import (
     Author,
@@ -50,6 +57,9 @@ from fundamental.models.core import (
     Tag,
 )
 from fundamental.models.media import Data
+from fundamental.repositories.book_metadata_service import BookMetadataService
+from fundamental.repositories.book_relationship_manager import BookRelationshipManager
+from fundamental.repositories.book_search_service import BookSearchService
 from fundamental.repositories.command_executor import CommandExecutor
 from fundamental.repositories.delete_commands import (
     DeleteBookAuthorLinksCommand,
@@ -66,27 +76,37 @@ from fundamental.repositories.delete_commands import (
     DeleteFileCommand,
     DeleteIdentifiersCommand,
 )
+from fundamental.repositories.file_manager import CalibreFileManager
 from fundamental.repositories.filters import FilterBuilder
+from fundamental.repositories.interfaces import (
+    IBookMetadataService,
+    IBookRelationshipManager,
+    IBookRepository,
+    IBookSearchService,
+    IFileManager,
+    ILibraryStatisticsService,
+    ISessionManager,
+)
+from fundamental.repositories.library_statistics_service import (
+    LibraryStatisticsService,
+)
 from fundamental.repositories.models import BookWithFullRelations, BookWithRelations
+from fundamental.repositories.session_manager import CalibreSessionManager
 from fundamental.repositories.suggestions import FilterSuggestionFactory
-from fundamental.services.book_cover_extractor import BookCoverExtractor
-from fundamental.services.book_metadata_extractor import BookMetadataExtractor
 
 if TYPE_CHECKING:
-    import sqlite3
-    from collections.abc import Callable, Iterator
-
-    from sqlalchemy import Engine
     from sqlalchemy.sql import Select, Subquery
 
     from fundamental.services.book_metadata import BookMetadata
 
-
 logger = logging.getLogger(__name__)
 
 
-class CalibreBookRepository:
+class CalibreBookRepository(IBookRepository):
     """Repository for querying books from Calibre SQLite database.
+
+    Refactored to follow SOLID principles by delegating to specialized services.
+    Uses dependency injection for all dependencies.
 
     Parameters
     ----------
@@ -94,33 +114,63 @@ class CalibreBookRepository:
         Path to Calibre library directory (contains metadata.db).
     calibre_db_file : str
         Calibre database filename (default: 'metadata.db').
+    session_manager : ISessionManager | None
+        Optional session manager (creates default if None).
+    file_manager : IFileManager | None
+        Optional file manager (creates default if None).
+    relationship_manager : IBookRelationshipManager | None
+        Optional relationship manager (creates default if None).
+    metadata_service : IBookMetadataService | None
+        Optional metadata service (creates default if None).
+    search_service : IBookSearchService | None
+        Optional search service (creates default if None).
+    statistics_service : ILibraryStatisticsService | None
+        Optional statistics service (creates default if None).
     """
 
     def __init__(
         self,
         calibre_db_path: str,
         calibre_db_file: str = "metadata.db",
+        session_manager: ISessionManager | None = None,
+        file_manager: IFileManager | None = None,
+        relationship_manager: IBookRelationshipManager | None = None,
+        metadata_service: IBookMetadataService | None = None,
+        search_service: IBookSearchService | None = None,
+        statistics_service: ILibraryStatisticsService | None = None,
     ) -> None:
         self._calibre_db_path = Path(calibre_db_path)
         self._calibre_db_file = calibre_db_file
-        self._db_path = self._calibre_db_path / self._calibre_db_file
-        self._engine: Engine | None = None
 
-    def _unwrap_book_from_result(self, result: object) -> Book | None:
-        """Extract Book instance from query result using strategy pattern.
+        # Dependency injection - use provided services or create defaults
+        self._session_manager = session_manager or CalibreSessionManager(
+            calibre_db_path, calibre_db_file
+        )
+        self._file_manager = file_manager or CalibreFileManager()
+        self._relationship_manager = relationship_manager or BookRelationshipManager()
+        self._metadata_service = metadata_service or BookMetadataService()
+        self._search_service = search_service or BookSearchService()
+        self._statistics_service = statistics_service or LibraryStatisticsService()
 
-        Tries multiple extraction strategies in order until one succeeds.
+    def dispose(self) -> None:
+        """Dispose of the database engine and close all connections."""
+        self._session_manager.dispose()
 
-        Parameters
-        ----------
-        result : object
-            Query result which may be a Row, tuple, Book instance, or other.
+    @contextmanager
+    def get_session(self) -> Generator[Session, None, None]:
+        """Get a SQLModel session for the Calibre database.
 
-        Returns
-        -------
-        Book | None
-            Extracted Book instance or None if extraction fails.
+        Yields
+        ------
+        Session
+            SQLModel session.
         """
+        with self._session_manager.get_session() as session:
+            yield session
+
+    # Result unwrapping helpers (kept here as they're query-specific)
+    def _unwrap_book_from_result(self, result: object) -> Book | None:
+        """Extract Book instance from query result using strategy pattern."""
         strategies = [
             self._extract_book_from_book_instance,
             self._extract_book_from_indexable_container,
@@ -167,18 +217,7 @@ class CalibreBookRepository:
         return None
 
     def _unwrap_series_name_from_result(self, result: object) -> str | None:
-        """Extract series name from query result using strategy pattern.
-
-        Parameters
-        ----------
-        result : object
-            Query result which may be a Row, tuple, or other.
-
-        Returns
-        -------
-        str | None
-            Extracted series name or None if extraction fails.
-        """
+        """Extract series name from query result using strategy pattern."""
         strategies = [
             self._extract_series_name_from_indexable_container,
             self._extract_series_name_from_attr,
@@ -225,156 +264,339 @@ class CalibreBookRepository:
                 return None
         return None
 
-    @staticmethod
-    def _get_calibre_sqlite_functions() -> list[tuple[str, int, Callable[..., object]]]:
-        """Get list of SQLite functions to register for Calibre database.
+    # Query building helpers
+    def _get_sort_field(self, sort_by: str) -> object:
+        """Get sort field for query ordering."""
+        valid_sort_fields = {
+            "timestamp": Book.timestamp,
+            "pubdate": Book.pubdate,
+            "title": Book.title,
+            "author_sort": Book.author_sort,
+            "series_index": Book.series_index,
+        }
+        return valid_sort_fields.get(sort_by, Book.timestamp)  # type: ignore[return-value]
 
-        Returns
-        -------
-        list[tuple[str, int, Callable[..., object]]]
-            List of tuples containing (function_name, num_args, function_impl).
-            Each tuple defines a SQLite function to register.
+    def _build_author_books_subquery(
+        self,
+        session: Session,
+        author_id: int | None,
+    ) -> Subquery | None:
+        """Build optional subquery for author filter in list_books."""
+        if author_id is None:
+            return None
 
-        Notes
-        -----
-        To add a new function, simply add a tuple to this list:
-        - function_name: Name of the SQL function (e.g., "my_function")
-        - num_args: Number of arguments the function accepts (-1 for variable)
-        - function_impl: Python callable that implements the function
-        """
-        return [
-            (
-                "title_sort",
-                1,
-                lambda x: x or "",
-            ),
-            (
-                "uuid4",
-                0,
-                lambda: str(uuid4()),
-            ),
-        ]
+        author_books_subquery: Subquery = (
+            select(BookAuthorLink.book)
+            .where(BookAuthorLink.author == author_id)
+            .subquery()
+        )
+        author_book_count = session.exec(
+            select(func.count()).select_from(author_books_subquery)
+        ).one()
+        logger.debug(
+            "Author filter active in list_books: author_id=%s, linked_books=%s",
+            author_id,
+            author_book_count,
+        )
+        return author_books_subquery
 
-    def _get_engine(self) -> Engine:
-        """Get or create SQLAlchemy engine for Calibre database.
+    def _build_list_books_base_query(
+        self,
+        search_query: str | None,
+    ) -> Select:
+        """Build base query for list_books including series and optional search."""
+        series_alias = aliased(Series)
+        stmt = (
+            select(Book, series_alias.name.label("series_name"))  # type: ignore[attr-defined]
+            .outerjoin(BookSeriesLink, Book.id == BookSeriesLink.book)
+            .outerjoin(series_alias, BookSeriesLink.series == series_alias.id)
+        )
 
-        Returns
-        -------
-        Engine
-            SQLAlchemy engine instance.
+        if not search_query:
+            return stmt
 
-        Raises
-        ------
-        FileNotFoundError
-            If Calibre database file does not exist.
-        """
-        if not self._db_path.exists():
-            msg = f"Calibre database not found at {self._db_path}"
-            raise FileNotFoundError(msg)
-        if self._engine is None:
-            db_url = f"sqlite:///{self._db_path}"
+        # Use case-insensitive search for SQLite
+        query_lower = search_query.lower()
+        pattern_lower = f"%{query_lower}%"
+        author_alias = aliased(Author)
+        tag_alias = aliased(Tag)
 
-            def _register_calibre_functions(
-                dbapi_conn: sqlite3.Connection, connection_record: object
-            ) -> None:
-                """Register SQLite functions required by Calibre database.
+        return (
+            stmt.outerjoin(BookAuthorLink, Book.id == BookAuthorLink.book)
+            .outerjoin(author_alias, BookAuthorLink.author == author_alias.id)
+            .outerjoin(BookTagLink, Book.id == BookTagLink.book)
+            .outerjoin(tag_alias, BookTagLink.tag == tag_alias.id)
+            .distinct()
+            .where(
+                (func.lower(Book.title).like(pattern_lower))  # type: ignore[attr-defined]
+                | (func.lower(author_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
+                | (func.lower(tag_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
+                | (func.lower(series_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
+            )
+        )
 
-                Registers functions needed by Calibre's database triggers.
-                SQLite's create_function is idempotent, so it's safe to call
-                multiple times - subsequent calls simply replace the function.
+    def _apply_ordering_and_pagination(
+        self,
+        stmt: Select,
+        sort_field: object,
+        sort_order: str,
+        limit: int,
+        offset: int,
+    ) -> Select:
+        """Apply ordering and pagination to a list_books query."""
+        if sort_order == "desc":
+            stmt = stmt.order_by(sort_field.desc())  # type: ignore[attr-defined]
+        else:
+            stmt = stmt.order_by(sort_field.asc())  # type: ignore[attr-defined]
 
-                To add a new function, add it to the list returned by
-                _get_calibre_sqlite_functions().
+        return stmt.limit(limit).offset(offset)
 
-                Parameters
-                ----------
-                dbapi_conn : sqlite3.Connection
-                    SQLite database connection.
-                connection_record : object
-                    Connection record (required by event listener signature).
-                """
-                # connection_record is required by event listener signature but unused
-                _ = connection_record
-                # Register each function
-                # Note: create_function is idempotent, so calling it multiple times
-                # is safe and has negligible overhead
-                for (
-                    func_name,
-                    num_args,
-                    func_impl,
-                ) in self._get_calibre_sqlite_functions():
-                    dbapi_conn.create_function(func_name, num_args, func_impl)
+    def _build_book_with_relations(
+        self, session: Session, result: object
+    ) -> BookWithRelations | None:
+        """Build BookWithRelations from query result."""
+        book = self._unwrap_book_from_result(result)
+        if book is None or book.id is None:
+            return None
 
-            self._engine = create_engine(db_url, echo=False, future=True)
-            event.listen(self._engine, "connect", _register_calibre_functions)
-        return self._engine
+        series_name = self._unwrap_series_name_from_result(result)
 
-    def dispose(self) -> None:
-        """Dispose of the database engine and close all connections.
+        authors_stmt = (
+            select(Author.name)
+            .join(BookAuthorLink, Author.id == BookAuthorLink.author)
+            .where(BookAuthorLink.book == book.id)
+            .order_by(BookAuthorLink.id)
+        )
+        authors = list(session.exec(authors_stmt).all())
 
-        This is useful for cleanup in tests or when the repository is no longer needed.
-        After calling this method, the engine will be recreated on the next use.
-        """
-        if self._engine is not None:
-            # Force close all connections and dispose the engine
-            self._engine.dispose(close=True)
-            # On Windows, we need to ensure all connections are fully closed
-            # before the file can be deleted. The dispose(close=True) should handle this,
-            # but we set engine to None immediately to prevent reuse.
-            self._engine = None
+        return BookWithRelations(
+            book=book,
+            authors=authors,
+            series=series_name,
+        )
 
-    @contextmanager
-    def _get_session(self) -> Iterator[Session]:
-        """Get a SQLModel session for the Calibre database.
+    def _build_books_from_results(
+        self,
+        session: Session,
+        results: list[object],
+    ) -> list[BookWithRelations | BookWithFullRelations]:
+        """Build list of `BookWithRelations` from raw query results."""
+        books: list[BookWithRelations | BookWithFullRelations] = []
+        for result in results:
+            book_with_relations = self._build_book_with_relations(session, result)
+            if book_with_relations is not None:
+                books.append(book_with_relations)
+        return books
 
-        Yields
-        ------
-        Session
-            SQLModel session.
-        """
-        engine = self._get_engine()
-        session = Session(engine)
-        try:
-            yield session
-        finally:
-            session.close()
+    # Metadata fetching helpers (for enriching books)
+    def _fetch_tags_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, list[str]]:
+        """Fetch tags map for given book IDs."""
+        tags_stmt = (
+            select(BookTagLink.book, Tag.name)
+            .join(Tag, BookTagLink.tag == Tag.id)
+            .where(BookTagLink.book.in_(book_ids))  # type: ignore[attr-defined]
+            .order_by(BookTagLink.book, BookTagLink.id)
+        )
+        tags_map: dict[int, list[str]] = {}
+        for book_id, tag_name in session.exec(tags_stmt).all():
+            if book_id not in tags_map:
+                tags_map[book_id] = []
+            tags_map[book_id].append(tag_name)
+        return tags_map
 
-    @contextmanager
-    def get_session(self) -> Iterator[Session]:
-        """Get a SQLModel session for the Calibre database.
+    def _fetch_identifiers_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, list[dict[str, str]]]:
+        """Fetch identifiers map for given book IDs."""
+        identifiers_stmt = (
+            select(Identifier.book, Identifier.type, Identifier.val)
+            .where(Identifier.book.in_(book_ids))  # type: ignore[attr-defined]
+            .order_by(Identifier.book, Identifier.id)
+        )
+        identifiers_map: dict[int, list[dict[str, str]]] = {}
+        for book_id, ident_type, ident_val in session.exec(identifiers_stmt).all():
+            if book_id not in identifiers_map:
+                identifiers_map[book_id] = []
+            identifiers_map[book_id].append({"type": ident_type, "val": ident_val})
+        return identifiers_map
 
-        Yields
-        ------
-        Session
-            SQLModel session.
-        """
-        engine = self._get_engine()
-        session = Session(engine)
-        try:
-            yield session
-        finally:
-            session.close()
+    def _fetch_descriptions_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, str | None]:
+        """Fetch descriptions map for given book IDs."""
+        comments_stmt = select(Comment.book, Comment.text).where(
+            Comment.book.in_(book_ids)  # type: ignore[attr-defined]
+        )
+        return dict(session.exec(comments_stmt).all())
 
+    def _fetch_publishers_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, tuple[str | None, int | None]]:
+        """Fetch publishers map for given book IDs."""
+        publishers_stmt = (
+            select(BookPublisherLink.book, Publisher.name, Publisher.id)
+            .join(Publisher, BookPublisherLink.publisher == Publisher.id)
+            .where(BookPublisherLink.book.in_(book_ids))  # type: ignore[attr-defined]
+        )
+        publishers_map: dict[int, tuple[str | None, int | None]] = {}
+        for book_id, pub_name, pub_id in session.exec(publishers_stmt).all():
+            publishers_map[book_id] = (pub_name, pub_id)
+        return publishers_map
+
+    def _fetch_languages_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, tuple[list[str], list[int]]]:
+        """Fetch languages map for given book IDs."""
+        languages_stmt = (
+            select(BookLanguageLink.book, Language.lang_code, Language.id)
+            .join(Language, Language.id == BookLanguageLink.lang_code)
+            .where(BookLanguageLink.book.in_(book_ids))  # type: ignore[attr-defined]
+            .order_by(BookLanguageLink.book, BookLanguageLink.item_order)
+        )
+        languages_map: dict[int, tuple[list[str], list[int]]] = {}
+        for book_id, lang_code, lang_id in session.exec(languages_stmt).all():
+            if book_id not in languages_map:
+                languages_map[book_id] = ([], [])
+            languages_map[book_id][0].append(lang_code)
+            if lang_id is not None:
+                languages_map[book_id][1].append(lang_id)
+        return languages_map
+
+    def _fetch_ratings_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, tuple[int | None, int | None]]:
+        """Fetch ratings map for given book IDs."""
+        ratings_stmt = (
+            select(BookRatingLink.book, Rating.rating, Rating.id)
+            .join(Rating, BookRatingLink.rating == Rating.id)
+            .where(BookRatingLink.book.in_(book_ids))  # type: ignore[attr-defined]
+        )
+        ratings_map: dict[int, tuple[int | None, int | None]] = {}
+        for book_id, rating, rating_id in session.exec(ratings_stmt).all():
+            ratings_map[book_id] = (rating, rating_id)
+        return ratings_map
+
+    def _fetch_formats_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, list[dict[str, str | int]]]:
+        """Fetch formats map for given book IDs."""
+        formats_stmt = (
+            select(Data.book, Data.format, Data.uncompressed_size, Data.name)
+            .where(Data.book.in_(book_ids))  # type: ignore[attr-defined]
+            .order_by(Data.book, Data.format)
+        )
+        formats_map: dict[int, list[dict[str, str | int]]] = {}
+        for book_id, fmt, size, name in session.exec(formats_stmt).all():
+            if book_id not in formats_map:
+                formats_map[book_id] = []
+            formats_map[book_id].append({
+                "format": fmt,
+                "size": size,
+                "name": name or "",
+            })
+        return formats_map
+
+    def _fetch_series_ids_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, int | None]:
+        """Fetch series IDs map for given book IDs."""
+        series_ids_stmt = (
+            select(BookSeriesLink.book, Series.id)
+            .join(Series, BookSeriesLink.series == Series.id)
+            .where(BookSeriesLink.book.in_(book_ids))  # type: ignore[attr-defined]
+        )
+        return dict(session.exec(series_ids_stmt).all())
+
+    def _build_enriched_book(
+        self,
+        book_with_rels: BookWithRelations,
+        tags_map: dict[int, list[str]],
+        identifiers_map: dict[int, list[dict[str, str]]],
+        descriptions_map: dict[int, str | None],
+        publishers_map: dict[int, tuple[str | None, int | None]],
+        languages_map: dict[int, tuple[list[str], list[int]]],
+        ratings_map: dict[int, tuple[int | None, int | None]],
+        formats_map: dict[int, list[dict[str, str | int]]],
+        series_ids_map: dict[int, int | None],
+    ) -> BookWithFullRelations | None:
+        """Build BookWithFullRelations from BookWithRelations and metadata maps."""
+        book_id = book_with_rels.book.id
+        if book_id is None:
+            return None
+
+        publisher_data = publishers_map.get(book_id, (None, None))
+        languages_data = languages_map.get(book_id, ([], []))
+        ratings_data = ratings_map.get(book_id, (None, None))
+
+        return BookWithFullRelations(
+            book=book_with_rels.book,
+            authors=book_with_rels.authors,
+            series=book_with_rels.series,
+            series_id=series_ids_map.get(book_id),
+            tags=tags_map.get(book_id, []),
+            identifiers=identifiers_map.get(book_id, []),
+            description=descriptions_map.get(book_id),
+            publisher=publisher_data[0],
+            publisher_id=publisher_data[1],
+            languages=languages_data[0],
+            language_ids=languages_data[1],
+            rating=ratings_data[0],
+            rating_id=ratings_data[1],
+            formats=formats_map.get(book_id, []),
+        )
+
+    def _enrich_books_with_full_details(
+        self,
+        session: Session,
+        books: list[BookWithRelations],
+    ) -> list[BookWithFullRelations]:
+        """Enrich a list of BookWithRelations with full details."""
+        if not books:
+            return []
+
+        book_ids = [book.book.id for book in books if book.book.id is not None]
+        if not book_ids:
+            return []
+
+        # Fetch all metadata maps using helper methods
+        tags_map = self._fetch_tags_map(session, book_ids)
+        identifiers_map = self._fetch_identifiers_map(session, book_ids)
+        descriptions_map = self._fetch_descriptions_map(session, book_ids)
+        publishers_map = self._fetch_publishers_map(session, book_ids)
+        languages_map = self._fetch_languages_map(session, book_ids)
+        ratings_map = self._fetch_ratings_map(session, book_ids)
+        formats_map = self._fetch_formats_map(session, book_ids)
+        series_ids_map = self._fetch_series_ids_map(session, book_ids)
+
+        # Build enriched books
+        enriched_books: list[BookWithFullRelations] = []
+        for book_with_rels in books:
+            enriched_book = self._build_enriched_book(
+                book_with_rels,
+                tags_map,
+                identifiers_map,
+                descriptions_map,
+                publishers_map,
+                languages_map,
+                ratings_map,
+                formats_map,
+                series_ids_map,
+            )
+            if enriched_book is not None:
+                enriched_books.append(enriched_book)
+
+        return enriched_books
+
+    # Public API methods
     def count_books(
         self,
         search_query: str | None = None,
         author_id: int | None = None,
     ) -> int:
-        """Count total number of books, optionally filtered by search.
-
-        Parameters
-        ----------
-        search_query : str | None
-            Optional search query to filter by title, author, or tag.
-        author_id : int | None
-            Optional author ID to filter by.
-
-        Returns
-        -------
-        int
-            Total number of books.
-        """
-        with self._get_session() as session:
+        """Count total number of books, optionally filtered by search."""
+        with self.get_session() as session:
             logger.debug(
                 "count_books called with search_query=%r, author_id=%r",
                 search_query,
@@ -420,7 +642,6 @@ class CalibreBookRepository:
 
             # Apply author filter if present
             if author_books_subquery is not None:
-                # Log how many books are linked to this author_id
                 author_book_count = session.exec(
                     select(func.count()).select_from(author_books_subquery)
                 ).one()
@@ -447,30 +668,7 @@ class CalibreBookRepository:
         sort_order: str = "desc",
         full: bool = False,
     ) -> list[BookWithRelations | BookWithFullRelations]:
-        """List books with pagination and optional search.
-
-        Parameters
-        ----------
-        limit : int
-            Maximum number of books to return.
-        offset : int
-            Number of books to skip.
-        search_query : str | None
-            Optional search query to filter by title or author.
-        author_id : int | None
-            Optional author ID to filter by.
-        sort_by : str
-            Field to sort by (default: 'timestamp').
-        sort_order : str
-            Sort order: 'asc' or 'desc' (default: 'desc').
-        full : bool
-            If True, return full book details with all metadata (default: False).
-
-        Returns
-        -------
-        list[BookWithRelations | BookWithFullRelations]
-            List of books with authors and series. If full=True, includes all metadata.
-        """
+        """List books with pagination and optional search."""
         logger.debug(
             "list_books called with limit=%s, offset=%s, search_query=%r, author_id=%r, sort_by=%s, sort_order=%s, full=%s",
             limit,
@@ -487,7 +685,7 @@ class CalibreBookRepository:
         if normalized_sort_order not in {"asc", "desc"}:
             normalized_sort_order = "desc"
 
-        with self._get_session() as session:
+        with self.get_session() as session:
             # Optional subquery for author filter to avoid join conflicts with search
             author_books_subquery = self._build_author_books_subquery(
                 session,
@@ -546,209 +744,6 @@ class CalibreBookRepository:
 
             return books
 
-    def _build_author_books_subquery(
-        self,
-        session: Session,
-        author_id: int | None,
-    ) -> Subquery | None:
-        """Build optional subquery for author filter in list_books.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        author_id : int | None
-            Optional author identifier for filtering.
-
-        Returns
-        -------
-        Subquery | None
-            Subquery for filtering books by author, or None if no author_id.
-        """
-        if author_id is None:
-            return None
-
-        author_books_subquery: Subquery = (
-            select(BookAuthorLink.book)
-            .where(BookAuthorLink.author == author_id)
-            .subquery()
-        )
-        author_book_count = session.exec(
-            select(func.count()).select_from(author_books_subquery)
-        ).one()
-        logger.debug(
-            "Author filter active in list_books: author_id=%s, linked_books=%s",
-            author_id,
-            author_book_count,
-        )
-        return author_books_subquery
-
-    def _build_list_books_base_query(
-        self,
-        search_query: str | None,
-    ) -> Select:
-        """Build base query for list_books including series and optional search.
-
-        Parameters
-        ----------
-        search_query : str | None
-            Optional search query to filter by title, author, tag, or series.
-
-        Returns
-        -------
-        Select
-            SQLModel selectable representing the base query.
-        """
-        series_alias = aliased(Series)
-        stmt = (
-            select(Book, series_alias.name.label("series_name"))  # type: ignore[attr-defined]
-            .outerjoin(BookSeriesLink, Book.id == BookSeriesLink.book)
-            .outerjoin(series_alias, BookSeriesLink.series == series_alias.id)
-        )
-
-        if not search_query:
-            return stmt
-
-        # Use case-insensitive search for SQLite
-        query_lower = search_query.lower()
-        pattern_lower = f"%{query_lower}%"
-        author_alias = aliased(Author)
-        tag_alias = aliased(Tag)
-
-        return (
-            stmt.outerjoin(BookAuthorLink, Book.id == BookAuthorLink.book)
-            .outerjoin(author_alias, BookAuthorLink.author == author_alias.id)
-            .outerjoin(BookTagLink, Book.id == BookTagLink.book)
-            .outerjoin(tag_alias, BookTagLink.tag == tag_alias.id)
-            .distinct()
-            .where(
-                (func.lower(Book.title).like(pattern_lower))  # type: ignore[attr-defined]
-                | (func.lower(author_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
-                | (func.lower(tag_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
-                | (func.lower(series_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
-            )
-        )
-
-    def _apply_ordering_and_pagination(
-        self,
-        stmt: Select,
-        sort_field: object,
-        sort_order: str,
-        limit: int,
-        offset: int,
-    ) -> Select:
-        """Apply ordering and pagination to a list_books query.
-
-        Parameters
-        ----------
-        stmt : object
-            Base SQLModel selectable.
-        sort_field : object
-            Field to sort by.
-        sort_order : str
-            Sort order ('asc' or 'desc').
-        limit : int
-            Result limit.
-        offset : int
-            Result offset.
-
-        Returns
-        -------
-        object
-            Updated selectable with ordering and pagination applied.
-        """
-        if sort_order == "desc":
-            stmt = stmt.order_by(sort_field.desc())  # type: ignore[attr-defined]
-        else:
-            stmt = stmt.order_by(sort_field.asc())  # type: ignore[attr-defined]
-
-        return stmt.limit(limit).offset(offset)
-
-    def _build_book_with_relations(
-        self, session: Session, result: object
-    ) -> BookWithRelations | None:
-        """Build BookWithRelations from query result.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        result : object
-            Query result.
-
-        Returns
-        -------
-        BookWithRelations | None
-            Book with relations or None if extraction fails.
-        """
-        book = self._unwrap_book_from_result(result)
-        if book is None or book.id is None:
-            return None
-
-        series_name = self._unwrap_series_name_from_result(result)
-
-        authors_stmt = (
-            select(Author.name)
-            .join(BookAuthorLink, Author.id == BookAuthorLink.author)
-            .where(BookAuthorLink.book == book.id)
-            .order_by(BookAuthorLink.id)
-        )
-        authors = list(session.exec(authors_stmt).all())
-
-        return BookWithRelations(
-            book=book,
-            authors=authors,
-            series=series_name,
-        )
-
-    def _get_sort_field(self, sort_by: str) -> object:
-        """Get sort field for query ordering.
-
-        Parameters
-        ----------
-        sort_by : str
-            Sort field name.
-
-        Returns
-        -------
-        object
-            SQLAlchemy column field for sorting.
-        """
-        valid_sort_fields = {
-            "timestamp": Book.timestamp,
-            "pubdate": Book.pubdate,
-            "title": Book.title,
-            "author_sort": Book.author_sort,
-            "series_index": Book.series_index,
-        }
-        return valid_sort_fields.get(sort_by, Book.timestamp)  # type: ignore[return-value]
-
-    def _build_books_from_results(
-        self,
-        session: Session,
-        results: list[object],
-    ) -> list[BookWithRelations | BookWithFullRelations]:
-        """Build list of `BookWithRelations` from raw query results.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        results : list[object]
-            Raw query results from SQLModel.
-
-        Returns
-        -------
-        list[BookWithRelations | BookWithFullRelations]
-            List of books with their related authors and series.
-        """
-        books: list[BookWithRelations | BookWithFullRelations] = []
-        for result in results:
-            book_with_relations = self._build_book_with_relations(session, result)
-            if book_with_relations is not None:
-                books.append(book_with_relations)
-        return books
-
     def list_books_with_filters(
         self,
         limit: int = 20,
@@ -766,53 +761,12 @@ class CalibreBookRepository:
         sort_order: str = "desc",
         full: bool = False,
     ) -> list[BookWithRelations | BookWithFullRelations]:
-        """List books with multiple filter criteria using OR conditions.
-
-        Each filter type uses OR conditions (e.g., multiple authors = OR).
-        Different filter types are combined with AND conditions.
-
-        Parameters
-        ----------
-        limit : int
-            Maximum number of books to return.
-        offset : int
-            Number of books to skip.
-        author_ids : list[int] | None
-            List of author IDs to filter by (OR condition).
-        title_ids : list[int] | None
-            List of book IDs to filter by (OR condition).
-        genre_ids : list[int] | None
-            List of tag IDs to filter by (OR condition).
-        publisher_ids : list[int] | None
-            List of publisher IDs to filter by (OR condition).
-        identifier_ids : list[int] | None
-            List of identifier IDs to filter by (OR condition).
-        series_ids : list[int] | None
-            List of series IDs to filter by (OR condition).
-        formats : list[str] | None
-            List of format strings to filter by (OR condition).
-        rating_ids : list[int] | None
-            List of rating IDs to filter by (OR condition).
-        language_ids : list[int] | None
-            List of language IDs to filter by (OR condition).
-        sort_by : str
-            Field to sort by (default: 'timestamp').
-        sort_order : str
-            Sort order: 'asc' or 'desc' (default: 'desc').
-
-        full : bool
-            If True, return full book details with all metadata (default: False).
-
-        Returns
-        -------
-        list[BookWithRelations | BookWithFullRelations]
-            List of books with authors and series. If full=True, includes all metadata.
-        """
+        """List books with multiple filter criteria using OR conditions."""
         sort_field = self._get_sort_field(sort_by)
         if sort_order.lower() not in {"asc", "desc"}:
             sort_order = "desc"
 
-        with self._get_session() as session:
+        with self.get_session() as session:
             series_alias = aliased(Series)
             base_stmt = (
                 select(Book, series_alias.name.label("series_name"))  # type: ignore[attr-defined]
@@ -866,35 +820,8 @@ class CalibreBookRepository:
         rating_ids: list[int] | None = None,
         language_ids: list[int] | None = None,
     ) -> int:
-        """Count books matching filter criteria.
-
-        Parameters
-        ----------
-        author_ids : list[int] | None
-            List of author IDs to filter by (OR condition).
-        title_ids : list[int] | None
-            List of book IDs to filter by (OR condition).
-        genre_ids : list[int] | None
-            List of tag IDs to filter by (OR condition).
-        publisher_ids : list[int] | None
-            List of publisher IDs to filter by (OR condition).
-        identifier_ids : list[int] | None
-            List of identifier IDs to filter by (OR condition).
-        series_ids : list[int] | None
-            List of series IDs to filter by (OR condition).
-        formats : list[str] | None
-            List of format strings to filter by (OR condition).
-        rating_ids : list[int] | None
-            List of rating IDs to filter by (OR condition).
-        language_ids : list[int] | None
-            List of language IDs to filter by (OR condition).
-
-        Returns
-        -------
-        int
-            Total number of books matching the filters.
-        """
-        with self._get_session() as session:
+        """Count books matching filter criteria."""
+        with self.get_session() as session:
             series_alias = aliased(Series)
             base_stmt = (
                 select(func.count(func.distinct(Book.id)))
@@ -920,19 +847,8 @@ class CalibreBookRepository:
             return result if result else 0
 
     def get_book(self, book_id: int) -> BookWithRelations | None:
-        """Get a book by ID.
-
-        Parameters
-        ----------
-        book_id : int
-            Calibre book ID.
-
-        Returns
-        -------
-        BookWithRelations | None
-            Book with authors and series if found, None otherwise.
-        """
-        with self._get_session() as session:
+        """Get a book by ID."""
+        with self.get_session() as session:
             series_alias = aliased(Series)
             stmt = (
                 select(Book, series_alias.name.label("series_name"))  # type: ignore[attr-defined]
@@ -969,19 +885,8 @@ class CalibreBookRepository:
             )
 
     def get_book_full(self, book_id: int) -> BookWithFullRelations | None:
-        """Get a book by ID with all related metadata for editing.
-
-        Parameters
-        ----------
-        book_id : int
-            Calibre book ID.
-
-        Returns
-        -------
-        BookWithFullRelations | None
-            Book with all related metadata if found, None otherwise.
-        """
-        with self._get_session() as session:
+        """Get a book by ID with all related metadata for editing."""
+        with self.get_session() as session:
             # Get book with series
             series_alias = aliased(Series)
             stmt = (
@@ -1114,364 +1019,104 @@ class CalibreBookRepository:
                 formats=formats,
             )
 
-    def _fetch_tags_map(
-        self, session: Session, book_ids: list[int]
-    ) -> dict[int, list[str]]:
-        """Fetch tags map for given book IDs.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_ids : list[int]
-            List of book IDs.
-
-        Returns
-        -------
-        dict[int, list[str]]
-            Map of book_id to list of tag names.
-        """
-        tags_stmt = (
-            select(BookTagLink.book, Tag.name)
-            .join(Tag, BookTagLink.tag == Tag.id)
-            .where(BookTagLink.book.in_(book_ids))  # type: ignore[attr-defined]
-            .order_by(BookTagLink.book, BookTagLink.id)
-        )
-        tags_map: dict[int, list[str]] = {}
-        for book_id, tag_name in session.exec(tags_stmt).all():
-            if book_id not in tags_map:
-                tags_map[book_id] = []
-            tags_map[book_id].append(tag_name)
-        return tags_map
-
-    def _fetch_identifiers_map(
-        self, session: Session, book_ids: list[int]
-    ) -> dict[int, list[dict[str, str]]]:
-        """Fetch identifiers map for given book IDs.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_ids : list[int]
-            List of book IDs.
-
-        Returns
-        -------
-        dict[int, list[dict[str, str]]]
-            Map of book_id to list of identifier dicts.
-        """
-        identifiers_stmt = (
-            select(Identifier.book, Identifier.type, Identifier.val)
-            .where(Identifier.book.in_(book_ids))  # type: ignore[attr-defined]
-            .order_by(Identifier.book, Identifier.id)
-        )
-        identifiers_map: dict[int, list[dict[str, str]]] = {}
-        for book_id, ident_type, ident_val in session.exec(identifiers_stmt).all():
-            if book_id not in identifiers_map:
-                identifiers_map[book_id] = []
-            identifiers_map[book_id].append({"type": ident_type, "val": ident_val})
-        return identifiers_map
-
-    def _fetch_descriptions_map(
-        self, session: Session, book_ids: list[int]
-    ) -> dict[int, str | None]:
-        """Fetch descriptions map for given book IDs.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_ids : list[int]
-            List of book IDs.
-
-        Returns
-        -------
-        dict[int, str | None]
-            Map of book_id to description text.
-        """
-        comments_stmt = select(Comment.book, Comment.text).where(
-            Comment.book.in_(book_ids)  # type: ignore[attr-defined]
-        )
-        return dict(session.exec(comments_stmt).all())
-
-    def _fetch_publishers_map(
-        self, session: Session, book_ids: list[int]
-    ) -> dict[int, tuple[str | None, int | None]]:
-        """Fetch publishers map for given book IDs.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_ids : list[int]
-            List of book IDs.
-
-        Returns
-        -------
-        dict[int, tuple[str | None, int | None]]
-            Map of book_id to (publisher_name, publisher_id).
-        """
-        publishers_stmt = (
-            select(BookPublisherLink.book, Publisher.name, Publisher.id)
-            .join(Publisher, BookPublisherLink.publisher == Publisher.id)
-            .where(BookPublisherLink.book.in_(book_ids))  # type: ignore[attr-defined]
-        )
-        publishers_map: dict[int, tuple[str | None, int | None]] = {}
-        for book_id, pub_name, pub_id in session.exec(publishers_stmt).all():
-            publishers_map[book_id] = (pub_name, pub_id)
-        return publishers_map
-
-    def _fetch_languages_map(
-        self, session: Session, book_ids: list[int]
-    ) -> dict[int, tuple[list[str], list[int]]]:
-        """Fetch languages map for given book IDs.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_ids : list[int]
-            List of book IDs.
-
-        Returns
-        -------
-        dict[int, tuple[list[str], list[int]]]
-            Map of book_id to (list[lang_code], list[lang_id]).
-        """
-        languages_stmt = (
-            select(BookLanguageLink.book, Language.lang_code, Language.id)
-            .join(Language, Language.id == BookLanguageLink.lang_code)
-            .where(BookLanguageLink.book.in_(book_ids))  # type: ignore[attr-defined]
-            .order_by(BookLanguageLink.book, BookLanguageLink.item_order)
-        )
-        languages_map: dict[int, tuple[list[str], list[int]]] = {}
-        for book_id, lang_code, lang_id in session.exec(languages_stmt).all():
-            if book_id not in languages_map:
-                languages_map[book_id] = ([], [])
-            languages_map[book_id][0].append(lang_code)
-            if lang_id is not None:
-                languages_map[book_id][1].append(lang_id)
-        return languages_map
-
-    def _fetch_ratings_map(
-        self, session: Session, book_ids: list[int]
-    ) -> dict[int, tuple[int | None, int | None]]:
-        """Fetch ratings map for given book IDs.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_ids : list[int]
-            List of book IDs.
-
-        Returns
-        -------
-        dict[int, tuple[int | None, int | None]]
-            Map of book_id to (rating, rating_id).
-        """
-        ratings_stmt = (
-            select(BookRatingLink.book, Rating.rating, Rating.id)
-            .join(Rating, BookRatingLink.rating == Rating.id)
-            .where(BookRatingLink.book.in_(book_ids))  # type: ignore[attr-defined]
-        )
-        ratings_map: dict[int, tuple[int | None, int | None]] = {}
-        for book_id, rating, rating_id in session.exec(ratings_stmt).all():
-            ratings_map[book_id] = (rating, rating_id)
-        return ratings_map
-
-    def _fetch_formats_map(
-        self, session: Session, book_ids: list[int]
-    ) -> dict[int, list[dict[str, str | int]]]:
-        """Fetch formats map for given book IDs.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_ids : list[int]
-            List of book IDs.
-
-        Returns
-        -------
-        dict[int, list[dict[str, str | int]]]
-            Map of book_id to list of format dicts.
-        """
-        formats_stmt = (
-            select(Data.book, Data.format, Data.uncompressed_size, Data.name)
-            .where(Data.book.in_(book_ids))  # type: ignore[attr-defined]
-            .order_by(Data.book, Data.format)
-        )
-        formats_map: dict[int, list[dict[str, str | int]]] = {}
-        for book_id, fmt, size, name in session.exec(formats_stmt).all():
-            if book_id not in formats_map:
-                formats_map[book_id] = []
-            formats_map[book_id].append({
-                "format": fmt,
-                "size": size,
-                "name": name or "",
-            })
-        return formats_map
-
-    def _fetch_series_ids_map(
-        self, session: Session, book_ids: list[int]
-    ) -> dict[int, int | None]:
-        """Fetch series IDs map for given book IDs.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_ids : list[int]
-            List of book IDs.
-
-        Returns
-        -------
-        dict[int, int | None]
-            Map of book_id to series_id.
-        """
-        series_ids_stmt = (
-            select(BookSeriesLink.book, Series.id)
-            .join(Series, BookSeriesLink.series == Series.id)
-            .where(BookSeriesLink.book.in_(book_ids))  # type: ignore[attr-defined]
-        )
-        return dict(session.exec(series_ids_stmt).all())
-
-    def _build_enriched_book(
-        self,
-        book_with_rels: BookWithRelations,
-        tags_map: dict[int, list[str]],
-        identifiers_map: dict[int, list[dict[str, str]]],
-        descriptions_map: dict[int, str | None],
-        publishers_map: dict[int, tuple[str | None, int | None]],
-        languages_map: dict[int, tuple[list[str], list[int]]],
-        ratings_map: dict[int, tuple[int | None, int | None]],
-        formats_map: dict[int, list[dict[str, str | int]]],
-        series_ids_map: dict[int, int | None],
-    ) -> BookWithFullRelations | None:
-        """Build BookWithFullRelations from BookWithRelations and metadata maps.
-
-        Parameters
-        ----------
-        book_with_rels : BookWithRelations
-            Book with basic relations.
-        tags_map : dict[int, list[str]]
-            Map of book_id to tags.
-        identifiers_map : dict[int, list[dict[str, str]]]
-            Map of book_id to identifiers.
-        descriptions_map : dict[int, str | None]
-            Map of book_id to description.
-        publishers_map : dict[int, tuple[str | None, int | None]]
-            Map of book_id to (publisher_name, publisher_id).
-        languages_map : dict[int, tuple[list[str], list[int]]]
-            Map of book_id to (languages, language_ids).
-        ratings_map : dict[int, tuple[int | None, int | None]]
-            Map of book_id to (rating, rating_id).
-        formats_map : dict[int, list[dict[str, str | int]]]
-            Map of book_id to formats.
-        series_ids_map : dict[int, int | None]
-            Map of book_id to series_id.
-
-        Returns
-        -------
-        BookWithFullRelations | None
-            Enriched book or None if book_id is missing.
-        """
-        book_id = book_with_rels.book.id
-        if book_id is None:
-            return None
-
-        publisher_data = publishers_map.get(book_id, (None, None))
-        languages_data = languages_map.get(book_id, ([], []))
-        ratings_data = ratings_map.get(book_id, (None, None))
-
-        return BookWithFullRelations(
-            book=book_with_rels.book,
-            authors=book_with_rels.authors,
-            series=book_with_rels.series,
-            series_id=series_ids_map.get(book_id),
-            tags=tags_map.get(book_id, []),
-            identifiers=identifiers_map.get(book_id, []),
-            description=descriptions_map.get(book_id),
-            publisher=publisher_data[0],
-            publisher_id=publisher_data[1],
-            languages=languages_data[0],
-            language_ids=languages_data[1],
-            rating=ratings_data[0],
-            rating_id=ratings_data[1],
-            formats=formats_map.get(book_id, []),
-        )
-
-    def _enrich_books_with_full_details(
+    def _update_book_relationships(
         self,
         session: Session,
-        books: list[BookWithRelations],
-    ) -> list[BookWithFullRelations]:
-        """Enrich a list of BookWithRelations with full details.
+        book_id: int,
+        author_names: list[str] | None = None,
+        series_name: str | None = None,
+        series_id: int | None = None,
+        tag_names: list[str] | None = None,
+        identifiers: list[dict[str, str]] | None = None,
+        description: str | None = None,
+        publisher_name: str | None = None,
+        publisher_id: int | None = None,
+        language_codes: list[str] | None = None,
+        language_ids: list[int] | None = None,
+        rating_value: int | None = None,
+        rating_id: int | None = None,
+    ) -> None:
+        """Update all book relationships.
 
         Parameters
         ----------
         session : Session
             Database session.
-        books : list[BookWithRelations]
-            List of books with basic relations.
-
-        Returns
-        -------
-        list[BookWithFullRelations]
-            List of books with all metadata.
+        book_id : int
+            Book ID to update.
+        author_names : list[str] | None
+            Author names to update.
+        series_name : str | None
+            Series name to update.
+        series_id : int | None
+            Series ID to update.
+        tag_names : list[str] | None
+            Tag names to update.
+        identifiers : list[dict[str, str]] | None
+            Identifiers to update.
+        description : str | None
+            Description to update.
+        publisher_name : str | None
+            Publisher name to update.
+        publisher_id : int | None
+            Publisher ID to update.
+        language_codes : list[str] | None
+            Language codes to update.
+        language_ids : list[int] | None
+            Language IDs to update.
+        rating_value : int | None
+            Rating value to update.
+        rating_id : int | None
+            Rating ID to update.
         """
-        if not books:
-            return []
+        # Update authors first (before book fields to avoid trigger issues)
+        if author_names is not None:
+            self._relationship_manager.update_authors(session, book_id, author_names)
 
-        book_ids = [book.book.id for book in books if book.book.id is not None]
-        if not book_ids:
-            return []
-
-        # Fetch all metadata maps using helper methods
-        tags_map = self._fetch_tags_map(session, book_ids)
-        identifiers_map = self._fetch_identifiers_map(session, book_ids)
-        descriptions_map = self._fetch_descriptions_map(session, book_ids)
-        publishers_map = self._fetch_publishers_map(session, book_ids)
-        languages_map = self._fetch_languages_map(session, book_ids)
-        ratings_map = self._fetch_ratings_map(session, book_ids)
-        formats_map = self._fetch_formats_map(session, book_ids)
-        series_ids_map = self._fetch_series_ids_map(session, book_ids)
-
-        # Build enriched books
-        enriched_books: list[BookWithFullRelations] = []
-        for book_with_rels in books:
-            enriched_book = self._build_enriched_book(
-                book_with_rels,
-                tags_map,
-                identifiers_map,
-                descriptions_map,
-                publishers_map,
-                languages_map,
-                ratings_map,
-                formats_map,
-                series_ids_map,
+        # Update series
+        if series_name is not None or series_id is not None:
+            self._relationship_manager.update_series(
+                session, book_id, series_name, series_id
             )
-            if enriched_book is not None:
-                enriched_books.append(enriched_book)
 
-        return enriched_books
+        # Update tags
+        if tag_names is not None:
+            self._relationship_manager.update_tags(session, book_id, tag_names)
 
-    def _normalize_string_set(self, strings: list[str]) -> set[str]:
-        """Normalize a list of strings for comparison.
+        # Update identifiers
+        if identifiers is not None:
+            self._relationship_manager.update_identifiers(session, book_id, identifiers)
 
-        Parameters
-        ----------
-        strings : list[str]
-            List of strings to normalize.
+        # Update description
+        if description is not None:
+            comment_stmt = select(Comment).where(Comment.book == book_id)
+            comment = session.exec(comment_stmt).first()
+            if comment is None:
+                comment = Comment(book=book_id, text=description)
+                session.add(comment)
+            else:
+                comment.text = description
 
-        Returns
-        -------
-        set[str]
-            Set of normalized (lowercased, stripped) strings, excluding empty ones.
-        """
-        return {s.strip().lower() for s in strings if s.strip()}
+        # Update publisher
+        if publisher_id is not None or publisher_name is not None:
+            self._relationship_manager.update_publisher(
+                session, book_id, publisher_name, publisher_id
+            )
+
+        # Update language
+        if language_ids is not None or language_codes is not None:
+            self._relationship_manager.update_languages(
+                session,
+                book_id,
+                language_codes=language_codes,
+                language_ids=language_ids,
+            )
+
+        # Update rating
+        if rating_id is not None or rating_value is not None:
+            self._relationship_manager.update_rating(
+                session, book_id, rating_value, rating_id
+            )
 
     def _update_book_fields(
         self,
@@ -1480,14 +1125,14 @@ class CalibreBookRepository:
         pubdate: datetime | None = None,
         series_index: float | None = None,
     ) -> None:
-        """Update direct book fields.
+        """Update book core fields.
 
         Parameters
         ----------
         book : Book
             Book instance to update.
         title : str | None
-            Book title to update.
+            Title to update.
         pubdate : datetime | None
             Publication date to update.
         series_index : float | None
@@ -1500,565 +1145,6 @@ class CalibreBookRepository:
         if series_index is not None:
             book.series_index = series_index
         book.last_modified = datetime.now(UTC)
-
-    def _update_book_authors(
-        self, session: Session, book_id: int, author_names: list[str]
-    ) -> None:
-        """Update book authors (many-to-many relationship).
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_id : int
-            Calibre book ID.
-        author_names : list[str]
-            List of author names to set (replaces existing).
-        """
-        # Get current authors
-        current_authors_stmt = (
-            select(Author.name)
-            .join(BookAuthorLink, Author.id == BookAuthorLink.author)
-            .where(BookAuthorLink.book == book_id)
-            .order_by(BookAuthorLink.id)
-        )
-        current_author_names = self._normalize_string_set(
-            list(session.exec(current_authors_stmt).all())
-        )
-
-        # Normalize new author names
-        normalized_new_authors = self._normalize_string_set(author_names)
-
-        # Check if authors are actually changing
-        if current_author_names == normalized_new_authors:
-            # Authors haven't changed, no update needed
-            return
-
-        # Authors are changing - delete existing author links
-        delete_links_stmt = select(BookAuthorLink).where(BookAuthorLink.book == book_id)
-        existing_links = list(session.exec(delete_links_stmt).all())
-        self._delete_links_and_flush(session, existing_links)
-
-        # Create or get authors and create links
-        for author_name in author_names:
-            if not author_name.strip():
-                continue
-            # Find or create author
-            author_stmt = select(Author).where(Author.name == author_name)
-            author = session.exec(author_stmt).first()
-            if author is None:
-                author = Author(name=author_name)
-                session.add(author)
-                session.flush()
-            if author.id is None:
-                continue
-            # Recreate link (we removed all links above)
-            link = BookAuthorLink(book=book_id, author=author.id)
-            session.add(link)
-
-    def _update_book_series(
-        self,
-        session: Session,
-        book_id: int,
-        series_name: str | None = None,
-        series_id: int | None = None,
-    ) -> None:
-        """Update book series (many-to-many relationship).
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_id : int
-            Calibre book ID.
-        series_name : str | None
-            Series name to set (creates if doesn't exist).
-        series_id : int | None
-            Series ID to set (if provided, series_name is ignored).
-        """
-        # Get current series link
-        current_link_stmt = select(BookSeriesLink).where(BookSeriesLink.book == book_id)
-        current_link = session.exec(current_link_stmt).first()
-
-        # Determine if we should remove series or set a new one
-        should_remove = series_name == "" or (
-            series_id is None and series_name is not None and not series_name.strip()
-        )
-
-        if should_remove:
-            # Remove series - delete link if present
-            self._delete_links_and_flush(
-                session, [current_link] if current_link is not None else []
-            )
-            return
-
-        # Determine target series ID
-        target_series_id = series_id
-        if target_series_id is None and series_name is not None and series_name.strip():
-            # Find or create series
-            series_stmt = select(Series).where(Series.name == series_name)
-            series = session.exec(series_stmt).first()
-            if series is None:
-                series = Series(name=series_name)
-                session.add(series)
-                session.flush()
-            if series.id is not None:
-                target_series_id = series.id
-
-        # Check if series is actually changing
-        current_series_id = current_link.series if current_link else None
-        if current_series_id == target_series_id:
-            # Series hasn't changed, no update needed
-            return
-
-        # Series is changing - delete existing link if present
-        self._delete_links_and_flush(
-            session, [current_link] if current_link is not None else []
-        )
-
-        # Add new link if target series is specified
-        if target_series_id is not None:
-            link = BookSeriesLink(book=book_id, series=target_series_id)
-            session.add(link)
-
-    def _update_book_tags(
-        self, session: Session, book_id: int, tag_names: list[str]
-    ) -> None:
-        """Update book tags (many-to-many relationship).
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_id : int
-            Calibre book ID.
-        tag_names : list[str]
-            List of tag names to set (replaces existing).
-        """
-        # Get current tags
-        current_tags_stmt = (
-            select(Tag.name)
-            .join(BookTagLink, Tag.id == BookTagLink.tag)
-            .where(BookTagLink.book == book_id)
-        )
-        current_tag_names = self._normalize_string_set(
-            list(session.exec(current_tags_stmt).all())
-        )
-
-        # Normalize new tag names
-        normalized_new_tags = self._normalize_string_set(tag_names)
-
-        # Check if tags are actually changing
-        if current_tag_names == normalized_new_tags:
-            # Tags haven't changed, no update needed
-            return
-
-        # Tags are changing - delete existing tag links
-        delete_tags_stmt = select(BookTagLink).where(BookTagLink.book == book_id)
-        existing_tag_links = list(session.exec(delete_tags_stmt).all())
-        self._delete_links_and_flush(session, existing_tag_links)
-
-        # Create or get tags and create links
-        for tag_name in tag_names:
-            if not tag_name.strip():
-                continue
-            tag_stmt = select(Tag).where(Tag.name == tag_name)
-            tag = session.exec(tag_stmt).first()
-            if tag is None:
-                tag = Tag(name=tag_name)
-                session.add(tag)
-                session.flush()
-            if tag.id is None:
-                continue
-            link = BookTagLink(book=book_id, tag=tag.id)
-            session.add(link)
-
-    def _update_book_identifiers(
-        self, session: Session, book_id: int, identifiers: list[dict[str, str]]
-    ) -> None:
-        """Update book identifiers (one-to-many relationship).
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_id : int
-            Calibre book ID.
-        identifiers : list[dict[str, str]]
-            List of identifiers with 'type' and 'val' keys (replaces existing).
-        """
-        # Get current identifiers
-        current_identifiers_stmt = select(Identifier).where(Identifier.book == book_id)
-        current_identifiers = session.exec(current_identifiers_stmt).all()
-        current_identifiers_set = {
-            (ident.type.lower().strip(), ident.val.strip())
-            for ident in current_identifiers
-            if ident.val.strip()
-        }
-
-        # Normalize new identifiers (type and val, filter empty)
-        normalized_new_identifiers = {
-            (
-                ident_data.get("type", "isbn").lower().strip(),
-                ident_data.get("val", "").strip(),
-            )
-            for ident_data in identifiers
-            if ident_data.get("val", "").strip()
-        }
-
-        # Check if identifiers are actually changing
-        if current_identifiers_set == normalized_new_identifiers:
-            # Identifiers haven't changed, no update needed
-            return
-
-        # Identifiers are changing - delete existing identifiers
-        self._delete_links_and_flush(session, list(current_identifiers))
-
-        # Create new identifiers
-        for ident_data in identifiers:
-            ident_type = ident_data.get("type", "isbn")
-            ident_val = ident_data.get("val", "")
-            if ident_val.strip():
-                ident = Identifier(book=book_id, type=ident_type, val=ident_val)
-                session.add(ident)
-
-    def _update_book_description(
-        self, session: Session, book_id: int, description: str
-    ) -> None:
-        """Update book description/comment (one-to-one relationship).
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_id : int
-            Calibre book ID.
-        description : str
-            Book description/comment to set.
-        """
-        comment_stmt = select(Comment).where(Comment.book == book_id)
-        comment = session.exec(comment_stmt).first()
-        if comment is None:
-            comment = Comment(book=book_id, text=description)
-            session.add(comment)
-        else:
-            comment.text = description
-
-    def _delete_links_and_flush(self, session: Session, links: list[object]) -> None:
-        """Delete multiple links and flush the session.
-
-        Helper method to delete multiple link relationships and immediately flush
-        the session to ensure the deletes are processed before inserting new links.
-        This prevents UNIQUE constraint violations when updating relationships.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        links : list[object]
-            List of link objects to delete. Can be empty.
-
-        Notes
-        -----
-        This method is idempotent - if links is empty, it does nothing.
-        """
-        if links:
-            for link in links:
-                session.delete(link)
-            session.flush()
-
-    def _update_book_publisher(
-        self,
-        session: Session,
-        book_id: int,
-        publisher_name: str | None = None,
-        publisher_id: int | None = None,
-    ) -> None:
-        """Update book publisher (many-to-many relationship).
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_id : int
-            Calibre book ID.
-        publisher_name : str | None
-            Publisher name to set (creates if doesn't exist).
-        publisher_id : int | None
-            Publisher ID to set (if provided, publisher_name is ignored).
-        """
-        # Get current publisher link
-        current_link_stmt = select(BookPublisherLink).where(
-            BookPublisherLink.book == book_id
-        )
-        current_link = session.exec(current_link_stmt).first()
-
-        # Determine target publisher ID
-        target_publisher_id = publisher_id
-        if target_publisher_id is None and publisher_name is not None:
-            # Find or create publisher
-            publisher_stmt = select(Publisher).where(Publisher.name == publisher_name)
-            publisher = session.exec(publisher_stmt).first()
-            if publisher is None:
-                publisher = Publisher(name=publisher_name)
-                session.add(publisher)
-                session.flush()
-            if publisher.id is not None:
-                target_publisher_id = publisher.id
-
-        # Check if publisher is actually changing
-        current_publisher_id = current_link.publisher if current_link else None
-        if current_publisher_id == target_publisher_id:
-            # Publisher hasn't changed, no update needed
-            return
-
-        # Publisher is changing - delete existing link if present
-        self._delete_links_and_flush(
-            session, [current_link] if current_link is not None else []
-        )
-
-        # Add new link if target publisher is specified
-        if target_publisher_id is not None:
-            link = BookPublisherLink(book=book_id, publisher=target_publisher_id)
-            session.add(link)
-
-    def _get_current_language_ids(
-        self, session: Session, book_id: int
-    ) -> tuple[list[BookLanguageLink], set[int]]:
-        """Get current language links and their IDs.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_id : int
-            Calibre book ID.
-
-        Returns
-        -------
-        tuple[list[BookLanguageLink], set[int]]
-            Tuple of (current links, set of language IDs).
-        """
-        current_links_stmt = select(BookLanguageLink).where(
-            BookLanguageLink.book == book_id
-        )
-        current_links = list(session.exec(current_links_stmt).all())
-        current_language_ids = {link.lang_code for link in current_links}
-        return current_links, current_language_ids
-
-    def _find_or_create_language(
-        self, session: Session, lang_code: str
-    ) -> Language | None:
-        """Find or create a language by code.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        lang_code : str
-            Language code (ISO 639-1).
-
-        Returns
-        -------
-        Language | None
-            Language instance, or None if creation failed.
-        """
-        language_stmt = select(Language).where(Language.lang_code == lang_code)
-        language = session.exec(language_stmt).first()
-        if language is None:
-            language = Language(lang_code=lang_code)
-            session.add(language)
-            session.flush()
-        return language
-
-    def _resolve_language_ids(
-        self,
-        session: Session,
-        language_ids: list[int] | None = None,
-        language_codes: list[str] | None = None,
-    ) -> list[int]:
-        """Resolve language_ids or language_codes to a list of language IDs.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        language_ids : list[int] | None
-            List of language IDs (takes priority).
-        language_codes : list[str] | None
-            List of language codes to resolve.
-
-        Returns
-        -------
-        list[int]
-            List of resolved language IDs.
-        """
-        if language_ids is not None:
-            return language_ids
-
-        if language_codes is None:
-            return []
-
-        target_language_ids: list[int] = []
-        for lang_code in language_codes:
-            language = self._find_or_create_language(session, lang_code)
-            if language is not None and language.id is not None:
-                target_language_ids.append(language.id)
-
-        return target_language_ids
-
-    def _remove_duplicate_ids(self, ids: list[int]) -> list[int]:
-        """Remove duplicates from a list while preserving order.
-
-        Parameters
-        ----------
-        ids : list[int]
-            List of IDs that may contain duplicates.
-
-        Returns
-        -------
-        list[int]
-            List of unique IDs in original order.
-        """
-        seen: set[int] = set()
-        unique_ids: list[int] = []
-        for item_id in ids:
-            if item_id not in seen:
-                seen.add(item_id)
-                unique_ids.append(item_id)
-        return unique_ids
-
-    def _delete_existing_language_links(
-        self, session: Session, current_links: list[BookLanguageLink]
-    ) -> None:
-        """Delete existing language links.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        current_links : list[BookLanguageLink]
-            List of existing language links to delete.
-        """
-        for link in current_links:
-            session.delete(link)
-        session.flush()
-
-    def _create_language_links(
-        self, session: Session, book_id: int, language_ids: list[int]
-    ) -> None:
-        """Create new language links.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_id : int
-            Calibre book ID.
-        language_ids : list[int]
-            List of language IDs to create links for.
-        """
-        for order, target_language_id in enumerate(language_ids):
-            existing_link_stmt = select(BookLanguageLink).where(
-                BookLanguageLink.book == book_id,
-                BookLanguageLink.lang_code == target_language_id,
-            )
-            existing_link = session.exec(existing_link_stmt).first()
-            if existing_link is None:
-                link = BookLanguageLink(
-                    book=book_id,
-                    lang_code=target_language_id,
-                    item_order=order,
-                )
-                session.add(link)
-
-    def _update_book_language(
-        self,
-        session: Session,
-        book_id: int,
-        language_codes: list[str] | None = None,
-        language_ids: list[int] | None = None,
-    ) -> None:
-        """Update book languages (many-to-many relationship).
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_id : int
-            Calibre book ID.
-        language_codes : list[str] | None
-            List of language codes to set (creates if doesn't exist).
-        language_ids : list[int] | None
-            List of language IDs to set (if provided, language_codes is ignored).
-        """
-        current_links, current_language_ids = self._get_current_language_ids(
-            session, book_id
-        )
-
-        target_language_ids = self._resolve_language_ids(
-            session, language_ids, language_codes
-        )
-        target_language_ids = self._remove_duplicate_ids(target_language_ids)
-
-        if set(target_language_ids) == current_language_ids:
-            return
-
-        self._delete_existing_language_links(session, current_links)
-        self._create_language_links(session, book_id, target_language_ids)
-
-    def _update_book_rating(
-        self,
-        session: Session,
-        book_id: int,
-        rating_value: int | None = None,
-        rating_id: int | None = None,
-    ) -> None:
-        """Update book rating (many-to-many relationship).
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_id : int
-            Calibre book ID.
-        rating_value : int | None
-            Rating value to set (creates if doesn't exist).
-        rating_id : int | None
-            Rating ID to set (if provided, rating_value is ignored).
-        """
-        # Get current rating link
-        current_link_stmt = select(BookRatingLink).where(BookRatingLink.book == book_id)
-        current_link = session.exec(current_link_stmt).first()
-
-        # Determine target rating ID
-        target_rating_id = rating_id
-        if target_rating_id is None and rating_value is not None:
-            # Find or create rating
-            rating_stmt = select(Rating).where(Rating.rating == rating_value)
-            rating = session.exec(rating_stmt).first()
-            if rating is None:
-                rating = Rating(rating=rating_value)
-                session.add(rating)
-                session.flush()
-            if rating.id is not None:
-                target_rating_id = rating.id
-
-        # Check if rating is actually changing
-        current_rating_id = current_link.rating if current_link else None
-        if current_rating_id == target_rating_id:
-            # Rating hasn't changed, no update needed
-            return
-
-        # Rating is changing - delete existing link if present
-        self._delete_links_and_flush(
-            session, [current_link] if current_link is not None else []
-        )
-
-        # Add new link if target rating is specified
-        if target_rating_id is not None:
-            link = BookRatingLink(book=book_id, rating=target_rating_id)
-            session.add(link)
 
     def update_book(
         self,
@@ -2079,49 +1165,8 @@ class CalibreBookRepository:
         rating_value: int | None = None,
         rating_id: int | None = None,
     ) -> BookWithFullRelations | None:
-        """Update book metadata.
-
-        Parameters
-        ----------
-        book_id : int
-            Calibre book ID.
-        title : str | None
-            Book title to update.
-        pubdate : datetime | None
-            Publication date to update.
-        author_names : list[str] | None
-            List of author names to set (replaces existing).
-        series_name : str | None
-            Series name to set (creates if doesn't exist).
-        series_id : int | None
-            Series ID to set (if provided, series_name is ignored).
-        series_index : float | None
-            Series index to update.
-        tag_names : list[str] | None
-            List of tag names to set (replaces existing).
-        identifiers : list[dict[str, str]] | None
-            List of identifiers with 'type' and 'val' keys (replaces existing).
-        description : str | None
-            Book description/comment to set.
-        publisher_name : str | None
-            Publisher name to set (creates if doesn't exist).
-        publisher_id : int | None
-            Publisher ID to set (if provided, publisher_name is ignored).
-        language_codes : list[str] | None
-            List of language codes to set (creates if doesn't exist).
-        language_ids : list[int] | None
-            List of language IDs to set (if provided, language_codes is ignored).
-        rating_value : int | None
-            Rating value to set (creates if doesn't exist).
-        rating_id : int | None
-            Rating ID to set (if provided, rating_value is ignored).
-
-        Returns
-        -------
-        BookWithFullRelations | None
-            Updated book with all relations if found, None otherwise.
-        """
-        with self._get_session() as session:
+        """Update book metadata."""
+        with self.get_session() as session:
             # Disable autoflush to prevent errors with Calibre-specific SQLite functions
             # (e.g., title_sort) that may be referenced in triggers
             with session.no_autoflush:
@@ -2131,44 +1176,23 @@ class CalibreBookRepository:
                 if book is None:
                     return None
 
-                # Update authors first (before book fields to avoid trigger issues)
-                if author_names is not None:
-                    self._update_book_authors(session, book_id, author_names)
-
-                # Update series
-                if series_name is not None or series_id is not None:
-                    self._update_book_series(session, book_id, series_name, series_id)
-
-                # Update tags
-                if tag_names is not None:
-                    self._update_book_tags(session, book_id, tag_names)
-
-                # Update identifiers
-                if identifiers is not None:
-                    self._update_book_identifiers(session, book_id, identifiers)
-
-                # Update description
-                if description is not None:
-                    self._update_book_description(session, book_id, description)
-
-                # Update publisher
-                if publisher_id is not None or publisher_name is not None:
-                    self._update_book_publisher(
-                        session, book_id, publisher_name, publisher_id
-                    )
-
-                # Update language
-                if language_ids is not None or language_codes is not None:
-                    self._update_book_language(
-                        session,
-                        book_id,
-                        language_codes=language_codes,
-                        language_ids=language_ids,
-                    )
-
-                # Update rating
-                if rating_id is not None or rating_value is not None:
-                    self._update_book_rating(session, book_id, rating_value, rating_id)
+                # Update relationships first (before book fields to avoid trigger issues)
+                self._update_book_relationships(
+                    session,
+                    book_id,
+                    author_names=author_names,
+                    series_name=series_name,
+                    series_id=series_id,
+                    tag_names=tag_names,
+                    identifiers=identifiers,
+                    description=description,
+                    publisher_name=publisher_name,
+                    publisher_id=publisher_id,
+                    language_codes=language_codes,
+                    language_ids=language_ids,
+                    rating_value=rating_value,
+                    rating_id=rating_id,
+                )
 
                 # Update book fields last (after all other operations to avoid
                 # triggering title_sort function during intermediate flushes)
@@ -2182,214 +1206,75 @@ class CalibreBookRepository:
             # Return updated book with full relations
             return self.get_book_full(book_id)
 
-    def search_suggestions(
+    def add_book(
         self,
-        query: str,
-        book_limit: int = 3,
-        author_limit: int = 3,
-        tag_limit: int = 3,
-        series_limit: int = 3,
-    ) -> dict[str, list[dict[str, str | int]]]:
-        """Search for suggestions across books, authors, tags, and series.
+        file_path: Path,
+        file_format: str,
+        title: str | None = None,
+        author_name: str | None = None,
+        library_path: Path | None = None,
+    ) -> int:
+        """Add a book directly to the Calibre database."""
+        if not file_path.exists():
+            msg = f"File not found: {file_path}"
+            raise ValueError(msg)
 
-        Parameters
-        ----------
-        query : str
-            Search query string.
-        book_limit : int
-            Maximum number of book matches to return (default: 3).
-        author_limit : int
-            Maximum number of author matches to return (default: 3).
-        tag_limit : int
-            Maximum number of tag matches to return (default: 3).
-        series_limit : int
-            Maximum number of series matches to return (default: 3).
+        if library_path is None:
+            library_path = self._calibre_db_path
 
-        Returns
-        -------
-        dict[str, list[dict[str, str | int]]]
-            Dictionary with keys 'books', 'authors', 'tags', 'series', each
-            containing a list of matches with 'name' and 'id' fields.
-        """
-        if not query or not query.strip():
-            return {"books": [], "authors": [], "tags": [], "series": []}
+        # Extract metadata and cover using metadata service
+        metadata, cover_data = self._metadata_service.extract_metadata(
+            file_path, file_format
+        )
 
-        results = {
-            "books": [],
-            "authors": [],
-            "tags": [],
-            "series": [],
-        }
+        # Normalize title and author
+        if title is None:
+            title = metadata.title
+        if not title or title.strip() == "":
+            title = "Unknown"
 
-        with self._get_session() as session:
-            # Use func.lower for case-insensitive search in SQLite
-            query_lower = query.strip().lower()
-            pattern_lower = f"%{query_lower}%"
+        if author_name is None or author_name.strip() == "":
+            author_name = metadata.author
+        if not author_name or author_name.strip() == "":
+            author_name = "Unknown"
 
-            # Search books by title
-            book_stmt = (
-                select(Book.id, Book.title)
-                .where(func.lower(Book.title).like(pattern_lower))  # type: ignore[attr-defined]
-                .limit(book_limit)
+        file_format_upper = file_format.upper().lstrip(".")
+        author_dir = self._sanitize_filename(author_name)
+        title_dir = self._sanitize_filename(title)
+        book_path_str = f"{author_dir}/{title_dir}".replace("\\", "/")
+
+        with self.get_session() as session:
+            file_size = file_path.stat().st_size
+            db_book, book_id = self._create_book_database_records(
+                session,
+                title,
+                author_name,
+                book_path_str,
+                metadata,
+                file_format_upper,
+                title_dir,
+                file_size,
             )
-            book_results = session.exec(book_stmt).all()
-            results["books"] = [
-                {"id": book_id, "name": book_title}
-                for book_id, book_title in book_results
-            ]
 
-            # Search authors
-            author_stmt = (
-                select(Author.id, Author.name)
-                .where(func.lower(Author.name).like(pattern_lower))  # type: ignore[attr-defined]
-                .limit(author_limit)
+            # Save file using file manager
+            self._file_manager.save_book_file(
+                file_path, library_path, book_path_str, title_dir, file_format
             )
-            author_results = session.exec(author_stmt).all()
-            results["authors"] = [
-                {"id": author_id, "name": author_name}
-                for author_id, author_name in author_results
-            ]
 
-            # Search tags
-            tag_stmt = (
-                select(Tag.id, Tag.name)
-                .where(func.lower(Tag.name).like(pattern_lower))  # type: ignore[attr-defined]
-                .limit(tag_limit)
-            )
-            tag_results = session.exec(tag_stmt).all()
-            results["tags"] = [
-                {"id": tag_id, "name": tag_name} for tag_id, tag_name in tag_results
-            ]
+            # Save cover if available
+            if cover_data:
+                cover_saved = self._file_manager.save_book_cover(
+                    cover_data, library_path, book_path_str
+                )
+                if cover_saved:
+                    db_book.has_cover = True
+                    session.add(db_book)
 
-            # Search series
-            series_stmt = (
-                select(Series.id, Series.name)
-                .where(func.lower(Series.name).like(pattern_lower))  # type: ignore[attr-defined]
-                .limit(series_limit)
-            )
-            series_results = session.exec(series_stmt).all()
-            results["series"] = [
-                {"id": series_id, "name": series_name}
-                for series_id, series_name in series_results
-            ]
+            session.commit()
+            return book_id
 
-        return results
-
-    def filter_suggestions(
-        self,
-        query: str,
-        filter_type: str,
-        limit: int = 10,
-    ) -> list[dict[str, str | int]]:
-        """Get filter suggestions for a specific filter type.
-
-        Parameters
-        ----------
-        query : str
-            Search query string.
-        filter_type : str
-            Type of filter: 'author', 'title', 'genre', 'publisher',
-            'identifier', 'series', 'format', 'rating', 'language'.
-        limit : int
-            Maximum number of suggestions to return (default: 10).
-
-        Returns
-        -------
-        list[dict[str, str | int]]
-            List of suggestions with 'id' and 'name' fields.
-        """
-        if not query or not query.strip():
-            return []
-
-        strategy = FilterSuggestionFactory.get_strategy(filter_type)
-        if strategy is None:
-            return []
-
-        with self._get_session() as session:
-            return strategy.get_suggestions(session, query, limit)
-
-    def get_library_stats(self) -> dict[str, int | float]:
-        """Get library statistics.
-
-        Returns aggregate statistics about the library including:
-        - Total number of books
-        - Total number of unique series
-        - Total number of unique authors
-        - Total number of unique tags
-        - Total number of books with ratings
-        - Total content size in bytes
-
-        Returns
-        -------
-        dict[str, int | float]
-            Dictionary with keys:
-            - 'total_books': Total number of books
-            - 'total_series': Total number of unique series
-            - 'total_authors': Total number of unique authors
-            - 'total_tags': Total number of unique tags
-            - 'total_ratings': Total number of books with ratings
-            - 'total_content_size': Total file size in bytes
-        """
-        with self._get_session() as session:
-            # Count total books
-            books_stmt = select(func.count(Book.id))
-            total_books = session.exec(books_stmt).one() or 0
-
-            # Count unique series (series that are linked to books)
-            series_stmt = select(
-                func.count(func.distinct(BookSeriesLink.series))
-            ).select_from(BookSeriesLink)
-            total_series = session.exec(series_stmt).one() or 0
-
-            # Count unique authors (authors that are linked to books)
-            authors_stmt = select(
-                func.count(func.distinct(BookAuthorLink.author))
-            ).select_from(BookAuthorLink)
-            total_authors = session.exec(authors_stmt).one() or 0
-
-            # Count unique tags (tags that are linked to books)
-            tags_stmt = select(func.count(func.distinct(BookTagLink.tag))).select_from(
-                BookTagLink
-            )
-            total_tags = session.exec(tags_stmt).one() or 0
-
-            # Count books with ratings (books that have a rating link)
-            ratings_stmt = select(
-                func.count(func.distinct(BookRatingLink.book))
-            ).select_from(BookRatingLink)
-            total_ratings = session.exec(ratings_stmt).one() or 0
-
-            # Sum total content size
-            content_size_stmt = select(func.sum(Data.uncompressed_size))
-            total_content_size = session.exec(content_size_stmt).one() or 0
-            if total_content_size is None:
-                total_content_size = 0
-
-            return {
-                "total_books": total_books,
-                "total_series": total_series,
-                "total_authors": total_authors,
-                "total_tags": total_tags,
-                "total_ratings": total_ratings,
-                "total_content_size": int(total_content_size),
-            }
-
-    @staticmethod
-    def _sanitize_filename(name: str, max_length: int = 96) -> str:
-        """Sanitize filename by removing invalid characters.
-
-        Parameters
-        ----------
-        name : str
-            Filename to sanitize.
-        max_length : int
-            Maximum length for the sanitized filename (default: 96).
-
-        Returns
-        -------
-        str
-            Sanitized filename safe for filesystem use.
-        """
+    def _sanitize_filename(self, name: str, max_length: int = 96) -> str:
+        """Sanitize filename by removing invalid characters."""
         invalid_chars = '<>:"/\\|?*'
         sanitized = "".join(c if c not in invalid_chars else "_" for c in name)
         if len(sanitized) > max_length:
@@ -2397,25 +1282,7 @@ class CalibreBookRepository:
         return sanitized.strip() or "Unknown"
 
     def _get_or_create_author(self, session: Session, author_name: str) -> Author:
-        """Get existing author or create a new one.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        author_name : str
-            Author name.
-
-        Returns
-        -------
-        Author
-            Author instance with valid ID.
-
-        Raises
-        ------
-        ValueError
-            If author creation fails.
-        """
+        """Get existing author or create a new one."""
         author_stmt = select(Author).where(Author.name == author_name)
         author = session.exec(author_stmt).first()
         if author is None:
@@ -2438,33 +1305,7 @@ class CalibreBookRepository:
         pubdate: datetime | None = None,
         series_index: float | None = None,
     ) -> Book:
-        """Create a new book record in the database.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        title : str
-            Book title.
-        author_name : str
-            Author name for sorting.
-        book_path_str : str
-            Book path string (Author/Title format).
-        pubdate : datetime | None
-            Publication date. If None, uses current date.
-        series_index : float | None
-            Series index. If None, defaults to 1.0.
-
-        Returns
-        -------
-        Book
-            Created book instance with valid ID.
-
-        Raises
-        ------
-        ValueError
-            If book creation fails.
-        """
+        """Create a new book record in the database."""
         now = datetime.now(UTC)
         book_uuid = str(uuid4())
         db_book = Book(
@@ -2489,143 +1330,6 @@ class CalibreBookRepository:
 
         return db_book
 
-    def _save_book_file(
-        self,
-        file_path: Path,
-        library_path: Path,
-        book_path_str: str,
-        title_dir: str,
-        file_format: str,
-    ) -> None:
-        """Save book file to library directory structure.
-
-        Parameters
-        ----------
-        file_path : Path
-            Source file path (temporary location).
-        library_path : Path
-            Library root path.
-        book_path_str : str
-            Book path string (Author/Title format).
-        title_dir : str
-            Sanitized title directory name.
-        file_format : str
-            File format extension.
-        """
-        import shutil
-
-        book_dir = library_path / book_path_str
-        book_dir.mkdir(parents=True, exist_ok=True)
-        library_file_path = book_dir / f"{title_dir}.{file_format.lower()}"
-        shutil.copy2(file_path, library_file_path)
-
-    def _save_book_cover(
-        self,
-        cover_data: bytes,
-        library_path: Path,
-        book_path_str: str,
-    ) -> bool:
-        """Save book cover image to library directory structure.
-
-        Saves cover as cover.jpg in the book's directory. Converts image
-        to JPEG format if necessary.
-
-        Parameters
-        ----------
-        cover_data : bytes
-            Cover image data as bytes.
-        library_path : Path
-            Library root path.
-        book_path_str : str
-            Book path string (Author/Title format).
-
-        Returns
-        -------
-        bool
-            True if cover was saved successfully, False otherwise.
-        """
-        from io import BytesIO
-
-        from PIL import Image
-
-        try:
-            # Load image from bytes
-            img = Image.open(BytesIO(cover_data))
-
-            # Convert to RGB if necessary (for JPEG compatibility)
-            if img.mode != "RGB":
-                img = img.convert("RGB")
-
-            # Save as JPEG
-            book_dir = library_path / book_path_str
-            book_dir.mkdir(parents=True, exist_ok=True)
-            cover_path = book_dir / "cover.jpg"
-
-            # Save with quality 85 (good balance of size and quality)
-            img.save(cover_path, format="JPEG", quality=85)
-        except (OSError, ValueError, TypeError, AttributeError):
-            # If image processing fails, return False
-            # This allows the book to be added even if cover extraction fails
-            return False
-        else:
-            return True
-
-    def _extract_book_data(
-        self, file_path: Path, file_format: str
-    ) -> tuple[BookMetadata, bytes | None]:
-        """Extract metadata and cover art from book file.
-
-        Parameters
-        ----------
-        file_path : Path
-            Path to the book file.
-        file_format : str
-            File format extension.
-
-        Returns
-        -------
-        tuple[BookMetadata, bytes | None]
-            Tuple of (BookMetadata, cover_data).
-        """
-        extractor = BookMetadataExtractor()
-        metadata = extractor.extract_metadata(file_path, file_format, file_path.name)
-
-        cover_extractor = BookCoverExtractor()
-        cover_data = cover_extractor.extract_cover(file_path, file_format)
-
-        return metadata, cover_data
-
-    def _normalize_book_info(
-        self, title: str | None, author_name: str | None, metadata: BookMetadata
-    ) -> tuple[str, str]:
-        """Normalize title and author name from provided values or metadata.
-
-        Parameters
-        ----------
-        title : str | None
-            Provided title.
-        author_name : str | None
-            Provided author name.
-        metadata : object
-            Extracted BookMetadata.
-
-        Returns
-        -------
-        tuple[str, str]
-            Tuple of (normalized_title, normalized_author_name).
-        """
-        if title is None:
-            title = metadata.title
-        if not title or title.strip() == "":
-            title = "Unknown"
-
-        if author_name is None or author_name.strip() == "":
-            author_name = metadata.author
-        if not author_name or author_name.strip() == "":
-            author_name = "Unknown"
-
-        return title, author_name
-
     def _create_book_database_records(
         self,
         session: Session,
@@ -2637,32 +1341,7 @@ class CalibreBookRepository:
         title_dir: str,
         file_size: int,
     ) -> tuple[Book, int]:
-        """Create all database records for a new book.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        title : str
-            Book title.
-        author_name : str
-            Author name.
-        book_path_str : str
-            Book path string.
-        metadata : BookMetadata
-            Extracted BookMetadata.
-        file_format_upper : str
-            File format in uppercase.
-        title_dir : str
-            Sanitized title directory name.
-        file_size : int
-            File size in bytes.
-
-        Returns
-        -------
-        tuple[Book, int]
-            Tuple of (created Book, book_id).
-        """
+        """Create all database records for a new book."""
         author = self._get_or_create_author(session, author_name)
         sort_title = metadata.sort_title or title
 
@@ -2687,7 +1366,8 @@ class CalibreBookRepository:
         book_author_link = BookAuthorLink(book=book_id, author=author.id)
         session.add(book_author_link)
 
-        self._add_book_metadata(session, book_id, metadata)
+        # Add metadata using relationship manager
+        self._relationship_manager.add_metadata(session, book_id, metadata)
 
         db_data = Data(
             book=book_id,
@@ -2699,223 +1379,57 @@ class CalibreBookRepository:
 
         return db_book, book_id
 
-    def add_book(
-        self,
-        file_path: Path,
-        file_format: str,
-        title: str | None = None,
-        author_name: str | None = None,
-        library_path: Path | None = None,
-    ) -> int:
-        """Add a book directly to the Calibre database.
-
-        Creates a book record, author record, and data entry for the file format.
-        Saves the file to the library directory structure.
-        Follows the same approach as calibre-web by directly manipulating the database.
-
-        Parameters
-        ----------
-        file_path : Path
-            Path to the uploaded book file (temporary location).
-        file_format : str
-            File format extension (e.g., 'epub', 'pdf', 'mobi').
-        title : str | None
-            Book title. If None, uses filename without extension.
-        author_name : str | None
-            Author name. If None, uses 'Unknown'.
-        library_path : Path | None
-            Library root path. If None, uses calibre_db_path.
-
-        Returns
-        -------
-        int
-            ID of the newly created book.
+    def _raise_book_not_found_error(self) -> None:
+        """Raise ValueError for book not found.
 
         Raises
         ------
         ValueError
-            If file_path doesn't exist or file_format is invalid.
+            Always raises with message "book_not_found".
         """
-        if not file_path.exists():
-            msg = f"File not found: {file_path}"
-            raise ValueError(msg)
+        msg = "book_not_found"
+        raise ValueError(msg)
 
-        if library_path is None:
-            library_path = self._calibre_db_path
-
-        metadata, cover_data = self._extract_book_data(file_path, file_format)
-        title, author_name = self._normalize_book_info(title, author_name, metadata)
-
-        file_format_upper = file_format.upper().lstrip(".")
-        author_dir = self._sanitize_filename(author_name)
-        title_dir = self._sanitize_filename(title)
-        book_path_str = f"{author_dir}/{title_dir}".replace("\\", "/")
-
-        with self._get_session() as session:
-            file_size = file_path.stat().st_size
-            db_book, book_id = self._create_book_database_records(
-                session,
-                title,
-                author_name,
-                book_path_str,
-                metadata,
-                file_format_upper,
-                title_dir,
-                file_size,
-            )
-
-            self._save_book_file(
-                file_path, library_path, book_path_str, title_dir, file_format
-            )
-
-            if cover_data:
-                cover_saved = self._save_book_cover(
-                    cover_data, library_path, book_path_str
-                )
-                if cover_saved:
-                    db_book.has_cover = True
-                    session.add(db_book)
-
-            session.commit()
-            return book_id
-
-    def _match_files_by_extension(
+    def delete_book(
         self,
-        all_files: list[Path],
-        data_records: list[Data],
-        existing_paths: list[Path],
         book_id: int,
-    ) -> list[Path]:
-        """Match files by extension when pattern matching fails.
+        delete_files_from_drive: bool = False,
+        library_path: Path | None = None,
+    ) -> None:
+        """Delete a book and all its related data."""
+        with self.get_session() as session:
+            try:
+                # Get book to verify it exists and get path info
+                book_stmt = select(Book).where(Book.id == book_id)
+                book = session.exec(book_stmt).first()
+                if book is None:
+                    self._raise_book_not_found_error()
 
-        Parameters
-        ----------
-        all_files : list[Path]
-            All files found in the book directory.
-        data_records : list[Data]
-            Data records from database.
-        existing_paths : list[Path]
-            Paths already matched via pattern matching.
-        book_id : int
-            Book ID for logging.
+                # Collect filesystem paths BEFORE deleting Data records
+                # (We need Data records to determine which files to delete)
+                filesystem_paths: list[Path] = []
+                book_dir: Path | None = None
+                if delete_files_from_drive and library_path and book.path:
+                    filesystem_paths, book_dir = self._file_manager.collect_book_files(
+                        session, book_id, book.path, library_path
+                    )
 
-        Returns
-        -------
-        list[Path]
-            Additional file paths matched by extension.
-        """
-        matched_paths: list[Path] = []
+                # Execute database deletion commands
+                self._execute_database_deletion_commands(session, book_id, book)
 
-        if not data_records:
-            if all_files:
-                logger.warning(
-                    "No Data records found for book_id=%d, but files exist: %s",
-                    book_id,
-                    [str(f.name) for f in all_files],
-                )
-            return matched_paths
+                # Commit database changes after all commands succeed
+                session.commit()
 
-        # Collect all expected formats from Data records
-        expected_formats = {dr.format.lower() for dr in data_records}
+                # Perform filesystem operations after successful DB commit
+                if delete_files_from_drive:
+                    self._execute_filesystem_deletion_commands(
+                        filesystem_paths, book_dir
+                    )
 
-        # Match files by extension
-        for file_path in all_files:
-            file_ext = file_path.suffix.lower().lstrip(".")
-            if file_ext in expected_formats and file_path not in existing_paths:
-                matched_paths.append(file_path)
-
-        if matched_paths:
-            logger.debug(
-                "Matched %d files by extension for book_id=%d: %s",
-                len(matched_paths),
-                book_id,
-                [str(p.name) for p in matched_paths],
-            )
-
-        return matched_paths
-
-    def _collect_filesystem_paths(
-        self,
-        session: Session,
-        book_id: int,
-        book_path: str,
-        library_path: Path,
-    ) -> tuple[list[Path], Path | None]:
-        """Collect filesystem paths for book files before deletion.
-
-        Parameters
-        ----------
-        session : Session
-            Database session for querying Data records.
-        book_id : int
-            Calibre book ID.
-        book_path : str
-            Book path string from database.
-        library_path : Path
-            Library root path.
-
-        Returns
-        -------
-        tuple[list[Path], Path | None]
-            Tuple of (list of file paths to delete, book directory path).
-        """
-        filesystem_paths: list[Path] = []
-        book_dir = library_path / book_path
-
-        if not (book_dir.exists() and book_dir.is_dir()):
-            logger.warning(
-                "Book directory does not exist or is not a directory: %r",
-                book_dir,
-            )
-            return filesystem_paths, None
-
-        # Find all book files from Data table
-        data_stmt = select(Data).where(Data.book == book_id)
-        data_records = list(session.exec(data_stmt).all())
-
-        logger.debug("Found %d Data records for book_id=%d", len(data_records), book_id)
-
-        for data_record in data_records:
-            file_name = data_record.name or f"{book_id}"
-            format_lower = data_record.format.lower()
-
-            # Pattern 1: {name}.{format}
-            file_path = book_dir / f"{file_name}.{format_lower}"
-            if file_path.exists():
-                filesystem_paths.append(file_path)
-
-            # Pattern 2: {book_id}.{format}
-            alt_file_path = book_dir / f"{book_id}.{format_lower}"
-            if alt_file_path.exists() and alt_file_path not in filesystem_paths:
-                filesystem_paths.append(alt_file_path)
-
-        # List all files in directory for fallback matching
-        all_files: list[Path] = []
-        try:
-            all_files = [f for f in book_dir.iterdir() if f.is_file()]
-        except OSError as e:
-            logger.warning("Failed to list files in book_dir %r: %s", book_dir, e)
-
-        # Fallback: If we didn't find files via Data records, try matching by extension
-        # This handles cases where filenames don't match expected patterns
-        extension_matched = self._match_files_by_extension(
-            all_files, data_records, filesystem_paths, book_id
-        )
-        filesystem_paths.extend(extension_matched)
-
-        # Add cover.jpg if it exists
-        cover_path = book_dir / "cover.jpg"
-        if cover_path.exists():
-            filesystem_paths.append(cover_path)
-
-        logger.debug(
-            "Collected %d filesystem paths for book_id=%d: %s",
-            len(filesystem_paths),
-            book_id,
-            [str(p.name) for p in filesystem_paths],
-        )
-
-        return filesystem_paths, book_dir
+            except Exception:
+                # Rollback database session on any error
+                session.rollback()
+                raise
 
     def _execute_database_deletion_commands(
         self,
@@ -2923,22 +1437,7 @@ class CalibreBookRepository:
         book_id: int,
         book: Book,
     ) -> None:
-        """Execute all database deletion commands for a book.
-
-        Parameters
-        ----------
-        session : Session
-            Database session for executing commands.
-        book_id : int
-            Calibre book ID.
-        book : Book
-            Book instance to delete.
-
-        Raises
-        ------
-        Exception
-            If any command fails, all previous commands are undone.
-        """
+        """Execute all database deletion commands for a book."""
         executor = CommandExecutor()
 
         # Execute deletion commands in order
@@ -2965,21 +1464,7 @@ class CalibreBookRepository:
         filesystem_paths: list[Path],
         book_dir: Path | None,
     ) -> None:
-        """Execute filesystem deletion commands for book files.
-
-        Parameters
-        ----------
-        filesystem_paths : list[Path]
-            List of file paths to delete.
-        book_dir : Path | None
-            Book directory path to delete if empty.
-
-        Raises
-        ------
-        OSError
-            If filesystem operations fail. All previous file deletions
-            are automatically undone.
-        """
+        """Execute filesystem deletion commands for book files."""
         if not filesystem_paths:
             return
 
@@ -2993,381 +1478,46 @@ class CalibreBookRepository:
         if book_dir and book_dir.exists() and book_dir.is_dir():
             fs_executor.execute(DeleteDirectoryCommand(book_dir))
 
-        # If any filesystem operation fails, undo all filesystem operations
-        # Database changes are already committed, so we don't undo those
-        # This is acceptable as filesystem cleanup can be done manually
-
-    def _get_book_or_raise(self, session: Session, book_id: int) -> Book:
-        """Get book by ID or raise ValueError if not found.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_id : int
-            Calibre book ID.
-
-        Returns
-        -------
-        Book
-            Book instance.
-
-        Raises
-        ------
-        ValueError
-            If book not found.
-        """
-        book_stmt = select(Book).where(Book.id == book_id)
-        book = session.exec(book_stmt).first()
-        if book is None:
-            msg = "book_not_found"
-            raise ValueError(msg)
-        return book
-
-    def delete_book(
+    def search_suggestions(
         self,
-        book_id: int,
-        delete_files_from_drive: bool = False,
-        library_path: Path | None = None,
-    ) -> None:
-        """Delete a book and all its related data.
+        query: str,
+        book_limit: int = 3,
+        author_limit: int = 3,
+        tag_limit: int = 3,
+        series_limit: int = 3,
+    ) -> dict[str, list[dict[str, str | int]]]:
+        """Search for suggestions across books, authors, tags, and series."""
+        if not query or not query.strip():
+            return {"books": [], "authors": [], "tags": [], "series": []}
 
-        Uses command pattern with compensating undos for atomic deletion.
-        If any command fails, all previous commands are automatically undone.
-        Follows SRP by delegating to command classes.
+        with self.get_session() as session:
+            return self._search_service.search_suggestions(
+                session,
+                query,
+                book_limit,
+                author_limit,
+                tag_limit,
+                series_limit,
+            )
 
-        Parameters
-        ----------
-        book_id : int
-            Calibre book ID to delete.
-        delete_files_from_drive : bool
-            If True, also delete files from filesystem (default: False).
-        library_path : Path | None
-            Library root path for filesystem operations.
-            If None, uses calibre_db_path.
-
-        Raises
-        ------
-        ValueError
-            If book not found.
-        OSError
-            If filesystem operations fail (only if delete_files_from_drive is True).
-        """
-        with self._get_session() as session:
-            try:
-                # Get book to verify it exists and get path info
-                book = self._get_book_or_raise(session, book_id)
-
-                # Collect filesystem paths BEFORE deleting Data records
-                # (We need Data records to determine which files to delete)
-                filesystem_paths: list[Path] = []
-                book_dir: Path | None = None
-                if delete_files_from_drive and library_path and book.path:
-                    filesystem_paths, book_dir = self._collect_filesystem_paths(
-                        session, book_id, book.path, library_path
-                    )
-
-                # Execute database deletion commands
-                self._execute_database_deletion_commands(session, book_id, book)
-
-                # Commit database changes after all commands succeed
-                session.commit()
-
-                # Perform filesystem operations after successful DB commit
-                if delete_files_from_drive:
-                    self._execute_filesystem_deletion_commands(
-                        filesystem_paths, book_dir
-                    )
-
-            except Exception:
-                # Rollback database session on any error
-                session.rollback()
-                raise
-
-    def _add_book_metadata(
+    def filter_suggestions(
         self,
-        session: Session,
-        book_id: int,
-        metadata: BookMetadata,  # type: ignore[name-defined, misc]
-    ) -> None:
-        """Add all metadata relationships to a book.
+        query: str,
+        filter_type: str,
+        limit: int = 10,
+    ) -> list[dict[str, str | int]]:
+        """Get filter suggestions for a specific filter type."""
+        if not query or not query.strip():
+            return []
 
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_id : int
-            Book ID.
-        metadata : BookMetadata
-            Extracted book metadata from fundamental.services.book_metadata_extractor.
-        """
-        # Add description if available
-        if metadata.description:
-            from fundamental.models.core import Comment
+        strategy = FilterSuggestionFactory.get_strategy(filter_type)
+        if strategy is None:
+            return []
 
-            comment = Comment(book=book_id, text=metadata.description)
-            session.add(comment)
+        with self.get_session() as session:
+            return strategy.get_suggestions(session, query, limit)
 
-        # Add tags if available
-        if metadata.tags:
-            self._add_book_tags(session, book_id, metadata.tags)
-
-        # Add publisher if available
-        if metadata.publisher:
-            self._add_book_publisher(session, book_id, metadata.publisher)
-
-        # Add identifiers if available
-        if metadata.identifiers:
-            self._add_book_identifiers(session, book_id, metadata.identifiers)
-
-        # Add languages if available
-        if metadata.languages:
-            self._add_book_languages(session, book_id, metadata.languages)
-
-        # Add series if available
-        if metadata.series:
-            self._add_book_series(session, book_id, metadata.series)
-
-        # Add additional contributors
-        if metadata.contributors:
-            self._add_book_contributors(session, book_id, metadata.contributors)
-
-    def _add_book_tags(
-        self, session: Session, book_id: int, tag_names: list[str]
-    ) -> None:
-        """Add tags to a book.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_id : int
-            Book ID.
-        tag_names : list[str]
-            List of tag names to add.
-        """
-        for tag_name in tag_names:
-            if not tag_name.strip():
-                continue
-            tag_stmt = select(Tag).where(Tag.name == tag_name)
-            tag = session.exec(tag_stmt).first()
-            if tag is None:
-                tag = Tag(name=tag_name)
-                session.add(tag)
-                session.flush()
-            if tag.id is not None:
-                link_stmt = select(BookTagLink).where(
-                    BookTagLink.book == book_id, BookTagLink.tag == tag.id
-                )
-                existing_link = session.exec(link_stmt).first()
-                if existing_link is None:
-                    link = BookTagLink(book=book_id, tag=tag.id)
-                    session.add(link)
-
-    def _add_book_publisher(
-        self, session: Session, book_id: int, publisher_name: str
-    ) -> None:
-        """Add publisher to a book.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_id : int
-            Book ID.
-        publisher_name : str
-            Publisher name.
-        """
-        from fundamental.models.core import Publisher
-
-        pub_stmt = select(Publisher).where(Publisher.name == publisher_name)
-        publisher = session.exec(pub_stmt).first()
-        if publisher is None:
-            publisher = Publisher(name=publisher_name, sort=publisher_name)
-            session.add(publisher)
-            session.flush()
-        if publisher.id is not None:
-            link_stmt = select(BookPublisherLink).where(
-                BookPublisherLink.book == book_id,
-                BookPublisherLink.publisher == publisher.id,
-            )
-            existing_link = session.exec(link_stmt).first()
-            if existing_link is None:
-                link = BookPublisherLink(book=book_id, publisher=publisher.id)
-                session.add(link)
-
-    def _add_book_identifiers(
-        self, session: Session, book_id: int, identifiers: list[dict[str, str]]
-    ) -> None:
-        """Add identifiers to a book.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_id : int
-            Book ID.
-        identifiers : list[dict[str, str]]
-            List of identifiers with 'type' and 'val' keys.
-        """
-        # Deduplicate by type - keep the first occurrence of each type
-        # to avoid UNIQUE constraint violations
-        # Note: Calibre allows multiple identifier types (isbn10, isbn13, asin, etc.)
-        # but only one identifier per type per book (UNIQUE constraint on book+type)
-        seen_types: set[str] = set()
-        unique_identifiers: list[dict[str, str]] = []
-        for ident_data in identifiers:
-            ident_type = ident_data.get("type", "isbn")
-            if ident_type not in seen_types:
-                seen_types.add(ident_type)
-                unique_identifiers.append(ident_data)
-
-        for ident_data in unique_identifiers:
-            ident_type = ident_data.get("type", "isbn")
-            ident_val = ident_data.get("val", "")
-            if not ident_val.strip():
-                continue
-
-            # Check if identifier with this type already exists for this book
-            # (UNIQUE constraint on book+type)
-            existing_stmt = select(Identifier).where(
-                Identifier.book == book_id, Identifier.type == ident_type
-            )
-            existing = session.exec(existing_stmt).first()
-
-            if existing is None:
-                # Create new identifier
-                ident = Identifier(book=book_id, type=ident_type, val=ident_val)
-                session.add(ident)
-            else:
-                # Update existing identifier value
-                existing.val = ident_val
-
-    def _add_book_languages(
-        self, session: Session, book_id: int, language_codes: list[str]
-    ) -> None:
-        """Add languages to a book.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_id : int
-            Book ID.
-        language_codes : list[str]
-            List of language codes.
-        """
-        for lang_code in language_codes:
-            if not lang_code.strip():
-                continue
-            lang = self._find_or_create_language(session, lang_code)
-            if lang is None or lang.id is None:
-                continue
-            link_stmt = select(BookLanguageLink).where(
-                BookLanguageLink.book == book_id,
-                BookLanguageLink.lang_code == lang.id,
-            )
-            existing_link = session.exec(link_stmt).first()
-            if existing_link is None:
-                link = BookLanguageLink(book=book_id, lang_code=lang.id, item_order=0)
-                session.add(link)
-
-    def _add_book_series(
-        self, session: Session, book_id: int, series_name: str
-    ) -> None:
-        """Add series to a book.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_id : int
-            Book ID.
-        series_name : str
-            Series name.
-        """
-        series_stmt = select(Series).where(Series.name == series_name)
-        series = session.exec(series_stmt).first()
-        if series is None:
-            series = Series(name=series_name, sort=series_name)
-            session.add(series)
-            session.flush()
-        if series.id is not None:
-            link_stmt = select(BookSeriesLink).where(
-                BookSeriesLink.book == book_id, BookSeriesLink.series == series.id
-            )
-            existing_link = session.exec(link_stmt).first()
-            if existing_link is None:
-                link = BookSeriesLink(book=book_id, series=series.id)
-                session.add(link)
-
-    def _add_book_contributors(
-        self, session: Session, book_id: int, contributors: list
-    ) -> None:
-        """Add additional contributors as authors.
-
-        Calibre doesn't have separate contributor roles, so we add
-        non-author contributors as additional authors.
-
-        Parameters
-        ----------
-        session : Session
-            Database session.
-        book_id : int
-            Book ID.
-        contributors : list
-            List of Contributor objects from metadata.
-        """
-        for contributor in contributors:
-            # Skip if already added as primary author or if role is 'author'
-            if contributor.role and contributor.role != "author" and contributor.name:
-                # Add as additional author (Calibre limitation)
-                author = self._get_or_create_author(session, contributor.name)
-                # Check if link already exists
-                link_stmt = select(BookAuthorLink).where(
-                    BookAuthorLink.book == book_id, BookAuthorLink.author == author.id
-                )
-                existing_link = session.exec(link_stmt).first()
-                if existing_link is None:
-                    link = BookAuthorLink(book=book_id, author=author.id)
-                    session.add(link)
-
-    @staticmethod
-    def _parse_datetime(value: str | float | None) -> datetime | None:
-        """Parse Calibre datetime value.
-
-        Calibre stores timestamps as Unix timestamps (seconds since epoch)
-        or as ISO format strings, or None.
-
-        Parameters
-        ----------
-        value : str | float | None
-            Timestamp value (Unix timestamp or ISO string) or None.
-
-        Returns
-        -------
-        datetime | None
-            Parsed datetime or None.
-        """
-        if value is None:
-            return None
-        try:
-            # Try parsing as Unix timestamp (float/int)
-            if isinstance(value, (int, float)):
-                return datetime.fromtimestamp(value, tz=UTC)
-            # Try parsing as ISO string
-            if isinstance(value, str):
-                # Remove timezone info if present and try ISO format
-                value_clean = value.replace("Z", "+00:00")
-                try:
-                    return datetime.fromisoformat(value_clean)
-                except ValueError:
-                    # Try parsing as Unix timestamp string
-                    try:
-                        return datetime.fromtimestamp(float(value_clean), tz=UTC)
-                    except (ValueError, TypeError):
-                        return None
-            else:
-                return None
-        except (ValueError, AttributeError, OSError):
-            return None
+    def get_library_stats(self) -> dict[str, int | float]:
+        """Get library statistics."""
+        with self.get_session() as session:
+            return self._statistics_service.get_statistics(session)

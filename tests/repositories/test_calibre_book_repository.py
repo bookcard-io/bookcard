@@ -67,6 +67,7 @@ from fundamental.repositories import (
     TitleFilterStrategy,
     TitleSuggestionStrategy,
 )
+from fundamental.repositories.session_manager import CalibreSessionManager
 
 
 def test_calibre_book_repository_init() -> None:
@@ -75,8 +76,11 @@ def test_calibre_book_repository_init() -> None:
 
     assert repo._calibre_db_path == Path("/path/to/library")
     assert repo._calibre_db_file == "metadata.db"
-    assert repo._db_path == Path("/path/to/library") / "metadata.db"
-    assert repo._engine is None
+    # Type cast to access private attributes for testing
+    session_manager = repo._session_manager
+    assert isinstance(session_manager, CalibreSessionManager)
+    assert session_manager._db_path == Path("/path/to/library") / "metadata.db"
+    assert session_manager._engine is None
 
 
 def test_extract_book_from_book_instance() -> None:
@@ -394,18 +398,24 @@ def test_get_engine_creates_engine() -> None:
 
         repo = CalibreBookRepository(str(tmpdir))
 
-        engine = repo._get_engine()
+        # Type cast to access private method for testing
+        session_manager = repo._session_manager
+        assert isinstance(session_manager, CalibreSessionManager)
+        engine = session_manager._get_engine()
 
         assert engine is not None
-        assert repo._engine is engine
+        assert session_manager._engine is engine
 
 
 def test_get_engine_file_not_found() -> None:
     """Test _get_engine raises FileNotFoundError when database missing (covers lines 221-223)."""
     repo = CalibreBookRepository("/nonexistent/path")
 
+    # Type cast to access private method for testing
+    session_manager = repo._session_manager
+    assert isinstance(session_manager, CalibreSessionManager)
     with pytest.raises(FileNotFoundError):
-        repo._get_engine()
+        session_manager._get_engine()
 
 
 def test_get_engine_reuses_engine() -> None:
@@ -416,21 +426,27 @@ def test_get_engine_reuses_engine() -> None:
 
         repo = CalibreBookRepository(str(tmpdir))
 
-        engine1 = repo._get_engine()
-        engine2 = repo._get_engine()
+        # Type cast to access private method for testing
+        session_manager = repo._session_manager
+        assert isinstance(session_manager, CalibreSessionManager)
+        engine1 = session_manager._get_engine()
+        engine2 = session_manager._get_engine()
 
         assert engine1 is engine2
 
 
 def test_get_session_context_manager() -> None:
-    """Test _get_session context manager yields session (covers lines 238-243)."""
+    """Test get_session context manager yields session (covers lines 238-243)."""
     with tempfile.TemporaryDirectory() as tmpdir:
         db_file = Path(tmpdir) / "metadata.db"
         db_file.touch()
 
         repo = CalibreBookRepository(str(tmpdir))
 
-        with repo._get_session() as session:
+        # Type cast to access method for testing
+        session_manager = repo._session_manager
+        assert isinstance(session_manager, CalibreSessionManager)
+        with session_manager.get_session() as session:
             assert session is not None
 
 
@@ -442,7 +458,7 @@ def test_count_books_no_search() -> None:
 
         repo = CalibreBookRepository(str(tmpdir))
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session.return_value.__enter__.return_value.exec.return_value.one.return_value = 10
 
             result = repo.count_books()
@@ -458,7 +474,7 @@ def test_count_books_with_search() -> None:
 
         repo = CalibreBookRepository(str(tmpdir))
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session.return_value.__enter__.return_value.exec.return_value.one.return_value = 5
 
             result = repo.count_books(search_query="test")
@@ -474,7 +490,7 @@ def test_count_books_returns_zero_when_none() -> None:
 
         repo = CalibreBookRepository(str(tmpdir))
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session.return_value.__enter__.return_value.exec.return_value.one.return_value = None
 
             result = repo.count_books()
@@ -495,7 +511,7 @@ def test_list_books_no_search() -> None:
         mock_result.Book = book
         mock_result.series_name = None
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
             # First call returns books, second call returns authors
@@ -522,7 +538,7 @@ def test_list_books_with_search() -> None:
         mock_result.Book = book
         mock_result.series_name = None
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
             # First call returns books, second call returns authors
@@ -555,7 +571,7 @@ def test_list_books_skips_result_when_book_unwrap_fails() -> None:
         mock_result_valid.Book = valid_book
         mock_result_valid.series_name = None
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
             # First call returns both results, second call returns authors for valid book
@@ -587,7 +603,7 @@ def test_list_books_skips_book_without_id() -> None:
         mock_result.Book = book
         mock_result.series_name = None
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
             # Only one call for books (no authors query since book.id is None)
@@ -613,7 +629,7 @@ def test_list_books_with_series() -> None:
         mock_result.Book = book
         mock_result.series_name = "Test Series"
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
             # First call returns books, second call returns authors
@@ -640,7 +656,7 @@ def test_list_books_with_authors() -> None:
         mock_result.Book = book
         mock_result.series_name = None
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
             # First call returns books, second call returns authors
@@ -667,7 +683,7 @@ def test_list_books_invalid_sort_order() -> None:
         mock_result.Book = book
         mock_result.series_name = None
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
             # First call returns books, second call returns authors
@@ -693,7 +709,7 @@ def test_list_books_asc_order() -> None:
         mock_result.Book = book
         mock_result.series_name = None
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
             # First call returns books, second call returns authors
@@ -719,7 +735,7 @@ def test_list_books_invalid_sort_by() -> None:
         mock_result.Book = book
         mock_result.series_name = None
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
             # First call returns books, second call returns authors
@@ -740,7 +756,7 @@ def test_get_book_not_found() -> None:
 
         repo = CalibreBookRepository(str(tmpdir))
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session.return_value.__enter__.return_value.exec.return_value.first.return_value = None
 
             result = repo.get_book(999)
@@ -759,7 +775,7 @@ def test_get_book_book_unwrap_fails() -> None:
         mock_result = MagicMock()
         mock_result.Book = None  # Unwrap will fail
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session.return_value.__enter__.return_value.exec.return_value.first.return_value = mock_result
 
             result = repo.get_book(1)
@@ -780,7 +796,7 @@ def test_get_book_success() -> None:
         mock_result.Book = book
         mock_result.series_name = "Test Series"
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session.return_value.__enter__.return_value.exec.return_value.first.return_value = mock_result
             mock_session.return_value.__enter__.return_value.exec.return_value.all.return_value = [
                 "Author 1"
@@ -794,72 +810,8 @@ def test_get_book_success() -> None:
             assert result.authors == ["Author 1"]
 
 
-def test_parse_datetime_none() -> None:
-    """Test _parse_datetime returns None for None input (covers lines 443-444)."""
-    result = CalibreBookRepository._parse_datetime(None)
-
-    assert result is None
-
-
-def test_parse_datetime_unix_timestamp() -> None:
-    """Test _parse_datetime parses Unix timestamp (covers lines 447-448)."""
-    timestamp = 1609459200.0  # 2021-01-01 00:00:00 UTC
-    result = CalibreBookRepository._parse_datetime(timestamp)
-
-    assert result is not None
-    assert result.year == 2021
-
-
-def test_parse_datetime_iso_string() -> None:
-    """Test _parse_datetime parses ISO string (covers lines 450-454)."""
-    iso_string = "2021-01-01T00:00:00+00:00"
-    result = CalibreBookRepository._parse_datetime(iso_string)
-
-    assert result is not None
-    assert result.year == 2021
-
-
-def test_parse_datetime_iso_string_with_z() -> None:
-    """Test _parse_datetime parses ISO string with Z (covers lines 452-454)."""
-    iso_string = "2021-01-01T00:00:00Z"
-    result = CalibreBookRepository._parse_datetime(iso_string)
-
-    assert result is not None
-    assert result.year == 2021
-
-
-def test_parse_datetime_unix_string() -> None:
-    """Test _parse_datetime parses Unix timestamp string (covers lines 456-459)."""
-    timestamp_str = "1609459200.0"
-    result = CalibreBookRepository._parse_datetime(timestamp_str)
-
-    assert result is not None
-    assert result.year == 2021
-
-
-def test_parse_datetime_invalid_string() -> None:
-    """Test _parse_datetime returns None for invalid string (covers lines 455-460)."""
-    result = CalibreBookRepository._parse_datetime("invalid date")
-
-    assert result is None
-
-
-def test_parse_datetime_other_type() -> None:
-    """Test _parse_datetime returns None for unsupported type (covers lines 461-462)."""
-    result = CalibreBookRepository._parse_datetime([])  # type: ignore[arg-type]
-
-    assert result is None
-
-
-def test_parse_datetime_os_error() -> None:
-    """Test _parse_datetime handles OSError (covers lines 463-464)."""
-    # Use a timestamp that would cause OSError (e.g., out of range)
-    # This is hard to trigger, but we can test the exception handler
-    with patch("fundamental.repositories.calibre_book_repository.datetime") as mock_dt:
-        mock_dt.fromtimestamp.side_effect = OSError("Invalid timestamp")
-        result = CalibreBookRepository._parse_datetime(999999999999999999)
-
-        assert result is None
+# Note: _parse_datetime method was removed during refactoring
+# These tests are no longer applicable
 
 
 # Filter Strategy Tests
@@ -1357,7 +1309,7 @@ def test_build_book_with_relations() -> None:
         mock_result.Book = book
         mock_result.series_name = "Test Series"
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
             mock_exec.all.return_value = ["Author 1", "Author 2"]
@@ -1382,7 +1334,7 @@ def test_build_book_with_relations_none_book() -> None:
         mock_result = MagicMock()
         mock_result.Book = None
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_session.return_value.__enter__.return_value = mock_session_obj
 
@@ -1402,7 +1354,7 @@ def test_build_book_with_relations_no_id() -> None:
         mock_result = MagicMock()
         mock_result.Book = book
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_session.return_value.__enter__.return_value = mock_session_obj
 
@@ -1435,7 +1387,7 @@ def test_list_books_with_filters() -> None:
         mock_result.Book = book
         mock_result.series_name = None
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
             mock_exec.all.side_effect = [[mock_result], []]
@@ -1467,7 +1419,7 @@ def test_list_books_with_filters_asc() -> None:
         mock_result.Book = book
         mock_result.series_name = None
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
             mock_exec.all.side_effect = [[mock_result], []]
@@ -1491,7 +1443,7 @@ def test_list_books_with_filters_invalid_sort_order() -> None:
         mock_result.Book = book
         mock_result.series_name = None
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
             mock_exec.all.side_effect = [[mock_result], []]
@@ -1513,7 +1465,7 @@ def test_count_books_with_filters() -> None:
 
         repo = CalibreBookRepository(str(tmpdir))
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session.return_value.__enter__.return_value.exec.return_value.one.return_value = 5
 
             result = repo.count_books_with_filters(
@@ -1531,7 +1483,7 @@ def test_count_books_with_filters_zero() -> None:
 
         repo = CalibreBookRepository(str(tmpdir))
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session.return_value.__enter__.return_value.exec.return_value.one.return_value = None
 
             result = repo.count_books_with_filters()
@@ -1547,7 +1499,7 @@ def test_filter_suggestions() -> None:
 
         repo = CalibreBookRepository(str(tmpdir))
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
             mock_exec.all.return_value = [(1, "Author 1")]
@@ -1594,7 +1546,7 @@ def test_search_suggestions() -> None:
 
         repo = CalibreBookRepository(str(tmpdir))
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
             mock_exec.all.side_effect = [
@@ -1657,7 +1609,7 @@ def test_get_book_full_success() -> None:
         mock_result.series_name = "Test Series"
         mock_result.series_id = 1
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             # First query for book with series
             mock_exec1 = MagicMock()
@@ -1732,7 +1684,7 @@ def test_get_book_full_not_found() -> None:
 
         repo = CalibreBookRepository(str(tmpdir))
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
             mock_exec.first.return_value = None
@@ -1760,7 +1712,7 @@ def test_get_book_full_unwrap_returns_none() -> None:
 
         mock_result = NonBookResult()
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
             mock_exec.first.return_value = mock_result
@@ -1786,7 +1738,7 @@ def test_get_book_full_no_comment() -> None:
         mock_result.series_name = None
         mock_result.series_id = None
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec1 = MagicMock()
             mock_exec1.first.return_value = mock_result
@@ -1842,7 +1794,7 @@ def test_get_book_full_series_id_from_index() -> None:
         # Use tuple result to test index-based extraction
         mock_result = (book, "Test Series", 5)  # (book, series_name, series_id)
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec1 = MagicMock()
             mock_exec1.first.return_value = mock_result
@@ -1947,7 +1899,9 @@ def test_update_book_authors() -> None:
         mock_session.add = lambda x: mock_session.added.append(x)
         mock_session.flush = MagicMock()
 
-        repo._update_book_authors(mock_session, 1, ["Author 1", "Author 2"])
+        repo._relationship_manager.update_authors(
+            mock_session, 1, ["Author 1", "Author 2"]
+        )
 
         # Verify existing link was deleted
         assert existing_link in mock_session.deleted
@@ -1971,7 +1925,9 @@ def test_update_book_authors_skips_empty() -> None:
         mock_exec.all.return_value = []
         mock_session.exec.return_value = mock_exec
 
-        repo._update_book_authors(mock_session, 1, ["Author 1", "", "   ", "Author 2"])
+        repo._relationship_manager.update_authors(
+            mock_session, 1, ["Author 1", "", "   ", "Author 2"]
+        )
 
         # Should only process non-empty names
         # Verify exec was called (for deleting links and finding/creating authors)
@@ -2013,7 +1969,9 @@ def test_update_book_series_with_name() -> None:
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = add_entity
 
-        repo._update_book_series(mock_session, 1, series_name="New Series")
+        repo._relationship_manager.update_series(
+            mock_session, 1, series_name="New Series"
+        )
 
         # Verify series was created and link was added
         added_series = [s for s in mock_session.added if isinstance(s, Series)]
@@ -2041,7 +1999,7 @@ def test_update_book_series_remove() -> None:
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = lambda x: mock_session.added.append(x)
 
-        repo._update_book_series(mock_session, 1, series_name="")
+        repo._relationship_manager.update_series(mock_session, 1, series_name="")
 
         # Verify link was deleted
         assert existing_link in mock_session.deleted
@@ -2094,7 +2052,7 @@ def test_update_book_tags() -> None:
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = add_entity
 
-        repo._update_book_tags(mock_session, 1, ["Tag 1", "Tag 2"])
+        repo._relationship_manager.update_tags(mock_session, 1, ["Tag 1", "Tag 2"])
 
         # Verify tags were processed
         added_tags = [t for t in mock_session.added if isinstance(t, Tag)]
@@ -2131,7 +2089,9 @@ def test_update_book_tags_skips_whitespace() -> None:
         mock_session.delete = MagicMock()
         mock_session.add = MagicMock()
 
-        repo._update_book_tags(mock_session, 1, ["Tag 1", "", "   ", "\t", "Tag 2"])
+        repo._relationship_manager.update_tags(
+            mock_session, 1, ["Tag 1", "", "   ", "\t", "Tag 2"]
+        )
 
         # Should only process non-whitespace tags
         # 1 call for getting current tag names + 1 call for deleting existing links + 2 calls for tag lookups (Tag 1 and Tag 2)
@@ -2179,7 +2139,7 @@ def test_update_book_tags_skips_none_id() -> None:
         mock_session.delete = MagicMock()
         mock_session.add = add_entity
 
-        repo._update_book_tags(mock_session, 1, ["Tag 1"])
+        repo._relationship_manager.update_tags(mock_session, 1, ["Tag 1"])
 
         # Verify tag was created but link was NOT created (because tag.id is None)
         added_tags = [t for t in mock_session.added if isinstance(t, Tag)]
@@ -2207,7 +2167,7 @@ def test_update_book_identifiers() -> None:
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = lambda x: mock_session.added.append(x)
 
-        repo._update_book_identifiers(
+        repo._relationship_manager.update_identifiers(
             mock_session,
             1,
             [
@@ -2241,7 +2201,7 @@ def test_update_book_identifiers_skips_empty() -> None:
         mock_session.delete = lambda x: None
         mock_session.add = lambda x: mock_session.added.append(x)
 
-        repo._update_book_identifiers(
+        repo._relationship_manager.update_identifiers(
             mock_session,
             1,
             [{"type": "isbn", "val": "1234567890"}, {"type": "doi", "val": ""}],
@@ -2268,7 +2228,12 @@ def test_update_book_description_new() -> None:
         mock_session.exec.return_value = mock_exec
         mock_session.add = lambda x: mock_session.added.append(x)
 
-        repo._update_book_description(mock_session, 1, "New description")
+        # Description update is now handled in _update_book_relationships
+        repo._update_book_relationships(
+            session=mock_session,
+            book_id=1,
+            description="New description",
+        )
 
         # Verify comment was created
         added_comments = [c for c in mock_session.added if isinstance(c, Comment)]
@@ -2293,7 +2258,12 @@ def test_update_book_description_existing() -> None:
         mock_session.exec.return_value = mock_exec
         mock_session.add = lambda x: mock_session.added.append(x)
 
-        repo._update_book_description(mock_session, 1, "Updated description")
+        # Description update is now handled in _update_book_relationships
+        repo._update_book_relationships(
+            session=mock_session,
+            book_id=1,
+            description="Updated description",
+        )
 
         # Verify comment text was updated
         assert existing_comment.text == "Updated description"
@@ -2337,7 +2307,9 @@ def test_update_book_publisher_with_name() -> None:
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = add_entity
 
-        repo._update_book_publisher(mock_session, 1, publisher_name="New Publisher")
+        repo._relationship_manager.update_publisher(
+            mock_session, 1, publisher_name="New Publisher"
+        )
 
         # Verify publisher was created and link was added
         added_publishers = [p for p in mock_session.added if isinstance(p, Publisher)]
@@ -2388,7 +2360,9 @@ def test_update_book_language_with_code() -> None:
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = add_entity
 
-        repo._update_book_language(mock_session, 1, language_codes=["fr"])
+        repo._relationship_manager.update_languages(
+            mock_session, 1, language_codes=["fr"]
+        )
 
         # Verify language was created and link was added
         added_languages = [
@@ -2437,7 +2411,7 @@ def test_update_book_rating_with_value() -> None:
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = add_entity
 
-        repo._update_book_rating(mock_session, 1, rating_value=5)
+        repo._relationship_manager.update_rating(mock_session, 1, rating_value=5)
 
         # Verify rating was created and link was added
         added_ratings = [r for r in mock_session.added if isinstance(r, Rating)]
@@ -2473,7 +2447,7 @@ def test_update_book_orchestration() -> None:
             formats=[],
         )
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             # Book lookup
             mock_exec1 = MagicMock()
@@ -2541,7 +2515,7 @@ def test_update_book_not_found() -> None:
 
         repo = CalibreBookRepository(str(tmpdir))
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
             mock_exec.first.return_value = None  # Book not found
@@ -2571,7 +2545,7 @@ def test_update_book_series_with_id() -> None:
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = lambda x: mock_session.added.append(x)
 
-        repo._update_book_series(mock_session, 1, series_id=5)
+        repo._relationship_manager.update_series(mock_session, 1, series_id=5)
 
         # Should use provided series_id, not lookup by name
         added_links = [s for s in mock_session.added if isinstance(s, BookSeriesLink)]
@@ -2601,7 +2575,9 @@ def test_update_book_series_with_existing_series() -> None:
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = lambda x: mock_session.added.append(x)
 
-        repo._update_book_series(mock_session, 1, series_name="Existing Series")
+        repo._relationship_manager.update_series(
+            mock_session, 1, series_name="Existing Series"
+        )
 
         # Should use existing series, not create new one
         added_series = [s for s in mock_session.added if isinstance(s, Series)]
@@ -2629,7 +2605,7 @@ def test_update_book_publisher_with_id() -> None:
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = lambda x: mock_session.added.append(x)
 
-        repo._update_book_publisher(mock_session, 1, publisher_id=5)
+        repo._relationship_manager.update_publisher(mock_session, 1, publisher_id=5)
 
         # Should use provided publisher_id
         added_links = [
@@ -2662,7 +2638,7 @@ def test_update_book_publisher_with_existing() -> None:
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = lambda x: mock_session.added.append(x)
 
-        repo._update_book_publisher(
+        repo._relationship_manager.update_publisher(
             mock_session, 1, publisher_name="Existing Publisher"
         )
 
@@ -2699,7 +2675,7 @@ def test_update_book_language_with_id() -> None:
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = lambda x: mock_session.added.append(x)
 
-        repo._update_book_language(mock_session, 1, language_ids=[5])
+        repo._relationship_manager.update_languages(mock_session, 1, language_ids=[5])
 
         # Should use provided language_id
         added_links = [
@@ -2735,7 +2711,9 @@ def test_update_book_language_with_existing() -> None:
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = lambda x: mock_session.added.append(x)
 
-        repo._update_book_language(mock_session, 1, language_codes=["fr"])
+        repo._relationship_manager.update_languages(
+            mock_session, 1, language_codes=["fr"]
+        )
 
         # Should use existing language
         added_languages = [
@@ -2767,7 +2745,7 @@ def test_update_book_rating_with_id() -> None:
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = lambda x: mock_session.added.append(x)
 
-        repo._update_book_rating(mock_session, 1, rating_id=5)
+        repo._relationship_manager.update_rating(mock_session, 1, rating_id=5)
 
         # Should use provided rating_id
         added_links = [r for r in mock_session.added if isinstance(r, BookRatingLink)]
@@ -2798,7 +2776,7 @@ def test_update_book_rating_with_existing() -> None:
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = lambda x: mock_session.added.append(x)
 
-        repo._update_book_rating(mock_session, 1, rating_value=5)
+        repo._relationship_manager.update_rating(mock_session, 1, rating_value=5)
 
         # Should use existing rating
         added_ratings = [r for r in mock_session.added if isinstance(r, Rating)]
@@ -2826,7 +2804,7 @@ def test_update_book_series_whitespace_only() -> None:
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = lambda x: mock_session.added.append(x)
 
-        repo._update_book_series(mock_session, 1, series_name="   ")
+        repo._relationship_manager.update_series(mock_session, 1, series_name="   ")
 
         # Should remove series
         assert existing_link in mock_session.deleted
@@ -2867,7 +2845,7 @@ def test_update_book_author_with_existing_link() -> None:
         mock_session.add = lambda x: mock_session.added.append(x)
         mock_session.flush = MagicMock()
 
-        repo._update_book_authors(mock_session, 1, ["Author 1"])
+        repo._relationship_manager.update_authors(mock_session, 1, ["Author 1"])
 
         # Should not add duplicate link
         added_links = [a for a in mock_session.added if isinstance(a, BookAuthorLink)]
@@ -2908,7 +2886,7 @@ def test_update_book_author_id_none_after_flush() -> None:
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = add_author
 
-        repo._update_book_authors(mock_session, 1, ["Author 1"])
+        repo._relationship_manager.update_authors(mock_session, 1, ["Author 1"])
 
         # Should skip author with None id
         added_links = [a for a in mock_session.added if isinstance(a, BookAuthorLink)]
@@ -2944,7 +2922,9 @@ def test_update_book_series_id_none_after_flush() -> None:
         mock_session.delete = lambda x: mock_session.deleted.append(x)
         mock_session.add = add_series
 
-        repo._update_book_series(mock_session, 1, series_name="New Series")
+        repo._relationship_manager.update_series(
+            mock_session, 1, series_name="New Series"
+        )
 
         # Should not add link if series.id is None
         added_links = [s for s in mock_session.added if isinstance(s, BookSeriesLink)]
@@ -2977,7 +2957,7 @@ def test_update_book_all_fields() -> None:
             formats=[],
         )
 
-        with patch.object(repo, "_get_session") as mock_session:
+        with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
             mock_exec.first.return_value = book
@@ -2989,14 +2969,7 @@ def test_update_book_all_fields() -> None:
             with (
                 patch.object(repo, "get_book_full", return_value=updated_book),
                 patch.object(repo, "_update_book_fields") as mock_fields,
-                patch.object(repo, "_update_book_authors") as mock_authors,
-                patch.object(repo, "_update_book_series") as mock_series,
-                patch.object(repo, "_update_book_tags") as mock_tags,
-                patch.object(repo, "_update_book_identifiers") as mock_identifiers,
-                patch.object(repo, "_update_book_description") as mock_description,
-                patch.object(repo, "_update_book_publisher") as mock_publisher,
-                patch.object(repo, "_update_book_language") as mock_language,
-                patch.object(repo, "_update_book_rating"),
+                patch.object(repo, "_update_book_relationships") as mock_relationships,
             ):
                 result = repo.update_book(
                     book_id=1,
@@ -3020,13 +2993,18 @@ def test_update_book_all_fields() -> None:
 
                 assert result is not None
                 mock_fields.assert_called_once()
-                mock_authors.assert_called_once()
-                mock_series.assert_called_once()
-                mock_tags.assert_called_once()
-                mock_identifiers.assert_called_once()
-                mock_description.assert_called_once()
-                mock_publisher.assert_called_once()
-                mock_language.assert_called_once()
+                # All relationship updates are now handled in _update_book_relationships
+                mock_relationships.assert_called_once()
+                # Verify _update_book_relationships was called with all the expected parameters
+                call_kwargs = mock_relationships.call_args[1]
+                assert call_kwargs["author_names"] == ["Author 1"]
+                assert call_kwargs["series_name"] == "Series 1"
+                assert call_kwargs["tag_names"] == ["Tag 1"]
+                assert call_kwargs["identifiers"] == [{"type": "isbn", "val": "123"}]
+                assert call_kwargs["description"] == "Description"
+                assert call_kwargs["publisher_name"] == "Publisher 1"
+                assert call_kwargs["language_codes"] == ["en"]
+                assert call_kwargs["rating_value"] == 5
 
 
 def test_get_library_stats_total_content_size_none(
@@ -3036,7 +3014,7 @@ def test_get_library_stats_total_content_size_none(
     calibre_db_path = tmp_path / "metadata.db"
     repo = CalibreBookRepository(str(calibre_db_path))
 
-    with patch.object(repo, "_get_session") as mock_get_session:
+    with patch.object(repo, "get_session") as mock_get_session:
         mock_session = MagicMock()
         mock_get_session.return_value.__enter__.return_value = mock_session
 
@@ -3060,38 +3038,39 @@ def test_get_library_stats_total_content_size_none(
 
         mock_session.exec.side_effect = mock_exec
 
-        # Patch the assignment to make total_content_size None to test line 2165
-        def patched_get_library_stats() -> dict[str, int | float]:
+        # Patch the statistics service to return None for total_content_size to test line 2165
+        def patched_get_statistics(session: object) -> dict[str, int | float]:
             """Patched version that makes total_content_size None to test line 2165."""
-            with repo._get_session():
-                # Count queries
-                mock_result_obj = MagicMock()
-                mock_result_obj.one.return_value = 0
-                mock_session.exec.return_value = mock_result_obj
+            # Count queries
+            mock_result_obj = MagicMock()
+            mock_result_obj.one.return_value = 0
+            mock_session.exec.return_value = mock_result_obj
 
-                total_books = 0
-                total_series = 0
-                total_authors = 0
-                total_tags = 0
-                total_ratings = 0
+            total_books = 0
+            total_series = 0
+            total_authors = 0
+            total_tags = 0
+            total_ratings = 0
 
-                # For content size, make it None to test the defensive check
-                total_content_size = None  # This will trigger line 2165
+            # For content size, make it None to test the defensive check
+            total_content_size = None  # This will trigger line 2165
 
-                if total_content_size is None:
-                    total_content_size = 0
+            if total_content_size is None:
+                total_content_size = 0
 
-                return {
-                    "total_books": total_books,
-                    "total_series": total_series,
-                    "total_authors": total_authors,
-                    "total_tags": total_tags,
-                    "total_ratings": total_ratings,
-                    "total_content_size": int(total_content_size),
-                }
+            return {
+                "total_books": total_books,
+                "total_series": total_series,
+                "total_authors": total_authors,
+                "total_tags": total_tags,
+                "total_ratings": total_ratings,
+                "total_content_size": int(total_content_size),
+            }
 
         with patch.object(
-            repo, "get_library_stats", side_effect=patched_get_library_stats
+            repo._statistics_service,
+            "get_statistics",
+            side_effect=patched_get_statistics,
         ):
             stats = repo.get_library_stats()
 

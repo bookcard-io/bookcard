@@ -36,6 +36,10 @@ from fundamental.models.core import (
     Identifier,
 )
 from fundamental.repositories import CalibreBookRepository
+from fundamental.repositories.book_relationship_manager import (
+    BookRelationshipManager,
+)
+from fundamental.repositories.session_manager import CalibreSessionManager
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -88,7 +92,10 @@ def test_register_title_sort_connection_record_parameter(
     which is required by the event listener signature even though it's unused.
     """
     # Create engine to trigger _register_title_sort registration
-    engine = temp_repo._get_engine()
+    # Type cast to access private method for testing
+    session_manager = temp_repo._session_manager
+    assert isinstance(session_manager, CalibreSessionManager)
+    engine = session_manager._get_engine()
 
     # Create a connection to trigger the connect event
     # This will call _register_title_sort with both dbapi_conn and connection_record
@@ -129,7 +136,7 @@ def test_update_book_series_no_change(
     mock_session.exec.return_value = mock_exec
 
     # Update with same series ID
-    temp_repo._update_book_series(mock_session, 1, series_id=1)
+    temp_repo._relationship_manager.update_series(mock_session, 1, series_id=1)
 
     # Verify no changes were made
     assert len(mock_session.added) == 0
@@ -150,7 +157,7 @@ def test_update_book_tags_no_change(
     mock_session.exec.return_value = mock_exec
 
     # Update with same tags (case/whitespace variations should normalize to same)
-    temp_repo._update_book_tags(mock_session, 1, ["tag 1", "TAG 2"])
+    temp_repo._relationship_manager.update_tags(mock_session, 1, ["tag 1", "TAG 2"])
 
     # Verify no changes were made (early return should prevent deletion/addition)
     assert len(mock_session.added) == 0
@@ -175,7 +182,7 @@ def test_update_book_identifiers_no_change(
     mock_session.exec.return_value = mock_exec
 
     # Update with same identifiers (case/whitespace variations should normalize to same)
-    temp_repo._update_book_identifiers(
+    temp_repo._relationship_manager.update_identifiers(
         mock_session,
         1,
         [
@@ -204,7 +211,7 @@ def test_update_book_publisher_no_change(
     mock_session.exec.return_value = mock_exec
 
     # Update with same publisher ID
-    temp_repo._update_book_publisher(mock_session, 1, publisher_id=1)
+    temp_repo._relationship_manager.update_publisher(mock_session, 1, publisher_id=1)
 
     # Verify no changes were made
     assert len(mock_session.added) == 0
@@ -219,7 +226,10 @@ def test_resolve_language_ids_none_codes(
     When both language_ids and language_codes are None, the method
     should return an empty list.
     """
-    result = temp_repo._resolve_language_ids(
+    # Type cast to access private method for testing
+    relationship_manager = temp_repo._relationship_manager
+    assert isinstance(relationship_manager, BookRelationshipManager)
+    result = relationship_manager._resolve_language_ids(
         mock_session, language_ids=None, language_codes=None
     )
 
@@ -242,7 +252,9 @@ def test_update_book_language_no_change(
     mock_session.exec.return_value = mock_exec
 
     # Update with same language IDs
-    temp_repo._update_book_language(mock_session, 1, language_ids=[1, 2])
+    temp_repo._relationship_manager.update_languages(
+        mock_session, 1, language_ids=[1, 2]
+    )
 
     # Verify no changes were made
     assert len(mock_session.added) == 0
@@ -264,7 +276,7 @@ def test_update_book_rating_no_change(
     mock_session.exec.return_value = mock_exec
 
     # Update with same rating ID
-    temp_repo._update_book_rating(mock_session, 1, rating_id=1)
+    temp_repo._relationship_manager.update_rating(mock_session, 1, rating_id=1)
 
     # Verify no changes were made
     assert len(mock_session.added) == 0
