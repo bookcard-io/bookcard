@@ -163,6 +163,9 @@ class AuthorService:
     ) -> dict[str, object]:
         """Get a single author by ID or OpenLibrary key.
 
+        If the author doesn't have a row in author_metadata (unmatched),
+        fetches details from Calibre's database instead.
+
         Parameters
         ----------
         author_id : str
@@ -187,6 +190,12 @@ class AuthorService:
 
         author = self._lookup_author(author_id, active_library.id)
 
+        # If not found and it's a calibre-{id} format, try fetching from Calibre
+        if not author and author_id.startswith("calibre-"):
+            with contextlib.suppress(ValueError):
+                calibre_id = int(author_id.replace("calibre-", ""))
+                return self._get_calibre_author_dict(active_library, calibre_id)
+
         if not author:
             msg = f"Author not found: {author_id}"
             raise ValueError(msg)
@@ -203,6 +212,68 @@ class AuthorService:
                 author_data["similar_authors"] = similar_authors
 
         return author_data
+
+    def _get_calibre_author_dict(
+        self,
+        library: object,
+        calibre_author_id: int,
+    ) -> dict[str, object]:
+        """Fetch author from Calibre database and build dictionary.
+
+        Used when author doesn't have a row in author_metadata table.
+
+        Parameters
+        ----------
+        library : object
+            Library object with calibre_db_path and calibre_db_file attributes.
+        calibre_author_id : int
+            Calibre author identifier.
+
+        Returns
+        -------
+        dict[str, object]
+            Author data dictionary matching unmatched author format.
+
+        Raises
+        ------
+        ValueError
+            If library or Calibre database path not found, or author not found.
+        """
+        if not hasattr(library, "calibre_db_path") or not library.calibre_db_path:  # type: ignore[attr-defined]
+            error_msg = "Library or Calibre database path not found"
+            raise ValueError(error_msg)
+
+        from fundamental.repositories.calibre_book_repository import (
+            CalibreBookRepository,
+        )
+
+        calibre_db_path: str = library.calibre_db_path  # type: ignore[attr-defined]
+        calibre_db_file: str = (
+            getattr(library, "calibre_db_file", None) or "metadata.db"
+        )
+
+        calibre_repo = CalibreBookRepository(
+            calibre_db_path,
+            calibre_db_file,
+        )
+        with calibre_repo.get_session() as calibre_session:
+            from fundamental.models.core import Author
+
+            stmt = select(Author).where(Author.id == calibre_author_id)
+            calibre_author = calibre_session.exec(stmt).first()
+
+            if not calibre_author:
+                error_msg = f"Calibre author not found: {calibre_author_id}"
+                raise ValueError(error_msg)
+
+            # Build dictionary matching unmatched author format
+            return {
+                "name": calibre_author.name,
+                "key": f"calibre-{calibre_author_id}",
+                "calibre_id": calibre_author_id,
+                "is_unmatched": True,
+                "location": "Local Library (Unmatched)",
+            }
 
     def _lookup_author(self, author_id: str, library_id: int) -> AuthorMetadata | None:
         """Lookup author by various key formats.
