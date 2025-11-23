@@ -88,7 +88,7 @@ class OpenLibraryProvider(MetadataProvider):
     def search(
         self,
         query: str,
-        _locale: str = "en",
+        locale: str = "en",  # noqa: ARG002
         max_results: int = 10,
     ) -> Sequence[MetadataRecord]:
         """Search for books using OpenLibrary API.
@@ -97,7 +97,7 @@ class OpenLibraryProvider(MetadataProvider):
         ----------
         query : str
             Search query (title, author, ISBN, etc.).
-        _locale : str
+        locale : str
             Locale code (default: 'en'). Note: OpenLibrary uses language codes
             like 'eng', but this parameter is kept for API consistency.
             Currently unused but reserved for future locale filtering.
