@@ -47,6 +47,7 @@ from fundamental.models.auth import User
 from fundamental.repositories.author_repository import AuthorRepository
 from fundamental.repositories.config_repository import LibraryRepository
 from fundamental.services.author_exception_mapper import AuthorExceptionMapper
+from fundamental.services.author_exceptions import AuthorServiceError
 from fundamental.services.author_merge_service import AuthorMergeService
 from fundamental.services.author_permission_helper import AuthorPermissionHelper
 from fundamental.services.author_rematch_service import AuthorRematchService
@@ -244,7 +245,7 @@ def _get_author_or_raise(
             author_data.get("name"),
             author_data.get("is_unmatched"),
         )
-    except ValueError as exc:
+    except (ValueError, AuthorServiceError) as exc:
         logger.exception("Failed to get author")
         raise AuthorExceptionMapper.map_value_error_to_http_exception(exc) from exc
     else:
@@ -298,7 +299,7 @@ def list_authors(
             filter_type=filter_type,
         )
         total_pages = (total + page_size - 1) // page_size if total > 0 else 0
-    except ValueError as exc:
+    except (ValueError, AuthorServiceError) as exc:
         raise AuthorExceptionMapper.map_value_error_to_http_exception(exc) from exc
 
     return {
@@ -381,7 +382,7 @@ def update_author(
     update_dict = update.model_dump(exclude_unset=True)
     try:
         return author_service.update_author(author_id, update_dict)
-    except ValueError as exc:
+    except (ValueError, AuthorServiceError) as exc:
         raise AuthorExceptionMapper.map_value_error_to_http_exception(exc) from exc
 
 
@@ -477,7 +478,7 @@ async def rematch_author(
             "openlibrary_key": openlibrary_key,
             "library_id": library_id,
         }
-    except ValueError as exc:
+    except (ValueError, AuthorServiceError) as exc:
         raise AuthorExceptionMapper.map_value_error_to_http_exception(exc) from exc
 
 
@@ -523,12 +524,12 @@ def recommend_merge_author(
         try:
             author_data = _get_author_or_raise(author_id, author_service)
             permission_helper.check_write_permission(current_user, author_data)
-        except ValueError as exc:
+        except (ValueError, AuthorServiceError) as exc:
             raise AuthorExceptionMapper.map_value_error_to_http_exception(exc) from exc
 
     try:
         return merge_service.recommend_keep_author(request_body.author_ids)
-    except ValueError as exc:
+    except (ValueError, AuthorServiceError) as exc:
         raise AuthorExceptionMapper.map_value_error_to_http_exception(exc) from exc
 
 
@@ -574,7 +575,7 @@ def merge_authors(
         try:
             author_data = _get_author_or_raise(author_id, author_service)
             permission_helper.check_write_permission(current_user, author_data)
-        except ValueError as exc:
+        except (ValueError, AuthorServiceError) as exc:
             raise AuthorExceptionMapper.map_value_error_to_http_exception(exc) from exc
 
     try:
@@ -582,7 +583,7 @@ def merge_authors(
             request_body.author_ids,
             request_body.keep_author_id,
         )
-    except ValueError as exc:
+    except (ValueError, AuthorServiceError) as exc:
         raise AuthorExceptionMapper.map_value_error_to_http_exception(exc) from exc
 
 
@@ -655,7 +656,7 @@ def upload_author_photo(
             photo_url=photo_url,
             file_path=user_photo.file_path,
         )
-    except ValueError as exc:
+    except (ValueError, AuthorServiceError) as exc:
         raise AuthorExceptionMapper.map_photo_error_to_http_exception(exc) from exc
 
 
@@ -716,7 +717,7 @@ def upload_photo_from_url(
             photo_url=photo_url,
             file_path=user_photo.file_path,
         )
-    except ValueError as exc:
+    except (ValueError, AuthorServiceError) as exc:
         raise AuthorExceptionMapper.map_photo_error_to_http_exception(exc) from exc
     except Exception as exc:
         # Catch any other unexpected errors (database errors, etc.)
@@ -851,7 +852,7 @@ def delete_author_photo(
 
     try:
         author_service.delete_photo(author_id, photo_id)
-    except ValueError as exc:
+    except (ValueError, AuthorServiceError) as exc:
         raise AuthorExceptionMapper.map_value_error_to_http_exception(exc) from exc
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

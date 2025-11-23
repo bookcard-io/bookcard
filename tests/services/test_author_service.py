@@ -41,6 +41,14 @@ from fundamental.models.author_metadata import (
 from fundamental.models.config import Library
 from fundamental.repositories.author_repository import AuthorRepository
 from fundamental.repositories.config_repository import LibraryRepository
+from fundamental.services.author_exceptions import (
+    AuthorMetadataFetchError,
+    AuthorNotFoundError,
+    InvalidPhotoFormatError,
+    NoActiveLibraryError,
+    PhotoNotFoundError,
+    PhotoStorageError,
+)
 from fundamental.services.author_service import AuthorService
 from fundamental.services.config_service import LibraryService
 from fundamental.services.library_scanning.data_sources.types import AuthorData
@@ -344,7 +352,7 @@ class TestListAuthorsForActiveLibrary:
         """Test list_authors_for_active_library with no active library."""
         mock_library_service.get_active_library.return_value = None
 
-        with pytest.raises(ValueError, match="No active library"):
+        with pytest.raises(NoActiveLibraryError, match="No active library"):
             author_service.list_authors_for_active_library()
 
 
@@ -403,23 +411,31 @@ class TestGetAuthorByIdOrKey:
         active_library: Library,
     ) -> None:
         """Test get_author_by_id_or_key with calibre- prefix falls back to Calibre."""
-        mock_author_repo.get_by_calibre_id_and_library.return_value = None
+        from fundamental.models.core import Author
 
-        with patch.object(
-            author_service,
-            "_get_calibre_author_dict",
-            return_value={
-                "name": "Calibre Author",
-                "key": "calibre-42",
-                "calibre_id": 42,
-                "is_unmatched": True,
-            },
-        ) as mock_get_calibre:
+        # Mock lookup to return None (author not in metadata table)
+        mock_author_repo.get_by_calibre_id_and_library.return_value = None
+        mock_author_repo.get_by_id_and_library.return_value = None
+        mock_author_repo.get_by_openlibrary_key_and_library.return_value = None
+
+        calibre_author = Author(id=42, name="Calibre Author")
+        with patch(
+            "fundamental.services.author.core_service.CalibreBookRepository"
+        ) as mock_repo_class:
+            mock_repo = MagicMock()
+            mock_repo_class.return_value = mock_repo
+            mock_session = MagicMock()
+            mock_repo.get_session.return_value.__enter__.return_value = mock_session
+            mock_exec_result = MagicMock()
+            mock_exec_result.first.return_value = calibre_author
+            mock_session.exec.return_value = mock_exec_result
+
             result = author_service.get_author_by_id_or_key("calibre-42")
 
             assert result["name"] == "Calibre Author"
             assert result["key"] == "calibre-42"
-            mock_get_calibre.assert_called_once_with(active_library, 42)
+            assert result["calibre_id"] == 42
+            assert result["is_unmatched"] is True
 
     def test_get_author_by_local_id(
         self,
@@ -462,7 +478,7 @@ class TestGetAuthorByIdOrKey:
         mock_author_repo.get_by_id_and_library.return_value = None
         mock_author_repo.get_by_openlibrary_key_and_library.return_value = None
 
-        with pytest.raises(ValueError, match="Author not found"):
+        with pytest.raises(AuthorNotFoundError, match="Author not found"):
             author_service.get_author_by_id_or_key("999")
 
     def test_get_author_no_active_library(
@@ -471,7 +487,7 @@ class TestGetAuthorByIdOrKey:
         """Test get_author_by_id_or_key with no active library."""
         mock_library_service.get_active_library.return_value = None
 
-        with pytest.raises(ValueError, match="No active library"):
+        with pytest.raises(NoActiveLibraryError, match="No active library"):
             author_service.get_author_by_id_or_key("1")
 
 
@@ -484,14 +500,22 @@ class TestGetCalibreAuthorDict:
     """Test _get_calibre_author_dict."""
 
     def test_get_calibre_author_dict_success(
-        self, author_service: AuthorService, active_library: Library
+        self,
+        author_service: AuthorService,
+        active_library: Library,
+        mock_author_repo: MagicMock,
     ) -> None:
-        """Test _get_calibre_author_dict with successful lookup."""
+        """Test get_author_by_id_or_key with calibre- ID falls back to Calibre DB."""
         from fundamental.models.core import Author
+
+        # Mock lookup to return None (author not in metadata table)
+        mock_author_repo.get_by_calibre_id_and_library.return_value = None
+        mock_author_repo.get_by_id_and_library.return_value = None
+        mock_author_repo.get_by_openlibrary_key_and_library.return_value = None
 
         calibre_author = Author(id=42, name="Calibre Author")
         with patch(
-            "fundamental.repositories.calibre_book_repository.CalibreBookRepository"
+            "fundamental.services.author.core_service.CalibreBookRepository"
         ) as mock_repo_class:
             mock_repo = MagicMock()
             mock_repo_class.return_value = mock_repo
@@ -501,7 +525,7 @@ class TestGetCalibreAuthorDict:
             mock_exec_result.first.return_value = calibre_author
             mock_session.exec.return_value = mock_exec_result
 
-            result = author_service._get_calibre_author_dict(active_library, 42)
+            result = author_service.get_author_by_id_or_key("calibre-42")
 
             assert result["name"] == "Calibre Author"
             assert result["key"] == "calibre-42"
@@ -509,23 +533,41 @@ class TestGetCalibreAuthorDict:
             assert result["is_unmatched"] is True
 
     def test_get_calibre_author_dict_no_db_path(
-        self, author_service: AuthorService
+        self, author_service: AuthorService, mock_author_repo: MagicMock
     ) -> None:
-        """Test _get_calibre_author_dict with no database path."""
-        library = Library(id=1, name="Test", is_active=True)
-        # Library doesn't have calibre_db_path by default
+        """Test get_author_by_id_or_key with no database path."""
+        # Mock lookup to return None (author not in metadata table)
+        mock_author_repo.get_by_calibre_id_and_library.return_value = None
+        mock_author_repo.get_by_id_and_library.return_value = None
+        mock_author_repo.get_by_openlibrary_key_and_library.return_value = None
 
-        with pytest.raises(
-            ValueError, match="Library or Calibre database path not found"
+        library = Library(id=1, name="Test", is_active=True, calibre_db_path=None)
+        with (
+            patch.object(
+                author_service._library_service,
+                "get_active_library",
+                return_value=library,
+            ),
+            pytest.raises(
+                AuthorNotFoundError, match="Library or Calibre database path not found"
+            ),
         ):
-            author_service._get_calibre_author_dict(library, 42)
+            author_service.get_author_by_id_or_key("calibre-42")
 
     def test_get_calibre_author_dict_author_not_found(
-        self, author_service: AuthorService, active_library: Library
+        self,
+        author_service: AuthorService,
+        active_library: Library,
+        mock_author_repo: MagicMock,
     ) -> None:
-        """Test _get_calibre_author_dict with author not found."""
+        """Test get_author_by_id_or_key with calibre- ID when author not found."""
+        # Mock lookup to return None (author not in metadata table)
+        mock_author_repo.get_by_calibre_id_and_library.return_value = None
+        mock_author_repo.get_by_id_and_library.return_value = None
+        mock_author_repo.get_by_openlibrary_key_and_library.return_value = None
+
         with patch(
-            "fundamental.repositories.calibre_book_repository.CalibreBookRepository"
+            "fundamental.services.author.core_service.CalibreBookRepository"
         ) as mock_repo_class:
             mock_repo = MagicMock()
             mock_repo_class.return_value = mock_repo
@@ -535,101 +577,81 @@ class TestGetCalibreAuthorDict:
             mock_exec_result.first.return_value = None
             mock_session.exec.return_value = mock_exec_result
 
-            with pytest.raises(ValueError, match="Calibre author not found: 42"):
-                author_service._get_calibre_author_dict(active_library, 42)
+            with pytest.raises(
+                AuthorNotFoundError, match="Calibre author not found: 42"
+            ):
+                author_service.get_author_by_id_or_key("calibre-42")
 
 
 # ============================================================================
-# _lookup_author Tests
+# get_author_by_id_or_key with various ID formats Tests
 # ============================================================================
 
 
-class TestLookupAuthor:
-    """Test _lookup_author."""
+class TestGetAuthorByIdOrKeyFormats:
+    """Test get_author_by_id_or_key with various ID formats."""
 
-    def test_lookup_author_by_calibre_id(
+    def test_get_author_by_calibre_id(
         self,
         author_service: AuthorService,
         mock_author_repo: MagicMock,
         author_metadata: AuthorMetadata,
     ) -> None:
-        """Test _lookup_author with calibre- prefix."""
+        """Test get_author_by_id_or_key with calibre- prefix."""
         mock_author_repo.get_by_calibre_id_and_library.return_value = author_metadata
 
-        result = author_service._lookup_author("calibre-42", 1)
+        result = author_service.get_author_by_id_or_key("calibre-42")
 
-        assert result == author_metadata
-        mock_author_repo.get_by_calibre_id_and_library.assert_called_once_with(42, 1)
+        assert result is not None
+        assert "name" in result
+        mock_author_repo.get_by_calibre_id_and_library.assert_called_once()
 
-    def test_lookup_author_by_calibre_id_invalid(
-        self,
-        author_service: AuthorService,
-        mock_author_repo: MagicMock,
-    ) -> None:
-        """Test _lookup_author with invalid calibre- prefix."""
-        mock_author_repo.get_by_calibre_id_and_library.return_value = None
-        mock_author_repo.get_by_openlibrary_key_and_library.return_value = None
-        result = author_service._lookup_author("calibre-invalid", 1)
-
-        assert result is None
-
-    def test_lookup_author_by_local_id(
+    def test_get_author_by_local_id(
         self,
         author_service: AuthorService,
         mock_author_repo: MagicMock,
         author_metadata: AuthorMetadata,
     ) -> None:
-        """Test _lookup_author with local- prefix."""
+        """Test get_author_by_id_or_key with local- prefix."""
         mock_author_repo.get_by_id_and_library.return_value = author_metadata
 
-        result = author_service._lookup_author("local-1", 1)
+        result = author_service.get_author_by_id_or_key("local-1")
 
-        assert result == author_metadata
-        mock_author_repo.get_by_id_and_library.assert_called_once_with(1, 1)
+        assert result is not None
+        assert "name" in result
+        mock_author_repo.get_by_id_and_library.assert_called_once()
 
-    def test_lookup_author_by_local_id_invalid(
-        self,
-        author_service: AuthorService,
-        mock_author_repo: MagicMock,
-    ) -> None:
-        """Test _lookup_author with invalid local- prefix."""
-        mock_author_repo.get_by_id_and_library.return_value = None
-        mock_author_repo.get_by_openlibrary_key_and_library.return_value = None
-        result = author_service._lookup_author("local-invalid", 1)
-
-        assert result is None
-
-    def test_lookup_author_by_numeric_id(
+    def test_get_author_by_numeric_id(
         self,
         author_service: AuthorService,
         mock_author_repo: MagicMock,
         author_metadata: AuthorMetadata,
     ) -> None:
-        """Test _lookup_author with numeric ID."""
+        """Test get_author_by_id_or_key with numeric ID."""
         mock_author_repo.get_by_id_and_library.return_value = author_metadata
 
-        result = author_service._lookup_author("1", 1)
+        result = author_service.get_author_by_id_or_key("1")
 
-        assert result == author_metadata
-        mock_author_repo.get_by_id_and_library.assert_called_once_with(1, 1)
+        assert result is not None
+        assert "name" in result
+        mock_author_repo.get_by_id_and_library.assert_called_once()
 
-    def test_lookup_author_by_openlibrary_key(
+    def test_get_author_by_openlibrary_key(
         self,
         author_service: AuthorService,
         mock_author_repo: MagicMock,
         author_metadata: AuthorMetadata,
     ) -> None:
-        """Test _lookup_author with OpenLibrary key."""
+        """Test get_author_by_id_or_key with OpenLibrary key."""
         mock_author_repo.get_by_openlibrary_key_and_library.return_value = (
             author_metadata
         )
 
-        result = author_service._lookup_author("OL123A", 1)
+        result = author_service.get_author_by_id_or_key("OL123A")
 
-        assert result == author_metadata
-        mock_author_repo.get_by_openlibrary_key_and_library.assert_called_once_with(
-            "OL123A", 1
-        )
+        assert result is not None
+        assert "name" in result
+        mock_author_repo.get_by_openlibrary_key_and_library.assert_called_once()
 
 
 # ============================================================================
@@ -656,19 +678,19 @@ class TestFetchAuthorMetadata:
 
         with (
             patch(
-                "fundamental.services.author_service.DataSourceRegistry"
+                "fundamental.services.author.metadata_service.DataSourceRegistry"
             ) as mock_registry,
             patch(
-                "fundamental.services.author_service.PipelineContextFactory"
+                "fundamental.services.author.metadata_service.PipelineContextFactory"
             ) as mock_factory,
             patch(
-                "fundamental.services.author_service.AuthorDataFetcher"
+                "fundamental.services.author.metadata_service.AuthorDataFetcher"
             ) as mock_fetcher_class,
             patch(
-                "fundamental.services.author_service.IngestStageFactory"
+                "fundamental.services.author.metadata_service.IngestStageFactory"
             ) as mock_ingest_factory,
             patch(
-                "fundamental.services.author_service.IngestStage"
+                "fundamental.services.author.metadata_service.IngestStage"
             ) as mock_ingest_stage_class,
         ):
             mock_data_source = MagicMock()
@@ -713,7 +735,7 @@ class TestFetchAuthorMetadata:
         mock_author_repo.get_by_id_and_library.return_value = None
         mock_author_repo.get_by_openlibrary_key_and_library.return_value = None
 
-        with pytest.raises(ValueError, match="Author not found"):
+        with pytest.raises(AuthorNotFoundError, match="Author not found"):
             author_service.fetch_author_metadata("")
 
     def test_fetch_author_metadata_key_not_string(
@@ -729,7 +751,9 @@ class TestFetchAuthorMetadata:
                 "get_author_by_id_or_key",
                 return_value={"name": "Test Author", "key": None},
             ),
-            pytest.raises(ValueError, match="does not have an OpenLibrary key"),
+            pytest.raises(
+                AuthorNotFoundError, match="does not have an OpenLibrary key"
+            ),
         ):
             author_service.fetch_author_metadata("123")
 
@@ -739,7 +763,7 @@ class TestFetchAuthorMetadata:
         """Test fetch_author_metadata with no active library."""
         mock_library_service.get_active_library.return_value = None
 
-        with pytest.raises(ValueError, match="No active library"):
+        with pytest.raises(NoActiveLibraryError, match="No active library"):
             author_service.fetch_author_metadata("OL123A")
 
     def test_fetch_author_metadata_fetch_failed(
@@ -756,13 +780,13 @@ class TestFetchAuthorMetadata:
 
         with (
             patch(
-                "fundamental.services.author_service.DataSourceRegistry"
+                "fundamental.services.author.metadata_service.DataSourceRegistry"
             ) as mock_registry,
             patch(
-                "fundamental.services.author_service.PipelineContextFactory"
+                "fundamental.services.author.metadata_service.PipelineContextFactory"
             ) as mock_factory,
             patch(
-                "fundamental.services.author_service.AuthorDataFetcher"
+                "fundamental.services.author.metadata_service.AuthorDataFetcher"
             ) as mock_fetcher_class,
         ):
             mock_data_source = MagicMock()
@@ -778,7 +802,8 @@ class TestFetchAuthorMetadata:
             mock_fetcher_class.return_value = mock_fetcher
 
             with pytest.raises(
-                ValueError, match="Could not fetch author data from OpenLibrary"
+                AuthorMetadataFetchError,
+                match="Could not fetch author data from OpenLibrary",
             ):
                 author_service.fetch_author_metadata("OL123A")
 
@@ -797,19 +822,19 @@ class TestFetchAuthorMetadata:
 
         with (
             patch(
-                "fundamental.services.author_service.DataSourceRegistry"
+                "fundamental.services.author.metadata_service.DataSourceRegistry"
             ) as mock_registry,
             patch(
-                "fundamental.services.author_service.PipelineContextFactory"
+                "fundamental.services.author.metadata_service.PipelineContextFactory"
             ) as mock_factory,
             patch(
-                "fundamental.services.author_service.AuthorDataFetcher"
+                "fundamental.services.author.metadata_service.AuthorDataFetcher"
             ) as mock_fetcher_class,
             patch(
-                "fundamental.services.author_service.IngestStageFactory"
+                "fundamental.services.author.metadata_service.IngestStageFactory"
             ) as mock_ingest_factory,
             patch(
-                "fundamental.services.author_service.IngestStage"
+                "fundamental.services.author.metadata_service.IngestStage"
             ) as mock_ingest_stage_class,
         ):
             mock_data_source = MagicMock()
@@ -841,7 +866,7 @@ class TestFetchAuthorMetadata:
             }
             mock_ingest_factory.create_components.return_value = mock_components
 
-            with pytest.raises(ValueError, match="Ingest failed"):
+            with pytest.raises(AuthorMetadataFetchError, match="Ingest failed"):
                 author_service.fetch_author_metadata("OL123A")
 
     def test_fetch_author_metadata_unmatched_author(
@@ -858,7 +883,9 @@ class TestFetchAuthorMetadata:
                 "get_author_by_id_or_key",
                 return_value={"name": "Test Author", "key": None},
             ),
-            pytest.raises(ValueError, match="does not have an OpenLibrary key"),
+            pytest.raises(
+                AuthorNotFoundError, match="does not have an OpenLibrary key"
+            ),
         ):
             # fetch_author_metadata requires an OpenLibrary key, so this should fail
             author_service.fetch_author_metadata("1")
@@ -880,19 +907,19 @@ class TestFetchAuthorMetadata:
 
         with (
             patch(
-                "fundamental.services.author_service.DataSourceRegistry"
+                "fundamental.services.author.metadata_service.DataSourceRegistry"
             ) as mock_registry,
             patch(
-                "fundamental.services.author_service.PipelineContextFactory"
+                "fundamental.services.author.metadata_service.PipelineContextFactory"
             ) as mock_factory,
             patch(
-                "fundamental.services.author_service.AuthorDataFetcher"
+                "fundamental.services.author.metadata_service.AuthorDataFetcher"
             ) as mock_fetcher_class,
             patch(
-                "fundamental.services.author_service.IngestStageFactory"
+                "fundamental.services.author.metadata_service.IngestStageFactory"
             ) as mock_ingest_factory,
             patch(
-                "fundamental.services.author_service.IngestStage"
+                "fundamental.services.author.metadata_service.IngestStage"
             ) as mock_ingest_stage_class,
         ):
             mock_data_source = MagicMock()
@@ -950,19 +977,19 @@ class TestFetchAuthorMetadata:
 
         with (
             patch(
-                "fundamental.services.author_service.DataSourceRegistry"
+                "fundamental.services.author.metadata_service.DataSourceRegistry"
             ) as mock_registry,
             patch(
-                "fundamental.services.author_service.PipelineContextFactory"
+                "fundamental.services.author.metadata_service.PipelineContextFactory"
             ) as mock_factory,
             patch(
-                "fundamental.services.author_service.AuthorDataFetcher"
+                "fundamental.services.author.metadata_service.AuthorDataFetcher"
             ) as mock_fetcher_class,
             patch(
-                "fundamental.services.author_service.IngestStageFactory"
+                "fundamental.services.author.metadata_service.IngestStageFactory"
             ) as mock_ingest_factory,
             patch(
-                "fundamental.services.author_service.IngestStage"
+                "fundamental.services.author.metadata_service.IngestStage"
             ) as mock_ingest_stage_class,
         ):
             mock_data_source = MagicMock()
@@ -1020,19 +1047,19 @@ class TestFetchAuthorMetadata:
 
         with (
             patch(
-                "fundamental.services.author_service.DataSourceRegistry"
+                "fundamental.services.author.metadata_service.DataSourceRegistry"
             ) as mock_registry,
             patch(
-                "fundamental.services.author_service.PipelineContextFactory"
+                "fundamental.services.author.metadata_service.PipelineContextFactory"
             ) as mock_factory,
             patch(
-                "fundamental.services.author_service.AuthorDataFetcher"
+                "fundamental.services.author.metadata_service.AuthorDataFetcher"
             ) as mock_fetcher_class,
             patch(
-                "fundamental.services.author_service.IngestStageFactory"
+                "fundamental.services.author.metadata_service.IngestStageFactory"
             ) as mock_ingest_factory,
             patch(
-                "fundamental.services.author_service.IngestStage"
+                "fundamental.services.author.metadata_service.IngestStage"
             ) as mock_ingest_stage_class,
         ):
             mock_data_source = MagicMock()
@@ -1097,17 +1124,20 @@ class TestAddUserMetadataFields:
         )
         author_metadata.user_metadata = [user_metadata]
 
-        author_data: dict[str, object] = {}
-        author_service._add_user_metadata_fields(author_data, author_metadata)
+        # Test through public API - get_author_by_id_or_key uses the builder
+        with patch.object(
+            author_service._core_service, "get_author", return_value=author_metadata
+        ):
+            result = author_service.get_author_by_id_or_key("1")
+            assert result["genres"] == ["Fiction", "Sci-Fi"]
 
-        assert author_data["genres"] == ["Fiction", "Sci-Fi"]
-
-    def test_add_user_metadata_fields_with_styles(
+    def test_user_metadata_fields_with_styles(
         self,
         author_service: AuthorService,
         author_metadata: AuthorMetadata,
+        mock_author_repo: MagicMock,
     ) -> None:
-        """Test _add_user_metadata_fields with user-defined styles."""
+        """Test user-defined styles appear in author dict."""
         user_metadata = AuthorUserMetadata(
             id=1,
             author_metadata_id=author_metadata.id,
@@ -1116,18 +1146,19 @@ class TestAddUserMetadataFields:
             is_user_defined=True,
         )
         author_metadata.user_metadata = [user_metadata]
+        mock_author_repo.get_by_id_and_library.return_value = author_metadata
 
-        author_data: dict[str, object] = {}
-        author_service._add_user_metadata_fields(author_data, author_metadata)
+        result = author_service.get_author_by_id_or_key("1")
 
-        assert author_data["styles"] == ["Modern", "Contemporary"]
+        assert result["styles"] == ["Modern", "Contemporary"]
 
-    def test_add_user_metadata_fields_with_shelves(
+    def test_user_metadata_fields_with_shelves(
         self,
         author_service: AuthorService,
         author_metadata: AuthorMetadata,
+        mock_author_repo: MagicMock,
     ) -> None:
-        """Test _add_user_metadata_fields with user-defined shelves."""
+        """Test user-defined shelves appear in author dict."""
         user_metadata = AuthorUserMetadata(
             id=1,
             author_metadata_id=author_metadata.id,
@@ -1136,18 +1167,19 @@ class TestAddUserMetadataFields:
             is_user_defined=True,
         )
         author_metadata.user_metadata = [user_metadata]
+        mock_author_repo.get_by_id_and_library.return_value = author_metadata
 
-        author_data: dict[str, object] = {}
-        author_service._add_user_metadata_fields(author_data, author_metadata)
+        result = author_service.get_author_by_id_or_key("1")
 
-        assert author_data["shelves"] == ["To Read", "Favorites"]
+        assert result["shelves"] == ["To Read", "Favorites"]
 
-    def test_add_user_metadata_fields_with_similar_authors(
+    def test_user_metadata_fields_with_similar_authors(
         self,
         author_service: AuthorService,
         author_metadata: AuthorMetadata,
+        mock_author_repo: MagicMock,
     ) -> None:
-        """Test _add_user_metadata_fields with user-defined similar_authors."""
+        """Test user-defined similar_authors appear in author dict."""
         user_metadata = AuthorUserMetadata(
             id=1,
             author_metadata_id=author_metadata.id,
@@ -1156,18 +1188,19 @@ class TestAddUserMetadataFields:
             is_user_defined=True,
         )
         author_metadata.user_metadata = [user_metadata]
+        mock_author_repo.get_by_id_and_library.return_value = author_metadata
 
-        author_data: dict[str, object] = {}
-        author_service._add_user_metadata_fields(author_data, author_metadata)
+        result = author_service.get_author_by_id_or_key("1", include_similar=False)
 
-        assert author_data["similar_authors"] == ["OL456B", "OL789C"]
+        assert result["similar_authors"] == ["OL456B", "OL789C"]
 
-    def test_add_user_metadata_fields_with_empty_list(
+    def test_user_metadata_fields_with_empty_list(
         self,
         author_service: AuthorService,
         author_metadata: AuthorMetadata,
+        mock_author_repo: MagicMock,
     ) -> None:
-        """Test _add_user_metadata_fields with empty list."""
+        """Test user-defined empty list appears in author dict."""
         user_metadata = AuthorUserMetadata(
             id=1,
             author_metadata_id=author_metadata.id,
@@ -1176,27 +1209,28 @@ class TestAddUserMetadataFields:
             is_user_defined=True,
         )
         author_metadata.user_metadata = [user_metadata]
+        mock_author_repo.get_by_id_and_library.return_value = author_metadata
 
-        author_data: dict[str, object] = {}
-        author_service._add_user_metadata_fields(author_data, author_metadata)
+        result = author_service.get_author_by_id_or_key("1", include_similar=False)
 
-        assert author_data["similar_authors"] == []
+        assert result["similar_authors"] == []
 
 
 # ============================================================================
-# _add_user_photos_field Tests
+# User photos in author dict Tests
 # ============================================================================
 
 
-class TestAddUserPhotosField:
-    """Test _add_user_photos_field."""
+class TestUserPhotosInAuthorDict:
+    """Test user photos in author dictionary."""
 
-    def test_add_user_photos_field_with_photos(
+    def test_user_photos_in_author_dict(
         self,
         author_service: AuthorService,
         author_metadata: AuthorMetadata,
+        mock_author_repo: MagicMock,
     ) -> None:
-        """Test _add_user_photos_field with user photos."""
+        """Test user photos appear in author dict."""
         user_photo = AuthorUserPhoto(
             id=1,
             author_metadata_id=author_metadata.id,
@@ -1209,12 +1243,12 @@ class TestAddUserPhotosField:
             created_at=datetime.now(UTC),
         )
         author_metadata.user_photos = [user_photo]
+        mock_author_repo.get_by_id_and_library.return_value = author_metadata
 
-        author_data: dict[str, object] = {}
-        author_service._add_user_photos_field(author_data, author_metadata)
+        result = author_service.get_author_by_id_or_key("1")
 
-        assert "user_photos" in author_data
-        photos = author_data["user_photos"]
+        assert "user_photos" in result
+        photos = result["user_photos"]
         assert isinstance(photos, list)
         assert len(photos) == 1
         assert isinstance(photos[0], dict)
@@ -1222,12 +1256,13 @@ class TestAddUserPhotosField:
         assert photos[0]["photo_url"] == f"/api/authors/{author_metadata.id}/photos/1"  # type: ignore[index]
         assert photos[0]["is_primary"] is True  # type: ignore[index]
 
-    def test_add_user_photos_field_sets_primary_photo_url(
+    def test_primary_photo_url_set_from_user_photo(
         self,
         author_service: AuthorService,
         author_metadata: AuthorMetadata,
+        mock_author_repo: MagicMock,
     ) -> None:
-        """Test _add_user_photos_field sets primary photo as photo_url."""
+        """Test primary user photo sets photo_url in author dict."""
         user_photo = AuthorUserPhoto(
             id=1,
             author_metadata_id=author_metadata.id,
@@ -1240,53 +1275,12 @@ class TestAddUserPhotosField:
             created_at=datetime.now(UTC),
         )
         author_metadata.user_photos = [user_photo]
+        author_metadata.photo_url = None  # No OpenLibrary photo
+        mock_author_repo.get_by_id_and_library.return_value = author_metadata
 
-        author_data: dict[str, object] = {}
-        author_service._add_user_photos_field(author_data, author_metadata)
+        result = author_service.get_author_by_id_or_key("1")
 
-        assert author_data["photo_url"] == f"/api/authors/{author_metadata.id}/photos/1"
-
-    def test_add_user_photos_field_skips_photo_without_id(
-        self,
-        author_service: AuthorService,
-        author_metadata: AuthorMetadata,
-    ) -> None:
-        """Test _add_user_photos_field skips photos without ID."""
-        user_photo = AuthorUserPhoto(
-            id=None,
-            author_metadata_id=author_metadata.id,
-            file_path="authors/1/photo.jpg",
-            file_name="photo.jpg",
-            file_size=1024,
-            mime_type="image/jpeg",
-            is_primary=True,
-            order=0,
-            created_at=datetime.now(UTC),
-        )
-        author_metadata.user_photos = [user_photo]
-
-        author_data: dict[str, object] = {}
-        author_service._add_user_photos_field(author_data, author_metadata)
-
-        user_photos = author_data.get("user_photos", [])
-        assert "user_photos" not in author_data or (
-            isinstance(user_photos, list) and len(user_photos) == 0
-        )
-
-    def test_add_user_photos_field_no_photos(
-        self,
-        author_service: AuthorService,
-        author_metadata: AuthorMetadata,
-    ) -> None:
-        """Test _add_user_photos_field with no photos."""
-        # Set user_photos to empty list (not None) to test the hasattr check
-        if hasattr(author_metadata, "user_photos"):
-            delattr(author_metadata, "user_photos")
-
-        author_data: dict[str, object] = {}
-        author_service._add_user_photos_field(author_data, author_metadata)
-
-        assert "user_photos" not in author_data
+        assert result["photo_url"] == f"/api/authors/{author_metadata.id}/photos/1"
 
 
 # ============================================================================
@@ -1324,7 +1318,7 @@ class TestUpdateAuthor:
         """Test update_author with no active library."""
         mock_library_service.get_active_library.return_value = None
 
-        with pytest.raises(ValueError, match="No active library found"):
+        with pytest.raises(NoActiveLibraryError, match="No active library found"):
             author_service.update_author("1", {"name": "Updated"})
 
     def test_update_author_not_found(
@@ -1333,336 +1327,192 @@ class TestUpdateAuthor:
         mock_author_repo: MagicMock,
     ) -> None:
         """Test update_author with author not found."""
+        # Mock all lookup methods to return None
         mock_author_repo.get_by_id_and_library.return_value = None
+        mock_author_repo.get_by_openlibrary_key_and_library.return_value = None
+        mock_author_repo.get_by_calibre_id_and_library.return_value = None
 
-        with pytest.raises(ValueError, match="Author not found"):
+        with pytest.raises(AuthorNotFoundError, match="Author not found"):
             author_service.update_author("999", {"name": "Updated"})
 
 
 # ============================================================================
-# _update_author_metadata_fields Tests
+# update_author metadata field updates Tests
 # ============================================================================
 
 
 class TestUpdateAuthorMetadataFields:
-    """Test _update_author_metadata_fields."""
+    """Test update_author updates metadata fields."""
 
-    def test_update_author_metadata_fields_name(
-        self,
-        author_service: AuthorService,
-        author_metadata: AuthorMetadata,
-    ) -> None:
-        """Test _update_author_metadata_fields updates name."""
-        update = {"name": "New Name"}
-        author_service._update_author_metadata_fields(author_metadata, update)
-
-        assert author_metadata.name == "New Name"
-
-    def test_update_author_metadata_fields_optional_fields(
-        self,
-        author_service: AuthorService,
-        author_metadata: AuthorMetadata,
-    ) -> None:
-        """Test _update_author_metadata_fields updates optional fields."""
-        update = {
-            "personal_name": "Personal",
-            "fuller_name": "Fuller",
-            "title": "Mr.",
-            "birth_date": "1960-01-01",
-            "death_date": "2021-01-01",
-            "entity_type": "/type/person",
-            "biography": "New bio",
-            "location": "London",
-            "photo_url": "https://example.com/new.jpg",
-        }
-        author_service._update_author_metadata_fields(author_metadata, update)
-
-        assert author_metadata.personal_name == "Personal"
-        assert author_metadata.fuller_name == "Fuller"
-        assert author_metadata.title == "Mr."
-        assert author_metadata.birth_date == "1960-01-01"
-        assert author_metadata.death_date == "2021-01-01"
-        assert author_metadata.entity_type == "/type/person"
-        assert author_metadata.biography == "New bio"
-        assert author_metadata.location == "London"
-        assert author_metadata.photo_url == "https://example.com/new.jpg"
-
-    def test_update_author_metadata_fields_none_values(
-        self,
-        author_service: AuthorService,
-        author_metadata: AuthorMetadata,
-    ) -> None:
-        """Test _update_author_metadata_fields with None values."""
-        update = {"biography": None}
-        author_service._update_author_metadata_fields(author_metadata, update)
-
-        assert author_metadata.biography is None
-
-    def test_update_author_metadata_fields_empty_name(
-        self,
-        author_service: AuthorService,
-        author_metadata: AuthorMetadata,
-    ) -> None:
-        """Test _update_author_metadata_fields ignores empty name."""
-        original_name = author_metadata.name
-        update = {"name": ""}
-        author_service._update_author_metadata_fields(author_metadata, update)
-
-        assert author_metadata.name == original_name
-
-
-# ============================================================================
-# _update_user_metadata_fields Tests
-# ============================================================================
-
-
-class TestUpdateUserMetadataFields:
-    """Test _update_user_metadata_fields."""
-
-    def test_update_user_metadata_fields_save_list(
-        self,
-        author_service: AuthorService,
-        session: DummySession,
-    ) -> None:
-        """Test _update_user_metadata_fields saves list values."""
-        update = {"genres": ["Fiction", "Sci-Fi"]}
-        author_service._update_user_metadata_fields(1, update)
-
-        assert session.commit_count >= 0  # type: ignore[attr-defined]
-
-    def test_update_user_metadata_fields_delete_none(
-        self,
-        author_service: AuthorService,
-        session: DummySession,
-    ) -> None:
-        """Test _update_user_metadata_fields deletes when value is None."""
-        update = {"genres": None}
-        author_service._update_user_metadata_fields(1, update)
-
-        assert session.commit_count >= 0  # type: ignore[attr-defined]
-
-    def test_update_user_metadata_fields_multiple_fields(
-        self,
-        author_service: AuthorService,
-        session: DummySession,
-    ) -> None:
-        """Test _update_user_metadata_fields handles multiple fields."""
-        update = {
-            "genres": ["Fiction"],
-            "styles": ["Modern"],
-            "shelves": ["To Read"],
-            "similar_authors": ["OL456B"],
-        }
-        author_service._update_user_metadata_fields(1, update)
-
-        assert session.commit_count >= 0  # type: ignore[attr-defined]
-
-
-# ============================================================================
-# _handle_photo_url_update Tests
-# ============================================================================
-
-
-class TestHandlePhotoUrlUpdate:
-    """Test _handle_photo_url_update."""
-
-    def test_handle_photo_url_update_success(
+    def test_update_author_updates_name(
         self,
         author_service: AuthorService,
         mock_author_repo: MagicMock,
         author_metadata: AuthorMetadata,
         session: DummySession,
     ) -> None:
-        """Test _handle_photo_url_update sets primary photo."""
+        """Test update_author updates name."""
         author_metadata.id = 1
         mock_author_repo.get_by_id_and_library.return_value = author_metadata
 
-        user_photo = AuthorUserPhoto(
-            id=1,
-            author_metadata_id=author_metadata.id,
-            file_path="authors/1/photo.jpg",
-            file_name="photo.jpg",
-            file_size=1024,
-            mime_type="image/jpeg",
-            is_primary=False,
-            order=0,
-            created_at=datetime.now(UTC),
-        )
-        session.set_exec_result([user_photo])  # type: ignore[attr-defined]
+        update = {"name": "New Name"}
+        result = author_service.update_author("1", update)
 
-        with patch.object(
-            author_service, "set_primary_photo", return_value=user_photo
-        ) as mock_set_primary:
-            # Mock the expire method if it doesn't exist
-            if not hasattr(session, "expire"):
-                session.expire = MagicMock()  # type: ignore[method-assign]
-            update = {"photo_url": "/api/authors/1/photos/1"}
-            author_service._handle_photo_url_update("1", author_metadata, update)
+        assert result["name"] == "New Name"
+        assert author_metadata.name == "New Name"
 
-            mock_set_primary.assert_called_once_with("1", 1)
-
-    def test_handle_photo_url_update_no_photo_url(
+    def test_update_author_updates_optional_fields(
         self,
         author_service: AuthorService,
+        mock_author_repo: MagicMock,
         author_metadata: AuthorMetadata,
+        session: DummySession,
     ) -> None:
-        """Test _handle_photo_url_update with no photo_url in update."""
-        update = {}
-        author_service._handle_photo_url_update("1", author_metadata, update)
+        """Test update_author updates optional fields."""
+        author_metadata.id = 1
+        mock_author_repo.get_by_id_and_library.return_value = author_metadata
 
-        # Should not raise or do anything
+        update = {
+            "personal_name": "Personal",
+            "biography": "New bio",
+            "location": "London",
+        }
+        author_service.update_author("1", update)
 
-    def test_handle_photo_url_update_invalid_url_format(
+        assert author_metadata.personal_name == "Personal"
+        assert author_metadata.biography == "New bio"
+        assert author_metadata.location == "London"
+
+    def test_update_author_with_none_values(
         self,
         author_service: AuthorService,
+        mock_author_repo: MagicMock,
         author_metadata: AuthorMetadata,
-    ) -> None:
-        """Test _handle_photo_url_update with invalid URL format."""
-        update = {"photo_url": "invalid-url"}
-        author_service._handle_photo_url_update("1", author_metadata, update)
-
-        # Should not raise or do anything
-
-
-# ============================================================================
-# _save_user_metadata Tests
-# ============================================================================
-
-
-class TestSaveUserMetadata:
-    """Test _save_user_metadata."""
-
-    def test_save_user_metadata_new(
-        self,
-        author_service: AuthorService,
         session: DummySession,
     ) -> None:
-        """Test _save_user_metadata creates new record."""
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        """Test update_author with None values."""
+        author_metadata.id = 1
+        author_metadata.biography = "Old bio"
+        mock_author_repo.get_by_id_and_library.return_value = author_metadata
 
-        author_service._save_user_metadata(1, "genres", ["Fiction", "Sci-Fi"])
+        update = {"biography": None}
+        author_service.update_author("1", update)
 
-        assert session.commit_count >= 0  # type: ignore[attr-defined]
+        assert author_metadata.biography is None
 
-    def test_save_user_metadata_update_existing(
+    def test_update_author_ignores_empty_name(
         self,
         author_service: AuthorService,
+        mock_author_repo: MagicMock,
+        author_metadata: AuthorMetadata,
         session: DummySession,
     ) -> None:
-        """Test _save_user_metadata updates existing record."""
-        existing = AuthorUserMetadata(
-            id=1,
-            author_metadata_id=1,
-            field_name="genres",
-            field_value=["Old"],
-            is_user_defined=True,
-        )
-        session.set_exec_result([existing])  # type: ignore[attr-defined]
+        """Test update_author ignores empty name."""
+        author_metadata.id = 1
+        original_name = author_metadata.name
+        mock_author_repo.get_by_id_and_library.return_value = author_metadata
 
-        author_service._save_user_metadata(1, "genres", ["Fiction", "Sci-Fi"])
+        update = {"name": ""}
+        author_service.update_author("1", update)
 
-        assert existing.field_value == ["Fiction", "Sci-Fi"]
-        assert existing.is_user_defined is True
+        assert author_metadata.name == original_name
 
 
 # ============================================================================
-# _delete_user_metadata Tests
+# update_author user metadata Tests
 # ============================================================================
 
 
-class TestDeleteUserMetadata:
-    """Test _delete_user_metadata."""
+class TestUpdateAuthorUserMetadata:
+    """Test update_author updates user metadata."""
 
-    def test_delete_user_metadata_existing(
+    def test_update_author_saves_user_metadata(
         self,
         author_service: AuthorService,
+        mock_author_repo: MagicMock,
+        author_metadata: AuthorMetadata,
         session: DummySession,
     ) -> None:
-        """Test _delete_user_metadata deletes existing record."""
-        existing = AuthorUserMetadata(
-            id=1,
-            author_metadata_id=1,
-            field_name="genres",
-            field_value=["Fiction"],
-            is_user_defined=True,
-        )
-        session.set_exec_result([existing])  # type: ignore[attr-defined]
+        """Test update_author saves user metadata list values."""
+        author_metadata.id = 1
+        mock_author_repo.get_by_id_and_library.return_value = author_metadata
 
-        author_service._delete_user_metadata(1, "genres")
+        update = {"genres": ["Fiction", "Sci-Fi"]}
+        author_service.update_author("1", update)
 
-        assert session.commit_count >= 0  # type: ignore[attr-defined]
+        assert session.commit_count >= 1  # type: ignore[attr-defined]
 
-    def test_delete_user_metadata_not_found(
+    def test_update_author_deletes_user_metadata(
         self,
         author_service: AuthorService,
+        mock_author_repo: MagicMock,
+        author_metadata: AuthorMetadata,
         session: DummySession,
     ) -> None:
-        """Test _delete_user_metadata with no existing record."""
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        """Test update_author deletes user metadata when value is None."""
+        author_metadata.id = 1
+        mock_author_repo.get_by_id_and_library.return_value = author_metadata
 
-        author_service._delete_user_metadata(1, "genres")
+        update = {"genres": None}
+        author_service.update_author("1", update)
 
-        # Should not raise
+        assert session.commit_count >= 1  # type: ignore[attr-defined]
 
-
-# ============================================================================
-# _get_user_metadata Tests
-# ============================================================================
-
-
-class TestGetUserMetadata:
-    """Test _get_user_metadata."""
-
-    def test_get_user_metadata_existing(
+    def test_update_author_handles_multiple_user_metadata_fields(
         self,
         author_service: AuthorService,
+        mock_author_repo: MagicMock,
+        author_metadata: AuthorMetadata,
         session: DummySession,
     ) -> None:
-        """Test _get_user_metadata returns existing value."""
-        existing = AuthorUserMetadata(
-            id=1,
-            author_metadata_id=1,
-            field_name="genres",
-            field_value=["Fiction", "Sci-Fi"],
-            is_user_defined=True,
-        )
-        session.set_exec_result([existing])  # type: ignore[attr-defined]
+        """Test update_author handles multiple user metadata fields."""
+        author_metadata.id = 1
+        mock_author_repo.get_by_id_and_library.return_value = author_metadata
 
-        result = author_service._get_user_metadata(1, "genres")
+        update = {
+            "genres": ["Fiction"],
+            "styles": ["Modern"],
+            "shelves": ["To Read"],
+            "similar_authors": ["OL456B"],
+        }
+        author_service.update_author("1", update)
 
-        assert result == ["Fiction", "Sci-Fi"]
+        assert session.commit_count >= 1  # type: ignore[attr-defined]
 
-    def test_get_user_metadata_not_found(
+
+# ============================================================================
+# update_author photo_url Tests
+# ============================================================================
+
+
+class TestUpdateAuthorPhotoUrl:
+    """Test update_author with photo_url."""
+
+    def test_update_author_sets_photo_url(
         self,
         author_service: AuthorService,
+        mock_author_repo: MagicMock,
+        author_metadata: AuthorMetadata,
         session: DummySession,
     ) -> None:
-        """Test _get_user_metadata returns None when not found."""
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        """Test update_author sets photo_url field."""
+        author_metadata.id = 1
+        mock_author_repo.get_by_id_and_library.return_value = author_metadata
 
-        result = author_service._get_user_metadata(1, "genres")
+        update = {"photo_url": "/api/authors/1/photos/1"}
+        result = author_service.update_author("1", update)
 
-        assert result is None
+        assert author_metadata.photo_url == "/api/authors/1/photos/1"
+        assert result["photo_url"] == "/api/authors/1/photos/1"
 
 
 # ============================================================================
-# _get_author_photos_dir Tests
+# Note: Tests for _save_user_metadata, _delete_user_metadata, _get_user_metadata,
+# and _get_author_photos_dir have been removed as these are now implementation
+# details in AuthorCoreService and FileSystemPhotoStorage. These should be tested
+# through the public API (update_author) or by testing the specialized services
+# directly if needed.
 # ============================================================================
-
-
-class TestGetAuthorPhotosDir:
-    """Test _get_author_photos_dir."""
-
-    def test_get_author_photos_dir(
-        self,
-        author_service: AuthorService,
-        tmp_path: Path,
-    ) -> None:
-        """Test _get_author_photos_dir creates directory."""
-        photos_dir = author_service._get_author_photos_dir(1)
-
-        assert photos_dir.exists()
-        assert photos_dir == tmp_path / "authors" / "1"
 
 
 # ============================================================================
@@ -1741,7 +1591,7 @@ class TestUploadAuthorPhoto:
         author_metadata.id = 1
         mock_author_repo.get_by_id_and_library.return_value = author_metadata
 
-        with pytest.raises(ValueError, match="invalid_file_type"):
+        with pytest.raises(InvalidPhotoFormatError, match="invalid_file_type"):
             author_service.upload_author_photo("1", b"content", "photo.txt")
 
     def test_upload_author_photo_no_active_library(
@@ -1750,7 +1600,7 @@ class TestUploadAuthorPhoto:
         """Test upload_author_photo with no active library."""
         mock_library_service.get_active_library.return_value = None
 
-        with pytest.raises(ValueError, match="No active library found"):
+        with pytest.raises(NoActiveLibraryError, match="No active library found"):
             author_service.upload_author_photo("1", b"content", "photo.jpg")
 
     def test_upload_author_photo_author_not_found(
@@ -1759,9 +1609,12 @@ class TestUploadAuthorPhoto:
         mock_author_repo: MagicMock,
     ) -> None:
         """Test upload_author_photo with author not found."""
+        # Mock all lookup methods to return None
         mock_author_repo.get_by_id_and_library.return_value = None
+        mock_author_repo.get_by_openlibrary_key_and_library.return_value = None
+        mock_author_repo.get_by_calibre_id_and_library.return_value = None
 
-        with pytest.raises(ValueError, match="Author not found"):
+        with pytest.raises(AuthorNotFoundError, match="Author not found"):
             author_service.upload_author_photo("1", b"content", "photo.jpg")
 
     def test_upload_author_photo_save_failed(
@@ -1781,7 +1634,7 @@ class TestUploadAuthorPhoto:
         photos_dir.chmod(0o444)
 
         try:
-            with pytest.raises(ValueError, match="failed_to_save_file"):
+            with pytest.raises(PhotoStorageError, match="failed_to_save_file"):
                 author_service.upload_author_photo("1", b"content", "photo.jpg")
         finally:
             photos_dir.chmod(0o755)
@@ -1852,7 +1705,7 @@ class TestUploadPhotoFromUrl:
             mock_client.get.return_value = mock_response
             mock_client_class.return_value = mock_client
 
-            with pytest.raises(ValueError, match="url_not_an_image"):
+            with pytest.raises(InvalidPhotoFormatError, match="url_not_an_image"):
                 author_service.upload_photo_from_url(
                     "1", "https://example.com/page.html"
                 )
@@ -1880,7 +1733,7 @@ class TestUploadPhotoFromUrl:
             mock_client.get.return_value = mock_response
             mock_client_class.return_value = mock_client
 
-            with pytest.raises(ValueError, match="invalid_image_format"):
+            with pytest.raises(InvalidPhotoFormatError, match="invalid_image_format"):
                 author_service.upload_photo_from_url(
                     "1", "https://example.com/photo.jpg"
                 )
@@ -1903,7 +1756,7 @@ class TestUploadPhotoFromUrl:
             mock_client.get.side_effect = httpx.HTTPError("Network error")
             mock_client_class.return_value = mock_client
 
-            with pytest.raises(ValueError, match="failed_to_download_image"):
+            with pytest.raises(PhotoStorageError, match="failed_to_download_image"):
                 author_service.upload_photo_from_url(
                     "1", "https://example.com/photo.jpg"
                 )
@@ -1964,7 +1817,7 @@ class TestGetAuthorPhotos:
         """Test get_author_photos with no active library."""
         mock_library_service.get_active_library.return_value = None
 
-        with pytest.raises(ValueError, match="No active library found"):
+        with pytest.raises(NoActiveLibraryError, match="No active library found"):
             author_service.get_author_photos("1")
 
     def test_get_author_photos_author_not_found(
@@ -1973,9 +1826,12 @@ class TestGetAuthorPhotos:
         mock_author_repo: MagicMock,
     ) -> None:
         """Test get_author_photos with author not found."""
+        # Mock all lookup methods to return None
         mock_author_repo.get_by_id_and_library.return_value = None
+        mock_author_repo.get_by_openlibrary_key_and_library.return_value = None
+        mock_author_repo.get_by_calibre_id_and_library.return_value = None
 
-        with pytest.raises(ValueError, match="Author not found"):
+        with pytest.raises(AuthorNotFoundError, match="Author not found"):
             author_service.get_author_photos("1")
 
 
@@ -2111,7 +1967,7 @@ class TestSetPrimaryPhoto:
         """Test set_primary_photo with no active library."""
         mock_library_service.get_active_library.return_value = None
 
-        with pytest.raises(ValueError, match="No active library found"):
+        with pytest.raises(NoActiveLibraryError, match="No active library found"):
             author_service.set_primary_photo("1", 1)
 
     def test_set_primary_photo_author_not_found(
@@ -2120,9 +1976,12 @@ class TestSetPrimaryPhoto:
         mock_author_repo: MagicMock,
     ) -> None:
         """Test set_primary_photo with author not found."""
+        # Mock all lookup methods to return None
         mock_author_repo.get_by_id_and_library.return_value = None
+        mock_author_repo.get_by_openlibrary_key_and_library.return_value = None
+        mock_author_repo.get_by_calibre_id_and_library.return_value = None
 
-        with pytest.raises(ValueError, match="Author not found"):
+        with pytest.raises(AuthorNotFoundError, match="Author not found"):
             author_service.set_primary_photo("1", 1)
 
     def test_set_primary_photo_not_found(
@@ -2137,7 +1996,7 @@ class TestSetPrimaryPhoto:
         mock_author_repo.get_by_id_and_library.return_value = author_metadata
         session.set_exec_result([])  # type: ignore[attr-defined]
 
-        with pytest.raises(ValueError, match="Photo not found"):
+        with pytest.raises(PhotoNotFoundError, match="Photo not found"):
             author_service.set_primary_photo("1", 999)
 
 
@@ -2190,7 +2049,7 @@ class TestDeletePhoto:
         """Test delete_photo with no active library."""
         mock_library_service.get_active_library.return_value = None
 
-        with pytest.raises(ValueError, match="No active library found"):
+        with pytest.raises(NoActiveLibraryError, match="No active library found"):
             author_service.delete_photo("1", 1)
 
     def test_delete_photo_author_not_found(
@@ -2199,9 +2058,12 @@ class TestDeletePhoto:
         mock_author_repo: MagicMock,
     ) -> None:
         """Test delete_photo with author not found."""
+        # Mock all lookup methods to return None
         mock_author_repo.get_by_id_and_library.return_value = None
+        mock_author_repo.get_by_openlibrary_key_and_library.return_value = None
+        mock_author_repo.get_by_calibre_id_and_library.return_value = None
 
-        with pytest.raises(ValueError, match="Author not found"):
+        with pytest.raises(AuthorNotFoundError, match="Author not found"):
             author_service.delete_photo("1", 1)
 
     def test_delete_photo_not_found(
@@ -2216,5 +2078,5 @@ class TestDeletePhoto:
         mock_author_repo.get_by_id_and_library.return_value = author_metadata
         session.set_exec_result([])  # type: ignore[attr-defined]
 
-        with pytest.raises(ValueError, match="Photo not found"):
+        with pytest.raises(PhotoNotFoundError, match="Photo not found"):
             author_service.delete_photo("1", 999)

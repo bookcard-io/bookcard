@@ -15,11 +15,21 @@
 
 """Exception mapper for author operations.
 
-Centralizes ValueError to HTTPException mapping following DRY principle.
+Centralizes domain exception to HTTPException mapping following DRY principle.
 Separates HTTP concerns from business logic.
 """
 
 from fastapi import HTTPException, status
+
+from fundamental.services.author_exceptions import (
+    AuthorMetadataFetchError,
+    AuthorNotFoundError,
+    AuthorServiceError,
+    InvalidPhotoFormatError,
+    NoActiveLibraryError,
+    PhotoNotFoundError,
+    PhotoStorageError,
+)
 
 
 class AuthorExceptionMapper:
@@ -30,12 +40,14 @@ class AuthorExceptionMapper:
     """
 
     @staticmethod
-    def map_value_error_to_http_exception(error: ValueError) -> HTTPException:
-        """Map ValueError to appropriate HTTPException.
+    def map_value_error_to_http_exception(
+        error: ValueError | AuthorServiceError,
+    ) -> HTTPException:
+        """Map ValueError or AuthorServiceError to appropriate HTTPException.
 
         Parameters
         ----------
-        error : ValueError
+        error : ValueError | AuthorServiceError
             Business logic exception.
 
         Returns
@@ -43,6 +55,38 @@ class AuthorExceptionMapper:
         HTTPException
             Appropriate HTTP exception with status code and detail.
         """
+        # Handle domain-specific exceptions
+        if isinstance(error, AuthorNotFoundError):
+            return HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(error),
+            )
+
+        if isinstance(error, NoActiveLibraryError):
+            return HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No active library found",
+            )
+
+        if isinstance(error, (InvalidPhotoFormatError, AuthorMetadataFetchError)):
+            return HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(error),
+            )
+
+        if isinstance(error, PhotoNotFoundError):
+            return HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(error),
+            )
+
+        if isinstance(error, PhotoStorageError):
+            return HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(error),
+            )
+
+        # Fallback for ValueError (backward compatibility)
         error_msg = str(error)
 
         if "not found" in error_msg.lower():
@@ -85,12 +129,14 @@ class AuthorExceptionMapper:
         )
 
     @staticmethod
-    def map_photo_error_to_http_exception(error: ValueError) -> HTTPException:
-        """Map photo-related ValueError to appropriate HTTPException.
+    def map_photo_error_to_http_exception(
+        error: ValueError | AuthorServiceError,
+    ) -> HTTPException:
+        """Map photo-related exception to appropriate HTTPException.
 
         Parameters
         ----------
-        error : ValueError
+        error : ValueError | AuthorServiceError
             Photo operation exception.
 
         Returns
@@ -98,6 +144,26 @@ class AuthorExceptionMapper:
         HTTPException
             Appropriate HTTP exception with status code and detail.
         """
+        # Handle domain-specific exceptions
+        if isinstance(error, PhotoNotFoundError):
+            return HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(error),
+            )
+
+        if isinstance(error, InvalidPhotoFormatError):
+            return HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(error),
+            )
+
+        if isinstance(error, PhotoStorageError):
+            return HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(error),
+            )
+
+        # Fallback for ValueError
         msg = str(error)
 
         if "not found" in msg.lower():
