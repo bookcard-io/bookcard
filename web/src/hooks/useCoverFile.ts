@@ -77,7 +77,7 @@ export function useCoverFile(options: UseCoverFileOptions): UseCoverFileResult {
 
   // Create object URL for cover preview and clean up on unmount or file change
   useEffect(() => {
-    if (coverFile && !isEditMode) {
+    if (coverFile) {
       const objectUrl = URL.createObjectURL(coverFile);
       setCoverPreviewUrl(objectUrl);
       return () => {
@@ -86,7 +86,7 @@ export function useCoverFile(options: UseCoverFileOptions): UseCoverFileResult {
     }
     setCoverPreviewUrl(null);
     return () => {};
-  }, [coverFile, isEditMode]);
+  }, [coverFile]);
 
   // Keep coverFile in sync with initialCoverFile for create mode,
   // but do not overwrite if the user has already interacted with the cover input.
