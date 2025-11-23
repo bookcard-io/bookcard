@@ -26,6 +26,12 @@ from sqlalchemy import Enum as SQLEnum
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
+    from fundamental.models.reading import (
+        Annotation,
+        ReadingProgress,
+        ReadingSession,
+        ReadStatus,
+    )
     from fundamental.models.tasks import Task
 
 
@@ -105,6 +111,10 @@ class User(SQLModel, table=True):
     refresh_tokens: list["RefreshToken"] = Relationship(back_populates="user")
     ereader_devices: list["EReaderDevice"] = Relationship(back_populates="user")
     tasks: list["Task"] = Relationship(back_populates="user")
+    reading_progress: list["ReadingProgress"] = Relationship(back_populates="user")
+    reading_sessions: list["ReadingSession"] = Relationship(back_populates="user")
+    read_statuses: list["ReadStatus"] = Relationship(back_populates="user")
+    annotations: list["Annotation"] = Relationship(back_populates="user")
 
 
 class UserSetting(SQLModel, table=True):

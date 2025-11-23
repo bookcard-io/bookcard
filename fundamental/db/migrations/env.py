@@ -44,6 +44,13 @@ from fundamental.models.openlibrary import (
     OpenLibraryEditionIsbn,
     OpenLibraryWork,
 )
+from fundamental.models.reading import (
+    Annotation,
+    AnnotationDirtied,
+    ReadingProgress,
+    ReadingSession,
+    ReadStatus,
+)
 
 # Load environment variables from .env file
 # The .env file is at the project root, which is 4 levels up from this file
@@ -100,9 +107,6 @@ EXCLUDED_TABLES = {
     # From media.py
     "data",
     "conversion_options",
-    # From reading.py
-    "annotations",
-    "annotations_dirtied",
     "last_read_positions",
     # From system.py
     "preferences",

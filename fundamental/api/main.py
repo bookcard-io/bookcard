@@ -42,6 +42,7 @@ from fundamental.api.routes.devices import router as devices_router
 from fundamental.api.routes.fs import router as fs_router
 from fundamental.api.routes.library_scanning import router as library_scanning_router
 from fundamental.api.routes.metadata import router as metadata_router
+from fundamental.api.routes.reading import router as reading_router
 from fundamental.api.routes.shelves import router as shelves_router
 from fundamental.api.routes.tasks import router as tasks_router
 from fundamental.config import AppConfig
@@ -109,6 +110,7 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(fs_router)
     app.include_router(library_scanning_router)
     app.include_router(metadata_router)
+    app.include_router(reading_router)
     app.include_router(shelves_router)
     app.include_router(tasks_router)
 

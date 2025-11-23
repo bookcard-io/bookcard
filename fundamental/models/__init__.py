@@ -80,7 +80,10 @@ from fundamental.models.openlibrary import (
 from fundamental.models.reading import (
     Annotation,
     AnnotationDirtied,
-    LastReadPosition,
+    ReadingProgress,
+    ReadingSession,
+    ReadStatus,
+    ReadStatusEnum,
 )
 from fundamental.models.shelves import (
     BookShelfLink,
@@ -139,7 +142,6 @@ __all__ = [
     "IntegrationConfig",
     "LDAPConfig",
     "Language",
-    "LastReadPosition",
     "Library",
     "LibraryId",
     "LibraryScanState",
@@ -154,6 +156,10 @@ __all__ = [
     "Preference",
     "Publisher",
     "Rating",
+    "ReadStatus",
+    "ReadStatusEnum",
+    "ReadingProgress",
+    "ReadingSession",
     "RefreshToken",
     "Role",
     "RolePermission",
