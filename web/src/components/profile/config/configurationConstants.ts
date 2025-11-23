@@ -33,6 +33,7 @@ export const AVAILABLE_LANGUAGES = [
 ] as const;
 
 export const AVAILABLE_METADATA_PROVIDERS = [
+  "OpenLibrary",
   "Google Books",
   "Amazon",
   "豆瓣",

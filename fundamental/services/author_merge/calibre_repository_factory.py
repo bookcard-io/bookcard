@@ -35,7 +35,7 @@ class CalibreRepositoryFactory:
     """
 
     @staticmethod
-    def create(library: Library) -> CalibreBookRepository | None:
+    def create(library: Library | None) -> CalibreBookRepository | None:
         """Create a CalibreBookRepository for the given library.
 
         Parameters

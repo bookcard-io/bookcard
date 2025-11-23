@@ -23,6 +23,7 @@ Create Date: 2025-11-02 00:00:00.000000
 
 from __future__ import annotations
 
+import json
 import os
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -41,7 +42,7 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
-def upgrade() -> None:
+def upgrade() -> None:  # noqa: C901
     """Insert initial admin user, roles, and permissions (one-time, idempotent).
 
     Uses environment variables provided by the runtime (e.g., docker-compose):
@@ -109,6 +110,56 @@ def upgrade() -> None:
         {"username": username},
     )
     user_id = user_result.scalar_one()
+
+    # Insert default user settings for the admin user
+    default_settings = {
+        "theme_preference": "dark",
+        "books_grid_display": "infinite-scroll",
+        "default_view_mode": "grid",
+        "default_page_size": "20",
+        "preferred_language": "en",
+        "default_sort_field": "timestamp",
+        "default_sort_order": "desc",
+        "enabled_metadata_providers": [
+            "OpenLibrary",
+            "Google Books",
+            "Amazon",
+            "ComicVine",
+        ],
+        "preferred_metadata_providers": ["OpenLibrary", "Google Books", "Amazon"],
+        "replace_cover_on_metadata_selection": True,
+        "metadata_download_format": "opf",
+        "auto_dismiss_book_edit_modal": True,
+        "book_details_open_mode": "modal",
+        "always_warn_on_delete": True,
+        "default_delete_files_from_drive": False,
+    }
+
+    for key, value in default_settings.items():
+        # Convert value to string representation
+        if isinstance(value, bool):
+            setting_value = "true" if value else "false"
+        elif isinstance(value, list):
+            # JSON-encode lists (e.g., metadata providers)
+            setting_value = json.dumps(value)
+        else:
+            # String or other types - convert to string
+            setting_value = str(value)
+
+        conn.execute(
+            text(
+                """
+                INSERT INTO user_settings (user_id, key, value, updated_at)
+                VALUES (:user_id, :key, :value, :updated_at)
+                """
+            ),
+            {
+                "user_id": user_id,
+                "key": key,
+                "value": setting_value,
+                "updated_at": now,
+            },
+        )
 
     # Seed roles
     roles_data = [
@@ -284,6 +335,19 @@ def downgrade() -> None:
     conn = op.get_bind()
     username = os.getenv("ADMIN_USERNAME", "admin").strip()
     email = os.getenv("ADMIN_EMAIL", "admin@example.com").strip()
+
+    # Remove user settings for the admin user
+    conn.execute(
+        text(
+            """
+            DELETE FROM user_settings
+            WHERE user_id IN (
+                SELECT id FROM users WHERE username = :u OR email = :e
+            )
+            """
+        ),
+        {"u": username, "e": email},
+    )
 
     # Remove user-role associations for the admin user
     conn.execute(
