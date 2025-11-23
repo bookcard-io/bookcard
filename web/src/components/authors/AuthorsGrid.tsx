@@ -412,7 +412,6 @@ export function AuthorsGrid({ filterType = "all" }: AuthorsGridProps) {
                             ? "border-primary-a0/30 from-surface-a0 to-surface-a10 hover:border-primary-a0 hover:shadow-[0_0_15px_rgba(144,170,249,0.15)]"
                             : "border-transparent from-surface-a0 to-surface-a10 hover:shadow-card-hover",
                           "transition-[transform,box-shadow,border-color] duration-200 ease-out",
-                          "hover:-translate-y-0.5",
                           "focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2",
                           "focus:not-focus-visible:outline-none focus:outline-none",
                           // Selected state: show primary border and glow
