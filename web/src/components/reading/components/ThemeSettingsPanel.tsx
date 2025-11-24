@@ -27,6 +27,12 @@ export interface ThemeSettingsPanelProps {
   children: ReactNode;
   /** Optional className. */
   className?: string;
+  /** Optional header title. Defaults to "Reader Themes". */
+  title?: string;
+  /** Optional aria-label for the dialog. Defaults to "Font settings". */
+  ariaLabel?: string;
+  /** Optional close button aria-label. Defaults to "Close font settings". */
+  closeAriaLabel?: string;
 }
 
 /**
@@ -46,17 +52,22 @@ export function ThemeSettingsPanel({
   onClose,
   children,
   className,
+  title = "Reader Themes",
+  ariaLabel = "Font settings",
+  closeAriaLabel = "Close font settings",
 }: ThemeSettingsPanelProps) {
   return (
     <div
       className={cn(
         "fixed top-[5rem] right-0 z-[901] h-[calc(100vh-64px)] w-96 bg-surface-a10 shadow-lg transition-transform duration-300 ease-in-out",
         isOpen ? "translate-x-0" : "translate-x-full",
+        !isOpen && "pointer-events-none",
         className,
       )}
       role="dialog"
-      aria-modal="true"
-      aria-label="Font settings"
+      aria-modal={isOpen}
+      aria-label={ariaLabel}
+      aria-hidden={!isOpen}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => {
         if (e.key === "Escape") {
@@ -68,12 +79,12 @@ export function ThemeSettingsPanel({
         {/* Header */}
         <div className="border-surface-a20 border-b bg-surface-a10 px-6 py-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-medium text-lg text-text-a0">Reader Themes</h2>
+            <h2 className="font-medium text-lg text-text-a0">{title}</h2>
             <button
               type="button"
               onClick={onClose}
               className="flex cursor-pointer items-center justify-center border-0 bg-transparent p-2 text-text-a40 transition-colors hover:text-text-a0"
-              aria-label="Close font settings"
+              aria-label={closeAriaLabel}
             >
               <i className="pi pi-times text-lg" />
             </button>

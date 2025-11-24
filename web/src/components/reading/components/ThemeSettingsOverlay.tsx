@@ -16,6 +16,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { cn } from "@/libs/utils";
 
 export interface ThemeSettingsOverlayProps {
   /** Whether the overlay should be visible. */
@@ -49,13 +50,12 @@ export function ThemeSettingsOverlay({
     [onClick],
   );
 
-  if (!isVisible) {
-    return null;
-  }
-
   return (
     <div
-      className="fixed top-[69px] right-0 bottom-0 left-0 z-[750] bg-black/50 transition-opacity duration-300"
+      className={cn(
+        "fixed top-[69px] right-0 bottom-0 left-0 z-[750] bg-black/50 transition-opacity duration-300",
+        isVisible ? "opacity-100" : "pointer-events-none opacity-0",
+      )}
       onClick={handleClick}
       role="presentation"
       aria-hidden="true"

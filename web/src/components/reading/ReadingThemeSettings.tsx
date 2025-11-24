@@ -103,13 +103,12 @@ export function ReadingThemeSettings({
     onClose,
   });
 
-  if (!isOpen) {
-    return null;
-  }
-
   return (
     <>
-      <ThemeSettingsOverlay isVisible={showOverlay} onClick={onClose} />
+      <ThemeSettingsOverlay
+        isVisible={showOverlay && isOpen}
+        onClick={onClose}
+      />
       <ThemeSettingsPanel
         isOpen={isOpen}
         onClose={onClose}

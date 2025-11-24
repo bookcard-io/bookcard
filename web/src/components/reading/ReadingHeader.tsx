@@ -25,7 +25,10 @@ import {
 } from "./components/HeaderActions";
 import { HeaderTitle } from "./components/HeaderTitle";
 import { HeaderTriggerZone } from "./components/HeaderTriggerZone";
+import { useExclusivePanels } from "./hooks/useExclusivePanels";
 import { useFontPanel } from "./hooks/useFontPanel";
+import { useSearchPanel } from "./hooks/useSearchPanel";
+import { ReadingSearchPanel } from "./ReadingSearchPanel";
 import {
   type FontFamily,
   type PageColor,
@@ -98,19 +101,40 @@ export function ReadingHeader({
 }: ReadingHeaderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const fontPanel = useFontPanel();
+  const searchPanel = useSearchPanel();
+
+  // Configure mutually exclusive panels
+  // To disable mutual exclusivity, set enabled: false
+  // To add more panels, add them to the panels array
+  const { openFunctions } = useExclusivePanels({
+    panels: [fontPanel, searchPanel],
+    enabled: true, // Set to false to allow multiple panels open simultaneously
+  });
+
+  // Extract open functions - we know these exist since we provided 2 panels
+  const openFontPanel = openFunctions[0] ?? fontPanel.open;
+  const openSearchPanel = openFunctions[1] ?? searchPanel.open;
 
   const { isVisible, handleMouseEnter, handleMouseLeave, hideHeader } =
-    useHeaderVisibility(areLocationsReady, fontPanel.isOpen);
+    useHeaderVisibility(
+      areLocationsReady,
+      fontPanel.isOpen || searchPanel.isOpen,
+    );
 
   const handleFontPanelClose = useCallback(() => {
     fontPanel.close();
     hideHeader();
   }, [fontPanel, hideHeader]);
 
+  const handleSearchPanelClose = useCallback(() => {
+    searchPanel.close();
+    hideHeader();
+  }, [searchPanel, hideHeader]);
+
   // Memoize no-op handlers to prevent unnecessary recreations
   const handleSearch = useCallback(() => {
-    // No-op for now
-  }, []);
+    openSearchPanel();
+  }, [openSearchPanel]);
 
   const handleNotebook = useCallback(() => {
     // No-op for now
@@ -128,7 +152,7 @@ export function ReadingHeader({
     () => ({
       onTocToggle,
       onSearch: handleSearch,
-      onFontSettings: fontPanel.open,
+      onFontSettings: openFontPanel,
       onNotebook: handleNotebook,
       onBookmark: handleBookmark,
       onFullscreenToggle,
@@ -137,7 +161,7 @@ export function ReadingHeader({
     [
       onTocToggle,
       handleSearch,
-      fontPanel.open,
+      openFontPanel,
       handleNotebook,
       handleBookmark,
       onFullscreenToggle,
@@ -182,6 +206,10 @@ export function ReadingHeader({
         onAppThemeChange={onAppThemeChange}
         pageLayout={pageLayout}
         onPageLayoutChange={onPageLayoutChange}
+      />
+      <ReadingSearchPanel
+        isOpen={searchPanel.isOpen}
+        onClose={handleSearchPanelClose}
       />
     </>
   );
