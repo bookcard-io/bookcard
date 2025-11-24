@@ -47,6 +47,8 @@
     "@arcjet/next": "^1.0.0-beta.13",
     "@clerk/localizations": "^3.26.4",
     "@clerk/nextjs": "^6.34.1",
+    "@fontsource/literata": "^5.2.8",
+    "@fontsource/opendyslexic": "^5.2.5",
     "@hookform/resolvers": "^5.2.2",
     "@logtape/logtape": "^1.1.2",
     "@sentry/nextjs": "^10.22.0",

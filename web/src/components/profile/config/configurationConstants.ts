@@ -91,6 +91,10 @@ export const METADATA_DOWNLOAD_FORMAT_OPTIONS = [
 
 export const THEME_PREFERENCE_SETTING_KEY = "theme_preference";
 
+export const READING_FONT_FAMILY_SETTING_KEY = "reading_font_family";
+export const READING_FONT_SIZE_SETTING_KEY = "reading_font_size";
+export const READING_PAGE_COLOR_SETTING_KEY = "reading_page_color";
+
 /**
  * Gets the label for the theme toggle button.
  *

@@ -106,3 +106,4 @@ class AuthorPermissionHelper:
         """
         context = self.build_permission_context(author_data)
         self._permission_service.check_permission(user, "books", "read", context)
+

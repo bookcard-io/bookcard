@@ -22,6 +22,7 @@ import { BookViewMetadata } from "@/components/books/BookViewMetadata";
 import { BookViewModalFooter } from "@/components/books/BookViewModalFooter";
 import { DeleteBookConfirmationModal } from "@/components/books/DeleteBookConfirmationModal";
 import { Button } from "@/components/forms/Button";
+import { BookReadingInfo } from "@/components/reading/BookReadingInfo";
 import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { useBook } from "@/hooks/useBook";
 import { useDeleteConfirmation } from "@/hooks/useDeleteConfirmation";
@@ -216,6 +217,8 @@ export function BookViewModal({
 
             <div className="flex flex-col gap-5 md:gap-4">
               <BookViewMetadata book={book} />
+
+              {book && <BookReadingInfo book={book} />}
 
               {book.formats && book.formats.length > 0 && bookId && (
                 <BookViewFormats formats={book.formats} book={book} />

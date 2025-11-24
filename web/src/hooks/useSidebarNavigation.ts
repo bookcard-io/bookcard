@@ -22,6 +22,8 @@ export interface UseSidebarNavigationResult {
   navigateHome: () => void;
   /** Navigate to authors page. */
   navigateToAuthors: () => void;
+  /** Navigate to reading history page. */
+  navigateToReading: () => void;
   /** Navigate to shelves management. */
   navigateToShelves: () => void;
   /** Navigate to admin page. */
@@ -70,6 +72,10 @@ export function useSidebarNavigation(): UseSidebarNavigationResult {
     router.push("/authors");
   }, [router]);
 
+  const navigateToReading = useCallback(() => {
+    router.push("/reading");
+  }, [router]);
+
   const navigateToShelves = useCallback(() => {
     router.push("/?tab=shelves");
   }, [router]);
@@ -106,6 +112,7 @@ export function useSidebarNavigation(): UseSidebarNavigationResult {
   return {
     navigateHome,
     navigateToAuthors,
+    navigateToReading,
     navigateToShelves,
     navigateToAdmin,
     navigateToManageDevices,

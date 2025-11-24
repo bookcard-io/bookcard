@@ -21,6 +21,7 @@ import { BookViewFormats } from "@/components/books/BookViewFormats";
 import { BookViewHeader } from "@/components/books/BookViewHeader";
 import { BookViewMetadata } from "@/components/books/BookViewMetadata";
 import { Button } from "@/components/forms/Button";
+import { BookReadingInfo } from "@/components/reading/BookReadingInfo";
 import { UserProvider } from "@/contexts/UserContext";
 import { useBook } from "@/hooks/useBook";
 import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
@@ -199,6 +200,8 @@ export default function BookViewPage({ params }: BookViewPageProps) {
                 )}
 
                 <BookViewMetadata book={book} />
+
+                {book && <BookReadingInfo book={book} />}
 
                 {book.formats && book.formats.length > 0 && bookId && (
                   <BookViewFormats formats={book.formats} book={book} />

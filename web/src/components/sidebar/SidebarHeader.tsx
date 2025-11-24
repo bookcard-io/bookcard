@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import { BrandLogo } from "@/components/common/BrandLogo";
 import { BurgerArrowLeft } from "@/icons/BurgerArrowLeft";
 import { BurgerArrowRight } from "@/icons/BurgerArrowRight";
 
@@ -41,20 +42,7 @@ export function SidebarHeader({
 }: SidebarHeaderProps) {
   return (
     <div className="flex min-h-16 items-center justify-between border-[var(--color-surface-a20)] border-b p-4">
-      <div className="flex flex-1 items-center gap-3">
-        <img
-          src="/logo.svg"
-          alt="Fundamental Logo"
-          width={24}
-          height={24}
-          className="h-6 min-h-6 w-6 min-w-6 shrink-0"
-        />
-        {!isCollapsed && (
-          <span className="whitespace-nowrap font-medium text-[var(--color-text-a0)] text-lg">
-            Fundamental
-          </span>
-        )}
-      </div>
+      <BrandLogo showText={!isCollapsed} className="flex-1" />
       <button
         type="button"
         className="flex cursor-pointer items-center justify-center rounded border-0 bg-transparent p-1 text-[var(--color-surface-a50)] transition-colors duration-200 hover:bg-[var(--color-surface-a20)]"

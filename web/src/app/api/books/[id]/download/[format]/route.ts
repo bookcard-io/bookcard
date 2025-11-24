@@ -53,11 +53,16 @@ export async function GET(
 
     // Get the file content
     const blob = await response.blob();
-    const contentType =
+    // Ensure EPUB files have the correct content type
+    let contentType =
       response.headers.get("content-type") || "application/octet-stream";
+    if (fileFormat.toUpperCase() === "EPUB" && !contentType.includes("epub")) {
+      contentType = "application/epub+zip";
+    }
     const contentDisposition = response.headers.get("content-disposition");
 
     // Create response with file
+    // Add CORS headers for EPUB readers that need to access the file
     const fileResponse = new NextResponse(blob, {
       status: 200,
       headers: {
@@ -65,6 +70,10 @@ export async function GET(
         "Content-Disposition":
           contentDisposition ||
           `attachment; filename="${fileFormat.toLowerCase()}"`,
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Cache-Control": "public, max-age=3600",
       },
     });
 

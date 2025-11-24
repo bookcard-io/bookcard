@@ -15,7 +15,8 @@
 
 "use client";
 
-import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useMemo, useState } from "react";
 import { FullscreenImageModal } from "@/components/common/FullscreenImageModal";
 import { ImageWithLoading } from "@/components/common/ImageWithLoading";
 import { RatingDisplay } from "@/components/forms/RatingDisplay";
@@ -45,6 +46,7 @@ export function BookViewHeader({
   showDescription = false,
   onEdit,
 }: BookViewHeaderProps) {
+  const router = useRouter();
   const { canPerformAction } = useUser();
   const { showDanger } = useGlobalMessages();
   const [isCoverOpen, setIsCoverOpen] = useState(false);
@@ -57,6 +59,33 @@ export function BookViewHeader({
   const canRead = canPerformAction("books", "read", bookContext);
   const canWrite = canPerformAction("books", "write", bookContext);
   const canSend = canPerformAction("books", "send", bookContext);
+
+  // Determine preferred format for reading (EPUB > PDF > first available)
+  const preferredFormat = useMemo(() => {
+    if (!book.formats || book.formats.length === 0) {
+      return null;
+    }
+    // Prefer EPUB
+    const epub = book.formats.find((f) => f.format.toUpperCase() === "EPUB");
+    if (epub) {
+      return epub.format;
+    }
+    // Then PDF
+    const pdf = book.formats.find((f) => f.format.toUpperCase() === "PDF");
+    if (pdf) {
+      return pdf.format;
+    }
+    // Otherwise use first available format
+    return book.formats[0]?.format || null;
+  }, [book.formats]);
+
+  const handleRead = useCallback(() => {
+    if (!preferredFormat) {
+      showDanger("No readable format available for this book");
+      return;
+    }
+    router.push(`/reading/${book.id}/${preferredFormat.toUpperCase()}`);
+  }, [book.id, preferredFormat, router, showDanger]);
 
   const handleSend = useCallback(async () => {
     try {
@@ -102,10 +131,15 @@ export function BookViewHeader({
           <div className="mt-4 flex w-full items-center justify-center gap-4">
             <button
               type="button"
-              disabled={!canRead}
+              onClick={handleRead}
+              disabled={!canRead || !preferredFormat}
               className="group flex min-h-8 min-w-8 items-center justify-center rounded-full p-2 transition hover:scale-110 hover:bg-white/20 hover:backdrop-blur-sm focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Read book"
-              title="Read book"
+              title={
+                preferredFormat
+                  ? `Read book (${preferredFormat})`
+                  : "No readable format available"
+              }
             >
               <i
                 className="pi pi-book text-[1.25rem] text-[var(--color-text-a30)] transition-colors group-hover:text-[var(--color-text-a0)]"

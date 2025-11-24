@@ -18,6 +18,77 @@
 @use "typography" as *;
 @use "tailwindcss";
 
+/* Custom font faces for reading fonts */
+@font-face {
+  font-family: "Bookerly";
+  font-weight: 400;
+  font-style: normal;
+  src: url("/fonts/Bookerly-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Bookerly";
+  font-weight: 400;
+  font-style: italic;
+  src: url("/fonts/Bookerly-Italic.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Bookerly";
+  font-weight: 700;
+  font-style: normal;
+  src: url("/fonts/Bookerly-Bold.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Bookerly";
+  font-weight: 700;
+  font-style: italic;
+  src: url("/fonts/Bookerly-BoldItalic.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Amazon Ember";
+  font-weight: 400;
+  font-style: normal;
+  src: url("/fonts/AmazonEmber_Rg.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Amazon Ember";
+  font-weight: 400;
+  font-style: italic;
+  src: url("/fonts/AmazonEmber_RgIt.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Amazon Ember";
+  font-weight: 700;
+  font-style: normal;
+  src: url("/fonts/AmazonEmber_Bd.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Amazon Ember";
+  font-weight: 700;
+  font-style: italic;
+  src: url("/fonts/AmazonEmber_BdIt.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "OpenDyslexic";
+  font-weight: 400;
+  font-style: normal;
+  src: url("/fonts/opendyslexic-latin-400-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "OpenDyslexic";
+  font-weight: 400;
+  font-style: italic;
+  src: url("/fonts/opendyslexic-latin-400-italic.woff2") format("woff2");
+}
+
 /* Default dark theme - applied when data-theme="dark" or no attribute */
 @theme {
   /* Primary colors (dark theme) */

@@ -262,3 +262,4 @@ class TestCheckReadPermission:
 
         with pytest.raises(PermissionError, match="No read permission"):
             permission_helper.check_read_permission(user, author_data_with_name)
+

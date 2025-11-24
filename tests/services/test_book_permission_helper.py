@@ -362,3 +362,4 @@ class TestCheckSendPermission:
 
         with pytest.raises(PermissionError, match="No send permission"):
             permission_helper.check_send_permission(user, book_with_relations)
+

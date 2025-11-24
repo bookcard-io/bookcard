@@ -63,6 +63,7 @@ export function Sidebar() {
   const {
     navigateHome,
     navigateToAuthors,
+    navigateToReading,
     navigateToShelves,
     navigateToAdmin,
     navigateToManageDevices,
@@ -107,6 +108,7 @@ export function Sidebar() {
           onToggle={() => toggleSection("MY LIBRARY")}
           onHomeClick={navigateHome}
           onAuthorsClick={navigateToAuthors}
+          onReadingClick={navigateToReading}
           onIconClick={navigateHome}
         />
 
