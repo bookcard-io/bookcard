@@ -29,6 +29,7 @@ import { useFontPanel } from "./hooks/useFontPanel";
 import {
   type FontFamily,
   type PageColor,
+  type PageLayout,
   ReadingThemeSettings,
 } from "./ReadingThemeSettings";
 
@@ -55,6 +56,10 @@ export interface ReadingHeaderProps {
   onPageColorChange?: (color: PageColor) => void;
   /** Callback when main app theme should change. */
   onAppThemeChange?: (theme: "light" | "dark") => void;
+  /** Current page layout. */
+  pageLayout?: PageLayout;
+  /** Callback when page layout changes. */
+  onPageLayoutChange?: (layout: PageLayout) => void;
   /** Optional className. */
   className?: string;
 }
@@ -87,6 +92,8 @@ export function ReadingHeader({
   pageColor = "light",
   onPageColorChange,
   onAppThemeChange,
+  pageLayout = "two-column",
+  onPageLayoutChange,
   className,
 }: ReadingHeaderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -173,6 +180,8 @@ export function ReadingHeader({
         pageColor={pageColor}
         onPageColorChange={onPageColorChange}
         onAppThemeChange={onAppThemeChange}
+        pageLayout={pageLayout}
+        onPageLayoutChange={onPageLayoutChange}
       />
     </>
   );

@@ -17,6 +17,7 @@
 
 import { FontFamilySelector } from "./components/FontFamilySelector";
 import { FontSizeSlider } from "./components/FontSizeSlider";
+import { LayoutSelector, type PageLayout } from "./components/LayoutSelector";
 import { PageColorSelector } from "./components/PageColorSelector";
 import { ThemeSettingsOverlay } from "./components/ThemeSettingsOverlay";
 import { ThemeSettingsPanel } from "./components/ThemeSettingsPanel";
@@ -38,6 +39,8 @@ export type FontFamily =
 
 export type PageColor = "light" | "dark" | "sepia" | "lightGreen";
 
+export type { PageLayout };
+
 export interface ReadingThemeSettingsProps {
   /** Whether the panel is open. */
   isOpen: boolean;
@@ -57,6 +60,10 @@ export interface ReadingThemeSettingsProps {
   onPageColorChange?: (color: PageColor) => void;
   /** Callback when main app theme should change. */
   onAppThemeChange?: (theme: "light" | "dark") => void;
+  /** Current page layout. */
+  pageLayout?: PageLayout;
+  /** Callback when page layout changes. */
+  onPageLayoutChange?: (layout: PageLayout) => void;
   /** Optional className. */
   className?: string;
 }
@@ -87,6 +94,8 @@ export function ReadingThemeSettings({
   pageColor = "light",
   onPageColorChange,
   onAppThemeChange,
+  pageLayout = "two-column",
+  onPageLayoutChange,
   className,
 }: ReadingThemeSettingsProps) {
   const { showOverlay, hideOverlay } = useThemeSettingsPanel({
@@ -119,6 +128,10 @@ export function ReadingThemeSettings({
           onPageColorChange={onPageColorChange}
           onAppThemeChange={onAppThemeChange}
           onOverlayHide={hideOverlay}
+        />
+        <LayoutSelector
+          selectedLayout={pageLayout}
+          onLayoutChange={onPageLayoutChange || (() => {})}
         />
       </ThemeSettingsPanel>
     </>

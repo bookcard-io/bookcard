@@ -21,12 +21,14 @@ import {
   READING_FONT_FAMILY_SETTING_KEY,
   READING_FONT_SIZE_SETTING_KEY,
   READING_PAGE_COLOR_SETTING_KEY,
+  READING_PAGE_LAYOUT_SETTING_KEY,
 } from "@/components/profile/config/configurationConstants";
 import { EBookReader } from "@/components/reading/EBookReader";
 import { ReadingHeader } from "@/components/reading/ReadingHeader";
 import type {
   FontFamily,
   PageColor,
+  PageLayout,
 } from "@/components/reading/ReadingThemeSettings";
 import { ActiveLibraryProvider } from "@/contexts/ActiveLibraryContext";
 import { LibraryLoadingProvider } from "@/contexts/LibraryLoadingContext";
@@ -132,6 +134,12 @@ function ReadingPageContent({
       defaultValue: "light",
     });
 
+  const { value: persistedPageLayout, setValue: setPersistedPageLayout } =
+    useSetting({
+      key: READING_PAGE_LAYOUT_SETTING_KEY,
+      defaultValue: "two-column",
+    });
+
   // Validate and convert string settings to typed values
   const isValidFontFamily = (value: string): value is FontFamily => {
     const validFamilies: FontFamily[] = [
@@ -155,6 +163,10 @@ function ReadingPageContent({
     return ["light", "dark", "sepia", "lightGreen"].includes(value);
   };
 
+  const isValidPageLayout = (value: string): value is PageLayout => {
+    return ["single", "two-column"].includes(value);
+  };
+
   const fontFamily: FontFamily = isValidFontFamily(persistedFontFamily)
     ? persistedFontFamily
     : "Bookerly";
@@ -165,6 +177,9 @@ function ReadingPageContent({
   const pageColor: PageColor = isValidPageColor(persistedPageColor)
     ? persistedPageColor
     : "light";
+  const pageLayout: PageLayout = isValidPageLayout(persistedPageLayout)
+    ? persistedPageLayout
+    : "two-column";
 
   const fontFamilyRef = useRef<FontFamily>(fontFamily);
   const fontSizeRef = useRef<number>(fontSize);
@@ -222,6 +237,13 @@ function ReadingPageContent({
     [appTheme, toggleTheme],
   );
 
+  const handlePageLayoutChange = useCallback(
+    (layout: PageLayout) => {
+      setPersistedPageLayout(layout);
+    },
+    [setPersistedPageLayout],
+  );
+
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -245,6 +267,8 @@ function ReadingPageContent({
         pageColor={pageColor}
         onPageColorChange={handlePageColorChange}
         onAppThemeChange={handleAppThemeChange}
+        pageLayout={pageLayout}
+        onPageLayoutChange={handlePageLayoutChange}
         areLocationsReady={areLocationsReady}
       />
       <EBookReader
@@ -257,6 +281,7 @@ function ReadingPageContent({
         fontFamily={fontFamily}
         fontSize={fontSize}
         pageColor={pageColor}
+        pageLayout={pageLayout}
       />
     </>
   );

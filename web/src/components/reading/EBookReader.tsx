@@ -24,7 +24,7 @@ import { EPUBReader } from "./EPUBReader";
 import { PDFReader } from "./PDFReader";
 import type { PagingInfo } from "./ReaderControls";
 import { ReaderControls } from "./ReaderControls";
-import type { FontFamily, PageColor } from "./ReadingThemeSettings";
+import type { FontFamily, PageColor, PageLayout } from "./ReadingThemeSettings";
 
 export interface EBookReaderProps {
   /** Book ID. */
@@ -41,6 +41,8 @@ export interface EBookReaderProps {
   fontSize?: number;
   /** Page color theme. */
   pageColor?: PageColor;
+  /** Page layout (single or two-column). */
+  pageLayout?: PageLayout;
   /** Optional className. */
   className?: string;
 }
@@ -65,6 +67,7 @@ export function EBookReader({
   fontFamily = "Bookerly",
   fontSize: externalFontSize = 16,
   pageColor = "light",
+  pageLayout = "two-column",
   className,
 }: EBookReaderProps) {
   const [fontSize, setFontSize] = useState(externalFontSize);
@@ -225,6 +228,7 @@ export function EBookReader({
             fontSize={fontSize}
             theme={theme}
             pageColor={pageColor}
+            pageLayout={pageLayout}
             className="h-full w-full"
           />
         )}

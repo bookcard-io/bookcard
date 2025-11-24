@@ -57,7 +57,7 @@ export function PageColorSelector({
   };
 
   return (
-    <div>
+    <div className="mb-8">
       <h3 className="mb-4 font-medium text-sm text-text-a0">Page Color</h3>
       <div className="flex items-center gap-4">
         {(Object.keys(PAGE_COLOR_CONFIGS) as PageColor[]).map((color) => {

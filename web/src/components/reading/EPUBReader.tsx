@@ -43,7 +43,7 @@ import { useRenditionCallback } from "./hooks/useRenditionCallback";
 import { useThemeRefs } from "./hooks/useThemeRefs";
 import { useTocToggle } from "./hooks/useTocToggle";
 import type { PagingInfo } from "./ReaderControls";
-import type { FontFamily, PageColor } from "./ReadingThemeSettings";
+import type { FontFamily, PageColor, PageLayout } from "./ReadingThemeSettings";
 
 export interface EPUBReaderProps {
   /** Book URL or book ID. If string starts with /api/, treated as URL. Otherwise treated as book ID. */
@@ -74,6 +74,8 @@ export interface EPUBReaderProps {
   theme?: "light" | "dark";
   /** Page color theme. */
   pageColor?: PageColor;
+  /** Page layout (single or two-column). */
+  pageLayout?: PageLayout;
   /** Optional className. */
   className?: string;
 }
@@ -102,6 +104,7 @@ export function EPUBReader({
   fontFamily = "Bookerly",
   fontSize = 16,
   pageColor = "light",
+  pageLayout = "two-column",
   className,
 }: EPUBReaderProps) {
   // Manage all refs in one place
@@ -167,6 +170,20 @@ export function EPUBReader({
     locationRef.current,
     renditionRef.current,
   ]); // Refs are stable and don't need to be in deps
+
+  // Update spread layout when pageLayout changes
+  // NOTE: We access renditionRef.current inside to check if rendition exists
+  // but only depend on pageLayout to avoid unnecessary re-runs
+  useEffect(() => {
+    const rendition = renditionRef.current;
+    if (!rendition) {
+      return;
+    }
+
+    const spreadValue = pageLayout === "single" ? "none" : "auto";
+    rendition.spread(spreadValue);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageLayout, renditionRef]); // renditionRef is stable, but we check .current inside
 
   // Handle location changes and calculate progress
   // Refs are stable objects and don't need to be in deps
@@ -283,6 +300,14 @@ export function EPUBReader({
     return createTocHoverStyles(pageColor);
   }, [pageColor]);
 
+  // Create epubOptions based on layout
+  const epubOptions = useMemo(() => {
+    return {
+      flow: "paginated" as const,
+      spread: pageLayout === "single" ? ("none" as const) : ("auto" as const),
+    };
+  }, [pageLayout]);
+
   // Cleanup timeout on unmount
   useProgressCleanup(progressCalculationTimeoutRef);
 
@@ -323,6 +348,7 @@ export function EPUBReader({
         tocChanged={handleTocChanged}
         getRendition={handleGetRendition}
         epubInitOptions={createEpubInitOptions()}
+        epubOptions={epubOptions}
         readerStyles={readerStyles}
         showToc={true}
       />
