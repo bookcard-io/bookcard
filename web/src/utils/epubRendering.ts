@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import type { Rendition } from "epubjs";
+import type { Contents, Rendition } from "epubjs";
 import type {
   FontFamily,
   PageColor,
@@ -102,5 +102,97 @@ export function applyDocumentTheme(
   if (iframe?.contentDocument?.body) {
     iframe.contentDocument.body.style.color = colors.textColor;
     iframe.contentDocument.body.style.backgroundColor = colors.backgroundColor;
+  }
+}
+
+/**
+ * Create a content hook handler for EPUB pages.
+ *
+ * Ensures fonts and themes are applied to all pages as they load.
+ * Uses refs to access latest theme values since hook closure captures initial values.
+ *
+ * Parameters
+ * ----------
+ * rendition : Rendition
+ *     The EPUB.js rendition instance.
+ * pageColorRef : React.RefObject<PageColor>
+ *     Ref to current page color theme.
+ * fontFamilyRef : React.RefObject<FontFamily>
+ *     Ref to current font family.
+ * fontSizeRef : React.RefObject<number>
+ *     Ref to current font size in pixels.
+ *
+ * Returns
+ * -------
+ * (contents: Contents) => void
+ *     Content hook handler function.
+ */
+export function createContentHook(
+  rendition: Rendition,
+  pageColorRef: React.RefObject<PageColor>,
+  fontFamilyRef: React.RefObject<FontFamily>,
+  fontSizeRef: React.RefObject<number>,
+): (contents: Contents) => void {
+  return (contents: Contents) => {
+    // Get latest values from refs
+    const currentPageColor = pageColorRef.current;
+    const currentFontFamily = fontFamilyRef.current;
+    const currentFontSize = fontSizeRef.current;
+
+    const document = contents.window.document;
+    if (!document) {
+      return;
+    }
+
+    ensureFontFacesInjected(document);
+
+    // Apply current theme settings using latest values from refs
+    const currentColors = getThemeColors(currentPageColor);
+
+    // Apply theme overrides using latest values
+    applyThemeToRendition(
+      rendition,
+      currentPageColor,
+      currentFontFamily,
+      currentFontSize,
+    );
+
+    applyDocumentTheme(document, currentColors);
+  };
+}
+
+/**
+ * Refresh the current page to apply theme changes.
+ *
+ * Parameters
+ * ----------
+ * rendition : Rendition | undefined
+ *     The EPUB.js rendition instance.
+ * currentLocation : string | number
+ *     Current location value.
+ * isNavigatingRef : React.RefObject<boolean>
+ *     Ref indicating if navigation is in progress.
+ */
+export function refreshPageForTheme(
+  rendition: Rendition | undefined,
+  currentLocation: string | number,
+  isNavigatingRef: React.RefObject<boolean>,
+): void {
+  if (!rendition || !currentLocation || typeof currentLocation !== "string") {
+    return;
+  }
+
+  try {
+    // Use a small delay to ensure overrides are applied before refresh
+    // Only refresh if we're not currently navigating (to avoid interfering with page turns)
+    if (!isNavigatingRef.current) {
+      setTimeout(() => {
+        if (!isNavigatingRef.current && rendition) {
+          rendition.display(currentLocation);
+        }
+      }, 50);
+    }
+  } catch (error) {
+    console.warn("Could not refresh page for theme update:", error);
   }
 }

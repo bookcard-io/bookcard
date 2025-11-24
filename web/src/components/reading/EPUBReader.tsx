@@ -15,12 +15,12 @@
 
 "use client";
 
-import type { Book, Contents, Rendition } from "epubjs";
+import type { Book, Rendition } from "epubjs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ReactReader } from "react-reader";
 import { useEPUBBook } from "@/hooks/useEPUBBook";
 import { cn } from "@/libs/utils";
-import { calculateProgressFromCfi } from "@/utils/epubLocation";
+import { createEpubInitOptions } from "@/utils/epubInitOptions";
 import {
   createJumpToProgressHandler,
   createLocationChangedHandler,
@@ -32,12 +32,13 @@ import {
   createTocHoverStyles,
 } from "@/utils/epubReaderStyles";
 import {
-  applyDocumentTheme,
   applyThemeToRendition,
-  ensureFontFacesInjected,
+  refreshPageForTheme,
 } from "@/utils/epubRendering";
-import { getThemeColors } from "@/utils/readingTheme";
+import { setupRendition } from "@/utils/epubRenditionSetup";
 import { useEpubUrl } from "./hooks/useEpubUrl";
+import { useInitialCfi } from "./hooks/useInitialCfi";
+import { useThemeRefs } from "./hooks/useThemeRefs";
 import type { FontFamily, PageColor } from "./ReadingThemeSettings";
 
 export interface EPUBReaderProps {
@@ -103,71 +104,33 @@ export function EPUBReader({
   const isNavigatingRef = useRef(false);
   const progressCalculationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialLoadRef = useRef(true);
-  // Store current theme values in refs so content hook can access latest values
-  const pageColorRef = useRef<PageColor>(pageColor);
-  const fontFamilyRef = useRef<FontFamily>(fontFamily);
-  const fontSizeRef = useRef<number>(fontSize);
+  const locationRef = useRef<string | number>(location);
 
   const downloadUrl = useEpubUrl(url, bookId);
 
   // Fetch book as ArrayBuffer using hook
   const { bookArrayBuffer, isLoading, isError } = useEPUBBook(downloadUrl);
 
-  // Track if we've applied initial CFI to avoid re-applying
-  const hasAppliedInitialCfiRef = useRef(false);
-  const locationRef = useRef<string | number>(location);
+  // Manage theme refs for content hooks
+  const { pageColorRef, fontFamilyRef, fontSizeRef } = useThemeRefs(
+    pageColor,
+    fontFamily,
+    fontSize,
+  );
 
   // Update location ref when location changes (for use in other effects)
   useEffect(() => {
     locationRef.current = location;
   }, [location]);
 
-  // Apply initialCfi only once when both initialCfi and rendition are available
-  // NOTE: We intentionally don't include 'location' in deps to avoid resetting on page turns
-  // The effect should only run when initialCfi changes, not when location changes
-  useEffect(() => {
-    // Only apply if:
-    // 1. We have an initialCfi
-    // 2. We haven't applied it yet
-    // 3. Rendition is ready
-    // 4. We're not currently navigating
-    if (
-      initialCfi &&
-      !hasAppliedInitialCfiRef.current &&
-      renditionRef.current &&
-      !isNavigatingRef.current
-    ) {
-      const currentLocation = locationRef.current;
-      // If location already matches initialCfi (from initialization), just mark as applied
-      if (
-        typeof currentLocation === "string" &&
-        currentLocation === initialCfi
-      ) {
-        hasAppliedInitialCfiRef.current = true;
-      } else if (
-        currentLocation === 0 ||
-        typeof currentLocation === "number" ||
-        (typeof currentLocation === "string" && currentLocation !== initialCfi)
-      ) {
-        // Apply initialCfi if location is at initial value or doesn't match
-        hasAppliedInitialCfiRef.current = true;
-        isNavigatingRef.current = true;
-        setLocation(initialCfi);
-        // Reset flag after a short delay
-        setTimeout(() => {
-          isNavigatingRef.current = false;
-        }, 100);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialCfi]); // Only depend on initialCfi, not location - this prevents resetting on page turns
-
-  // Update refs when theme values change
-  useEffect(() => {
-    pageColorRef.current = pageColor;
-    fontFamilyRef.current = fontFamily;
-    fontSizeRef.current = fontSize;
-  }, [pageColor, fontFamily, fontSize]);
+  // Manage initial CFI application
+  const { applyInitialCfi } = useInitialCfi(
+    initialCfi,
+    renditionRef,
+    isNavigatingRef,
+    locationRef,
+    setLocation,
+  );
 
   // Update theme colors and fonts when they change
   // NOTE: We use locationRef to access location without including it in deps to avoid interfering with page turns
@@ -180,23 +143,7 @@ export function EPUBReader({
     applyThemeToRendition(rendition, pageColor, fontFamily, fontSize);
 
     // Force refresh of the current page to apply theme changes immediately
-    // Use the current location from ref, but only refresh if we have a valid location
-    const currentLocation = locationRef.current;
-    if (currentLocation && typeof currentLocation === "string") {
-      try {
-        // Use a small delay to ensure overrides are applied before refresh
-        // Only refresh if we're not currently navigating (to avoid interfering with page turns)
-        if (!isNavigatingRef.current) {
-          setTimeout(() => {
-            if (!isNavigatingRef.current && renditionRef.current) {
-              renditionRef.current.display(currentLocation);
-            }
-          }, 50);
-        }
-      } catch (error) {
-        console.warn("Could not refresh page for theme update:", error);
-      }
-    }
+    refreshPageForTheme(rendition, locationRef.current, isNavigatingRef);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fontFamily, fontSize, pageColor]); // Removed 'location' from deps
 
@@ -257,105 +204,27 @@ export function EPUBReader({
   }, [onTocToggle]);
 
   // Get rendition and apply initial settings
+  // Refs are stable objects and don't need to be in deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleGetRendition = useCallback(
     (rendition: Rendition) => {
       renditionRef.current = rendition;
-      bookRef.current = rendition.book;
 
-      // Apply initialCfi if we have one and haven't applied it yet
-      // This ensures the saved page is displayed when the rendition becomes ready
-      if (
-        initialCfi &&
-        !hasAppliedInitialCfiRef.current &&
-        !isNavigatingRef.current
-      ) {
-        // Always apply initialCfi when rendition becomes ready, even if location was initialized with it
-        // This ensures ReactReader receives the location prop after it's ready to display it
-        hasAppliedInitialCfiRef.current = true;
-        isNavigatingRef.current = true;
-        setLocation(initialCfi);
-        // Reset flag after a short delay
-        setTimeout(() => {
-          isNavigatingRef.current = false;
-        }, 100);
-      }
-
-      // Apply initial theme
-      applyThemeToRendition(rendition, pageColor, fontFamily, fontSize);
-
-      // Register content hook to ensure styles are applied to all pages
-      // Use refs to access latest theme values since hook closure captures initial values
-      rendition.hooks.content.register((contents: Contents) => {
-        // Get latest values from refs
-        const currentPageColor = pageColorRef.current;
-        const currentFontFamily = fontFamilyRef.current;
-        const currentFontSize = fontSizeRef.current;
-
-        const document = contents.window.document;
-        if (!document) {
-          return;
-        }
-
-        ensureFontFacesInjected(document);
-
-        // Apply current theme settings using latest values from refs
-        const currentColors = getThemeColors(currentPageColor);
-
-        // Apply theme overrides using latest values
-        applyThemeToRendition(
-          rendition,
-          currentPageColor,
-          currentFontFamily,
-          currentFontSize,
-        );
-
-        applyDocumentTheme(document, currentColors);
+      setupRendition({
+        rendition,
+        bookRef,
+        initialCfi,
+        applyInitialCfi,
+        pageColor,
+        fontFamily,
+        fontSize,
+        pageColorRef,
+        fontFamilyRef,
+        fontSizeRef,
+        onLocationsReadyChange,
+        onLocationChange,
+        isInitialLoadRef,
       });
-
-      // Generate locations and notify when ready
-      if (bookRef.current?.locations && onLocationsReadyChange) {
-        bookRef.current.locations.generate(200).then(() => {
-          onLocationsReadyChange(true);
-
-          // If we have an initial CFI, calculate progress from it now that locations are ready
-          if (initialCfi && onLocationChange) {
-            try {
-              const book = bookRef.current;
-              if (book) {
-                const calculatedProgress = calculateProgressFromCfi(
-                  book,
-                  initialCfi,
-                );
-                // Update with calculated progress, but skip backend update (initial load)
-                onLocationChange(
-                  initialCfi,
-                  calculatedProgress,
-                  true, // Skip backend update during initial load
-                );
-              }
-            } catch (error) {
-              console.warn(
-                "Error calculating initial progress from CFI:",
-                error,
-              );
-            }
-          }
-
-          // Mark initial load as complete after locations are ready
-          setTimeout(() => {
-            isInitialLoadRef.current = false;
-          }, 500);
-        });
-      } else if (onLocationsReadyChange) {
-        onLocationsReadyChange(false);
-        setTimeout(() => {
-          isInitialLoadRef.current = false;
-        }, 500);
-      } else {
-        setTimeout(() => {
-          isInitialLoadRef.current = false;
-        }, 500);
-      }
     },
     [
       fontFamily,
@@ -364,6 +233,11 @@ export function EPUBReader({
       onLocationsReadyChange,
       initialCfi,
       onLocationChange,
+      applyInitialCfi,
+      // Refs are stable objects - included only to satisfy exhaustive-deps
+      pageColorRef,
+      fontFamilyRef,
+      fontSizeRef,
     ],
   );
 
@@ -421,25 +295,7 @@ export function EPUBReader({
         location={location}
         locationChanged={handleLocationChanged}
         getRendition={handleGetRendition}
-        epubInitOptions={{
-          openAs: "binary",
-          // Prevent epubjs from making external HTTP requests
-          requestMethod: (url: string) => {
-            if (
-              typeof url === "string" &&
-              (url.startsWith("http://") ||
-                url.startsWith("https://") ||
-                url.startsWith("/"))
-            ) {
-              return Promise.reject(
-                new Error("Resource should be loaded from EPUB archive"),
-              );
-            }
-            return Promise.reject(
-              new Error("All EPUB resources must come from the archive"),
-            );
-          },
-        }}
+        epubInitOptions={createEpubInitOptions()}
         readerStyles={readerStyles}
         showToc={true}
       />
