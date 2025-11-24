@@ -17,25 +17,16 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  READING_FONT_FAMILY_SETTING_KEY,
-  READING_FONT_SIZE_SETTING_KEY,
-  READING_PAGE_COLOR_SETTING_KEY,
-  READING_PAGE_LAYOUT_SETTING_KEY,
-} from "@/components/profile/config/configurationConstants";
 import { EBookReader } from "@/components/reading/EBookReader";
+import { useFullscreen } from "@/components/reading/hooks/useFullscreen";
+import { useReadingSettings } from "@/components/reading/hooks/useReadingSettings";
 import { ReadingHeader } from "@/components/reading/ReadingHeader";
-import type {
-  FontFamily,
-  PageColor,
-  PageLayout,
-} from "@/components/reading/ReadingThemeSettings";
+import { parseReadingPageParams } from "@/components/reading/utils/parseReadingPageParams";
 import { ActiveLibraryProvider } from "@/contexts/ActiveLibraryContext";
 import { LibraryLoadingProvider } from "@/contexts/LibraryLoadingContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 import { UserProvider } from "@/contexts/UserContext";
 import { useBook } from "@/hooks/useBook";
-import { useSetting } from "@/hooks/useSetting";
 import { useTheme } from "@/hooks/useTheme";
 
 interface ReadingPageProps {
@@ -47,7 +38,8 @@ interface ReadingPageProps {
  *
  * Displays the e-book reader for a specific book and format.
  * Manages reading session and progress tracking.
- * Follows SRP by delegating to EBookReader component.
+ * Follows SRP by delegating to specialized components and hooks.
+ * Follows SOC by separating params parsing, settings, and UI concerns.
  */
 export default function ReadingPage({ params }: ReadingPageProps) {
   const router = useRouter();
@@ -56,14 +48,10 @@ export default function ReadingPage({ params }: ReadingPageProps) {
 
   useEffect(() => {
     void params.then((p) => {
-      const id = parseInt(p.book_id, 10);
-      if (!Number.isNaN(id)) {
-        setBookId(id);
-      } else {
-        router.push("/");
-      }
-      if (p.format) {
-        setFormat(p.format.toUpperCase());
+      const parsed = parseReadingPageParams(p);
+      if (parsed) {
+        setBookId(parsed.bookId);
+        setFormat(parsed.format);
       } else {
         router.push("/");
       }
@@ -101,6 +89,23 @@ export default function ReadingPage({ params }: ReadingPageProps) {
   );
 }
 
+/**
+ * Reading page content component.
+ *
+ * Manages reading UI state and coordinates between header and reader.
+ * Follows SRP by delegating settings and fullscreen management to hooks.
+ * Follows IOC by using injected hooks for state management.
+ * Follows SOC by separating concerns into specialized hooks.
+ *
+ * Parameters
+ * ----------
+ * bookId : number
+ *     The book ID to display.
+ * format : string
+ *     The book format (EPUB, PDF, etc.).
+ * bookTitle : string | null
+ *     The book title to display in the header.
+ */
 function ReadingPageContent({
   bookId,
   format,
@@ -110,123 +115,31 @@ function ReadingPageContent({
   format: string;
   bookTitle: string | null;
 }) {
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const { theme: appTheme, toggleTheme } = useTheme();
   const tocToggleRef = useRef<(() => void) | null>(null);
   const [areLocationsReady, setAreLocationsReady] = useState(false);
 
-  // Load persisted settings
-  const { value: persistedFontFamily, setValue: setPersistedFontFamily } =
-    useSetting({
-      key: READING_FONT_FAMILY_SETTING_KEY,
-      defaultValue: "Bookerly",
-    });
+  // Manage reading settings via centralized hook
+  const {
+    fontFamily,
+    setFontFamily,
+    fontSize,
+    setFontSize,
+    pageColor,
+    setPageColor,
+    pageLayout,
+    setPageLayout,
+  } = useReadingSettings();
 
-  const { value: persistedFontSize, setValue: setPersistedFontSize } =
-    useSetting({
-      key: READING_FONT_SIZE_SETTING_KEY,
-      defaultValue: "16",
-    });
+  // Manage fullscreen state via dedicated hook
+  const { toggleFullscreen } = useFullscreen();
 
-  const { value: persistedPageColor, setValue: setPersistedPageColor } =
-    useSetting({
-      key: READING_PAGE_COLOR_SETTING_KEY,
-      defaultValue: "light",
-    });
-
-  const { value: persistedPageLayout, setValue: setPersistedPageLayout } =
-    useSetting({
-      key: READING_PAGE_LAYOUT_SETTING_KEY,
-      defaultValue: "two-column",
-    });
-
-  // Validate and convert string settings to typed values
-  const isValidFontFamily = (value: string): value is FontFamily => {
-    const validFamilies: FontFamily[] = [
-      "Literata",
-      "Bookerly",
-      "Amazon Ember",
-      "OpenDyslexic",
-      "Georgia",
-      "Palatino",
-      "Times New Roman",
-      "Arial",
-      "Helvetica",
-      "Verdana",
-      "Courier New",
-      "Monaco",
-    ];
-    return validFamilies.includes(value as FontFamily);
-  };
-
-  const isValidPageColor = (value: string): value is PageColor => {
-    return ["light", "dark", "sepia", "lightGreen"].includes(value);
-  };
-
-  const isValidPageLayout = (value: string): value is PageLayout => {
-    return ["single", "two-column"].includes(value);
-  };
-
-  const fontFamily: FontFamily = isValidFontFamily(persistedFontFamily)
-    ? persistedFontFamily
-    : "Bookerly";
-  const fontSize = (() => {
-    const parsed = parseInt(persistedFontSize, 10);
-    return !Number.isNaN(parsed) && parsed >= 12 && parsed <= 24 ? parsed : 16;
-  })();
-  const pageColor: PageColor = isValidPageColor(persistedPageColor)
-    ? persistedPageColor
-    : "light";
-  const pageLayout: PageLayout = isValidPageLayout(persistedPageLayout)
-    ? persistedPageLayout
-    : "two-column";
-
-  const fontFamilyRef = useRef<FontFamily>(fontFamily);
-  const fontSizeRef = useRef<number>(fontSize);
-
-  // Keep refs in sync with persisted values for EBookReader callbacks
-  useEffect(() => {
-    fontFamilyRef.current = fontFamily;
-  }, [fontFamily]);
-
-  useEffect(() => {
-    fontSizeRef.current = fontSize;
-  }, [fontSize]);
-
-  const handleFullscreenToggle = useCallback(() => {
-    if (!isFullscreen) {
-      document.documentElement.requestFullscreen?.();
-    } else {
-      document.exitFullscreen?.();
-    }
-    setIsFullscreen(!isFullscreen);
-  }, [isFullscreen]);
-
+  // TOC toggle handler
   const handleTocToggle = useCallback(() => {
     tocToggleRef.current?.();
   }, []);
 
-  const handleFontFamilyChange = useCallback(
-    (family: FontFamily) => {
-      setPersistedFontFamily(family);
-    },
-    [setPersistedFontFamily],
-  );
-
-  const handleFontSizeChange = useCallback(
-    (size: number) => {
-      setPersistedFontSize(size.toString());
-    },
-    [setPersistedFontSize],
-  );
-
-  const handlePageColorChange = useCallback(
-    (color: PageColor) => {
-      setPersistedPageColor(color);
-    },
-    [setPersistedPageColor],
-  );
-
+  // App theme change handler
   const handleAppThemeChange = useCallback(
     (newTheme: "light" | "dark") => {
       // Only toggle if the theme is different from current
@@ -237,38 +150,21 @@ function ReadingPageContent({
     [appTheme, toggleTheme],
   );
 
-  const handlePageLayoutChange = useCallback(
-    (layout: PageLayout) => {
-      setPersistedPageLayout(layout);
-    },
-    [setPersistedPageLayout],
-  );
-
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-    };
-  }, []);
-
   return (
     <>
       <ReadingHeader
         title={bookTitle}
-        onFullscreenToggle={handleFullscreenToggle}
+        onFullscreenToggle={toggleFullscreen}
         onTocToggle={handleTocToggle}
         fontFamily={fontFamily}
-        onFontFamilyChange={handleFontFamilyChange}
+        onFontFamilyChange={setFontFamily}
         fontSize={fontSize}
-        onFontSizeChange={handleFontSizeChange}
+        onFontSizeChange={setFontSize}
         pageColor={pageColor}
-        onPageColorChange={handlePageColorChange}
+        onPageColorChange={setPageColor}
         onAppThemeChange={handleAppThemeChange}
         pageLayout={pageLayout}
-        onPageLayoutChange={handlePageLayoutChange}
+        onPageLayoutChange={setPageLayout}
         areLocationsReady={areLocationsReady}
       />
       <EBookReader
