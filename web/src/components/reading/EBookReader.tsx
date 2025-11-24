@@ -22,6 +22,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { cn } from "@/libs/utils";
 import { EPUBReader } from "./EPUBReader";
 import { PDFReader } from "./PDFReader";
+import type { PagingInfo } from "./ReaderControls";
 import { ReaderControls } from "./ReaderControls";
 import type { FontFamily, PageColor } from "./ReadingThemeSettings";
 
@@ -67,13 +68,12 @@ export function EBookReader({
   className,
 }: EBookReaderProps) {
   const [fontSize, setFontSize] = useState(externalFontSize);
-  const { theme, toggleTheme } = useTheme();
+  const { theme } = useTheme();
 
   // Sync internal fontSize state with external prop
   useEffect(() => {
     setFontSize(externalFontSize);
   }, [externalFontSize]);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const { progress, updateProgress } = useReadingProgress({
@@ -107,6 +107,9 @@ export function EBookReader({
   // For EPUB, locations need to be generated, so start as false
   // For PDF, locations are ready immediately, so start as true
   const [areLocationsReady, setAreLocationsReady] = useState(!isEPUB);
+
+  // Track paging information for EPUB
+  const [pagingInfo, setPagingInfo] = useState<PagingInfo | null>(null);
 
   // Debounced progress update
   const debouncedUpdateProgress = useCallback(
@@ -183,36 +186,6 @@ export function EBookReader({
     // This ensures the backend update has the correct CFI data
   }, []);
 
-  const handleFullscreenToggle = useCallback(() => {
-    if (!isFullscreen) {
-      document.documentElement.requestFullscreen?.();
-    } else {
-      document.exitFullscreen?.();
-    }
-    setIsFullscreen(!isFullscreen);
-  }, [isFullscreen]);
-
-  const handleThemeChange = useCallback(
-    (_newTheme: "light" | "dark") => {
-      // Ignore the parameter and just toggle - this ensures global theme sync
-      toggleTheme();
-    },
-    [toggleTheme],
-  );
-
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-    };
-  }, []);
-
   // Update currentProgress when persisted progress is loaded
   // This handles the case where progress data loads after component mount
   useEffect(() => {
@@ -247,6 +220,7 @@ export function EBookReader({
               tocToggleRef.current = handler;
             }}
             onLocationsReadyChange={setAreLocationsReady}
+            onPagingInfoChange={setPagingInfo}
             fontFamily={fontFamily}
             fontSize={fontSize}
             theme={theme}
@@ -269,18 +243,11 @@ export function EBookReader({
         )}
       </div>
       <ReaderControls
-        progress={(() => {
-          return currentProgress;
-        })()}
+        progress={currentProgress}
         onProgressChange={handleProgressChange}
         isProgressDisabled={isEPUB && !areLocationsReady}
-        fontSize={fontSize}
-        onFontSizeChange={setFontSize}
-        theme={theme}
-        onThemeChange={handleThemeChange}
         pageColor={pageColor}
-        isFullscreen={isFullscreen}
-        onFullscreenToggle={handleFullscreenToggle}
+        pagingInfo={pagingInfo || undefined}
       />
     </div>
   );

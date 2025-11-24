@@ -15,7 +15,8 @@
 
 "use client";
 
-import { useEffect, useMemo } from "react";
+import type { NavItem } from "epubjs";
+import { useEffect, useMemo, useRef } from "react";
 import { ReactReader } from "react-reader";
 import { useEPUBBook } from "@/hooks/useEPUBBook";
 import { cn } from "@/libs/utils";
@@ -41,6 +42,7 @@ import { useProgressCleanup } from "./hooks/useProgressCleanup";
 import { useRenditionCallback } from "./hooks/useRenditionCallback";
 import { useThemeRefs } from "./hooks/useThemeRefs";
 import { useTocToggle } from "./hooks/useTocToggle";
+import type { PagingInfo } from "./ReaderControls";
 import type { FontFamily, PageColor } from "./ReadingThemeSettings";
 
 export interface EPUBReaderProps {
@@ -62,6 +64,8 @@ export interface EPUBReaderProps {
   onTocToggle?: (handler: (() => void) | null) => void;
   /** Callback when locations are ready. */
   onLocationsReadyChange?: (ready: boolean) => void;
+  /** Callback when paging information changes. */
+  onPagingInfoChange?: (info: PagingInfo | null) => void;
   /** Font family. */
   fontFamily?: FontFamily;
   /** Font size in pixels. */
@@ -94,6 +98,7 @@ export function EPUBReader({
   onJumpToProgress,
   onTocToggle,
   onLocationsReadyChange,
+  onPagingInfoChange,
   fontFamily = "Bookerly",
   fontSize = 16,
   pageColor = "light",
@@ -108,6 +113,9 @@ export function EPUBReader({
     progressCalculationTimeoutRef,
     isInitialLoadRef,
   } = useEpubRefs();
+
+  // Track TOC for chapter information
+  const tocRef = useRef<NavItem[]>([]);
 
   // Manage location state and ref
   const { location, setLocation, locationRef } = useLocationState(
@@ -162,27 +170,73 @@ export function EPUBReader({
 
   // Handle location changes and calculate progress
   // Refs are stable objects and don't need to be in deps
+  // We access refs inside the callback, which is the correct pattern
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const handleLocationChanged = useMemo(
-    () =>
-      createLocationChangedHandler({
-        isNavigatingRef,
-        location,
-        setLocation,
-        bookRef,
-        onLocationChange,
-        isInitialLoadRef,
-        progressCalculationTimeoutRef,
-      } satisfies LocationChangedHandlerOptions),
-    [
-      location,
-      onLocationChange,
-      bookRef,
-      isInitialLoadRef,
+  const handleLocationChanged = useMemo(() => {
+    const baseHandler = createLocationChangedHandler({
       isNavigatingRef,
-      progressCalculationTimeoutRef,
+      location,
       setLocation,
-    ],
+      bookRef,
+      onLocationChange,
+      isInitialLoadRef,
+      progressCalculationTimeoutRef,
+    } satisfies LocationChangedHandlerOptions);
+
+    return (loc: string) => {
+      baseHandler(loc);
+
+      // Update paging information
+      // Access refs inside the callback to avoid dependency issues
+      const rendition = renditionRef.current;
+      const toc = tocRef.current;
+      if (rendition && toc.length > 0 && onPagingInfoChange) {
+        try {
+          const { displayed, href } = rendition.location.start;
+          // Try exact match first, then try matching by normalizing hrefs
+          let chapter = toc.find((item) => item.href === href);
+          if (!chapter && href) {
+            // Try matching by normalizing both hrefs (remove leading slashes, decode)
+            const normalizedHref = decodeURIComponent(href.replace(/^\/+/, ""));
+            chapter = toc.find((item) => {
+              const normalizedItemHref = decodeURIComponent(
+                item.href.replace(/^\/+/, ""),
+              );
+              return normalizedItemHref === normalizedHref;
+            });
+          }
+
+          if (displayed) {
+            onPagingInfoChange({
+              currentPage: displayed.page,
+              totalPages: displayed.total,
+              chapterLabel: chapter?.label,
+              chapterTotalPages: chapter ? displayed.total : undefined,
+            });
+          }
+        } catch {
+          // Location might not be ready yet, silently ignore
+        }
+      }
+    };
+  }, [
+    location,
+    onLocationChange,
+    bookRef,
+    isInitialLoadRef,
+    isNavigatingRef,
+    progressCalculationTimeoutRef,
+    setLocation,
+    onPagingInfoChange,
+    renditionRef,
+  ]);
+
+  // Handle TOC changes
+  const handleTocChanged = useMemo(
+    () => (toc: NavItem[]) => {
+      tocRef.current = toc;
+    },
+    [],
   );
 
   // Register jump to progress handler
@@ -266,6 +320,7 @@ export function EPUBReader({
         url={bookArrayBuffer}
         location={location}
         locationChanged={handleLocationChanged}
+        tocChanged={handleTocChanged}
         getRendition={handleGetRendition}
         epubInitOptions={createEpubInitOptions()}
         readerStyles={readerStyles}
