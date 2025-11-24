@@ -57,7 +57,7 @@ export function ProgressBar({
   };
 
   return (
-    <div className="relative flex flex-1 items-center gap-2">
+    <div className="relative flex flex-1 items-center gap-2 max-w-[80vw]">
       <span
         className={cn(
           "text-xs",
