@@ -19,6 +19,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/forms/Button";
 import { ReadingMode } from "@/icons/ReadingMode";
 import { cn } from "@/libs/utils";
+import { getControlBackgroundColor } from "@/utils/readingTheme";
 import type { PageColor } from "./ReadingThemeSettings";
 
 export interface ReaderControlsProps {
@@ -85,13 +86,8 @@ export function ReaderControls({
   // Sync localProgress with progress prop when it changes
   // This ensures the progress bar reflects navigation to persisted location
   useEffect(() => {
-    console.log("[ReaderControls] Progress prop changed:", {
-      newProgress: progress,
-      currentLocalProgress: localProgress,
-    });
     setLocalProgress(progress);
-    console.log("[ReaderControls] Updated localProgress to:", progress);
-  }, [progress, localProgress]);
+  }, [progress]);
 
   // Show tooltip when disabled, auto-dismiss when enabled
   useEffect(() => {
@@ -138,24 +134,10 @@ export function ReaderControls({
     onThemeChange?.(theme === "light" ? "dark" : "light");
   }, [theme, onThemeChange]);
 
-  // Get background color based on page color theme
-  const getBackgroundColor = (color: PageColor): string => {
-    switch (color) {
-      case "dark":
-        return "#0b0e14";
-      case "sepia":
-        return "#f4e4c1";
-      case "lightGreen":
-        return "#e8f5e9";
-      default:
-        return "#f1f1f1";
-    }
-  };
-
   return (
     <div
       className={cn("flex items-center justify-between gap-4 p-4", className)}
-      style={{ backgroundColor: getBackgroundColor(pageColor) }}
+      style={{ backgroundColor: getControlBackgroundColor(pageColor) }}
     >
       <div
         className="flex items-center gap-2"

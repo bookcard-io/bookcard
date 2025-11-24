@@ -164,7 +164,6 @@ export function PDFReader({
       !hasNavigatedToInitialPageRef.current
     ) {
       const validPage = Math.max(1, Math.min(initialPage, totalPages));
-      console.log("Navigating to persisted page:", validPage);
       setCurrentPage(validPage);
       hasNavigatedToInitialPageRef.current = true;
 
@@ -172,10 +171,6 @@ export function PDFReader({
       // This ensures the progress bar reflects the persisted location
       if (onPageChange) {
         const calculatedProgress = validPage / totalPages;
-        console.log(
-          "Calculated progress from persisted page:",
-          calculatedProgress,
-        );
         // Mark as initial load to prevent duplicate progress update
         isInitialLoadRef.current = true;
         // Report the calculated progress

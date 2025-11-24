@@ -111,6 +111,7 @@ function ReadingPageContent({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { theme: appTheme, toggleTheme } = useTheme();
   const tocToggleRef = useRef<(() => void) | null>(null);
+  const [areLocationsReady, setAreLocationsReady] = useState(false);
 
   // Load persisted settings
   const { value: persistedFontFamily, setValue: setPersistedFontFamily } =
@@ -244,6 +245,7 @@ function ReadingPageContent({
         pageColor={pageColor}
         onPageColorChange={handlePageColorChange}
         onAppThemeChange={handleAppThemeChange}
+        areLocationsReady={areLocationsReady}
       />
       <EBookReader
         bookId={bookId}
@@ -251,6 +253,7 @@ function ReadingPageContent({
         onTocToggle={(handler) => {
           tocToggleRef.current = handler;
         }}
+        onLocationsReadyChange={setAreLocationsReady}
         fontFamily={fontFamily}
         fontSize={fontSize}
         pageColor={pageColor}

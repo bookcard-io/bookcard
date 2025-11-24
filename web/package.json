@@ -65,6 +65,7 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.66.0",
+    "react-reader": "^2.0.15",
     "tailwind-merge": "^3.4.0",
     "zod": "^4.1.12"
   },

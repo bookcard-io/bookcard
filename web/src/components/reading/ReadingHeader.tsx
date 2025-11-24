@@ -15,8 +15,9 @@
 
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { BrandLogo } from "@/components/common/BrandLogo";
+import { useHeaderVisibility } from "@/hooks/useHeaderVisibility";
 import { BookmarkOutline } from "@/icons/BookmarkOutline";
 import { LetterCase } from "@/icons/LetterCase";
 import { MaximizeStroke12 } from "@/icons/MaximizeStroke12";
@@ -35,6 +36,8 @@ export interface ReadingHeaderProps {
   onFullscreenToggle?: () => void;
   /** Callback when TOC toggle is clicked. */
   onTocToggle?: () => void;
+  /** Whether EPUB locations are ready (for EPUB format). */
+  areLocationsReady?: boolean;
   /** Current font family. */
   fontFamily?: FontFamily;
   /** Callback when font family changes. */
@@ -68,6 +71,7 @@ export function ReadingHeader({
   title,
   onFullscreenToggle,
   onTocToggle,
+  areLocationsReady = true,
   fontFamily = "Bookerly",
   onFontFamilyChange,
   fontSize = 16,
@@ -77,22 +81,14 @@ export function ReadingHeader({
   onAppThemeChange,
   className,
 }: ReadingHeaderProps) {
-  const [isVisible, setIsVisible] = useState(false);
   const [isFontPanelOpen, setIsFontPanelOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerZoneRef = useRef<HTMLButtonElement>(null);
 
-  // Show on mouse enter (hovering near top of page or header)
-  const handleMouseEnter = () => {
-    setIsVisible(true);
-  };
-
-  // Hide immediately on mouse leave, unless font panel is open
-  const handleMouseLeave = () => {
-    if (!isFontPanelOpen) {
-      setIsVisible(false);
-    }
-  };
+  const { isVisible, handleMouseEnter, handleMouseLeave } = useHeaderVisibility(
+    areLocationsReady,
+    isFontPanelOpen,
+  );
 
   // No-op handlers for menu items
   const handleSearch = useCallback(() => {
@@ -114,13 +110,6 @@ export function ReadingHeader({
   const handleEllipsis = useCallback(() => {
     // No-op for now
   }, []);
-
-  // Keep header visible when font panel is open
-  useEffect(() => {
-    if (isFontPanelOpen) {
-      setIsVisible(true);
-    }
-  }, [isFontPanelOpen]);
 
   return (
     <>
@@ -219,7 +208,6 @@ export function ReadingHeader({
         isOpen={isFontPanelOpen}
         onClose={() => {
           setIsFontPanelOpen(false);
-          setIsVisible(false);
         }}
         fontFamily={fontFamily}
         onFontFamilyChange={onFontFamilyChange || (() => {})}

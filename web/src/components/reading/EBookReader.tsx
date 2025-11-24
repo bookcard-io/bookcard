@@ -32,6 +32,8 @@ export interface EBookReaderProps {
   format: string;
   /** Callback to register TOC toggle handler. Receives a function that toggles TOC. */
   onTocToggle?: (handler: (() => void) | null) => void;
+  /** Callback when locations are ready (for EPUB). */
+  onLocationsReadyChange?: (ready: boolean) => void;
   /** Font family. */
   fontFamily?: FontFamily;
   /** Font size in pixels. */
@@ -58,6 +60,7 @@ export function EBookReader({
   bookId,
   format,
   onTocToggle,
+  onLocationsReadyChange,
   fontFamily = "Bookerly",
   fontSize: externalFontSize = 16,
   pageColor = "light",
@@ -101,6 +104,10 @@ export function EBookReader({
   const isEPUB = format.toUpperCase() === "EPUB";
   const isPDF = format.toUpperCase() === "PDF";
 
+  // For EPUB, locations need to be generated, so start as false
+  // For PDF, locations are ready immediately, so start as true
+  const [areLocationsReady, setAreLocationsReady] = useState(!isEPUB);
+
   // Debounced progress update
   const debouncedUpdateProgress = useCallback(
     (newProgress: number, cfi?: string, pageNumber?: number) => {
@@ -122,22 +129,21 @@ export function EBookReader({
 
   const handleLocationChange = useCallback(
     (cfi: string, newProgress: number, skipBackendUpdate = false) => {
-      console.log("[EBookReader] handleLocationChange called:", {
-        cfi,
-        newProgress,
-        currentProgressState: currentProgress,
-        skipBackendUpdate,
-      });
-      setCurrentProgress(newProgress);
-      console.log("[EBookReader] Updated currentProgress to:", newProgress);
-      // Only update backend if not skipping (i.e., not during initial load)
-      if (!skipBackendUpdate) {
-        debouncedUpdateProgress(newProgress, cfi);
+      // During initial load, only update progress if it's a valid non-zero value
+      // This prevents overwriting persisted progress with 0 during location generation
+      if (skipBackendUpdate) {
+        // Only update if we have a valid progress value (not 0 from failed calculation)
+        if (newProgress > 0) {
+          setCurrentProgress(newProgress);
+        }
+        // Don't update backend during initial load
       } else {
-        console.log("[EBookReader] Skipping backend update (initial load)");
+        // Normal operation: update progress and backend
+        setCurrentProgress(newProgress);
+        debouncedUpdateProgress(newProgress, cfi);
       }
     },
-    [debouncedUpdateProgress, currentProgress],
+    [debouncedUpdateProgress],
   );
 
   const handlePageChange = useCallback(
@@ -150,7 +156,6 @@ export function EBookReader({
 
   const jumpToProgressRef = useRef<((progress: number) => void) | null>(null);
   const tocToggleRef = useRef<(() => void) | null>(null);
-  const [areLocationsReady, setAreLocationsReady] = useState(true); // Default to true for PDF
 
   // Register TOC toggle handler with parent
   useEffect(() => {
@@ -159,17 +164,24 @@ export function EBookReader({
     }
   }, [onTocToggle]);
 
-  const handleProgressChange = useCallback(
-    (newProgress: number) => {
-      // Jump to position in reader immediately
-      if (jumpToProgressRef.current) {
-        jumpToProgressRef.current(newProgress);
-      }
-      // Also update progress in backend (debounced)
-      debouncedUpdateProgress(newProgress);
-    },
-    [debouncedUpdateProgress],
-  );
+  // Notify parent when locations are ready
+  useEffect(() => {
+    if (onLocationsReadyChange) {
+      onLocationsReadyChange(areLocationsReady);
+    }
+  }, [areLocationsReady, onLocationsReadyChange]);
+
+  const handleProgressChange = useCallback((newProgress: number) => {
+    // Jump to position in reader immediately
+    // The jump handler will trigger onLocationChange with the CFI,
+    // which will update the backend with both progress and CFI
+    if (jumpToProgressRef.current) {
+      jumpToProgressRef.current(newProgress);
+    }
+    // Note: We don't call debouncedUpdateProgress here because
+    // the jump handler will trigger onLocationChange which includes the CFI
+    // This ensures the backend update has the correct CFI data
+  }, []);
 
   const handleFullscreenToggle = useCallback(() => {
     if (!isFullscreen) {
@@ -205,19 +217,10 @@ export function EBookReader({
   // This handles the case where progress data loads after component mount
   useEffect(() => {
     const progressValue = progress?.progress;
-    console.log("[EBookReader] Progress data changed:", {
-      progressValue,
-      currentProgressState: currentProgress,
-      fullProgress: progress,
-    });
     if (progressValue !== undefined) {
-      console.log(
-        "[EBookReader] Setting currentProgress from API:",
-        progressValue,
-      );
       setCurrentProgress(progressValue);
     }
-  }, [progress, currentProgress]);
+  }, [progress]);
 
   if (!isEPUB && !isPDF) {
     return (
@@ -267,10 +270,6 @@ export function EBookReader({
       </div>
       <ReaderControls
         progress={(() => {
-          console.log("[EBookReader] Rendering ReaderControls with progress:", {
-            currentProgress,
-            progressFromAPI: progress?.progress,
-          });
           return currentProgress;
         })()}
         onProgressChange={handleProgressChange}
