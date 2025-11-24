@@ -15,14 +15,17 @@
 
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { useHeaderVisibility } from "@/hooks/useHeaderVisibility";
-import { BookmarkOutline } from "@/icons/BookmarkOutline";
-import { LetterCase } from "@/icons/LetterCase";
-import { MaximizeStroke12 } from "@/icons/MaximizeStroke12";
-import { Notebook } from "@/icons/Notebook";
 import { cn } from "@/libs/utils";
+import {
+  type HeaderActionHandlers,
+  HeaderActions,
+} from "./components/HeaderActions";
+import { HeaderTitle } from "./components/HeaderTitle";
+import { HeaderTriggerZone } from "./components/HeaderTriggerZone";
+import { useFontPanel } from "./hooks/useFontPanel";
 import {
   type FontFamily,
   type PageColor,
@@ -62,10 +65,15 @@ export interface ReadingHeaderProps {
  * Slides down on mouseover and slides up immediately on mouseout.
  * Displays book title centered.
  *
+ * Follows SRP by delegating to specialized components.
+ * Follows SOC by separating concerns into distinct components.
+ * Follows IOC by accepting handlers as props.
+ * Follows DRY by reusing HeaderButton and other components.
+ *
  * Parameters
  * ----------
  * props : ReadingHeaderProps
- *     Component props including book title.
+ *     Component props including book title and action handlers.
  */
 export function ReadingHeader({
   title,
@@ -81,20 +89,20 @@ export function ReadingHeader({
   onAppThemeChange,
   className,
 }: ReadingHeaderProps) {
-  const [isFontPanelOpen, setIsFontPanelOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const triggerZoneRef = useRef<HTMLButtonElement>(null);
+  const fontPanel = useFontPanel();
 
   const { isVisible, handleMouseEnter, handleMouseLeave, hideHeader } =
-    useHeaderVisibility(areLocationsReady, isFontPanelOpen);
+    useHeaderVisibility(areLocationsReady, fontPanel.isOpen);
 
-  // No-op handlers for menu items
+  const handleFontPanelClose = useCallback(() => {
+    fontPanel.close();
+    hideHeader();
+  }, [fontPanel, hideHeader]);
+
+  // Memoize no-op handlers to prevent unnecessary recreations
   const handleSearch = useCallback(() => {
     // No-op for now
-  }, []);
-
-  const handleLetterCase = useCallback(() => {
-    setIsFontPanelOpen(true);
   }, []);
 
   const handleNotebook = useCallback(() => {
@@ -105,23 +113,37 @@ export function ReadingHeader({
     // No-op for now
   }, []);
 
-  const handleEllipsis = useCallback(() => {
+  const handleMoreOptions = useCallback(() => {
     // No-op for now
   }, []);
 
+  const actionHandlers: HeaderActionHandlers = useMemo(
+    () => ({
+      onTocToggle,
+      onSearch: handleSearch,
+      onFontSettings: fontPanel.open,
+      onNotebook: handleNotebook,
+      onBookmark: handleBookmark,
+      onFullscreenToggle,
+      onMoreOptions: handleMoreOptions,
+    }),
+    [
+      onTocToggle,
+      handleSearch,
+      fontPanel.open,
+      handleNotebook,
+      handleBookmark,
+      onFullscreenToggle,
+      handleMoreOptions,
+    ],
+  );
+
   return (
     <>
-      {/* Invisible trigger zone at top of page to detect mouseover */}
-      {!isVisible && (
-        <button
-          ref={triggerZoneRef}
-          onMouseEnter={handleMouseEnter}
-          type="button"
-          className="fixed top-0 right-0 left-0 z-[850] h-8 cursor-default border-0 bg-transparent p-0"
-          aria-hidden="true"
-          tabIndex={-1}
-        />
-      )}
+      <HeaderTriggerZone
+        isVisible={isVisible}
+        onMouseEnter={handleMouseEnter}
+      />
       {/* biome-ignore lint/a11y/noStaticElementInteractions: Header uses hover for show/hide, not keyboard interaction */}
       <header
         ref={containerRef}
@@ -136,78 +158,14 @@ export function ReadingHeader({
         <div className="border-surface-a20 border-b bg-surface-a0 px-4 py-3 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <BrandLogo showText={true} />
-            <div className="-translate-x-1/2 absolute left-1/2">
-              <h1 className="max-w-4xl truncate font-medium text-lg text-text-a0">
-                {title || "Loading..."}
-              </h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onTocToggle}
-                className="flex cursor-pointer items-center justify-center border-0 bg-transparent p-3 text-text-a40 transition-colors hover:text-text-a0"
-                aria-label="Toggle table of contents"
-              >
-                <i className="pi pi-list text-lg" />
-              </button>
-              <button
-                type="button"
-                onClick={handleSearch}
-                className="flex cursor-pointer items-center justify-center border-0 bg-transparent p-3 text-text-a40 transition-colors hover:text-text-a0"
-                aria-label="Search"
-              >
-                <i className="pi pi-search text-lg" />
-              </button>
-              <button
-                type="button"
-                onClick={handleLetterCase}
-                className="flex cursor-pointer items-center justify-center border-0 bg-transparent p-3 text-text-a40 transition-colors hover:text-text-a0"
-                aria-label="Letter case"
-              >
-                <LetterCase className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                onClick={handleNotebook}
-                className="flex cursor-pointer items-center justify-center border-0 bg-transparent p-3 text-text-a40 transition-colors hover:text-text-a0"
-                aria-label="Notebook"
-              >
-                <Notebook className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                onClick={handleBookmark}
-                className="flex cursor-pointer items-center justify-center border-0 bg-transparent p-3 text-text-a40 transition-colors hover:text-text-a0"
-                aria-label="Bookmark"
-              >
-                <BookmarkOutline className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                onClick={onFullscreenToggle}
-                className="flex cursor-pointer items-center justify-center border-0 bg-transparent p-3 text-text-a40 transition-colors hover:text-text-a0"
-                aria-label="Toggle fullscreen"
-              >
-                <MaximizeStroke12 className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                onClick={handleEllipsis}
-                className="flex cursor-pointer items-center justify-center border-0 bg-transparent p-3 text-text-a40 transition-colors hover:text-text-a0"
-                aria-label="More options"
-              >
-                <i className="pi pi-ellipsis-v text-lg" />
-              </button>
-            </div>
+            <HeaderTitle title={title} />
+            <HeaderActions handlers={actionHandlers} />
           </div>
         </div>
       </header>
       <ReadingThemeSettings
-        isOpen={isFontPanelOpen}
-        onClose={() => {
-          setIsFontPanelOpen(false);
-          hideHeader();
-        }}
+        isOpen={fontPanel.isOpen}
+        onClose={handleFontPanelClose}
         fontFamily={fontFamily}
         onFontFamilyChange={onFontFamilyChange || (() => {})}
         fontSize={fontSize}
