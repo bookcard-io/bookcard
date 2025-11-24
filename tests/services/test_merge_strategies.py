@@ -489,4 +489,3 @@ class TestMergeStrategyFactoryGetStrategy:
             ValueError, match="No strategy found to handle merge context"
         ):
             factory.get_strategy(merge_context)
-
