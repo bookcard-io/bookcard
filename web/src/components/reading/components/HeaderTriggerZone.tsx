@@ -50,7 +50,7 @@ export function HeaderTriggerZone({
       ref={triggerZoneRef}
       onMouseEnter={onMouseEnter}
       type="button"
-      className="fixed top-0 right-0 left-0 z-[850] h-8 cursor-default border-0 bg-transparent p-0"
+      className="fixed top-0 right-0 left-0 z-[850] h-[4.3125rem] cursor-default border-0 bg-transparent p-0"
       aria-hidden="true"
       tabIndex={-1}
     />
