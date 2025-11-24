@@ -68,15 +68,15 @@ describe("useCoverFile", () => {
     expect(result.current.coverPreviewUrl).toBe("blob:mock-url");
   });
 
-  it("should not create preview URL in edit mode", () => {
+  it("should create preview URL in edit mode", () => {
     const initialFile = new File(["test"], "cover.jpg", { type: "image/jpeg" });
     const { result } = renderHook(() =>
       useCoverFile({ initialCoverFile: initialFile, isEditMode: true }),
     );
 
     expect(result.current.coverFile).toBe(initialFile);
-    expect(mockCreateObjectURL).not.toHaveBeenCalled();
-    expect(result.current.coverPreviewUrl).toBeNull();
+    expect(mockCreateObjectURL).toHaveBeenCalledWith(initialFile);
+    expect(result.current.coverPreviewUrl).toBe("blob:mock-url");
   });
 
   it("should handle file input change with valid file", () => {
@@ -452,18 +452,18 @@ describe("useCoverFile", () => {
     expect(result.current.coverFile).toBeNull();
   });
 
-  it("should update preview URL when switching from edit to create mode", () => {
+  it("should maintain preview URL when switching from edit to create mode", () => {
     const file = new File(["test"], "cover.jpg", { type: "image/jpeg" });
     const { result, rerender } = renderHook(
       ({ isEditMode }) => useCoverFile({ initialCoverFile: file, isEditMode }),
       { initialProps: { isEditMode: true } },
     );
 
-    expect(result.current.coverPreviewUrl).toBeNull();
+    expect(result.current.coverPreviewUrl).toBe("blob:mock-url");
+    expect(mockCreateObjectURL).toHaveBeenCalledWith(file);
 
     rerender({ isEditMode: false });
 
-    expect(mockCreateObjectURL).toHaveBeenCalledWith(file);
     expect(result.current.coverPreviewUrl).toBe("blob:mock-url");
   });
 });
