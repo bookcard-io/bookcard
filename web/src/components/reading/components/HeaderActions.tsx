@@ -16,7 +16,6 @@
 "use client";
 
 import { BookmarkOutline } from "@/icons/BookmarkOutline";
-import { LetterCase } from "@/icons/LetterCase";
 import { MaximizeStroke12 } from "@/icons/MaximizeStroke12";
 import { Notebook } from "@/icons/Notebook";
 import { HeaderButton } from "./HeaderButton";
@@ -68,7 +67,7 @@ export function HeaderActions({ handlers }: HeaderActionsProps) {
         <i className="pi pi-search text-lg" />
       </HeaderButton>
       <HeaderButton onClick={handlers.onFontSettings} ariaLabel="Letter case">
-        <LetterCase className="h-5 w-5" />
+        <span className="text-2xl">Aa</span>
       </HeaderButton>
       <HeaderButton onClick={handlers.onNotebook} ariaLabel="Notebook">
         <Notebook className="h-5 w-5" />
