@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import type { Book, Locations } from "epubjs";
+import type { Book } from "epubjs";
 
 /**
  * EPUB location utilities.
@@ -24,11 +24,16 @@ import type { Book, Locations } from "epubjs";
  */
 
 /**
+ * EPUB locations type extracted from Book interface.
+ */
+type EpubLocations = NonNullable<Book["locations"]>;
+
+/**
  * Get total number of locations from a book.
  *
  * Parameters
  * ----------
- * locations : Locations | null | undefined
+ * locations : EpubLocations | null | undefined
  *     EPUB locations object.
  *
  * Returns
@@ -37,7 +42,7 @@ import type { Book, Locations } from "epubjs";
  *     Total number of locations, or 0 if unavailable.
  */
 export function getTotalLocations(
-  locations: Locations | null | undefined,
+  locations: EpubLocations | null | undefined,
 ): number {
   if (!locations) {
     return 0;
@@ -57,7 +62,7 @@ export function getTotalLocations(
  *
  * Parameters
  * ----------
- * locations : Locations | null | undefined
+ * locations : EpubLocations | null | undefined
  *     EPUB locations object.
  *
  * Returns
@@ -66,7 +71,7 @@ export function getTotalLocations(
  *     True if locations are ready, false otherwise.
  */
 export function areLocationsReady(
-  locations: Locations | null | undefined,
+  locations: EpubLocations | null | undefined,
 ): boolean {
   if (!locations) {
     return false;

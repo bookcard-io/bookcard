@@ -17,17 +17,27 @@
 
 import type { Book, Contents, Rendition } from "epubjs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { IReactReaderStyle } from "react-reader";
-import { ReactReader, ReactReaderStyle } from "react-reader";
+import { ReactReader } from "react-reader";
 import { useEPUBBook } from "@/hooks/useEPUBBook";
 import { cn } from "@/libs/utils";
+import { calculateProgressFromCfi } from "@/utils/epubLocation";
 import {
-  areLocationsReady,
-  calculateProgressFromCfi,
-  getCfiFromProgress,
-} from "@/utils/epubLocation";
-import { fontSizeToPercent, generateFontFaces } from "@/utils/readingFonts";
-import { getThemeColors, getTocColors } from "@/utils/readingTheme";
+  createJumpToProgressHandler,
+  createLocationChangedHandler,
+  type JumpToProgressHandlerOptions,
+  type LocationChangedHandlerOptions,
+} from "@/utils/epubLocationHandlers";
+import {
+  createReaderStyles,
+  createTocHoverStyles,
+} from "@/utils/epubReaderStyles";
+import {
+  applyDocumentTheme,
+  applyThemeToRendition,
+  ensureFontFacesInjected,
+} from "@/utils/epubRendering";
+import { getThemeColors } from "@/utils/readingTheme";
+import { useEpubUrl } from "./hooks/useEpubUrl";
 import type { FontFamily, PageColor } from "./ReadingThemeSettings";
 
 export interface EPUBReaderProps {
@@ -98,16 +108,7 @@ export function EPUBReader({
   const fontFamilyRef = useRef<FontFamily>(fontFamily);
   const fontSizeRef = useRef<number>(fontSize);
 
-  // Determine the download URL
-  const downloadUrl = useMemo(() => {
-    if (url) {
-      return url;
-    }
-    if (bookId) {
-      return `/api/books/${bookId}/download/EPUB`;
-    }
-    return null;
-  }, [url, bookId]);
+  const downloadUrl = useEpubUrl(url, bookId);
 
   // Fetch book as ArrayBuffer using hook
   const { bookArrayBuffer, isLoading, isError } = useEPUBBook(downloadUrl);
@@ -176,18 +177,7 @@ export function EPUBReader({
     }
 
     const rendition = renditionRef.current;
-    const themes = rendition.themes;
-    const colors = getThemeColors(pageColor);
-
-    // Update colors - this affects the current page
-    themes.override("color", colors.textColor);
-    themes.override("background", colors.backgroundColor);
-
-    // Update font family
-    themes.override("font-family", fontFamily);
-
-    // Update font size (convert px to percentage, base is ~16px)
-    themes.fontSize(fontSizeToPercent(fontSize));
+    applyThemeToRendition(rendition, pageColor, fontFamily, fontSize);
 
     // Force refresh of the current page to apply theme changes immediately
     // Use the current location from ref, but only refresh if we have a valid location
@@ -211,68 +201,18 @@ export function EPUBReader({
   }, [fontFamily, fontSize, pageColor]); // Removed 'location' from deps
 
   // Handle location changes and calculate progress
-  const handleLocationChanged = useCallback(
-    (loc: string) => {
-      // Don't process if we're programmatically navigating
-      if (isNavigatingRef.current) {
-        return;
-      }
-
-      // Update location state only if it's different (avoid unnecessary updates)
-      if (loc !== location) {
-        setLocation(loc);
-      }
-
-      if (!bookRef.current || !onLocationChange) {
-        return;
-      }
-
-      // During initial load, skip backend updates to prevent PUT requests
-      const skipBackendUpdate = isInitialLoadRef.current;
-
-      // Debounce progress calculation to avoid blocking page turns
-      if (progressCalculationTimeoutRef.current) {
-        clearTimeout(progressCalculationTimeoutRef.current);
-      }
-
-      progressCalculationTimeoutRef.current = setTimeout(() => {
-        // Calculate progress using book.locations
-        const book = bookRef.current;
-        if (!book || !book.locations) {
-          // During initial load, skip backend update
-          if (skipBackendUpdate) {
-            onLocationChange(loc, 0, true);
-          } else {
-            onLocationChange(loc, 0);
-          }
-          return;
-        }
-
-        // Check if locations are already generated/cached
-        const locationsReady = areLocationsReady(book.locations);
-
-        const calculateAndUpdateProgress = () => {
-          const progress = calculateProgressFromCfi(book, loc);
-          // During initial load, skip backend update
-          if (skipBackendUpdate) {
-            onLocationChange(loc, progress, true);
-          } else {
-            onLocationChange(loc, progress);
-          }
-        };
-
-        if (locationsReady) {
-          // Locations are already generated, calculate immediately
-          calculateAndUpdateProgress();
-        } else {
-          // Generate locations asynchronously without blocking
-          book.locations.generate(200).then(() => {
-            calculateAndUpdateProgress();
-          });
-        }
-      }, 100); // Small delay to avoid blocking page turns
-    },
-    [onLocationChange, location],
+  const handleLocationChanged = useMemo(
+    () =>
+      createLocationChangedHandler({
+        isNavigatingRef,
+        location,
+        setLocation,
+        bookRef,
+        onLocationChange,
+        isInitialLoadRef,
+        progressCalculationTimeoutRef,
+      } satisfies LocationChangedHandlerOptions),
+    [location, onLocationChange],
   );
 
   // Register jump to progress handler
@@ -281,68 +221,13 @@ export function EPUBReader({
       return;
     }
 
-    const jumpToProgress = (progress: number) => {
-      if (!bookRef.current || !renditionRef.current) {
-        return;
-      }
-
-      // Mark that we're programmatically navigating to prevent location callback from interfering
-      isNavigatingRef.current = true;
-
-      const book = bookRef.current;
-      if (!book.locations) {
-        isNavigatingRef.current = false;
-        console.warn("Cannot jump to progress: locations not available");
-        return;
-      }
-
-      // Check if locations are already generated/cached
-      const locationsReady = areLocationsReady(book.locations);
-
-      const performJump = () => {
-        try {
-          const cfi = getCfiFromProgress(book, progress);
-          if (!cfi) {
-            console.warn("Cannot jump to progress: could not get CFI");
-            isNavigatingRef.current = false;
-            return;
-          }
-
-          if (renditionRef.current) {
-            renditionRef.current.display(cfi);
-            // Update location state to match
-            setLocation(cfi);
-
-            // Trigger location change callback with CFI and progress
-            if (onLocationChange) {
-              const actualProgress = calculateProgressFromCfi(book, cfi);
-              onLocationChange(
-                cfi,
-                actualProgress,
-                false, // Don't skip backend update - this is a user action
-              );
-            }
-          }
-        } catch (error) {
-          console.error("Error jumping to progress:", error);
-        } finally {
-          // Reset flag after navigation completes
-          setTimeout(() => {
-            isNavigatingRef.current = false;
-          }, 200);
-        }
-      };
-
-      if (locationsReady) {
-        // Locations are already generated, jump immediately
-        performJump();
-      } else {
-        // Wait for locations to be generated and cached
-        book.locations.generate(200).then(() => {
-          performJump();
-        });
-      }
-    };
+    const jumpToProgress = createJumpToProgressHandler({
+      bookRef,
+      renditionRef,
+      isNavigatingRef,
+      setLocation,
+      onLocationChange,
+    } satisfies JumpToProgressHandlerOptions);
 
     onJumpToProgress(jumpToProgress);
 
@@ -395,14 +280,8 @@ export function EPUBReader({
         }, 100);
       }
 
-      const themes = rendition.themes;
-      const colors = getThemeColors(pageColor);
-
       // Apply initial theme
-      themes.override("color", colors.textColor);
-      themes.override("background", colors.backgroundColor);
-      themes.override("font-family", fontFamily);
-      themes.fontSize(fontSizeToPercent(fontSize));
+      applyThemeToRendition(rendition, pageColor, fontFamily, fontSize);
 
       // Register content hook to ensure styles are applied to all pages
       // Use refs to access latest theme values since hook closure captures initial values
@@ -413,41 +292,24 @@ export function EPUBReader({
         const currentFontSize = fontSizeRef.current;
 
         const document = contents.window.document;
-        if (document) {
-          // Inject all font faces into the document head (only once)
-          const existingFontStyle =
-            document.getElementById("epub-reader-fonts");
-          if (!existingFontStyle) {
-            const fontFacesCSS = generateFontFaces();
-            const style = document.createElement("style");
-            style.id = "epub-reader-fonts";
-            style.appendChild(document.createTextNode(fontFacesCSS));
-            document.head.appendChild(style);
-          }
-
-          // Apply current theme settings using latest values from refs
-          const currentColors = getThemeColors(currentPageColor);
-
-          // Apply theme overrides using latest values
-          themes.override("color", currentColors.textColor);
-          themes.override("background", currentColors.backgroundColor);
-          themes.override("font-family", currentFontFamily);
-          themes.fontSize(fontSizeToPercent(currentFontSize));
-
-          // Also apply styles directly to the document body as a fallback
-          if (document.body) {
-            document.body.style.color = currentColors.textColor;
-            document.body.style.backgroundColor = currentColors.backgroundColor;
-          }
-
-          // Also try applying to the iframe/container element
-          const iframe = document.querySelector("iframe");
-          if (iframe?.contentDocument?.body) {
-            iframe.contentDocument.body.style.color = currentColors.textColor;
-            iframe.contentDocument.body.style.backgroundColor =
-              currentColors.backgroundColor;
-          }
+        if (!document) {
+          return;
         }
+
+        ensureFontFacesInjected(document);
+
+        // Apply current theme settings using latest values from refs
+        const currentColors = getThemeColors(currentPageColor);
+
+        // Apply theme overrides using latest values
+        applyThemeToRendition(
+          rendition,
+          currentPageColor,
+          currentFontFamily,
+          currentFontSize,
+        );
+
+        applyDocumentTheme(document, currentColors);
       });
 
       // Generate locations and notify when ready
@@ -506,111 +368,13 @@ export function EPUBReader({
   );
 
   // Create reader styles based on page color theme
-  // This implements IReactReaderStyle properly for each theme
-  const readerStyles = useMemo((): IReactReaderStyle => {
-    const colors = getThemeColors(pageColor);
-    const tocColors = getTocColors(pageColor);
-    const isDark = pageColor === "dark";
-
-    if (isDark) {
-      // Dark theme - white text on dark background
-      return {
-        ...ReactReaderStyle,
-        arrow: {
-          ...ReactReaderStyle.arrow,
-          color: "#fff",
-        },
-        arrowHover: {
-          ...ReactReaderStyle.arrowHover,
-          color: "#ccc",
-        },
-        readerArea: {
-          ...ReactReaderStyle.readerArea,
-          backgroundColor: colors.backgroundColor,
-          transition: undefined,
-        },
-        titleArea: {
-          ...ReactReaderStyle.titleArea,
-          color: "#ccc",
-        },
-        tocArea: {
-          ...ReactReaderStyle.tocArea,
-          background: tocColors.background,
-        },
-        tocAreaButton: {
-          ...ReactReaderStyle.tocAreaButton,
-          color: tocColors.buttonTextColor,
-          borderBottom: `1px solid ${tocColors.borderColor}`,
-        },
-        tocBackground: {
-          ...ReactReaderStyle.tocBackground,
-          background: tocColors.overlayBackground,
-        },
-        tocButtonExpanded: {
-          ...ReactReaderStyle.tocButtonExpanded,
-          background: tocColors.background,
-        },
-        tocButtonBar: {
-          ...ReactReaderStyle.tocButtonBar,
-          background: tocColors.textColor,
-        },
-        tocButton: {
-          ...ReactReaderStyle.tocButton,
-          color: "white",
-          display: "none",
-        },
-      };
-    }
-
-    // Light, sepia, or lightGreen theme
-    return {
-      ...ReactReaderStyle,
-      readerArea: {
-        ...ReactReaderStyle.readerArea,
-        backgroundColor: colors.backgroundColor,
-        transition: undefined,
-      },
-      titleArea: {
-        ...ReactReaderStyle.titleArea,
-        color: colors.textColor,
-      },
-      tocArea: {
-        ...ReactReaderStyle.tocArea,
-        background: tocColors.background,
-      },
-      tocAreaButton: {
-        ...ReactReaderStyle.tocAreaButton,
-        color: tocColors.buttonTextColor,
-        borderBottom: `1px solid ${tocColors.borderColor}`,
-      },
-      tocBackground: {
-        ...ReactReaderStyle.tocBackground,
-        background: tocColors.overlayBackground,
-      },
-      tocButtonExpanded: {
-        ...ReactReaderStyle.tocButtonExpanded,
-        background: tocColors.background,
-      },
-      tocButton: {
-        ...ReactReaderStyle.tocButton,
-        display: "none",
-      },
-    };
+  const readerStyles = useMemo(() => {
+    return createReaderStyles(pageColor);
   }, [pageColor]);
 
   // Generate TOC hover styles based on theme
   const tocHoverStyles = useMemo(() => {
-    const tocColors = getTocColors(pageColor);
-    const isDark = pageColor === "dark";
-
-    return `
-      /* TOC button hover styles */
-      div[style*="overflowY"] button:hover {
-        background-color: ${isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.05)"} !important;
-        color: ${tocColors.buttonHoverColor} !important;
-        transition: background-color 0.2s ease, color 0.2s ease;
-      }
-    `;
+    return createTocHoverStyles(pageColor);
   }, [pageColor]);
 
   // Cleanup timeout on unmount
