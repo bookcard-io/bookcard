@@ -241,7 +241,6 @@ export function AuthorHeader({
           message: string;
           openlibrary_key?: string;
         };
-        console.log("Author rematch job enqueued:", result.message);
 
         // If we have the new OpenLibrary key, poll for the author and navigate
         if (result.openlibrary_key) {
