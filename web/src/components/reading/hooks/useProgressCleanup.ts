@@ -1,0 +1,40 @@
+// Copyright (C) 2025 khoa and others
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+import type { RefObject } from "react";
+import { useEffect } from "react";
+
+/**
+ * Hook to cleanup progress calculation timeout on unmount.
+ *
+ * Ensures any pending progress calculation timeouts are cleared
+ * when the component unmounts to prevent memory leaks.
+ *
+ * Parameters
+ * ----------
+ * progressCalculationTimeoutRef : RefObject<NodeJS.Timeout | null>
+ *     Ref to the progress calculation timeout.
+ */
+export function useProgressCleanup(
+  progressCalculationTimeoutRef: RefObject<NodeJS.Timeout | null>,
+) {
+  useEffect(() => {
+    return () => {
+      if (progressCalculationTimeoutRef.current) {
+        clearTimeout(progressCalculationTimeoutRef.current);
+      }
+    };
+  }, [progressCalculationTimeoutRef]);
+}

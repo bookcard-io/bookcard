@@ -15,16 +15,13 @@
 
 "use client";
 
-import type { Book, Rendition } from "epubjs";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { ReactReader } from "react-reader";
 import { useEPUBBook } from "@/hooks/useEPUBBook";
 import { cn } from "@/libs/utils";
 import { createEpubInitOptions } from "@/utils/epubInitOptions";
 import {
-  createJumpToProgressHandler,
   createLocationChangedHandler,
-  type JumpToProgressHandlerOptions,
   type LocationChangedHandlerOptions,
 } from "@/utils/epubLocationHandlers";
 import {
@@ -35,10 +32,15 @@ import {
   applyThemeToRendition,
   refreshPageForTheme,
 } from "@/utils/epubRendering";
-import { setupRendition } from "@/utils/epubRenditionSetup";
+import { useEpubRefs } from "./hooks/useEpubRefs";
 import { useEpubUrl } from "./hooks/useEpubUrl";
 import { useInitialCfi } from "./hooks/useInitialCfi";
+import { useJumpToProgress } from "./hooks/useJumpToProgress";
+import { useLocationState } from "./hooks/useLocationState";
+import { useProgressCleanup } from "./hooks/useProgressCleanup";
+import { useRenditionCallback } from "./hooks/useRenditionCallback";
 import { useThemeRefs } from "./hooks/useThemeRefs";
+import { useTocToggle } from "./hooks/useTocToggle";
 import type { FontFamily, PageColor } from "./ReadingThemeSettings";
 
 export interface EPUBReaderProps {
@@ -97,14 +99,20 @@ export function EPUBReader({
   pageColor = "light",
   className,
 }: EPUBReaderProps) {
-  const [location, setLocation] = useState<string | number>(initialCfi || 0);
-  const renditionRef = useRef<Rendition | undefined>(undefined);
-  const bookRef = useRef<Book | null>(null);
-  const reactReaderRef = useRef<ReactReader | null>(null);
-  const isNavigatingRef = useRef(false);
-  const progressCalculationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const isInitialLoadRef = useRef(true);
-  const locationRef = useRef<string | number>(location);
+  // Manage all refs in one place
+  const {
+    renditionRef,
+    bookRef,
+    reactReaderRef,
+    isNavigatingRef,
+    progressCalculationTimeoutRef,
+    isInitialLoadRef,
+  } = useEpubRefs();
+
+  // Manage location state and ref
+  const { location, setLocation, locationRef } = useLocationState(
+    initialCfi || 0,
+  );
 
   const downloadUrl = useEpubUrl(url, bookId);
 
@@ -118,12 +126,9 @@ export function EPUBReader({
     fontSize,
   );
 
-  // Update location ref when location changes (for use in other effects)
-  useEffect(() => {
-    locationRef.current = location;
-  }, [location]);
-
   // Manage initial CFI application
+  // Refs are stable objects and don't need to be in deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const { applyInitialCfi } = useInitialCfi(
     initialCfi,
     renditionRef,
@@ -133,7 +138,8 @@ export function EPUBReader({
   );
 
   // Update theme colors and fonts when they change
-  // NOTE: We use locationRef to access location without including it in deps to avoid interfering with page turns
+  // NOTE: We use locationRef and isNavigatingRef to access values without including them in deps
+  // to avoid interfering with page turns. Refs are stable objects.
   useEffect(() => {
     if (!renditionRef.current) {
       return;
@@ -145,9 +151,18 @@ export function EPUBReader({
     // Force refresh of the current page to apply theme changes immediately
     refreshPageForTheme(rendition, locationRef.current, isNavigatingRef);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fontFamily, fontSize, pageColor]); // Removed 'location' from deps
+  }, [
+    fontFamily,
+    fontSize,
+    pageColor,
+    isNavigatingRef,
+    locationRef.current,
+    renditionRef.current,
+  ]); // Refs are stable and don't need to be in deps
 
   // Handle location changes and calculate progress
+  // Refs are stable objects and don't need to be in deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleLocationChanged = useMemo(
     () =>
       createLocationChangedHandler({
@@ -159,87 +174,50 @@ export function EPUBReader({
         isInitialLoadRef,
         progressCalculationTimeoutRef,
       } satisfies LocationChangedHandlerOptions),
-    [location, onLocationChange],
+    [
+      location,
+      onLocationChange,
+      bookRef,
+      isInitialLoadRef,
+      isNavigatingRef,
+      progressCalculationTimeoutRef,
+      setLocation,
+    ],
   );
 
   // Register jump to progress handler
-  useEffect(() => {
-    if (!onJumpToProgress) {
-      return;
-    }
-
-    const jumpToProgress = createJumpToProgressHandler({
+  // Refs are stable objects and don't need to be in deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useJumpToProgress(
+    {
       bookRef,
       renditionRef,
       isNavigatingRef,
       setLocation,
       onLocationChange,
-    } satisfies JumpToProgressHandlerOptions);
-
-    onJumpToProgress(jumpToProgress);
-
-    return () => {
-      onJumpToProgress(null);
-    };
-  }, [onJumpToProgress, onLocationChange]);
+    },
+    onJumpToProgress,
+  );
 
   // Register TOC toggle handler
-  useEffect(() => {
-    if (!onTocToggle) {
-      return;
-    }
+  useTocToggle(reactReaderRef, onTocToggle);
 
-    const toggleToc = () => {
-      // Call toggleToc method on ReactReader instance
-      if (reactReaderRef.current?.toggleToc) {
-        reactReaderRef.current.toggleToc();
-      }
-    };
-
-    onTocToggle(toggleToc);
-
-    return () => {
-      onTocToggle(null);
-    };
-  }, [onTocToggle]);
-
-  // Get rendition and apply initial settings
-  // Refs are stable objects and don't need to be in deps
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const handleGetRendition = useCallback(
-    (rendition: Rendition) => {
-      renditionRef.current = rendition;
-
-      setupRendition({
-        rendition,
-        bookRef,
-        initialCfi,
-        applyInitialCfi,
-        pageColor,
-        fontFamily,
-        fontSize,
-        pageColorRef,
-        fontFamilyRef,
-        fontSizeRef,
-        onLocationsReadyChange,
-        onLocationChange,
-        isInitialLoadRef,
-      });
-    },
-    [
-      fontFamily,
-      fontSize,
-      pageColor,
-      onLocationsReadyChange,
-      initialCfi,
-      onLocationChange,
-      applyInitialCfi,
-      // Refs are stable objects - included only to satisfy exhaustive-deps
-      pageColorRef,
-      fontFamilyRef,
-      fontSizeRef,
-    ],
-  );
+  // Create rendition callback handler
+  const handleGetRendition = useRenditionCallback({
+    renditionRef,
+    bookRef,
+    initialCfi,
+    applyInitialCfi,
+    pageColor,
+    fontFamily,
+    fontSize,
+    pageColorRef,
+    fontFamilyRef,
+    fontSizeRef,
+    onLocationsReadyChange,
+    onLocationChange,
+    isInitialLoadRef,
+  });
 
   // Create reader styles based on page color theme
   const readerStyles = useMemo(() => {
@@ -252,13 +230,7 @@ export function EPUBReader({
   }, [pageColor]);
 
   // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (progressCalculationTimeoutRef.current) {
-        clearTimeout(progressCalculationTimeoutRef.current);
-      }
-    };
-  }, []);
+  useProgressCleanup(progressCalculationTimeoutRef);
 
   if (isLoading) {
     return (
