@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * Hook for managing header visibility with auto-hide behavior.
@@ -74,7 +74,7 @@ export function useHeaderVisibility(
   }, [keepVisible]);
 
   // Show on mouse enter (only works after locations have been ready)
-  const handleMouseEnter = () => {
+  const handleMouseEnter = useCallback(() => {
     if (hasLocationsBeenReady) {
       if (hideTimeoutRef.current) {
         clearTimeout(hideTimeoutRef.current);
@@ -82,18 +82,27 @@ export function useHeaderVisibility(
       }
       setIsVisible(true);
     }
-  };
+  }, [hasLocationsBeenReady]);
 
   // Hide immediately on mouse leave (only works after locations have been ready)
-  const handleMouseLeave = () => {
+  const handleMouseLeave = useCallback(() => {
     if (hasLocationsBeenReady && !keepVisible) {
       setIsVisible(false);
     }
-  };
+  }, [hasLocationsBeenReady, keepVisible]);
+
+  // Force hide regardless of keepVisible (used for explicit dismiss actions)
+  // Still respects hasLocationsBeenReady to avoid hiding during loading
+  const hideHeader = useCallback(() => {
+    if (hasLocationsBeenReady) {
+      setIsVisible(false);
+    }
+  }, [hasLocationsBeenReady]);
 
   return {
     isVisible,
     handleMouseEnter,
     handleMouseLeave,
+    hideHeader,
   };
 }

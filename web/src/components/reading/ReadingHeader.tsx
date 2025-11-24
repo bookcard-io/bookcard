@@ -85,10 +85,8 @@ export function ReadingHeader({
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerZoneRef = useRef<HTMLButtonElement>(null);
 
-  const { isVisible, handleMouseEnter, handleMouseLeave } = useHeaderVisibility(
-    areLocationsReady,
-    isFontPanelOpen,
-  );
+  const { isVisible, handleMouseEnter, handleMouseLeave, hideHeader } =
+    useHeaderVisibility(areLocationsReady, isFontPanelOpen);
 
   // No-op handlers for menu items
   const handleSearch = useCallback(() => {
@@ -208,6 +206,7 @@ export function ReadingHeader({
         isOpen={isFontPanelOpen}
         onClose={() => {
           setIsFontPanelOpen(false);
+          hideHeader();
         }}
         fontFamily={fontFamily}
         onFontFamilyChange={onFontFamilyChange || (() => {})}
