@@ -20,7 +20,7 @@ import { useReadingProgress } from "@/hooks/useReadingProgress";
 import { useReadingSession } from "@/hooks/useReadingSession";
 import { useTheme } from "@/hooks/useTheme";
 import { cn } from "@/libs/utils";
-import { EPUBReader } from "./EPUBReader";
+import { EPUBReader, type SearchResult } from "./EPUBReader";
 import { PDFReader } from "./PDFReader";
 import type { PagingInfo } from "./ReaderControls";
 import { ReaderControls } from "./ReaderControls";
@@ -43,6 +43,12 @@ export interface EBookReaderProps {
   pageColor?: PageColor;
   /** Page layout (single or two-column). */
   pageLayout?: PageLayout;
+  /** Search query to search for in the book. */
+  searchQuery?: string;
+  /** Callback when search results are available. */
+  onSearchResults?: (results: SearchResult[]) => void;
+  /** Callback to register jump to CFI handler. */
+  onJumpToCfi?: (handler: ((cfi: string) => void) | null) => void;
   /** Optional className. */
   className?: string;
 }
@@ -68,6 +74,9 @@ export function EBookReader({
   fontSize: externalFontSize = 16,
   pageColor = "light",
   pageLayout = "two-column",
+  searchQuery,
+  onSearchResults,
+  onJumpToCfi,
   className,
 }: EBookReaderProps) {
   const [fontSize, setFontSize] = useState(externalFontSize);
@@ -161,6 +170,7 @@ export function EBookReader({
   );
 
   const jumpToProgressRef = useRef<((progress: number) => void) | null>(null);
+  const jumpToCfiRef = useRef<((cfi: string) => void) | null>(null);
   const tocToggleRef = useRef<(() => void) | null>(null);
 
   // Register TOC toggle handler with parent
@@ -169,6 +179,13 @@ export function EBookReader({
       onTocToggle(tocToggleRef.current);
     }
   }, [onTocToggle]);
+
+  // Register jump to CFI handler with parent
+  useEffect(() => {
+    if (onJumpToCfi) {
+      onJumpToCfi(jumpToCfiRef.current);
+    }
+  }, [onJumpToCfi]);
 
   // Notify parent when locations are ready
   useEffect(() => {
@@ -229,6 +246,11 @@ export function EBookReader({
             theme={theme}
             pageColor={pageColor}
             pageLayout={pageLayout}
+            searchQuery={searchQuery}
+            onSearchResults={onSearchResults}
+            onJumpToCfi={(handler) => {
+              jumpToCfiRef.current = handler;
+            }}
             className="h-full w-full"
           />
         )}

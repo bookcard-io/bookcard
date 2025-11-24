@@ -63,6 +63,14 @@ export interface ReadingHeaderProps {
   pageLayout?: PageLayout;
   /** Callback when page layout changes. */
   onPageLayoutChange?: (layout: PageLayout) => void;
+  /** Current search query. */
+  searchQuery?: string;
+  /** Callback when search query changes. */
+  onSearchQueryChange?: (query: string) => void;
+  /** Search results to display. */
+  searchResults?: import("./EPUBReader").SearchResult[];
+  /** Callback when a search result is clicked to navigate to it. */
+  onResultClick?: (cfi: string) => void;
   /** Optional className. */
   className?: string;
 }
@@ -97,6 +105,10 @@ export function ReadingHeader({
   onAppThemeChange,
   pageLayout = "two-column",
   onPageLayoutChange,
+  searchQuery,
+  onSearchQueryChange,
+  searchResults,
+  onResultClick,
   className,
 }: ReadingHeaderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -210,6 +222,10 @@ export function ReadingHeader({
       <ReadingSearchPanel
         isOpen={searchPanel.isOpen}
         onClose={handleSearchPanelClose}
+        searchQuery={searchQuery}
+        onSearchQueryChange={onSearchQueryChange}
+        searchResults={searchResults}
+        onResultClick={onResultClick}
       />
     </>
   );

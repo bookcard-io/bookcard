@@ -15,8 +15,7 @@
 
 "use client";
 
-import type { NavItem } from "epubjs";
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 import { ReactReader } from "react-reader";
 import { useEPUBBook } from "@/hooks/useEPUBBook";
 import { cn } from "@/libs/utils";
@@ -29,21 +28,29 @@ import {
   createReaderStyles,
   createTocHoverStyles,
 } from "@/utils/epubReaderStyles";
-import {
-  applyThemeToRendition,
-  refreshPageForTheme,
-} from "@/utils/epubRendering";
+import { useEpubLayout } from "./hooks/useEpubLayout";
 import { useEpubRefs } from "./hooks/useEpubRefs";
+import { useEpubSearch } from "./hooks/useEpubSearch";
+import { useEpubTheme } from "./hooks/useEpubTheme";
 import { useEpubUrl } from "./hooks/useEpubUrl";
 import { useInitialCfi } from "./hooks/useInitialCfi";
+import { useJumpToCfi } from "./hooks/useJumpToCfi";
 import { useJumpToProgress } from "./hooks/useJumpToProgress";
 import { useLocationState } from "./hooks/useLocationState";
+import { usePagingInfo } from "./hooks/usePagingInfo";
 import { useProgressCleanup } from "./hooks/useProgressCleanup";
 import { useRenditionCallback } from "./hooks/useRenditionCallback";
 import { useThemeRefs } from "./hooks/useThemeRefs";
 import { useTocToggle } from "./hooks/useTocToggle";
+import { useTocTracking } from "./hooks/useTocTracking";
 import type { PagingInfo } from "./ReaderControls";
 import type { FontFamily, PageColor, PageLayout } from "./ReadingThemeSettings";
+
+export type SearchResult = {
+  cfi: string;
+  excerpt: string;
+  page?: number;
+};
 
 export interface EPUBReaderProps {
   /** Book URL or book ID. If string starts with /api/, treated as URL. Otherwise treated as book ID. */
@@ -76,6 +83,12 @@ export interface EPUBReaderProps {
   pageColor?: PageColor;
   /** Page layout (single or two-column). */
   pageLayout?: PageLayout;
+  /** Search query to search for in the book. */
+  searchQuery?: string;
+  /** Callback when search results are available. */
+  onSearchResults?: (results: SearchResult[]) => void;
+  /** Callback to register jump to CFI handler. */
+  onJumpToCfi?: (handler: ((cfi: string) => void) | null) => void;
   /** Optional className. */
   className?: string;
 }
@@ -105,6 +118,9 @@ export function EPUBReader({
   fontSize = 16,
   pageColor = "light",
   pageLayout = "two-column",
+  searchQuery,
+  onSearchResults,
+  onJumpToCfi,
   className,
 }: EPUBReaderProps) {
   // Manage all refs in one place
@@ -118,7 +134,7 @@ export function EPUBReader({
   } = useEpubRefs();
 
   // Track TOC for chapter information
-  const tocRef = useRef<NavItem[]>([]);
+  const { tocRef, handleTocChanged } = useTocTracking();
 
   // Manage location state and ref
   const { location, setLocation, locationRef } = useLocationState(
@@ -149,41 +165,27 @@ export function EPUBReader({
   );
 
   // Update theme colors and fonts when they change
-  // NOTE: We use locationRef and isNavigatingRef to access values without including them in deps
-  // to avoid interfering with page turns. Refs are stable objects.
-  useEffect(() => {
-    if (!renditionRef.current) {
-      return;
-    }
-
-    const rendition = renditionRef.current;
-    applyThemeToRendition(rendition, pageColor, fontFamily, fontSize);
-
-    // Force refresh of the current page to apply theme changes immediately
-    refreshPageForTheme(rendition, locationRef.current, isNavigatingRef);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
+  useEpubTheme({
+    renditionRef,
+    locationRef,
+    isNavigatingRef,
+    pageColor,
     fontFamily,
     fontSize,
-    pageColor,
-    isNavigatingRef,
-    locationRef.current,
-    renditionRef.current,
-  ]); // Refs are stable and don't need to be in deps
+  });
 
   // Update spread layout when pageLayout changes
-  // NOTE: We access renditionRef.current inside to check if rendition exists
-  // but only depend on pageLayout to avoid unnecessary re-runs
-  useEffect(() => {
-    const rendition = renditionRef.current;
-    if (!rendition) {
-      return;
-    }
+  useEpubLayout({
+    renditionRef,
+    pageLayout,
+  });
 
-    const spreadValue = pageLayout === "single" ? "none" : "auto";
-    rendition.spread(spreadValue);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageLayout, renditionRef]); // renditionRef is stable, but we check .current inside
+  // Calculate paging info when location changes
+  const updatePagingInfo = usePagingInfo({
+    renditionRef,
+    tocRef,
+    onPagingInfoChange,
+  });
 
   // Handle location changes and calculate progress
   // Refs are stable objects and don't need to be in deps
@@ -202,39 +204,7 @@ export function EPUBReader({
 
     return (loc: string) => {
       baseHandler(loc);
-
-      // Update paging information
-      // Access refs inside the callback to avoid dependency issues
-      const rendition = renditionRef.current;
-      const toc = tocRef.current;
-      if (rendition && toc.length > 0 && onPagingInfoChange) {
-        try {
-          const { displayed, href } = rendition.location.start;
-          // Try exact match first, then try matching by normalizing hrefs
-          let chapter = toc.find((item) => item.href === href);
-          if (!chapter && href) {
-            // Try matching by normalizing both hrefs (remove leading slashes, decode)
-            const normalizedHref = decodeURIComponent(href.replace(/^\/+/, ""));
-            chapter = toc.find((item) => {
-              const normalizedItemHref = decodeURIComponent(
-                item.href.replace(/^\/+/, ""),
-              );
-              return normalizedItemHref === normalizedHref;
-            });
-          }
-
-          if (displayed) {
-            onPagingInfoChange({
-              currentPage: displayed.page,
-              totalPages: displayed.total,
-              chapterLabel: chapter?.label,
-              chapterTotalPages: chapter ? displayed.total : undefined,
-            });
-          }
-        } catch {
-          // Location might not be ready yet, silently ignore
-        }
-      }
+      updatePagingInfo(loc);
     };
   }, [
     location,
@@ -244,17 +214,8 @@ export function EPUBReader({
     isNavigatingRef,
     progressCalculationTimeoutRef,
     setLocation,
-    onPagingInfoChange,
-    renditionRef,
+    updatePagingInfo,
   ]);
-
-  // Handle TOC changes
-  const handleTocChanged = useMemo(
-    () => (toc: NavItem[]) => {
-      tocRef.current = toc;
-    },
-    [],
-  );
 
   // Register jump to progress handler
   // Refs are stable objects and don't need to be in deps
@@ -272,6 +233,16 @@ export function EPUBReader({
 
   // Register TOC toggle handler
   useTocToggle(reactReaderRef, onTocToggle);
+
+  // Register jump to CFI handler
+  useJumpToCfi({
+    renditionRef,
+    bookRef,
+    isNavigatingRef,
+    setLocation,
+    onLocationChange,
+    onJumpToCfi,
+  });
 
   // Create rendition callback handler
   const handleGetRendition = useRenditionCallback({
@@ -291,22 +262,32 @@ export function EPUBReader({
   });
 
   // Create reader styles based on page color theme
-  const readerStyles = useMemo(() => {
-    return createReaderStyles(pageColor);
-  }, [pageColor]);
+  const readerStyles = useMemo(
+    () => createReaderStyles(pageColor),
+    [pageColor],
+  );
 
   // Generate TOC hover styles based on theme
-  const tocHoverStyles = useMemo(() => {
-    return createTocHoverStyles(pageColor);
-  }, [pageColor]);
+  const tocHoverStyles = useMemo(
+    () => createTocHoverStyles(pageColor),
+    [pageColor],
+  );
 
   // Create epubOptions based on layout
-  const epubOptions = useMemo(() => {
-    return {
+  const epubOptions = useMemo(
+    () => ({
       flow: "paginated" as const,
       spread: pageLayout === "single" ? ("none" as const) : ("auto" as const),
-    };
-  }, [pageLayout]);
+    }),
+    [pageLayout],
+  );
+
+  // Handle search results
+  const handleSearchResults = useEpubSearch({
+    renditionRef,
+    setLocation,
+    onSearchResults,
+  });
 
   // Cleanup timeout on unmount
   useProgressCleanup(progressCalculationTimeoutRef);
@@ -351,6 +332,9 @@ export function EPUBReader({
         epubOptions={epubOptions}
         readerStyles={readerStyles}
         showToc={true}
+        searchQuery={searchQuery}
+        onSearchResults={onSearchResults ? handleSearchResults : undefined}
+        contextLength={100}
       />
     </div>
   );

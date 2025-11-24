@@ -18,6 +18,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EBookReader } from "@/components/reading/EBookReader";
+import type { SearchResult } from "@/components/reading/EPUBReader";
 import { useFullscreen } from "@/components/reading/hooks/useFullscreen";
 import { useReadingSettings } from "@/components/reading/hooks/useReadingSettings";
 import { ReadingHeader } from "@/components/reading/ReadingHeader";
@@ -119,6 +120,26 @@ function ReadingPageContent({
   const tocToggleRef = useRef<(() => void) | null>(null);
   const [areLocationsReady, setAreLocationsReady] = useState(false);
 
+  // Manage search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const jumpToCfiRef = useRef<((cfi: string) => void) | null>(null);
+
+  // Handle search results
+  const handleSearchResults = useCallback((results: SearchResult[]) => {
+    setSearchResults(results);
+  }, []);
+
+  // Handle result click to navigate to CFI
+  const handleResultClick = useCallback((cfi: string) => {
+    if (jumpToCfiRef.current) {
+      jumpToCfiRef.current(cfi);
+    } else {
+      // eslint-disable-next-line no-console
+      console.warn("jumpToCfi handler not ready yet");
+    }
+  }, []);
+
   // Manage reading settings via centralized hook
   const {
     fontFamily,
@@ -166,6 +187,10 @@ function ReadingPageContent({
         pageLayout={pageLayout}
         onPageLayoutChange={setPageLayout}
         areLocationsReady={areLocationsReady}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        searchResults={searchResults}
+        onResultClick={handleResultClick}
       />
       <EBookReader
         bookId={bookId}
@@ -178,6 +203,11 @@ function ReadingPageContent({
         fontSize={fontSize}
         pageColor={pageColor}
         pageLayout={pageLayout}
+        searchQuery={searchQuery}
+        onSearchResults={handleSearchResults}
+        onJumpToCfi={(handler) => {
+          jumpToCfiRef.current = handler;
+        }}
       />
     </>
   );
