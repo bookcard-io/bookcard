@@ -696,6 +696,25 @@ describe("readingService", () => {
       expect(result).toEqual(mockStatus);
     });
 
+    it("should return null for 404 (book not read)", async () => {
+      const mockResponse = {
+        ok: false,
+        status: 404,
+        json: vi.fn().mockResolvedValue({ detail: "read_status_not_found" }),
+      };
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      const result = await getReadStatus(1);
+
+      expect(globalThis.fetch).toHaveBeenCalledWith("/api/reading/status/1", {
+        method: "GET",
+        credentials: "include",
+      });
+      expect(result).toBeNull();
+    });
+
     it("should handle error response with detail", async () => {
       const errorData = { detail: "Failed to get read status" };
       const mockResponse = createMockResponse(false, errorData);

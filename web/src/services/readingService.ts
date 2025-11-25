@@ -312,14 +312,21 @@ export async function getReadingHistory(
  *
  * Returns
  * -------
- * Promise<ReadStatus>
- *     Read status data.
+ * Promise<ReadStatus | null>
+ *     Read status data, or null if the book has not been read (404).
  */
-export async function getReadStatus(bookId: number): Promise<ReadStatus> {
+export async function getReadStatus(
+  bookId: number,
+): Promise<ReadStatus | null> {
   const response = await fetch(`${API_BASE}/status/${bookId}`, {
     method: "GET",
     credentials: "include",
   });
+
+  if (response.status === 404) {
+    // 404 means the book hasn't been read yet, which is a valid state
+    return null;
+  }
 
   if (!response.ok) {
     const error = await response

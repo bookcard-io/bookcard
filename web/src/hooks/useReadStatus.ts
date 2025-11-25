@@ -79,11 +79,20 @@ export function useReadStatus(
   const hasActiveLibrary = activeLibrary !== null && !isActiveLibraryLoading;
   const queryEnabled = enabled && hasActiveLibrary && bookId > 0;
 
-  const query = useQuery<ReadStatus, Error>({
+  const query = useQuery<ReadStatus | null, Error>({
     queryKey,
     queryFn: () => getReadStatus(bookId),
     enabled: queryEnabled,
     staleTime: 60_000, // 1 minute
+    retry: (failureCount, error) => {
+      // Don't retry on 404 errors (book not read is a valid state)
+      // Only retry on network errors or other server errors
+      if (error?.message?.includes("read_status_not_found")) {
+        return false;
+      }
+      // Default retry behavior for other errors (max 3 retries)
+      return failureCount < 3;
+    },
   });
 
   const mutation = useMutation<ReadStatus, Error, "read" | "not_read">({
