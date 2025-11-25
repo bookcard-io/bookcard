@@ -15,6 +15,7 @@
 
 "use client";
 
+import { Suspense } from "react";
 import { AdminSettings } from "@/components/admin/AdminSettings";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PageLayout } from "@/components/layout/PageLayout";
@@ -30,7 +31,9 @@ export default function AdminPage() {
   return (
     <PageLayout>
       <PageHeader title="Admin Settings" />
-      <AdminSettings />
+      <Suspense fallback={<div className="p-6">Loading admin settings...</div>}>
+        <AdminSettings />
+      </Suspense>
     </PageLayout>
   );
 }

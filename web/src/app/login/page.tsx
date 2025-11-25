@@ -16,7 +16,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { INSPIRING_QUOTES } from "@/constants/inspiring_quotes";
 import { Eye } from "@/icons/Eye";
 import { EyeSlash } from "@/icons/EyeSlash";
@@ -26,7 +26,7 @@ interface LoginFormData {
   password: string;
 }
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [formData, setFormData] = useState<LoginFormData>({
@@ -242,5 +242,28 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[var(--color-surface-a0)] p-8">
+          <div className="relative z-[1] w-full max-w-[28rem] rounded-md bg-[var(--color-surface-tonal-a0)] p-10">
+            <div className="mb-8">
+              <h1 className="mb-2 font-bold text-[1.875rem] text-[var(--color-text-a0)] leading-tight">
+                Sign in to Fundamental
+              </h1>
+              <p className="text-[var(--color-text-a30)] text-sm leading-normal">
+                Loading...
+              </p>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

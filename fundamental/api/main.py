@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
 from fundamental.api.middleware.auth_middleware import AuthMiddleware
 from fundamental.api.routes.admin import router as admin_router
@@ -265,6 +266,18 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
 
     # Register routers
     _register_routers(app)
+
+    # Add health check endpoint
+    @app.get("/health")
+    async def health_check() -> JSONResponse:
+        """Health check endpoint for Docker and load balancers.
+
+        Returns
+        -------
+        JSONResponse
+            JSON response with status "ok".
+        """
+        return JSONResponse(content={"status": "ok"})
 
     # Middleware (best-effort attachment of user claims)
     app.add_middleware(AuthMiddleware)

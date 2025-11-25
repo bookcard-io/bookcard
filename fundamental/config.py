@@ -221,8 +221,14 @@ class AppConfig:
             jwt_algorithm=AppConfig._get_jwt_algorithm(),
             jwt_expires_minutes=int(jwt_expires_min),
             encryption_key=AppConfig._get_encryption_key(),
-            database_url=AppConfig._normalize_env_value_with_default(
-                os.getenv("FUNDAMENTAL_DATABASE_URL"), "sqlite:///fundamental.db"
+            database_url=(
+                db_url
+                if (
+                    db_url := AppConfig._normalize_env_value(
+                        os.getenv("FUNDAMENTAL_DATABASE_URL")
+                    )
+                )
+                else "sqlite:///fundamental.db"
             ),
             echo_sql=AppConfig._parse_bool_env("FUNDAMENTAL_ECHO_SQL", "false"),
             alembic_enabled=AppConfig._parse_bool_env(

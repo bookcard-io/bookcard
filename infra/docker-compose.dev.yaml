@@ -1,9 +1,9 @@
 services:
-  fundamental:
+  fundamental-backend:
     build:
       context: ..
-      dockerfile: infra/Dockerfile
-    container_name: fundamental
+      dockerfile: infra/Dockerfile.backend
+    container_name: fundamental-backend
     restart: unless-stopped
     environment:
       # backend authentication settings
@@ -13,6 +13,8 @@ services:
       FUNDAMENTAL_ALEMBIC_ENABLED: ${FUNDAMENTAL_ALEMBIC_ENABLED:-true}
       # Database URL - defaults to SQLite if postgres service is not available
       # Set FUNDAMENTAL_DATABASE_URL to use PostgreSQL, or leave unset for SQLite
+      # Example PostgreSQL URL (uncomment and adjust if using postgres service):
+      # FUNDAMENTAL_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@postgres:5432/${POSTGRES_DB:-fundamental}
       FUNDAMENTAL_DATABASE_URL: ${FUNDAMENTAL_DATABASE_URL:-}
 
       # library administration settings
@@ -34,28 +36,36 @@ services:
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    # Redis and Postgres are optional - removed depends_on to allow service to start without them
+    # If you want to use PostgreSQL, set FUNDAMENTAL_DATABASE_URL in .env or environment
+    # If you want to use Redis, ensure the redis service is running and ENABLE_REDIS=true
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health | grep -q 'ok'"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
 
-      # Frontend configuration
-      NODE_ENV: production
+  fundamental-web:
+    build:
+      context: ../web
+      dockerfile: ../infra/Dockerfile.web
+    container_name: fundamental-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
       NEXT_TELEMETRY_DISABLED: "1"
       NPM_CONFIG_LOGLEVEL: warn
       PORT: "3000"
       # Backend API URL (used by server-side API routes)
-      # Since frontend and backend are in the same container, use localhost
-      BACKEND_URL: ${BACKEND_URL:-http://localhost:8000}
-    env_file:
-      - .env
+      BACKEND_URL: ${BACKEND_URL:-http://fundamental-backend:8000}
     ports:
-      - "3000:3000"  # Frontend
-      - "8000:8000"  # Backend API
-    # Redis and Postgres are optional - remove depends_on to allow service to start without them
-    # If you want to use PostgreSQL, set FUNDAMENTAL_DATABASE_URL in .env or environment
-    # If you want to use Redis, ensure the redis service is running and ENABLE_REDIS=true
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health | grep -q 'ok' && curl -fsS http://localhost:3000 | grep -q '<!DOCTYPE html>' || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      - "3000:3000"
+    depends_on:
+      - fundamental-backend
 
   # Optional Redis service - only needed if ENABLE_REDIS=true
   # The application will work without Redis (library scanning features will be disabled)
@@ -69,7 +79,7 @@ services:
     env_file:
       - .env
     profiles:
-      - redis  # Use 'docker-compose --profile redis up' to include Redis
+      - redis  # Use 'docker-compose -f docker-compose.dev.yaml --profile redis up' to include Redis
 
   # Optional PostgreSQL service - only needed if you want to use PostgreSQL instead of SQLite
   # The application defaults to SQLite if FUNDAMENTAL_DATABASE_URL is not set
@@ -82,10 +92,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin123}
       POSTGRES_DB: ${POSTGRES_DB:-fundamental}
-    # Port not exposed to host - only accessible within Docker network
-    # Uncomment if you'd like to access the database from outside the container
-    # ports:
-    #   - "5432:5432"
+    ports:
+      - "5432:5432"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -d postgres" ]
       interval: 30s
@@ -94,7 +102,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     profiles:
-      - postgres  # Use 'docker-compose --profile postgres up' to include PostgreSQL
+      - postgres  # Use 'docker-compose -f docker-compose.dev.yaml --profile postgres up' to include PostgreSQL
 
 volumes:
   postgres_data:

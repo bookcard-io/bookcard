@@ -1,0 +1,165 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+docs/
+*.md
+!LICENSE
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.cursor/
+
+# Python - Cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Python - Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+__pypackages__/
+
+# Python - Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+MANIFEST
+
+# Python - Testing and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+*.cover
+.hypothesis/
+nosetests.xml
+coverage.xml
+*.py,cover
+
+# Python - Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+pyrightconfig.json
+
+# Python - Linting
+.ruff_cache/
+
+# Node.js - Dependencies (will be installed in Docker)
+node_modules/
+web/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Node.js - Build outputs (will be built in Docker)
+web/.next/
+web/out/
+web/dist/
+web/.svelte-kit/
+web/.cache/
+web/.parcel-cache/
+
+# Node.js - Testing and coverage
+web/coverage/
+web/.nyc_output/
+web/vitest-test-results/
+*.tsbuildinfo
+
+# Node.js - Environment files
+.env
+.env.*
+!.env.example
+
+# Build artifacts
+*.log
+logs/
+*.pid
+*.seed
+*.pid.lock
+
+# Database files (should use volumes or external DB)
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+
+# Data directories (should use volumes)
+data/
+uploads/
+books/
+fundamental.db*
+
+# Test files
+tests/
+test_*.py
+*_test.py
+web/src/**/*.test.*
+web/src/**/*.spec.*
+
+# Development tools
+Makefile
+.prettierrc*
+.eslintrc*
+.biome.json
+# Note: web/tsconfig.json, web/next.config.ts, web/tailwind.config.ts,
+# and web/postcss.config.mjs are needed for Next.js build, so don't exclude them
+web/vitest.config.*
+web/playright.config.*
+
+# Misc development files
+misc/
+scripts/__pycache__/
+*.backup
+*.back
+*.sublime*
+
+# Docker files (don't need to copy these into the image)
+docker-compose*.yaml
+Dockerfile*
+.dockerignore
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# Lock files (dependencies will be installed from package.json/pyproject.toml)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+uv.lock
+
+# Patches (not needed in production)
+web/patches/
+
+# Storybook
+web/.storybook/
+web/storybook-static/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

@@ -16,7 +16,7 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useGlobalPageLoadingSignals } from "@/hooks/useGlobalPageLoadingSignals";
 import { cn } from "@/libs/utils";
 
@@ -32,7 +32,7 @@ import { cn } from "@/libs/utils";
  * this component focused purely on overlay behavior and animation rather than
  * individual data sources.
  */
-export function PageLoadingOverlay() {
+function PageLoadingOverlayContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -187,5 +187,16 @@ export function PageLoadingOverlay() {
         />
       </div>
     </div>
+  );
+}
+
+/**
+ * Wrapper component that provides Suspense boundary for useSearchParams.
+ */
+export function PageLoadingOverlay() {
+  return (
+    <Suspense fallback={null}>
+      <PageLoadingOverlayContent />
+    </Suspense>
   );
 }

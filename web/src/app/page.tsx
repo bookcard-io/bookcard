@@ -15,6 +15,7 @@
 
 "use client";
 
+import { Suspense } from "react";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { MainContent } from "@/components/library/MainContent";
 import { SelectedBooksProvider } from "@/contexts/SelectedBooksContext";
@@ -23,7 +24,9 @@ export default function Home() {
   return (
     <SelectedBooksProvider>
       <PageLayout>
-        <MainContent />
+        <Suspense fallback={<div className="p-6">Loading library...</div>}>
+          <MainContent />
+        </Suspense>
       </PageLayout>
     </SelectedBooksProvider>
   );
