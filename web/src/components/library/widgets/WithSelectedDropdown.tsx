@@ -42,6 +42,10 @@ export interface WithSelectedDropdownProps {
    * Whether Send action is disabled.
    */
   isSendDisabled?: boolean;
+  /**
+   * Whether the dropdown is disabled.
+   */
+  disabled?: boolean;
 }
 
 /**
@@ -56,6 +60,7 @@ export function WithSelectedDropdown({
   onClick,
   selectedBook,
   isSendDisabled = false,
+  disabled = false,
 }: WithSelectedDropdownProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -69,6 +74,9 @@ export function WithSelectedDropdown({
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
+    if (disabled) {
+      return;
+    }
     setIsMenuOpen((prev) => !prev);
     onClick?.();
   };

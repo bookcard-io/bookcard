@@ -133,6 +133,7 @@ export function SearchWidgetBar({
         <WithSelectedDropdown
           onClick={onWithSelectedClick}
           selectedBook={selectedBook}
+          disabled={selectedBookIds.size === 0}
         />
         <div className="relative">
           <SortByDropdown sortBy={sortBy} onClick={onSortByClick} />
