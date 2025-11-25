@@ -557,3 +557,197 @@ class TestGetReadStatus:
         session.set_exec_result([])
         result = reading_service.get_read_status(1, 1, 1)
         assert result is None
+
+
+class TestUpdateProgressOptionalParams:
+    """Test update_progress with optional parameters on existing progress."""
+
+    @pytest.mark.parametrize(
+        ("param_name", "param_value", "expected_attr"),
+        [
+            ("cfi", "epubcfi(/6/4[chap01ref]!/4/2/2[para05]/3:0)", "cfi"),
+            ("page_number", 50, "page_number"),
+            ("device", "kindle-123", "device"),
+        ],
+    )
+    def test_update_progress_existing_with_optional_params(
+        self,
+        reading_service: ReadingService,
+        session: DummySession,  # type: ignore[valid-type]
+        param_name: str,
+        param_value: str | int,
+        expected_attr: str,
+    ) -> None:
+        """Test update_progress updates existing progress with optional params."""
+        existing = ReadingProgress(
+            id=1,
+            user_id=1,
+            library_id=1,
+            book_id=1,
+            book_format="EPUB",
+            progress=0.3,
+        )
+        session.set_exec_result([existing])
+        session.add_exec_result([])  # get_by_user_book for first_opened check
+
+        # Call with appropriate parameter based on param_name to satisfy type checker
+        if param_name == "cfi":
+            result = reading_service.update_progress(
+                user_id=1,
+                library_id=1,
+                book_id=1,
+                book_format="EPUB",
+                progress=0.7,
+                cfi=str(param_value),
+            )
+        elif param_name == "page_number":
+            result = reading_service.update_progress(
+                user_id=1,
+                library_id=1,
+                book_id=1,
+                book_format="EPUB",
+                progress=0.7,
+                page_number=int(param_value),
+            )
+        else:  # device
+            result = reading_service.update_progress(
+                user_id=1,
+                library_id=1,
+                book_id=1,
+                book_format="EPUB",
+                progress=0.7,
+                device=str(param_value),
+            )
+        assert getattr(result, expected_attr) == param_value
+
+
+class TestEndSessionInvalidProgress:
+    """Test end_session with invalid progress values."""
+
+    @pytest.mark.parametrize(
+        ("progress_end", "expected_error"),
+        [
+            (-0.1, "Progress must be between 0.0 and 1.0, got -0.1"),
+            (1.5, "Progress must be between 0.0 and 1.0, got 1.5"),
+        ],
+    )
+    def test_end_session_invalid_progress_range(
+        self,
+        reading_service: ReadingService,
+        session: DummySession,  # type: ignore[valid-type]
+        progress_end: float,
+        expected_error: str,
+    ) -> None:
+        """Test end_session raises ValueError for invalid progress."""
+        with pytest.raises(ValueError, match=expected_error):
+            reading_service.end_session(session_id=1, progress_end=progress_end)
+
+
+class TestMarkAsReadWithProgress:
+    """Test mark_as_read with existing progress."""
+
+    def test_mark_as_read_update_existing_with_progress(
+        self,
+        reading_service: ReadingService,
+        session: DummySession,  # type: ignore[valid-type]
+    ) -> None:
+        """Test mark_as_read updates existing status with progress_when_marked."""
+        existing_progress = ReadingProgress(
+            id=1,
+            user_id=1,
+            library_id=1,
+            book_id=1,
+            book_format="EPUB",
+            progress=0.75,
+        )
+        existing_status = ReadStatus(
+            id=1,
+            user_id=1,
+            library_id=1,
+            book_id=1,
+            status=ReadStatusEnum.READING,
+        )
+        # First query: get_by_user_book_format (for ReadingProgress) - returns progress
+        session.set_exec_result([existing_progress])
+        # Second query: get_by_user_book (for ReadStatus) - returns existing
+        session.add_exec_result([existing_status])
+        result = reading_service.mark_as_read(
+            user_id=1,
+            library_id=1,
+            book_id=1,
+            manual=True,
+        )
+        assert result.status == ReadStatusEnum.READ
+        assert result.auto_marked is False
+        assert result.progress_when_marked == 0.75
+
+
+class TestAutoMarkAsRead:
+    """Test _auto_mark_as_read method edge cases."""
+
+    def test_auto_mark_as_read_existing_not_read(
+        self,
+        reading_service: ReadingService,
+        session: DummySession,  # type: ignore[valid-type]
+    ) -> None:
+        """Test _auto_mark_as_read updates existing status that is not READ."""
+        existing_status = ReadStatus(
+            id=1,
+            user_id=1,
+            library_id=1,
+            book_id=1,
+            status=ReadStatusEnum.READING,
+        )
+        # Call through update_progress to trigger auto-mark
+        # Query order: 1) get_by_user_book_format (for progress), 2) get_by_user_book (for auto-mark), 3) get_by_user_book (for first_opened)
+        session.set_exec_result([])  # get_by_user_book_format returns None (no existing progress)
+        session.add_exec_result([
+            existing_status
+        ])  # get_by_user_book for auto-mark returns existing status
+        session.add_exec_result([
+            existing_status
+        ])  # get_by_user_book for first_opened returns existing status
+        reading_service.update_progress(
+            user_id=1,
+            library_id=1,
+            book_id=1,
+            book_format="EPUB",
+            progress=0.95,
+        )
+        assert existing_status.status == ReadStatusEnum.READ
+        assert existing_status.auto_marked is True
+        assert existing_status.progress_when_marked == 0.95
+        assert existing_status.marked_as_read_at is not None
+
+
+class TestEnsureFirstOpened:
+    """Test _ensure_first_opened method edge cases."""
+
+    def test_ensure_first_opened_existing_no_first_opened_not_read(
+        self,
+        reading_service: ReadingService,
+        session: DummySession,  # type: ignore[valid-type]
+    ) -> None:
+        """Test _ensure_first_opened sets first_opened_at and updates status."""
+        existing_status = ReadStatus(
+            id=1,
+            user_id=1,
+            library_id=1,
+            book_id=1,
+            status=ReadStatusEnum.NOT_READ,
+            first_opened_at=None,
+        )
+        # Query order: 1) get_by_user_book_format (for progress), 2) get_by_user_book (for first_opened)
+        session.set_exec_result([])  # get_by_user_book_format returns None (no existing progress)
+        session.add_exec_result([
+            existing_status
+        ])  # get_by_user_book for first_opened returns existing
+        reading_service.update_progress(
+            user_id=1,
+            library_id=1,
+            book_id=1,
+            book_format="EPUB",
+            progress=0.1,
+        )
+        assert existing_status.first_opened_at is not None
+        assert existing_status.status == ReadStatusEnum.READING

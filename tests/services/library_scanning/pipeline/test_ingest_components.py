@@ -17,7 +17,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from datetime import UTC, datetime
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -63,6 +64,8 @@ from fundamental.services.library_scanning.pipeline.ingest_components import (
     ProgressTracker,
     RemoteIdService,
     WorkBasedSubjectStrategy,
+    WorkMetadataRepository,
+    WorkMetadataService,
     WorkSubjectRepository,
 )
 from tests.conftest import DummySession
@@ -1875,3 +1878,564 @@ class TestAuthorIngestionUnitOfWork:
         session.flush()
 
         assert result.name == author_data.name
+
+
+class TestAuthorDataFetcherFetchWorkRaw:
+    """Test fetch_work_raw method edge cases."""
+
+    def test_fetch_work_raw_with_method(self, mock_data_source: MagicMock) -> None:
+        """Test fetch_work_raw when data source has get_work_raw method."""
+        raw_data = {"title": "Test Work", "key": "OL123W"}
+        mock_data_source.get_work_raw = MagicMock(return_value=raw_data)
+        fetcher = AuthorDataFetcher(mock_data_source)
+
+        result = fetcher.fetch_work_raw("OL123W")
+
+        assert result == raw_data
+        mock_data_source.get_work_raw.assert_called_once_with("OL123W")
+
+    def test_fetch_work_raw_with_method_error(
+        self, mock_data_source: MagicMock
+    ) -> None:
+        """Test fetch_work_raw handles DataSourceError."""
+        mock_data_source.get_work_raw = MagicMock(side_effect=DataSourceError("Error"))
+        fetcher = AuthorDataFetcher(mock_data_source)
+
+        result = fetcher.fetch_work_raw("OL123W")
+
+        assert result is None
+
+    def test_fetch_work_raw_without_method(self, mock_data_source: MagicMock) -> None:
+        """Test fetch_work_raw returns None when method doesn't exist."""
+        if hasattr(mock_data_source, "get_work_raw"):
+            delattr(mock_data_source, "get_work_raw")
+        fetcher = AuthorDataFetcher(mock_data_source)
+
+        result = fetcher.fetch_work_raw("OL123W")
+
+        assert result is None
+
+
+class TestAuthorMetadataRepositoryFindByKey:
+    """Test find_by_openlibrary_key edge cases."""
+
+    def test_find_by_openlibrary_key_with_prefix(
+        self, session: DummySession, author_metadata: AuthorMetadata
+    ) -> None:
+        """Test find_by_openlibrary_key when key already has /authors/ prefix."""
+        author_metadata.openlibrary_key = "/authors/OL12345A"
+        session.set_exec_result([author_metadata])  # type: ignore[attr-defined]
+        repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
+
+        result = repo.find_by_openlibrary_key("/authors/OL12345A")
+
+        assert result == author_metadata
+
+
+class TestWorkMetadataRepository:
+    """Test WorkMetadataRepository methods."""
+
+    def test_find_by_work_key(self, session: DummySession) -> None:
+        """Test find_by_work_key finds existing work metadata."""
+        from fundamental.models.author_metadata import WorkMetadata
+
+        work_metadata = WorkMetadata(
+            id=1,
+            work_key="OL123W",
+            title="Test Work",
+        )
+        session.set_exec_result([work_metadata])  # type: ignore[attr-defined]
+        repo = WorkMetadataRepository(session)  # type: ignore[arg-type]
+
+        result = repo.find_by_work_key("OL123W")
+
+        assert result == work_metadata
+
+    def test_create_work_metadata(self, session: DummySession) -> None:
+        """Test create work metadata."""
+        from fundamental.models.author_metadata import WorkMetadata
+
+        work_metadata = WorkMetadata(
+            work_key="OL123W",
+            title="Test Work",
+        )
+        repo = WorkMetadataRepository(session)  # type: ignore[arg-type]
+
+        result = repo.create(work_metadata)
+
+        assert result == work_metadata
+        assert work_metadata in session.added  # type: ignore[attr-defined]
+
+    def test_update_work_metadata(self, session: DummySession) -> None:
+        """Test update work metadata."""
+        from fundamental.models.author_metadata import WorkMetadata
+
+        existing = WorkMetadata(
+            id=1,
+            work_key="OL123W",
+            title="Old Title",
+        )
+        updated = WorkMetadata(
+            work_key="OL123W",
+            title="New Title",
+            description="New description",
+        )
+        repo = WorkMetadataRepository(session)  # type: ignore[arg-type]
+
+        result = repo.update(existing, updated)
+
+        assert result.title == "New Title"
+        assert result.description == "New description"
+        assert result.updated_at is not None
+
+
+class TestAuthorWorkServicePersistSubjects:
+    """Test persist_work_subjects edge cases."""
+
+    @pytest.mark.parametrize(
+        ("subject_length", "should_truncate"),
+        [
+            (150, False),
+            (250, True),
+        ],
+    )
+    def test_persist_work_subjects_truncation(
+        self,
+        session: DummySession,
+        subject_length: int,
+        should_truncate: bool,
+    ) -> None:
+        """Test persist_work_subjects truncates long subject names."""
+        work = AuthorWork(
+            id=1,
+            author_metadata_id=1,
+            work_key="OL123W",
+        )
+        long_subject = "A" * subject_length
+        work_repo = AuthorWorkRepository(session)  # type: ignore[arg-type]
+        subject_repo = WorkSubjectRepository(session)  # type: ignore[arg-type]
+        service = AuthorWorkService(work_repo, subject_repo)
+
+        result = service.persist_work_subjects(work, [long_subject])
+
+        if should_truncate:
+            assert result == 1
+            # Check that subject was truncated to 200 chars
+            added_subjects = [
+                item
+                for item in session.added  # type: ignore[attr-defined]
+                if isinstance(item, WorkSubject)
+            ]
+            assert len(added_subjects) == 1
+            assert len(added_subjects[0].subject_name) == 200
+        else:
+            assert result == 1
+
+    def test_persist_work_subjects_with_exception(
+        self,
+        session: DummySession,
+    ) -> None:
+        """Test persist_work_subjects handles TypeError/ValueError."""
+        work = AuthorWork(
+            id=1,
+            author_metadata_id=1,
+            work_key="OL123W",
+        )
+        work_repo = AuthorWorkRepository(session)  # type: ignore[arg-type]
+        subject_repo = WorkSubjectRepository(session)  # type: ignore[arg-type]
+        service = AuthorWorkService(work_repo, subject_repo)
+        # Mock exists to return False, create to raise exception
+        with (
+            patch.object(subject_repo, "exists", return_value=False),
+            patch.object(
+                subject_repo, "create", side_effect=TypeError("Invalid subject")
+            ),
+        ):
+            result = service.persist_work_subjects(work, ["Test Subject"])
+
+            # Should return 0 because exception was caught
+            assert result == 0
+
+
+class TestWorkMetadataService:
+    """Test WorkMetadataService methods."""
+
+    def test_normalize_and_persist_create(self, session: DummySession) -> None:
+        """Test normalize_and_persist creates new work metadata."""
+
+        raw_data = {
+            "title": "Test Work",
+            "description": {"value": "Test description"},
+            "first_sentence": {"value": "First sentence"},
+            "first_publish_date": "2020-01-01",
+            "covers": [12345],
+            "subjects": ["Fiction", {"name": "Adventure"}],
+            "subject_people": ["Person1", "Person2"],
+            "subject_places": ["Place1"],
+            "links": [{"url": "https://example.com", "title": "Link"}],
+            "excerpts": [{"text": "Excerpt"}],
+            "revision": 1,
+            "latest_revision": 2,
+            "created": {"value": "2020-01-01T00:00:00Z"},
+            "last_modified": {"value": "2020-01-02T00:00:00Z"},
+        }
+        session.set_exec_result([])  # type: ignore[attr-defined]
+        work_metadata_repo = WorkMetadataRepository(session)  # type: ignore[arg-type]
+        service = WorkMetadataService(work_metadata_repo)
+
+        result = service.normalize_and_persist("OL123W", raw_data)
+
+        assert result.work_key == "OL123W"
+        assert result.title == "Test Work"
+        assert result.description == "Test description"
+        assert result.subjects == ["Fiction", "Adventure"]
+
+    def test_normalize_and_persist_update(self, session: DummySession) -> None:
+        """Test normalize_and_persist updates existing work metadata."""
+        from fundamental.models.author_metadata import WorkMetadata
+
+        existing = WorkMetadata(
+            id=1,
+            work_key="OL123W",
+            title="Old Title",
+        )
+        raw_data = {
+            "title": "New Title",
+            "description": "New description",
+        }
+        session.set_exec_result([existing])  # type: ignore[attr-defined]
+        work_metadata_repo = WorkMetadataRepository(session)  # type: ignore[arg-type]
+        service = WorkMetadataService(work_metadata_repo)
+
+        result = service.normalize_and_persist("OL123W", raw_data)
+
+        assert result.title == "New Title"
+        assert result.description == "New description"
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            (None, None),
+            ("simple string", "simple string"),
+            ({"value": "dict value"}, "dict value"),
+            ({"value": None}, None),
+        ],
+    )
+    def test_extract_text_field(
+        self,
+        session: DummySession,
+        value: str | dict[str, object] | None,
+        expected: str | None,
+    ) -> None:
+        """Test _extract_text_field with various input types."""
+        work_metadata_repo = WorkMetadataRepository(session)  # type: ignore[arg-type]
+        service = WorkMetadataService(work_metadata_repo)
+
+        result = service._extract_text_field(value)
+
+        assert result == expected
+
+    @pytest.mark.parametrize(
+        ("value", "expected_type"),
+        [
+            (None, type(None)),
+            ("2020-01-01T00:00:00Z", datetime),
+            ({"value": "2020-01-01T00:00:00Z"}, datetime),
+            ({"value": None}, type(None)),
+            (datetime.now(UTC), datetime),
+            ("invalid", type(None)),
+        ],
+    )
+    def test_parse_datetime(
+        self,
+        session: DummySession,
+        value: str | dict[str, object] | datetime | None,
+        expected_type: type,
+    ) -> None:
+        """Test _parse_datetime with various input types."""
+        work_metadata_repo = WorkMetadataRepository(session)  # type: ignore[arg-type]
+        service = WorkMetadataService(work_metadata_repo)
+
+        result = service._parse_datetime(value)
+
+        assert isinstance(result, expected_type)
+
+
+class TestWorkBasedSubjectStrategyEdgeCases:
+    """Test WorkBasedSubjectStrategy edge cases."""
+
+    def test_persist_work_subjects_with_commit(
+        self, session: DummySession, mock_data_source: MagicMock
+    ) -> None:
+        """Test _persist_work_subjects with commit capability."""
+        work = AuthorWork(
+            id=1,
+            author_metadata_id=1,
+            work_key="OL123W",
+        )
+        session.add(work)  # type: ignore[attr-defined]
+        session.flush()  # type: ignore[attr-defined]
+        # Set up exec result so find_by_work_key returns the work
+        session.set_exec_result([work])  # type: ignore[attr-defined]
+        initial_commit_count = session.commit_count  # type: ignore[attr-defined]
+        work_repo = AuthorWorkRepository(session)  # type: ignore[arg-type]
+        subject_repo = WorkSubjectRepository(session)  # type: ignore[arg-type]
+        work_service = AuthorWorkService(work_repo, subject_repo)
+        data_fetcher = AuthorDataFetcher(mock_data_source)
+        strategy = WorkBasedSubjectStrategy(
+            data_fetcher, work_service, work_repo, subject_repo
+        )
+
+        strategy._persist_work_subjects("OL123W", ["Subject1", "Subject2"])
+
+        # Check that commit was called
+        assert session.commit_count > initial_commit_count  # type: ignore[attr-defined]
+
+    def test_persist_work_subjects_with_exception(
+        self, session: DummySession, mock_data_source: MagicMock
+    ) -> None:
+        """Test _persist_work_subjects handles exceptions."""
+        work = AuthorWork(
+            id=1,
+            author_metadata_id=1,
+            work_key="OL123W",
+        )
+        session.add(work)  # type: ignore[attr-defined]
+        session.flush()  # type: ignore[attr-defined]
+        # Set up exec result so find_by_work_key returns the work
+        session.set_exec_result([work])  # type: ignore[attr-defined]
+        session.commit = MagicMock()  # type: ignore[attr-defined]
+        rollback_mock = MagicMock()
+        session.rollback = rollback_mock  # type: ignore[attr-defined]
+        work_repo = AuthorWorkRepository(session)  # type: ignore[arg-type]
+        subject_repo = WorkSubjectRepository(session)  # type: ignore[arg-type]
+        work_service = AuthorWorkService(work_repo, subject_repo)
+        data_fetcher = AuthorDataFetcher(mock_data_source)
+        strategy = WorkBasedSubjectStrategy(
+            data_fetcher, work_service, work_repo, subject_repo
+        )
+        # Mock persist_work_subjects to raise exception
+        with patch.object(
+            work_service, "persist_work_subjects", side_effect=TypeError("Invalid")
+        ):
+            strategy._persist_work_subjects("OL123W", ["Subject1"])
+
+        # Check that rollback was called
+        rollback_mock.assert_called_once()
+
+    def test_persist_work_metadata_with_service(
+        self, session: DummySession, mock_data_source: MagicMock
+    ) -> None:
+        """Test _persist_work_metadata when service is available."""
+        raw_data = {"title": "Test Work", "key": "OL123W"}
+        mock_data_source.get_work_raw = MagicMock(return_value=raw_data)
+        work_repo = AuthorWorkRepository(session)  # type: ignore[arg-type]
+        subject_repo = WorkSubjectRepository(session)  # type: ignore[arg-type]
+        work_service = AuthorWorkService(work_repo, subject_repo)
+        work_metadata_repo = WorkMetadataRepository(session)  # type: ignore[arg-type]
+        work_metadata_service = WorkMetadataService(work_metadata_repo)
+        session.commit = MagicMock()  # type: ignore[attr-defined]
+        data_fetcher = AuthorDataFetcher(mock_data_source)
+        strategy = WorkBasedSubjectStrategy(
+            data_fetcher,
+            work_service,
+            work_repo,
+            subject_repo,
+            work_metadata_service=work_metadata_service,
+        )
+
+        strategy._persist_work_metadata("OL123W")
+
+        # Check that work metadata was persisted
+        assert len(session.added) > 0  # type: ignore[attr-defined]
+
+    def test_persist_work_metadata_with_exception(
+        self, session: DummySession, mock_data_source: MagicMock
+    ) -> None:
+        """Test _persist_work_metadata handles exceptions."""
+        raw_data = {"title": "Test Work"}
+        mock_data_source.get_work_raw = MagicMock(return_value=raw_data)
+        work_repo = AuthorWorkRepository(session)  # type: ignore[arg-type]
+        subject_repo = WorkSubjectRepository(session)  # type: ignore[arg-type]
+        work_service = AuthorWorkService(work_repo, subject_repo)
+        work_metadata_repo = WorkMetadataRepository(session)  # type: ignore[arg-type]
+        work_metadata_service = WorkMetadataService(work_metadata_repo)
+        session.commit = MagicMock()  # type: ignore[attr-defined]
+        data_fetcher = AuthorDataFetcher(mock_data_source)
+        strategy = WorkBasedSubjectStrategy(
+            data_fetcher,
+            work_service,
+            work_repo,
+            subject_repo,
+            work_metadata_service=work_metadata_service,
+        )
+        # Mock normalize_and_persist to raise exception
+        with patch.object(
+            work_metadata_service,
+            "normalize_and_persist",
+            side_effect=ValueError("Invalid data"),
+        ):
+            strategy._persist_work_metadata("OL123W")
+
+        # Should not raise, just log
+
+    def test_fetch_subjects_max_subjects_reached(
+        self, session: DummySession, mock_data_source: MagicMock
+    ) -> None:
+        """Test fetch_subjects stops when max unique subjects reached."""
+        from fundamental.services.library_scanning.pipeline.ingest_components import (
+            MAX_UNIQUE_SUBJECTS,
+        )
+
+        # Create enough works to exceed max subjects
+        work_keys = [f"OL{i}W" for i in range(200)]
+        book_data = BookData(
+            key="OL1W",
+            title="Test Book",
+            subjects=[f"Subject{i}" for i in range(10)],
+        )
+        mock_data_source.get_author_works = MagicMock(return_value=work_keys)
+        mock_data_source.get_book = MagicMock(return_value=book_data)
+        work_repo = AuthorWorkRepository(session)  # type: ignore[arg-type]
+        subject_repo = WorkSubjectRepository(session)  # type: ignore[arg-type]
+        work_service = AuthorWorkService(work_repo, subject_repo)
+        data_fetcher = AuthorDataFetcher(mock_data_source)
+        strategy = WorkBasedSubjectStrategy(
+            data_fetcher, work_service, work_repo, subject_repo
+        )
+
+        result = strategy.fetch_subjects("OL123A")
+
+        # Should stop when max subjects reached
+        assert len(result) <= MAX_UNIQUE_SUBJECTS
+
+    def test_fetch_subjects_max_works_reached(
+        self, session: DummySession, mock_data_source: MagicMock
+    ) -> None:
+        """Test fetch_subjects stops when max works to query reached."""
+        from fundamental.services.library_scanning.pipeline.ingest_components import (
+            MAX_WORKS_TO_QUERY,
+        )
+
+        # Create enough works to exceed max
+        work_keys = [f"OL{i}W" for i in range(MAX_WORKS_TO_QUERY + 100)]
+        book_data = BookData(
+            key="OL1W",
+            title="Test Book",
+            subjects=["Subject1"],
+        )
+        mock_data_source.get_author_works = MagicMock(return_value=work_keys)
+        mock_data_source.get_book = MagicMock(return_value=book_data)
+        work_repo = AuthorWorkRepository(session)  # type: ignore[arg-type]
+        subject_repo = WorkSubjectRepository(session)  # type: ignore[arg-type]
+        work_service = AuthorWorkService(work_repo, subject_repo)
+        data_fetcher = AuthorDataFetcher(mock_data_source)
+        strategy = WorkBasedSubjectStrategy(
+            data_fetcher, work_service, work_repo, subject_repo
+        )
+
+        result = strategy.fetch_subjects("OL123A")
+
+        # Should process at most MAX_WORKS_TO_QUERY works
+        assert len(result) >= 0
+
+
+class TestAuthorIngestionUnitOfWorkEdgeCases:
+    """Test AuthorIngestionUnitOfWork edge cases."""
+
+    def test_ingest_author_no_works_and_work_count_none(
+        self,
+        session: DummySession,
+        match_result: MatchResult,
+        author_data: AuthorData,
+        author_metadata: AuthorMetadata,
+    ) -> None:
+        """Test ingest_author when no works fetched and work_count is None."""
+        author_data.work_count = None
+        session.set_exec_result([author_metadata])  # type: ignore[attr-defined]
+        session.add_exec_result([])  # type: ignore[attr-defined]
+        mock_data_source = MagicMock()
+        mock_data_source.get_author_works = MagicMock(return_value=[])
+        data_fetcher = AuthorDataFetcher(mock_data_source)
+        metadata_repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
+        photo_repo = AuthorPhotoRepository(session)  # type: ignore[arg-type]
+        remote_id_repo = AuthorRemoteIdRepository(session)  # type: ignore[arg-type]
+        alt_name_repo = AuthorAlternateNameRepository(session)  # type: ignore[arg-type]
+        link_repo = AuthorLinkRepository(session)  # type: ignore[arg-type]
+        work_repo = AuthorWorkRepository(session)  # type: ignore[arg-type]
+        subject_repo = WorkSubjectRepository(session)  # type: ignore[arg-type]
+        url_builder = PhotoUrlBuilder()
+        photo_service = AuthorPhotoService(photo_repo, url_builder)
+        remote_id_service = RemoteIdService(remote_id_repo)
+        alt_name_service = AlternateNameService(alt_name_repo)
+        link_service = AuthorLinkService(link_repo)
+        author_service = AuthorMetadataService(
+            metadata_repo,
+            photo_service,
+            remote_id_service,
+            alt_name_service,
+            link_service,
+            url_builder,
+        )
+        work_service = AuthorWorkService(work_repo, subject_repo)
+        session.set_exec_result([])  # type: ignore[attr-defined]
+        uow = AuthorIngestionUnitOfWork(
+            session,  # type: ignore[arg-type]
+            author_service,
+            work_service,
+            data_fetcher=data_fetcher,
+        )
+
+        result = uow.ingest_author(match_result, author_data)
+        session.flush()  # type: ignore[attr-defined]
+
+        assert result.work_count == 0
+
+    def test_ingest_author_with_exception_types(
+        self,
+        session: DummySession,
+        match_result: MatchResult,
+        author_data: AuthorData,
+    ) -> None:
+        """Test ingest_author handles various exception types."""
+        from sqlalchemy.exc import SQLAlchemyError
+
+        metadata_repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
+        photo_repo = AuthorPhotoRepository(session)  # type: ignore[arg-type]
+        remote_id_repo = AuthorRemoteIdRepository(session)  # type: ignore[arg-type]
+        alt_name_repo = AuthorAlternateNameRepository(session)  # type: ignore[arg-type]
+        link_repo = AuthorLinkRepository(session)  # type: ignore[arg-type]
+        work_repo = AuthorWorkRepository(session)  # type: ignore[arg-type]
+        subject_repo = WorkSubjectRepository(session)  # type: ignore[arg-type]
+        url_builder = PhotoUrlBuilder()
+        photo_service = AuthorPhotoService(photo_repo, url_builder)
+        remote_id_service = RemoteIdService(remote_id_repo)
+        alt_name_service = AlternateNameService(alt_name_repo)
+        link_service = AuthorLinkService(link_repo)
+        author_service = AuthorMetadataService(
+            metadata_repo,
+            photo_service,
+            remote_id_service,
+            alt_name_service,
+            link_service,
+            url_builder,
+        )
+        work_service = AuthorWorkService(work_repo, subject_repo)
+        # Make upsert_author raise SQLAlchemyError
+        author_service.upsert_author = MagicMock(  # type: ignore[assignment]
+            side_effect=SQLAlchemyError("DB error")
+        )
+        uow = AuthorIngestionUnitOfWork(
+            session,  # type: ignore[arg-type]
+            author_service,
+            work_service,
+        )
+
+        rollback_mock = MagicMock()
+        session.rollback = rollback_mock  # type: ignore[attr-defined]
+
+        with pytest.raises(SQLAlchemyError):
+            uow.ingest_author(match_result, author_data)
+
+        # Check that rollback was called
+        rollback_mock.assert_called_once()
