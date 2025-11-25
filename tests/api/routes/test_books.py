@@ -256,6 +256,8 @@ class MockBookService:
         sort_by: str = "timestamp",
         sort_order: str = "desc",
         full: bool = False,
+        pubdate_month: int | None = None,
+        pubdate_day: int | None = None,
     ) -> tuple[list[BookWithRelations | BookWithFullRelations], int]:
         """Mock list_books method."""
         return self._list_books_result
