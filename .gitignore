@@ -414,6 +414,7 @@ web/vitest-test-results/
 
 # docs and various
 misc/
+docker-compose.local.yaml
 
 # database files
 fundamental.db
