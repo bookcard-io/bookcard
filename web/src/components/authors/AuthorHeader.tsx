@@ -15,53 +15,20 @@
 
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthorEditModal } from "@/components/authors/AuthorEditModal";
 import { FullscreenImageModal } from "@/components/common/FullscreenImageModal";
 import { ImageWithLoading } from "@/components/common/ImageWithLoading";
+import { useAuthorPolling } from "@/hooks/useAuthorPolling";
+import { useAuthorRematch } from "@/hooks/useAuthorRematch";
+import { useOlidInput } from "@/hooks/useOlidInput";
 import { cn } from "@/libs/utils";
 import type { AuthorWithMetadata } from "@/types/author";
 import {
   categorizeGenresAndStyles,
   getPrimaryGenre,
 } from "@/utils/genreCategorizer";
-
-/**
- * Normalize an OpenLibrary author key to a bare OLID.
- *
- * Examples
- * --------
- * - "/authors/OL52940A" -> "OL52940A"
- * - "authors/OL52940A" -> "OL52940A"
- * - "OL52940A" -> "OL52940A"
- */
-const normalizeAuthorKey = (key?: string | null): string =>
-  key?.replace(/^\/?authors\//, "").replace(/^\//, "") ?? "";
-
-/**
- * Build the author identifier used for rematch requests.
- *
- * The backend prefers a Calibre-based identifier so it can always
- * resolve or create the appropriate mapping, regardless of whether
- * the author is already matched:
- *
- * - If `calibre_id` is present, use `calibre-{calibre_id}`.
- * - Otherwise, fall back to an existing `calibre-` style key.
- * - As a last resort, use a normalized OpenLibrary key.
- */
-const buildRematchAuthorId = (author: AuthorWithMetadata): string | null => {
-  if (author.calibre_id != null) {
-    return `calibre-${author.calibre_id}`;
-  }
-
-  if (author.key?.startsWith("calibre-")) {
-    return author.key;
-  }
-
-  const normalizedKey = normalizeAuthorKey(author.key);
-  return normalizedKey || null;
-};
+import { normalizeAuthorKey } from "@/utils/openLibrary";
 
 export interface AuthorHeaderProps {
   /** Author data to display. */
@@ -95,15 +62,9 @@ export function AuthorHeader({
   onBack,
   onAuthorUpdate,
 }: AuthorHeaderProps) {
-  const router = useRouter();
   const [isPhotoOpen, setIsPhotoOpen] = useState(false);
   const [showAllStyles, setShowAllStyles] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isRematching, setIsRematching] = useState(false);
-  const [showOlidInput, setShowOlidInput] = useState(false);
-  const [olidInput, setOlidInput] = useState("");
-  const olidInputRef = useRef<HTMLInputElement>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   // Track photo URL separately to avoid remounting on updates
   const [photoUrl, setPhotoUrl] = useState<string | null | undefined>(
     author.photo_url,
@@ -120,159 +81,48 @@ export function AuthorHeader({
     setPhotoUrl(author.photo_url);
   }, [author.key, author.photo_url]);
 
+  // Custom hooks for rematch functionality
+  const { pollForAuthor } = useAuthorPolling();
+  const olidInput = useOlidInput({ author });
+  const { isRematching, rematch } = useAuthorRematch({
+    author,
+    onRematchSuccess: (openlibraryKey) => {
+      olidInput.hideInput();
+      void pollForAuthor(openlibraryKey);
+    },
+  });
+
   const openPhoto = useCallback(() => setIsPhotoOpen(true), []);
   const closePhoto = useCallback(() => setIsPhotoOpen(false), []);
   const openEditModal = useCallback(() => setIsEditModalOpen(true), []);
   const closeEditModal = useCallback(() => setIsEditModalOpen(false), []);
 
-  const handleShowOlidInput = useCallback(() => {
-    setShowOlidInput(true);
-    const normalizedKey = normalizeAuthorKey(author.key);
-    // For already-matched authors, prefill with existing OLID.
-    // For unmatched authors, leave blank so user must provide an OLID.
-    const initialOlid =
-      author.is_unmatched || author.key?.startsWith("calibre-")
-        ? ""
-        : normalizedKey;
-    setOlidInput(initialOlid);
-    // Focus the input after it's rendered
-    setTimeout(() => {
-      olidInputRef.current?.focus();
-    }, 0);
-  }, [author.is_unmatched, author.key]);
-
-  const handleCancelOlidInput = useCallback(() => {
-    setShowOlidInput(false);
-    setOlidInput("");
-  }, []);
-
-  /**
-   * Poll for author availability after rematch.
-   *
-   * Checks if the author with the given OpenLibrary key is available,
-   * then navigates to the new author page once found.
-   *
-   * Parameters
-   * ----------
-   * openlibraryKey : string
-   *     Normalized OpenLibrary key (e.g., "OL52940A").
-   * maxAttempts : number
-   *     Maximum number of polling attempts (default: 15).
-   * pollIntervalMs : number
-   *     Polling interval in milliseconds (default: 2000).
-   */
-  const pollForNewAuthor = useCallback(
-    async (openlibraryKey: string, maxAttempts = 15, pollIntervalMs = 2000) => {
-      // Normalize the key: remove /authors/ prefix if present
-      const normalizedKey = normalizeAuthorKey(openlibraryKey);
-      let attempts = 0;
-
-      const poll = async (): Promise<void> => {
-        attempts += 1;
-
-        try {
-          const response = await fetch(`/api/authors/${normalizedKey}`);
-          if (response.ok) {
-            // Author is available, navigate to the new page
-            router.push(`/authors/${normalizedKey}`);
-            return;
-          }
-        } catch (error) {
-          // Author not available yet, continue polling
-          console.debug(
-            `Polling for author ${normalizedKey}, attempt ${attempts}/${maxAttempts}:`,
-            error,
-          );
-        }
-
-        if (attempts < maxAttempts) {
-          pollingIntervalRef.current = setTimeout(poll, pollIntervalMs);
-        } else {
-          // Max attempts reached, navigate anyway (user can refresh if needed)
-          console.warn(
-            `Max polling attempts reached for author ${normalizedKey}, navigating anyway`,
-          );
-          router.push(`/authors/${normalizedKey}`);
-        }
-      };
-
-      // Start polling after initial delay
-      pollingIntervalRef.current = setTimeout(poll, pollIntervalMs);
-    },
-    [router],
-  );
-
-  // Cleanup polling interval on unmount
-  useEffect(() => {
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearTimeout(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-    };
-  }, []);
-
-  const handleRematch = useCallback(
-    async (olid?: string) => {
-      const authorIdForRematch = buildRematchAuthorId(author);
-      if (isRematching || !authorIdForRematch) {
-        return;
-      }
-
-      setIsRematching(true);
-      try {
-        const response = await fetch(
-          `/api/authors/${authorIdForRematch}/rematch`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(olid ? { openlibrary_key: olid } : {}),
-          },
-        );
-
-        if (!response.ok) {
-          const errorData = (await response.json()) as { detail?: string };
-          throw new Error(errorData.detail || "Failed to rematch author");
-        }
-
-        const result = (await response.json()) as {
-          message: string;
-          openlibrary_key?: string;
-        };
-
-        // If we have the new OpenLibrary key, poll for the author and navigate
-        if (result.openlibrary_key) {
-          // Close the input form
-          setShowOlidInput(false);
-          setOlidInput("");
-          // Start polling for the new author and navigate when available
-          await pollForNewAuthor(result.openlibrary_key);
-        } else {
-          // No key in response, just close the form
-          setShowOlidInput(false);
-          setOlidInput("");
-        }
-      } catch (error) {
-        console.error("Failed to rematch author:", error);
-        // TODO: Show error toast/notification
-      } finally {
-        setIsRematching(false);
-      }
-    },
-    [author, isRematching, pollForNewAuthor],
-  );
-
   const handleSubmitOlid = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      const trimmedOlid = olidInput.trim();
-      if (trimmedOlid) {
-        handleRematch(trimmedOlid);
+      const validatedOlid = olidInput.getValidatedOlid();
+      if (!validatedOlid) {
+        return;
       }
+
+      // If the inputted OLID matches the author's current key, just close the form
+      const currentAuthorKey = normalizeAuthorKey(author.key);
+      const normalizedInputOlid = normalizeAuthorKey(validatedOlid);
+
+      if (
+        currentAuthorKey &&
+        normalizedInputOlid &&
+        currentAuthorKey.toLowerCase() === normalizedInputOlid.toLowerCase()
+      ) {
+        // Already matched to this OLID, just close the form
+        olidInput.hideInput();
+        return;
+      }
+
+      // Proceed with rematch
+      void rematch(validatedOlid);
     },
-    [olidInput, handleRematch],
+    [author.key, olidInput, rematch],
   );
 
   // Extract bio text
@@ -380,50 +230,74 @@ export function AuthorHeader({
 
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-3">
-            {showOlidInput ? (
-              <form
-                onSubmit={handleSubmitOlid}
-                className="flex items-center gap-2"
-              >
-                <input
-                  ref={olidInputRef}
-                  type="text"
-                  value={olidInput}
-                  onChange={(e) => setOlidInput(e.target.value)}
-                  placeholder="Enter OLID (e.g., OL676009W)"
-                  disabled={isRematching}
-                  className="rounded-md border border-surface-a20 bg-surface-tonal-a10 px-3 py-2 text-[var(--color-text-a0)] text-sm placeholder:text-[var(--color-text-a40)] focus:border-[var(--color-primary-a0)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-a0)] disabled:cursor-not-allowed disabled:opacity-50"
-                />
-                <button
-                  type="submit"
-                  disabled={isRematching || !olidInput.trim()}
-                  className="flex items-center gap-2 rounded-md bg-[var(--color-primary-a0)] px-4 py-2 font-medium text-[var(--color-text-primary-a0)] text-sm transition-colors hover:bg-[var(--color-primary-a10)] focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 active:bg-[var(--color-primary-a20)] disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-label="Submit OLID"
-                >
-                  <i
-                    className={cn(
-                      "pi",
-                      isRematching ? "pi-spin pi-spinner" : "pi-check",
+            {olidInput.showOlidInput ? (
+              <form onSubmit={handleSubmitOlid} className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex flex-1 flex-col gap-1">
+                    <input
+                      ref={olidInput.olidInputRef}
+                      type="text"
+                      value={olidInput.olidInput}
+                      onChange={olidInput.handleInputChange}
+                      onBlur={olidInput.handleInputBlur}
+                      placeholder="Enter OLID (e.g., OL676009W)"
+                      disabled={isRematching}
+                      aria-invalid={olidInput.olidError ? "true" : "false"}
+                      aria-describedby={
+                        olidInput.olidError ? "olid-error" : undefined
+                      }
+                      className={cn(
+                        "h-9 rounded-md border bg-surface-tonal-a10 px-3 py-2 text-[var(--color-text-a0)] text-sm placeholder:text-[var(--color-text-a40)] focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50",
+                        olidInput.olidError
+                          ? "border-danger-a0 focus:border-danger-a0 focus:ring-danger-a0"
+                          : "border-surface-a20 focus:border-[var(--color-primary-a0)] focus:ring-[var(--color-primary-a0)]",
+                      )}
+                    />
+                    {olidInput.olidError && (
+                      <span
+                        id="olid-error"
+                        className="text-danger-a10 text-xs"
+                        role="alert"
+                      >
+                        {olidInput.olidError}
+                      </span>
                     )}
-                    aria-hidden="true"
-                  />
-                  <span>{isRematching ? "Matching..." : "Match"}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCancelOlidInput}
-                  disabled={isRematching}
-                  className="flex h-9 w-9 items-center justify-center rounded-md border border-surface-a20 bg-surface-tonal-a10 text-text-a30 transition-[background-color,border-color] duration-200 hover:border-surface-a30 hover:bg-surface-tonal-a20 hover:text-text-a0 focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-label="Cancel"
-                  title="Cancel"
-                >
-                  <i className="pi pi-times" aria-hidden="true" />
-                </button>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={
+                      isRematching ||
+                      !olidInput.olidInput.trim() ||
+                      !!olidInput.olidError
+                    }
+                    className="flex h-9 items-center gap-2 rounded-md bg-[var(--color-primary-a0)] px-4 py-2 font-medium text-[var(--color-text-primary-a0)] text-sm transition-colors hover:bg-[var(--color-primary-a10)] focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 active:bg-[var(--color-primary-a20)] disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label="Submit OLID"
+                  >
+                    <i
+                      className={cn(
+                        "pi",
+                        isRematching ? "pi-spin pi-spinner" : "pi-check",
+                      )}
+                      aria-hidden="true"
+                    />
+                    <span>{isRematching ? "Matching..." : "Match"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={olidInput.hideInput}
+                    disabled={isRematching}
+                    className="flex h-9 w-9 items-center justify-center rounded-md border border-surface-a20 bg-surface-tonal-a10 text-text-a30 transition-[background-color,border-color] duration-200 hover:border-surface-a30 hover:bg-surface-tonal-a20 hover:text-text-a0 focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label="Cancel"
+                    title="Cancel"
+                  >
+                    <i className="pi pi-times" aria-hidden="true" />
+                  </button>
+                </div>
               </form>
             ) : (
               <button
                 type="button"
-                onClick={handleShowOlidInput}
+                onClick={olidInput.showInput}
                 disabled={!author.key}
                 className="flex items-center gap-2 rounded-md bg-[var(--color-primary-a0)] px-4 py-2 font-medium text-[var(--color-text-primary-a0)] text-sm transition-colors hover:bg-[var(--color-primary-a10)] focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 active:bg-[var(--color-primary-a20)] disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Match author"
@@ -432,31 +306,35 @@ export function AuthorHeader({
                 <span>Match author</span>
               </button>
             )}
-            <button
-              type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-md border border-surface-a20 bg-surface-tonal-a10 text-text-a30 transition-[background-color,border-color] duration-200 hover:border-surface-a30 hover:bg-surface-tonal-a20 hover:text-text-a0 focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2"
-              aria-label="Align justify"
-              title="Align justify"
-            >
-              <i className="pi pi-align-justify" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={openEditModal}
-              className="flex h-9 w-9 items-center justify-center rounded-md border border-surface-a20 bg-surface-tonal-a10 text-text-a30 transition-[background-color,border-color] duration-200 hover:border-surface-a30 hover:bg-surface-tonal-a20 hover:text-text-a0 focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2"
-              aria-label="Edit"
-              title="Edit"
-            >
-              <i className="pi pi-pencil" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-md border border-surface-a20 bg-surface-tonal-a10 text-text-a30 transition-[background-color,border-color] duration-200 hover:border-surface-a30 hover:bg-surface-tonal-a20 hover:text-text-a0 focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2"
-              aria-label="More options"
-              title="More options"
-            >
-              <i className="pi pi-ellipsis-h" aria-hidden="true" />
-            </button>
+            {!olidInput.showOlidInput && (
+              <>
+                <button
+                  type="button"
+                  className="flex h-9 w-9 items-center justify-center rounded-md border border-surface-a20 bg-surface-tonal-a10 text-text-a30 transition-[background-color,border-color] duration-200 hover:border-surface-a30 hover:bg-surface-tonal-a20 hover:text-text-a0 focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2"
+                  aria-label="Align justify"
+                  title="Align justify"
+                >
+                  <i className="pi pi-align-justify" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={openEditModal}
+                  className="flex h-9 w-9 items-center justify-center rounded-md border border-surface-a20 bg-surface-tonal-a10 text-text-a30 transition-[background-color,border-color] duration-200 hover:border-surface-a30 hover:bg-surface-tonal-a20 hover:text-text-a0 focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2"
+                  aria-label="Edit"
+                  title="Edit"
+                >
+                  <i className="pi pi-pencil" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="flex h-9 w-9 items-center justify-center rounded-md border border-surface-a20 bg-surface-tonal-a10 text-text-a30 transition-[background-color,border-color] duration-200 hover:border-surface-a30 hover:bg-surface-tonal-a20 hover:text-text-a0 focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2"
+                  aria-label="More options"
+                  title="More options"
+                >
+                  <i className="pi pi-ellipsis-h" aria-hidden="true" />
+                </button>
+              </>
+            )}
           </div>
 
           {/* Biography */}

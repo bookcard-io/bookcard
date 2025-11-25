@@ -442,3 +442,57 @@ export async function mergeAuthors(
     name: string;
   };
 }
+
+/**
+ * Rematch an author to a specific OpenLibrary ID.
+ *
+ * Triggers a single-author workflow: match -> ingest -> link -> score.
+ * The match stage will use the provided OpenLibrary key directly,
+ * bypassing skip logic.
+ *
+ * Parameters
+ * ----------
+ * authorId : string
+ *     Author ID (numeric) or OpenLibrary key (e.g., "OL23919A").
+ * openlibraryKey : string | undefined
+ *     Optional OpenLibrary key to match against. If not provided,
+ *     the backend will determine the key.
+ *
+ * Returns
+ * -------
+ * Promise<{ message: string; openlibrary_key?: string; library_id?: number }>
+ *     Response with message and optional OpenLibrary key.
+ *
+ * Throws
+ * ------
+ * Error
+ *     If the rematch fails.
+ */
+export async function rematchAuthor(
+  authorId: string,
+  openlibraryKey?: string,
+): Promise<{ message: string; openlibrary_key?: string; library_id?: number }> {
+  // Normalize authorId: strip any leading /authors/ or / prefix
+  const normalizedId = authorId.replace(/^\/authors\//, "").replace(/^\//, "");
+  const response = await fetch(`/api/authors/${normalizedId}/rematch`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(
+      openlibraryKey ? { openlibrary_key: openlibraryKey } : {},
+    ),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json()) as { detail?: string };
+    throw new Error(errorData.detail || "Failed to rematch author");
+  }
+
+  return (await response.json()) as {
+    message: string;
+    openlibrary_key?: string;
+    library_id?: number;
+  };
+}
