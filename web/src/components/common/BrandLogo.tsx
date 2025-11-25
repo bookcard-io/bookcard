@@ -15,6 +15,7 @@
 
 "use client";
 
+import Link from "next/link";
 import { cn } from "@/libs/utils";
 
 export interface BrandLogoProps {
@@ -54,7 +55,11 @@ export function BrandLogo({
   textClassName,
 }: BrandLogoProps) {
   return (
-    <div className={cn("flex items-center gap-3", className)}>
+    <Link
+      href="/"
+      className={cn("flex items-center gap-3", className)}
+      aria-label="Go to home page"
+    >
       <img
         src="/logo.svg"
         alt="Fundamental Logo"
@@ -72,6 +77,6 @@ export function BrandLogo({
           Fundamental
         </span>
       )}
-    </div>
+    </Link>
   );
 }
