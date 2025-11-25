@@ -129,6 +129,20 @@ def upgrade() -> None:
     op.create_foreign_key(
         None, "shelves", "libraries", ["library_id"], ["id"], ondelete="CASCADE"
     )
+    op.alter_column(
+        "book_shelf_links", "shelf_id", existing_type=sa.INTEGER(), nullable=True
+    )
+    op.drop_constraint(
+        op.f("book_shelf_links_shelf_id_fkey"), "book_shelf_links", type_="foreignkey"
+    )
+    op.create_foreign_key(
+        None,
+        "book_shelf_links",
+        "shelves",
+        ["shelf_id"],
+        ["id"],
+        ondelete="CASCADE",
+    )
     # ### end Alembic commands ###
 
 
@@ -235,5 +249,18 @@ def downgrade() -> None:
     )
     op.alter_column(
         "annotations", "library_id", existing_type=sa.INTEGER(), nullable=False
+    )
+    op.drop_constraint(
+        op.f("book_shelf_links_shelf_id_fkey"), "book_shelf_links", type_="foreignkey"
+    )
+    op.create_foreign_key(
+        op.f("book_shelf_links_shelf_id_fkey"),
+        "book_shelf_links",
+        "shelves",
+        ["shelf_id"],
+        ["id"],
+    )
+    op.alter_column(
+        "book_shelf_links", "shelf_id", existing_type=sa.INTEGER(), nullable=False
     )
     # ### end Alembic commands ###

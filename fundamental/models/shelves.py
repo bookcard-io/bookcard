@@ -141,7 +141,11 @@ class BookShelfLink(SQLModel, table=True):
     __tablename__ = "book_shelf_links"
 
     id: int | None = Field(default=None, primary_key=True)
-    shelf_id: int = Field(foreign_key="shelves.id", index=True)
+    shelf_id: int = Field(
+        sa_column=Column(
+            Integer, ForeignKey("shelves.id", ondelete="CASCADE"), index=True
+        ),
+    )
     book_id: int = Field(index=True)
     order: int = Field(default=0, index=True)
     date_added: datetime = Field(
