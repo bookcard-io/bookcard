@@ -50,6 +50,7 @@ services:
     volumes:
       # Your books directory, typically where calibre's `metadata.db` is located
       # - /media/nas/books:/app/books
+      - ~/.fundamental:/data
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health | grep -q 'ok' && curl -fsS http://localhost:3000 | grep -q '<!DOCTYPE html>' || exit 1"]
       interval: 30s
