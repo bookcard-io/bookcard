@@ -23,7 +23,7 @@ Calibre metadata.db database.
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import Column, Float, Index, Text, UniqueConstraint
+from sqlalchemy import Column, Float, ForeignKey, Index, Integer, Text, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 from fundamental.models.openlibrary import JSONBType
@@ -367,7 +367,11 @@ class AuthorMapping(SQLModel, table=True):
         ge=0.0,
         le=1.0,
     )
-    library_id: int = Field(foreign_key="libraries.id", index=True)
+    library_id: int = Field(
+        sa_column=Column(
+            Integer, ForeignKey("libraries.id", ondelete="CASCADE"), index=True
+        ),
+    )
     is_verified: bool = Field(default=False, index=True)
     matched_by: str | None = Field(default=None, max_length=50)
     created_at: datetime = Field(

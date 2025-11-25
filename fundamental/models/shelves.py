@@ -24,6 +24,7 @@ from typing import ClassVar
 from uuid import uuid4
 
 from pydantic import ConfigDict
+from sqlalchemy import Column, ForeignKey, Integer
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -79,7 +80,11 @@ class Shelf(SQLModel, table=True):
     is_public: bool = Field(default=False, index=True)
     is_active: bool = Field(default=True, index=True)
     user_id: int = Field(foreign_key="users.id", index=True)
-    library_id: int = Field(foreign_key="libraries.id", index=True)
+    library_id: int = Field(
+        sa_column=Column(
+            Integer, ForeignKey("libraries.id", ondelete="CASCADE"), index=True
+        ),
+    )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         index=True,

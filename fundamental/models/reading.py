@@ -21,7 +21,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Index
+from sqlalchemy import Column, ForeignKey, Index, Integer
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -81,7 +81,11 @@ class ReadingProgress(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
-    library_id: int = Field(foreign_key="libraries.id", index=True)
+    library_id: int = Field(
+        sa_column=Column(
+            Integer, ForeignKey("libraries.id", ondelete="CASCADE"), index=True
+        ),
+    )
     book_id: int = Field(index=True)  # No FK constraint - books are in Calibre DB
     format: str = Field(max_length=10, index=True)
     progress: float = Field(default=0.0, ge=0.0, le=1.0)
@@ -147,7 +151,11 @@ class ReadingSession(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
-    library_id: int = Field(foreign_key="libraries.id", index=True)
+    library_id: int = Field(
+        sa_column=Column(
+            Integer, ForeignKey("libraries.id", ondelete="CASCADE"), index=True
+        ),
+    )
     book_id: int = Field(index=True)  # No FK constraint - books are in Calibre DB
     format: str = Field(max_length=10, index=True)
     started_at: datetime = Field(
@@ -239,7 +247,11 @@ class ReadStatus(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
-    library_id: int = Field(foreign_key="libraries.id", index=True)
+    library_id: int = Field(
+        sa_column=Column(
+            Integer, ForeignKey("libraries.id", ondelete="CASCADE"), index=True
+        ),
+    )
     book_id: int = Field(index=True)  # No FK constraint - books are in Calibre DB
     status: ReadStatusEnum = Field(default=ReadStatusEnum.NOT_READ)
     first_opened_at: datetime | None = None
@@ -312,7 +324,11 @@ class Annotation(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
-    library_id: int = Field(foreign_key="libraries.id", index=True)
+    library_id: int = Field(
+        sa_column=Column(
+            Integer, ForeignKey("libraries.id", ondelete="CASCADE"), index=True
+        ),
+    )
     book_id: int = Field(index=True)  # No FK constraint - books are in Calibre DB
     format: str = Field(max_length=10, index=True)
     timestamp: float = Field(index=True)
@@ -365,7 +381,11 @@ class AnnotationDirtied(SQLModel, table=True):
     __tablename__ = "annotations_dirtied"
 
     id: int | None = Field(default=None, primary_key=True)
-    library_id: int = Field(foreign_key="libraries.id", index=True)
+    library_id: int = Field(
+        sa_column=Column(
+            Integer, ForeignKey("libraries.id", ondelete="CASCADE"), index=True
+        ),
+    )
     book_id: int = Field(index=True)  # No FK constraint - books are in Calibre DB
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),

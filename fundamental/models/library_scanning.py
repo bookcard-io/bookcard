@@ -20,6 +20,7 @@ Tracks scan history and status for each library.
 
 from datetime import UTC, datetime
 
+from sqlalchemy import Column, ForeignKey, Integer
 from sqlmodel import Field, SQLModel
 
 
@@ -52,7 +53,14 @@ class LibraryScanState(SQLModel, table=True):
     __tablename__ = "library_scan_states"
 
     id: int | None = Field(default=None, primary_key=True)
-    library_id: int = Field(foreign_key="libraries.id", index=True, unique=True)
+    library_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("libraries.id", ondelete="CASCADE"),
+            unique=True,
+            index=True,
+        ),
+    )
     last_scan_at: datetime | None = Field(default=None, index=True)
     scan_status: str = Field(default="pending", max_length=50, index=True)
     books_scanned: int = Field(default=0)
