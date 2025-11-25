@@ -30,7 +30,7 @@ export interface UseOlidInputResult {
   /** Validation error message, if any. */
   olidError: string | null;
   /** Input ref for focusing. */
-  olidInputRef: React.RefObject<HTMLInputElement>;
+  olidInputRef: React.RefObject<HTMLInputElement | null>;
   /** Show the OLID input form. */
   showInput: () => void;
   /** Hide the OLID input form. */
