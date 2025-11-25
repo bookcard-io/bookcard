@@ -16,7 +16,8 @@
 "use client";
 
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
+import { useSelectedBooks } from "@/contexts/SelectedBooksContext";
 import { useBookRating } from "@/hooks/useBookRating";
 import { useBooksNavigationData } from "@/hooks/useBooksNavigationData";
 import { useBooksViewData } from "@/hooks/useBooksViewData";
@@ -83,6 +84,8 @@ export function BooksList({
   bookDataUpdateRef,
   onBooksDataChange,
 }: BooksListProps) {
+  const { setBooks } = useSelectedBooks();
+
   // Fetch and manage books data (SRP: data concerns separated)
   const {
     uniqueBooks,
@@ -112,6 +115,11 @@ export function BooksList({
     isLoading,
     onBooksDataChange,
   });
+
+  // Publish books to context
+  useEffect(() => {
+    setBooks(uniqueBooks);
+  }, [uniqueBooks, setBooks]);
 
   // Virtualizer for efficient rendering of large lists
   const rowVirtualizer = useVirtualizer({

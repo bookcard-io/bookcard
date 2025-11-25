@@ -16,7 +16,8 @@
 "use client";
 
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useSelectedBooks } from "@/contexts/SelectedBooksContext";
 import { useBooksNavigationData } from "@/hooks/useBooksNavigationData";
 import { useBooksViewData } from "@/hooks/useBooksViewData";
 import { useInfiniteScrollVirtualizer } from "@/hooks/useInfiniteScrollVirtualizer";
@@ -90,6 +91,8 @@ export function BooksGrid({
   hideStatusHeader = false,
   hideLoadMoreMessage = false,
 }: BooksGridProps) {
+  const { setBooks } = useSelectedBooks();
+
   // Fetch and manage books data (SRP: data concerns separated)
   const {
     uniqueBooks,
@@ -118,6 +121,11 @@ export function BooksGrid({
     isLoading,
     onBooksDataChange,
   });
+
+  // Publish books to context
+  useEffect(() => {
+    setBooks(uniqueBooks);
+  }, [uniqueBooks, setBooks]);
 
   // Container ref for responsive layout calculations (not the scroll container)
   const parentRef = useRef<HTMLDivElement | null>(null);

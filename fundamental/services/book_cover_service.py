@@ -172,7 +172,7 @@ class BookCoverService:
         cover_path.write_bytes(content)
 
         # Update database to mark book as having a cover
-        with self._book_service._book_repo._get_session() as calibre_session:  # type: ignore[attr-defined]  # noqa: SLF001
+        with self._book_service._book_repo.get_session() as calibre_session:  # type: ignore[attr-defined]  # noqa: SLF001
             book_stmt = select(Book).where(Book.id == book_id)
             calibre_book = calibre_session.exec(book_stmt).first()
             if calibre_book:

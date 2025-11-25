@@ -28,6 +28,10 @@ import type { Book } from "@/types/book";
 interface SelectedBooksContextType {
   /** Set of selected book IDs. */
   selectedBookIds: Set<number>;
+  /** Current array of books in the view. */
+  books: Book[];
+  /** Update the books array. */
+  setBooks: (books: Book[]) => void;
   /** Whether a book is selected. */
   isSelected: (bookId: number) => boolean;
   /** Handle book click with multi-select support (Ctrl/Shift modifiers). */
@@ -45,18 +49,25 @@ const SelectedBooksContext = createContext<
 >(undefined);
 
 /**
- * Provider for managing selected books state.
+ * Provider for managing selected books state and current books array.
  *
  * Implements multi-select functionality with Ctrl+click (toggle) and
  * Shift+click (range selection) support.
+ * Also manages the current books array for the view, allowing components
+ * to publish/subscribe to books without prop drilling.
  */
 export function SelectedBooksProvider({ children }: { children: ReactNode }) {
   const [selectedBookIds, setSelectedBookIds] = useState<Set<number>>(
     new Set(),
   );
+  const [books, setBooks] = useState<Book[]>([]);
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(
     null,
   );
+
+  const handleSetBooks = useCallback((newBooks: Book[]) => {
+    setBooks(newBooks);
+  }, []);
 
   const isSelected = useCallback(
     (bookId: number) => {
@@ -140,6 +151,15 @@ export function SelectedBooksProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // Check if click is on "With selected" button or panel
+      const isWithSelected = target.closest(
+        "[data-with-selected-button], [data-with-selected-panel]",
+      );
+      // Don't clear if clicking on "With selected" button or panel
+      if (isWithSelected) {
+        return;
+      }
+
       // Clear selection when clicking outside book cards
       clearSelection();
     };
@@ -154,6 +174,8 @@ export function SelectedBooksProvider({ children }: { children: ReactNode }) {
     <SelectedBooksContext.Provider
       value={{
         selectedBookIds,
+        books,
+        setBooks: handleSetBooks,
         isSelected,
         handleBookClick,
         clearSelection,
