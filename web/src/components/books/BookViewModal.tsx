@@ -218,11 +218,11 @@ export function BookViewModal({
             <div className="flex flex-col gap-5 md:gap-4">
               <BookViewMetadata book={book} />
 
-              {book && <BookReadingInfo book={book} />}
-
               {book.formats && book.formats.length > 0 && bookId && (
                 <BookViewFormats formats={book.formats} book={book} />
               )}
+
+              {book && <BookReadingInfo book={book} />}
             </div>
           </div>
 
