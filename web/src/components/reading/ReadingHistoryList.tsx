@@ -56,10 +56,15 @@ export function ReadingHistoryList({
     }
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
     if (hours > 0) {
       return `${hours}h ${minutes}m`;
     }
-    return `${minutes}m`;
+    if (minutes > 0) {
+      return `${minutes}m`;
+    }
+    // Show at least 1s for any duration > 0 but < 1 second
+    return secs > 0 ? `${secs}s` : "1s";
   };
 
   const formatDate = (dateString: string): string => {
