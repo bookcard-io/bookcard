@@ -40,7 +40,6 @@ router = APIRouter(prefix="/fs", tags=["fs"])
 # considered system or container paths that are rarely useful for media
 # libraries and often large or protected.
 EXCLUDED_FS_DIR_PREFIXES: tuple[str, ...] = (
-    "/app",
     "/bin",
     "/boot",
     "/dev",
