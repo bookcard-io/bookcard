@@ -160,6 +160,11 @@ export function DevicesSection({ devices }: DevicesSectionProps) {
           My Devices
         </h2>
       </div>
+      <p className="text-sm text-text-a60">
+        Devices are used for sending books via email (e.g., Send to Kindle). You
+        can add multiple devices and set a default. All send-to and email
+        features require a device with an email address.
+      </p>
 
       <div className="w-full">
         {deviceList.length > 0 && (
