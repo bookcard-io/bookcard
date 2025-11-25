@@ -47,10 +47,6 @@ services:
       - .env
     ports:
       - "3000:3000"  # Frontend
-      - "8000:8000"  # Backend API
-    # Redis and Postgres are optional - remove depends_on to allow service to start without them
-    # If you want to use PostgreSQL, set FUNDAMENTAL_DATABASE_URL in .env or environment
-    # If you want to use Redis, ensure the redis service is running and ENABLE_REDIS=true
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health | grep -q 'ok' && curl -fsS http://localhost:3000 | grep -q '<!DOCTYPE html>' || exit 1"]
       interval: 30s
@@ -70,6 +66,7 @@ services:
       - .env
     profiles:
       - redis  # Use 'docker-compose --profile redis up' to include Redis
+      - advanced
 
   # Optional PostgreSQL service - only needed if you want to use PostgreSQL instead of SQLite
   # The application defaults to SQLite if FUNDAMENTAL_DATABASE_URL is not set
@@ -95,6 +92,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
     profiles:
       - postgres  # Use 'docker-compose --profile postgres up' to include PostgreSQL
+      - advanced
 
 volumes:
   postgres_data:
