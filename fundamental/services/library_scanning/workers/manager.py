@@ -18,6 +18,12 @@
 import logging
 import os
 
+from sqlalchemy import func
+from sqlalchemy.exc import OperationalError, ProgrammingError, SQLAlchemyError
+from sqlmodel import Session, select
+
+from fundamental.database import create_db_engine
+from fundamental.models.openlibrary import OpenLibraryAuthor
 from fundamental.services.library_scanning.workers.completion import CompletionWorker
 from fundamental.services.library_scanning.workers.crawl import CrawlWorker
 from fundamental.services.library_scanning.workers.ingest import IngestWorker
@@ -65,6 +71,9 @@ class ScanWorkerManager:
             self.threads_per_worker,
         )
 
+        # Detect best available data source
+        ingest_source = self._detect_ingest_source()
+
         # Create workers (multiple instances for parallelism)
         # MatchWorker uses HTTP data source for better performance
         # IngestWorker uses PostgreSQL dump for fast data retrieval
@@ -73,7 +82,7 @@ class ScanWorkerManager:
             self.workers.extend([
                 CrawlWorker(self.broker),
                 MatchWorker(self.broker, data_source_name="openlibrary"),
-                IngestWorker(self.broker, data_source_name="openlibrary_dump"),
+                IngestWorker(self.broker, data_source_name=ingest_source),
                 LinkWorker(self.broker),
                 ScoreWorker(self.broker),
                 CompletionWorker(self.broker),
@@ -88,6 +97,43 @@ class ScanWorkerManager:
 
         self._started = True
         logger.info("All scan workers started and listening for jobs")
+
+    def _detect_ingest_source(self) -> str:
+        """Detect the best available data source for ingestion.
+
+        Checks if the local OpenLibrary dump database has at least 1000 authors.
+        If so, returns 'openlibrary_dump', otherwise 'openlibrary'.
+
+        Returns
+        -------
+        str
+            Data source name ('openlibrary_dump' or 'openlibrary').
+        """
+        ingest_source_override = os.getenv("INGEST_SOURCE")
+        if ingest_source_override:
+            return ingest_source_override
+
+        try:
+            engine = create_db_engine()
+            with Session(engine) as session:
+                # Check if we have at least 1000 author records
+                stmt = select(func.count(OpenLibraryAuthor.key))
+                count = session.exec(stmt).one() or 0
+
+                if count >= 1000:
+                    logger.info(
+                        "OpenLibrary dump data detected (%d authors). Using local dump source.",
+                        count,
+                    )
+                    return "openlibrary_dump"
+        except (OperationalError, ProgrammingError):
+            # Table doesn't exist or DB connection failed
+            pass
+        except SQLAlchemyError as e:
+            logger.warning("Failed to check OpenLibrary dump availability: %s", e)
+
+        logger.info("OpenLibrary dump data not available. Using HTTP API source.")
+        return "openlibrary"
 
     def stop_workers(self) -> None:
         """Stop all workers gracefully."""
