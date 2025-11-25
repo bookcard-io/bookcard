@@ -450,6 +450,8 @@ class IBookRepository(ABC):
         sort_by: str = "timestamp",
         sort_order: str = "desc",
         full: bool = False,
+        pubdate_month: int | None = None,
+        pubdate_day: int | None = None,
     ) -> list[BookWithRelations | BookWithFullRelations]:
         """List books with pagination and optional search.
 
@@ -469,6 +471,10 @@ class IBookRepository(ABC):
             Sort order: 'asc' or 'desc' (default: 'desc').
         full : bool
             If True, return full book details with all metadata (default: False).
+        pubdate_month : int | None
+            Optional month (1-12) to filter books by publication date month.
+        pubdate_day : int | None
+            Optional day (1-31) to filter books by publication date day.
 
         Returns
         -------
@@ -482,6 +488,8 @@ class IBookRepository(ABC):
         self,
         search_query: str | None = None,
         author_id: int | None = None,
+        pubdate_month: int | None = None,
+        pubdate_day: int | None = None,
     ) -> int:
         """Count total number of books, optionally filtered by search.
 
@@ -491,6 +499,10 @@ class IBookRepository(ABC):
             Optional search query to filter by title, author, or tag.
         author_id : int | None
             Optional author ID to filter by.
+        pubdate_month : int | None
+            Optional month (1-12) to filter books by publication date month.
+        pubdate_day : int | None
+            Optional day (1-31) to filter books by publication date day.
 
         Returns
         -------

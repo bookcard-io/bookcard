@@ -17,10 +17,9 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedClient } from "@/services/http/routeHelpers";
 
 /**
- * GET /api/books
+ * GET /api/books/tags/by-name
  *
- * Proxies request to list books from the active library.
- * Supports pagination, search, and sorting.
+ * Proxies request to the backend tag lookup endpoint.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -31,52 +30,29 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = request.nextUrl;
-    const page = searchParams.get("page") || "1";
-    const pageSize = searchParams.get("page_size") || "20";
-    const search = searchParams.get("search") || "";
-    const authorId = searchParams.get("author_id");
-    const sortBy = searchParams.get("sort_by") || "timestamp";
-    const sortOrder = searchParams.get("sort_order") || "desc";
-    const full = searchParams.get("full") === "true";
-    const pubdateMonth = searchParams.get("pubdate_month");
-    const pubdateDay = searchParams.get("pubdate_day");
+    const names = searchParams.get("names") || "";
 
-    const queryParams: Record<string, string> = {
-      page,
-      page_size: pageSize,
-      sort_by: sortBy,
-      sort_order: sortOrder,
-    };
-
-    if (search) {
-      queryParams.search = search;
-    }
-    if (authorId) {
-      queryParams.author_id = authorId;
-    }
-    if (full) {
-      queryParams.full = "true";
-    }
-    if (pubdateMonth) {
-      queryParams.pubdate_month = pubdateMonth;
-    }
-    if (pubdateDay) {
-      queryParams.pubdate_day = pubdateDay;
+    if (!names.trim()) {
+      return NextResponse.json({
+        tags: [],
+      });
     }
 
-    const response = await client.request("/books", {
+    const response = await client.request("/books/tags/by-name", {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
       },
-      queryParams,
+      queryParams: {
+        names,
+      },
     });
 
     const data = await response.json();
 
     if (!response.ok) {
       return NextResponse.json(
-        { detail: data.detail || "Failed to fetch books" },
+        { detail: data.detail || "Failed to lookup tags" },
         { status: response.status },
       );
     }

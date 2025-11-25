@@ -26,7 +26,7 @@
  * These are the top-level classifications (like "Pop/Rock" in music).
  * Stored in lowercase for case-insensitive matching.
  */
-const GENRE_CATEGORIES = new Set([
+export const GENRE_CATEGORIES = new Set([
   // Fiction genres
   "fiction",
   "nonfiction",
@@ -75,7 +75,7 @@ const GENRE_KEYWORDS = [
  * These are broad enough to be considered genres (like "Pop/Rock" in music).
  * Stored in lowercase for case-insensitive matching.
  */
-const BROAD_STYLES_AS_GENRES = new Set([
+export const BROAD_STYLES_AS_GENRES = new Set([
   // Fiction styles that are broad enough to be genres
   "fantasy",
   "science fiction",

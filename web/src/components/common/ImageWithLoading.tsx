@@ -48,6 +48,7 @@ export function ImageWithLoading({
   ...imageProps
 }: ImageWithLoadingProps) {
   const [internalIsLoading, setInternalIsLoading] = useState(true);
+  const [showSpinner, setShowSpinner] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
 
   // Use external loading state if provided, otherwise use internal state
@@ -60,6 +61,18 @@ export function ImageWithLoading({
       onLoad(e);
     }
   };
+
+  // Delay spinner appearance to avoid flash for cached images
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    if (isLoading) {
+      // Small delay to prevent spinner blip for cached/fast-loading images
+      timer = setTimeout(() => setShowSpinner(true), 150);
+    } else {
+      setShowSpinner(false);
+    }
+    return () => clearTimeout(timer);
+  }, [isLoading]);
 
   // Check if image is already loaded (cached images) - only if not using external loading
   useEffect(() => {
@@ -83,7 +96,7 @@ export function ImageWithLoading({
       />
       <div
         className={`absolute inset-0 z-10 flex items-center justify-center bg-black/50 transition-[opacity,visibility] duration-300 ease-out ${
-          !isLoading
+          !showSpinner
             ? "pointer-events-none invisible opacity-0"
             : "visible opacity-100"
         }`}

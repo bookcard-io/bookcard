@@ -230,6 +230,33 @@ class FilterSuggestionsResponse(BaseModel):
     suggestions: list[SearchSuggestionItem] = Field(default_factory=list)
 
 
+class TagLookupItem(BaseModel):
+    """Tag lookup item.
+
+    Attributes
+    ----------
+    id : int
+        Tag ID.
+    name : str
+        Tag name.
+    """
+
+    id: int
+    name: str
+
+
+class TagLookupResponse(BaseModel):
+    """Tag lookup response.
+
+    Attributes
+    ----------
+    tags : list[TagLookupItem]
+        List of matching tags.
+    """
+
+    tags: list[TagLookupItem] = Field(default_factory=list)
+
+
 class BookFilterRequest(BaseModel):
     """Book filter request.
 

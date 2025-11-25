@@ -17,7 +17,7 @@
 
 import { cn } from "@/libs/utils";
 
-export type LibraryTabId = "library" | "shelves";
+export type LibraryTabId = "discovery" | "library" | "shelves";
 
 export interface LibraryTabsProps {
   /**
@@ -38,6 +38,7 @@ export interface LibraryTabsProps {
  */
 export function LibraryTabs({ activeTab, onTabChange }: LibraryTabsProps) {
   const tabs: { id: LibraryTabId; label: string }[] = [
+    { id: "discovery", label: "Discovery" },
     { id: "library", label: "Library" },
     { id: "shelves", label: "Shelves" },
   ];

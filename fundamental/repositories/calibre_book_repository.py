@@ -265,8 +265,19 @@ class CalibreBookRepository(IBookRepository):
         return None
 
     # Query building helpers
-    def _get_sort_field(self, sort_by: str) -> object:
-        """Get sort field for query ordering."""
+    def _get_sort_field(self, sort_by: str) -> object | None:
+        """Get sort field for query ordering.
+
+        Parameters
+        ----------
+        sort_by : str
+            Sort field name.
+
+        Returns
+        -------
+        object | None
+            SQLAlchemy column or function for sorting, or None for random sort.
+        """
         valid_sort_fields = {
             "timestamp": Book.timestamp,
             "pubdate": Book.pubdate,
@@ -274,6 +285,8 @@ class CalibreBookRepository(IBookRepository):
             "author_sort": Book.author_sort,
             "series_index": Book.series_index,
         }
+        if sort_by == "random":
+            return None  # Special case for random sorting
         return valid_sort_fields.get(sort_by, Book.timestamp)  # type: ignore[return-value]
 
     def _build_author_books_subquery(
@@ -299,6 +312,49 @@ class CalibreBookRepository(IBookRepository):
             author_book_count,
         )
         return author_books_subquery
+
+    def _apply_pubdate_filter(
+        self,
+        stmt: Select,
+        pubdate_month: int | None,
+        pubdate_day: int | None,
+    ) -> Select:
+        """Apply publication date filtering to a query.
+
+        Parameters
+        ----------
+        stmt : Select
+            SQLAlchemy select statement.
+        pubdate_month : int | None
+            Optional month (1-12) to filter by.
+        pubdate_day : int | None
+            Optional day (1-31) to filter by.
+
+        Returns
+        -------
+        Select
+            Statement with date filters applied.
+        """
+        conditions = []
+        if pubdate_month is not None:
+            # SQLite strftime returns month as '01'-'12', so format month as 2-digit
+            month_str = f"{pubdate_month:02d}"
+            conditions.append(
+                func.strftime("%m", Book.pubdate) == month_str  # type: ignore[attr-defined]
+            )
+        if pubdate_day is not None:
+            # SQLite strftime returns day as '01'-'31', so format day as 2-digit
+            day_str = f"{pubdate_day:02d}"
+            conditions.append(
+                func.strftime("%d", Book.pubdate) == day_str  # type: ignore[attr-defined]
+            )
+        if conditions:
+            # Combine conditions with AND, and ensure pubdate is not NULL
+            combined_condition = Book.pubdate.isnot(None)  # type: ignore[attr-defined]
+            for condition in conditions:
+                combined_condition = combined_condition & condition  # type: ignore[assignment]
+            stmt = stmt.where(combined_condition)
+        return stmt
 
     def _build_list_books_base_query(
         self,
@@ -338,13 +394,35 @@ class CalibreBookRepository(IBookRepository):
     def _apply_ordering_and_pagination(
         self,
         stmt: Select,
-        sort_field: object,
+        sort_field: object | None,
         sort_order: str,
         limit: int,
         offset: int,
     ) -> Select:
-        """Apply ordering and pagination to a list_books query."""
-        if sort_order == "desc":
+        """Apply ordering and pagination to a list_books query.
+
+        Parameters
+        ----------
+        stmt : Select
+            SQLAlchemy select statement.
+        sort_field : object | None
+            Sort field (column) or None for random sorting.
+        sort_order : str
+            Sort order: 'asc' or 'desc' (ignored for random).
+        limit : int
+            Maximum number of results.
+        offset : int
+            Number of results to skip.
+
+        Returns
+        -------
+        Select
+            Statement with ordering and pagination applied.
+        """
+        if sort_field is None:
+            # Random sorting using SQLite's random() function
+            stmt = stmt.order_by(func.random())  # type: ignore[attr-defined]
+        elif sort_order == "desc":
             stmt = stmt.order_by(sort_field.desc())  # type: ignore[attr-defined]
         else:
             stmt = stmt.order_by(sort_field.asc())  # type: ignore[attr-defined]
@@ -594,13 +672,17 @@ class CalibreBookRepository(IBookRepository):
         self,
         search_query: str | None = None,
         author_id: int | None = None,
+        pubdate_month: int | None = None,
+        pubdate_day: int | None = None,
     ) -> int:
         """Count total number of books, optionally filtered by search."""
         with self.get_session() as session:
             logger.debug(
-                "count_books called with search_query=%r, author_id=%r",
+                "count_books called with search_query=%r, author_id=%r, pubdate_month=%s, pubdate_day=%s",
                 search_query,
                 author_id,
+                pubdate_month,
+                pubdate_day,
             )
 
             # Optional subquery for author filter to avoid join conflicts with search
@@ -652,6 +734,13 @@ class CalibreBookRepository(IBookRepository):
                 )
                 stmt = stmt.where(Book.id.in_(author_books_subquery))  # type: ignore[arg-type]
 
+            # Apply publication date filter if present
+            stmt = self._apply_pubdate_filter(
+                stmt=stmt,
+                pubdate_month=pubdate_month,
+                pubdate_day=pubdate_day,
+            )
+
             logger.debug("count_books SQL statement: %s", stmt)
 
             result = session.exec(stmt).one()
@@ -667,10 +756,12 @@ class CalibreBookRepository(IBookRepository):
         sort_by: str = "timestamp",
         sort_order: str = "desc",
         full: bool = False,
+        pubdate_month: int | None = None,
+        pubdate_day: int | None = None,
     ) -> list[BookWithRelations | BookWithFullRelations]:
         """List books with pagination and optional search."""
         logger.debug(
-            "list_books called with limit=%s, offset=%s, search_query=%r, author_id=%r, sort_by=%s, sort_order=%s, full=%s",
+            "list_books called with limit=%s, offset=%s, search_query=%r, author_id=%r, sort_by=%s, sort_order=%s, full=%s, pubdate_month=%s, pubdate_day=%s",
             limit,
             offset,
             search_query,
@@ -678,6 +769,8 @@ class CalibreBookRepository(IBookRepository):
             sort_by,
             sort_order,
             full,
+            pubdate_month,
+            pubdate_day,
         )
 
         sort_field = self._get_sort_field(sort_by)
@@ -703,6 +796,13 @@ class CalibreBookRepository(IBookRepository):
                     author_books_subquery,
                 )
                 stmt = stmt.where(author_filter_condition)
+
+            # Apply publication date filter if present
+            stmt = self._apply_pubdate_filter(
+                stmt=stmt,
+                pubdate_month=pubdate_month,
+                pubdate_day=pubdate_day,
+            )
 
             logger.debug("list_books SQL statement: %s", stmt)
 
@@ -788,7 +888,11 @@ class CalibreBookRepository(IBookRepository):
                 .build()
             )
 
-            if sort_order.lower() == "desc":
+            # Apply ordering
+            if sort_field is None:
+                # Random sorting
+                stmt = stmt.order_by(func.random())  # type: ignore[attr-defined]
+            elif sort_order.lower() == "desc":
                 stmt = stmt.order_by(sort_field.desc())  # type: ignore[attr-defined]
             else:
                 stmt = stmt.order_by(sort_field.asc())  # type: ignore[attr-defined]

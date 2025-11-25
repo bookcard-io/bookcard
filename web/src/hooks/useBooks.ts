@@ -69,9 +69,17 @@ interface FetchBooksPageParams {
   pageSize: number;
   search: string;
   authorId?: number;
-  sortBy: "timestamp" | "pubdate" | "title" | "author_sort" | "series_index";
+  sortBy:
+    | "timestamp"
+    | "pubdate"
+    | "title"
+    | "author_sort"
+    | "series_index"
+    | "random";
   sortOrder: "asc" | "desc";
   full: boolean;
+  pubdateMonth?: number;
+  pubdateDay?: number;
 }
 
 async function fetchBooksPage({
@@ -82,6 +90,8 @@ async function fetchBooksPage({
   sortBy,
   sortOrder,
   full,
+  pubdateMonth,
+  pubdateDay,
 }: FetchBooksPageParams): Promise<BookListResponse> {
   const queryParams = new URLSearchParams({
     page: page.toString(),
@@ -98,6 +108,12 @@ async function fetchBooksPage({
   }
   if (full) {
     queryParams.append("full", "true");
+  }
+  if (pubdateMonth !== undefined) {
+    queryParams.append("pubdate_month", pubdateMonth.toString());
+  }
+  if (pubdateDay !== undefined) {
+    queryParams.append("pubdate_day", pubdateDay.toString());
   }
 
   const url = `/api/books?${queryParams.toString()}`;
@@ -141,6 +157,8 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
     sort_by: initialSortBy = "timestamp",
     sort_order: initialSortOrder = "desc",
     full = false,
+    pubdate_month: initialPubdateMonth,
+    pubdate_day: initialPubdateDay,
   } = options;
 
   const { activeLibrary, isLoading: isActiveLibraryLoading } =
@@ -160,6 +178,8 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
   const [authorId, setAuthorId] = useState(initialAuthorId);
   const [sortBy, setSortBy] = useState(initialSortBy);
   const [sortOrder, setSortOrder] = useState(initialSortOrder);
+  const [pubdateMonth, setPubdateMonth] = useState(initialPubdateMonth);
+  const [pubdateDay, setPubdateDay] = useState(initialPubdateDay);
 
   // Track previous prop values to detect changes
   const prevSearchRef = useRef<string | undefined>(initialSearch);
@@ -228,9 +248,21 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
           sortBy,
           sortOrder,
           full,
+          pubdateMonth,
+          pubdateDay,
         },
       ] as const,
-    [page, pageSize, search, authorId, sortBy, sortOrder, full],
+    [
+      page,
+      pageSize,
+      search,
+      authorId,
+      sortBy,
+      sortOrder,
+      full,
+      pubdateMonth,
+      pubdateDay,
+    ],
   );
 
   const infiniteQueryKey = useMemo(
@@ -244,9 +276,20 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
           sortBy,
           sortOrder,
           full,
+          pubdateMonth,
+          pubdateDay,
         },
       ] as const,
-    [pageSize, search, authorId, sortBy, sortOrder, full],
+    [
+      pageSize,
+      search,
+      authorId,
+      sortBy,
+      sortOrder,
+      full,
+      pubdateMonth,
+      pubdateDay,
+    ],
   );
 
   // Only enable queries if there's an active library and not still loading
@@ -265,6 +308,8 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
         sortBy,
         sortOrder,
         full,
+        pubdateMonth,
+        pubdateDay,
       }),
     enabled: listQueryEnabled,
     staleTime: 60_000,
@@ -281,6 +326,8 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
         sortBy,
         sortOrder,
         full,
+        pubdateMonth,
+        pubdateDay,
       }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {
@@ -314,6 +361,14 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
     }
     if (params.sort_order !== undefined) {
       setSortOrder(params.sort_order);
+      setPage(1);
+    }
+    if (params.pubdate_month !== undefined) {
+      setPubdateMonth(params.pubdate_month);
+      setPage(1);
+    }
+    if (params.pubdate_day !== undefined) {
+      setPubdateDay(params.pubdate_day);
       setPage(1);
     }
   }, []);

@@ -32,6 +32,7 @@ from fastapi import (
     Depends,
     File,
     HTTPException,
+    Query,
     Request,
     Response,
     UploadFile,
@@ -55,6 +56,8 @@ from fundamental.api.schemas import (
     FilterSuggestionsResponse,
     SearchSuggestionItem,
     SearchSuggestionsResponse,
+    TagLookupItem,
+    TagLookupResponse,
 )
 from fundamental.models.auth import User
 from fundamental.models.tasks import TaskType
@@ -308,6 +311,8 @@ def list_books(
     sort_by: str = "timestamp",
     sort_order: str = "desc",
     full: bool = False,
+    pubdate_month: int | None = None,
+    pubdate_day: int | None = None,
 ) -> BookListResponse:
     """List books with pagination and optional search.
 
@@ -333,11 +338,15 @@ def list_books(
         Optional author ID to filter by.
     sort_by : str
         Field to sort by: 'timestamp', 'pubdate', 'title', 'author_sort',
-        'series_index' (default: 'timestamp').
+        'series_index', 'random' (default: 'timestamp').
     sort_order : str
         Sort order: 'asc' or 'desc' (default: 'desc').
     full : bool
         If True, return full book details with all metadata (default: False).
+    pubdate_month : int | None
+        Optional month (1-12) to filter books by publication date month.
+    pubdate_day : int | None
+        Optional day (1-31) to filter books by publication date day.
 
     Returns
     -------
@@ -366,6 +375,8 @@ def list_books(
         sort_by=sort_by,
         sort_order=sort_order,
         full=full,
+        pubdate_month=pubdate_month,
+        pubdate_day=pubdate_day,
     )
 
     book_reads = response_builder.build_book_read_list(books, full=full)
@@ -1187,6 +1198,54 @@ def filter_suggestions(
     return FilterSuggestionsResponse(
         suggestions=[
             SearchSuggestionItem(id=int(item["id"]), name=str(item["name"]))
+            for item in results
+        ]
+    )
+
+
+@router.get("/tags/by-name", response_model=TagLookupResponse)
+def lookup_tags_by_name(
+    current_user: CurrentUserDep,
+    book_service: BookServiceDep,
+    permission_helper: PermissionHelperDep,
+    names: str = Query(..., description="Comma-separated list of tag names to lookup"),
+) -> TagLookupResponse:
+    """Lookup tag IDs by tag names (case-insensitive).
+
+    Parameters
+    ----------
+    current_user : CurrentUserDep
+        Current authenticated user.
+    book_service : BookServiceDep
+        Book service instance.
+    permission_helper : PermissionHelperDep
+        Permission helper instance.
+    names : str
+        Comma-separated list of tag names to lookup.
+
+    Returns
+    -------
+    TagLookupResponse
+        List of matching tags with IDs.
+
+    Raises
+    ------
+    HTTPException
+        If permission denied (403).
+    """
+    permission_helper.check_read_permission(current_user)
+
+    # Parse comma-separated names
+    tag_names = [name.strip() for name in names.split(",") if name.strip()]
+
+    if not tag_names:
+        return TagLookupResponse(tags=[])
+
+    results = book_service.lookup_tags_by_names(tag_names=tag_names)
+
+    return TagLookupResponse(
+        tags=[
+            TagLookupItem(id=int(item["id"]), name=str(item["name"]))
             for item in results
         ]
     )

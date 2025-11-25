@@ -93,13 +93,17 @@ export function useMainContent(): UseMainContentResult {
   const searchParams = useSearchParams();
   const router = useRouter();
 
+  // Map of valid tab parameters to LibraryTabId
+  const validTabs: Record<string, LibraryTabId> = {
+    discovery: "discovery",
+    shelves: "shelves",
+    library: "library",
+  };
+
   // Get initial tab from URL query parameter, default to "library"
   const getInitialTab = (): LibraryTabId => {
     const tabParam = searchParams.get("tab");
-    if (tabParam === "shelves" || tabParam === "library") {
-      return tabParam;
-    }
-    return "library";
+    return validTabs[tabParam ?? ""] ?? "library";
   };
 
   // Active tab state - initialize from URL query parameter
@@ -108,12 +112,16 @@ export function useMainContent(): UseMainContentResult {
   // Sync tab state with URL query parameter changes (only when URL changes externally)
   useEffect(() => {
     const tabParam = searchParams.get("tab");
-    const newTab: LibraryTabId = tabParam === "shelves" ? "shelves" : "library";
+    const newTab: LibraryTabId = validTabs[tabParam ?? ""] ?? "library";
     // Only update if different from current state to avoid unnecessary updates
-    if (newTab !== activeTab) {
-      setActiveTab(newTab);
-    }
-  }, [searchParams, activeTab]);
+    setActiveTab((current) => {
+      if (current !== newTab) {
+        return newTab;
+      }
+      return current;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Handle tab change with URL sync
   const handleTabChange = useCallback(
@@ -125,6 +133,7 @@ export function useMainContent(): UseMainContentResult {
         // Remove tab param for library (default)
         params.delete("tab");
       } else {
+        // Set tab param for discovery or shelves
         params.set("tab", tabId);
       }
       const newUrl = params.toString() ? `/?${params.toString()}` : "/";

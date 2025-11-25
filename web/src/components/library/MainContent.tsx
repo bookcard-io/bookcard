@@ -19,6 +19,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useRef, useState } from "react";
 import { BookEditModal } from "@/components/books/BookEditModal";
 import { BookViewModal } from "@/components/books/BookViewModal";
+import { DiscoveryTab } from "@/components/library/DiscoveryTab";
 import { LibraryHeader } from "@/components/library/LibraryHeader";
 import { LibraryTabs } from "@/components/library/LibraryTabs";
 import { SearchWidgetBar } from "@/components/library/SearchWidgetBar";
@@ -200,6 +201,15 @@ export function MainContent() {
             onSelectionChange={setSelectedShelfIds}
             onShelfClick={handleShelfClick}
             selectionControlRef={shelvesGridSelectionControlRef}
+          />
+        )}
+        {activeTab === "discovery" && (
+          <DiscoveryTab
+            onBookClick={bookModal.handleBookClick}
+            onBookEdit={bookEditModal.handleEditBook}
+            onBookDeleted={() => {
+              // Book deleted, could refresh if needed
+            }}
           />
         )}
       </div>

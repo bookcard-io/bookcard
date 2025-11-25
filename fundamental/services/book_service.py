@@ -72,6 +72,8 @@ class BookService:
         sort_by: str = "timestamp",
         sort_order: str = "desc",
         full: bool = False,
+        pubdate_month: int | None = None,
+        pubdate_day: int | None = None,
     ) -> tuple[list[BookWithRelations | BookWithFullRelations], int]:
         """List books with pagination.
 
@@ -91,6 +93,10 @@ class BookService:
             Sort order: 'asc' or 'desc' (default: 'desc').
         full : bool
             If True, return full book details with all metadata (default: False).
+        pubdate_month : int | None
+            Optional month (1-12) to filter books by publication date month.
+        pubdate_day : int | None
+            Optional day (1-31) to filter books by publication date day.
 
         Returns
         -------
@@ -106,9 +112,14 @@ class BookService:
             sort_by=sort_by,
             sort_order=sort_order,
             full=full,
+            pubdate_month=pubdate_month,
+            pubdate_day=pubdate_day,
         )
         total = self._book_repo.count_books(
-            search_query=search_query, author_id=author_id
+            search_query=search_query,
+            author_id=author_id,
+            pubdate_month=pubdate_month,
+            pubdate_day=pubdate_day,
         )
         return books, total
 
@@ -325,6 +336,45 @@ class BookService:
             tag_limit=tag_limit,
             series_limit=series_limit,
         )
+
+    def lookup_tags_by_names(
+        self,
+        tag_names: list[str],
+    ) -> list[dict[str, int | str]]:
+        """Lookup tag IDs by tag names (case-insensitive).
+
+        Parameters
+        ----------
+        tag_names : list[str]
+            List of tag names to lookup.
+
+        Returns
+        -------
+        list[dict[str, int | str]]
+            List of dictionaries with 'id' and 'name' keys for matching tags.
+        """
+        if not tag_names:
+            return []
+
+        with self._book_repo.get_session() as session:
+            from sqlalchemy import func, or_
+            from sqlmodel import select
+
+            from fundamental.models.core import Tag
+
+            # Build case-insensitive search conditions
+            conditions = []
+            for tag_name in tag_names:
+                tag_lower = tag_name.lower()
+                conditions.append(func.lower(Tag.name) == tag_lower)  # type: ignore[attr-defined]
+
+            # Query tags matching any of the provided names
+            stmt = select(Tag.id, Tag.name).where(
+                or_(*conditions)  # type: ignore[attr-defined]
+            )
+            results = session.exec(stmt).all()
+
+            return [{"id": tag_id, "name": tag_name} for tag_id, tag_name in results]
 
     def filter_suggestions(
         self,

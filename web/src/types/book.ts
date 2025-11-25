@@ -124,7 +124,15 @@ export interface BooksQueryParams {
   /** Author ID to filter by. */
   author_id?: number;
   /** Field to sort by. */
-  sort_by?: "timestamp" | "pubdate" | "title" | "author_sort" | "series_index";
+  sort_by?:
+    | "timestamp"
+    | "pubdate"
+    | "title"
+    | "author_sort"
+    | "series_index"
+    | "random";
+  pubdate_month?: number;
+  pubdate_day?: number;
   /** Sort order. */
   sort_order?: "asc" | "desc";
 }

@@ -61,15 +61,15 @@ function getFilterArrays(
   }
 
   return [
-    filters.authorIds,
-    filters.titleIds,
-    filters.genreIds,
-    filters.publisherIds,
-    filters.identifierIds,
-    filters.seriesIds,
-    filters.formats,
-    filters.ratingIds,
-    filters.languageIds,
+    filters.authorIds ?? [],
+    filters.titleIds ?? [],
+    filters.genreIds ?? [],
+    filters.publisherIds ?? [],
+    filters.identifierIds ?? [],
+    filters.seriesIds ?? [],
+    filters.formats ?? [],
+    filters.ratingIds ?? [],
+    filters.languageIds ?? [],
   ];
 }
 

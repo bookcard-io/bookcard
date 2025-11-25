@@ -96,7 +96,7 @@ export function BookCard({
       <button
         type="button"
         className={cn(
-          "group cursor-pointer overflow-hidden rounded",
+          "group h-full cursor-pointer overflow-hidden rounded",
           "w-full border-2 border-transparent bg-gradient-to-b from-surface-a0 to-surface-a10 p-0 text-left",
           "transition-[transform,box-shadow,border-color] duration-200 ease-out",
           "hover:-translate-y-0.5 hover:shadow-card-hover",

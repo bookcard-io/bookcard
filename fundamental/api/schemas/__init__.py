@@ -76,6 +76,8 @@ from fundamental.api.schemas.books import (
     FilterSuggestionsResponse,
     SearchSuggestionItem,
     SearchSuggestionsResponse,
+    TagLookupItem,
+    TagLookupResponse,
 )
 from fundamental.api.schemas.libraries import (
     LibraryCreate,
@@ -125,17 +127,14 @@ from fundamental.api.schemas.tasks import (
 )
 
 __all__ = [
-    # Auth schemas
     "AdminUserCreate",
     "AdminUserUpdate",
-    # Book schemas
     "BookBatchUploadResponse",
     "BookDeleteRequest",
     "BookFilterRequest",
     "BookListResponse",
     "BookRead",
     "BookSendRequest",
-    # Shelf schemas
     "BookShelfLinkRead",
     "BookUpdate",
     "BookUploadResponse",
@@ -148,14 +147,12 @@ __all__ = [
     "EmailServerConfigUpdate",
     "FilterSuggestionsResponse",
     "InviteValidationResponse",
-    # Library schemas
     "LibraryCreate",
     "LibraryRead",
     "LibraryStats",
     "LibraryUpdate",
     "LoginRequest",
     "LoginResponse",
-    # Metadata schemas
     "MetadataProviderCompletedEvent",
     "MetadataProviderFailedEvent",
     "MetadataProviderProgressEvent",
@@ -202,6 +199,8 @@ __all__ = [
     "ShelfRead",
     "ShelfReorderRequest",
     "ShelfUpdate",
+    "TagLookupItem",
+    "TagLookupResponse",
     "TaskCancelResponse",
     "TaskListResponse",
     "TaskRead",
