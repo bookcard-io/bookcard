@@ -108,7 +108,7 @@ def _upgrade_table_sqlite(
         if _constraint_exists(connection, table_name, constraint_name):
             batch_op.drop_constraint(constraint_name, type_="foreignkey")
         batch_op.create_foreign_key(
-            None, referenced_table, [column_name], ["id"], ondelete="CASCADE"
+            constraint_name, referenced_table, [column_name], ["id"], ondelete="CASCADE"
         )
 
 
