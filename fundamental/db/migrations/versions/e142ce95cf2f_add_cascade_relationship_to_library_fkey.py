@@ -58,6 +58,28 @@ def _constraint_exists(
     return any(fk.get("name") == constraint_name for fk in fks if fk.get("name"))
 
 
+def _index_exists(connection: sa.Connection, table_name: str, index_name: str) -> bool:
+    """Check if an index exists on a table.
+
+    Parameters
+    ----------
+    connection : sa.Connection
+        Database connection.
+    table_name : str
+        Name of the table.
+    index_name : str
+        Name of the index to check.
+
+    Returns
+    -------
+    bool
+        True if index exists, False otherwise.
+    """
+    inspector = sa.inspect(connection)
+    indexes = inspector.get_indexes(table_name)
+    return any(idx.get("name") == index_name for idx in indexes if idx.get("name"))
+
+
 def _upgrade_table_postgresql(
     table_name: str, column_name: str, constraint_name: str, referenced_table: str
 ) -> None:
@@ -217,13 +239,17 @@ def upgrade() -> None:
                 table_name, column_name, fkey_name, referenced_table
             )
             # Create index for read_status after processing it (PostgreSQL)
-            if table_name == "read_status":
+            if table_name == "read_status" and not _index_exists(
+                connection, "read_status", "idx_read_status_status"
+            ):
                 op.create_index(
                     "idx_read_status_status", "read_status", ["status"], unique=False
                 )
         else:
             # Create index for read_status before processing it (SQLite)
-            if table_name == "read_status":
+            if table_name == "read_status" and not _index_exists(
+                connection, "read_status", "idx_read_status_status"
+            ):
                 op.create_index(
                     "idx_read_status_status", "read_status", ["status"], unique=False
                 )
@@ -280,14 +306,18 @@ def downgrade() -> None:
         fkey_name = op.f(f"{constraint_name}")
         if is_postgresql:
             # Drop index for read_status before processing it (PostgreSQL)
-            if table_name == "read_status":
+            if table_name == "read_status" and _index_exists(
+                connection, "read_status", "idx_read_status_status"
+            ):
                 op.drop_index("idx_read_status_status", table_name="read_status")
             _downgrade_table_postgresql(
                 table_name, column_name, fkey_name, referenced_table
             )
         else:
             # Drop index for read_status before processing it (SQLite)
-            if table_name == "read_status":
+            if table_name == "read_status" and _index_exists(
+                connection, "read_status", "idx_read_status_status"
+            ):
                 op.drop_index("idx_read_status_status", table_name="read_status")
             _downgrade_table_sqlite(
                 connection, table_name, column_name, fkey_name, referenced_table
