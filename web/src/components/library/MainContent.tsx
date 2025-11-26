@@ -207,9 +207,7 @@ export function MainContent() {
           <DiscoveryTab
             onBookClick={bookModal.handleBookClick}
             onBookEdit={bookEditModal.handleEditBook}
-            onBookDeleted={() => {
-              // Book deleted, could refresh if needed
-            }}
+            onBooksDataChange={setBooksNavigationData}
           />
         )}
       </div>
