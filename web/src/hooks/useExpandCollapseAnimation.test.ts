@@ -285,4 +285,56 @@ describe("useExpandCollapseAnimation", () => {
     expect(result.current.shouldRender).toBe(true);
     expect(result.current.isAnimatingOut).toBe(false);
   });
+
+  it("should not scroll to container when collapsing if scrollOnCollapse is false", () => {
+    const mockElement = document.createElement("div");
+    mockElement.scrollIntoView = mockScrollIntoView;
+
+    const { result, rerender } = renderHook(
+      ({ isExpanded, scrollOnCollapse }) =>
+        useExpandCollapseAnimation({ isExpanded, scrollOnCollapse }),
+      { initialProps: { isExpanded: true, scrollOnCollapse: false } },
+    );
+
+    (
+      result.current.containerRef as { current: HTMLDivElement | null }
+    ).current = mockElement;
+
+    act(() => {
+      rerender({ isExpanded: false, scrollOnCollapse: false });
+    });
+
+    expect(mockScrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it("should delay scroll when expanding if scrollDelay is provided", () => {
+    const mockElement = document.createElement("div");
+    mockElement.scrollIntoView = mockScrollIntoView;
+
+    const { result, rerender } = renderHook(
+      ({ isExpanded, scrollDelay }) =>
+        useExpandCollapseAnimation({ isExpanded, scrollDelay }),
+      { initialProps: { isExpanded: false, scrollDelay: 500 } },
+    );
+
+    (
+      result.current.containerRef as { current: HTMLDivElement | null }
+    ).current = mockElement;
+
+    act(() => {
+      rerender({ isExpanded: true, scrollDelay: 500 });
+    });
+
+    expect(result.current.shouldRender).toBe(true);
+    expect(mockScrollIntoView).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(mockScrollIntoView).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
 });

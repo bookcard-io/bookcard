@@ -15,6 +15,7 @@
 
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useMetadataResultsListState } from "@/hooks/useMetadataResultsListState";
 import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
 import { MetadataResultItem } from "./MetadataResultItem";
@@ -41,7 +42,14 @@ export function MetadataResultsList({
   results,
   onSelectMetadata,
 }: MetadataResultsListProps) {
-  const { handleExpand, isExpanded, isDimmed } = useMetadataResultsListState();
+  const { handleExpand, isExpanded, isDimmed, expandedKey } =
+    useMetadataResultsListState();
+
+  const prevExpandedKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    prevExpandedKeyRef.current = expandedKey;
+  }, [expandedKey]);
 
   if (!results || results.length === 0) {
     return null;
@@ -58,6 +66,25 @@ export function MetadataResultsList({
           seenSourceIds.add(r.source_id);
         }
         const itemKey = `${r.source_id}:${r.external_id}:${idx}`;
+
+        // Calculate scroll delay: if we are expanding an item that is BELOW the previously expanded item,
+        // we should wait for the previous item to collapse (500ms) before scrolling to the new one.
+        // This prevents the scroll position from jumping incorrectly due to layout shifts.
+        let scrollDelay = 0;
+        if (
+          isExpanded(itemKey) &&
+          prevExpandedKeyRef.current !== null &&
+          prevExpandedKeyRef.current !== itemKey
+        ) {
+          const prevIdxStr = prevExpandedKeyRef.current.split(":").pop();
+          if (prevIdxStr) {
+            const prevIdx = Number.parseInt(prevIdxStr, 10);
+            if (!Number.isNaN(prevIdx) && idx > prevIdx) {
+              scrollDelay = 510;
+            }
+          }
+        }
+
         return (
           <MetadataResultItem
             key={itemKey}
@@ -67,6 +94,8 @@ export function MetadataResultsList({
             isExpanded={isExpanded(itemKey)}
             onExpand={() => handleExpand(itemKey)}
             isDimmed={isDimmed(itemKey)}
+            scrollOnCollapse={expandedKey === null}
+            scrollDelay={scrollDelay}
           />
         );
       })}

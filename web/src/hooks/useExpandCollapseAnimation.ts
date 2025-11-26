@@ -20,6 +20,10 @@ export interface UseExpandCollapseAnimationOptions {
   isExpanded: boolean;
   /** Animation duration in milliseconds (default: 500). */
   animationDuration?: number;
+  /** Whether to scroll to the header when collapsing (default: true). */
+  scrollOnCollapse?: boolean;
+  /** Delay in milliseconds before scrolling when expanding (default: 0). */
+  scrollDelay?: number;
 }
 
 export interface UseExpandCollapseAnimationResult {
@@ -51,6 +55,8 @@ export interface UseExpandCollapseAnimationResult {
 export function useExpandCollapseAnimation({
   isExpanded,
   animationDuration = 500,
+  scrollOnCollapse = true,
+  scrollDelay = 0,
 }: UseExpandCollapseAnimationOptions): UseExpandCollapseAnimationResult {
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
@@ -61,6 +67,17 @@ export function useExpandCollapseAnimation({
       setShouldRender(true);
       setIsAnimatingOut(false);
       // Scroll to header when expanding
+      if (scrollDelay > 0) {
+        const timer = setTimeout(() => {
+          if (containerRef.current) {
+            containerRef.current.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            });
+          }
+        }, scrollDelay);
+        return () => clearTimeout(timer);
+      }
       if (containerRef.current) {
         containerRef.current.scrollIntoView({
           behavior: "smooth",
@@ -72,7 +89,7 @@ export function useExpandCollapseAnimation({
     if (shouldRender) {
       setIsAnimatingOut(true);
       // Scroll to header when collapsing
-      if (containerRef.current) {
+      if (scrollOnCollapse && containerRef.current) {
         containerRef.current.scrollIntoView({
           behavior: "smooth",
           block: "start",
@@ -85,7 +102,13 @@ export function useExpandCollapseAnimation({
       return () => clearTimeout(timer);
     }
     return undefined;
-  }, [isExpanded, shouldRender, animationDuration]);
+  }, [
+    isExpanded,
+    shouldRender,
+    animationDuration,
+    scrollOnCollapse,
+    scrollDelay,
+  ]);
 
   return {
     shouldRender,

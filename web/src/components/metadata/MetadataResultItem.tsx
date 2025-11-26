@@ -35,6 +35,10 @@ export interface MetadataResultItemProps {
   onExpand?: () => void;
   /** Whether this item should be dimmed. */
   isDimmed?: boolean;
+  /** Whether this item should scroll to header when collapsing. */
+  scrollOnCollapse?: boolean;
+  /** Delay in milliseconds before scrolling when expanding (default: 0). */
+  scrollDelay?: number;
 }
 
 /**
@@ -56,11 +60,15 @@ export function MetadataResultItem({
   isExpanded = false,
   onExpand,
   isDimmed = false,
+  scrollOnCollapse = true,
+  scrollDelay = 0,
 }: MetadataResultItemProps) {
   const { shouldRender, isAnimatingOut, containerRef } =
     useExpandCollapseAnimation({
       isExpanded,
       animationDuration: 500,
+      scrollOnCollapse,
+      scrollDelay,
     });
 
   const { selectedFields, toggleField } = useMetadataFieldSelection({

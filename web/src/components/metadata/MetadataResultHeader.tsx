@@ -83,16 +83,16 @@ export function MetadataResultHeader({
   }
 
   return (
-    <div className="flex gap-3">
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full cursor-pointer gap-3 rounded border-0 bg-transparent p-0 text-left transition-opacity hover:opacity-80"
+      aria-label={`Select fields to import from ${record.title}`}
+      title="Click to select fields to import"
+    >
       <div className="shrink-0">
         {record.cover_url ? (
-          <button
-            type="button"
-            onClick={onClick}
-            className="cursor-pointer border-0 bg-transparent p-0 transition-[transform,box-shadow] duration-200 ease-in-out hover:scale-105 active:scale-[0.98]"
-            aria-label={`Select fields to import from ${record.title}`}
-            title="Click to select fields to import"
-          >
+          <div className="transition-[transform,box-shadow] duration-200 ease-in-out hover:scale-105 active:scale-[0.98]">
             <ImageWithLoading
               src={record.cover_url}
               alt={`Cover for ${record.title}`}
@@ -101,7 +101,7 @@ export function MetadataResultHeader({
               className="block rounded border object-cover shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
               unoptimized
             />
-          </button>
+          </div>
         ) : (
           <div
             className="h-[90px] w-[60px] rounded border bg-surface-a20"
@@ -140,11 +140,12 @@ export function MetadataResultHeader({
             className="text-primary-a0 no-underline hover:underline"
             target="_blank"
             rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
           >
             Source: {record.source_id}
           </a>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
