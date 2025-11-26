@@ -189,28 +189,32 @@ export function BookCardMenu({
           justifyBetween
         />
       </DropdownMenu>
-      <AddToShelfFlyoutMenu
-        isOpen={flyoutMenu.isFlyoutOpen && isOpen}
-        parentItemRef={flyoutMenu.parentItemRef}
-        books={[book]}
-        onOpenModal={() => {
-          onOpenAddToShelfModal?.();
-          flyoutMenu.handleFlyoutClose();
-          onClose();
-        }}
-        onClose={flyoutMenu.handleFlyoutClose}
-        onMouseEnter={flyoutMenu.handleFlyoutMouseEnter}
-        onSuccess={onClose}
-      />
-      <SendToDeviceFlyoutMenu
-        isOpen={sendFlyoutMenu.isFlyoutOpen && isOpen}
-        parentItemRef={sendFlyoutMenu.parentItemRef}
-        books={[book]}
-        onClose={sendFlyoutMenu.handleFlyoutClose}
-        onMouseEnter={sendFlyoutMenu.handleFlyoutMouseEnter}
-        onSuccess={onClose}
-        onCloseParent={onClose}
-      />
+      {isOpen && (
+        <>
+          <AddToShelfFlyoutMenu
+            isOpen={flyoutMenu.isFlyoutOpen}
+            parentItemRef={flyoutMenu.parentItemRef}
+            books={[book]}
+            onOpenModal={() => {
+              onOpenAddToShelfModal?.();
+              flyoutMenu.handleFlyoutClose();
+              onClose();
+            }}
+            onClose={flyoutMenu.handleFlyoutClose}
+            onMouseEnter={flyoutMenu.handleFlyoutMouseEnter}
+            onSuccess={onClose}
+          />
+          <SendToDeviceFlyoutMenu
+            isOpen={sendFlyoutMenu.isFlyoutOpen}
+            parentItemRef={sendFlyoutMenu.parentItemRef}
+            books={[book]}
+            onClose={sendFlyoutMenu.handleFlyoutClose}
+            onMouseEnter={sendFlyoutMenu.handleFlyoutMouseEnter}
+            onSuccess={onClose}
+            onCloseParent={onClose}
+          />
+        </>
+      )}
     </>
   );
 }
