@@ -202,8 +202,14 @@ export function useMetadataSearchStream(
     null,
   );
   const abortControllerRef = useRef<AbortController | null>(null);
+  const providerTimeoutRefs = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   const reset = useCallback(() => {
+    // Clear all provider timeouts
+    providerTimeoutRefs.current.forEach((timeout) => {
+      clearTimeout(timeout);
+    });
+    providerTimeoutRefs.current.clear();
     setState({
       isSearching: false,
       query: "",
@@ -229,6 +235,11 @@ export function useMetadataSearchStream(
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    // Clear all provider timeouts
+    providerTimeoutRefs.current.forEach((timeout) => {
+      clearTimeout(timeout);
+    });
+    providerTimeoutRefs.current.clear();
     setState((prev) => ({ ...prev, isSearching: false }));
   }, []);
 
@@ -316,6 +327,31 @@ export function useMetadataSearchStream(
                 resultCount: 0,
                 discovered: 0,
               });
+              // Set timeout for provider (60 seconds)
+              // Note: In test environments, timers may be mocked, but we still set the timeout
+              // Tests should use vi.useFakeTimers() and advance time if they want to test timeouts
+              const timeoutId = setTimeout(() => {
+                setState((prev) => {
+                  const statuses = new Map(prev.providerStatuses);
+                  const existing = statuses.get(evt.provider_id);
+                  if (existing && existing.status === "searching") {
+                    statuses.set(evt.provider_id, {
+                      ...existing,
+                      status: "failed",
+                      error: "Provider search timed out after 60 seconds",
+                      errorType: "TimeoutError",
+                    });
+                    providerTimeoutRefs.current.delete(evt.provider_id);
+                    return {
+                      ...prev,
+                      providerStatuses: statuses,
+                      providersFailed: prev.providersFailed + 1,
+                    };
+                  }
+                  return prev;
+                });
+              }, 60000);
+              providerTimeoutRefs.current.set(evt.provider_id, timeoutId);
               break;
             }
 
@@ -342,6 +378,14 @@ export function useMetadataSearchStream(
                   durationMs: evt.duration_ms,
                 });
               }
+              // Clear timeout for this provider
+              const timeoutId = providerTimeoutRefs.current.get(
+                evt.provider_id,
+              );
+              if (timeoutId) {
+                clearTimeout(timeoutId);
+                providerTimeoutRefs.current.delete(evt.provider_id);
+              }
               newState.providersCompleted += 1;
               break;
             }
@@ -356,6 +400,14 @@ export function useMetadataSearchStream(
                   error: evt.message,
                   errorType: evt.error_type,
                 });
+              }
+              // Clear timeout for this provider
+              const timeoutId = providerTimeoutRefs.current.get(
+                evt.provider_id,
+              );
+              if (timeoutId) {
+                clearTimeout(timeoutId);
+                providerTimeoutRefs.current.delete(evt.provider_id);
               }
               newState.providersFailed += 1;
               break;
@@ -379,11 +431,49 @@ export function useMetadataSearchStream(
 
             case "search.completed": {
               const evt = data as MetadataSearchCompletedEvent;
+
+              // Clear all timeouts immediately to prevent race conditions
+              providerTimeoutRefs.current.forEach((timeout) => {
+                clearTimeout(timeout);
+              });
+              providerTimeoutRefs.current.clear();
+
               newState.isSearching = false;
               newState.totalResults = evt.total_results;
               newState.providersCompleted = evt.providers_completed;
               newState.providersFailed = evt.providers_failed;
               newState.results = Array.isArray(evt.results) ? evt.results : [];
+
+              // Only mark providers as failed if backend reports mismatch
+              // (i.e., backend says fewer completed/failed than total providers)
+              // This handles cases where backend didn't send failure events
+              const backendReportedTotal =
+                evt.providers_completed + evt.providers_failed;
+              if (
+                backendReportedTotal < newState.totalProviders &&
+                newState.totalProviders > 0
+              ) {
+                // Backend didn't report all providers - mark missing ones as failed
+                let additionalFailures = 0;
+                newProviderStatuses.forEach((status, providerId) => {
+                  if (
+                    status.status === "searching" ||
+                    status.status === "pending"
+                  ) {
+                    newProviderStatuses.set(providerId, {
+                      ...status,
+                      status: "failed",
+                      error:
+                        "Provider did not complete search (connection may have been lost)",
+                      errorType: "ConnectionError",
+                    });
+                    additionalFailures += 1;
+                  }
+                });
+                if (additionalFailures > 0) {
+                  newState.providersFailed += additionalFailures;
+                }
+              }
               break;
             }
           }
@@ -436,6 +526,11 @@ export function useMetadataSearchStream(
 
                     // Stop reading if search completed
                     if (data.event === "search.completed") {
+                      // Clear all timeouts when search completes
+                      providerTimeoutRefs.current.forEach((timeout) => {
+                        clearTimeout(timeout);
+                      });
+                      providerTimeoutRefs.current.clear();
                       reader.cancel();
                       readerRef.current = null;
                       abortControllerRef.current = null;
@@ -463,10 +558,48 @@ export function useMetadataSearchStream(
 
           readerRef.current = null;
           abortControllerRef.current = null;
+
+          // If stream ends without search.completed, mark all searching providers as failed
+          setState((prev) => {
+            if (prev.isSearching) {
+              const statuses = new Map(prev.providerStatuses);
+              let additionalFailures = 0;
+              statuses.forEach((status, providerId) => {
+                if (
+                  status.status === "searching" ||
+                  status.status === "pending"
+                ) {
+                  statuses.set(providerId, {
+                    ...status,
+                    status: "failed",
+                    error: "Search stream ended unexpectedly",
+                    errorType: "StreamError",
+                  });
+                  additionalFailures += 1;
+                }
+              });
+              // Clear all timeouts
+              providerTimeoutRefs.current.forEach((timeout) => {
+                clearTimeout(timeout);
+              });
+              providerTimeoutRefs.current.clear();
+              return {
+                ...prev,
+                isSearching: false,
+                providerStatuses: statuses,
+                providersFailed: prev.providersFailed + additionalFailures,
+              };
+            }
+            return prev;
+          });
         })
         .catch((error) => {
           if (error.name === "AbortError") {
             // Search was cancelled, ignore but still update state
+            providerTimeoutRefs.current.forEach((timeout) => {
+              clearTimeout(timeout);
+            });
+            providerTimeoutRefs.current.clear();
             setState((prev) => ({
               ...prev,
               isSearching: false,
@@ -479,11 +612,37 @@ export function useMetadataSearchStream(
             error instanceof Error
               ? error.message
               : "Connection error occurred";
-          setState((prev) => ({
-            ...prev,
-            error: message,
-            isSearching: false,
-          }));
+          // Mark all searching providers as failed on connection error
+          setState((prev) => {
+            const statuses = new Map(prev.providerStatuses);
+            let additionalFailures = 0;
+            statuses.forEach((status, providerId) => {
+              if (
+                status.status === "searching" ||
+                status.status === "pending"
+              ) {
+                statuses.set(providerId, {
+                  ...status,
+                  status: "failed",
+                  error: message,
+                  errorType: "ConnectionError",
+                });
+                additionalFailures += 1;
+              }
+            });
+            // Clear all timeouts
+            providerTimeoutRefs.current.forEach((timeout) => {
+              clearTimeout(timeout);
+            });
+            providerTimeoutRefs.current.clear();
+            return {
+              ...prev,
+              error: message,
+              isSearching: false,
+              providerStatuses: statuses,
+              providersFailed: prev.providersFailed + additionalFailures,
+            };
+          });
           readerRef.current = null;
           abortControllerRef.current = null;
         });

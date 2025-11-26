@@ -101,8 +101,23 @@ export function MetadataProviderStatus({
         }
         return resultText;
       }
-      case "failed":
-        return "Failed";
+      case "failed": {
+        // Show brief error message if available
+        if (status.error) {
+          // Truncate long error messages
+          const maxLength = 50;
+          const truncated =
+            status.error.length > maxLength
+              ? `${status.error.slice(0, maxLength)}...`
+              : status.error;
+          return (
+            <span className="text-danger-a10" title={status.error}>
+              {truncated}
+            </span>
+          );
+        }
+        return <span className="text-danger-a10">Failed</span>;
+      }
       default:
         return "";
     }
@@ -162,13 +177,26 @@ export function MetadataProviderStatus({
           </div>
         )}
       </div>
-      {status.error && (
+      {status.status === "failed" && status.error && (
         <div
-          className="mt-1 rounded bg-[rgba(156,33,33,0.15)] p-2 text-[0.7rem] text-danger-a10"
+          className="mt-1 rounded border border-danger-a0/30 bg-[rgba(156,33,33,0.15)] p-2 text-[0.7rem] text-danger-a10"
           role="alert"
+          aria-live="polite"
         >
-          <span className="font-semibold">{status.errorType || "Error"}:</span>{" "}
-          {status.error}
+          <div className="flex items-start gap-1.5">
+            <i
+              className="pi pi-exclamation-triangle mt-0.5 shrink-0 text-danger-a0"
+              aria-hidden="true"
+            />
+            <div className="min-w-0 flex-1">
+              {status.errorType && (
+                <div className="mb-0.5 font-semibold text-danger-a0">
+                  {status.errorType}
+                </div>
+              )}
+              <div className="break-words">{status.error}</div>
+            </div>
+          </div>
         </div>
       )}
       {status.status === "searching" && status.discovered > 0 && (
