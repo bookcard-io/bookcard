@@ -59,6 +59,7 @@ export default defineConfig({
         // Next.js infrastructure files
         "src/instrumentation*.ts",
         "src/proxy.ts",
+        "src/constants/inspiring_quotes.ts",
       ],
       reporter: ["text", "text-summary", "html", "json"],
       reportsDirectory: "./coverage",
