@@ -180,8 +180,8 @@ export function MetadataFetchModal({
               Fetch Metadata
             </h2>
             <p className="m-0 text-sm text-text-a30">
-              Search external sources for book metadata. Click the cover to load
-              metadata to the form.
+              Search external sources for book metadata. Click the cover to
+              expand and select fields to import.
             </p>
           </div>
 

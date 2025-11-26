@@ -15,6 +15,7 @@
 
 "use client";
 
+import { useMetadataResultsListState } from "@/hooks/useMetadataResultsListState";
 import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
 import { MetadataResultItem } from "./MetadataResultItem";
 
@@ -24,10 +25,24 @@ export interface MetadataResultsListProps {
   onSelectMetadata?: (record: MetadataRecord) => void;
 }
 
+/**
+ * List component for metadata search results.
+ *
+ * Manages list-level state and renders result items.
+ * Follows SRP by focusing solely on list orchestration.
+ * Follows IOC via hooks for state management.
+ *
+ * Parameters
+ * ----------
+ * props : MetadataResultsListProps
+ *     Component props including results and selection callback.
+ */
 export function MetadataResultsList({
   results,
   onSelectMetadata,
 }: MetadataResultsListProps) {
+  const { handleExpand, isExpanded, isDimmed } = useMetadataResultsListState();
+
   if (!results || results.length === 0) {
     return null;
   }
@@ -42,12 +57,16 @@ export function MetadataResultsList({
         if (isFirstForProvider) {
           seenSourceIds.add(r.source_id);
         }
+        const itemKey = `${r.source_id}:${r.external_id}:${idx}`;
         return (
           <MetadataResultItem
-            key={`${r.source_id}:${r.external_id}:${idx}`}
+            key={itemKey}
             record={r}
             onSelect={onSelectMetadata}
             id={isFirstForProvider ? `result-${r.source_id}` : undefined}
+            isExpanded={isExpanded(itemKey)}
+            onExpand={() => handleExpand(itemKey)}
+            isDimmed={isDimmed(itemKey)}
           />
         );
       })}
