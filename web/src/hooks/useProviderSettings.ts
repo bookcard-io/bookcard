@@ -14,11 +14,12 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { useEffect, useMemo, useState } from "react";
-import { AVAILABLE_METADATA_PROVIDERS } from "@/components/profile/config/configurationConstants";
+import {
+  AVAILABLE_METADATA_PROVIDERS,
+  DEFAULT_ENABLED_METADATA_PROVIDERS,
+  ENABLED_METADATA_PROVIDERS_SETTING_KEY,
+} from "@/components/profile/config/configurationConstants";
 import { useUser } from "@/contexts/UserContext";
-
-const SETTING_KEY = "enabled_metadata_providers";
-const DEFAULT_ENABLED_PROVIDERS = ["Google Books", "Amazon"];
 
 /**
  * Parse enabled providers from setting value.
@@ -38,7 +39,7 @@ function parseEnabledProviders(
 ): Set<string> {
   if (!settingValue) {
     // If no setting, use default enabled providers
-    return new Set(DEFAULT_ENABLED_PROVIDERS);
+    return new Set(DEFAULT_ENABLED_METADATA_PROVIDERS);
   }
   try {
     const parsed = JSON.parse(settingValue) as string[];
@@ -51,10 +52,10 @@ function parseEnabledProviders(
       return new Set(parsed);
     }
     // Not an array, default to default enabled providers
-    return new Set(DEFAULT_ENABLED_PROVIDERS);
+    return new Set(DEFAULT_ENABLED_METADATA_PROVIDERS);
   } catch {
     // Invalid JSON, default to default enabled providers
-    return new Set(DEFAULT_ENABLED_PROVIDERS);
+    return new Set(DEFAULT_ENABLED_METADATA_PROVIDERS);
   }
 }
 
@@ -110,7 +111,7 @@ export function useProviderSettings(): UseProviderSettingsResult {
     if (isSettingsLoading) {
       return new Set<string>();
     }
-    const settingValue = getSetting(SETTING_KEY);
+    const settingValue = getSetting(ENABLED_METADATA_PROVIDERS_SETTING_KEY);
     return parseEnabledProviders(settingValue);
   }, [getSetting, isSettingsLoading]);
 
@@ -155,12 +156,15 @@ export function useProviderSettings(): UseProviderSettingsResult {
     if (allEnabled) {
       // All providers enabled, store all provider names
       updateSetting(
-        SETTING_KEY,
+        ENABLED_METADATA_PROVIDERS_SETTING_KEY,
         JSON.stringify(Array.from(AVAILABLE_METADATA_PROVIDERS)),
       );
     } else {
       // Store the enabled providers array (can be empty if none enabled)
-      updateSetting(SETTING_KEY, JSON.stringify(enabledArray));
+      updateSetting(
+        ENABLED_METADATA_PROVIDERS_SETTING_KEY,
+        JSON.stringify(enabledArray),
+      );
     }
   };
 

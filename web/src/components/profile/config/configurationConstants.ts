@@ -33,13 +33,14 @@ export const AVAILABLE_LANGUAGES = [
 ] as const;
 
 export const AVAILABLE_METADATA_PROVIDERS = [
-  "OpenLibrary",
+  "Hardcover",
   "Google Books",
   "Amazon",
   "豆瓣",
   "Google Scholar",
   "LubimyCzytac.pl",
   "ComicVine",
+  "OpenLibrary",
 ] as const;
 
 export const DISPLAY_MODE_OPTIONS = [
@@ -95,6 +96,15 @@ export const READING_FONT_FAMILY_SETTING_KEY = "reading_font_family";
 export const READING_FONT_SIZE_SETTING_KEY = "reading_font_size";
 export const READING_PAGE_COLOR_SETTING_KEY = "reading_page_color";
 export const READING_PAGE_LAYOUT_SETTING_KEY = "reading_page_layout";
+
+export const ENABLED_METADATA_PROVIDERS_SETTING_KEY =
+  "enabled_metadata_providers";
+
+export const DEFAULT_ENABLED_METADATA_PROVIDERS = [
+  "Hardcover",
+  "Google Books",
+  "Amazon",
+] as const;
 
 /**
  * Gets the label for the theme toggle button.

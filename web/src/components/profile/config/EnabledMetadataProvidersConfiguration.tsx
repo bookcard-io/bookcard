@@ -18,10 +18,11 @@
 import { useArraySetting } from "@/hooks/useArraySetting";
 import { useMultiSelect } from "@/hooks/useMultiSelect";
 import { ToggleButtonGroup } from "../ToggleButtonGroup";
-import { AVAILABLE_METADATA_PROVIDERS } from "./configurationConstants";
-
-const SETTING_KEY = "enabled_metadata_providers";
-const DEFAULT_VALUE: string[] = ["Google Books", "Amazon"];
+import {
+  AVAILABLE_METADATA_PROVIDERS,
+  DEFAULT_ENABLED_METADATA_PROVIDERS,
+  ENABLED_METADATA_PROVIDERS_SETTING_KEY,
+} from "./configurationConstants";
 
 /**
  * Enabled metadata providers configuration component.
@@ -33,13 +34,13 @@ const DEFAULT_VALUE: string[] = ["Google Books", "Amazon"];
  */
 export function EnabledMetadataProvidersConfiguration() {
   const { selected, toggle, setSelected } = useMultiSelect<string>({
-    initialSelected: DEFAULT_VALUE,
+    initialSelected: [...DEFAULT_ENABLED_METADATA_PROVIDERS],
   });
 
   // Handle loading and saving array setting
   useArraySetting({
-    key: SETTING_KEY,
-    defaultValue: DEFAULT_VALUE,
+    key: ENABLED_METADATA_PROVIDERS_SETTING_KEY,
+    defaultValue: [...DEFAULT_ENABLED_METADATA_PROVIDERS],
     value: selected,
     setValue: setSelected,
   });

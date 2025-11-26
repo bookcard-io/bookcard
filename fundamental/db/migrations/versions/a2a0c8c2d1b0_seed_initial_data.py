@@ -121,7 +121,7 @@ def upgrade() -> None:  # noqa: C901
         "default_sort_field": "timestamp",
         "default_sort_order": "desc",
         "enabled_metadata_providers": [
-            "OpenLibrary",
+            "Hardcover",
             "Google Books",
             "Amazon",
             "ComicVine",
