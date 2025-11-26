@@ -433,6 +433,76 @@ describe("useMetadataSearchStream", () => {
     );
   });
 
+  it("should clear timeouts when AbortError occurs with active providers", async () => {
+    const searchStartedEvent: MetadataSearchStartedEvent = {
+      event: "search.started",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      query: "test",
+      locale: "en",
+      provider_ids: ["provider1"],
+      total_providers: 1,
+    };
+
+    const providerStartedEvent: MetadataProviderStartedEvent = {
+      event: "provider.started",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      provider_id: "provider1",
+      provider_name: "Provider 1",
+    };
+
+    const searchStartedStr = JSON.stringify(searchStartedEvent);
+    const providerStartedStr = JSON.stringify(providerStartedEvent);
+
+    // Mock reader to return events, then throw AbortError
+    mockReader.read
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${searchStartedStr}\n\n`.split("").map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${providerStartedStr}\n\n`
+            .split("")
+            .map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockRejectedValue(
+        typeof DOMException !== "undefined"
+          ? new DOMException("Aborted", "AbortError")
+          : (() => {
+              const err = new Error("Aborted");
+              err.name = "AbortError";
+              return err;
+            })(),
+      );
+
+    const { result } = renderHook(() =>
+      useMetadataSearchStream({ query: "test" }),
+    );
+
+    act(() => {
+      result.current.startSearch();
+    });
+
+    await waitFor(
+      () => {
+        // AbortError should be handled gracefully
+        expect(result.current.state.error).toBeNull();
+        expect(result.current.state.isSearching).toBe(false);
+        // Provider should still be in searching state (not marked as failed for AbortError)
+        const providerStatus =
+          result.current.state.providerStatuses.get("provider1");
+        expect(providerStatus?.status).toBe("searching");
+      },
+      { timeout: 2000 },
+    );
+  });
+
   it("should handle connection errors", async () => {
     const connectionError = new Error("Connection failed");
     mockFetch.mockRejectedValue(connectionError);
@@ -448,6 +518,91 @@ describe("useMetadataSearchStream", () => {
     await waitFor(() => {
       expect(result.current.state.error).toBe("Connection failed");
       expect(result.current.state.isSearching).toBe(false);
+    });
+  });
+
+  it("should mark active providers as failed on connection error", async () => {
+    const searchStartedEvent: MetadataSearchStartedEvent = {
+      event: "search.started",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      query: "test",
+      locale: "en",
+      provider_ids: ["provider1", "provider2"],
+      total_providers: 2,
+    };
+
+    const providerStartedEvent1: MetadataProviderStartedEvent = {
+      event: "provider.started",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      provider_id: "provider1",
+      provider_name: "Provider 1",
+    };
+
+    const providerStartedEvent2: MetadataProviderStartedEvent = {
+      event: "provider.started",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      provider_id: "provider2",
+      provider_name: "Provider 2",
+    };
+
+    const searchStartedStr = JSON.stringify(searchStartedEvent);
+    const providerStartedStr1 = JSON.stringify(providerStartedEvent1);
+    const providerStartedStr2 = JSON.stringify(providerStartedEvent2);
+
+    const connectionError = new Error("Network connection lost");
+
+    // Mock reader to return events, then throw connection error
+    mockReader.read
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${searchStartedStr}\n\n`.split("").map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${providerStartedStr1}\n\n`
+            .split("")
+            .map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${providerStartedStr2}\n\n`
+            .split("")
+            .map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockRejectedValue(connectionError);
+
+    const { result } = renderHook(() =>
+      useMetadataSearchStream({ query: "test" }),
+    );
+
+    act(() => {
+      result.current.startSearch();
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.error).toBe("Network connection lost");
+      expect(result.current.state.isSearching).toBe(false);
+      // Both providers should be marked as failed
+      const provider1Status =
+        result.current.state.providerStatuses.get("provider1");
+      const provider2Status =
+        result.current.state.providerStatuses.get("provider2");
+      expect(provider1Status?.status).toBe("failed");
+      expect(provider1Status?.error).toBe("Network connection lost");
+      expect(provider1Status?.errorType).toBe("ConnectionError");
+      expect(provider2Status?.status).toBe("failed");
+      expect(provider2Status?.error).toBe("Network connection lost");
+      expect(provider2Status?.errorType).toBe("ConnectionError");
+      expect(result.current.state.providersFailed).toBe(2);
     });
   });
 
@@ -1371,6 +1526,296 @@ describe("useMetadataSearchStream", () => {
     // Should not throw when provider doesn't exist, but should still increment providersFailed
     await waitFor(() => {
       expect(result.current.state.providersFailed).toBe(1);
+    });
+  });
+
+  it("should mark providers as failed when search.completed reports mismatch", async () => {
+    const searchStartedEvent: MetadataSearchStartedEvent = {
+      event: "search.started",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      query: "test",
+      locale: "en",
+      provider_ids: ["provider1", "provider2", "provider3"],
+      total_providers: 3,
+    };
+
+    const providerStartedEvent1: MetadataProviderStartedEvent = {
+      event: "provider.started",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      provider_id: "provider1",
+      provider_name: "Provider 1",
+    };
+
+    const providerCompletedEvent1: MetadataProviderCompletedEvent = {
+      event: "provider.completed",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      provider_id: "provider1",
+      result_count: 5,
+      duration_ms: 100,
+    };
+
+    // Backend only reports 1 completed, but we have 3 providers
+    // provider2 and provider3 should be marked as failed
+    const searchCompletedEvent: MetadataSearchCompletedEvent = {
+      event: "search.completed",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      total_results: 5,
+      providers_completed: 1, // Only 1 reported, but we have 3 total
+      providers_failed: 0,
+      duration_ms: 100,
+      results: [],
+    };
+
+    const searchStartedStr = JSON.stringify(searchStartedEvent);
+    const providerStartedStr1 = JSON.stringify(providerStartedEvent1);
+    const providerCompletedStr1 = JSON.stringify(providerCompletedEvent1);
+    const searchCompletedStr = JSON.stringify(searchCompletedEvent);
+
+    mockReader.read
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${searchStartedStr}\n\n`.split("").map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${providerStartedStr1}\n\n`
+            .split("")
+            .map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${providerCompletedStr1}\n\n`
+            .split("")
+            .map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${searchCompletedStr}\n\n`
+            .split("")
+            .map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({ done: true });
+
+    const { result } = renderHook(() =>
+      useMetadataSearchStream({ query: "test" }),
+    );
+
+    act(() => {
+      result.current.startSearch();
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.isSearching).toBe(false);
+      expect(result.current.state.providersCompleted).toBe(1);
+      // provider2 and provider3 should be marked as failed due to mismatch
+      expect(result.current.state.providersFailed).toBe(2);
+      const provider2Status =
+        result.current.state.providerStatuses.get("provider2");
+      const provider3Status =
+        result.current.state.providerStatuses.get("provider3");
+      expect(provider2Status?.status).toBe("failed");
+      expect(provider2Status?.error).toBe(
+        "Provider did not complete search (connection may have been lost)",
+      );
+      expect(provider2Status?.errorType).toBe("ConnectionError");
+      expect(provider3Status?.status).toBe("failed");
+      expect(provider3Status?.error).toBe(
+        "Provider did not complete search (connection may have been lost)",
+      );
+      expect(provider3Status?.errorType).toBe("ConnectionError");
+    });
+  });
+
+  it("should not mark providers as failed when search.completed matches total", async () => {
+    const searchStartedEvent: MetadataSearchStartedEvent = {
+      event: "search.started",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      query: "test",
+      locale: "en",
+      provider_ids: ["provider1", "provider2"],
+      total_providers: 2,
+    };
+
+    const providerStartedEvent1: MetadataProviderStartedEvent = {
+      event: "provider.started",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      provider_id: "provider1",
+      provider_name: "Provider 1",
+    };
+
+    const providerStartedEvent2: MetadataProviderStartedEvent = {
+      event: "provider.started",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      provider_id: "provider2",
+      provider_name: "Provider 2",
+    };
+
+    // Backend reports 2 completed (matches total), so no providers should be marked as failed
+    const searchCompletedEvent: MetadataSearchCompletedEvent = {
+      event: "search.completed",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      total_results: 0,
+      providers_completed: 2, // Matches total_providers
+      providers_failed: 0,
+      duration_ms: 100,
+      results: [],
+    };
+
+    const searchStartedStr = JSON.stringify(searchStartedEvent);
+    const providerStartedStr1 = JSON.stringify(providerStartedEvent1);
+    const providerStartedStr2 = JSON.stringify(providerStartedEvent2);
+    const searchCompletedStr = JSON.stringify(searchCompletedEvent);
+
+    mockReader.read
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${searchStartedStr}\n\n`.split("").map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${providerStartedStr1}\n\n`
+            .split("")
+            .map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${providerStartedStr2}\n\n`
+            .split("")
+            .map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${searchCompletedStr}\n\n`
+            .split("")
+            .map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({ done: true });
+
+    const { result } = renderHook(() =>
+      useMetadataSearchStream({ query: "test" }),
+    );
+
+    act(() => {
+      result.current.startSearch();
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.isSearching).toBe(false);
+      expect(result.current.state.providersCompleted).toBe(2);
+      expect(result.current.state.providersFailed).toBe(0);
+      // Providers should remain in searching state (not marked as failed)
+      const provider1Status =
+        result.current.state.providerStatuses.get("provider1");
+      const provider2Status =
+        result.current.state.providerStatuses.get("provider2");
+      expect(provider1Status?.status).toBe("searching");
+      expect(provider2Status?.status).toBe("searching");
+    });
+  });
+
+  it("should mark providers as failed when stream ends without search.completed", async () => {
+    const searchStartedEvent: MetadataSearchStartedEvent = {
+      event: "search.started",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      query: "test",
+      locale: "en",
+      provider_ids: ["provider1", "provider2"],
+      total_providers: 2,
+    };
+
+    const providerStartedEvent1: MetadataProviderStartedEvent = {
+      event: "provider.started",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      provider_id: "provider1",
+      provider_name: "Provider 1",
+    };
+
+    const providerStartedEvent2: MetadataProviderStartedEvent = {
+      event: "provider.started",
+      request_id: "req-1",
+      timestamp_ms: Date.now(),
+      provider_id: "provider2",
+      provider_name: "Provider 2",
+    };
+
+    const searchStartedStr = JSON.stringify(searchStartedEvent);
+    const providerStartedStr1 = JSON.stringify(providerStartedEvent1);
+    const providerStartedStr2 = JSON.stringify(providerStartedEvent2);
+
+    // Stream ends without search.completed event
+    mockReader.read
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${searchStartedStr}\n\n`.split("").map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${providerStartedStr1}\n\n`
+            .split("")
+            .map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({
+        done: false,
+        value: new Uint8Array(
+          `data: ${providerStartedStr2}\n\n`
+            .split("")
+            .map((c) => c.charCodeAt(0)),
+        ),
+      })
+      .mockResolvedValueOnce({ done: true }); // Stream ends
+
+    const { result } = renderHook(() =>
+      useMetadataSearchStream({ query: "test" }),
+    );
+
+    act(() => {
+      result.current.startSearch();
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.isSearching).toBe(false);
+      // Both providers should be marked as failed
+      expect(result.current.state.providersFailed).toBe(2);
+      const provider1Status =
+        result.current.state.providerStatuses.get("provider1");
+      const provider2Status =
+        result.current.state.providerStatuses.get("provider2");
+      expect(provider1Status?.status).toBe("failed");
+      expect(provider1Status?.error).toBe("Search stream ended unexpectedly");
+      expect(provider1Status?.errorType).toBe("StreamError");
+      expect(provider2Status?.status).toBe("failed");
+      expect(provider2Status?.error).toBe("Search stream ended unexpectedly");
+      expect(provider2Status?.errorType).toBe("StreamError");
     });
   });
 

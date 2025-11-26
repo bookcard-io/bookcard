@@ -39,6 +39,11 @@ describe("useMetadataSearchActions", () => {
         error: null,
         results: [],
       },
+      progress: {
+        percentage: 0,
+        isComplete: false,
+        hasErrors: false,
+      },
       startSearch: vi.fn(),
       cancelSearch: vi.fn(),
       reset: vi.fn(),
