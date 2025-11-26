@@ -46,6 +46,8 @@ export interface BookCardProps {
   onEdit?: (bookId: number) => void;
   /** Callback fired when book is deleted. */
   onBookDeleted?: (bookId: number) => void;
+  /** Whether to show selection checkbox. Defaults to false. */
+  showSelection?: boolean;
 }
 
 /**
@@ -63,6 +65,7 @@ export function BookCard({
   onClick: _onClick,
   onEdit,
   onBookDeleted,
+  showSelection = false,
 }: BookCardProps) {
   const { isSelected } = useSelectedBooks();
   const selected = isSelected(book.id);
@@ -129,11 +132,13 @@ export function BookCard({
           {/* Desktop overlay (hidden on mobile) */}
           <div className="hidden md:block">
             <BookCardOverlay selected={selected}>
-              <BookCardCheckbox
-                book={book}
-                allBooks={allBooks}
-                selected={selected}
-              />
+              {showSelection && (
+                <BookCardCheckbox
+                  book={book}
+                  allBooks={allBooks}
+                  selected={selected}
+                />
+              )}
               {onEdit && (
                 <BookCardEditButton
                   bookTitle={book.title}
@@ -172,12 +177,14 @@ export function BookCard({
             "md:hidden",
           )}
         >
-          <BookCardCheckbox
-            book={book}
-            allBooks={allBooks}
-            selected={selected}
-            variant="mobile"
-          />
+          {showSelection && (
+            <BookCardCheckbox
+              book={book}
+              allBooks={allBooks}
+              selected={selected}
+              variant="mobile"
+            />
+          )}
           {onEdit && (
             <BookCardEditButton
               bookTitle={book.title}

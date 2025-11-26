@@ -290,6 +290,7 @@ export function BooksGrid({
                           onClick={onBookClick}
                           onEdit={onBookEdit}
                           onBookDeleted={handleBookDeleted}
+                          showSelection={true}
                         />
                       </div>
                     ))}

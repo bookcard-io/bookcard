@@ -273,6 +273,7 @@ export function HorizontalBookScroll({
                       onClick={handleBookClick}
                       onEdit={handleBookEdit}
                       onBookDeleted={handleBookDeleted}
+                      showSelection={false}
                     />
                   </div>
                 </div>
