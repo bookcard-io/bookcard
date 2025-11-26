@@ -18,6 +18,9 @@
 from collections.abc import Sequence
 
 from fundamental.services.library_scanning.data_sources.base import BaseDataSource
+from fundamental.services.library_scanning.data_sources.hardcover import (
+    HardcoverDataSource,
+)
 from fundamental.services.library_scanning.data_sources.openlibrary import (
     OpenLibraryDataSource,
 )
@@ -28,6 +31,7 @@ from fundamental.services.library_scanning.data_sources.openlibrary_dump import 
 _DATA_SOURCES: dict[str, type[BaseDataSource]] = {
     "openlibrary": OpenLibraryDataSource,
     "openlibrary_dump": OpenLibraryDumpDataSource,
+    "hardcover": HardcoverDataSource,
 }
 
 

@@ -39,6 +39,33 @@ EDITION_QUERY = (
     "} }"
 )
 
+# Author search query using search endpoint
+AUTHOR_SEARCH_QUERY = (
+    "query SearchAuthors($query: String!) { "
+    'search(query: $query, query_type: "Author", per_page: 50) { results } '
+    "}"
+)
+
+# Author query to get author by ID with all fields
+AUTHOR_BY_ID_QUERY = (
+    "query GetAuthor($authorId: Int!) { "
+    "authors(where: {id: {_eq: $authorId}}, limit: 1) { "
+    "  id name slug "
+    "  alternate_names bio "
+    "  born_date born_year death_date death_year "
+    "  books_count "
+    "  cached_image "
+    "  identifiers "
+    "  is_bipoc is_lgbtq "
+    "  contributions { "
+    "    id contribution contributable_type "
+    "    book { id title slug } "
+    "  } "
+    "} }"
+)
+
 # Operation names for each query
 SEARCH_OPERATION_NAME = "SearchBooks"
 EDITION_OPERATION_NAME = "BookEditions"
+AUTHOR_SEARCH_OPERATION_NAME = "SearchAuthors"
+AUTHOR_BY_ID_OPERATION_NAME = "GetAuthor"

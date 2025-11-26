@@ -16,6 +16,9 @@
 """Data source abstractions for external metadata providers."""
 
 from fundamental.services.library_scanning.data_sources.base import BaseDataSource
+from fundamental.services.library_scanning.data_sources.hardcover import (
+    HardcoverDataSource,
+)
 from fundamental.services.library_scanning.data_sources.openlibrary import (
     OpenLibraryDataSource,
 )
@@ -26,5 +29,6 @@ from fundamental.services.library_scanning.data_sources.registry import (
 __all__ = [
     "BaseDataSource",
     "DataSourceRegistry",
+    "HardcoverDataSource",
     "OpenLibraryDataSource",
 ]
