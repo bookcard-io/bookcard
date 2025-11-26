@@ -387,6 +387,16 @@ class HardcoverDataSource(BaseDataSource):
                 operation_name=EDITION_OPERATION_NAME,
             )
 
+            # Debug: Check if books array is empty
+            books = data.get("data", {}).get("books", [])
+            if not books:
+                logger.debug(
+                    "No books found for book ID %s. API response: %s",
+                    book_id,
+                    data.get("data", {}),
+                )
+                return None
+
             edition_data = self._parser.extract_edition_data(data)
             if edition_data:
                 # Map to BookData
@@ -513,9 +523,33 @@ class HardcoverDataSource(BaseDataSource):
             if not book_id:
                 return None
 
+            # Title might be at book level or in first edition
             title = book_data.get("title", "")
             if not title:
-                return None
+                # Try to get title from first edition
+                editions = book_data.get("editions", [])
+                if editions and isinstance(editions, list) and editions[0]:
+                    title = editions[0].get("title", "")
+
+            if not title:
+                # If still no title, try using slug as fallback or log more details
+                slug = book_data.get("slug", "")
+                if slug:
+                    # Use slug as title fallback (better than returning None)
+                    title = slug.replace("-", " ").title()
+                    logger.debug(
+                        "No title found for book ID %s, using slug as fallback: %s",
+                        book_id,
+                        title,
+                    )
+                else:
+                    logger.warning(
+                        "No title or slug found in book data for book ID %s. "
+                        "Editions: %s",
+                        book_id,
+                        len(editions) if isinstance(editions, list) else 0,
+                    )
+                    return None
 
             # Extract authors
             authors_result = self._authors_extractor.extract(book_data)
@@ -639,6 +673,121 @@ class HardcoverDataSource(BaseDataSource):
         except (KeyError, ValueError, TypeError) as e:
             logger.warning("Error mapping Hardcover author data: %s", e)
             return None
+
+    def get_author_works(
+        self,
+        author_key: str,
+        limit: int | None = None,
+        lang: str = "eng",  # noqa: ARG002
+    ) -> Sequence[str]:
+        """Get work keys for an author.
+
+        Extracts book IDs from the author's contributions.
+
+        Parameters
+        ----------
+        author_key : str
+            Author key/identifier (Hardcover author ID).
+        limit : int | None
+            Maximum number of work keys to return (None = fetch all).
+        lang : str
+            Language code (unused, kept for API compatibility).
+
+        Returns
+        -------
+        Sequence[str]
+            Sequence of work keys (book IDs as strings).
+
+        Raises
+        ------
+        DataSourceNetworkError
+            If network request fails.
+        """
+        if not self.bearer_token:
+            logger.warning(
+                "Hardcover API bearer token not set, cannot fetch author works"
+            )
+            return []
+
+        try:
+            # Convert key to integer (Hardcover uses integer IDs)
+            try:
+                author_id = int(author_key)
+            except ValueError:
+                logger.warning("Invalid Hardcover author ID: %s", author_key)
+                return []
+
+            # Fetch author details with contributions
+            data = self._client.execute_query(
+                query=AUTHOR_BY_ID_QUERY,
+                variables={"authorId": author_id},
+                operation_name=AUTHOR_BY_ID_OPERATION_NAME,
+            )
+
+            # Extract contributions and convert to work keys
+            return self._extract_work_keys_from_contributions(data, limit)
+
+        except MetadataProviderNetworkError as e:
+            msg = f"Hardcover API request failed: {e}"
+            raise DataSourceNetworkError(msg) from e
+        except MetadataProviderParseError as e:
+            error_msg = f"Error parsing author works: {e}"
+            raise DataSourceNetworkError(error_msg) from e
+        except (KeyError, ValueError, TypeError) as e:
+            logger.exception("Error parsing Hardcover API response")
+            error_msg = f"Error extracting author works: {e}"
+            raise DataSourceNetworkError(error_msg) from e
+
+    def _extract_work_keys_from_contributions(
+        self, data: dict[str, Any], limit: int | None = None
+    ) -> list[str]:
+        """Extract work keys from author contributions data.
+
+        Parameters
+        ----------
+        data : dict[str, Any]
+            GraphQL response data.
+        limit : int | None
+            Maximum number of work keys to return.
+
+        Returns
+        -------
+        list[str]
+            List of work keys (book IDs as strings).
+        """
+        authors_data = data.get("data", {}).get("authors", [])
+        if not isinstance(authors_data, list) or not authors_data:
+            return []
+
+        author_data = authors_data[0]
+        contributions = author_data.get("contributions", [])
+
+        if not isinstance(contributions, list):
+            return []
+
+        # Extract book IDs from contributions
+        work_keys: list[str] = []
+        for contribution in contributions:
+            if not isinstance(contribution, dict):
+                continue
+
+            # Only get contributions to books (not editions)
+            contributable_type = contribution.get("contributable_type")
+            if contributable_type != "Book":
+                continue
+
+            # Extract book ID
+            book = contribution.get("book")
+            if isinstance(book, dict):
+                book_id = book.get("id")
+                if book_id:
+                    work_keys.append(str(book_id))
+
+            # Apply limit if specified
+            if limit and len(work_keys) >= limit:
+                break
+
+        return work_keys
 
     def _extract_author_identifiers(
         self, author_data: dict[str, Any]

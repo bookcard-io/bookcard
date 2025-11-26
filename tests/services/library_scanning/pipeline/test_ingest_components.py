@@ -196,15 +196,20 @@ class TestAuthorDataFetcher:
     def test_fetch_author_works_without_method(
         self, mock_data_source: MagicMock
     ) -> None:
-        """Test fetch_author_works when method doesn't exist."""
-        # Remove the method if it exists
-        if hasattr(mock_data_source, "get_author_works"):
-            delattr(mock_data_source, "get_author_works")
+        """Test fetch_author_works calls data source method.
+
+        Note: get_author_works is now required by BaseDataSource interface.
+        This test verifies the method is called correctly.
+        """
+        mock_data_source.get_author_works = MagicMock(return_value=[])
         fetcher = AuthorDataFetcher(mock_data_source)
 
         result = fetcher.fetch_author_works("OL12345A")
 
         assert result == []
+        mock_data_source.get_author_works.assert_called_once_with(
+            "OL12345A", limit=None
+        )
 
     def test_fetch_author_works_without_limit(
         self, mock_data_source: MagicMock

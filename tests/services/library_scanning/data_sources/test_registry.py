@@ -95,6 +95,14 @@ def test_register_source() -> None:
         def get_author(self, key: str) -> AuthorData | None:
             return None
 
+        def get_author_works(
+            self,
+            author_key: str,
+            limit: int | None = None,
+            lang: str = "eng",
+        ) -> Sequence[str]:
+            return []
+
         def search_book(
             self,
             title: str | None = None,
@@ -150,6 +158,14 @@ def test_register_source_case_insensitive() -> None:
 
         def get_author(self, key: str) -> AuthorData | None:
             return None
+
+        def get_author_works(
+            self,
+            author_key: str,
+            limit: int | None = None,
+            lang: str = "eng",
+        ) -> Sequence[str]:
+            return []
 
         def search_book(
             self,

@@ -51,6 +51,7 @@ class BaseDataSource(ABC):
     Subclasses should implement:
     - `search_author()`: Search for authors by name and identifiers
     - `get_author()`: Get full author details by key
+    - `get_author_works()`: Get work keys for an author
     - `search_book()`: Search for books by title, ISBN, authors
     - `get_book()`: Get full book details by key
     """
@@ -118,6 +119,38 @@ class BaseDataSource(ABC):
             If rate limit is exceeded.
         DataSourceNotFoundError
             If author is not found.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_author_works(
+        self,
+        author_key: str,
+        limit: int | None = None,
+        lang: str = "eng",
+    ) -> Sequence[str]:
+        """Get work keys for an author.
+
+        Parameters
+        ----------
+        author_key : str
+            Author key/identifier from the data source.
+        limit : int | None
+            Maximum number of work keys to return (None = fetch all).
+        lang : str
+            Language code to filter works (default: "eng").
+
+        Returns
+        -------
+        Sequence[str]
+            Sequence of work keys. Empty if no works found.
+
+        Raises
+        ------
+        DataSourceNetworkError
+            If network request fails.
+        DataSourceRateLimitError
+            If rate limit is exceeded.
         """
         raise NotImplementedError
 

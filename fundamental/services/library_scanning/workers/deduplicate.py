@@ -115,6 +115,30 @@ class NoOpDataSource(BaseDataSource):
         """
         return None
 
+    def get_author_works(
+        self,
+        author_key: str,  # noqa: ARG002
+        limit: int | None = None,  # noqa: ARG002
+        lang: str = "eng",  # noqa: ARG002
+    ) -> Sequence[str]:
+        """Get work keys for an author (no-op).
+
+        Parameters
+        ----------
+        author_key : str
+            Author key (unused).
+        limit : int | None
+            Maximum number of work keys (unused).
+        lang : str
+            Language code (unused).
+
+        Returns
+        -------
+        Sequence[str]
+            Empty sequence.
+        """
+        return []
+
     @property
     def name(self) -> str:
         """Get data source name.

@@ -133,10 +133,7 @@ class AuthorDataFetcher:
         Sequence[str]
             Sequence of work keys.
         """
-        get_author_works = getattr(self.data_source, "get_author_works", None)
-        if get_author_works and callable(get_author_works):
-            return get_author_works(author_key, limit=limit)
-        return []
+        return self.data_source.get_author_works(author_key, limit=limit)
 
     def fetch_work(self, work_key: str) -> BookData | None:
         """Fetch work data with subjects.
