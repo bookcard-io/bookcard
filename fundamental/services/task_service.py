@@ -30,6 +30,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import Session  # noqa: TC002
 
 from fundamental.models.tasks import Task, TaskStatistics, TaskStatus, TaskType
+from fundamental.services.tasks.metadata_normalizer import TaskMetadataNormalizer
 
 logger = logging.getLogger(__name__)
 
@@ -286,10 +287,6 @@ class TaskService:
             Whether to normalize metadata (e.g., convert book_id to book_ids).
             Defaults to True.
         """
-        from fundamental.services.tasks.metadata_normalizer import (
-            TaskMetadataNormalizer,
-        )
-
         task = self._session.get(Task, task_id)
         if task is None:
             msg = f"Task {task_id} not found"

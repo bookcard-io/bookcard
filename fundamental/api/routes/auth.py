@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -45,6 +46,7 @@ from fundamental.api.schemas import (
     UserRead,
 )
 from fundamental.models.auth import Role, RolePermission, User, UserRole
+from fundamental.models.config import EmailServerType
 from fundamental.repositories.user_repository import (
     TokenBlacklistRepository,
     UserRepository,
@@ -264,8 +266,6 @@ def logout(
         return
 
     # Convert expiration timestamp to datetime
-    from datetime import UTC, datetime
-
     expires_at = datetime.fromtimestamp(exp_timestamp, tz=UTC)
 
     # Add token to blacklist
@@ -699,8 +699,6 @@ def get_email_server_config(
     config = service.get_email_server_config(decrypt=True)
     if config is None:
         # Return defaults (no persisted record yet)
-        from fundamental.models.config import EmailServerType
-
         return EmailServerConfigRead(
             id=None,
             server_type=EmailServerType.SMTP,

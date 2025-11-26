@@ -648,8 +648,6 @@ def download_book_file(
     HTTPException
         If book not found (404), format not found (404), or no active library (404).
     """
-    from pathlib import Path
-
     book_with_rels = book_service.get_book_full(book_id)
 
     if book_with_rels is None:
@@ -1417,8 +1415,6 @@ def upload_book(
         title = Path(filename).stem if filename else None
 
     # Create upload task
-    from fundamental.models.tasks import TaskType
-
     # Enqueue task with file path in payload
     # Task record will be created by the runner
     task_id = task_runner.enqueue(
@@ -1604,8 +1600,6 @@ def _enqueue_batch_upload_task(
     str
         Task ID.
     """
-    from fundamental.models.tasks import TaskType
-
     task_id = task_runner.enqueue(
         task_type=TaskType.MULTI_BOOK_UPLOAD,
         payload={"files": file_infos},

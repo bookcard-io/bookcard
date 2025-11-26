@@ -20,6 +20,7 @@ Business logic is delegated to services following SOLID principles.
 """
 
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import (
@@ -770,8 +771,6 @@ def get_author_photo(
         If author not found (404), photo not found (404), file not found (404),
         or permission denied (403).
     """
-    from pathlib import Path
-
     try:
         author_data = _get_author_or_raise(author_id, author_service)
         permission_helper.check_read_permission(current_user, author_data)

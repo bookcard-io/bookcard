@@ -24,11 +24,15 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from fundamental.models.core import Book
+from sqlalchemy import func, or_
+from sqlmodel import select
+
+from fundamental.models.core import Book, Tag
 from fundamental.repositories import (
     BookWithFullRelations,
     BookWithRelations,
     CalibreBookRepository,
+    ereader_repository,
 )
 
 if TYPE_CHECKING:
@@ -357,11 +361,6 @@ class BookService:
             return []
 
         with self._book_repo.get_session() as session:
-            from sqlalchemy import func, or_
-            from sqlmodel import select
-
-            from fundamental.models.core import Tag
-
             # Build case-insensitive search conditions
             conditions = []
             for tag_name in tag_names:
@@ -753,9 +752,7 @@ class BookService:
             logger.debug("No session available for device lookup")
             return None
 
-        from fundamental.repositories.ereader_repository import EReaderRepository
-
-        device_repo = EReaderRepository(self._session)
+        device_repo = ereader_repository.EReaderRepository(self._session)
         device = device_repo.find_by_email(user_id, email)
         if device:
             logger.debug(
@@ -782,9 +779,7 @@ class BookService:
             logger.debug("No session available for device lookup")
             return None
 
-        from fundamental.repositories.ereader_repository import EReaderRepository
-
-        device_repo = EReaderRepository(self._session)
+        device_repo = ereader_repository.EReaderRepository(self._session)
         # Try default device first
         device = device_repo.find_default(user_id)
         if device:

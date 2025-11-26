@@ -20,7 +20,8 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlmodel import Session
+from sqlalchemy import desc
+from sqlmodel import Session, select
 
 from fundamental.api.deps import get_current_user, get_db_session
 from fundamental.api.schemas.reading import (
@@ -36,6 +37,7 @@ from fundamental.api.schemas.reading import (
     RecentReadsResponse,
 )
 from fundamental.models.auth import User
+from fundamental.models.reading import ReadingSession
 from fundamental.repositories.config_repository import LibraryRepository
 from fundamental.repositories.reading_repository import (
     AnnotationRepository,
@@ -501,11 +503,6 @@ def list_sessions(
         sessions = sessions[offset : offset + page_size]
     else:
         # Get all sessions for user (simplified - would need proper query)
-        from sqlalchemy import desc
-        from sqlmodel import select
-
-        from fundamental.models.reading import ReadingSession
-
         stmt = (
             select(ReadingSession)
             .where(

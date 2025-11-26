@@ -18,7 +18,7 @@
 from __future__ import annotations
 
 import contextlib
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from fundamental.api.schemas.books import BookUpdate
 from fundamental.services.metadata_importers.base import MetadataImporter
@@ -269,8 +269,6 @@ class YamlImporter(MetadataImporter):
             return YamlImporter._normalize_datetime_timezone(date_value)
 
         # Handle date objects (from PyYAML)
-        from datetime import date
-
         if isinstance(date_value, date):
             return datetime.combine(date_value, datetime.min.time()).replace(tzinfo=UTC)
 

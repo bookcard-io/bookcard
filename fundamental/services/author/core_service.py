@@ -22,6 +22,7 @@ from sqlmodel import Session, select
 
 from fundamental.models.author_metadata import AuthorMetadata, AuthorUserMetadata
 from fundamental.models.config import Library
+from fundamental.models.core import Author
 from fundamental.repositories.author_repository import AuthorRepository
 from fundamental.repositories.calibre_book_repository import CalibreBookRepository
 from fundamental.services.author.helpers import ensure_active_library
@@ -187,8 +188,6 @@ class AuthorCoreService:
             calibre_db_file,
         )
         with calibre_repo.get_session() as calibre_session:
-            from fundamental.models.core import Author
-
             stmt = select(Author).where(Author.id == calibre_author_id)
             calibre_author = calibre_session.exec(stmt).first()
 
