@@ -140,7 +140,13 @@ def test_hardcover_provider_init(mock_http_client: MagicMock) -> None:
 
 def test_hardcover_provider_init_no_token() -> None:
     """Test initialization without bearer token (covers lines 105-111)."""
-    with patch("fundamental.metadata.providers.hardcover.logger") as mock_logger:
+    with (
+        patch("fundamental.metadata.providers.hardcover.logger") as mock_logger,
+        patch(
+            "fundamental.metadata.providers.hardcover.HardcoverProvider.DEFAULT_BEARER_TOKEN",
+            "",
+        ),
+    ):
         provider = HardcoverProvider(enabled=True, bearer_token="")
         assert provider.is_enabled() is False
         mock_logger.warning.assert_called_once()
@@ -148,7 +154,13 @@ def test_hardcover_provider_init_no_token() -> None:
 
 def test_hardcover_provider_init_no_token_disabled() -> None:
     """Test initialization without bearer token when already disabled (covers lines 105-111)."""
-    with patch("fundamental.metadata.providers.hardcover.logger") as mock_logger:
+    with (
+        patch("fundamental.metadata.providers.hardcover.logger") as mock_logger,
+        patch(
+            "fundamental.metadata.providers.hardcover.HardcoverProvider.DEFAULT_BEARER_TOKEN",
+            "",
+        ),
+    ):
         provider = HardcoverProvider(enabled=False, bearer_token="")
         assert provider.is_enabled() is False
         mock_logger.warning.assert_not_called()
