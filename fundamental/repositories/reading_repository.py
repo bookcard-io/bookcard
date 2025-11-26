@@ -28,6 +28,7 @@ from fundamental.models.reading import (
     ReadingProgress,
     ReadingSession,
     ReadStatus,
+    ReadStatusEnum,
 )
 from fundamental.repositories.base import Repository
 
@@ -267,8 +268,6 @@ class ReadStatusRepository(Repository[ReadStatus]):
         list[ReadStatus]
             List of read status records where status is READ.
         """
-        from fundamental.models.reading import ReadStatusEnum
-
         stmt = select(ReadStatus).where(
             ReadStatus.user_id == user_id,
             ReadStatus.library_id == library_id,

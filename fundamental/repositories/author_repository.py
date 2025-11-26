@@ -22,6 +22,7 @@ Uses IOC by accepting session as dependency.
 import logging
 from collections.abc import Sequence
 
+from sqlalchemy import case
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -415,8 +416,6 @@ class AuthorRepository(Repository[AuthorMetadata]):
         list[int]
             List of similar author IDs, ordered by similarity score (descending).
         """
-        from sqlalchemy import case
-
         # Single query using OR to get similarities in both directions
         # Use CASE to extract the "other" author ID
         stmt = (

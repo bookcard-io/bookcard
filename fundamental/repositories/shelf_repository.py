@@ -21,8 +21,8 @@ Shelves are stored in the application database (fundamental.db), not Calibre's m
 
 from __future__ import annotations
 
-from sqlalchemy import desc
-from sqlmodel import Session, select
+from sqlalchemy import desc, func
+from sqlmodel import Session, or_, select
 
 from fundamental.models.shelves import BookShelfLink, Shelf
 
@@ -97,8 +97,6 @@ class ShelfRepository:
             List of shelves in the library owned by the user, optionally including public shelves.
             Sorted by created_at descending (newest first).
         """
-        from sqlmodel import or_
-
         if include_public:
             stmt = (
                 select(Shelf)
@@ -388,8 +386,6 @@ class BookShelfLinkRepository:
         int
             Maximum order value, or 0 if no books in shelf.
         """
-        from sqlalchemy import func
-
         stmt = select(func.max(BookShelfLink.order)).where(
             BookShelfLink.shelf_id == shelf_id,
         )

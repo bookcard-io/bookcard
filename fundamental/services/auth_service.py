@@ -34,10 +34,7 @@ from fundamental.models.config import (
     EmailServerType,
     OpenLibraryDumpConfig,
 )
-from fundamental.repositories.admin_repositories import (
-    InviteRepository,
-    SettingRepository,
-)
+from fundamental.repositories import admin_repositories
 
 if TYPE_CHECKING:
     from sqlmodel import Session
@@ -283,7 +280,7 @@ class AuthService:
         UserSetting | None
             User setting entity if found, None otherwise.
         """
-        setting_repo = SettingRepository(self._session)
+        setting_repo = admin_repositories.SettingRepository(self._session)
         return setting_repo.get_by_key(user_id, key)
 
     def get_all_settings(self, user_id: int) -> list[UserSetting]:
@@ -847,7 +844,7 @@ class AuthService:
         ValueError
             If token is invalid, expired, or already used.
         """
-        invite_repo = InviteRepository(self._session)
+        invite_repo = admin_repositories.InviteRepository(self._session)
         invite = invite_repo.get_by_token(token)
         if invite is None:
             raise ValueError(AuthError.INVALID_INVITE)

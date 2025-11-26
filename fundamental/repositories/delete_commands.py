@@ -16,6 +16,7 @@
 """Commands for deleting book-related database records and filesystem items."""
 
 import logging
+import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -23,6 +24,12 @@ from typing import TYPE_CHECKING
 from sqlalchemy import inspect
 from sqlmodel import Session, select
 
+from fundamental.models.auth import (
+    RefreshToken,
+    User,
+    UserRole,
+    UserSetting,
+)
 from fundamental.models.core import (
     Book,
     BookAuthorLink,
@@ -38,7 +45,6 @@ from fundamental.models.media import Data
 from fundamental.repositories.ereader_repository import EReaderRepository
 
 if TYPE_CHECKING:
-    from fundamental.models.auth import User
     from fundamental.repositories.role_repository import UserRoleRepository
 
 logger = logging.getLogger(__name__)
@@ -842,8 +848,6 @@ class DeleteUserRolesCommand(DeleteCommand):
         Finds and deletes all UserRole records for the user.
         Stores deleted roles for potential undo.
         """
-        from fundamental.models.auth import UserRole
-
         user_roles = list(
             self._session.exec(
                 select(UserRole).where(UserRole.user_id == self._user_id)
@@ -897,8 +901,6 @@ class DeleteUserSettingsCommand(DeleteCommand):
         Finds and deletes all UserSetting records for the user.
         Stores deleted settings for potential undo.
         """
-        from fundamental.models.auth import UserSetting
-
         user_settings = list(
             self._session.exec(
                 select(UserSetting).where(UserSetting.user_id == self._user_id)
@@ -952,8 +954,6 @@ class DeleteRefreshTokensCommand(DeleteCommand):
         Finds and deletes all RefreshToken records for the user.
         Stores deleted tokens for potential undo.
         """
-        from fundamental.models.auth import RefreshToken
-
         refresh_tokens = list(
             self._session.exec(
                 select(RefreshToken).where(RefreshToken.user_id == self._user_id)
@@ -1010,8 +1010,6 @@ class DeleteUserDataDirectoryCommand(DeleteCommand):
         For large directories, undo may not be practical. This command
         prioritizes deletion safety over undo capability.
         """
-        import shutil
-
         if self._user_data_dir.exists() and self._user_data_dir.is_dir():
             self._dir_existed = True
             logger.debug("Deleting user data directory: %r", self._user_data_dir)
@@ -1089,8 +1087,6 @@ class DeleteUserCommand(DeleteCommand):
         Recreates the user from the stored snapshot and adds it back
         to the session. Idempotent operation.
         """
-        from fundamental.models.auth import User
-
         if self._user_snapshot is not None:
             logger.debug(
                 "Restoring user record: id=%d, username=%r",
