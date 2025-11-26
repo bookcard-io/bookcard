@@ -24,6 +24,7 @@ from __future__ import annotations
 import concurrent.futures
 import logging
 import threading  # noqa: TC003
+import time
 from typing import TYPE_CHECKING
 
 from fundamental.api.schemas import (
@@ -130,7 +131,6 @@ class MetadataService:
             len(results),
         )
         info = provider.get_source_info()
-        import time
 
         duration_ms = int(
             (time.monotonic() - provider_start_times.get(info.id, time.monotonic()))
@@ -553,8 +553,6 @@ class MetadataService:
         }
 
         # Mark provider started events
-        import time
-
         for provider in providers:
             info = provider.get_source_info()
             provider_start_times[info.id] = time.monotonic()
@@ -621,8 +619,6 @@ class MetadataService:
 
         # Event helpers
         def _now_ms() -> int:
-            import time
-
             return int(time.time() * 1000)
 
         def _publish(event: MetadataSearchEvent) -> None:
@@ -635,8 +631,6 @@ class MetadataService:
                     logger.debug(
                         "Event callback raised; ignoring: %s", e, exc_info=True
                     )
-
-        import time
 
         overall_start = time.monotonic()
         total_providers = len(providers)

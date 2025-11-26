@@ -23,6 +23,7 @@ import hashlib
 import io
 import logging
 import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -139,8 +140,6 @@ class BookCoverService:
         ValueError
             If book not found, URL invalid, or save fails.
         """
-        from datetime import UTC, datetime
-
         self.validate_url(url)
         content, _image = self.download_and_validate_image(url)
 

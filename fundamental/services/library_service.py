@@ -22,6 +22,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from sqlmodel import select
+
 from fundamental.models.config import Library
 
 if TYPE_CHECKING:
@@ -280,8 +282,6 @@ class LibraryService:
 
     def _deactivate_all(self) -> None:
         """Deactivate all libraries and sync shelf statuses."""
-        from sqlmodel import select
-
         stmt = select(Library).where(Library.is_active == True)  # noqa: E712
         active_libraries = self._session.exec(stmt).all()
         for lib in active_libraries:

@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from fundamental.services.author_service import AuthorService
 
 from fundamental.models.author_metadata import AuthorMapping
+from fundamental.models.core import Author
 from fundamental.repositories.calibre_book_repository import CalibreBookRepository
 from fundamental.repositories.config_repository import LibraryRepository
 from fundamental.services.config_service import LibraryService
@@ -367,8 +368,6 @@ class AuthorRematchService:
             library.calibre_db_file or "metadata.db",
         )
         with calibre_repo.get_session() as calibre_session:
-            from fundamental.models.core import Author
-
             stmt = select(Author).where(Author.id == calibre_author_id)
             calibre_author = calibre_session.exec(stmt).first()
 
