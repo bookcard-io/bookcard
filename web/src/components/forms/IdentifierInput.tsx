@@ -55,7 +55,7 @@ export function IdentifierInput({
   id = "identifier-input",
   disabled = false,
 }: IdentifierInputProps) {
-  const [typeValue, setTypeValue] = useState("isbn");
+  const [typeValue, setTypeValue] = useState("isbn13");
   const [valValue, setValValue] = useState("");
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -69,7 +69,7 @@ export function IdentifierInput({
     const trimmed = valValue.trim();
     if (trimmed) {
       const newIdentifier: Identifier = {
-        type: typeValue.trim() || "isbn",
+        type: typeValue.trim() || "isbn13",
         val: trimmed,
       };
       // Check for duplicates
@@ -124,7 +124,7 @@ export function IdentifierInput({
           <select
             id={`${id}-type`}
             className={cn(
-              "flex-[0_0_8rem] cursor-pointer rounded-md border border-surface-a20 bg-surface-a0 px-4 py-3",
+              "min-w-[11rem] flex-[0_0_11rem] cursor-pointer rounded-md border border-surface-a20 bg-surface-a0 px-4 py-3",
               "font-inherit text-base text-text-a0 leading-normal",
               "transition-[border-color_0.2s,background-color_0.2s]",
               "focus:border-primary-a0 focus:bg-surface-a10 focus:outline-none",
@@ -135,12 +135,28 @@ export function IdentifierInput({
             onChange={(e) => setTypeValue(e.target.value)}
             disabled={disabled}
           >
+            <option value="isbn13">ISBN-13</option>
+            <option value="isbn10">ISBN-10</option>
             <option value="isbn">ISBN</option>
-            <option value="doi">DOI</option>
             <option value="asin">ASIN</option>
+            <option value="olid">OLID</option>
+            <option value="doi">DOI</option>
+            <option value="lccn">LCCN</option>
+            <option value="oclc">OCLC</option>
             <option value="goodreads">Goodreads</option>
             <option value="google">Google Books</option>
+            <option value="librarything">LibraryThing</option>
+            <option value="storygraph">StoryGraph</option>
             <option value="amazon">Amazon</option>
+            <option value="ean">EAN</option>
+            <option value="upc">UPC</option>
+            <option value="barcode">Barcode</option>
+            <option value="wikidata">Wikidata</option>
+            <option value="viaf">VIAF</option>
+            <option value="isni">ISNI</option>
+            <option value="imdb">IMDb</option>
+            <option value="musicbrainz">MusicBrainz</option>
+            <option value="opac_sbn">OPAC SBN</option>
             <option value="other">Other</option>
           </select>
           <input
