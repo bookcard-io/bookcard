@@ -42,6 +42,8 @@ export interface LibraryListProps {
   onScan: (libraryId: number) => void;
   /** ID of library currently being scanned. */
   scanningLibraryId: number | null;
+  /** Callback when library is updated. */
+  onUpdate: (libraryId: number, updates: { name?: string }) => Promise<void>;
 }
 
 /**
@@ -62,6 +64,7 @@ export function LibraryList({
   deletingLibraryId,
   onScan,
   scanningLibraryId,
+  onUpdate,
 }: LibraryListProps) {
   const { stats, loadingStats } = useLibraryStats(libraries);
 
@@ -78,6 +81,7 @@ export function LibraryList({
           deletingLibraryId={deletingLibraryId}
           onScan={onScan}
           scanningLibraryId={scanningLibraryId}
+          onUpdate={onUpdate}
         />
       ))}
       {libraries.length === 0 && (

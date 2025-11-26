@@ -39,14 +39,18 @@ export interface UseLibraryManagementResult {
   scanningLibraryId: number | null;
   /** Function to manually refresh libraries. */
   refresh: () => Promise<void>;
-  /** Function to add a new library. */
-  addLibrary: (path: string, name?: string) => Promise<void>;
+  /** Function to add a new library with optional path. */
+  addLibrary: (name: string, path?: string) => Promise<void>;
+  /** Function to create a new library (path auto-generated). */
+  createLibrary: (name: string) => Promise<void>;
   /** Function to toggle library activation state. */
   toggleLibrary: (library: Library) => Promise<void>;
   /** Function to delete a library. */
   deleteLibrary: (id: number) => Promise<void>;
   /** Function to initiate a library scan. */
   scanLibrary: (libraryId: number) => Promise<void>;
+  /** Function to update a library. */
+  updateLibrary: (libraryId: number, updates: { name?: string }) => Promise<void>;
   /** Function to clear error state. */
   clearError: () => void;
 }
@@ -136,36 +140,52 @@ export function useLibraryManagement(
   }, [enabled, fetchLibraries]);
 
   const addLibrary = useCallback(
-    async (path: string, name?: string) => {
-      const trimmedPath = path.trim();
-      if (!trimmedPath) {
-        setError("Path is required");
+    async (name: string, path?: string) => {
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        setError("Library name is required");
         return;
       }
 
-      const libraryName = generateLibraryName(libraries, name);
+      const libraryName = generateLibraryName(libraries, trimmedName);
       // Auto-activate if this is the first library
       const isFirstLibrary = libraries.length === 0;
 
       setIsBusy(true);
       setError(null);
       try {
+        const payload: {
+          name: string;
+          calibre_db_path?: string;
+          calibre_db_file: string;
+          is_active: boolean;
+        } = {
+          name: libraryName,
+          calibre_db_file: "metadata.db",
+          is_active: isFirstLibrary,
+        };
+
+        // Only include path if provided
+        if (path) {
+          const trimmedPath = path.trim();
+          if (trimmedPath) {
+            payload.calibre_db_path = trimmedPath;
+          }
+        }
+
         const response = await fetch("/api/admin/libraries", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            name: libraryName,
-            calibre_db_path: trimmedPath,
-            calibre_db_file: "metadata.db",
-            is_active: isFirstLibrary,
-          }),
+          body: JSON.stringify(payload),
         });
 
         if (!response.ok) {
           const data = (await response.json()) as { detail?: string };
-          throw new Error(data.detail || "Failed to add library");
+          const errorMessage =
+            data.detail || "Failed to create library. Please try again.";
+          throw new Error(errorMessage);
         }
 
         await refresh();
@@ -173,13 +193,25 @@ export function useLibraryManagement(
           await onRefresh();
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to add library");
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "Failed to create library. Please try again.";
+        setError(errorMessage);
         throw err;
       } finally {
         setIsBusy(false);
       }
     },
     [libraries, refresh, onRefresh],
+  );
+
+  const createLibrary = useCallback(
+    async (name: string) => {
+      // createLibrary is just addLibrary without a path
+      return addLibrary(name);
+    },
+    [addLibrary],
   );
 
   const toggleLibrary = useCallback(
@@ -310,6 +342,40 @@ export function useLibraryManagement(
     }
   }, []);
 
+  const updateLibrary = useCallback(
+    async (libraryId: number, updates: { name?: string }) => {
+      setError(null);
+      setIsBusy(true);
+      try {
+        const response = await fetch(`/api/admin/libraries/${libraryId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(updates),
+        });
+
+        if (!response.ok) {
+          const data = (await response.json()) as { detail?: string };
+          throw new Error(data.detail || "Failed to update library");
+        }
+
+        await refresh();
+        if (onRefresh) {
+          await onRefresh();
+        }
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to update library",
+        );
+        throw err;
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [refresh, onRefresh],
+  );
+
   const clearError = useCallback(() => {
     setError(null);
   }, []);
@@ -323,9 +389,11 @@ export function useLibraryManagement(
     scanningLibraryId,
     refresh,
     addLibrary,
+    createLibrary,
     toggleLibrary,
     deleteLibrary,
     scanLibrary,
+    updateLibrary,
     clearError,
   };
 }

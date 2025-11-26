@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = request.nextUrl;
     const q = searchParams.get("q") || "";
     const limit = searchParams.get("limit") || "50";
+    const includeFiles = searchParams.get("include_files") || "false";
 
     const response = await client.request("/fs/suggest_dirs", {
       method: "GET",
@@ -41,6 +42,7 @@ export async function GET(request: NextRequest) {
       queryParams: {
         q,
         limit,
+        include_files: includeFiles,
       },
     });
 

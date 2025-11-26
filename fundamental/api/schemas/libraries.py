@@ -46,8 +46,12 @@ class LibraryCreate(BaseModel):
     """Payload to create a library."""
 
     name: str = Field(description="User-friendly library name")
-    calibre_db_path: str = Field(
-        description="Path to Calibre database directory (contains metadata.db)"
+    calibre_db_path: str | None = Field(
+        default=None,
+        description=(
+            "Path to Calibre database directory (contains metadata.db). "
+            "If not provided, path will be auto-generated from library name."
+        ),
     )
     calibre_db_file: str = Field(
         default="metadata.db", description="Calibre database filename"

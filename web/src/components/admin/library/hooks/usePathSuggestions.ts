@@ -27,6 +27,8 @@ export interface UsePathSuggestionsOptions {
   debounceDelay?: number;
   /** Maximum number of suggestions to return (default: 50). */
   limit?: number;
+  /** Whether to include files in suggestions (default: true). */
+  includeFiles?: boolean;
 }
 
 export interface UsePathSuggestionsResult {
@@ -64,6 +66,7 @@ export function usePathSuggestions(
     minQueryLength = 2,
     debounceDelay = 300,
     limit = 50,
+    includeFiles = true,
   } = options;
 
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -83,7 +86,7 @@ export function usePathSuggestions(
     const fetchSuggestions = async () => {
       try {
         const response = await fetch(
-          `/api/fs/suggest_dirs?q=${encodeURIComponent(debouncedQuery)}&limit=${limit}`,
+          `/api/fs/suggest_dirs?q=${encodeURIComponent(debouncedQuery)}&limit=${limit}&include_files=${includeFiles}`,
           {
             cache: "no-store",
             signal: controller.signal,
@@ -109,7 +112,7 @@ export function usePathSuggestions(
       active = false;
       controller.abort();
     };
-  }, [enabled, debouncedQuery, minQueryLength, limit]);
+  }, [enabled, debouncedQuery, minQueryLength, limit, includeFiles]);
 
   return {
     suggestions,

@@ -120,7 +120,7 @@ export function PathInputWithSuggestions({
         onBlur={handleInputBlur}
         disabled={!!busy}
         className={cn(
-          "w-full bg-surface-a10 px-3 py-2.5 text-sm text-text-a0",
+          "w-full bg-surface-a10 px-3 py-2 text-sm text-text-a0",
           "rounded-md border border-[var(--color-surface-a20)]",
           "transition-colors duration-200",
           "focus:border-[var(--color-primary-a0)] focus:outline-none",

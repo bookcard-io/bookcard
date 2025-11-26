@@ -20,13 +20,21 @@ Business logic for managing system configuration settings.
 
 from __future__ import annotations
 
+import logging
+import os
+import re
+from pathlib import Path
 from typing import TYPE_CHECKING
 
+from fundamental.config import AppConfig
 from fundamental.models.config import Library
 from fundamental.repositories.calibre_book_repository import (
     CalibreBookRepository,
 )
 from fundamental.repositories.shelf_repository import ShelfRepository
+from fundamental.services.calibre_db_initializer import (
+    CalibreDatabaseInitializer,
+)
 
 if TYPE_CHECKING:
     from sqlmodel import Session
@@ -34,6 +42,8 @@ if TYPE_CHECKING:
     from fundamental.repositories.config_repository import (
         LibraryRepository,
     )
+
+logger = logging.getLogger(__name__)
 
 
 class LibraryService:
@@ -93,7 +103,7 @@ class LibraryService:
     def create_library(
         self,
         name: str,
-        calibre_db_path: str,
+        calibre_db_path: str | None = None,
         *,
         calibre_db_file: str = "metadata.db",
         use_split_library: bool = False,
@@ -107,8 +117,8 @@ class LibraryService:
         ----------
         name : str
             User-friendly library name.
-        calibre_db_path : str
-            Path to Calibre database directory.
+        calibre_db_path : str | None
+            Path to Calibre database directory. If None, auto-generates from name.
         calibre_db_file : str
             Calibre database filename (default: 'metadata.db').
         use_split_library : bool
@@ -128,13 +138,54 @@ class LibraryService:
         Raises
         ------
         ValueError
-            If a library with the same path already exists.
+            If a library with the same path already exists, or if database
+            initialization fails.
+        PermissionError
+            If directory cannot be created or written to.
         """
-        # Check if path already exists
+        # Auto-generate path if not provided
+        if calibre_db_path is None:
+            calibre_db_path = self._generate_library_path(name)
+        else:
+            # Parse file path if user provided a full file path
+            calibre_db_path, calibre_db_file = self._parse_library_path(
+                calibre_db_path, calibre_db_file
+            )
+
+        # Check if path already exists in our records
         existing = self._library_repo.find_by_path(calibre_db_path)
         if existing is not None:
             msg = "library_path_already_exists"
             raise ValueError(msg)
+
+        # Check if database file exists
+        db_path = Path(calibre_db_path) / calibre_db_file
+        if db_path.exists():
+            # Validate existing database
+            if not CalibreDatabaseInitializer.validate_existing_database(
+                calibre_db_path, calibre_db_file
+            ):
+                msg = f"Invalid Calibre database at {db_path}"
+                raise ValueError(msg)
+        else:
+            # Initialize new database
+            try:
+                initializer = CalibreDatabaseInitializer(
+                    calibre_db_path, calibre_db_file
+                )
+                initializer.initialize()
+                logger.info("Initialized new Calibre database at %s", calibre_db_path)
+            except FileExistsError:
+                # Database was created between check and initialization
+                # Validate it's a valid database
+                if not CalibreDatabaseInitializer.validate_existing_database(
+                    calibre_db_path, calibre_db_file
+                ):
+                    msg = f"Invalid Calibre database at {db_path}"
+                    raise ValueError(msg) from None
+            except (PermissionError, ValueError) as e:
+                msg = f"Failed to initialize database: {e}"
+                raise ValueError(msg) from e
 
         # If setting as active, deactivate all others
         if is_active:
@@ -155,6 +206,106 @@ class LibraryService:
         if is_active and library.id is not None:
             self._sync_shelves_for_library(library.id, True)
         return library
+
+    def _generate_library_path(self, name: str) -> str:
+        """Generate a filesystem-safe path from library name.
+
+        Parameters
+        ----------
+        name : str
+            Library name.
+
+        Returns
+        -------
+        str
+            Generated path in default library directory.
+
+        Raises
+        ------
+        ValueError
+            If name cannot be sanitized or default directory is invalid.
+        """
+        # Get default library directory
+        default_dir = self._get_default_library_directory()
+
+        # Sanitize name: lowercase, replace spaces with hyphens, remove special chars
+        sanitized = re.sub(r"[^\w\s-]", "", name.lower())
+        sanitized = re.sub(r"[-\s]+", "-", sanitized).strip("-")
+
+        if not sanitized:
+            sanitized = "library"
+
+        # Check for conflicts and append number if needed
+        base_path = Path(default_dir) / sanitized
+        path = base_path
+        counter = 1
+        while self._library_repo.find_by_path(str(path)) is not None:
+            path = Path(default_dir) / f"{sanitized}-{counter}"
+            counter += 1
+
+        return str(path)
+
+    @staticmethod
+    def _parse_library_path(
+        path: str, default_filename: str = "metadata.db"
+    ) -> tuple[str, str]:
+        """Parse library path to extract directory and filename.
+
+        If the path points to a file, extracts the directory and filename.
+        If the path points to a directory, uses the default filename.
+
+        Parameters
+        ----------
+        path : str
+            Library path (can be directory or file).
+        default_filename : str
+            Default filename to use if path is a directory (default: 'metadata.db').
+
+        Returns
+        -------
+        tuple[str, str]
+            Tuple of (directory_path, filename).
+        """
+        # Expand user home directory
+        path_obj = Path(path).expanduser()
+        try:
+            # Check if path exists and is a file
+            if path_obj.exists() and path_obj.is_file():
+                return str(path_obj.parent), path_obj.name
+            # Check if path exists and is a directory
+            if path_obj.exists() and path_obj.is_dir():
+                return str(path_obj), default_filename
+            # Path doesn't exist - check if it looks like a file (has extension)
+            if path_obj.suffix:
+                # Assume it's a file path
+                return str(path_obj.parent), path_obj.name
+            # Assume it's a directory path
+            return str(path_obj), default_filename
+        except (OSError, ValueError):
+            # On error, assume it's a directory
+            return str(path_obj), default_filename
+
+    @staticmethod
+    def _get_default_library_directory() -> str:
+        """Get the default directory for auto-generated libraries.
+
+        Returns
+        -------
+        str
+            Path to default library directory.
+
+        Notes
+        -----
+        Uses environment variable FUNDAMENTAL_DEFAULT_LIBRARY_DIR if set,
+        otherwise defaults to AppConfig's data_directory.
+        """
+        env_dir = os.getenv("FUNDAMENTAL_DEFAULT_LIBRARY_DIR")
+        if env_dir:
+            return str(Path(env_dir).expanduser())
+
+        # Default to AppConfig's data_directory
+        config = AppConfig.from_env()
+        return config.data_directory
 
     def update_library(
         self,

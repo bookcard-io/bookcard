@@ -1734,7 +1734,11 @@ def create_library(
         msg = str(exc)
         if msg == "library_path_already_exists":
             raise HTTPException(status_code=409, detail=msg) from exc
-        raise
+        # Database initialization or validation errors
+        raise HTTPException(status_code=400, detail=msg) from exc
+    except PermissionError as exc:
+        msg = f"Permission denied: {exc}"
+        raise HTTPException(status_code=403, detail=msg) from exc
 
 
 @router.put(

@@ -16,6 +16,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { Button } from "@/components/forms/Button";
 import { useActiveLibrary } from "@/contexts/ActiveLibraryContext";
 import { useLibraryManagement } from "./hooks/useLibraryManagement";
 import { LibraryList } from "./LibraryList";
@@ -30,8 +31,9 @@ import { PathInputWithSuggestions } from "./PathInputWithSuggestions";
  */
 export function LibraryManagement() {
   const { refresh: refreshActiveLibrary } = useActiveLibrary();
-  const [newPath, setNewPath] = useState("");
   const [newName, setNewName] = useState("");
+  const [newPath, setNewPath] = useState("");
+  const [newLibraryName, setNewLibraryName] = useState("");
 
   const {
     libraries,
@@ -41,27 +43,40 @@ export function LibraryManagement() {
     deletingLibraryId,
     scanningLibraryId,
     addLibrary,
+    createLibrary,
     toggleLibrary,
     deleteLibrary,
     scanLibrary,
+    updateLibrary,
     clearError,
   } = useLibraryManagement({
     onRefresh: refreshActiveLibrary,
   });
 
-  const handleAdd = useCallback(async () => {
+  const handleCreateNewLibrary = useCallback(async () => {
     try {
-      await addLibrary(newPath, newName);
-      setNewPath("");
-      setNewName("");
+      const name = newLibraryName.trim() || "My Library";
+      await createLibrary(name);
+      setNewLibraryName("");
     } catch {
       // Error is handled by the hook
     }
-  }, [newPath, newName, addLibrary]);
+  }, [newLibraryName, createLibrary]);
 
-  const handlePathChange = useCallback(
-    (value: string) => {
-      setNewPath(value);
+  const handleAddExistingLibrary = useCallback(async () => {
+    try {
+      const name = newName.trim() || "Existing Library";
+      await addLibrary(name, newPath);
+      setNewName("");
+      setNewPath("");
+    } catch {
+      // Error is handled by the hook
+    }
+  }, [newName, newPath, addLibrary]);
+
+  const handleNewLibraryNameChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setNewLibraryName(e.target.value);
       clearError();
     },
     [clearError],
@@ -75,6 +90,14 @@ export function LibraryManagement() {
     [clearError],
   );
 
+  const handlePathChange = useCallback(
+    (value: string) => {
+      setNewPath(value);
+      clearError();
+    },
+    [clearError],
+  );
+
   if (isLoading) {
     return (
       <div className="py-6 text-center text-sm text-text-a30">
@@ -83,49 +106,168 @@ export function LibraryManagement() {
     );
   }
 
+  const hasLibraries = libraries.length > 0;
+  const canCreateNew = !isBusy;
+  const canAddExisting = newPath.trim().length > 0 && !isBusy;
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       {error && (
         <div className="rounded-md bg-danger-a20 px-4 py-3 text-danger-a0 text-sm">
           {error}
         </div>
       )}
 
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            value={newName}
-            onChange={handleNameChange}
-            placeholder="Library name (optional)"
-            className="flex-[0_0_250px] rounded-md border border-[var(--color-surface-a20)] bg-surface-a10 px-3 py-2.5 text-sm text-text-a0 transition-colors duration-200 focus:border-[var(--color-primary-a0)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
-            disabled={isBusy}
-          />
-          <PathInputWithSuggestions
-            value={newPath}
-            onChange={handlePathChange}
-            onSubmit={handleAdd}
-            busy={isBusy}
-          />
-          <button
-            type="button"
-            onClick={handleAdd}
-            disabled={!newPath.trim() || isBusy}
-            className="flex-[0_0_auto] cursor-pointer rounded-md border-none bg-primary-a0 px-5 py-2.5 font-medium text-sm text-text-a0 transition-colors duration-200 hover:bg-primary-a10 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Add
-          </button>
-        </div>
-      </div>
+      {!hasLibraries ? (
+        // Initial setup: Show both options
+        <div className="flex flex-col gap-6">
+          {/* Create a library section */}
+          <div className="flex flex-col gap-3">
+            <h2 className="font-semibold text-lg text-text-a0">
+              Create a library
+            </h2>
+            <p className="text-sm text-text-a30">
+              New to Calibre? We'll set up a fresh library for you. Just click
+              the button below and we'll handle everything.
+            </p>
+            <div className="flex items-center gap-3">
+              <input
+                type="text"
+                value={newLibraryName}
+                onChange={handleNewLibraryNameChange}
+                placeholder="Library name (optional)"
+                className="flex-1 rounded-md border border-[var(--color-surface-a20)] bg-surface-a10 px-3 py-2 text-sm text-text-a0 transition-colors duration-200 focus:border-[var(--color-primary-a0)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
+                disabled={isBusy}
+              />
+              <Button
+                variant="success"
+                size="small"
+                onClick={handleCreateNewLibrary}
+                disabled={!canCreateNew}
+                loading={isBusy}
+              >
+                Create library
+              </Button>
+            </div>
+          </div>
 
-      <LibraryList
-        libraries={libraries}
-        onToggle={toggleLibrary}
-        onDelete={deleteLibrary}
-        deletingLibraryId={deletingLibraryId}
-        onScan={scanLibrary}
-        scanningLibraryId={scanningLibraryId}
-      />
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-[var(--color-surface-a20)] border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-surface-a0 px-2 text-text-a30">Or</span>
+            </div>
+          </div>
+
+          {/* Existing library section */}
+          <div className="flex flex-col gap-3">
+            <h2 className="font-semibold text-lg text-text-a0">
+              Existing library
+            </h2>
+            <p className="text-sm text-text-a30">
+              Already have a Calibre library? Connect it by providing the path
+              to your library directory.
+            </p>
+            <div className="flex flex-col gap-3 md:flex-row md:items-end">
+              <input
+                type="text"
+                value={newName}
+                onChange={handleNameChange}
+                placeholder="Library name (optional)"
+                className="flex-1 rounded-md border border-[var(--color-surface-a20)] bg-surface-a10 px-3 py-2 text-sm text-text-a0 transition-colors duration-200 focus:border-[var(--color-primary-a0)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
+                disabled={isBusy}
+              />
+              <div className="min-w-0 flex-1">
+                <PathInputWithSuggestions
+                  value={newPath}
+                  onChange={handlePathChange}
+                  onSubmit={handleAddExistingLibrary}
+                  busy={isBusy}
+                />
+              </div>
+              <Button
+                variant="primary"
+                size="small"
+                onClick={handleAddExistingLibrary}
+                disabled={!canAddExisting}
+                loading={isBusy}
+                className="md:flex-[0_0_auto]"
+              >
+                Add library
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        // Libraries exist: Show compact add library form
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-lg text-text-a0">
+              Your Libraries
+            </h2>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="success"
+                size="small"
+                onClick={handleCreateNewLibrary}
+                disabled={!canCreateNew}
+                loading={isBusy}
+              >
+                Create New
+              </Button>
+            </div>
+          </div>
+
+          {/* Quick add existing library */}
+          <div className="flex flex-col gap-2 rounded-md border border-[var(--color-surface-a20)] bg-surface-a10 p-4">
+            <h3 className="font-medium text-sm text-text-a0">
+              Add existing library
+            </h3>
+            <div className="flex flex-col gap-2 md:flex-row md:items-end">
+              <input
+                type="text"
+                value={newName}
+                onChange={handleNameChange}
+                placeholder="Library name (optional)"
+                className="flex-1 rounded-md border border-[var(--color-surface-a20)] bg-surface-a10 px-3 py-2 text-sm text-text-a0 transition-colors duration-200 focus:border-[var(--color-primary-a0)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
+                disabled={isBusy}
+              />
+              <div className="min-w-0 flex-1">
+                <PathInputWithSuggestions
+                  value={newPath}
+                  onChange={handlePathChange}
+                  onSubmit={handleAddExistingLibrary}
+                  busy={isBusy}
+                />
+              </div>
+              <Button
+                variant="primary"
+                size="small"
+                onClick={handleAddExistingLibrary}
+                disabled={!canAddExisting}
+                loading={isBusy}
+                className="md:flex-[0_0_auto]"
+              >
+                Add Library
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {hasLibraries && (
+        <LibraryList
+          libraries={libraries}
+          onToggle={toggleLibrary}
+          onDelete={deleteLibrary}
+          deletingLibraryId={deletingLibraryId}
+          onScan={scanLibrary}
+          scanningLibraryId={scanningLibraryId}
+          onUpdate={updateLibrary}
+        />
+      )}
     </div>
   );
 }

@@ -21,7 +21,7 @@
  */
 
 import { Button } from "@/components/forms/Button";
-import { cn } from "@/libs/utils";
+import { EditableTextField } from "@/components/profile/EditableNameField";
 import type { LibraryStats } from "@/services/libraryStatsService";
 import { LibraryStatsPills } from "./LibraryStatsPills";
 import type { Library } from "./types";
@@ -43,6 +43,8 @@ export interface LibraryListItemProps {
   onScan: (libraryId: number) => void;
   /** ID of library currently being scanned. */
   scanningLibraryId: number | null;
+  /** Callback when library is updated. */
+  onUpdate: (libraryId: number, updates: { name?: string }) => Promise<void>;
 }
 
 /**
@@ -64,8 +66,13 @@ export function LibraryListItem({
   deletingLibraryId,
   onScan,
   scanningLibraryId,
+  onUpdate,
 }: LibraryListItemProps) {
   const isScanning = scanningLibraryId === library.id;
+
+  const handleNameSave = async (name: string) => {
+    await onUpdate(library.id, { name: name.trim() || library.name });
+  };
 
   return (
     <div className="flex items-center gap-3 rounded-md border border-[var(--color-surface-a20)] bg-[var(--color-surface-a10)] p-3">
@@ -77,15 +84,14 @@ export function LibraryListItem({
           className="h-[18px] w-[18px] cursor-pointer accent-[var(--color-primary-a0)]"
         />
         <div className="flex flex-1 flex-col gap-1">
-          <div
-            className={cn(
-              "font-medium text-sm",
-              library.is_active
-                ? "text-[var(--color-text-a0)]"
-                : "text-[var(--color-text-a0)]",
-            )}
-          >
-            {library.name}
+          <div className="font-medium text-sm">
+            <EditableTextField
+              currentValue={library.name}
+              onSave={handleNameSave}
+              placeholder="Enter library name"
+              editLabel="Edit library name"
+              allowEmpty={false}
+            />
           </div>
           <div className="break-all text-[var(--color-text-a30)] text-xs">
             {library.calibre_db_path}

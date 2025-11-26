@@ -15,7 +15,7 @@
 
 """Filesystem suggestion endpoints.
 
-Provides directory autocomplete suggestions for absolute paths that the
+Provides directory and file autocomplete suggestions for absolute paths that the
 backend process can read/execute. Meant for assisting path entry in the
 admin UI.
 """
@@ -117,6 +117,41 @@ def _list_subdirectories(base: Path) -> Iterable[Path]:
         return
 
 
+def _list_files(base: Path) -> Iterable[Path]:
+    """Yield immediate files in ``base`` safely.
+
+    Parameters
+    ----------
+    base : Path
+        Directory to list.
+
+    Yields
+    ------
+    Path
+        Paths of immediate child files.
+    """
+    # Require read and execute permissions on the base directory
+    if not os.access(base, os.R_OK | os.X_OK):
+        return
+    try:
+        with os.scandir(base) as it:  # type: ignore[arg-type]
+            for entry in it:
+                try:
+                    if not entry.is_file(follow_symlinks=True):
+                        continue
+                except OSError:
+                    # Skip entries we cannot stat
+                    continue
+                child = Path(entry.path)
+                if _is_under_excluded(child):
+                    continue
+                if not os.access(child, os.R_OK):
+                    continue
+                yield child
+    except (FileNotFoundError, NotADirectoryError, PermissionError, OSError):
+        return
+
+
 def _normalize_query(q: str) -> str:
     """Normalize raw query text into an absolute path-like string.
 
@@ -187,6 +222,25 @@ def _list_children_filtered(base_dir: Path) -> list[Path]:
     return list(_list_subdirectories(base_dir))
 
 
+def _list_children_with_files_filtered(base_dir: Path) -> list[Path]:
+    """List immediate child directories and files with root-level exclusions applied."""
+    children: list[Path] = []
+    if base_dir == Path("/"):
+        children.extend(
+            p
+            for p in _list_subdirectories(base_dir)
+            if not any(
+                p.as_posix().startswith(prefix + "/") or p.as_posix() == prefix
+                for prefix in EXCLUDED_FS_DIR_PREFIXES
+            )
+        )
+        # Don't list files at root level
+    else:
+        children.extend(_list_subdirectories(base_dir))
+        children.extend(_list_files(base_dir))
+    return children
+
+
 def _build_suggestions(children: Iterable[Path], needle: str, limit: int) -> list[str]:
     """Build a sorted list of suggestion strings respecting limit and needle."""
     suggestions: list[str] = []
@@ -214,8 +268,12 @@ def suggest_dirs(
     limit: int = Query(
         default=50, ge=1, le=200, description="Maximum number of suggestions to return."
     ),
+    include_files: bool = Query(
+        default=False,
+        description="Whether to include files in suggestions (default: False, directories only).",
+    ),
 ) -> dict[str, list[str]]:
-    """Suggest accessible directories for a given absolute path prefix.
+    """Suggest accessible directories (and optionally files) for a given absolute path prefix.
 
     The endpoint performs a shallow listing of the candidate parent directory
     and filters results by the final path segment prefix. This allows recursive
@@ -229,12 +287,14 @@ def suggest_dirs(
         suggestions are produced from the filesystem root ``/`` (excluding
         obvious system directories defined in ``EXCLUDED_FS_DIR_PREFIXES``).
     limit : int, optional
-        Maximum number of directory suggestions to return, by default 50.
+        Maximum number of suggestions to return, by default 50.
+    include_files : bool, optional
+        Whether to include files in suggestions, by default False (directories only).
 
     Returns
     -------
     dict[str, list[str]]
-        JSON object with a ``suggestions`` list of absolute directory paths.
+        JSON object with a ``suggestions`` list of absolute paths (directories and/or files).
 
     Raises
     ------
@@ -255,7 +315,10 @@ def suggest_dirs(
     if _is_under_excluded(base_dir):
         return {"suggestions": []}
 
-    # Root-level exclusions: if we're at '/', filter by excluded prefixes
-    children = _list_children_filtered(base_dir)
+    # List children (directories and optionally files)
+    if include_files:
+        children = _list_children_with_files_filtered(base_dir)
+    else:
+        children = _list_children_filtered(base_dir)
     suggestions = _build_suggestions(children, needle, limit)
     return {"suggestions": suggestions}
