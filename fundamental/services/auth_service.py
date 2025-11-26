@@ -28,17 +28,20 @@ from typing import TYPE_CHECKING
 
 from sqlmodel import select
 
-from fundamental.models.auth import User
+from fundamental.models.auth import User, UserSetting
 from fundamental.models.config import (
     EmailServerConfig,
     EmailServerType,
     OpenLibraryDumpConfig,
 )
+from fundamental.repositories.admin_repositories import (
+    InviteRepository,
+    SettingRepository,
+)
 
 if TYPE_CHECKING:
     from sqlmodel import Session
 
-    from fundamental.models.auth import UserSetting
     from fundamental.repositories.user_repository import UserRepository
     from fundamental.services.security import DataEncryptor, JWTManager, PasswordHasher
 
@@ -234,14 +237,10 @@ class AuthService:
         ValueError
             If user not found.
         """
-        from fundamental.models.auth import UserSetting
-
         user = self._users.get(user_id)
         if user is None:
             msg = "user_not_found"
             raise ValueError(msg)
-
-        from sqlmodel import select
 
         # Query for existing setting directly
         stmt = select(UserSetting).where(
@@ -284,8 +283,6 @@ class AuthService:
         UserSetting | None
             User setting entity if found, None otherwise.
         """
-        from fundamental.repositories.admin_repositories import SettingRepository
-
         setting_repo = SettingRepository(self._session)
         return setting_repo.get_by_key(user_id, key)
 
@@ -302,10 +299,6 @@ class AuthService:
         list[UserSetting]
             List of user setting entities.
         """
-        from sqlmodel import select
-
-        from fundamental.models.auth import UserSetting
-
         stmt = select(UserSetting).where(UserSetting.user_id == user_id)
         return list(self._session.exec(stmt).all())
 
@@ -547,10 +540,6 @@ class AuthService:
         OpenLibraryDumpConfig | None
             The configuration if it exists, otherwise None.
         """
-        from sqlmodel import select
-
-        from fundamental.models.config import OpenLibraryDumpConfig
-
         stmt = select(OpenLibraryDumpConfig).limit(1)
         return self._session.exec(stmt).first()
 
@@ -636,8 +625,6 @@ class AuthService:
         OpenLibraryDumpConfig
             The created or updated configuration.
         """
-        from fundamental.models.config import OpenLibraryDumpConfig
-
         config = self.get_openlibrary_dump_config()
         if config is None:
             config = OpenLibraryDumpConfig()
@@ -860,8 +847,6 @@ class AuthService:
         ValueError
             If token is invalid, expired, or already used.
         """
-        from fundamental.repositories.admin_repositories import InviteRepository
-
         invite_repo = InviteRepository(self._session)
         invite = invite_repo.get_by_token(token)
         if invite is None:
