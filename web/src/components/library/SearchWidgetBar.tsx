@@ -15,7 +15,6 @@
 
 "use client";
 
-import { useMemo } from "react";
 import { useSelectedBooks } from "@/contexts/SelectedBooksContext";
 import type { SearchSuggestion } from "@/types/search";
 import { FiltersButton } from "./widgets/FiltersButton";
@@ -107,16 +106,7 @@ export function SearchWidgetBar({
   sortOrder = "desc",
   onViewModeChange,
 }: SearchWidgetBarProps) {
-  const { selectedBookIds, books } = useSelectedBooks();
-
-  // Find the first selected book
-  const selectedBook = useMemo(() => {
-    if (selectedBookIds.size === 0 || books.length === 0) {
-      return undefined;
-    }
-    // Find the first book that is selected
-    return books.find((book) => selectedBookIds.has(book.id));
-  }, [selectedBookIds, books]);
+  const { selectedBookIds } = useSelectedBooks();
 
   return (
     <div className="flex flex-col gap-3 px-8 pb-4 md:flex-row md:items-center">
@@ -132,7 +122,6 @@ export function SearchWidgetBar({
         <FiltersButton onClick={onFiltersClick} filters={filters} />
         <WithSelectedDropdown
           onClick={onWithSelectedClick}
-          selectedBook={selectedBook}
           disabled={selectedBookIds.size === 0}
         />
         <div className="relative">

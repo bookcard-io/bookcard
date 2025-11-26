@@ -236,7 +236,7 @@ export function BookCard({
       )}
       {showAddToShelfModal && (
         <AddToShelfModal
-          bookId={book.id}
+          books={[book]}
           onClose={() => setShowAddToShelfModal(false)}
           onSuccess={menu.handleMenuClose}
         />

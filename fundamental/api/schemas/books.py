@@ -384,3 +384,32 @@ class BookSendRequest(BaseModel):
         default=None,
         description="Optional file format to send (e.g., 'EPUB', 'MOBI')",
     )
+
+
+class BookBulkSendRequest(BaseModel):
+    """Request to send multiple books via email.
+
+    Attributes
+    ----------
+    book_ids : list[int]
+        List of book IDs to send.
+    to_email : str | None
+        Email address to send to. If not provided, sends to user's default device.
+    file_format : str | None
+        Optional file format to send (e.g., 'EPUB', 'MOBI').
+        If not provided, uses device's preferred format or first available format.
+    """
+
+    book_ids: list[int] = Field(
+        ...,
+        description="List of book IDs to send",
+        min_length=1,
+    )
+    to_email: str | None = Field(
+        default=None,
+        description="Email address to send to. If not provided, sends to user's default device",
+    )
+    file_format: str | None = Field(
+        default=None,
+        description="Optional file format to send (e.g., 'EPUB', 'MOBI')",
+    )

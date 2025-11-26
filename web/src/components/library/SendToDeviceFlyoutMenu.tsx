@@ -15,16 +15,17 @@
 
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
 import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
+import { useSelectedBooks } from "@/contexts/SelectedBooksContext";
 import type { EReaderDevice } from "@/contexts/UserContext";
 import { useUser } from "@/contexts/UserContext";
 import { useFlyoutIntent } from "@/hooks/useFlyoutIntent";
 import { useFlyoutPosition } from "@/hooks/useFlyoutPosition";
 import { cn } from "@/libs/utils";
-import { sendBookToDevice } from "@/services/bookService";
+import { sendBooksToDeviceBatch } from "@/services/bookService";
 import type { Book } from "@/types/book";
 import { getFlyoutPositionStyle } from "@/utils/flyoutPositionStyle";
 import { buildBookPermissionContext } from "@/utils/permissions";
@@ -35,13 +36,13 @@ export interface SendToDeviceFlyoutMenuProps {
   isOpen: boolean;
   /** Reference to the parent menu item element. */
   parentItemRef: React.RefObject<HTMLElement | null>;
-  /** Book data (required for permission checking and sending). */
-  book: Book;
+  /** Books to send. If not provided, uses selected books from context. */
+  books?: Book[];
   /** Callback when menu should be closed. */
   onClose: () => void;
   /** Callback when mouse enters the flyout (to keep parent menu item hovered). */
   onMouseEnter?: () => void;
-  /** Callback when book is successfully sent (to close parent menu). */
+  /** Callback when books are successfully sent (to close parent menu). */
   onSuccess?: () => void;
   /** Callback to close parent menu (for Esc key handling). */
   onCloseParent?: () => void;
@@ -63,7 +64,7 @@ export interface SendToDeviceFlyoutMenuProps {
 export function SendToDeviceFlyoutMenu({
   isOpen,
   parentItemRef,
-  book,
+  books: booksProp,
   onClose,
   onMouseEnter,
   onSuccess,
@@ -76,12 +77,25 @@ export function SendToDeviceFlyoutMenu({
   const { user, canPerformAction } = useUser();
   const { showDanger, showSuccess } = useGlobalMessages();
 
-  // Check permission - disable all actions if no permission
-  const canSend = canPerformAction(
-    "books",
-    "send",
-    buildBookPermissionContext(book),
-  );
+  // Get books from context if not provided via prop
+  const { selectedBookIds, books: contextBooks } = useSelectedBooks();
+  const books = useMemo(() => {
+    if (booksProp) {
+      return booksProp;
+    }
+    // Use selected books from context
+    if (selectedBookIds.size === 0 || contextBooks.length === 0) {
+      return [];
+    }
+    return contextBooks.filter((book) => selectedBookIds.has(book.id));
+  }, [booksProp, selectedBookIds, contextBooks]);
+
+  // Check permission - use first book for permission check
+  // All books should have same permissions in practice
+  const canSend =
+    books.length > 0 &&
+    books[0] !== undefined &&
+    canPerformAction("books", "send", buildBookPermissionContext(books[0]));
 
   const { position, direction, menuRef } = useFlyoutPosition({
     isOpen,
@@ -157,59 +171,91 @@ export function SendToDeviceFlyoutMenu({
   }, [onMouseEnter]);
 
   /**
-   * Handle sending book to default device.
+   * Handle sending books to default device.
    *
-   * Fire-and-forget: enqueues a background task and shows success message immediately.
+   * Fire-and-forget: sends all books in a single API call.
+   * Backend creates a task for each book and enqueues them.
+   * Sends one book per email (Kindle doesn't accept batches).
    */
   const handleSendToDefault = useCallback(() => {
-    if (!defaultDevice) {
+    if (!defaultDevice || books.length === 0) {
       return;
     }
 
-    // Fire-and-forget: don't await, let it run in background
-    sendBookToDevice(book.id, {
-      toEmail: defaultDevice.email,
-    })
+    const deviceName = defaultDevice.device_name || defaultDevice.email;
+    const bookCount = books.length;
+
+    // Fire-and-forget: send all books in one API call
+    // Backend will create tasks for each book
+    sendBooksToDeviceBatch(
+      books.map((book) => book.id),
+      {
+        toEmail: defaultDevice.email,
+      },
+    )
       .then(() => {
-        // Task enqueued successfully (background processing)
-        const deviceName = defaultDevice.device_name || defaultDevice.email;
-        showSuccess(`Book queued for sending to ${deviceName}`);
+        // Tasks enqueued successfully (background processing)
+        if (bookCount === 1) {
+          showSuccess(`Book queued for sending to ${deviceName}`);
+        } else {
+          showSuccess(
+            `${bookCount} book${bookCount > 1 ? "s" : ""} queued for sending to ${deviceName}`,
+          );
+        }
       })
       .catch((error) => {
         const errorMessage =
-          error instanceof Error ? error.message : "Failed to send book";
+          error instanceof Error ? error.message : "Failed to send books";
         showDanger(errorMessage);
       });
 
     // Close UI immediately
     onClose();
     onSuccess?.();
-  }, [book.id, defaultDevice, onClose, onSuccess, showDanger, showSuccess]);
+  }, [books, defaultDevice, onClose, onSuccess, showDanger, showSuccess]);
 
   /**
-   * Handle sending book to a specific device.
+   * Handle sending books to a specific device.
    *
-   * Fire-and-forget: enqueues a background task and shows success message immediately.
+   * Fire-and-forget: sends all books in a single API call.
+   * Backend creates a task for each book and enqueues them.
+   * Sends one book per email (Kindle doesn't accept batches).
    *
    * Parameters
    * ----------
    * device : EReaderDevice
-   *     Device to send book to.
+   *     Device to send books to.
    */
   const handleSendToDevice = useCallback(
     (device: EReaderDevice) => {
-      // Fire-and-forget: don't await, let it run in background
-      sendBookToDevice(book.id, {
-        toEmail: device.email,
-      })
+      if (books.length === 0) {
+        return;
+      }
+
+      const deviceName = device.device_name || device.email;
+      const bookCount = books.length;
+
+      // Fire-and-forget: send all books in one API call
+      // Backend will create tasks for each book
+      sendBooksToDeviceBatch(
+        books.map((book) => book.id),
+        {
+          toEmail: device.email,
+        },
+      )
         .then(() => {
-          // Task enqueued successfully (background processing)
-          const deviceName = device.device_name || device.email;
-          showSuccess(`Book queued for sending to ${deviceName}`);
+          // Tasks enqueued successfully (background processing)
+          if (bookCount === 1) {
+            showSuccess(`Book queued for sending to ${deviceName}`);
+          } else {
+            showSuccess(
+              `${bookCount} book${bookCount > 1 ? "s" : ""} queued for sending to ${deviceName}`,
+            );
+          }
         })
         .catch((error) => {
           const errorMessage =
-            error instanceof Error ? error.message : "Failed to send book";
+            error instanceof Error ? error.message : "Failed to send books";
           showDanger(errorMessage);
         });
 
@@ -217,7 +263,7 @@ export function SendToDeviceFlyoutMenu({
       onClose();
       onSuccess?.();
     },
-    [book.id, onClose, onSuccess, showDanger, showSuccess],
+    [books, onClose, onSuccess, showDanger, showSuccess],
   );
 
   /**
@@ -231,25 +277,39 @@ export function SendToDeviceFlyoutMenu({
   /**
    * Handle submitting email input.
    *
-   * Fire-and-forget: enqueues a background task and shows success message immediately.
+   * Fire-and-forget: sends all books in a single API call.
+   * Backend creates a task for each book and enqueues them.
+   * Sends one book per email (Kindle doesn't accept batches).
    */
   const handleEmailSubmit = useCallback(() => {
     const trimmedEmail = email.trim();
-    if (!trimmedEmail) {
+    if (!trimmedEmail || books.length === 0) {
       return;
     }
 
-    // Fire-and-forget: don't await, let it run in background
-    sendBookToDevice(book.id, {
-      toEmail: trimmedEmail,
-    })
+    const bookCount = books.length;
+
+    // Fire-and-forget: send all books in one API call
+    // Backend will create tasks for each book
+    sendBooksToDeviceBatch(
+      books.map((book) => book.id),
+      {
+        toEmail: trimmedEmail,
+      },
+    )
       .then(() => {
-        // Task enqueued successfully (background processing)
-        showSuccess(`Book queued for sending to ${trimmedEmail}`);
+        // Tasks enqueued successfully (background processing)
+        if (bookCount === 1) {
+          showSuccess(`Book queued for sending to ${trimmedEmail}`);
+        } else {
+          showSuccess(
+            `${bookCount} book${bookCount > 1 ? "s" : ""} queued for sending to ${trimmedEmail}`,
+          );
+        }
       })
       .catch((error) => {
         const errorMessage =
-          error instanceof Error ? error.message : "Failed to send book";
+          error instanceof Error ? error.message : "Failed to send books";
         showDanger(errorMessage);
       });
 
@@ -258,7 +318,7 @@ export function SendToDeviceFlyoutMenu({
     setEmail("");
     onClose();
     onSuccess?.();
-  }, [book.id, email, onClose, onSuccess, showDanger, showSuccess]);
+  }, [books, email, onClose, onSuccess, showDanger, showSuccess]);
 
   /**
    * Handle Enter key in email input.
@@ -293,6 +353,7 @@ export function SendToDeviceFlyoutMenu({
       aria-label="Send to device"
       onMouseDown={(e) => e.stopPropagation()}
       onMouseEnter={handleFlyoutMouseEnter}
+      data-keep-selection
     >
       <div className="py-1">
         {defaultDevice && (

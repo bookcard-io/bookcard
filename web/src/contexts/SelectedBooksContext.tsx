@@ -136,6 +136,8 @@ export function SelectedBooksProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Handle click-outside to clear selection
+  // Use mousedown instead of click to avoid issues with React's synthetic events
+  // and to catch the event before any onClick handlers that might close modals
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       // Only clear if there are selected books
@@ -144,6 +146,7 @@ export function SelectedBooksProvider({ children }: { children: ReactNode }) {
       }
 
       const target = event.target as HTMLElement;
+
       // Check if click is on a book card using data attribute
       const isBookCard = target.closest("[data-book-card]");
       // Don't clear if clicking on a book card
@@ -151,12 +154,19 @@ export function SelectedBooksProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Check if click is on "With selected" button or panel
-      const isWithSelected = target.closest(
-        "[data-with-selected-button], [data-with-selected-panel]",
+      // Check if click originated from within preserved elements (check both target and all parents)
+      // This handles event bubbling - if any parent has the attribute, preserve selection
+      const preservedSelectors = [
+        "[data-with-selected-button]",
+        "[data-with-selected-panel]",
+        "[data-keep-selection]",
+      ];
+      const isPreserved = preservedSelectors.some((selector) =>
+        target.closest(selector),
       );
-      // Don't clear if clicking on "With selected" button or panel
-      if (isWithSelected) {
+
+      // Don't clear if clicking on preserved elements
+      if (isPreserved) {
         return;
       }
 
@@ -164,9 +174,9 @@ export function SelectedBooksProvider({ children }: { children: ReactNode }) {
       clearSelection();
     };
 
-    document.addEventListener("click", handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener("click", handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [selectedBookIds.size, clearSelection]);
 

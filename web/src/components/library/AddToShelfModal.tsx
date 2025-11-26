@@ -22,6 +22,7 @@ import { Button } from "@/components/forms/Button";
 import { TextInput } from "@/components/forms/TextInput";
 import { ShelfEditModal } from "@/components/shelves/ShelfEditModal";
 import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
+import { useSelectedBooks } from "@/contexts/SelectedBooksContext";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
 import { useUser } from "@/contexts/UserContext";
 import { useBook } from "@/hooks/useBook";
@@ -30,15 +31,16 @@ import { useShelfActions } from "@/hooks/useShelfActions";
 import { useShelves } from "@/hooks/useShelves";
 import { InterfaceContentBook2LibraryContentBooksBookShelfStack } from "@/icons/Shelf";
 import { cn } from "@/libs/utils";
+import type { Book } from "@/types/book";
 import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
 import { getShelfCoverUrlWithCacheBuster } from "@/utils/shelves";
 
 export interface AddToShelfModalProps {
-  /** Book ID to add to shelf. */
-  bookId: number;
+  /** Books to add to shelf. If not provided, uses selected books from context. */
+  books?: Book[];
   /** Callback when modal should be closed. */
   onClose: () => void;
-  /** Callback when book is successfully added to shelf (to close parent menu). */
+  /** Callback when books are successfully added to shelf (to close parent menu). */
   onSuccess?: () => void;
 }
 
@@ -51,7 +53,7 @@ export interface AddToShelfModalProps {
  * Uses IOC via hooks and callback props.
  */
 export function AddToShelfModal({
-  bookId,
+  books: booksProp,
   onClose,
   onSuccess,
 }: AddToShelfModalProps) {
@@ -59,11 +61,28 @@ export function AddToShelfModal({
   const { showDanger } = useGlobalMessages();
   const canEditShelves = canPerformAction("shelves", "edit");
   const canCreateShelves = canPerformAction("shelves", "create");
+
+  // Get books from context if not provided via prop
+  const { selectedBookIds, books: contextBooks } = useSelectedBooks();
+  const books = useMemo(() => {
+    if (booksProp) {
+      return booksProp;
+    }
+    // Use selected books from context
+    if (selectedBookIds.size === 0 || contextBooks.length === 0) {
+      return [];
+    }
+    return contextBooks.filter((book) => selectedBookIds.has(book.id));
+  }, [booksProp, selectedBookIds, contextBooks]);
+
+  // Get first book for cover and title (for automatic shelf naming)
+  const firstBook = books[0];
   const { book, isLoading: isBookLoading } = useBook({
-    bookId,
-    enabled: true,
+    bookId: firstBook?.id ?? 0,
+    enabled: books.length > 0 && firstBook !== undefined,
     full: false,
   });
+
   const { shelves, refresh: refreshShelvesContext } = useShelvesContext();
   const { addBook, isProcessing } = useShelfActions();
   const { createShelf } = useShelves();
@@ -83,20 +102,20 @@ export function AddToShelfModal({
     });
   }, [shelves]);
 
-  // Get book title for input field
-  const bookTitle = book?.title || "";
+  // Get first book title for input field (for automatic shelf naming)
+  const bookTitle = firstBook?.title || book?.title || "";
 
-  // Initialize new shelf name with book title when book loads
+  // Initialize new shelf name with first book title when available
   useEffect(() => {
     if (bookTitle && !newShelfName) {
       setNewShelfName(bookTitle);
     }
   }, [bookTitle, newShelfName]);
 
-  // Fetch book cover and convert to File when book loads
+  // Fetch first book cover and convert to File when book loads
   useEffect(() => {
     const fetchBookCover = async () => {
-      if (!book?.thumbnail_url || !book?.has_cover) {
+      if (!book?.thumbnail_url || !book?.has_cover || !firstBook) {
         setInitialCoverFile(null);
         return;
       }
@@ -116,7 +135,7 @@ export function AddToShelfModal({
         // Determine file extension from content type or default to jpg
         const contentType = blob.type || "image/jpeg";
         const extension = contentType.split("/")[1] || "jpg";
-        const fileName = `book-cover-${bookId}.${extension}`;
+        const fileName = `book-cover-${firstBook.id}.${extension}`;
 
         // Convert blob to File
         const file = new File([blob], fileName, {
@@ -134,7 +153,7 @@ export function AddToShelfModal({
     };
 
     void fetchBookCover();
-  }, [book?.thumbnail_url, book?.has_cover, bookId, showDanger]);
+  }, [book?.thumbnail_url, book?.has_cover, firstBook, showDanger]);
 
   const handleOverlayClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -163,40 +182,67 @@ export function AddToShelfModal({
 
   /**
    * Handle selecting an existing shelf.
+   *
+   * Adds all books to the shelf. If any book is already in the shelf,
+   * it's skipped (no-op). Only shows error if all books fail.
    */
   const handleShelfSelect = useCallback(
     async (shelfId: number) => {
-      if (!canEditShelves) {
+      if (!canEditShelves || books.length === 0) {
         return;
       }
-      try {
-        await addBook(shelfId, bookId);
+
+      const results = await Promise.allSettled(
+        books.map((book) => addBook(shelfId, book.id)),
+      );
+
+      const failed = results.filter((r) => r.status === "rejected").length;
+
+      // Check if all failures are due to books already being in shelf
+      const allAlreadyInShelf = results
+        .filter((r) => r.status === "rejected")
+        .every((r) => {
+          const errorMessage =
+            r.reason instanceof Error ? r.reason.message : String(r.reason);
+          return (
+            errorMessage.toLowerCase().includes("already in shelf") ||
+            errorMessage.toLowerCase().includes("already exists")
+          );
+        });
+
+      // If all books are already in shelf or all succeeded, treat as success
+      if (failed === 0 || allAlreadyInShelf) {
         await refreshShelvesContext();
         onClose();
         onSuccess?.();
-      } catch (error) {
-        // If book is already in shelf, treat as success (no-op) and close modal
-        const errorMessage =
-          error instanceof Error
-            ? error.message
-            : "Failed to add book to shelf";
-        if (
-          errorMessage.toLowerCase().includes("already in shelf") ||
-          errorMessage.toLowerCase().includes("already exists")
-        ) {
-          // Silently no-op and close modal
-          onClose();
-          onSuccess?.();
-          return;
-        }
-        // For other errors, show message but don't close modal
-        showDanger(errorMessage);
+        return;
       }
+
+      // If some books failed for other reasons, show error but still close modal
+      // (some books may have been added successfully)
+      if (failed > 0) {
+        const errorMessages = results
+          .filter((r) => r.status === "rejected")
+          .map((r) => {
+            const errorMessage =
+              r.reason instanceof Error
+                ? r.reason.message
+                : "Failed to add book";
+            return errorMessage;
+          });
+        const uniqueErrors = [...new Set(errorMessages)];
+        showDanger(uniqueErrors[0] || "Failed to add some books to shelf");
+      }
+
+      // Refresh shelves context and close modal
+      await refreshShelvesContext();
+      onClose();
+      onSuccess?.();
     },
     [
       canEditShelves,
+      books,
       addBook,
-      bookId,
       refreshShelvesContext,
       onClose,
       onSuccess,
@@ -208,6 +254,7 @@ export function AddToShelfModal({
    * Handle creating a new shelf.
    * The shelf name from the input field is passed to ShelfEditModal,
    * which will use it as the initial name.
+   * Automatically adds all books to the newly created shelf.
    */
   const handleCreateShelf = useCallback(
     async (data: ShelfCreate | ShelfUpdate): Promise<Shelf> => {
@@ -218,29 +265,42 @@ export function AddToShelfModal({
         is_public: data.is_public || false,
       };
       const newShelf = await createShelf(shelfData);
-      // Automatically add book to the newly created shelf
-      try {
-        await addBook(newShelf.id, bookId);
-        await refreshShelvesContext();
-        onClose();
-        onSuccess?.();
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error
-            ? error.message
-            : "Failed to add book to new shelf";
-        showDanger(errorMessage);
-        // Still close modal even if adding fails
-        onClose();
-        onSuccess?.();
+
+      // Automatically add all books to the newly created shelf
+      if (books.length > 0) {
+        const results = await Promise.allSettled(
+          books.map((book) => addBook(newShelf.id, book.id)),
+        );
+
+        const failed = results.filter((r) => r.status === "rejected").length;
+
+        if (failed > 0) {
+          const errorMessages = results
+            .filter((r) => r.status === "rejected")
+            .map((r) => {
+              const errorMessage =
+                r.reason instanceof Error
+                  ? r.reason.message
+                  : "Failed to add book to new shelf";
+              return errorMessage;
+            });
+          const uniqueErrors = [...new Set(errorMessages)];
+          showDanger(
+            uniqueErrors[0] || "Failed to add some books to new shelf",
+          );
+        }
       }
+
+      await refreshShelvesContext();
+      onClose();
+      onSuccess?.();
       return newShelf;
     },
     [
       createShelf,
       refreshShelvesContext,
       addBook,
-      bookId,
+      books,
       onClose,
       onSuccess,
       newShelfName,
@@ -265,6 +325,7 @@ export function AddToShelfModal({
         onClick={handleOverlayClick}
         onKeyDown={handleOverlayKeyDown}
         role="presentation"
+        data-keep-selection
       >
         <div
           className="modal-container modal-container-shadow-default mx-auto my-auto max-h-[90vh] w-full max-w-lg flex-col overflow-hidden"
@@ -272,6 +333,7 @@ export function AddToShelfModal({
           aria-modal="true"
           aria-label="Add to shelf"
           onMouseDown={handleModalClick}
+          data-keep-selection
         >
           {/* Header */}
           <div className="flex items-center justify-between border-surface-a20 border-b px-6 py-4">

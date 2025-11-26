@@ -15,16 +15,17 @@
 
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
+import { useSelectedBooks } from "@/contexts/SelectedBooksContext";
 import { useExclusiveFlyoutMenus } from "@/hooks/useExclusiveFlyoutMenus";
 import { useFlyoutMenu } from "@/hooks/useFlyoutMenu";
 import { LibraryBuilding } from "@/icons/LibraryBuilding";
 import { OutlineMerge } from "@/icons/OutlineMerge";
 import { cn } from "@/libs/utils";
-import type { Book } from "@/types/book";
 import { AddToShelfFlyoutMenu } from "../AddToShelfFlyoutMenu";
 import { AddToShelfMenuItem } from "../AddToShelfMenuItem";
+import { AddToShelfModal } from "../AddToShelfModal";
 import { SendToDeviceFlyoutMenu } from "../SendToDeviceFlyoutMenu";
 import { SendToDeviceMenuItem } from "../SendToDeviceMenuItem";
 
@@ -33,11 +34,6 @@ export interface WithSelectedDropdownProps {
    * Callback fired when the dropdown is clicked.
    */
   onClick?: () => void;
-  /**
-   * Selected book for send operation (required for SendToDeviceFlyoutMenu).
-   * For bulk actions, this should be the first selected book.
-   */
-  selectedBook?: Book;
   /**
    * Whether Send action is disabled.
    */
@@ -58,12 +54,21 @@ export interface WithSelectedDropdownProps {
  */
 export function WithSelectedDropdown({
   onClick,
-  selectedBook,
   isSendDisabled = false,
   disabled = false,
 }: WithSelectedDropdownProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showAddToShelfModal, setShowAddToShelfModal] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const { selectedBookIds, books } = useSelectedBooks();
+
+  // Get all selected books
+  const selectedBooks = useMemo(() => {
+    if (selectedBookIds.size === 0 || books.length === 0) {
+      return [];
+    }
+    return books.filter((book) => selectedBookIds.has(book.id));
+  }, [selectedBookIds, books]);
 
   const addToShelfFlyoutMenu = useFlyoutMenu({ parentMenuOpen: isMenuOpen });
   const sendFlyoutMenu = useFlyoutMenu({ parentMenuOpen: isMenuOpen });
@@ -254,16 +259,15 @@ export function WithSelectedDropdown({
           </div>
         </div>
       )}
-      {isMenuOpen && selectedBook && (
+      {isMenuOpen && selectedBooks.length > 0 && (
         <>
           <AddToShelfFlyoutMenu
             isOpen={addToShelfFlyoutMenu.isFlyoutOpen && isMenuOpen}
             parentItemRef={addToShelfFlyoutMenu.parentItemRef}
-            bookId={selectedBook.id}
             onOpenModal={() => {
-              // No-op for now - could add a prop to handle opening modal
               addToShelfFlyoutMenu.handleFlyoutClose();
               handleMenuClose();
+              setShowAddToShelfModal(true);
             }}
             onClose={addToShelfFlyoutMenu.handleFlyoutClose}
             onMouseEnter={addToShelfFlyoutMenu.handleFlyoutMouseEnter}
@@ -272,13 +276,21 @@ export function WithSelectedDropdown({
           <SendToDeviceFlyoutMenu
             isOpen={sendFlyoutMenu.isFlyoutOpen && isMenuOpen}
             parentItemRef={sendFlyoutMenu.parentItemRef}
-            book={selectedBook}
             onClose={sendFlyoutMenu.handleFlyoutClose}
             onMouseEnter={sendFlyoutMenu.handleFlyoutMouseEnter}
             onSuccess={handleMenuClose}
             onCloseParent={handleMenuClose}
           />
         </>
+      )}
+      {showAddToShelfModal && (
+        <AddToShelfModal
+          onClose={() => {
+            setShowAddToShelfModal(false);
+            handleMenuClose();
+          }}
+          onSuccess={handleMenuClose}
+        />
       )}
     </div>
   );

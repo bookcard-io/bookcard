@@ -221,6 +221,7 @@ export function ShelfEditModal({
       onClick={handleOverlayClick}
       onKeyDown={handleOverlayKeyDown}
       role="presentation"
+      data-keep-selection
     >
       <div
         className="modal-container modal-container-shadow-default w-full max-w-md flex-col"
@@ -228,6 +229,7 @@ export function ShelfEditModal({
         aria-modal="true"
         aria-label={isEditMode ? "Edit shelf" : "Create shelf"}
         onMouseDown={handleModalClick}
+        data-keep-selection
       >
         <button
           type="button"

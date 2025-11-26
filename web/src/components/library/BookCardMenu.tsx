@@ -192,7 +192,7 @@ export function BookCardMenu({
       <AddToShelfFlyoutMenu
         isOpen={flyoutMenu.isFlyoutOpen && isOpen}
         parentItemRef={flyoutMenu.parentItemRef}
-        bookId={book.id}
+        books={[book]}
         onOpenModal={() => {
           onOpenAddToShelfModal?.();
           flyoutMenu.handleFlyoutClose();
@@ -205,7 +205,7 @@ export function BookCardMenu({
       <SendToDeviceFlyoutMenu
         isOpen={sendFlyoutMenu.isFlyoutOpen && isOpen}
         parentItemRef={sendFlyoutMenu.parentItemRef}
-        book={book}
+        books={[book]}
         onClose={sendFlyoutMenu.handleFlyoutClose}
         onMouseEnter={sendFlyoutMenu.handleFlyoutMouseEnter}
         onSuccess={onClose}

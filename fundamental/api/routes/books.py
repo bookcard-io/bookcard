@@ -44,6 +44,7 @@ from sqlmodel import Session
 from fundamental.api.deps import get_current_user, get_db_session
 from fundamental.api.schemas import (
     BookBatchUploadResponse,
+    BookBulkSendRequest,
     BookDeleteRequest,
     BookFilterRequest,
     BookListResponse,
@@ -986,6 +987,113 @@ def send_book_to_device(
             # encryption_key intentionally excluded from metadata to avoid exposing it
         },
     )
+
+
+@router.post("/send/batch", status_code=status.HTTP_204_NO_CONTENT)
+def send_books_to_device_batch(
+    request: Request,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    send_request: BookBulkSendRequest,
+    book_service: BookServiceDep,
+    permission_helper: PermissionHelperDep,
+) -> None:
+    """Send multiple books via email as background tasks.
+
+    Enqueues a background task for each book to send to the specified email address,
+    or to the user's default device if no email is provided.
+    Each book is sent individually (one book per email, as Kindle doesn't accept batches).
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+    session : SessionDep
+        Database session dependency.
+    current_user : CurrentUserDep
+        Current authenticated user.
+    send_request : BookBulkSendRequest
+        Send request containing list of book IDs, optional email and file format.
+
+    Returns
+    -------
+    None
+        Success response (204 No Content).
+
+    Raises
+    ------
+    HTTPException
+        If any book not found (404), no default device when email not provided (400),
+        email server not configured (400), format not found (404),
+        permission denied (403), task runner unavailable (503),
+        or user missing ID (500).
+    """
+    if not send_request.book_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="book_ids_required",
+        )
+
+    # Get email configuration to validate it's enabled
+    email_config_service = _email_config_service(request, session)
+    email_config = email_config_service.get_config(decrypt=False)
+    if email_config is None or not email_config.enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="email_server_not_configured_or_disabled",
+        )
+
+    # Validate user ID
+    if current_user.id is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="user_missing_id",
+        )
+
+    # Get task runner
+    if (
+        not hasattr(request.app.state, "task_runner")
+        or request.app.state.task_runner is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Task runner not available",
+        )
+    task_runner: TaskRunner = request.app.state.task_runner
+
+    # Get encryption key from app config
+    cfg = request.app.state.config
+    encryption_key = cfg.encryption_key
+
+    # Validate all books exist and user has permission, then enqueue tasks
+    for book_id in send_request.book_ids:
+        existing_book = book_service.get_book_full(book_id)
+        if existing_book is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"book_not_found: {book_id}",
+            )
+
+        permission_helper.check_send_permission(current_user, existing_book)
+
+        # Enqueue task for each book
+        task_runner.enqueue(
+            task_type=TaskType.EMAIL_SEND,
+            payload={
+                "book_id": book_id,
+                "to_email": send_request.to_email,
+                "file_format": send_request.file_format,
+                "encryption_key": encryption_key,  # In payload, not metadata (not stored in DB)
+            },
+            user_id=current_user.id,
+            metadata={
+                "task_type": TaskType.EMAIL_SEND,
+                "book_id": book_id,
+                "to_email": send_request.to_email,
+                "file_format": send_request.file_format,
+                # encryption_key intentionally excluded from metadata to avoid exposing it
+            },
+        )
 
 
 # Temporary cover storage (in-memory for now, could be moved to disk/DB)

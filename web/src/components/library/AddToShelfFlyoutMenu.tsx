@@ -15,10 +15,11 @@
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
 import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
+import { useSelectedBooks } from "@/contexts/SelectedBooksContext";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
 import { useUser } from "@/contexts/UserContext";
 import { useFlyoutIntent } from "@/hooks/useFlyoutIntent";
@@ -27,6 +28,7 @@ import { useRecentCreatedShelves } from "@/hooks/useRecentCreatedShelves";
 import { useRecentShelves } from "@/hooks/useRecentShelves";
 import { useShelfActions } from "@/hooks/useShelfActions";
 import { cn } from "@/libs/utils";
+import type { Book } from "@/types/book";
 import { getFlyoutPositionStyle } from "@/utils/flyoutPositionStyle";
 import { RecentShelvesSection } from "./RecentShelvesSection";
 
@@ -35,15 +37,15 @@ export interface AddToShelfFlyoutMenuProps {
   isOpen: boolean;
   /** Reference to the parent menu item element. */
   parentItemRef: React.RefObject<HTMLElement | null>;
-  /** Book ID to add to shelf. */
-  bookId: number;
+  /** Books to add to shelf. If not provided, uses selected books from context. */
+  books?: Book[];
   /** Callback when "Add to shelf..." is clicked to open the modal. */
   onOpenModal: () => void;
   /** Callback when menu should be closed. */
   onClose: () => void;
   /** Callback when mouse enters the flyout (to keep parent menu item hovered). */
   onMouseEnter?: () => void;
-  /** Callback when book is successfully added to shelf (to close parent menu). */
+  /** Callback when books are successfully added to shelf (to close parent menu). */
   onSuccess?: () => void;
 }
 
@@ -63,7 +65,7 @@ export interface AddToShelfFlyoutMenuProps {
 export function AddToShelfFlyoutMenu({
   isOpen,
   parentItemRef,
-  bookId,
+  books: booksProp,
   onOpenModal,
   onClose,
   onMouseEnter,
@@ -73,6 +75,19 @@ export function AddToShelfFlyoutMenu({
   const { showDanger } = useGlobalMessages();
   const canEditShelves = canPerformAction("shelves", "edit");
   const [mounted, setMounted] = useState(false);
+
+  // Get books from context if not provided via prop
+  const { selectedBookIds, books: contextBooks } = useSelectedBooks();
+  const books = useMemo(() => {
+    if (booksProp) {
+      return booksProp;
+    }
+    // Use selected books from context
+    if (selectedBookIds.size === 0 || contextBooks.length === 0) {
+      return [];
+    }
+    return contextBooks.filter((book) => selectedBookIds.has(book.id));
+  }, [booksProp, selectedBookIds, contextBooks]);
 
   const { shelves, refresh: refreshShelvesContext } = useShelvesContext();
   const { addBook, isProcessing } = useShelfActions();
@@ -116,45 +131,80 @@ export function AddToShelfFlyoutMenu({
   }, [onOpenModal]);
 
   /**
-   * Handle adding book to a shelf (from recent shelves in flyout).
+   * Handle adding books to a shelf (from recent shelves in flyout).
+   *
+   * Adds all books to the shelf. If any book is already in the shelf,
+   * it's skipped (no-op). Only shows error if all books fail.
    *
    * Parameters
    * ----------
    * shelfId : number
-   *     Shelf ID to add book to.
+   *     Shelf ID to add books to.
    */
   const handleAddToShelf = useCallback(
     async (shelfId: number) => {
-      try {
-        await addBook(shelfId, bookId);
+      if (books.length === 0) {
+        return;
+      }
+
+      const results = await Promise.allSettled(
+        books.map((book) => addBook(shelfId, book.id)),
+      );
+
+      const successful = results.filter((r) => r.status === "fulfilled").length;
+      const failed = results.filter((r) => r.status === "rejected").length;
+
+      // If at least one book was added successfully, mark shelf as recent
+      if (successful > 0) {
         addRecentShelf(shelfId);
+      }
+
+      // Check if all failures are due to books already being in shelf
+      const allAlreadyInShelf = results
+        .filter((r) => r.status === "rejected")
+        .every((r) => {
+          const errorMessage =
+            r.reason instanceof Error ? r.reason.message : String(r.reason);
+          return (
+            errorMessage.toLowerCase().includes("already in shelf") ||
+            errorMessage.toLowerCase().includes("already exists")
+          );
+        });
+
+      // If all books are already in shelf or all succeeded, treat as success
+      if (failed === 0 || allAlreadyInShelf) {
         // Refresh shelves context to update book counts
         await refreshShelvesContext();
         onClose();
         // Close parent menu on success
         onSuccess?.();
-      } catch (error) {
-        // If book is already in shelf, treat as success (no-op) and close menu
-        const errorMessage =
-          error instanceof Error
-            ? error.message
-            : "Failed to add book to shelf";
-        if (
-          errorMessage.toLowerCase().includes("already in shelf") ||
-          errorMessage.toLowerCase().includes("already exists")
-        ) {
-          // Silently no-op and close menus
-          onClose();
-          onSuccess?.();
-          return;
-        }
-        // For other errors, show message but don't close menu
-        showDanger(errorMessage);
+        return;
       }
+
+      // If some books failed for other reasons, show error but still close menu
+      // (some books may have been added successfully)
+      if (failed > 0) {
+        const errorMessages = results
+          .filter((r) => r.status === "rejected")
+          .map((r) => {
+            const errorMessage =
+              r.reason instanceof Error
+                ? r.reason.message
+                : "Failed to add book";
+            return errorMessage;
+          });
+        const uniqueErrors = [...new Set(errorMessages)];
+        showDanger(uniqueErrors[0] || "Failed to add some books to shelf");
+      }
+
+      // Refresh shelves context and close menu
+      await refreshShelvesContext();
+      onClose();
+      onSuccess?.();
     },
     [
+      books,
       addBook,
-      bookId,
       addRecentShelf,
       refreshShelvesContext,
       onClose,
@@ -182,6 +232,7 @@ export function AddToShelfFlyoutMenu({
       aria-label="Add to shelf"
       onMouseDown={(e) => e.stopPropagation()}
       onMouseEnter={handleFlyoutMouseEnter}
+      data-keep-selection
     >
       <div className="py-1">
         <DropdownMenuItem

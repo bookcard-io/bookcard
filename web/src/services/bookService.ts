@@ -72,6 +72,59 @@ export async function sendBookToDevice(
 }
 
 /**
+ * Send multiple books via email.
+ *
+ * Sends all books in a single API call. The backend will create
+ * a background task for each book and enqueue them.
+ *
+ * Parameters
+ * ----------
+ * bookIds : number[]
+ *     List of book IDs to send.
+ * options : SendBookOptions | undefined
+ *     Optional send options including email and file format.
+ *     If email is not provided, sends to user's default device.
+ *
+ * Returns
+ * -------
+ * Promise<void>
+ *     Success response.
+ *
+ * Raises
+ * ------
+ * Error
+ *     If the API request fails.
+ */
+export async function sendBooksToDeviceBatch(
+  bookIds: number[],
+  options?: SendBookOptions,
+): Promise<void> {
+  if (bookIds.length === 0) {
+    return;
+  }
+
+  const response = await fetch("/api/books/send/batch", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify({
+      book_ids: bookIds,
+      to_email: options?.toEmail || null,
+      file_format: options?.fileFormat || null,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to send books" }));
+    throw new Error(error.detail || "Failed to send books");
+  }
+}
+
+/**
  * Update a book's rating.
  *
  * Parameters

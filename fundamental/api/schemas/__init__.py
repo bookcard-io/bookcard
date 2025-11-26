@@ -64,6 +64,7 @@ from fundamental.api.schemas.auth import (
 )
 from fundamental.api.schemas.books import (
     BookBatchUploadResponse,
+    BookBulkSendRequest,
     BookDeleteRequest,
     BookFilterRequest,
     BookListResponse,
@@ -130,6 +131,7 @@ __all__ = [
     "AdminUserCreate",
     "AdminUserUpdate",
     "BookBatchUploadResponse",
+    "BookBulkSendRequest",
     "BookDeleteRequest",
     "BookFilterRequest",
     "BookListResponse",
