@@ -147,9 +147,10 @@ export function TagInput({
             disabled && "cursor-not-allowed opacity-50",
           )}
         >
-          {tags.map((tag) => (
+          {tags.map((tag, index) => (
             <span
-              key={tag}
+              // biome-ignore lint/suspicious/noArrayIndexKey: Tags are deduplicated at source, but index is needed as fallback for edge cases
+              key={`${tag}-${index}`}
               className="inline-flex items-center gap-1.5 rounded-md bg-primary-a0 px-3 py-1.5 text-sm text-text-a0 leading-normal"
             >
               {tag}

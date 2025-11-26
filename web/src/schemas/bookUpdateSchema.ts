@@ -89,7 +89,7 @@ export const bookUpdateSchema = z.object({
     .optional(),
   publisher_name: z
     .string()
-    .max(200, "Publisher name must be less than 200 characters")
+    .max(255, "Publisher name must be less than 255 characters")
     .transform((val) => (val === "" ? null : val))
     .nullable()
     .optional(),
@@ -98,8 +98,10 @@ export const bookUpdateSchema = z.object({
     .array(
       z
         .string()
-        .length(2, "Language code must be 2 characters (ISO 639-1)")
-        .regex(/^[a-z]{2}$/, "Language code must be lowercase letters"),
+        .regex(
+          /^[a-z]{2,3}$/,
+          "Language code must be 2-3 lowercase letters (ISO 639-1 or ISO 639-2/3)",
+        ),
     )
     .max(10, "Maximum 10 languages allowed")
     .transform((val) => (val.length === 0 ? null : val))
@@ -111,10 +113,15 @@ export const bookUpdateSchema = z.object({
     .nullable()
     .optional(),
   rating_value: z
-    .number()
-    .int()
+    .number({
+      message: "Rating must be a number",
+    })
     .min(0, "Rating must be between 0 and 5")
     .max(5, "Rating must be between 0 and 5")
+    .transform((val) => Math.round(val))
+    .refine((val) => Number.isInteger(val), {
+      message: "Rating must be an integer",
+    })
     .nullable()
     .optional(),
   rating_id: z.number().int().positive().nullable().optional(),

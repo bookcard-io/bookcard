@@ -76,9 +76,10 @@ export function BookViewMetadata({ book }: BookViewMetadataProps) {
               Tags:
             </span>
             <div className="mt-1 flex flex-wrap gap-2">
-              {book.tags.map((tag) => (
+              {book.tags.map((tag, index) => (
                 <span
-                  key={tag}
+                  // biome-ignore lint/suspicious/noArrayIndexKey: Tags are deduplicated at source, but index is needed as fallback for edge cases
+                  key={`${tag}-${index}`}
                   className="inline-block rounded-full border border-[var(--color-surface-a20)] bg-[var(--color-surface-tonal-a10)] px-3 py-1 text-[var(--color-text-a20)] text-sm"
                 >
                   {tag}

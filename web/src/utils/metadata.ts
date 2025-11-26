@@ -173,7 +173,8 @@ export function convertMetadataRecordToBookUpdate(
   }
 
   if (record.tags && record.tags.length > 0) {
-    update.tag_names = record.tags;
+    // Deduplicate tags to prevent duplicate key issues in React components
+    update.tag_names = Array.from(new Set(record.tags));
   }
 
   if (ratingValue !== null) {
