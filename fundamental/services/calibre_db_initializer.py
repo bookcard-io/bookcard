@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from sqlalchemy import inspect
-from sqlmodel import SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine
 
 if TYPE_CHECKING:
     from sqlalchemy import Engine
@@ -183,8 +183,6 @@ class CalibreDatabaseInitializer:
         engine : Engine
             SQLAlchemy engine instance.
         """
-        from sqlmodel import Session
-
         # Generate library UUID
         library_uuid = str(uuid4())
 
