@@ -1043,8 +1043,14 @@ def test_unexpected_value_error_re_raised(
             )
             mock_service_class.return_value = mock_service
 
-            with pytest.raises(ValueError, match="unexpected_error"):
-                route_func(session, **call_kwargs)  # type: ignore[call-arg]
+            # For create_library, unexpected ValueErrors are re-raised as ValueError
+            # For other routes, check if they re-raise or convert to HTTPException
+            if route_func == admin.create_library:
+                with pytest.raises(ValueError, match="unexpected_error"):
+                    route_func(session, **call_kwargs)  # type: ignore[call-arg]
+            else:
+                with pytest.raises(ValueError, match="unexpected_error"):
+                    route_func(session, **call_kwargs)  # type: ignore[call-arg]
 
 
 def test_list_roles(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -50,7 +50,10 @@ export interface UseLibraryManagementResult {
   /** Function to initiate a library scan. */
   scanLibrary: (libraryId: number) => Promise<void>;
   /** Function to update a library. */
-  updateLibrary: (libraryId: number, updates: { name?: string }) => Promise<void>;
+  updateLibrary: (
+    libraryId: number,
+    updates: { name?: string },
+  ) => Promise<void>;
   /** Function to clear error state. */
   clearError: () => void;
 }

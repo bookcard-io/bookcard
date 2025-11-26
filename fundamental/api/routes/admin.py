@@ -1734,11 +1734,15 @@ def create_library(
         msg = str(exc)
         if msg == "library_path_already_exists":
             raise HTTPException(status_code=409, detail=msg) from exc
-        # Database initialization or validation errors
-        raise HTTPException(status_code=400, detail=msg) from exc
+        if msg == "invalid_calibre_database":
+            raise HTTPException(status_code=400, detail=msg) from exc
+        # Re-raise unexpected ValueErrors to be handled by FastAPI's error handler
+        raise
     except PermissionError as exc:
         msg = f"Permission denied: {exc}"
         raise HTTPException(status_code=403, detail=msg) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.put(

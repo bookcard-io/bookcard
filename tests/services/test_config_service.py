@@ -118,6 +118,8 @@ def test_create_library_path_already_exists() -> None:
 
 def test_create_library_set_as_active() -> None:
     """Test create_library deactivates others when is_active=True (covers lines 143-144)."""
+    from unittest.mock import MagicMock, patch
+
     session = DummySession()
     repo = LibraryRepository(session)  # type: ignore[arg-type]
     service = LibraryService(session, repo)  # type: ignore[arg-type]
@@ -133,14 +135,25 @@ def test_create_library_set_as_active() -> None:
     session.add_exec_result([])  # find_by_path() call
     session.add_exec_result([active_library])  # find active libraries
 
-    library = service.create_library(
-        name="New Library",
-        calibre_db_path="/path/to/library",
-        is_active=True,
-    )
+    # Mock the database initializer to prevent actual file system operations
+    with (
+        patch(
+            "fundamental.services.config_service.CalibreDatabaseInitializer"
+        ) as mock_initializer_class,
+        patch("pathlib.Path.exists") as mock_exists,
+    ):
+        mock_exists.return_value = False  # Database doesn't exist
+        mock_initializer = MagicMock()
+        mock_initializer_class.return_value = mock_initializer
 
-    assert library.is_active is True
-    assert active_library.is_active is False
+        library = service.create_library(
+            name="New Library",
+            calibre_db_path="/path/to/library",
+            is_active=True,
+        )
+
+        assert library.is_active is True
+        assert active_library.is_active is False
 
 
 def test_update_library_success() -> None:
