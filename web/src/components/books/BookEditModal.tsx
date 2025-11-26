@@ -16,6 +16,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { useWatch } from "react-hook-form";
 import { Button } from "@/components/forms/Button";
 import { MetadataFetchModal } from "@/components/metadata";
 import { useBookEditForm } from "@/hooks/useBookEditForm";
@@ -60,7 +61,7 @@ export function BookEditModal({
     book,
     isLoading,
     error,
-    formData,
+    form,
     hasChanges,
     showSuccess,
     isUpdating,
@@ -85,6 +86,13 @@ export function BookEditModal({
 
   // Prevent body scroll when modal is open
   useModal(bookId !== null);
+
+  // Watch title field for reactive updates to modal title
+  // Must be called before any early returns to follow Rules of Hooks
+  const formTitle = useWatch({
+    control: form.control,
+    name: "title",
+  });
 
   /**
    * Handles overlay click to close modal.
@@ -171,7 +179,7 @@ export function BookEditModal({
   }
 
   const modalTitle = book
-    ? getBookEditModalTitle(book, formData.title)
+    ? getBookEditModalTitle(book, formTitle ?? undefined)
     : "Editing book info";
 
   return (
@@ -200,7 +208,7 @@ export function BookEditModal({
 
         <BookEditModalHeader
           book={book}
-          formTitle={formData.title}
+          formTitle={formTitle || undefined}
           isUpdating={isUpdating}
           isLuckySearching={isLuckySearching}
           onFetchMetadata={handleOpenMetadataModal}
@@ -210,7 +218,7 @@ export function BookEditModal({
         {showMetadataModal && (
           <MetadataFetchModal
             book={book}
-            formData={formData}
+            formData={form.getValues()}
             onClose={handleCloseMetadataModal}
             onSelectMetadata={handleSelectMetadata}
           />
@@ -223,16 +231,13 @@ export function BookEditModal({
               stagedCoverUrl={stagedCoverUrl}
               onCoverSaved={handleCoverSaved}
             />
-            <BookEditFormFields
-              book={book}
-              formData={formData}
-              onFieldChange={handleFieldChange}
-            />
+            <BookEditFormFields book={book} form={form} />
           </div>
 
           <BookEditModalFooter
             book={book}
             updateError={updateError}
+            formErrors={form.formState.errors}
             showSuccess={showSuccess}
             isUpdating={isUpdating}
             hasChanges={hasChanges}

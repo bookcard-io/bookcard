@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import type { BookUpdateFormData } from "@/schemas/bookUpdateSchema";
 import type { Book, BookUpdate } from "@/types/book";
 
 /**
@@ -26,7 +27,7 @@ import type { Book, BookUpdate } from "@/types/book";
  * ----------
  * book : Book | null
  *     Book data to extract query from.
- * formData : BookUpdate | null | undefined
+ * formData : BookUpdate | BookUpdateFormData | null | undefined
  *     Optional form data that takes priority over book data.
  *
  * Returns
@@ -36,7 +37,7 @@ import type { Book, BookUpdate } from "@/types/book";
  */
 export function getInitialSearchQuery(
   book: Book | null,
-  formData?: BookUpdate | null,
+  formData?: BookUpdate | BookUpdateFormData | null,
 ): string {
   // Priority 1: Title (from form data or book)
   const title = formData?.title?.trim() || book?.title?.trim();

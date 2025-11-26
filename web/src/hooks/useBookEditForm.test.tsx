@@ -62,6 +62,7 @@ vi.mock("@/utils/books", () => ({
 }));
 
 import { act, renderHook } from "@testing-library/react";
+import type { UseFormReturn } from "react-hook-form";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getInitialSearchQuery } from "@/components/metadata/getInitialSearchQuery";
 import { useUser } from "@/contexts/UserContext";
@@ -73,6 +74,7 @@ import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
 import { usePreferredProviders } from "@/hooks/usePreferredProviders";
 import { useProviderSettings } from "@/hooks/useProviderSettings";
 import { useStagedCoverUrl } from "@/hooks/useStagedCoverUrl";
+import type { BookUpdateFormData } from "@/schemas/bookUpdateSchema";
 import type { Book, BookUpdate } from "@/types/book";
 import { getCoverUrlWithCacheBuster } from "@/utils/books";
 import {
@@ -177,23 +179,29 @@ describe("useBookEditForm", () => {
     } as ReturnType<typeof useBook>);
 
     // Mock useBookForm to capture onUpdateSuccess callback
+    const mockFormData = {
+      title: "Test Book",
+      author_names: ["Author 1"],
+      pubdate: "2024-01-15",
+      series_name: null,
+      series_index: null,
+      description: null,
+      publisher_name: null,
+      language_codes: null,
+      tag_names: [],
+      identifiers: [],
+      rating_value: null,
+    };
+
     vi.mocked(useBookForm).mockImplementation((options) => {
       mockOnUpdateSuccess = options.onUpdateSuccess;
       return {
-        formData: {
-          title: "Test Book",
-          author_names: ["Author 1"],
-          pubdate: "2024-01-15",
-          series_name: null,
-          series_index: null,
-          isbn: null,
-          description: null,
-          publisher_name: null,
-          language_codes: null,
-          tag_names: [],
-          identifiers: [],
-          rating_value: null,
-        },
+        form: {
+          getValues: vi.fn(() => mockFormData),
+          watch: vi.fn(),
+          control: {} as UseFormReturn<BookUpdateFormData>["control"],
+          formState: { errors: {}, isDirty: false },
+        } as unknown as UseFormReturn<BookUpdateFormData>,
         hasChanges: false,
         showSuccess: false,
         handleFieldChange: mockHandleFieldChange,

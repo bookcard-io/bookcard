@@ -62,8 +62,8 @@ describe("useBookForm", () => {
       }),
     );
 
-    expect(result.current.formData.title).toBe("Test Book");
-    expect(result.current.formData.author_names).toEqual(["Author 1"]);
+    expect(result.current.form.getValues().title).toBe("Test Book");
+    expect(result.current.form.getValues().author_names).toEqual(["Author 1"]);
     expect(result.current.hasChanges).toBe(false);
   });
 
@@ -75,7 +75,7 @@ describe("useBookForm", () => {
       }),
     );
 
-    expect(result.current.formData.pubdate).toBe("2024-01-15");
+    expect(result.current.form.getValues().pubdate).toBe("2024-01-15");
   });
 
   it("should handle book with no authors", () => {
@@ -87,7 +87,7 @@ describe("useBookForm", () => {
       }),
     );
 
-    expect(result.current.formData.author_names).toEqual([]);
+    expect(result.current.form.getValues().author_names).toBeNull();
   });
 
   it("should handle empty identifiers array", async () => {
@@ -129,7 +129,7 @@ describe("useBookForm", () => {
       result.current.handleFieldChange("title", "Updated Title");
     });
 
-    expect(result.current.formData.title).toBe("Updated Title");
+    expect(result.current.form.getValues().title).toBe("Updated Title");
     expect(result.current.hasChanges).toBe(true);
   });
 
@@ -243,7 +243,7 @@ describe("useBookForm", () => {
       result.current.resetForm();
     });
 
-    expect(result.current.formData.title).toBe("Test Book");
+    expect(result.current.form.getValues().title).toBe("Test Book");
     expect(result.current.hasChanges).toBe(false);
   });
 
@@ -255,13 +255,13 @@ describe("useBookForm", () => {
       }),
     );
 
-    const initialData = { ...result.current.formData };
+    const initialData = { ...result.current.form.getValues() };
 
     act(() => {
       result.current.resetForm();
     });
 
-    expect(result.current.formData).toEqual(initialData);
+    expect(result.current.form.getValues()).toEqual(initialData);
   });
 
   it("should handle book update and refresh form", async () => {
@@ -294,7 +294,7 @@ describe("useBookForm", () => {
     rerender({ book: updatedBook });
 
     // Form should update after rerender
-    expect(result.current.formData.title).toBe("Updated Title");
+    expect(result.current.form.getValues().title).toBe("Updated Title");
   });
 
   it("should hide success message after timeout", async () => {
@@ -466,7 +466,7 @@ describe("useBookForm", () => {
       }),
     );
 
-    expect(result.current.formData.pubdate).toBeNull();
+    expect(result.current.form.getValues().pubdate).toBeNull();
   });
 
   it("should handle book with pubdate that doesn't match date pattern", () => {
@@ -483,7 +483,7 @@ describe("useBookForm", () => {
     );
 
     // Should handle gracefully, pubdate might be null or the original value
-    expect(result.current.formData.pubdate).toBeDefined();
+    expect(result.current.form.getValues().pubdate).toBeDefined();
   });
 
   it("should handle book with ISO string containing time", () => {
@@ -499,7 +499,7 @@ describe("useBookForm", () => {
       }),
     );
 
-    expect(result.current.formData.pubdate).toBe("2024-01-15");
+    expect(result.current.form.getValues().pubdate).toBe("2024-01-15");
   });
 
   it("should not update form when book ID hasn't changed and not just updated", () => {
@@ -514,13 +514,13 @@ describe("useBookForm", () => {
       { initialProps: { book: mockBook } },
     );
 
-    const initialFormData = { ...result.current.formData };
+    const initialFormData = { ...result.current.form.getValues() };
 
     // Rerender with same book (same ID)
     rerender({ book: mockBook });
 
     // Form data should remain the same
-    expect(result.current.formData).toEqual(initialFormData);
+    expect(result.current.form.getValues()).toEqual(initialFormData);
   });
 
   it("should handle book update with same ID after successful update", async () => {
@@ -554,7 +554,7 @@ describe("useBookForm", () => {
     rerender({ book: updatedBook });
 
     // Form should reflect the updated book
-    expect(result.current.formData.title).toBe("Updated Title");
+    expect(result.current.form.getValues().title).toBe("Updated Title");
   });
 
   it("should handle pubdate that is not a YYYY-MM-DD string on submit", async () => {
@@ -601,10 +601,10 @@ describe("useBookForm", () => {
       }),
     );
 
-    expect(result.current.formData.description).toBeNull();
-    expect(result.current.formData.publisher_name).toBeNull();
-    expect(result.current.formData.language_codes).toBeNull();
-    expect(result.current.formData.rating_value).toBeNull();
+    expect(result.current.form.getValues().description).toBeNull();
+    expect(result.current.form.getValues().publisher_name).toBeNull();
+    expect(result.current.form.getValues().language_codes).toBeNull();
+    expect(result.current.form.getValues().rating_value).toBeNull();
   });
 
   it("should not convert pubdate if it doesn't match YYYY-MM-DD pattern", async () => {
@@ -680,7 +680,7 @@ describe("useBookForm", () => {
       }),
     );
 
-    expect(result.current.formData.author_names).toEqual([]);
+    expect(result.current.form.getValues().author_names).toBeNull();
   });
 
   it("should handle book with undefined series", () => {
@@ -696,7 +696,7 @@ describe("useBookForm", () => {
       }),
     );
 
-    expect(result.current.formData.series_name).toBeNull();
+    expect(result.current.form.getValues().series_name).toBeNull();
   });
 
   it("should handle book with undefined series_index", () => {
@@ -712,7 +712,7 @@ describe("useBookForm", () => {
       }),
     );
 
-    expect(result.current.formData.series_index).toBeNull();
+    expect(result.current.form.getValues().series_index).toBeNull();
   });
 
   it("should handle book with undefined tags", () => {
@@ -728,7 +728,7 @@ describe("useBookForm", () => {
       }),
     );
 
-    expect(result.current.formData.tag_names).toEqual([]);
+    expect(result.current.form.getValues().tag_names).toBeNull();
   });
 
   it("should set identifiers to null when empty array on submit", async () => {

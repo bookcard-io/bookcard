@@ -50,8 +50,8 @@ export interface UseBookEditFormResult {
   isLoading: boolean;
   /** Error message if fetch failed. */
   error: string | null;
-  /** Form data. */
-  formData: ReturnType<typeof useBookForm>["formData"];
+  /** React Hook Form instance. */
+  form: ReturnType<typeof useBookForm>["form"];
   /** Whether form has unsaved changes. */
   hasChanges: boolean;
   /** Whether update was successful. */
@@ -120,7 +120,7 @@ export function useBookEditForm({
   const handleCloseRef = useRef<(() => void) | null>(null);
 
   const {
-    formData,
+    form,
     hasChanges,
     showSuccess,
     handleFieldChange,
@@ -260,7 +260,8 @@ export function useBookEditForm({
     }
 
     // Get search query from book/form data
-    const searchQuery = getInitialSearchQuery(book, formData);
+    const formValues = form.getValues();
+    const searchQuery = getInitialSearchQuery(book, formValues);
     if (!searchQuery.trim()) {
       // eslint-disable-next-line no-console
       console.warn("No search query available for lucky search");
@@ -411,7 +412,7 @@ export function useBookEditForm({
     }
   }, [
     book,
-    formData,
+    form,
     isLuckySearching,
     isUpdating,
     preferredProviders,
@@ -460,7 +461,7 @@ export function useBookEditForm({
     book,
     isLoading,
     error,
-    formData,
+    form,
     hasChanges,
     showSuccess,
     isUpdating,

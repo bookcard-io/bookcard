@@ -16,9 +16,11 @@
 "use client";
 
 import { useCallback, useRef } from "react";
+import type { FieldErrors } from "react-hook-form";
 import { Button } from "@/components/forms/Button";
 import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { useUser } from "@/contexts/UserContext";
+import type { BookUpdateFormData } from "@/schemas/bookUpdateSchema";
 import type { Book, BookUpdate } from "@/types/book";
 import { applyBookUpdateToForm } from "@/utils/metadata";
 import { parseJsonMetadataFile } from "@/utils/metadataImport";
@@ -29,6 +31,8 @@ export interface BookEditModalFooterProps {
   book?: Book | null;
   /** Error message from update attempt. */
   updateError: string | null;
+  /** Form validation errors. */
+  formErrors: FieldErrors<BookUpdateFormData>;
   /** Whether to show success message. */
   showSuccess: boolean;
   /** Whether update is in progress. */
@@ -53,6 +57,7 @@ export interface BookEditModalFooterProps {
 export function BookEditModalFooter({
   book,
   updateError,
+  formErrors,
   showSuccess,
   isUpdating,
   hasChanges,
@@ -189,9 +194,53 @@ export function BookEditModalFooter({
     [handleFieldChange, showDanger],
   );
 
+  // Map field names to user-friendly labels
+  const fieldLabels: Record<string, string> = {
+    title: "Title",
+    author_names: "Author(s)",
+    series_name: "Series",
+    series_index: "Series Number",
+    tag_names: "Tags",
+    identifiers: "Identifiers",
+    description: "Description",
+    publisher_name: "Publisher",
+    pubdate: "Publish Date",
+    language_codes: "Languages",
+    rating_value: "Rating",
+  };
+
+  // Get all validation error messages with user-friendly field names
+  const validationErrors = Object.entries(formErrors)
+    .map(([field, error]) => {
+      if (error?.message) {
+        const fieldLabel = fieldLabels[field] || field;
+        return `${fieldLabel}: ${error.message}`;
+      }
+      return null;
+    })
+    .filter((msg): msg is string => msg !== null);
+
+  const hasValidationErrors = validationErrors.length > 0;
+
   return (
     <div className="modal-footer-between">
       <div className="flex w-full flex-1 flex-col gap-2">
+        {hasValidationErrors && (
+          <div
+            className="rounded-md border border-danger-a0 bg-danger-a20 px-4 py-3 text-danger-a0 text-sm"
+            role="alert"
+          >
+            <div className="mb-1 font-semibold">
+              Please fix the following errors:
+            </div>
+            <ul className="list-inside list-disc space-y-1">
+              {validationErrors.map((error) => (
+                <li key={error}>{error}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {updateError && (
           <div
             className="rounded-md bg-danger-a20 px-4 py-3 text-danger-a0 text-sm"
@@ -261,7 +310,7 @@ export function BookEditModalFooter({
           size="xsmall"
           className="sm:px-6 sm:py-3 sm:text-base"
           loading={isUpdating}
-          disabled={!hasChanges || !canWrite}
+          disabled={!hasChanges || !canWrite || hasValidationErrors}
         >
           Save info
         </Button>
