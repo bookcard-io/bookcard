@@ -20,6 +20,7 @@ Adheres to SRP by encapsulating crypto and token details away from routes.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
@@ -249,8 +250,6 @@ class DataEncryptor:
         ValueError
             If data is None or cannot be JSON-encoded.
         """
-        import json
-
         if data is None:
             msg = "Cannot encrypt None value"
             raise ValueError(msg)
@@ -275,8 +274,6 @@ class DataEncryptor:
         ValueError
             If decryption or JSON decoding fails.
         """
-        import json
-
         json_str = self.decrypt(ciphertext)
         return json.loads(json_str)
 
