@@ -450,22 +450,26 @@ class ConversionPostIngestProcessor(PostIngestProcessor):
         self._session = session
         self._user_id = user_id
         self._policy = ConversionAutoConvertPolicy(session, user_id)
+        self._uploaded_format: str | None = None
 
-    def supports_format(self, _file_format: str) -> bool:
+    def supports_format(self, file_format: str) -> bool:
         """Check if this processor supports the given format.
 
         This processor supports all formats (it checks if conversion is needed).
+        Stores the format for use in process().
 
         Parameters
         ----------
-        _file_format : str
-            File format to check (unused, processor supports all formats).
+        file_format : str
+            File format that was just uploaded.
 
         Returns
         -------
         bool
             Always returns True (supports all formats).
         """
+        # Store the uploaded format for use in process()
+        self._uploaded_format = file_format.upper()
         return True
 
     def process(
@@ -505,16 +509,37 @@ class ConversionPostIngestProcessor(PostIngestProcessor):
             logger.warning("Book %d not found for conversion", book_id)
             return
 
-        # Get the format that was just uploaded (most recent)
-        # Note: We'll get all formats and pick the one that matches the upload
-        # For now, we'll get the first format (the one just added)
-        stmt = select(Data).where(Data.book == book_id).limit(1)
-        data = session.exec(stmt).first()
-        if data is None:
-            logger.warning("No format data found for book %d", book_id)
-            return
-
-        original_format = data.format.upper()
+        # Get the format that was just uploaded
+        # Use the format stored from supports_format() call
+        if self._uploaded_format is None:
+            # Fallback: if format wasn't stored, query for all formats
+            # and use the first one (shouldn't happen in normal flow)
+            logger.warning(
+                "Uploaded format not available for book %d, querying formats",
+                book_id,
+            )
+            stmt = select(Data).where(Data.book == book_id).limit(1)
+            data = session.exec(stmt).first()
+            if data is None:
+                logger.warning("No format data found for book %d", book_id)
+                return
+            original_format = data.format.upper()
+        else:
+            # Query for the Data record matching the uploaded format
+            stmt = (
+                select(Data)
+                .where(Data.book == book_id)
+                .where(Data.format == self._uploaded_format)
+            )
+            data = session.exec(stmt).first()
+            if data is None:
+                logger.warning(
+                    "Format %s not found for book %d",
+                    self._uploaded_format,
+                    book_id,
+                )
+                return
+            original_format = self._uploaded_format
         target_format = self._policy.get_target_format().upper()
         ignored_formats = self._policy.get_ignored_formats()
 
