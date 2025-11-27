@@ -29,6 +29,9 @@ from fundamental.services.tasks.author_metadata_fetch_task import (
 from fundamental.services.tasks.base import BaseTask
 from fundamental.services.tasks.book_upload_task import BookUploadTask
 from fundamental.services.tasks.email_send_task import EmailSendTask
+from fundamental.services.tasks.epub_fix_daily_scan_task import (
+    EPUBFixDailyScanTask,
+)
 from fundamental.services.tasks.epub_fix_task import (
     EPUBFixBatchTask,
     EPUBFixTask,
@@ -237,3 +240,4 @@ _registry.register(TaskType.OPENLIBRARY_DUMP_INGEST, OpenLibraryDumpIngestTask)
 _registry.register(TaskType.EMAIL_SEND, EmailSendTask)
 _registry.register(TaskType.EPUB_FIX_SINGLE, EPUBFixTask)
 _registry.register(TaskType.EPUB_FIX_BATCH, EPUBFixBatchTask)
+_registry.register(TaskType.EPUB_FIX_DAILY_SCAN, EPUBFixDailyScanTask)

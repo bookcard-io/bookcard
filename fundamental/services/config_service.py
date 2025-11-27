@@ -26,8 +26,10 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from sqlmodel import select
+
 from fundamental.config import AppConfig
-from fundamental.models.config import Library
+from fundamental.models.config import EPUBFixerConfig, Library, ScheduledTasksConfig
 from fundamental.repositories.calibre_book_repository import (
     CalibreBookRepository,
 )
@@ -588,3 +590,236 @@ class LibraryService:
         """
         shelf_repo = ShelfRepository(self._session)
         shelf_repo.sync_active_status_for_library(library_id, is_active)
+
+
+class EPUBFixerConfigService:
+    """Service for managing EPUB fixer configuration.
+
+    Parameters
+    ----------
+    session : Session
+        Active SQLModel session.
+    """
+
+    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+        """Initialize EPUB fixer config service.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        """
+        self._session = session
+
+    def get_epub_fixer_config(self) -> EPUBFixerConfig:
+        """Get EPUB fixer configuration.
+
+        Returns the existing config or creates a default one if none exists.
+
+        Returns
+        -------
+        EPUBFixerConfig
+            EPUB fixer configuration.
+        """
+        stmt = select(EPUBFixerConfig).limit(1)
+        config = self._session.exec(stmt).first()
+        if config is None:
+            # Create default config
+            config = EPUBFixerConfig()
+            self._session.add(config)
+            self._session.commit()
+            self._session.refresh(config)
+        return config
+
+    def update_epub_fixer_config(
+        self,
+        *,
+        enabled: bool | None = None,
+        backup_enabled: bool | None = None,
+        backup_directory: str | None = None,
+        default_language: str | None = None,
+        skip_already_fixed: bool | None = None,
+        skip_failed: bool | None = None,
+    ) -> EPUBFixerConfig:
+        """Update EPUB fixer configuration.
+
+        Parameters
+        ----------
+        enabled : bool | None
+            Whether EPUB fixer is enabled.
+        backup_enabled : bool | None
+            Whether backups are enabled.
+        backup_directory : str | None
+            Backup directory path.
+        default_language : str | None
+            Default language for fixes.
+        skip_already_fixed : bool | None
+            Whether to skip already fixed EPUBs.
+        skip_failed : bool | None
+            Whether to skip previously failed EPUBs.
+
+        Returns
+        -------
+        EPUBFixerConfig
+            Updated configuration.
+        """
+        config = self.get_epub_fixer_config()
+
+        if enabled is not None:
+            config.enabled = enabled
+        if backup_enabled is not None:
+            config.backup_enabled = backup_enabled
+        if backup_directory is not None:
+            config.backup_directory = backup_directory
+        if default_language is not None:
+            config.default_language = default_language
+        if skip_already_fixed is not None:
+            config.skip_already_fixed = skip_already_fixed
+        if skip_failed is not None:
+            config.skip_failed = skip_failed
+
+        self._session.add(config)
+        self._session.commit()
+        self._session.refresh(config)
+        return config
+
+    def is_epub_fixer_enabled(self) -> bool:
+        """Check if EPUB fixer is enabled.
+
+        Returns
+        -------
+        bool
+            True if enabled, False otherwise.
+        """
+        config = self.get_epub_fixer_config()
+        return config.enabled
+
+    def is_auto_fix_on_ingest_enabled(self) -> bool:
+        """Check if auto-fix on ingest is enabled.
+
+        Returns
+        -------
+        bool
+            True if enabled, False otherwise.
+        """
+        stmt = select(ScheduledTasksConfig).limit(1)
+        scheduled_config = self._session.exec(stmt).first()
+        if scheduled_config is None:
+            return False
+        return scheduled_config.epub_fixer_auto_fix_on_ingest
+
+    def is_daily_scan_enabled(self) -> bool:
+        """Check if daily scan is enabled.
+
+        Returns
+        -------
+        bool
+            True if enabled, False otherwise.
+        """
+        stmt = select(ScheduledTasksConfig).limit(1)
+        scheduled_config = self._session.exec(stmt).first()
+        if scheduled_config is None:
+            return False
+        return scheduled_config.epub_fixer_daily_scan
+
+
+class ScheduledTasksConfigService:
+    """Service for managing scheduled tasks configuration.
+
+    Parameters
+    ----------
+    session : Session
+        Active SQLModel session.
+    """
+
+    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+        """Initialize scheduled tasks config service.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        """
+        self._session = session
+
+    def get_scheduled_tasks_config(self) -> ScheduledTasksConfig:
+        """Get scheduled tasks configuration.
+
+        Returns the existing config or creates a default one if none exists.
+
+        Returns
+        -------
+        ScheduledTasksConfig
+            Scheduled tasks configuration.
+        """
+        stmt = select(ScheduledTasksConfig).limit(1)
+        config = self._session.exec(stmt).first()
+        if config is None:
+            # Create default config
+            config = ScheduledTasksConfig()
+            self._session.add(config)
+            self._session.commit()
+            self._session.refresh(config)
+        return config
+
+    def update_scheduled_tasks_config(
+        self,
+        *,
+        start_time_hour: int | None = None,
+        duration_hours: int | None = None,
+        generate_book_covers: bool | None = None,
+        generate_series_covers: bool | None = None,
+        reconnect_database: bool | None = None,
+        metadata_backup: bool | None = None,
+        epub_fixer_daily_scan: bool | None = None,
+        epub_fixer_auto_fix_on_ingest: bool | None = None,
+    ) -> ScheduledTasksConfig:
+        """Update scheduled tasks configuration.
+
+        Parameters
+        ----------
+        start_time_hour : int | None
+            Hour of day to start scheduled tasks (0-23).
+        duration_hours : int | None
+            Maximum duration for scheduled tasks in hours.
+        generate_book_covers : bool | None
+            Whether to generate book cover thumbnails.
+        generate_series_covers : bool | None
+            Whether to generate series cover thumbnails.
+        reconnect_database : bool | None
+            Whether to reconnect to Calibre database.
+        metadata_backup : bool | None
+            Whether to backup metadata.
+        epub_fixer_daily_scan : bool | None
+            Whether to enable daily EPUB fixer scan.
+        epub_fixer_auto_fix_on_ingest : bool | None
+            Whether to automatically fix EPUBs on book upload.
+
+        Returns
+        -------
+        ScheduledTasksConfig
+            Updated configuration.
+        """
+        config = self.get_scheduled_tasks_config()
+
+        if start_time_hour is not None:
+            config.start_time_hour = start_time_hour
+        if duration_hours is not None:
+            config.duration_hours = duration_hours
+        if generate_book_covers is not None:
+            config.generate_book_covers = generate_book_covers
+        if generate_series_covers is not None:
+            config.generate_series_covers = generate_series_covers
+        if reconnect_database is not None:
+            config.reconnect_database = reconnect_database
+        if metadata_backup is not None:
+            config.metadata_backup = metadata_backup
+        if epub_fixer_daily_scan is not None:
+            config.epub_fixer_daily_scan = epub_fixer_daily_scan
+        if epub_fixer_auto_fix_on_ingest is not None:
+            config.epub_fixer_auto_fix_on_ingest = epub_fixer_auto_fix_on_ingest
+
+        self._session.add(config)
+        self._session.commit()
+        self._session.refresh(config)
+        return config

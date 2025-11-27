@@ -50,6 +50,8 @@ from fundamental.api.schemas import (
     RolePermissionUpdate,
     RoleRead,
     RoleUpdate,
+    ScheduledTasksConfigRead,
+    ScheduledTasksConfigUpdate,
     UserRead,
     UserRoleAssign,
 )
@@ -66,7 +68,10 @@ from fundamental.repositories.role_repository import (
 )
 from fundamental.repositories.user_repository import UserRepository
 from fundamental.services.auth_service import AuthService
-from fundamental.services.config_service import LibraryService
+from fundamental.services.config_service import (
+    LibraryService,
+    ScheduledTasksConfigService,
+)
 from fundamental.services.ereader_service import EReaderService
 from fundamental.services.openlibrary_service import OpenLibraryService
 from fundamental.services.role_service import RoleService
@@ -2187,3 +2192,74 @@ def upsert_openlibrary_dump_config(
         raise HTTPException(status_code=400, detail=msg) from exc
 
     return OpenLibraryDumpConfigRead.model_validate(cfg)
+
+
+@router.get(
+    "/scheduled-tasks-config",
+    response_model=ScheduledTasksConfigRead,
+    dependencies=[Depends(get_admin_user)],
+)
+def get_scheduled_tasks_config(
+    session: SessionDep,
+) -> ScheduledTasksConfigRead:
+    """Get the scheduled tasks configuration (admin only).
+
+    Returns default values if configuration has not been created yet.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+
+    Returns
+    -------
+    ScheduledTasksConfigRead
+        Configuration with defaults if not found.
+    """
+    service = ScheduledTasksConfigService(session)
+    config = service.get_scheduled_tasks_config()
+    return ScheduledTasksConfigRead.model_validate(config)
+
+
+@router.put(
+    "/scheduled-tasks-config",
+    response_model=ScheduledTasksConfigRead,
+    dependencies=[Depends(get_admin_user)],
+)
+def upsert_scheduled_tasks_config(
+    request: Request,
+    session: SessionDep,
+    payload: ScheduledTasksConfigUpdate,
+) -> ScheduledTasksConfigRead:
+    """Create or update the scheduled tasks configuration (admin only).
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+    session : SessionDep
+        Database session dependency.
+    payload : ScheduledTasksConfigUpdate
+        Configuration payload.
+
+    Returns
+    -------
+    ScheduledTasksConfigRead
+        Created or updated configuration.
+    """
+    current_user = get_current_user(request, session)
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    try:
+        service = ScheduledTasksConfigService(session)
+        cfg = service.update_scheduled_tasks_config(
+            **payload.model_dump(exclude_unset=True)
+        )
+        session.commit()
+        logger.info("Scheduled tasks config updated: user_id=%s", current_user.id)
+    except ValueError as exc:
+        msg = str(exc)
+        raise HTTPException(status_code=400, detail=msg) from exc
+
+    return ScheduledTasksConfigRead.model_validate(cfg)

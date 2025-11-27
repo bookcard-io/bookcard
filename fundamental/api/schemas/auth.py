@@ -513,3 +513,32 @@ class OpenLibraryDumpConfigUpdate(BaseModel):
     enable_auto_download: bool | None = None
     enable_auto_process: bool | None = None
     auto_check_interval_hours: int | None = Field(default=None, ge=1, le=168)
+
+
+class ScheduledTasksConfigRead(BaseModel):
+    """Scheduled tasks configuration representation (read)."""
+
+    id: int | None = None
+    start_time_hour: int
+    duration_hours: int
+    generate_book_covers: bool
+    generate_series_covers: bool
+    reconnect_database: bool
+    metadata_backup: bool
+    epub_fixer_daily_scan: bool
+    epub_fixer_auto_fix_on_ingest: bool
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class ScheduledTasksConfigUpdate(BaseModel):
+    """Payload to create or update scheduled tasks configuration."""
+
+    start_time_hour: int | None = Field(default=None, ge=0, le=23)
+    duration_hours: int | None = Field(default=None, ge=1, le=24)
+    generate_book_covers: bool | None = None
+    generate_series_covers: bool | None = None
+    reconnect_database: bool | None = None
+    metadata_backup: bool | None = None
+    epub_fixer_daily_scan: bool | None = None
+    epub_fixer_auto_fix_on_ingest: bool | None = None

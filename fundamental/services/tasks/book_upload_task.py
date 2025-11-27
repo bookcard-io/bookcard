@@ -24,9 +24,15 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from sqlmodel import select
+
+from fundamental.models.config import EPUBFixerConfig, Library, ScheduledTasksConfig
+from fundamental.models.core import Book
+from fundamental.models.media import Data
 from fundamental.repositories.config_repository import LibraryRepository
 from fundamental.services.book_service import BookService
 from fundamental.services.config_service import LibraryService
+from fundamental.services.epub_fixer_service import EPUBFixerService
 from fundamental.services.tasks.base import BaseTask
 
 if TYPE_CHECKING:
@@ -174,7 +180,121 @@ class BookUploadTask(BaseTask):
         self.set_metadata("book_ids", [book_id])  # Array with single element
         self.set_metadata("title", title)
 
+        # Auto-fix EPUB on ingest if enabled
+        if self.file_format.lower() == "epub":
+            self._auto_fix_epub_on_ingest(session, book_id, library)
+
         return book_id
+
+    def _auto_fix_epub_on_ingest(
+        self,
+        session: Session,
+        book_id: int,
+        library: Library,
+    ) -> None:
+        """Auto-fix EPUB file on ingest if enabled.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Book ID that was just added.
+        library : Any
+            Library configuration.
+        """
+        try:
+            # Check if auto-fix on ingest is enabled
+            stmt = select(ScheduledTasksConfig).limit(1)
+            scheduled_config = session.exec(stmt).first()
+            if (
+                scheduled_config is None
+                or not scheduled_config.epub_fixer_auto_fix_on_ingest
+            ):
+                logger.debug("EPUB auto-fix on ingest is disabled, skipping")
+                return
+
+            # Check if EPUB fixer is enabled
+            stmt = select(EPUBFixerConfig).limit(1)
+            epub_config = session.exec(stmt).first()
+            if not epub_config or not epub_config.enabled:
+                logger.debug("EPUB fixer is disabled, skipping auto-fix on ingest")
+                return
+
+            # Get book to find file path
+            stmt = (
+                select(Book, Data)
+                .join(Data)
+                .where(Book.id == book_id)
+                .where(Data.format == "EPUB")
+            )
+            result = session.exec(stmt).first()
+            if result is None:
+                logger.debug("EPUB format not found for book %d", book_id)
+                return
+
+            book, data = result
+
+            # Construct file path
+            lib_root = getattr(library, "library_root", None)
+            if lib_root:
+                library_path = Path(lib_root)
+            else:
+                library_db_path = Path(library.calibre_db_path)
+                library_path = (
+                    library_db_path
+                    if library_db_path.is_dir()
+                    else library_db_path.parent
+                )
+
+            book_dir = library_path / book.path
+            file_name = data.name or str(book.id)
+            file_path = book_dir / f"{file_name}.{data.format.lower()}"
+
+            if not file_path.exists():
+                # Try alternative naming
+                alt_file_name = f"{book.id}.{data.format.lower()}"
+                alt_file_path = book_dir / alt_file_name
+                if alt_file_path.exists():
+                    file_path = alt_file_path
+                else:
+                    logger.warning(
+                        "EPUB file not found at %s or %s", file_path, alt_file_path
+                    )
+                    return
+
+            # Process EPUB file
+            fixer_service = EPUBFixerService(session)
+
+            fix_run = fixer_service.process_epub_file(
+                file_path=file_path,
+                book_id=book_id,
+                book_title=book.title,
+                user_id=self.user_id,
+                library_id=library.id if library else None,
+                manually_triggered=False,  # Automatic, not manual
+            )
+
+            # Get fixes for the run to log
+            if fix_run.id is not None:
+                fixes = fixer_service.get_fixes_for_run(fix_run.id)
+                if fixes:
+                    logger.info(
+                        "Auto-fixed EPUB on ingest: book_id=%d, file=%s, fixes_applied=%d",
+                        book_id,
+                        file_path,
+                        len(fixes),
+                    )
+                else:
+                    logger.debug(
+                        "No fixes needed for EPUB on ingest: book_id=%d", book_id
+                    )
+
+        except Exception:
+            # Don't fail the upload if auto-fix fails
+            logger.exception(
+                "Failed to auto-fix EPUB on ingest for book_id=%d", book_id
+            )
 
     def run(self, worker_context: dict[str, Any]) -> None:
         """Execute book upload task.
