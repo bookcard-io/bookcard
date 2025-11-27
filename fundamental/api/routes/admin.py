@@ -2218,7 +2218,7 @@ def get_scheduled_tasks_config(
     """
     service = ScheduledTasksConfigService(session)
     config = service.get_scheduled_tasks_config()
-    return ScheduledTasksConfigRead.model_validate(config)
+    return ScheduledTasksConfigRead.model_validate(config, from_attributes=True)
 
 
 @router.put(
@@ -2262,4 +2262,4 @@ def upsert_scheduled_tasks_config(
         msg = str(exc)
         raise HTTPException(status_code=400, detail=msg) from exc
 
-    return ScheduledTasksConfigRead.model_validate(cfg)
+    return ScheduledTasksConfigRead.model_validate(cfg, from_attributes=True)

@@ -15,6 +15,7 @@
 
 "use client";
 
+import { ScheduledTasksConfig } from "@/components/admin/scheduledtasks/ScheduledTasksConfig";
 import { TaskErrorDisplay } from "@/components/tasks/TaskErrorDisplay";
 import { TaskFiltersBar } from "@/components/tasks/TaskFiltersBar";
 import { TaskList } from "@/components/tasks/TaskList";
@@ -68,31 +69,35 @@ export function ScheduledTasksTab() {
   });
 
   return (
-    <div className="rounded-md border border-surface-a20 bg-surface-tonal-a0 p-6">
-      <h2 className="mb-4 font-semibold text-text-a0 text-xl">
-        Scheduled Tasks
-      </h2>
+    <div className="flex flex-col gap-6">
+      <ScheduledTasksConfig />
 
-      <TaskFiltersBar
-        status={filters.selectedStatus}
-        taskType={filters.selectedTaskType}
-        onStatusChange={filters.handleStatusFilter}
-        onTaskTypeChange={filters.handleTaskTypeFilter}
-        onRefresh={() => void refresh()}
-      />
+      <div className="rounded-md border border-surface-a20 bg-surface-tonal-a0 p-6">
+        <h2 className="mb-4 font-semibold text-text-a0 text-xl">
+          Scheduled Tasks
+        </h2>
 
-      {error && <TaskErrorDisplay error={error} />}
+        <TaskFiltersBar
+          status={filters.selectedStatus}
+          taskType={filters.selectedTaskType}
+          onStatusChange={filters.handleStatusFilter}
+          onTaskTypeChange={filters.handleTaskTypeFilter}
+          onRefresh={() => void refresh()}
+        />
 
-      <TaskList tasks={tasks} isLoading={isLoading} onCancel={cancelTask} />
+        {error && <TaskErrorDisplay error={error} />}
 
-      <TaskPagination
-        page={page}
-        pageSize={pageSize}
-        total={total}
-        totalPages={totalPages}
-        onPreviousPage={previousPage}
-        onNextPage={nextPage}
-      />
+        <TaskList tasks={tasks} isLoading={isLoading} onCancel={cancelTask} />
+
+        <TaskPagination
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          totalPages={totalPages}
+          onPreviousPage={previousPage}
+          onNextPage={nextPage}
+        />
+      </div>
     </div>
   );
 }
