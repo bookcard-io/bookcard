@@ -73,13 +73,17 @@ DEFAULT_USER_SETTINGS: dict[str, str | bool | list[str]] = {
         "Amazon",
         "ComicVine",
     ],
-    "preferred_metadata_providers": ["OpenLibrary", "Google Books", "Amazon"],
+    "preferred_metadata_providers": ["Hardcover", "Google Books", "Amazon"],
     "replace_cover_on_metadata_selection": True,
     "metadata_download_format": "opf",
     "auto_dismiss_book_edit_modal": True,
     "book_details_open_mode": "modal",
     "always_warn_on_delete": True,
     "default_delete_files_from_drive": False,
+    "auto_convert_on_import": False,
+    "auto_convert_target_format": "epub",
+    "auto_convert_ignored_formats": ["epub", "pdf"],
+    "auto_convert_backup_originals": True,
 }
 
 

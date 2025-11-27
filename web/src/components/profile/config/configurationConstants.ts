@@ -90,6 +90,46 @@ export const METADATA_DOWNLOAD_FORMAT_OPTIONS = [
   { value: "yaml", label: "YAML" },
 ] as const;
 
+export const CONVERSION_TARGET_FORMAT_OPTIONS = [
+  { value: "epub", label: "EPUB" },
+  { value: "mobi", label: "MOBI" },
+  { value: "azw3", label: "AZW3" },
+  { value: "kepub", label: "KEPUB" },
+  { value: "pdf", label: "PDF" },
+] as const;
+
+export const SUPPORTED_BOOK_FORMATS = [
+  { value: "epub", label: "EPUB" },
+  { value: "mobi", label: "MOBI" },
+  { value: "azw3", label: "AZW3" },
+  { value: "azw", label: "AZW" },
+  { value: "azw4", label: "AZW4" },
+  { value: "kepub", label: "KEPUB" },
+  { value: "pdf", label: "PDF" },
+  { value: "fb2", label: "FB2" },
+  { value: "html", label: "HTML" },
+  { value: "htmlz", label: "HTMLZ" },
+  { value: "txt", label: "TXT" },
+  { value: "txtz", label: "TXTZ" },
+  { value: "rtf", label: "RTF" },
+  { value: "lit", label: "LIT" },
+  { value: "lrf", label: "LRF" },
+  { value: "odt", label: "ODT" },
+  { value: "docx", label: "DOCX" },
+  { value: "cbz", label: "CBZ" },
+  { value: "cbr", label: "CBR" },
+  { value: "cb7", label: "CB7" },
+  { value: "cbc", label: "CBC" },
+  { value: "chm", label: "CHM" },
+  { value: "djvu", label: "DJVU" },
+  { value: "prc", label: "PRC" },
+  { value: "pdb", label: "PDB" },
+  { value: "pml", label: "PML" },
+  { value: "rb", label: "RB" },
+  { value: "snb", label: "SNB" },
+  { value: "tcr", label: "TCR" },
+] as const;
+
 export const THEME_PREFERENCE_SETTING_KEY = "theme_preference";
 
 export const READING_FONT_FAMILY_SETTING_KEY = "reading_font_family";
@@ -99,6 +139,14 @@ export const READING_PAGE_LAYOUT_SETTING_KEY = "reading_page_layout";
 
 export const ENABLED_METADATA_PROVIDERS_SETTING_KEY =
   "enabled_metadata_providers";
+
+export const AUTO_CONVERT_ON_IMPORT_SETTING_KEY = "auto_convert_on_import";
+export const AUTO_CONVERT_TARGET_FORMAT_SETTING_KEY =
+  "auto_convert_target_format";
+export const AUTO_CONVERT_IGNORED_FORMATS_SETTING_KEY =
+  "auto_convert_ignored_formats";
+export const AUTO_CONVERT_BACKUP_ORIGINALS_SETTING_KEY =
+  "auto_convert_backup_originals";
 
 export const DEFAULT_ENABLED_METADATA_PROVIDERS = [
   "Hardcover",

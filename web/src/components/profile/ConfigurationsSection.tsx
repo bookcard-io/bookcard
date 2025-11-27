@@ -22,6 +22,7 @@ import { cn } from "@/libs/utils";
 import { BlurAfterClickProvider } from "./BlurAfterClickContext";
 import { AutoDismissBookEditModalConfiguration } from "./config/AutoDismissBookEditModalConfiguration";
 import { AutoOpenBookDetailsConfiguration } from "./config/AutoOpenBookDetailsConfiguration";
+import { ConversionSettings } from "./config/ConversionSettings";
 import { DefaultPageSizeConfiguration } from "./config/DefaultPageSizeConfiguration";
 import { DefaultSortFieldConfiguration } from "./config/DefaultSortFieldConfiguration";
 import { DefaultSortOrderConfiguration } from "./config/DefaultSortOrderConfiguration";
@@ -121,6 +122,8 @@ function ConfigurationsSectionContent() {
           <MetadataDownloadFormatConfiguration key="metadata-download-format" />,
           <AutoDismissBookEditModalConfiguration key="auto-dismiss-modal" />,
         ];
+      case "conversion":
+        return [<ConversionSettings key="conversion-settings" />];
       case "navigation":
         return [<AutoOpenBookDetailsConfiguration key="auto-open" />];
       case "deletion":
