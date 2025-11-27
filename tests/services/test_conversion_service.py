@@ -463,17 +463,18 @@ class TestConversionServiceConvertBook:
         book_dir = library_path / book.path
         book_dir.mkdir(parents=True)
 
-        def path_exists_side_effect(path: Path | str) -> bool:
+        def mock_exists(self: Path) -> bool:
             """Mock Path.exists to return True for /app/calibre/ebook-convert."""
-            if str(path) == "/app/calibre/ebook-convert":
+            if str(self) == "/app/calibre/ebook-convert":
                 return True
-            return Path(path).exists()
+            # For other paths, use the actual Path.exists() behavior
+            return Path.exists(self)
 
         with (
             patch.object(service, "_get_book", return_value=book),
             patch.object(service, "_get_book_file_path", return_value=original_file),
             patch.object(service, "_format_exists", return_value=False),
-            patch("pathlib.Path.exists", side_effect=path_exists_side_effect),
+            patch.object(Path, "exists", mock_exists),
             patch.object(service, "_execute_conversion", return_value=converted_file),
             patch.object(service, "_add_format_to_calibre"),
             patch.object(service, "_backup_original_file", return_value=None),
@@ -525,17 +526,18 @@ class TestConversionServiceConvertBook:
         book_dir = library_path / book.path
         book_dir.mkdir(parents=True)
 
-        def path_exists_side_effect(path: Path | str) -> bool:
+        def mock_exists(self: Path) -> bool:
             """Mock Path.exists to return True for /app/calibre/ebook-convert."""
-            if str(path) == "/app/calibre/ebook-convert":
+            if str(self) == "/app/calibre/ebook-convert":
                 return True
-            return Path(path).exists()
+            # For other paths, use the actual Path.exists() behavior
+            return Path.exists(self)
 
         with (
             patch.object(service, "_get_book", return_value=book),
             patch.object(service, "_get_book_file_path", return_value=original_file),
             patch.object(service, "_format_exists", return_value=False),
-            patch("pathlib.Path.exists", side_effect=path_exists_side_effect),
+            patch.object(Path, "exists", mock_exists),
             patch.object(service, "_execute_conversion", return_value=converted_file),
             patch.object(service, "_add_format_to_calibre"),
             patch.object(service, "_backup_original_file", return_value=backup_file),
@@ -578,17 +580,18 @@ class TestConversionServiceConvertBook:
         original_file = tmp_path / "book.mobi"
         original_file.touch()
 
-        def path_exists_side_effect(path: Path | str) -> bool:
+        def mock_exists(self: Path) -> bool:
             """Mock Path.exists to return True for /app/calibre/ebook-convert."""
-            if str(path) == "/app/calibre/ebook-convert":
+            if str(self) == "/app/calibre/ebook-convert":
                 return True
-            return Path(path).exists()
+            # For other paths, use the actual Path.exists() behavior
+            return Path.exists(self)
 
         with (
             patch.object(service, "_get_book", return_value=book),
             patch.object(service, "_get_book_file_path", return_value=original_file),
             patch.object(service, "_format_exists", return_value=False),
-            patch("pathlib.Path.exists", side_effect=path_exists_side_effect),
+            patch.object(Path, "exists", mock_exists),
             patch.object(
                 service,
                 "_execute_conversion",
@@ -1020,11 +1023,11 @@ class TestConversionServiceGetConverterPath:
         """
         service = ConversionService(session, library)  # type: ignore[arg-type]
 
-        def path_exists_side_effect(path: Path | str) -> bool:
+        def mock_exists(self: Path) -> bool:
             """Mock Path.exists to return True for /app/calibre/ebook-convert."""
-            return str(path) == "/app/calibre/ebook-convert"
+            return str(self) == "/app/calibre/ebook-convert"
 
-        with patch("pathlib.Path.exists", side_effect=path_exists_side_effect):
+        with patch.object(Path, "exists", mock_exists):
             result = service._get_converter_path()
             assert result == "/app/calibre/ebook-convert"
 
@@ -1042,12 +1045,12 @@ class TestConversionServiceGetConverterPath:
         """
         service = ConversionService(session, library)  # type: ignore[arg-type]
 
-        def path_exists_side_effect(path: Path | str) -> bool:
+        def mock_exists(self: Path) -> bool:
             """Mock Path.exists to return False for /app/calibre/ebook-convert."""
-            return str(path) != "/app/calibre/ebook-convert"
+            return str(self) != "/app/calibre/ebook-convert"
 
         with (
-            patch("pathlib.Path.exists", side_effect=path_exists_side_effect),
+            patch.object(Path, "exists", mock_exists),
             patch("shutil.which", return_value="/usr/local/bin/ebook-convert"),
         ):
             result = service._get_converter_path()
@@ -1067,12 +1070,12 @@ class TestConversionServiceGetConverterPath:
         """
         service = ConversionService(session, library)  # type: ignore[arg-type]
 
-        def path_exists_side_effect(path: Path | str) -> bool:
+        def mock_exists(self: Path) -> bool:
             """Mock Path.exists to return False for /app/calibre/ebook-convert."""
-            return str(path) != "/app/calibre/ebook-convert"
+            return str(self) != "/app/calibre/ebook-convert"
 
         with (
-            patch("pathlib.Path.exists", side_effect=path_exists_side_effect),
+            patch.object(Path, "exists", mock_exists),
             patch("shutil.which", return_value=None),
         ):
             result = service._get_converter_path()
