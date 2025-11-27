@@ -80,7 +80,7 @@ export function GlobalMessageHost() {
         "pointer-events-none",
       )}
     >
-      <div className={cn("flex flex-col", "max-w-sm gap-2")}>
+      <div className={cn("flex flex-col", "max-w-md gap-2")}>
         {messages.map((message) => (
           <div
             key={message.id}
@@ -91,7 +91,7 @@ export function GlobalMessageHost() {
               <i
                 className={cn("pi", getIconForType(message.type), "text-base")}
               />
-              <div className="text-sm text-text-a0">{message.text}</div>
+              <div className="text-text-a0 text-xl">{message.text}</div>
             </div>
             <button
               type="button"
