@@ -1002,6 +1002,16 @@ def test_send_book_to_device_format_not_found(
     email_service: MagicMock,
 ) -> None:
     """Test send_book_to_device raises ValueError when format not found (covers lines 579-583)."""
+    # Use a non-Kindle device to avoid triggering EPUB conversion
+    non_kindle_device = EReaderDevice(
+        id=2,
+        user_id=1,
+        email="device@example.com",
+        device_name="Test Device",
+        device_type="kobo",  # Non-Kindle device
+        is_default=True,
+        preferred_format=EBookFormat.EPUB,
+    )
     with (
         patch("fundamental.services.book_service.CalibreBookRepository"),
         patch.object(BookService, "get_book_full", return_value=book_with_rels),
@@ -1013,7 +1023,7 @@ def test_send_book_to_device_format_not_found(
         with pytest.raises(ValueError, match="format_not_found"):
             service.send_book_to_device(
                 book_id=1,
-                device=device,
+                device=non_kindle_device,
                 email_service=email_service,
                 file_format="PDF",
             )

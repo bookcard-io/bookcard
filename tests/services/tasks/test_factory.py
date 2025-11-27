@@ -97,7 +97,7 @@ class TestCreateTask:
             create_task(
                 task_id=1,
                 user_id=1,
-                metadata={"task_type": TaskType.BOOK_CONVERT.value},
+                metadata={"task_type": TaskType.THUMBNAIL_GENERATE.value},
             )
 
 
