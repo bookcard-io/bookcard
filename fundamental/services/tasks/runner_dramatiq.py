@@ -25,15 +25,9 @@ import logging
 import threading
 from typing import TYPE_CHECKING, Any
 
-try:
-    import dramatiq
-    from dramatiq.brokers.redis import RedisBroker
-    from dramatiq.middleware import ShutdownNotifications, TimeLimit
-except ImportError:
-    dramatiq = None  # type: ignore[assignment]
-    RedisBroker = None  # type: ignore[assignment, misc]
-    TimeLimit = None  # type: ignore[assignment, misc]
-    ShutdownNotifications = None  # type: ignore[assignment, misc]
+import dramatiq
+from dramatiq.brokers.redis import RedisBroker
+from dramatiq.middleware import ShutdownNotifications, TimeLimit
 
 from fundamental.database import get_session as _get_session
 from fundamental.models.tasks import TaskStatus, TaskType  # noqa: TC001
