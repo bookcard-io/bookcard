@@ -19,12 +19,10 @@ from fundamental.services.scheduler.base import (
     BaseScheduler,
     ScheduledTaskDefinition,
 )
-from fundamental.services.scheduler.dramatiq_scheduler import DramatiqScheduler
 from fundamental.services.scheduler.task_scheduler import TaskScheduler
 
 __all__ = [
     "BaseScheduler",
-    "DramatiqScheduler",
     "ScheduledTaskDefinition",
     "TaskScheduler",
 ]

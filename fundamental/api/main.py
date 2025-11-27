@@ -51,7 +51,7 @@ from fundamental.config import AppConfig
 from fundamental.database import create_db_engine
 from fundamental.services.library_scanning.workers.manager import ScanWorkerManager
 from fundamental.services.messaging.redis_broker import RedisBroker
-from fundamental.services.scheduler import DramatiqScheduler, TaskScheduler
+from fundamental.services.scheduler import TaskScheduler
 from fundamental.services.tasks.runner_factory import create_task_runner
 
 logger = logging.getLogger(__name__)
@@ -199,23 +199,14 @@ def _initialize_scheduler(
         return
 
     try:
-        app.state.scheduler = DramatiqScheduler(
-            engine, cfg.redis_url, app.state.task_runner
-        )
-        logger.info("Initialized Dramatiq scheduler for periodic tasks")
+        app.state.scheduler = TaskScheduler(engine, app.state.task_runner)
+        logger.info("Initialized TaskScheduler for periodic tasks")
     except (ConnectionError, ValueError, RuntimeError, ImportError) as exc:
         logger.warning(
-            "Failed to initialize Dramatiq scheduler: %s. Falling back to in-process TaskScheduler.",
+            "Failed to initialize scheduler: %s.",
             exc,
         )
-        try:
-            app.state.scheduler = TaskScheduler(engine, app.state.task_runner)
-            logger.info("Initialized in-process TaskScheduler for periodic tasks")
-        except (ValueError, RuntimeError, OSError):
-            logger.exception(
-                "Failed to initialize fallback TaskScheduler. Scheduled tasks will not be available."
-            )
-            app.state.scheduler = None
+        app.state.scheduler = None
 
 
 async def _run_migrations(cfg: AppConfig) -> None:
