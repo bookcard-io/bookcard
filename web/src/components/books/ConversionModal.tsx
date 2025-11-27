@@ -74,6 +74,7 @@ export function ConversionModal({
       queryKey: ["book-conversions", book.id],
       queryFn: () => getBookConversions(book.id),
       enabled: isOpen,
+      retry: false,
     });
 
   // Set default source format when modal opens
