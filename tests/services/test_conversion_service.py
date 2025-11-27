@@ -25,7 +25,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.config import FileHandlingConfig, Library
+from fundamental.models.config import Library
 from fundamental.models.conversion import (
     BookConversion,
     ConversionMethod,
@@ -368,7 +368,6 @@ class TestConversionServiceConvertBook:
         service = ConversionService(session, library)  # type: ignore[arg-type]
 
         session.add_exec_result([None])  # No existing conversion
-        session.add_exec_result([None])  # No FileHandlingConfig
 
         original_file = tmp_path / "book.mobi"
         original_file.touch()
@@ -377,6 +376,7 @@ class TestConversionServiceConvertBook:
             patch.object(service, "_get_book", return_value=book),
             patch.object(service, "_get_book_file_path", return_value=original_file),
             patch.object(service, "_format_exists", return_value=False),
+            patch("pathlib.Path.exists", return_value=False),
             patch("shutil.which", return_value=None),
             pytest.raises(ValueError, match="Calibre converter not found"),
         ):
@@ -410,8 +410,6 @@ class TestConversionServiceConvertBook:
         service = ConversionService(session, library)  # type: ignore[arg-type]
 
         session.add_exec_result([None])  # No existing conversion
-        config = FileHandlingConfig(id=1, converter_path="/nonexistent/path")
-        session.add_exec_result([config])
 
         original_file = tmp_path / "book.mobi"
         original_file.touch()
@@ -420,6 +418,8 @@ class TestConversionServiceConvertBook:
             patch.object(service, "_get_book", return_value=book),
             patch.object(service, "_get_book_file_path", return_value=original_file),
             patch.object(service, "_format_exists", return_value=False),
+            patch("pathlib.Path.exists", return_value=False),
+            patch("shutil.which", return_value=None),
             pytest.raises(ValueError, match="Calibre converter not found"),
         ):
             service.convert_book(
@@ -452,8 +452,6 @@ class TestConversionServiceConvertBook:
         service = ConversionService(session, library)  # type: ignore[arg-type]
 
         session.add_exec_result([None])  # No existing conversion
-        config = FileHandlingConfig(id=1, converter_path="/usr/bin/ebook-convert")
-        session.add_exec_result([config])
 
         original_file = tmp_path / "book.mobi"
         original_file.touch()
@@ -465,11 +463,17 @@ class TestConversionServiceConvertBook:
         book_dir = library_path / book.path
         book_dir.mkdir(parents=True)
 
+        def path_exists_side_effect(path: Path | str) -> bool:
+            """Mock Path.exists to return True for /app/calibre/ebook-convert."""
+            if str(path) == "/app/calibre/ebook-convert":
+                return True
+            return Path(path).exists()
+
         with (
             patch.object(service, "_get_book", return_value=book),
             patch.object(service, "_get_book_file_path", return_value=original_file),
             patch.object(service, "_format_exists", return_value=False),
-            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.exists", side_effect=path_exists_side_effect),
             patch.object(service, "_execute_conversion", return_value=converted_file),
             patch.object(service, "_add_format_to_calibre"),
             patch.object(service, "_backup_original_file", return_value=None),
@@ -509,8 +513,6 @@ class TestConversionServiceConvertBook:
         service = ConversionService(session, library)  # type: ignore[arg-type]
 
         session.add_exec_result([None])  # No existing conversion
-        config = FileHandlingConfig(id=1, converter_path="/usr/bin/ebook-convert")
-        session.add_exec_result([config])
 
         original_file = tmp_path / "book.mobi"
         original_file.touch()
@@ -523,11 +525,17 @@ class TestConversionServiceConvertBook:
         book_dir = library_path / book.path
         book_dir.mkdir(parents=True)
 
+        def path_exists_side_effect(path: Path | str) -> bool:
+            """Mock Path.exists to return True for /app/calibre/ebook-convert."""
+            if str(path) == "/app/calibre/ebook-convert":
+                return True
+            return Path(path).exists()
+
         with (
             patch.object(service, "_get_book", return_value=book),
             patch.object(service, "_get_book_file_path", return_value=original_file),
             patch.object(service, "_format_exists", return_value=False),
-            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.exists", side_effect=path_exists_side_effect),
             patch.object(service, "_execute_conversion", return_value=converted_file),
             patch.object(service, "_add_format_to_calibre"),
             patch.object(service, "_backup_original_file", return_value=backup_file),
@@ -566,17 +574,21 @@ class TestConversionServiceConvertBook:
         service = ConversionService(session, library)  # type: ignore[arg-type]
 
         session.add_exec_result([None])  # No existing conversion
-        config = FileHandlingConfig(id=1, converter_path="/usr/bin/ebook-convert")
-        session.add_exec_result([config])
 
         original_file = tmp_path / "book.mobi"
         original_file.touch()
+
+        def path_exists_side_effect(path: Path | str) -> bool:
+            """Mock Path.exists to return True for /app/calibre/ebook-convert."""
+            if str(path) == "/app/calibre/ebook-convert":
+                return True
+            return Path(path).exists()
 
         with (
             patch.object(service, "_get_book", return_value=book),
             patch.object(service, "_get_book_file_path", return_value=original_file),
             patch.object(service, "_format_exists", return_value=False),
-            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.exists", side_effect=path_exists_side_effect),
             patch.object(
                 service,
                 "_execute_conversion",
@@ -994,10 +1006,10 @@ class TestConversionServiceFormatExists:
 class TestConversionServiceGetConverterPath:
     """Test _get_converter_path method."""
 
-    def test_get_converter_path_from_config(
+    def test_get_converter_path_from_docker(
         self, session: DummySession, library: Library
     ) -> None:
-        """Test _get_converter_path returns path from config.
+        """Test _get_converter_path returns Docker installation path.
 
         Parameters
         ----------
@@ -1008,12 +1020,13 @@ class TestConversionServiceGetConverterPath:
         """
         service = ConversionService(session, library)  # type: ignore[arg-type]
 
-        config = FileHandlingConfig(id=1, converter_path="/usr/bin/ebook-convert")
-        session.add_exec_result([config])
+        def path_exists_side_effect(path: Path | str) -> bool:
+            """Mock Path.exists to return True for /app/calibre/ebook-convert."""
+            return str(path) == "/app/calibre/ebook-convert"
 
-        with patch("pathlib.Path.exists", return_value=True):
+        with patch("pathlib.Path.exists", side_effect=path_exists_side_effect):
             result = service._get_converter_path()
-            assert result == "/usr/bin/ebook-convert"
+            assert result == "/app/calibre/ebook-convert"
 
     def test_get_converter_path_from_shutil_which(
         self, session: DummySession, library: Library
@@ -1029,9 +1042,14 @@ class TestConversionServiceGetConverterPath:
         """
         service = ConversionService(session, library)  # type: ignore[arg-type]
 
-        session.add_exec_result([None])  # No config
+        def path_exists_side_effect(path: Path | str) -> bool:
+            """Mock Path.exists to return False for /app/calibre/ebook-convert."""
+            return str(path) != "/app/calibre/ebook-convert"
 
-        with patch("shutil.which", return_value="/usr/local/bin/ebook-convert"):
+        with (
+            patch("pathlib.Path.exists", side_effect=path_exists_side_effect),
+            patch("shutil.which", return_value="/usr/local/bin/ebook-convert"),
+        ):
             result = service._get_converter_path()
             assert result == "/usr/local/bin/ebook-convert"
 
@@ -1049,30 +1067,14 @@ class TestConversionServiceGetConverterPath:
         """
         service = ConversionService(session, library)  # type: ignore[arg-type]
 
-        session.add_exec_result([None])  # No config
+        def path_exists_side_effect(path: Path | str) -> bool:
+            """Mock Path.exists to return False for /app/calibre/ebook-convert."""
+            return str(path) != "/app/calibre/ebook-convert"
 
-        with patch("shutil.which", return_value=None):
-            result = service._get_converter_path()
-            assert result is None
-
-    def test_get_converter_path_config_no_path(
-        self, session: DummySession, library: Library
-    ) -> None:
-        """Test _get_converter_path when config has no converter_path.
-
-        Parameters
-        ----------
-        session : DummySession
-            Dummy session instance.
-        library : Library
-            Library instance.
-        """
-        service = ConversionService(session, library)  # type: ignore[arg-type]
-
-        config = FileHandlingConfig(id=1, converter_path=None)
-        session.add_exec_result([config])
-
-        with patch("shutil.which", return_value=None):
+        with (
+            patch("pathlib.Path.exists", side_effect=path_exists_side_effect),
+            patch("shutil.which", return_value=None),
+        ):
             result = service._get_converter_path()
             assert result is None
 

@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING
 
 from sqlmodel import Session, select
 
-from fundamental.models.config import FileHandlingConfig, Library
+from fundamental.models.config import Library
 from fundamental.models.conversion import (
     BookConversion,
     ConversionMethod,
@@ -368,16 +368,14 @@ class ConversionService:
         Returns
         -------
         str | None
-            Path to converter if configured, None otherwise.
+            Path to converter if found, None otherwise.
         """
-        stmt = select(FileHandlingConfig).limit(1)
-        config = self._session.exec(stmt).first()
-        if config and config.converter_path:
-            return config.converter_path
+        # First check Docker installation path
+        docker_path = Path("/app/calibre/ebook-convert")
+        if docker_path.exists():
+            return str(docker_path)
 
-        # Try default Calibre locations
-        import shutil
-
+        # Fallback to PATH lookup
         converter = shutil.which("ebook-convert")
         if converter:
             return converter
