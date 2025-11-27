@@ -52,7 +52,6 @@
     "@tanstack/react-virtual": "^3.13.12",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.44.7",
-    "lightningcss-win32-x64-msvc": "^1.30.2",
     "next": "^16.0.4",
     "next-intl": "^4.5.5",
     "pg": "^8.16.3",
