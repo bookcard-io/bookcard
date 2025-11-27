@@ -289,7 +289,7 @@ class EPUBFixBatchTask(BaseTask):
         epub_config = session.exec(stmt).first()
         if not epub_config or not epub_config.enabled:
             logger.info("EPUB fixer is disabled, skipping batch fix")
-            return None, None, None, None  # type: ignore[return-value]
+            return None
 
         settings = EPUBFixerSettings.from_config_model(epub_config)
 

@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from sqlalchemy import func
 from sqlmodel import select
 
 if TYPE_CHECKING:
@@ -110,7 +111,7 @@ class EPUBScanner:
             stmt = (
                 select(Book, Data)
                 .join(Data, Book.id == Data.book)
-                .where(Data.format.upper() == "EPUB")  # type: ignore[attr-defined]
+                .where(func.upper(Data.format) == "EPUB")
             )
 
             if book_id is not None:
