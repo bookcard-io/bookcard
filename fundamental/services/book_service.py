@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import func, or_
 from sqlmodel import select
 
+from fundamental.models.conversion import ConversionMethod
 from fundamental.models.core import Book, Tag
 from fundamental.repositories import (
     BookWithFullRelations,
@@ -34,6 +35,10 @@ from fundamental.repositories import (
     CalibreBookRepository,
     ereader_repository,
 )
+from fundamental.repositories.config_repository import LibraryRepository
+from fundamental.services.config_service import LibraryService
+from fundamental.services.conversion_service import ConversionService
+from fundamental.services.conversion_utils import raise_conversion_error
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -630,6 +635,20 @@ class BookService:
         )
         logger.debug("Format determined: %s", format_to_send)
 
+        # For Kindle devices, ensure EPUB is available (Kindle only accepts EPUB)
+        if device.device_type.lower() == "kindle" and format_to_send.upper() != "EPUB":
+            # Check if EPUB exists
+            epub_data = self._find_format_in_book(book_with_rels.formats, "EPUB")
+            if epub_data is None:
+                # EPUB not available - convert to EPUB automatically
+                logger.info(
+                    "Kindle device requires EPUB, converting book %d to EPUB",
+                    book_id,
+                )
+                format_to_send = self._ensure_epub_for_kindle(
+                    book_id, book_with_rels, device
+                )
+
         # Find format data
         format_data = self._find_format_in_book(book_with_rels.formats, format_to_send)
         if format_data is None:
@@ -1071,6 +1090,112 @@ class BookService:
             return filename
         logger.debug("No format name, using book_id: %d.%s", book_id, format_lower)
         return f"{book_id}.{format_lower}"
+
+    def _ensure_epub_for_kindle(
+        self,
+        book_id: int,
+        book_with_rels: BookWithFullRelations,
+        device: EReaderDevice,
+    ) -> str:
+        """Ensure EPUB format exists for Kindle device, converting if necessary.
+
+        Kindle devices only accept EPUB format. This method automatically
+        converts the book to EPUB if it's not already available.
+
+        Parameters
+        ----------
+        book_id : int
+            Book ID.
+        book_with_rels : BookWithFullRelations
+            Book with all relations.
+        device : EReaderDevice
+            Kindle device.
+
+        Returns
+        -------
+        str
+            "EPUB" format string.
+
+        Raises
+        ------
+        ValueError
+            If conversion fails or no source format available.
+        """
+        # Check if EPUB already exists
+        epub_data = self._find_format_in_book(book_with_rels.formats, "EPUB")
+        if epub_data is not None:
+            return "EPUB"
+
+        # Find a source format to convert from
+        if not book_with_rels.formats:
+            msg = "no_formats_available_for_conversion"
+            raise ValueError(msg)
+
+        # Get first available format as source
+        source_format = str(book_with_rels.formats[0].get("format", "")).upper()
+        if not source_format:
+            msg = "no_valid_source_format_for_conversion"
+            raise ValueError(msg)
+
+        logger.info(
+            "Converting book %d from %s to EPUB for Kindle device",
+            book_id,
+            source_format,
+        )
+
+        # Perform conversion
+        # We need session and library for conversion service
+        if self._session is None:
+            msg = "Session not available for conversion"
+            raise ValueError(msg)
+
+        library_repo = LibraryRepository(self._session)
+        library_service = LibraryService(self._session, library_repo)
+        library = library_service.get_active_library()
+        if library is None:
+            msg = "No active library configured for conversion"
+            raise ValueError(msg)
+
+        conversion_service = ConversionService(self._session, library)
+
+        try:
+            conversion = conversion_service.convert_book(
+                book_id=book_id,
+                original_format=source_format,
+                target_format="EPUB",
+                user_id=device.user_id if hasattr(device, "user_id") else None,
+                conversion_method=ConversionMethod.KINDLE_SEND,
+                backup_original=False,  # Don't backup for automatic Kindle conversion
+            )
+
+            if conversion.status.value == "completed":
+                logger.info(
+                    "Successfully converted book %d to EPUB for Kindle",
+                    book_id,
+                )
+                # Refresh book data to get new EPUB format
+                refreshed_book = self.get_book_full(book_id)
+                if refreshed_book is not None:
+                    epub_data = self._find_format_in_book(
+                        refreshed_book.formats, "EPUB"
+                    )
+                    if epub_data is not None:
+                        return "EPUB"
+                # If refresh didn't work, EPUB should still be available
+                return "EPUB"
+
+            error_msg = conversion.error_message or "Unknown conversion error"
+            msg = f"Failed to convert to EPUB for Kindle: {error_msg}"
+            raise_conversion_error(msg)
+        except Exception as e:
+            # Log error but don't fail the send - let it try with original format
+            logger.warning(
+                "Failed to convert book %d to EPUB for Kindle: %s. Attempting to send original format.",
+                book_id,
+                e,
+            )
+            # Re-raise to let caller handle
+            raise
 
     @staticmethod
     def _get_primary_author_name(

@@ -15,6 +15,8 @@
 
 "use client";
 
+import { useCallback, useState } from "react";
+import { ConversionModal } from "@/components/books/ConversionModal";
 import { Button } from "@/components/forms/Button";
 import { useUser } from "@/contexts/UserContext";
 import type { Book } from "@/types/book";
@@ -42,6 +44,15 @@ export function BookFormatsSection({ book }: BookFormatsSectionProps) {
   const bookContext = buildBookPermissionContext(book);
   const canWrite = canPerformAction("books", "write", bookContext);
   const canDelete = canPerformAction("books", "delete", bookContext);
+  const [isConversionModalOpen, setIsConversionModalOpen] = useState(false);
+  const openConversionModal = useCallback(
+    () => setIsConversionModalOpen(true),
+    [],
+  );
+  const closeConversionModal = useCallback(
+    () => setIsConversionModalOpen(false),
+    [],
+  );
 
   return (
     <div className="mt-6 flex flex-col gap-4">
@@ -117,6 +128,7 @@ export function BookFormatsSection({ book }: BookFormatsSectionProps) {
           variant="ghost"
           size="small"
           disabled={!canWrite}
+          onClick={openConversionModal}
           className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 w-full justify-start rounded-md hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <span
@@ -126,6 +138,11 @@ export function BookFormatsSection({ book }: BookFormatsSectionProps) {
           Convert
         </Button>
       </div>
+      <ConversionModal
+        book={book}
+        isOpen={isConversionModalOpen}
+        onClose={closeConversionModal}
+      />
     </div>
   );
 }

@@ -52,6 +52,11 @@ from fundamental.models.config import (
     SecurityConfig,
     UIConfig,
 )
+from fundamental.models.conversion import (
+    BookConversion,
+    ConversionMethod,
+    ConversionStatus,
+)
 from fundamental.models.core import (
     Author,
     Book,
@@ -126,6 +131,7 @@ __all__ = [
     "BasicConfig",
     "Book",
     "BookAuthorLink",
+    "BookConversion",
     "BookLanguageLink",
     "BookPluginData",
     "BookPublisherLink",
@@ -135,7 +141,9 @@ __all__ = [
     "BookTagLink",
     "Comment",
     "ContentRestrictionsConfig",
+    "ConversionMethod",
     "ConversionOptions",
+    "ConversionStatus",
     "CustomColumn",
     "Data",
     "EBookFormat",

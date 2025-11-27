@@ -24,6 +24,9 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
+from fundamental.models import BookConversion, ConversionStatus
+from fundamental.services.conversion_service import ConversionService
+
 if TYPE_CHECKING:
     from fundamental.services.tasks.base import TaskRunner
 
@@ -39,12 +42,15 @@ from fastapi import (
     status,
 )
 from fastapi.responses import FileResponse
-from sqlmodel import Session
+from sqlmodel import Session, desc, select
 
 from fundamental.api.deps import get_current_user, get_db_session
 from fundamental.api.schemas import (
     BookBatchUploadResponse,
     BookBulkSendRequest,
+    BookConversionListResponse,
+    BookConvertRequest,
+    BookConvertResponse,
     BookDeleteRequest,
     BookFilterRequest,
     BookListResponse,
@@ -1094,6 +1100,252 @@ def send_books_to_device_batch(
                 # encryption_key intentionally excluded from metadata to avoid exposing it
             },
         )
+
+
+@router.post(
+    "/{book_id}/convert",
+    response_model=BookConvertResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def convert_book_format(
+    request: Request,
+    session: SessionDep,
+    book_id: int,
+    current_user: CurrentUserDep,
+    convert_request: BookConvertRequest,
+    book_service: BookServiceDep,
+    permission_helper: PermissionHelperDep,
+) -> BookConvertResponse:
+    """Convert a book from one format to another.
+
+    Enqueues a background task to convert the book format.
+    Returns a friendly message if conversion already exists.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+    session : SessionDep
+        Database session dependency.
+    book_id : int
+        Calibre book ID.
+    current_user : CurrentUserDep
+        Current authenticated user.
+    convert_request : BookConvertRequest
+        Conversion request containing source and target formats.
+    book_service : BookServiceDep
+        Book service dependency.
+    permission_helper : PermissionHelperDep
+        Permission helper dependency.
+
+    Returns
+    -------
+    BookConvertResponse
+        Response containing task ID and optional message.
+
+    Raises
+    ------
+    HTTPException
+        If book not found (404), format not found (404),
+        permission denied (403), task runner unavailable (503),
+        or user missing ID (500).
+    """
+    # Verify book exists
+    existing_book = book_service.get_book_full(book_id)
+    if existing_book is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="book_not_found",
+        )
+
+    # Check write permission
+    permission_helper.check_update_permission(
+        current_user, existing_book, book_id, session
+    )
+
+    # Validate user ID
+    if current_user.id is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="user_missing_id",
+        )
+
+    # Get task runner
+    if (
+        not hasattr(request.app.state, "task_runner")
+        or request.app.state.task_runner is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Task runner not available",
+        )
+    task_runner: TaskRunner = request.app.state.task_runner
+
+    library_repo = LibraryRepository(session)
+    library_service = LibraryService(session, library_repo)
+    library = library_service.get_active_library()
+    if library is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="no_active_library",
+        )
+
+    conversion_service = ConversionService(session, library)
+    existing = conversion_service.check_existing_conversion(
+        book_id,
+        convert_request.source_format,
+        convert_request.target_format,
+    )
+
+    if existing and existing.status == ConversionStatus.COMPLETED:
+        # Return friendly message about existing conversion
+
+        completed_date = (
+            existing.completed_at.strftime("%Y-%m-%d %H:%M:%S")
+            if existing.completed_at
+            else "previously"
+        )
+        message = (
+            f"This book has already been converted from {convert_request.source_format} "
+            f"to {convert_request.target_format} on {completed_date}"
+        )
+        return BookConvertResponse(
+            task_id=0,  # No task created
+            message=message,
+            existing_conversion_id=existing.id,
+        )
+
+    # Validate that source format exists
+    formats = existing_book.formats or []
+    source_format_upper = convert_request.source_format.upper()
+    format_found = any(
+        str(f.get("format", "")).upper() == source_format_upper for f in formats
+    )
+    if not format_found:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"source_format_not_found: {convert_request.source_format}",
+        )
+
+    # Enqueue conversion task
+    task_id = task_runner.enqueue(
+        task_type=TaskType.BOOK_CONVERT,
+        payload={
+            "book_id": book_id,
+            "source_format": convert_request.source_format,
+            "target_format": convert_request.target_format,
+        },
+        user_id=current_user.id,
+        metadata={
+            "task_type": TaskType.BOOK_CONVERT,
+            "book_id": book_id,
+            "source_format": convert_request.source_format,
+            "target_format": convert_request.target_format,
+            "conversion_method": "manual",
+        },
+    )
+
+    return BookConvertResponse(task_id=task_id)
+
+
+@router.get(
+    "/{book_id}/conversions",
+    response_model=BookConversionListResponse,
+)
+def get_book_conversions(
+    session: SessionDep,
+    book_id: int,
+    current_user: CurrentUserDep,
+    book_service: BookServiceDep,
+    permission_helper: PermissionHelperDep,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+) -> BookConversionListResponse:
+    """Get conversion history for a book.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+    book_id : int
+        Calibre book ID.
+    current_user : CurrentUserDep
+        Current authenticated user.
+    book_service : BookServiceDep
+        Book service dependency.
+    permission_helper : PermissionHelperDep
+        Permission helper dependency.
+    page : int
+        Page number (1-indexed).
+    page_size : int
+        Number of items per page.
+
+    Returns
+    -------
+    BookConversionListResponse
+        Paginated list of conversion records.
+
+    Raises
+    ------
+    HTTPException
+        If book not found (404) or permission denied (403).
+    """
+    # Verify book exists
+    existing_book = book_service.get_book_full(book_id)
+    if existing_book is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="book_not_found",
+        )
+
+    # Check read permission
+    permission_helper.check_read_permission(
+        current_user, existing_book, book_id, session
+    )
+
+    stmt = (
+        select(BookConversion)
+        .where(BookConversion.book_id == book_id)
+        .order_by(desc(BookConversion.created_at))
+    )
+
+    # Get total count
+    count_stmt = select(BookConversion).where(BookConversion.book_id == book_id)
+    total = len(list(session.exec(count_stmt).all()))
+
+    # Apply pagination
+    offset = (page - 1) * page_size
+    conversions = list(session.exec(stmt.offset(offset).limit(page_size)).all())
+
+    # Convert to response models
+    from fundamental.api.schemas.conversion import BookConversionRead
+
+    items = [
+        BookConversionRead(
+            id=conv.id or 0,
+            book_id=conv.book_id,
+            original_format=conv.original_format,
+            target_format=conv.target_format,
+            conversion_method=conv.conversion_method.value,
+            status=conv.status.value,
+            error_message=conv.error_message,
+            original_backed_up=conv.original_backed_up,
+            created_at=conv.created_at,
+            completed_at=conv.completed_at,
+            duration=conv.duration,
+        )
+        for conv in conversions
+    ]
+
+    total_pages = math.ceil(total / page_size) if total > 0 else 0
+
+    return BookConversionListResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
 
 
 # Temporary cover storage (in-memory for now, could be moved to disk/DB)

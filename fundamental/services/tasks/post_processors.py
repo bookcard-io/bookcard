@@ -25,7 +25,9 @@ from pathlib import Path
 
 from sqlmodel import Session, select
 
+from fundamental.models.auth import UserSetting
 from fundamental.models.config import EPUBFixerConfig, Library, ScheduledTasksConfig
+from fundamental.models.conversion import ConversionMethod
 from fundamental.models.core import Book
 from fundamental.models.media import Data
 
@@ -312,3 +314,270 @@ class EPUBPostIngestProcessor(PostIngestProcessor):
                 )
             else:
                 logger.debug("No fixes needed for EPUB on ingest: book_id=%d", book_id)
+
+
+class ConversionAutoConvertPolicy:
+    """Policy for determining if auto-conversion should run.
+
+    Follows Single Responsibility Principle by handling only
+    configuration checking logic.
+    """
+
+    def __init__(self, session: Session, user_id: int) -> None:  # type: ignore[type-arg]
+        """Initialize conversion auto-convert policy.
+
+        Parameters
+        ----------
+        session : Session
+            Database session for querying user settings.
+        user_id : int
+            User ID to check settings for.
+        """
+        self._session = session
+        self._user_id = user_id
+
+    def should_auto_convert(self) -> bool:
+        """Check if auto-convert on import is enabled for user.
+
+        Returns
+        -------
+        bool
+            True if auto-convert should run, False otherwise.
+        """
+        stmt = (
+            select(UserSetting)
+            .where(UserSetting.user_id == self._user_id)
+            .where(UserSetting.key == "auto_convert_on_import")
+        )
+        setting = self._session.exec(stmt).first()
+        if setting is None:
+            logger.debug(
+                "Auto-convert on import setting not found, defaulting to False"
+            )
+            return False
+
+        return setting.value.lower() == "true"
+
+    def get_target_format(self) -> str:
+        """Get target format for conversion.
+
+        Returns
+        -------
+        str
+            Target format (default: "epub").
+        """
+        stmt = (
+            select(UserSetting)
+            .where(UserSetting.user_id == self._user_id)
+            .where(UserSetting.key == "auto_convert_target_format")
+        )
+        setting = self._session.exec(stmt).first()
+        if setting is None:
+            return "epub"
+
+        return setting.value.lower()
+
+    def get_ignored_formats(self) -> list[str]:
+        """Get list of ignored formats.
+
+        Returns
+        -------
+        list[str]
+            List of format strings to ignore.
+        """
+        stmt = (
+            select(UserSetting)
+            .where(UserSetting.user_id == self._user_id)
+            .where(UserSetting.key == "auto_convert_ignored_formats")
+        )
+        setting = self._session.exec(stmt).first()
+        if setting is None:
+            return []
+
+        # Parse JSON array or comma-separated string
+        import json
+
+        try:
+            formats = json.loads(setting.value)
+            if isinstance(formats, list):
+                return [f.upper() for f in formats if isinstance(f, str)]
+        except (json.JSONDecodeError, TypeError):
+            # Fallback to comma-separated string
+            if setting.value:
+                return [
+                    f.strip().upper() for f in setting.value.split(",") if f.strip()
+                ]
+
+        return []
+
+    def should_backup_original(self) -> bool:
+        """Check if original should be backed up.
+
+        Returns
+        -------
+        bool
+            True if backup is enabled, False otherwise.
+        """
+        stmt = (
+            select(UserSetting)
+            .where(UserSetting.user_id == self._user_id)
+            .where(UserSetting.key == "auto_convert_backup_originals")
+        )
+        setting = self._session.exec(stmt).first()
+        if setting is None:
+            return True  # Default to backing up
+
+        return setting.value.lower() == "true"
+
+
+class ConversionPostIngestProcessor(PostIngestProcessor):
+    """Post-ingest processor for automatic format conversion.
+
+    Handles automatic format conversion after book ingestion.
+    Follows Single Responsibility Principle by focusing only on conversion processing.
+    """
+
+    def __init__(self, session: Session, user_id: int) -> None:  # type: ignore[type-arg]
+        """Initialize conversion post-ingest processor.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        user_id : int
+            User ID who triggered the upload.
+        """
+        self._session = session
+        self._user_id = user_id
+        self._policy = ConversionAutoConvertPolicy(session, user_id)
+
+    def supports_format(self, _file_format: str) -> bool:
+        """Check if this processor supports the given format.
+
+        This processor supports all formats (it checks if conversion is needed).
+
+        Parameters
+        ----------
+        _file_format : str
+            File format to check (unused, processor supports all formats).
+
+        Returns
+        -------
+        bool
+            Always returns True (supports all formats).
+        """
+        return True
+
+    def process(
+        self,
+        session: Session,  # type: ignore[type-arg]
+        book_id: int,
+        library: Library,
+        user_id: int,
+    ) -> None:
+        """Process book after ingestion for automatic conversion.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Book ID that was just added.
+        library : Library
+            Library configuration.
+        user_id : int
+            User ID who triggered the upload.
+
+        Raises
+        ------
+        Exception
+            If processing fails. Should be caught by caller.
+        """
+        # Check if auto-convert should run
+        if not self._policy.should_auto_convert():
+            logger.debug("Auto-convert on import is disabled for user %d", user_id)
+            return
+
+        # Get book and uploaded format
+        stmt = select(Book).where(Book.id == book_id)
+        book = session.exec(stmt).first()
+        if book is None:
+            logger.warning("Book %d not found for conversion", book_id)
+            return
+
+        # Get the format that was just uploaded (most recent)
+        # Note: We'll get all formats and pick the one that matches the upload
+        # For now, we'll get the first format (the one just added)
+        stmt = select(Data).where(Data.book == book_id).limit(1)
+        data = session.exec(stmt).first()
+        if data is None:
+            logger.warning("No format data found for book %d", book_id)
+            return
+
+        original_format = data.format.upper()
+        target_format = self._policy.get_target_format().upper()
+        ignored_formats = self._policy.get_ignored_formats()
+
+        # Check if conversion is needed
+        if original_format == target_format:
+            logger.debug(
+                "Book %d already in target format %s, skipping conversion",
+                book_id,
+                target_format,
+            )
+            return
+
+        if original_format in ignored_formats:
+            logger.debug(
+                "Book %d format %s is in ignored formats, skipping conversion",
+                book_id,
+                original_format,
+            )
+            return
+
+        # Check if target format already exists
+        stmt = (
+            select(Data).where(Data.book == book_id).where(Data.format == target_format)
+        )
+        if session.exec(stmt).first() is not None:
+            logger.debug(
+                "Book %d already has target format %s, skipping conversion",
+                book_id,
+                target_format,
+            )
+            return
+
+        # Perform conversion
+        try:
+            from fundamental.services.conversion_service import ConversionService
+
+            conversion_service = ConversionService(session, library)
+            backup_original = self._policy.should_backup_original()
+
+            conversion_service.convert_book(
+                book_id=book_id,
+                original_format=original_format,
+                target_format=target_format,
+                user_id=user_id,
+                conversion_method=ConversionMethod.AUTO_IMPORT,
+                backup_original=backup_original,
+            )
+
+            logger.info(
+                "Auto-converted book %d from %s to %s on import",
+                book_id,
+                original_format,
+                target_format,
+            )
+        except (ValueError, OSError, RuntimeError) as e:
+            # Log error but don't fail the upload
+            # Catch specific exceptions: ValueError (validation), OSError (file ops),
+            # RuntimeError (conversion failures)
+            logger.warning(
+                "Failed to auto-convert book %d from %s to %s: %s",
+                book_id,
+                original_format,
+                target_format,
+                e,
+                exc_info=True,
+            )

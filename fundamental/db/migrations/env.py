@@ -37,6 +37,7 @@ from fundamental.models.auth import (
     UserRole,
     UserSetting,
 )
+from fundamental.models.conversion import BookConversion
 from fundamental.models.openlibrary import (
     OpenLibraryAuthor,
     OpenLibraryAuthorWork,

@@ -413,3 +413,45 @@ class BookBulkSendRequest(BaseModel):
         default=None,
         description="Optional file format to send (e.g., 'EPUB', 'MOBI')",
     )
+
+
+class BookConvertRequest(BaseModel):
+    """Request to convert a book format.
+
+    Attributes
+    ----------
+    source_format : str
+        Source format to convert from (e.g., 'MOBI', 'AZW3').
+    target_format : str
+        Target format to convert to (e.g., 'EPUB', 'KEPUB').
+    """
+
+    source_format: str = Field(
+        description="Source format to convert from (e.g., 'MOBI', 'AZW3')"
+    )
+    target_format: str = Field(
+        description="Target format to convert to (e.g., 'EPUB', 'KEPUB')"
+    )
+
+
+class BookConvertResponse(BaseModel):
+    """Response for book conversion request.
+
+    Attributes
+    ----------
+    task_id : int
+        Task ID for tracking the conversion.
+    message : str | None
+        Optional message (e.g., if conversion already exists).
+    existing_conversion_id : int | None
+        ID of existing conversion if one was found.
+    """
+
+    task_id: int = Field(description="Task ID for tracking the conversion")
+    message: str | None = Field(
+        default=None,
+        description="Optional message (e.g., if conversion already exists)",
+    )
+    existing_conversion_id: int | None = Field(
+        default=None, description="ID of existing conversion if one was found"
+    )

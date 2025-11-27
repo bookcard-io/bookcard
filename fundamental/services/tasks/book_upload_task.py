@@ -303,10 +303,15 @@ class BookUploadTask(BaseTask):
 
         # Create default processors
         from fundamental.services.tasks.post_processors import (
+            ConversionPostIngestProcessor,
             EPUBPostIngestProcessor,
         )
 
-        return [EPUBPostIngestProcessor(session)]
+        processors = [EPUBPostIngestProcessor(session)]
+        # Add conversion processor if user has auto-convert enabled
+        # We'll add it for all users and let the processor check the setting
+        processors.append(ConversionPostIngestProcessor(session, self.user_id))
+        return processors
 
     def _run_post_processors(
         self,

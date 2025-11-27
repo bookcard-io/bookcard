@@ -67,6 +67,8 @@ from fundamental.api.schemas.auth import (
 from fundamental.api.schemas.books import (
     BookBatchUploadResponse,
     BookBulkSendRequest,
+    BookConvertRequest,
+    BookConvertResponse,
     BookDeleteRequest,
     BookFilterRequest,
     BookListResponse,
@@ -81,6 +83,10 @@ from fundamental.api.schemas.books import (
     SearchSuggestionsResponse,
     TagLookupItem,
     TagLookupResponse,
+)
+from fundamental.api.schemas.conversion import (
+    BookConversionListResponse,
+    BookConversionRead,
 )
 from fundamental.api.schemas.epub_fixer import (
     EPUBFixBatchRequest,
@@ -145,6 +151,10 @@ __all__ = [
     "AdminUserUpdate",
     "BookBatchUploadResponse",
     "BookBulkSendRequest",
+    "BookConversionListResponse",
+    "BookConversionRead",
+    "BookConvertRequest",
+    "BookConvertResponse",
     "BookDeleteRequest",
     "BookFilterRequest",
     "BookListResponse",

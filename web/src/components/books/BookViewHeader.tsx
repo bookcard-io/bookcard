@@ -17,6 +17,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
+import { ConversionModal } from "@/components/books/ConversionModal";
 import { FullscreenImageModal } from "@/components/common/FullscreenImageModal";
 import { ImageWithLoading } from "@/components/common/ImageWithLoading";
 import { RatingDisplay } from "@/components/forms/RatingDisplay";
@@ -51,8 +52,17 @@ export function BookViewHeader({
   const { showDanger } = useGlobalMessages();
   const [isCoverOpen, setIsCoverOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isConversionModalOpen, setIsConversionModalOpen] = useState(false);
   const openCover = useCallback(() => setIsCoverOpen(true), []);
   const closeCover = useCallback(() => setIsCoverOpen(false), []);
+  const openConversionModal = useCallback(
+    () => setIsConversionModalOpen(true),
+    [],
+  );
+  const closeConversionModal = useCallback(
+    () => setIsConversionModalOpen(false),
+    [],
+  );
 
   // Check permissions
   const bookContext = buildBookPermissionContext(book);
@@ -161,6 +171,7 @@ export function BookViewHeader({
             </button>
             <button
               type="button"
+              onClick={openConversionModal}
               disabled={!canWrite}
               className="group flex min-h-8 min-w-8 items-center justify-center rounded-full p-2 transition hover:scale-110 hover:bg-white/20 hover:backdrop-blur-sm focus-visible:outline-2 focus-visible:outline-[var(--color-primary-a0)] focus-visible:outline-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Convert format"
@@ -195,6 +206,11 @@ export function BookViewHeader({
           />
         </div>
       )}
+      <ConversionModal
+        book={book}
+        isOpen={isConversionModalOpen}
+        onClose={closeConversionModal}
+      />
       <div className="flex min-w-0 flex-1 flex-col gap-3">
         <h1 className="font-bold text-2xl text-[var(--color-text-a0)] leading-snug md:text-3xl">
           {book.title}

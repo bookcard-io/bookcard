@@ -166,3 +166,128 @@ export async function updateBookRating(
     throw new Error(error.detail || "Failed to update rating");
   }
 }
+
+/**
+ * Convert a book format.
+ *
+ * Parameters
+ * ----------
+ * bookId : number
+ *     Book ID to convert.
+ * sourceFormat : string
+ *     Source format (e.g., 'MOBI', 'AZW3').
+ * targetFormat : string
+ *     Target format (e.g., 'EPUB', 'KEPUB').
+ *
+ * Returns
+ * -------
+ * Promise<BookConvertResponse>
+ *     Response containing task ID and optional message.
+ *
+ * Raises
+ * ------
+ * Error
+ *     If the API request fails.
+ */
+export interface BookConvertResponse {
+  task_id: number;
+  message?: string | null;
+  existing_conversion_id?: number | null;
+}
+
+export async function convertBookFormat(
+  bookId: number,
+  sourceFormat: string,
+  targetFormat: string,
+): Promise<BookConvertResponse> {
+  const response = await fetch(`/api/books/${bookId}/convert`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify({
+      source_format: sourceFormat,
+      target_format: targetFormat,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to convert book" }));
+    throw new Error(error.detail || "Failed to convert book");
+  }
+
+  return response.json();
+}
+
+/**
+ * Get conversion history for a book.
+ *
+ * Parameters
+ * ----------
+ * bookId : number
+ *     Book ID.
+ * page : number
+ *     Page number (1-indexed).
+ * pageSize : number
+ *     Number of items per page.
+ *
+ * Returns
+ * -------
+ * Promise<BookConversionListResponse>
+ *     Paginated list of conversion records.
+ *
+ * Raises
+ * ------
+ * Error
+ *     If the API request fails.
+ */
+export interface BookConversionRead {
+  id: number;
+  book_id: number;
+  original_format: string;
+  target_format: string;
+  conversion_method: string;
+  status: string;
+  error_message: string | null;
+  original_backed_up: boolean;
+  created_at: string;
+  completed_at: string | null;
+  duration: number | null;
+}
+
+export interface BookConversionListResponse {
+  items: BookConversionRead[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+export async function getBookConversions(
+  bookId: number,
+  page: number = 1,
+  pageSize: number = 20,
+): Promise<BookConversionListResponse> {
+  const response = await fetch(
+    `/api/books/${bookId}/conversions?page=${page}&page_size=${pageSize}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    },
+  );
+
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to get conversion history" }));
+    throw new Error(error.detail || "Failed to get conversion history");
+  }
+
+  return response.json();
+}
