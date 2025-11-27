@@ -263,14 +263,23 @@ class TestScanTaskTrackerWithRetry:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
 
+            # Reset mocks to ensure clean state (important when running with full suite)
+            # This prevents call count accumulation from other tests
+            mock_sleep.reset_mock()
+            mock_uniform.reset_mock()
+            mock_operation.reset_mock()
+
             # First call raises lock error, second succeeds
             mock_operation.side_effect = [lock_error, None]
 
             tracker._with_retry(mock_operation, "test operation", max_retries=2)
 
             assert mock_operation.call_count == 2
-            mock_sleep.assert_called_once()
-            mock_uniform.assert_called_once()
+            # Use call_count instead of assert_called_once to be more robust
+            assert mock_sleep.call_count == 1, (
+                f"Expected sleep to be called once, but was called {mock_sleep.call_count} times"
+            )
+            assert mock_uniform.call_count == 1
 
     def test_with_retry_operational_error_max_retries(
         self, tracker: ScanTaskTracker
