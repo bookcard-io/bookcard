@@ -24,6 +24,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from fundamental.services.tasks.book_upload_task import BookUploadTask
+from fundamental.services.tasks.exceptions import (
+    LibraryNotConfiguredError,
+    TaskCancelledError,
+)
 
 
 @pytest.fixture
@@ -65,9 +69,9 @@ class TestBookUploadTaskInit:
             user_id=1,
             metadata=metadata,
         )
-        assert task.file_path == Path(metadata["file_path"])
-        assert task.filename == metadata["filename"]
-        assert task.file_format == metadata["file_format"]
+        assert task.file_info.file_path == Path(metadata["file_path"])
+        assert task.file_info.filename == metadata["filename"]
+        assert task.file_info.file_format == metadata["file_format"]
 
     def test_init_missing_file_path(self) -> None:
         """Test __init__ raises ValueError when file_path missing."""
@@ -98,8 +102,8 @@ class TestBookUploadTaskInit:
             user_id=1,
             metadata={"file_path": file_path},
         )
-        assert task.filename == "Unknown"
-        assert task.file_format == ""
+        assert task.file_info.filename == "Unknown"
+        assert task.file_info.file_format == ""
 
 
 class TestBookUploadTaskValidateFile:
@@ -205,6 +209,7 @@ class TestBookUploadTaskAddBookToLibrary:
 
         book_id = task._add_book_to_library(
             worker_context["session"],
+            mock_library,
             worker_context["update_progress"],
         )
 
@@ -228,11 +233,8 @@ class TestBookUploadTaskAddBookToLibrary:
         mock_library_service.get_active_library.return_value = None
         mock_library_service_class.return_value = mock_library_service
 
-        with pytest.raises(ValueError, match="No active library configured"):
-            task._add_book_to_library(
-                worker_context["session"],
-                worker_context["update_progress"],
-            )
+        with pytest.raises(LibraryNotConfiguredError):
+            task._get_active_library(worker_context["session"])
 
     @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
     @patch("fundamental.services.tasks.book_upload_task.LibraryService")
@@ -245,7 +247,7 @@ class TestBookUploadTaskAddBookToLibrary:
         task: BookUploadTask,
         worker_context: dict[str, MagicMock],
     ) -> None:
-        """Test _add_book_to_library returns -1 when cancelled."""
+        """Test _add_book_to_library raises TaskCancelledError when cancelled."""
         mock_library_repo = MagicMock()
         mock_library_repo_class.return_value = mock_library_repo
         mock_library_service = MagicMock()
@@ -255,12 +257,12 @@ class TestBookUploadTaskAddBookToLibrary:
 
         task.mark_cancelled()
 
-        book_id = task._add_book_to_library(
-            worker_context["session"],
-            worker_context["update_progress"],
-        )
-
-        assert book_id == -1
+        with pytest.raises(TaskCancelledError):
+            task._add_book_to_library(
+                worker_context["session"],
+                mock_library,
+                worker_context["update_progress"],
+            )
 
     @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
     @patch("fundamental.services.tasks.book_upload_task.LibraryService")
@@ -273,7 +275,7 @@ class TestBookUploadTaskAddBookToLibrary:
         task: BookUploadTask,
         worker_context: dict[str, MagicMock],
     ) -> None:
-        """Test _add_book_to_library returns -1 when cancelled after library found."""
+        """Test _add_book_to_library raises TaskCancelledError when cancelled after library found."""
         mock_library_repo = MagicMock()
         mock_library_repo_class.return_value = mock_library_repo
         mock_library_service = MagicMock()
@@ -287,12 +289,12 @@ class TestBookUploadTaskAddBookToLibrary:
 
         worker_context["update_progress"].side_effect = cancel_after_first
 
-        book_id = task._add_book_to_library(
-            worker_context["session"],
-            worker_context["update_progress"],
-        )
-
-        assert book_id == -1
+        with pytest.raises(TaskCancelledError):
+            task._add_book_to_library(
+                worker_context["session"],
+                mock_library,
+                worker_context["update_progress"],
+            )
 
     @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
     @patch("fundamental.services.tasks.book_upload_task.LibraryService")
@@ -318,10 +320,16 @@ class TestBookUploadTaskAddBookToLibrary:
 
         # Remove title from metadata
         task.metadata.pop("title", None)
-        task.filename = "My Book.epub"
+        # Update file_info filename
+        task.file_info = task.file_info.__class__(
+            file_path=task.file_info.file_path,
+            filename="My Book.epub",
+            file_format=task.file_info.file_format,
+        )
 
         task._add_book_to_library(
             worker_context["session"],
+            mock_library,
             worker_context["update_progress"],
         )
 

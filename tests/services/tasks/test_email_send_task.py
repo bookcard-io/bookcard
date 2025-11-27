@@ -24,11 +24,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from fundamental.models.config import EmailServerConfig, EmailServerType, Library
+from fundamental.models.core import Book
+from fundamental.repositories import BookWithFullRelations
 from fundamental.services.email_service import EmailServiceError
-from fundamental.services.tasks.email_send_task import (
-    EmailSendTask,
-    _raise_email_server_not_configured,
-    _raise_no_library_configured,
+from fundamental.services.tasks.email_send_task import EmailSendTask
+from fundamental.services.tasks.exceptions import (
+    EmailServerNotConfiguredError,
+    LibraryNotConfiguredError,
 )
 from tests.conftest import DummySession
 
@@ -87,20 +89,6 @@ def email_config() -> EmailServerConfig:
     )
 
 
-class TestHelperFunctions:
-    """Test helper functions."""
-
-    def test_raise_no_library_configured(self) -> None:
-        """Test _raise_no_library_configured raises ValueError."""
-        with pytest.raises(ValueError, match="No active library configured"):
-            _raise_no_library_configured()
-
-    def test_raise_email_server_not_configured(self) -> None:
-        """Test _raise_email_server_not_configured raises ValueError."""
-        with pytest.raises(ValueError, match="email_server_not_configured_or_disabled"):
-            _raise_email_server_not_configured()
-
-
 class TestEmailSendTaskInit:
     """Test EmailSendTask initialization."""
 
@@ -141,10 +129,10 @@ class TestEmailSendTaskInit:
     def test_init_success(self, base_metadata: dict[str, object]) -> None:
         """Test __init__ sets attributes correctly."""
         task = EmailSendTask(task_id=1, user_id=1, metadata=base_metadata)
-        assert task.book_id == 1
-        assert task.to_email == "test@example.com"
-        assert task.file_format == "EPUB"
-        assert task.encryption_key == "test-key"
+        assert task._book_id == 1
+        assert task._email_target.address == "test@example.com"
+        assert task._file_format == "EPUB"
+        assert task._encryption_key == "test-key"
 
     def test_init_optional_fields(self) -> None:
         """Test __init__ handles optional fields."""
@@ -153,10 +141,10 @@ class TestEmailSendTaskInit:
             "encryption_key": "test-key",
         }
         task = EmailSendTask(task_id=1, user_id=1, metadata=metadata)
-        assert task.book_id == 1
-        assert task.to_email is None
-        assert task.file_format is None
-        assert task.encryption_key == "test-key"
+        assert task._book_id == 1
+        assert task._email_target.address is None
+        assert task._file_format is None
+        assert task._encryption_key == "test-key"
 
 
 class TestEmailSendTaskRun:
@@ -179,7 +167,38 @@ class TestEmailSendTaskRun:
     @pytest.fixture
     def mock_book_service(self) -> MagicMock:
         """Create mock book service."""
+        # Create a proper BookWithFullRelations object for get_book_full
+        book = Book(
+            id=1,
+            title="Test Book",
+            author_sort="Test Author",
+            pubdate="2024-01-01",
+            timestamp="2024-01-01T00:00:00",
+            series_index=1.0,
+            isbn="1234567890",
+            uuid="test-uuid",
+            has_cover=False,
+            path="test/path",
+        )
+        book_with_rels = BookWithFullRelations(
+            book=book,
+            authors=["Test Author"],
+            series=None,
+            series_id=None,
+            tags=[],
+            identifiers=[],
+            description=None,
+            publisher=None,
+            publisher_id=None,
+            languages=[],
+            language_ids=[],
+            rating=None,
+            rating_id=None,
+            formats=[{"format": "EPUB", "size": 1000, "name": "test"}],
+        )
+
         service = MagicMock()
+        service.get_book_full.return_value = book_with_rels
         service.send_book.return_value = None
         return service
 
@@ -216,11 +235,15 @@ class TestEmailSendTaskRun:
         # Verify progress updates
         update_progress = worker_context["update_progress"]
         assert update_progress.call_count == 5
-        update_progress.assert_any_call(0.1)
-        update_progress.assert_any_call(0.2)
-        update_progress.assert_any_call(0.3)
-        update_progress.assert_any_call(0.4)
-        update_progress.assert_any_call(1.0)
+        # Check that progress was updated (now includes metadata parameter)
+        assert update_progress.call_count == 5
+        # Verify calls were made with correct progress values
+        call_args_list = [call[0][0] for call in update_progress.call_args_list]
+        assert 0.1 in call_args_list
+        assert 0.2 in call_args_list
+        assert 0.3 in call_args_list
+        assert 0.4 in call_args_list
+        assert 1.0 in call_args_list
 
         # Verify book service was called
         mock_book_service.send_book.assert_called_once()
@@ -235,13 +258,13 @@ class TestEmailSendTaskRun:
         base_metadata: dict[str, object],
         worker_context: dict[str, MagicMock],
     ) -> None:
-        """Test run returns early if cancelled before processing."""
+        """Test run handles cancellation before processing."""
         task = EmailSendTask(task_id=1, user_id=1, metadata=base_metadata)
         task.mark_cancelled()
 
         task.run(worker_context)
 
-        # Should not update progress
+        # Should log cancellation but not raise
         update_progress = worker_context["update_progress"]
         update_progress.assert_not_called()
 
@@ -261,7 +284,7 @@ class TestEmailSendTaskRun:
         ):
             mock_library_service.return_value.get_active_library.return_value = None
 
-            with pytest.raises(ValueError, match="No active library configured"):
+            with pytest.raises(LibraryNotConfiguredError):
                 task.run(worker_context)
 
     def test_run_email_server_not_configured(
@@ -287,9 +310,7 @@ class TestEmailSendTaskRun:
             # Return None or disabled config
             mock_email_config_service.return_value.get_config.return_value = None
 
-            with pytest.raises(
-                ValueError, match="email_server_not_configured_or_disabled"
-            ):
+            with pytest.raises(EmailServerNotConfiguredError):
                 task.run(worker_context)
 
     def test_run_email_server_disabled(
@@ -324,9 +345,7 @@ class TestEmailSendTaskRun:
                 disabled_config
             )
 
-            with pytest.raises(
-                ValueError, match="email_server_not_configured_or_disabled"
-            ):
+            with pytest.raises(EmailServerNotConfiguredError):
                 task.run(worker_context)
 
     @pytest.mark.parametrize(
@@ -352,7 +371,9 @@ class TestEmailSendTaskRun:
 
         update_progress = worker_context["update_progress"]
 
-        def cancel_after_progress(progress: float) -> None:
+        def cancel_after_progress(
+            progress: float, metadata: dict | None = None
+        ) -> None:
             """Cancel task after specific progress value."""
             if progress == progress_value:
                 task.mark_cancelled()

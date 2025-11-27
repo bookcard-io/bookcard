@@ -16,47 +16,56 @@
 """Book upload task implementation.
 
 Handles single file uploads with progress tracking and metadata extraction.
+Refactored to follow SOLID principles, DRY, SRP, IoC, and SoC.
 """
 
-from __future__ import annotations
-
 import logging
+from contextlib import suppress
+from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from sqlmodel import select
+from sqlmodel import Session
 
-from fundamental.models.config import EPUBFixerConfig, Library, ScheduledTasksConfig
-from fundamental.models.core import Book
-from fundamental.models.media import Data
+from fundamental.models.config import Library
 from fundamental.repositories.config_repository import LibraryRepository
 from fundamental.services.book_service import BookService
 from fundamental.services.config_service import LibraryService
-from fundamental.services.epub_fixer_service import EPUBFixerService
 from fundamental.services.tasks.base import BaseTask
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    from sqlmodel import Session
+from fundamental.services.tasks.context import ProgressCallback, WorkerContext
+from fundamental.services.tasks.exceptions import (
+    LibraryNotConfiguredError,
+    TaskCancelledError,
+)
+from fundamental.services.tasks.post_processors import PostIngestProcessor
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class FileInfo:
+    """File information extracted from metadata.
+
+    Follows Single Responsibility Principle by encapsulating file metadata.
+    """
+
+    file_path: Path
+    filename: str
+    file_format: str
 
 
 class BookUploadTask(BaseTask):
     """Task for uploading a single book file.
 
     Handles file upload, metadata extraction, and database insertion
-    with progress tracking.
+    with progress tracking. Refactored to follow SOLID principles.
 
     Attributes
     ----------
-    file_path : Path
-        Path to the uploaded file (temporary location).
-    filename : str
-        Original filename.
-    file_format : str
-        File format extension.
+    file_info : FileInfo
+        File information extracted from metadata.
+    _post_processors : list[PostIngestProcessor]
+        List of post-ingest processors to run after book addition.
     """
 
     def __init__(
@@ -64,6 +73,7 @@ class BookUploadTask(BaseTask):
         task_id: int,
         user_id: int,
         metadata: dict[str, Any],
+        post_processors: list[PostIngestProcessor] | None = None,  # type: ignore[type-arg]
     ) -> None:
         """Initialize book upload task.
 
@@ -75,15 +85,79 @@ class BookUploadTask(BaseTask):
             User ID creating the task.
         metadata : dict[str, Any]
             Task metadata containing file_path, filename, file_format.
+        post_processors : list[PostIngestProcessor] | None
+            Optional list of post-ingest processors. If None, will create
+            default processors (e.g., EPUB) at runtime.
         """
         super().__init__(task_id, user_id, metadata)
+        self.file_info = self._parse_file_info(metadata)
+        self._post_processors = post_processors
+
+    def _parse_file_info(self, metadata: dict[str, Any]) -> FileInfo:
+        """Parse file information from metadata.
+
+        Parameters
+        ----------
+        metadata : dict[str, Any]
+            Task metadata.
+
+        Returns
+        -------
+        FileInfo
+            Parsed file information.
+
+        Raises
+        ------
+        ValueError
+            If required file_path is missing.
+        """
         file_path_str = metadata.get("file_path", "")
         if not file_path_str:
             msg = "file_path is required in task metadata"
             raise ValueError(msg)
-        self.file_path = Path(file_path_str)
-        self.filename = metadata.get("filename", "Unknown")
-        self.file_format = metadata.get("file_format", "")
+        return FileInfo(
+            file_path=Path(file_path_str),
+            filename=metadata.get("filename", "Unknown"),
+            file_format=metadata.get("file_format", ""),
+        )
+
+    def _check_cancellation(self) -> None:
+        """Check if task is cancelled and raise exception if so.
+
+        Raises
+        ------
+        TaskCancelledError
+            If task has been cancelled.
+        """
+        if self.check_cancelled():
+            raise TaskCancelledError(self.task_id)
+
+    def _update_progress_or_cancel(
+        self,
+        progress: float,
+        update_progress: ProgressCallback,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """Update progress and check for cancellation.
+
+        Combines progress update and cancellation check to follow DRY.
+
+        Parameters
+        ----------
+        progress : float
+            Progress value (0.0 to 1.0).
+        update_progress : ProgressCallback
+            Progress update callback.
+        metadata : dict[str, Any] | None
+            Optional metadata to include with progress update.
+
+        Raises
+        ------
+        TaskCancelledError
+            If task has been cancelled.
+        """
+        update_progress(progress, metadata)
+        self._check_cancellation()
 
     def _validate_file(self) -> int:
         """Validate file path and return file size.
@@ -100,21 +174,65 @@ class BookUploadTask(BaseTask):
         ValueError
             If file path is invalid.
         """
-        if not self.file_path.exists():
-            msg = f"File not found: {self.file_path}"
+        if not self.file_info.file_path.exists():
+            msg = f"File not found: {self.file_info.file_path}"
             raise FileNotFoundError(msg)
-        if self.file_path.is_dir():
-            msg = f"file_path is a directory, not a file: {self.file_path}"
+        if self.file_info.file_path.is_dir():
+            msg = f"file_path is a directory, not a file: {self.file_info.file_path}"
             raise ValueError(msg)
-        if not self.file_path.is_file():
-            msg = f"file_path is not a valid file: {self.file_path}"
+        if not self.file_info.file_path.is_file():
+            msg = f"file_path is not a valid file: {self.file_info.file_path}"
             raise ValueError(msg)
-        return self.file_path.stat().st_size
+        return self.file_info.file_path.stat().st_size
+
+    def _get_active_library(
+        self,
+        session: Session,  # type: ignore[type-arg]
+    ) -> Library:  # type: ignore[name-defined]
+        """Get active library configuration.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+
+        Returns
+        -------
+        Library
+            Active library configuration.
+
+        Raises
+        ------
+        ValueError
+            If no active library is configured.
+        """
+        library_repo = LibraryRepository(session)
+        library_service = LibraryService(session, library_repo)
+        library = library_service.get_active_library()
+
+        if library is None:
+            raise LibraryNotConfiguredError
+
+        return library
+
+    def _extract_title(self) -> str:
+        """Extract title from metadata or filename.
+
+        Returns
+        -------
+        str
+            Book title.
+        """
+        title = self.metadata.get("title")
+        if not title:
+            title = Path(self.file_info.filename).stem
+        return title
 
     def _add_book_to_library(
         self,
-        session: Session,
-        update_progress: Callable[..., None],  # type: ignore[type-arg]
+        session: Session,  # type: ignore[type-arg]
+        library: Library,  # type: ignore[name-defined]
+        update_progress: ProgressCallback,
     ) -> int:
         """Add book to library and return book ID.
 
@@ -122,7 +240,9 @@ class BookUploadTask(BaseTask):
         ----------
         session : Session
             Database session.
-        update_progress : Any
+        library : Library
+            Active library configuration.
+        update_progress : ProgressCallback
             Progress update callback.
 
         Returns
@@ -132,67 +252,69 @@ class BookUploadTask(BaseTask):
 
         Raises
         ------
-        ValueError
-            If no active library is configured.
+        TaskCancelledError
+            If task has been cancelled.
         """
-        # Get active library
-        library_repo = LibraryRepository(session)
-        library_service = LibraryService(session, library_repo)
-        library = library_service.get_active_library()
-
-        if library is None:
-            msg = "No active library configured"
-            raise ValueError(msg)
-
         # Update progress: 0.2 - library found
-        update_progress(0.2)
-
-        # Check if cancelled
-        if self.check_cancelled():
-            return -1  # type: ignore[return-value]
+        self._update_progress_or_cancel(0.2, update_progress)
 
         # Create book service
         book_service = BookService(library, session=session)
 
-        # Extract title from filename if not provided
-        title = self.metadata.get("title")
-        if not title:
-            title = Path(self.filename).stem
+        # Extract title
+        title = self._extract_title()
 
         # Update progress: 0.3 - ready to add book
-        update_progress(0.3)
-
-        # Check if cancelled
-        if self.check_cancelled():
-            return -1  # type: ignore[return-value]
+        self._update_progress_or_cancel(0.3, update_progress)
 
         # Add book to library
         # This will save the file, extract metadata, and create database entry
         book_id = book_service.add_book(
-            file_path=self.file_path,
-            file_format=self.file_format,
+            file_path=self.file_info.file_path,
+            file_format=self.file_info.file_format,
             title=title,
             author_name=self.metadata.get("author_name"),
         )
 
-        # Store final metadata - ensure book_ids is in self.metadata
-        # This is critical because complete_task uses task_instance.metadata
-        self.set_metadata("book_ids", [book_id])  # Array with single element
+        # Store final metadata
+        self.set_metadata("book_ids", [book_id])
         self.set_metadata("title", title)
-
-        # Auto-fix EPUB on ingest if enabled
-        if self.file_format.lower() == "epub":
-            self._auto_fix_epub_on_ingest(session, book_id, library)
 
         return book_id
 
-    def _auto_fix_epub_on_ingest(
+    def _get_post_processors(
         self,
-        session: Session,
+        session: Session,  # type: ignore[type-arg]
+    ) -> list[PostIngestProcessor]:  # type: ignore[type-arg]
+        """Get post-ingest processors, creating defaults if needed.
+
+        Parameters
+        ----------
+        session : Session
+            Database session for creating processors.
+
+        Returns
+        -------
+        list[PostIngestProcessor]
+            List of post-ingest processors.
+        """
+        if self._post_processors is not None:
+            return self._post_processors
+
+        # Create default processors
+        from fundamental.services.tasks.post_processors import (
+            EPUBPostIngestProcessor,
+        )
+
+        return [EPUBPostIngestProcessor(session)]
+
+    def _run_post_processors(
+        self,
+        session: Session,  # type: ignore[type-arg]
         book_id: int,
-        library: Library,
+        library: Library,  # type: ignore[name-defined]
     ) -> None:
-        """Auto-fix EPUB file on ingest if enabled.
+        """Run post-ingest processors for the uploaded book.
 
         Parameters
         ----------
@@ -200,170 +322,90 @@ class BookUploadTask(BaseTask):
             Database session.
         book_id : int
             Book ID that was just added.
-        library : Any
+        library : Library
             Library configuration.
         """
-        try:
-            # Check if auto-fix on ingest is enabled
-            stmt = select(ScheduledTasksConfig).limit(1)
-            scheduled_config = session.exec(stmt).first()
-            if (
-                scheduled_config is None
-                or not scheduled_config.epub_fixer_auto_fix_on_ingest
-            ):
-                logger.debug("EPUB auto-fix on ingest is disabled, skipping")
-                return
+        processors = self._get_post_processors(session)
+        for processor in processors:
+            if processor.supports_format(self.file_info.file_format):
+                with suppress(Exception):
+                    # Don't fail the upload if post-processing fails
+                    processor.process(session, book_id, library, self.user_id)
 
-            # Check if EPUB fixer is enabled
-            stmt = select(EPUBFixerConfig).limit(1)
-            epub_config = session.exec(stmt).first()
-            if not epub_config or not epub_config.enabled:
-                logger.debug("EPUB fixer is disabled, skipping auto-fix on ingest")
-                return
+    def _validate_metadata_before_completion(self) -> None:
+        """Validate required metadata is present before task completion.
 
-            # Get book to find file path
-            stmt = (
-                select(Book, Data)
-                .join(Data)
-                .where(Book.id == book_id)
-                .where(Data.format == "EPUB")
-            )
-            result = session.exec(stmt).first()
-            if result is None:
-                logger.debug("EPUB format not found for book %d", book_id)
-                return
+        Raises
+        ------
+        ValueError
+            If required metadata fields are missing.
+        """
+        if "book_ids" not in self.metadata:
+            msg = "Required metadata field 'book_ids' missing"
+            raise ValueError(msg)
 
-            book, data = result
-
-            # Construct file path
-            lib_root = getattr(library, "library_root", None)
-            if lib_root:
-                library_path = Path(lib_root)
-            else:
-                library_db_path = Path(library.calibre_db_path)
-                library_path = (
-                    library_db_path
-                    if library_db_path.is_dir()
-                    else library_db_path.parent
-                )
-
-            book_dir = library_path / book.path
-            file_name = data.name or str(book.id)
-            file_path = book_dir / f"{file_name}.{data.format.lower()}"
-
-            if not file_path.exists():
-                # Try alternative naming
-                alt_file_name = f"{book.id}.{data.format.lower()}"
-                alt_file_path = book_dir / alt_file_name
-                if alt_file_path.exists():
-                    file_path = alt_file_path
-                else:
-                    logger.warning(
-                        "EPUB file not found at %s or %s", file_path, alt_file_path
-                    )
-                    return
-
-            # Process EPUB file
-            fixer_service = EPUBFixerService(session)
-
-            fix_run = fixer_service.process_epub_file(
-                file_path=file_path,
-                book_id=book_id,
-                book_title=book.title,
-                user_id=self.user_id,
-                library_id=library.id if library else None,
-                manually_triggered=False,  # Automatic, not manual
-            )
-
-            # Get fixes for the run to log
-            if fix_run.id is not None:
-                fixes = fixer_service.get_fixes_for_run(fix_run.id)
-                if fixes:
-                    logger.info(
-                        "Auto-fixed EPUB on ingest: book_id=%d, file=%s, fixes_applied=%d",
-                        book_id,
-                        file_path,
-                        len(fixes),
-                    )
-                else:
-                    logger.debug(
-                        "No fixes needed for EPUB on ingest: book_id=%d", book_id
-                    )
-
-        except Exception:
-            # Don't fail the upload if auto-fix fails
-            logger.exception(
-                "Failed to auto-fix EPUB on ingest for book_id=%d", book_id
-            )
-
-    def run(self, worker_context: dict[str, Any]) -> None:
+    def run(self, worker_context: dict[str, Any] | WorkerContext) -> None:
         """Execute book upload task.
 
         Parameters
         ----------
-        worker_context : dict[str, Any]
+        worker_context : dict[str, Any] | WorkerContext
             Worker context containing session, task_service, update_progress.
+            Can be a dictionary (for backward compatibility) or WorkerContext.
         """
-        session: Session = worker_context["session"]
-        update_progress = worker_context["update_progress"]
+        # Convert dict to WorkerContext for type safety
+        if isinstance(worker_context, dict):
+            context = WorkerContext(
+                session=worker_context["session"],
+                update_progress=worker_context["update_progress"],
+                task_service=worker_context["task_service"],
+            )
+        else:
+            context = worker_context
 
         try:
-            # Check if cancelled
-            if self.check_cancelled():
-                logger.info("Task %s cancelled before processing", self.task_id)
-                return
+            self._check_cancellation()
 
             # Validate file and get file size
             file_size = self._validate_file()
             self.set_metadata("file_size", file_size)
 
             # Update progress: 0.1 - file validated
-            update_progress(0.1, {"file_size": file_size})
-
-            # Add book to library
-            book_id = self._add_book_to_library(session, update_progress)
-            if book_id == -1:  # Cancelled
-                return
-
-            # Update progress: 0.9 - book added
-            # This saves book_ids to task_data in the database
-            # For single book upload, book_ids is an array with one element
-            update_progress(0.9, {"book_ids": [book_id]})
-
-            # Log to verify book_ids is in metadata
-            logger.info(
-                "Task %s: Metadata before final update: %s",
-                self.task_id,
-                self.metadata,
+            self._update_progress_or_cancel(
+                0.1, context.update_progress, {"file_size": file_size}
             )
 
-            # Update progress: 1.0 - complete
-            # Pass self.metadata which should now include book_ids
-            # This ensures book_ids is saved to task_data before complete_task is called
-            update_progress(1.0, self.metadata)
+            # Get active library
+            library = self._get_active_library(context.session)
 
-            # Double-check that book_ids is in metadata before task completes
-            if "book_ids" not in self.metadata:
-                logger.error(
-                    "Task %s: book_ids not found in metadata after update_progress(1.0). Metadata: %s",
-                    self.task_id,
-                    self.metadata,
-                )
-            else:
-                logger.info(
-                    "Task %s: book_ids %s confirmed in metadata before task completion",
-                    self.task_id,
-                    self.metadata.get("book_ids"),
-                )
+            # Add book to library
+            book_id = self._add_book_to_library(
+                context.session, library, context.update_progress
+            )
+
+            # Update progress: 0.9 - book added
+            context.update_progress(0.9, {"book_ids": [book_id]})
+
+            # Run post-processors (e.g., EPUB auto-fix)
+            self._run_post_processors(context.session, book_id, library)
+
+            # Validate metadata before completion
+            self._validate_metadata_before_completion()
+
+            # Update progress: 1.0 - complete
+            context.update_progress(1.0, self.metadata)
 
             logger.info(
                 "Task %s: Book %s uploaded successfully (%s, %s bytes)",
                 self.task_id,
                 book_id,
-                self.filename,
+                self.file_info.filename,
                 file_size,
             )
 
+        except TaskCancelledError:
+            logger.info("Task %s cancelled", self.task_id)
+            # Don't re-raise - cancellation is expected
         except Exception:
             logger.exception("Task %s failed", self.task_id)
             raise
