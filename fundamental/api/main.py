@@ -31,8 +31,9 @@ if TYPE_CHECKING:
     from sqlalchemy import Engine
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.responses import JSONResponse
+from starlette.requests import Request
 
 from fundamental.api.middleware.auth_middleware import AuthMiddleware
 from fundamental.api.routes.admin import router as admin_router
@@ -42,13 +43,21 @@ from fundamental.api.routes.books import router as books_router
 from fundamental.api.routes.devices import router as devices_router
 from fundamental.api.routes.epub_fixer import router as epub_fixer_router
 from fundamental.api.routes.fs import router as fs_router
+from fundamental.api.routes.ingest import router as ingest_router
 from fundamental.api.routes.library_scanning import router as library_scanning_router
 from fundamental.api.routes.metadata import router as metadata_router
 from fundamental.api.routes.reading import router as reading_router
 from fundamental.api.routes.shelves import router as shelves_router
 from fundamental.api.routes.tasks import router as tasks_router
 from fundamental.config import AppConfig
-from fundamental.database import create_db_engine
+from fundamental.database import create_db_engine, get_session
+from fundamental.services.author_exceptions import NoActiveLibraryError
+from fundamental.services.ingest.exceptions import (
+    IngestHistoryCreationError,
+    IngestHistoryNotFoundError,
+)
+from fundamental.services.ingest.ingest_config_service import IngestConfigService
+from fundamental.services.ingest.ingest_watcher_service import IngestWatcherService
 from fundamental.services.library_scanning.workers.manager import ScanWorkerManager
 from fundamental.services.messaging.redis_broker import RedisBroker
 from fundamental.services.scheduler import TaskScheduler
@@ -112,6 +121,7 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(devices_router)
     app.include_router(epub_fixer_router)
     app.include_router(fs_router)
+    app.include_router(ingest_router)
     app.include_router(library_scanning_router)
     app.include_router(metadata_router)
     app.include_router(reading_router)
@@ -264,6 +274,13 @@ def _stop_background_services(app: FastAPI) -> None:
     app : FastAPI
         FastAPI application instance.
     """
+    # Stop ingest watcher gracefully
+    if app.state.ingest_watcher:
+        try:
+            app.state.ingest_watcher.stop_watching()
+        except (RuntimeError, OSError) as e:
+            logger.warning("Error stopping ingest watcher: %s", e)
+
     # Stop scheduler gracefully
     if app.state.scheduler:
         try:
@@ -284,6 +301,51 @@ def _stop_background_services(app: FastAPI) -> None:
         shutdown = getattr(app.state.task_runner, "shutdown", None)
         if callable(shutdown):
             shutdown()
+
+
+def _initialize_ingest_watcher(app: FastAPI, engine: "Engine", cfg: AppConfig) -> None:  # type: ignore[name-defined]
+    """Initialize ingest watcher service.
+
+    Parameters
+    ----------
+    app : FastAPI
+        FastAPI application instance.
+    engine : Engine
+        Database engine.
+    cfg : AppConfig
+        Application configuration.
+    """
+    if not cfg.redis_enabled or app.state.task_runner is None:
+        logger.info(
+            "Ingest watcher not initialized: Redis or task runner not available"
+        )
+        app.state.ingest_watcher = None
+        return
+
+    try:
+        # Create config service to check if ingest is enabled
+        with get_session(engine) as session:
+            config_service = IngestConfigService(session)
+            config = config_service.get_config()
+
+            if not config.enabled:
+                logger.info("Ingest service is disabled")
+                app.state.ingest_watcher = None
+                return
+
+            # Create watcher service
+            watcher = IngestWatcherService(
+                config_service=config_service,
+                task_runner=app.state.task_runner,
+            )
+            app.state.ingest_watcher = watcher
+            logger.info("Initialized ingest watcher service")
+    except (ConnectionError, ValueError, RuntimeError, ImportError) as exc:
+        logger.warning(
+            "Failed to initialize ingest watcher: %s. Automatic ingest will not be available.",
+            exc,
+        )
+        app.state.ingest_watcher = None
 
 
 def _setup_app_state(app: FastAPI, engine: "Engine", cfg: AppConfig) -> None:  # type: ignore[name-defined]
@@ -311,6 +373,9 @@ def _setup_app_state(app: FastAPI, engine: "Engine", cfg: AppConfig) -> None:  #
     # Initialize scheduler (depends on task runner, so initialize after)
     _initialize_scheduler(app, engine, cfg)
 
+    # Initialize ingest watcher (depends on task runner, so initialize after)
+    _initialize_ingest_watcher(app, engine, cfg)
+
 
 def _configure_app(app: FastAPI) -> None:
     """Configure FastAPI application (routers, endpoints, middleware).
@@ -320,6 +385,38 @@ def _configure_app(app: FastAPI) -> None:
     app : FastAPI
         FastAPI application instance.
     """
+
+    # Register exception handlers for domain-specific exceptions
+    @app.exception_handler(IngestHistoryNotFoundError)
+    def ingest_history_not_found_handler(
+        _request: Request, exc: IngestHistoryNotFoundError
+    ) -> JSONResponse:
+        """Handle IngestHistoryNotFoundError exceptions."""
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"detail": str(exc)},
+        )
+
+    @app.exception_handler(NoActiveLibraryError)
+    def no_active_library_handler(
+        _request: Request, exc: NoActiveLibraryError
+    ) -> JSONResponse:
+        """Handle NoActiveLibraryError exceptions."""
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"detail": str(exc)},
+        )
+
+    @app.exception_handler(IngestHistoryCreationError)
+    def ingest_history_creation_error_handler(
+        _request: Request, exc: IngestHistoryCreationError
+    ) -> JSONResponse:
+        """Handle IngestHistoryCreationError exceptions."""
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": str(exc)},
+        )
+
     # Register routers
     _register_routers(app)
 

@@ -288,6 +288,8 @@ def upgrade() -> None:
         "EPUB_FIX_SINGLE",
         "EPUB_FIX_BATCH",
         "EPUB_FIX_DAILY_SCAN",
+        "INGEST_DISCOVERY",
+        "INGEST_BOOK",
         name="tasktype",
         native_enum=False,
     )

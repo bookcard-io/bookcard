@@ -79,6 +79,13 @@ from fundamental.models.epub_fixer import (
     EPUBFixRun,
     EPUBFixType,
 )
+from fundamental.models.ingest import (
+    IngestAudit,
+    IngestConfig,
+    IngestHistory,
+    IngestRetry,
+    IngestStatus,
+)
 from fundamental.models.library_scanning import LibraryScanState
 from fundamental.models.media import ConversionOptions, Data
 from fundamental.models.openlibrary import (
@@ -157,6 +164,11 @@ __all__ = [
     "Feed",
     "FileHandlingConfig",
     "Identifier",
+    "IngestAudit",
+    "IngestConfig",
+    "IngestHistory",
+    "IngestRetry",
+    "IngestStatus",
     "IntegrationConfig",
     "LDAPConfig",
     "Language",
