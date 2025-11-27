@@ -16,6 +16,13 @@
 """EPUB fixer service module.
 
 Provides SOLID-compliant EPUB fixing functionality with full audit trail.
+
+Note:
+    Parts of this module were adapted from `kindle_epub_fixer` by the
+    calibre-web-automated (CWA) project, which itself is based on
+    `kindle-epub-fix` by innocenat (https://github.com/innocenat/kindle-epub-fix).
+    The original work is unlicensed (Unlicense), and CWA's adaptation is
+    licensed under GPLv3, making this adaptation compatible.
 """
 
 from fundamental.services.epub_fixer.config import EPUBFixerSettings
