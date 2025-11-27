@@ -80,6 +80,9 @@ class TaskType(StrEnum):
     AUTHOR_METADATA_FETCH = "author_metadata_fetch"
     OPENLIBRARY_DUMP_DOWNLOAD = "openlibrary_dump_download"
     OPENLIBRARY_DUMP_INGEST = "openlibrary_dump_ingest"
+    EPUB_FIX_SINGLE = "epub_fix_single"
+    EPUB_FIX_BATCH = "epub_fix_batch"
+    EPUB_FIX_DAILY_SCAN = "epub_fix_daily_scan"
 
 
 class Task(SQLModel, table=True):

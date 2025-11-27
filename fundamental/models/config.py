@@ -338,6 +338,10 @@ class ScheduledTasksConfig(SQLModel, table=True):
         Whether to reconnect to Calibre database (default: False).
     metadata_backup : bool
         Whether to backup metadata (default: False).
+    epub_fixer_daily_scan : bool
+        Whether to enable daily EPUB fixer scan (default: False).
+    epub_fixer_auto_fix_on_ingest : bool
+        Whether to automatically fix EPUBs on book upload (default: False).
     created_at : datetime
         Configuration creation timestamp.
     updated_at : datetime
@@ -353,6 +357,8 @@ class ScheduledTasksConfig(SQLModel, table=True):
     generate_series_covers: bool = Field(default=False)
     reconnect_database: bool = Field(default=False)
     metadata_backup: bool = Field(default=False)
+    epub_fixer_daily_scan: bool = Field(default=False)
+    epub_fixer_auto_fix_on_ingest: bool = Field(default=False)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         index=True,
@@ -509,6 +515,52 @@ class FileHandlingConfig(SQLModel, table=True):
     )
     support_unicode_filenames: bool = Field(default=False)
     embed_metadata: bool = Field(default=True)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        index=True,
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column_kwargs={"onupdate": lambda: datetime.now(UTC)},
+    )
+
+
+class EPUBFixerConfig(SQLModel, table=True):
+    """EPUB fixer configuration.
+
+    Attributes
+    ----------
+    id : int | None
+        Primary key identifier. Only one record should exist (singleton).
+    enabled : bool
+        Master enable/disable flag (default: False).
+    backup_enabled : bool
+        Whether backups are enabled (default: True).
+    backup_directory : str
+        Directory for storing backups (default: '/config/processed_books/fixed_originals').
+    default_language : str
+        Default language for fixes (default: 'en').
+    skip_already_fixed : bool
+        Skip EPUBs that were already fixed (default: True).
+    skip_failed : bool
+        Skip EPUBs that previously failed (default: True).
+    created_at : datetime
+        Configuration creation timestamp.
+    updated_at : datetime
+        Last update timestamp.
+    """
+
+    __tablename__ = "epub_fixer_config"
+
+    id: int | None = Field(default=None, primary_key=True)
+    enabled: bool = Field(default=False)
+    backup_enabled: bool = Field(default=True)
+    backup_directory: str = Field(
+        default="/config/processed_books/fixed_originals", max_length=1000
+    )
+    default_language: str = Field(default="en", max_length=10)
+    skip_already_fixed: bool = Field(default=True)
+    skip_failed: bool = Field(default=True)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         index=True,

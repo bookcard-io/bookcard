@@ -19,15 +19,20 @@ Provides business logic for creating fix runs, recording fixes,
 and querying fix history.
 """
 
-from datetime import UTC, datetime
+import logging
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 
+from fundamental.models.config import EPUBFixerConfig
 from fundamental.models.epub_fixer import EPUBFix, EPUBFixRun, EPUBFixType
 from fundamental.repositories.epub_fixer_repository import (
     EPUBFixRepository,
     EPUBFixRunRepository,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class EPUBFixerService:
@@ -438,3 +443,256 @@ class EPUBFixerService:
             List of incomplete fix runs (completed_at is None).
         """
         return self._run_repo.get_incomplete_runs()
+
+    def should_skip_epub(
+        self,
+        file_path: str,
+        skip_already_fixed: bool = True,
+        skip_failed: bool = True,
+    ) -> bool:
+        """Check if EPUB should be skipped.
+
+        Parameters
+        ----------
+        file_path : str
+            Path to EPUB file.
+        skip_already_fixed : bool
+            Whether to skip already fixed EPUBs (default: True).
+        skip_failed : bool
+            Whether to skip previously failed EPUBs (default: True).
+
+        Returns
+        -------
+        bool
+            True if EPUB should be skipped, False otherwise.
+        """
+        # Check for recent successful fixes
+        if skip_already_fixed:
+            recent_fixes = self._fix_repo.get_by_file_path(file_path, limit=1)
+            if recent_fixes:
+                # Check if there's a successful fix in the last 30 days
+                thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
+                for fix in recent_fixes:
+                    if fix.applied_at >= thirty_days_ago:
+                        # Check if the run was successful (no error)
+                        run = self._run_repo.get(fix.run_id)
+                        if run and not run.error_message and run.completed_at:
+                            return True
+
+        # Check for recent failed fixes
+        if skip_failed:
+            recent_fixes = self._fix_repo.get_by_file_path(file_path, limit=1)
+            if recent_fixes:
+                # Check if there's a failed fix in the last 7 days
+                seven_days_ago = datetime.now(UTC) - timedelta(days=7)
+                for fix in recent_fixes:
+                    run = self._run_repo.get(fix.run_id)
+                    if (
+                        run
+                        and run.error_message
+                        and run.completed_at
+                        and run.completed_at >= seven_days_ago
+                    ):
+                        return True
+
+        return False
+
+    def process_epub_file(
+        self,
+        file_path: str | Path,
+        book_id: int | None = None,
+        book_title: str | None = None,
+        user_id: int | None = None,
+        library_id: int | None = None,
+        manually_triggered: bool = False,
+    ) -> EPUBFixRun:
+        """Process single EPUB file with full audit trail.
+
+        Parameters
+        ----------
+        file_path : str | Path
+            Path to EPUB file.
+        book_id : int | None
+            Book ID from Calibre database (default: None).
+        book_title : str | None
+            Book title (default: None, will use filename).
+        user_id : int | None
+            User ID who triggered the fix (default: None).
+        library_id : int | None
+            Library ID (default: None).
+        manually_triggered : bool
+            Whether fix was manually triggered (default: False).
+
+        Returns
+        -------
+        EPUBFixRun
+            Fix run record.
+
+        Raises
+        ------
+        FileNotFoundError
+            If EPUB file does not exist.
+        """
+        from pathlib import Path
+
+        from fundamental.services.epub_fixer import (
+            BackupService,
+            EPUBFixerOrchestrator,
+            EPUBFixerSettings,
+            EPUBReader,
+            EPUBWriter,
+            FixResultRecorder,
+            LanguageFix,
+            NullBackupService,
+        )
+        from fundamental.services.epub_fixer.core.fixes import (
+            BodyIdLinkFix,
+            EncodingFix,
+            StrayImageFix,
+        )
+
+        file_path = Path(file_path)
+        if not file_path.exists():
+            msg = f"EPUB file not found: {file_path}"
+            raise FileNotFoundError(msg)
+
+        # Get configuration
+        stmt = select(EPUBFixerConfig).limit(1)
+        epub_config = self._session.exec(stmt).first()
+        if not epub_config:
+            # Create default config
+            settings = EPUBFixerSettings()
+        else:
+            settings = EPUBFixerSettings.from_config_model(epub_config)
+
+        # Create fix run
+        fix_run = self.create_fix_run(
+            user_id=user_id,
+            library_id=library_id,
+            manually_triggered=manually_triggered,
+            is_bulk_operation=False,
+            backup_enabled=settings.backup_enabled,
+        )
+
+        # Initialize services
+        backup_service = (
+            BackupService(settings.backup_directory, settings.backup_enabled)
+            if settings.backup_enabled
+            else NullBackupService()
+        )
+        recorder = FixResultRecorder(self)
+        reader = EPUBReader()
+        writer = EPUBWriter()
+
+        # Create backup
+        backup_path = backup_service.create_backup(file_path)
+
+        # Read EPUB
+        contents = reader.read(file_path)
+
+        # Create orchestrator with fixes
+        fixes = [
+            BodyIdLinkFix(),
+            LanguageFix(default_language=settings.default_language),
+            StrayImageFix(),
+            EncodingFix(),
+        ]
+        orchestrator = EPUBFixerOrchestrator(fixes)
+
+        # Apply fixes
+        fix_results = orchestrator.process(contents)
+
+        # Write EPUB if fixes were applied
+        if fix_results:
+            writer.write(contents, file_path)
+
+        # Record fixes
+        if fix_results and fix_run.id is not None:
+            book_title = book_title or file_path.stem
+            recorder.record_fixes(
+                run_id=fix_run.id,
+                book_id=book_id,
+                book_title=book_title,
+                file_path=str(file_path),
+                fix_results=fix_results,
+                original_file_path=backup_path,
+                backup_created=backup_path is not None,
+            )
+
+        # Complete fix run
+        if fix_run.id is not None:
+            self.complete_fix_run(
+                run_id=fix_run.id,
+                total_files_processed=1,
+                total_files_fixed=1 if fix_results else 0,
+                total_fixes_applied=len(fix_results),
+            )
+
+        return fix_run
+
+    def rollback_fix_run(self, run_id: int) -> EPUBFixRun:
+        """Rollback a fix run by restoring files from backup.
+
+        Parameters
+        ----------
+        run_id : int
+            Fix run ID to rollback.
+
+        Returns
+        -------
+        EPUBFixRun
+            Updated fix run record.
+
+        Raises
+        ------
+        ValueError
+            If fix run not found or cannot be rolled back.
+        """
+        from fundamental.services.epub_fixer import BackupService
+
+        fix_run = self._run_repo.get(run_id)
+        if fix_run is None:
+            msg = f"Fix run {run_id} not found"
+            raise ValueError(msg)
+
+        # Check if run can be rolled back (completed within last 24 hours)
+        if fix_run.completed_at:
+            twenty_four_hours_ago = datetime.now(UTC) - timedelta(hours=24)
+            if fix_run.completed_at < twenty_four_hours_ago:
+                msg = f"Fix run {run_id} is too old to rollback (completed more than 24 hours ago)"
+                raise ValueError(msg)
+
+        # Get all fixes for this run
+        fixes = self._fix_repo.get_by_run(run_id)
+
+        # Restore files from backup
+        backup_service = BackupService(
+            Path("/config/processed_books/fixed_originals"), enabled=True
+        )
+        restored_count = 0
+
+        for fix in fixes:
+            if fix.original_file_path and fix.backup_created:
+                try:
+                    if backup_service.restore_backup(
+                        fix.original_file_path, fix.file_path
+                    ):
+                        restored_count += 1
+                        # Mark fix as rolled back in description
+                        fix.fix_description = f"[ROLLED BACK] {fix.fix_description}"
+                        self._session.add(fix)
+                except (OSError, ValueError) as e:
+                    logger.warning(
+                        "Failed to restore backup for %s: %s", fix.file_path, e
+                    )
+
+        # Mark run as cancelled
+        fix_run.cancelled_at = datetime.now(UTC)
+        fix_run.error_message = (
+            f"Rolled back: {restored_count}/{len(fixes)} files restored"
+        )
+
+        self._session.commit()
+        self._session.refresh(fix_run)
+
+        return fix_run

@@ -115,6 +115,7 @@ class EPUBFixRun(SQLModel, table=True):
         index=True,
     )
     completed_at: datetime | None = None
+    cancelled_at: datetime | None = None
     error_message: str | None = Field(default=None, max_length=2000)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
