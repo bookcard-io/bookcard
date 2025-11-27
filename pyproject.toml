@@ -32,8 +32,9 @@ dependencies = [
     "pypdf>=6.2.0",
     "py-ezmail>=2.3.5",
     "pyyaml>=6.0.3",
-    "redis>=7.0.1",
     "defusedxml>=0.7.1",
+    "dramatiq[redis,watch]>=2.0.0",
+    "redis>=6.4.0",
 ]
 
 [tool.hatch.build.targets.wheel]

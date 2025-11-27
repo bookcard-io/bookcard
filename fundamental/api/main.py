@@ -51,6 +51,7 @@ from fundamental.config import AppConfig
 from fundamental.database import create_db_engine
 from fundamental.services.library_scanning.workers.manager import ScanWorkerManager
 from fundamental.services.messaging.redis_broker import RedisBroker
+from fundamental.services.scheduler import DramatiqScheduler, TaskScheduler
 from fundamental.services.tasks.runner_factory import create_task_runner
 
 logger = logging.getLogger(__name__)
@@ -170,6 +171,183 @@ def _initialize_scan_workers(app: FastAPI, cfg: AppConfig) -> None:
         app.state.scan_worker_manager = None
 
 
+def _initialize_scheduler(
+    app: FastAPI,
+    engine: "Engine",
+    cfg: AppConfig,  # type: ignore[name-defined]
+) -> None:
+    """Initialize task scheduler for periodic tasks.
+
+    Parameters
+    ----------
+    app : FastAPI
+        FastAPI application instance.
+    engine : Engine
+        Database engine.
+    cfg : AppConfig
+        Application configuration.
+    """
+    # Only initialize if Redis is enabled and task runner is available
+    if not cfg.redis_enabled:
+        logger.info("Scheduler not initialized: Redis is disabled")
+        app.state.scheduler = None
+        return
+
+    if app.state.task_runner is None:
+        logger.info("Scheduler not initialized: Task runner is not available")
+        app.state.scheduler = None
+        return
+
+    try:
+        app.state.scheduler = DramatiqScheduler(
+            engine, cfg.redis_url, app.state.task_runner
+        )
+        logger.info("Initialized Dramatiq scheduler for periodic tasks")
+    except (ConnectionError, ValueError, RuntimeError, ImportError) as exc:
+        logger.warning(
+            "Failed to initialize Dramatiq scheduler: %s. Falling back to in-process TaskScheduler.",
+            exc,
+        )
+        try:
+            app.state.scheduler = TaskScheduler(engine, app.state.task_runner)
+            logger.info("Initialized in-process TaskScheduler for periodic tasks")
+        except (ValueError, RuntimeError, OSError):
+            logger.exception(
+                "Failed to initialize fallback TaskScheduler. Scheduled tasks will not be available."
+            )
+            app.state.scheduler = None
+
+
+async def _run_migrations(cfg: AppConfig) -> None:
+    """Run database migrations if enabled.
+
+    Parameters
+    ----------
+    cfg : AppConfig
+        Application configuration.
+    """
+    if (
+        cfg.alembic_enabled
+        and _AlembicConfig is not None
+        and _alembic_command is not None
+    ):
+        alembic_cfg = _AlembicConfig()
+        alembic_cfg.set_main_option("script_location", "fundamental/db/migrations")
+        await asyncio.to_thread(_alembic_command.upgrade, alembic_cfg, "head")
+
+
+def _start_background_services(app: FastAPI) -> None:
+    """Start background services (scan workers, scheduler).
+
+    Parameters
+    ----------
+    app : FastAPI
+        FastAPI application instance.
+    """
+    # Start scan workers if Redis is configured
+    if app.state.scan_worker_manager:
+        try:
+            app.state.scan_worker_manager.start_workers()
+        except (ConnectionError, ValueError, RuntimeError) as e:
+            logger.warning(
+                "Failed to start scan workers: %s. Library scanning will not be available.",
+                e,
+            )
+
+    # Start scheduler if configured
+    if app.state.scheduler:
+        try:
+            app.state.scheduler.start()
+        except (ConnectionError, ValueError, RuntimeError) as e:
+            logger.warning(
+                "Failed to start scheduler: %s. Scheduled tasks will not be available.",
+                e,
+            )
+
+
+def _stop_background_services(app: FastAPI) -> None:
+    """Stop background services gracefully.
+
+    Parameters
+    ----------
+    app : FastAPI
+        FastAPI application instance.
+    """
+    # Stop scheduler gracefully
+    if app.state.scheduler:
+        try:
+            app.state.scheduler.shutdown()
+        except (RuntimeError, OSError) as e:
+            logger.warning("Error stopping scheduler: %s", e)
+
+    # Stop scan workers gracefully
+    if app.state.scan_worker_manager:
+        try:
+            app.state.scan_worker_manager.stop_workers()
+        except (RuntimeError, OSError) as e:
+            logger.warning("Error stopping scan workers: %s", e)
+
+    # Ensure background task runners are stopped so that reload/shutdown
+    # is clean and does not leak worker threads.
+    if app.state.task_runner:
+        shutdown = getattr(app.state.task_runner, "shutdown", None)
+        if callable(shutdown):
+            shutdown()
+
+
+def _setup_app_state(app: FastAPI, engine: "Engine", cfg: AppConfig) -> None:  # type: ignore[name-defined]
+    """Set up application state and initialize services.
+
+    Parameters
+    ----------
+    app : FastAPI
+        FastAPI application instance.
+    engine : Engine
+        Database engine.
+    cfg : AppConfig
+        Application configuration.
+    """
+    # Application state
+    app.state.engine = engine
+    app.state.config = cfg
+
+    # Initialize task runner
+    _initialize_task_runner(app, engine, cfg)
+
+    # Initialize scan worker manager and broker
+    _initialize_scan_workers(app, cfg)
+
+    # Initialize scheduler (depends on task runner, so initialize after)
+    _initialize_scheduler(app, engine, cfg)
+
+
+def _configure_app(app: FastAPI) -> None:
+    """Configure FastAPI application (routers, endpoints, middleware).
+
+    Parameters
+    ----------
+    app : FastAPI
+        FastAPI application instance.
+    """
+    # Register routers
+    _register_routers(app)
+
+    # Add health check endpoint
+    @app.get("/health")
+    async def health_check() -> JSONResponse:
+        """Health check endpoint for Docker and load balancers.
+
+        Returns
+        -------
+        JSONResponse
+            JSON response with status "ok".
+        """
+        return JSONResponse(content={"status": "ok"})
+
+    # Middleware (best-effort attachment of user claims)
+    app.add_middleware(AuthMiddleware)
+
+
 def create_app(config: AppConfig | None = None) -> FastAPI:
     """Create and configure the FastAPI application.
 
@@ -198,30 +376,12 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
         during application shutdown or reload.
         """
         try:
-            if (
-                cfg.alembic_enabled
-                and _AlembicConfig is not None
-                and _alembic_command is not None
-            ):
-                alembic_cfg = _AlembicConfig()
-                alembic_cfg.set_main_option(
-                    "script_location", "fundamental/db/migrations"
-                )
-                await asyncio.to_thread(_alembic_command.upgrade, alembic_cfg, "head")
+            await _run_migrations(cfg)
 
             # Access app.state early to ensure it is created by Starlette.
             _ = getattr(app, "state", None)
 
-            # Start scan workers if Redis is configured
-            scan_worker_manager = getattr(app.state, "scan_worker_manager", None)
-            if scan_worker_manager:
-                try:
-                    scan_worker_manager.start_workers()
-                except (ConnectionError, ValueError, RuntimeError) as e:
-                    logger.warning(
-                        "Failed to start scan workers: %s. Library scanning will not be available.",
-                        e,
-                    )
+            _start_background_services(app)
 
             # Yield control to allow the application to serve requests.
             yield
@@ -233,20 +393,7 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
             # cleanly without surfacing noisy tracebacks.
             logger.info("Application lifespan cancelled; shutting down gracefully.")
         finally:
-            # Stop scan workers gracefully
-            scan_worker_manager = getattr(app.state, "scan_worker_manager", None)
-            if scan_worker_manager:
-                try:
-                    scan_worker_manager.stop_workers()
-                except (RuntimeError, OSError) as e:
-                    logger.warning("Error stopping scan workers: %s", e)
-
-            # Ensure background task runners are stopped so that reload/shutdown
-            # is clean and does not leak worker threads.
-            task_runner = getattr(app.state, "task_runner", None)
-            shutdown = getattr(task_runner, "shutdown", None) if task_runner else None
-            if callable(shutdown):
-                shutdown()
+            _stop_background_services(app)
 
     app = FastAPI(
         title="Fundamental",
@@ -255,34 +402,12 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
         lifespan=_lifespan,
     )
 
-    # Application state
+    # Set up application state and initialize services
     engine = create_db_engine(cfg)
-    app.state.engine = engine
-    app.state.config = cfg
+    _setup_app_state(app, engine, cfg)
 
-    # Initialize task runner
-    _initialize_task_runner(app, engine, cfg)
-
-    # Initialize scan worker manager and broker
-    _initialize_scan_workers(app, cfg)
-
-    # Register routers
-    _register_routers(app)
-
-    # Add health check endpoint
-    @app.get("/health")
-    async def health_check() -> JSONResponse:
-        """Health check endpoint for Docker and load balancers.
-
-        Returns
-        -------
-        JSONResponse
-            JSON response with status "ok".
-        """
-        return JSONResponse(content={"status": "ok"})
-
-    # Middleware (best-effort attachment of user claims)
-    app.add_middleware(AuthMiddleware)
+    # Configure application (routers, endpoints, middleware)
+    _configure_app(app)
 
     return app
 

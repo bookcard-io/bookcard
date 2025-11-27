@@ -66,8 +66,13 @@ def create_task_runner(engine: Engine, config: AppConfig) -> TaskRunner:
         logger.info("Using thread-based task runner")
         return ThreadTaskRunner(engine, create_task)
     if runner_type == "dramatiq":
-        logger.info("Using Dramatiq task runner (stub)")
-        return DramatiqTaskRunner()
+        if not config.redis_enabled:
+            logger.warning(
+                "Dramatiq requires Redis, but Redis is disabled. Falling back to thread runner."
+            )
+            return ThreadTaskRunner(engine, create_task)
+        logger.info("Using Dramatiq task runner with Redis broker")
+        return DramatiqTaskRunner(engine, config.redis_url, create_task)
     if runner_type == "celery":
         logger.info("Using Celery task runner (stub)")
         return CeleryTaskRunner()
