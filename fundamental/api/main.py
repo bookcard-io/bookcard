@@ -40,6 +40,7 @@ from fundamental.api.routes.auth import router as auth_router
 from fundamental.api.routes.authors import router as authors_router
 from fundamental.api.routes.books import router as books_router
 from fundamental.api.routes.devices import router as devices_router
+from fundamental.api.routes.epub_fixer import router as epub_fixer_router
 from fundamental.api.routes.fs import router as fs_router
 from fundamental.api.routes.library_scanning import router as library_scanning_router
 from fundamental.api.routes.metadata import router as metadata_router
@@ -108,6 +109,7 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(authors_router)
     app.include_router(books_router)
     app.include_router(devices_router)
+    app.include_router(epub_fixer_router)
     app.include_router(fs_router)
     app.include_router(library_scanning_router)
     app.include_router(metadata_router)

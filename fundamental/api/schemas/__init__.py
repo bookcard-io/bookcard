@@ -80,6 +80,17 @@ from fundamental.api.schemas.books import (
     TagLookupItem,
     TagLookupResponse,
 )
+from fundamental.api.schemas.epub_fixer import (
+    EPUBFixBatchRequest,
+    EPUBFixListResponse,
+    EPUBFixRead,
+    EPUBFixResponse,
+    EPUBFixRollbackResponse,
+    EPUBFixRunListResponse,
+    EPUBFixRunRead,
+    EPUBFixSingleRequest,
+    EPUBFixStatisticsRead,
+)
 from fundamental.api.schemas.libraries import (
     LibraryCreate,
     LibraryRead,
@@ -142,6 +153,15 @@ __all__ = [
     "BookUploadResponse",
     "CoverFromUrlRequest",
     "CoverFromUrlResponse",
+    "EPUBFixBatchRequest",
+    "EPUBFixListResponse",
+    "EPUBFixRead",
+    "EPUBFixResponse",
+    "EPUBFixRollbackResponse",
+    "EPUBFixRunListResponse",
+    "EPUBFixRunRead",
+    "EPUBFixSingleRequest",
+    "EPUBFixStatisticsRead",
     "EReaderDeviceCreate",
     "EReaderDeviceRead",
     "EReaderDeviceUpdate",

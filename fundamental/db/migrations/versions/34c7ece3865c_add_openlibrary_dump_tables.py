@@ -285,6 +285,9 @@ def upgrade() -> None:
         "AUTHOR_METADATA_FETCH",
         "OPENLIBRARY_DUMP_DOWNLOAD",
         "OPENLIBRARY_DUMP_INGEST",
+        "EPUB_FIX_SINGLE",
+        "EPUB_FIX_BATCH",
+        "EPUB_FIX_DAILY_SCAN",
         name="tasktype",
         native_enum=False,
     )
@@ -345,6 +348,9 @@ def downgrade() -> None:
         "AUTHOR_METADATA_FETCH",
         "OPENLIBRARY_DUMP_DOWNLOAD",
         "OPENLIBRARY_DUMP_INGEST",
+        "EPUB_FIX_SINGLE",
+        "EPUB_FIX_BATCH",
+        "EPUB_FIX_DAILY_SCAN",
         name="tasktype",
         native_enum=False,
     )
