@@ -17,6 +17,10 @@
 
 # Re-export all classes from calibre_book_repository for backward compatibility
 from fundamental.repositories.calibre_book_repository import CalibreBookRepository
+from fundamental.repositories.epub_fixer_repository import (
+    EPUBFixRepository,
+    EPUBFixRunRepository,
+)
 from fundamental.repositories.filters import (
     AuthorFilterStrategy,
     FilterBuilder,
@@ -57,6 +61,8 @@ __all__ = [
     "BookWithRelations",
     # Main repository
     "CalibreBookRepository",
+    "EPUBFixRepository",
+    "EPUBFixRunRepository",
     "FilterBuilder",
     "FilterContext",
     # Filter strategies

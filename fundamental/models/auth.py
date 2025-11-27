@@ -26,6 +26,7 @@ from sqlalchemy import Enum as SQLEnum
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
+    from fundamental.models.epub_fixer import EPUBFixRun
     from fundamental.models.reading import (
         Annotation,
         ReadingProgress,
@@ -115,6 +116,7 @@ class User(SQLModel, table=True):
     reading_sessions: list["ReadingSession"] = Relationship(back_populates="user")
     read_statuses: list["ReadStatus"] = Relationship(back_populates="user")
     annotations: list["Annotation"] = Relationship(back_populates="user")
+    epub_fix_runs: list["EPUBFixRun"] = Relationship(back_populates="user")
 
 
 class UserSetting(SQLModel, table=True):

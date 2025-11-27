@@ -14,3 +14,9 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """Services module for Fundamental."""
+
+from fundamental.services.epub_fixer_service import EPUBFixerService
+
+__all__ = [
+    "EPUBFixerService",
+]

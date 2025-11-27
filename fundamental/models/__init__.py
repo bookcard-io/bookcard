@@ -68,6 +68,11 @@ from fundamental.models.core import (
     Series,
     Tag,
 )
+from fundamental.models.epub_fixer import (
+    EPUBFix,
+    EPUBFixRun,
+    EPUBFixType,
+)
 from fundamental.models.library_scanning import LibraryScanState
 from fundamental.models.media import ConversionOptions, Data
 from fundamental.models.openlibrary import (
@@ -133,6 +138,9 @@ __all__ = [
     "CustomColumn",
     "Data",
     "EBookFormat",
+    "EPUBFix",
+    "EPUBFixRun",
+    "EPUBFixType",
     "EReaderDevice",
     "EmailServerConfig",
     "EmailServerType",
