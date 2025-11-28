@@ -272,6 +272,34 @@ class IngestProcessorService:
 
         return book_id
 
+    def set_book_cover(self, book_id: int, cover_url: str) -> None:
+        """Set book cover from URL.
+
+        Parameters
+        ----------
+        book_id : int
+            Book ID.
+        cover_url : str
+            URL of the cover image.
+
+        Raises
+        ------
+        NoActiveLibraryError
+            If no active library is configured.
+        """
+        library = self._get_active_library_or_raise()
+        book_service = self._book_service_factory(library)
+
+        # Import lazily to avoid circular imports if any
+        from fundamental.services.book_cover_service import BookCoverService
+
+        cover_service = BookCoverService(book_service)
+        try:
+            cover_service.save_cover_from_url(book_id, cover_url)
+            logger.info("Set cover for book %d from %s", book_id, cover_url)
+        except (ValueError, RuntimeError, OSError) as e:
+            logger.warning("Failed to set cover for book %d: %s", book_id, e)
+
     def update_history_status(
         self,
         history_id: int,

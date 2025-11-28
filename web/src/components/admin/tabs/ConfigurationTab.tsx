@@ -17,8 +17,58 @@
 
 import { LibraryManagement } from "../library/LibraryManagement";
 import { OpenLibrarySettings } from "../openlibrary/OpenLibrarySettings";
+import { IngestConfigSettings } from "../ingest/IngestConfigSettings";
+import { useCollapsibleSection } from "@/hooks/useCollapsibleSection";
+import { cn } from "@/libs/utils";
+
+/**
+ * Collapsible section wrapper component.
+ */
+function CollapsibleSection({
+  title,
+  description,
+  isExpanded,
+  onToggle,
+  children,
+}: {
+  title: string;
+  description: string;
+  isExpanded: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-md border border-surface-a20 bg-surface-tonal-a0">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full cursor-pointer items-center justify-between border-0 bg-transparent px-6 py-4 text-left transition-colors hover:bg-surface-a10"
+      >
+        <div className="flex flex-col gap-1">
+          <h2 className="font-semibold text-text-a0 text-xl">{title}</h2>
+          <p className="text-sm text-text-a30 leading-relaxed">{description}</p>
+        </div>
+        <i
+          className={cn(
+            "pi shrink-0 text-lg text-text-a30 transition-transform duration-200",
+            isExpanded ? "pi-chevron-up" : "pi-chevron-down",
+          )}
+          aria-hidden="true"
+        />
+      </button>
+      {isExpanded && (
+        <div className="border-t border-surface-a20 px-6 py-4">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function ConfigurationTab() {
+  const ingestSection = useCollapsibleSection({ initialExpanded: true });
+  const openLibrarySection = useCollapsibleSection({ initialExpanded: false });
+
   return (
     <div className="flex flex-col gap-6">
       <div className="rounded-md border border-surface-a20 bg-surface-tonal-a0 p-6">
@@ -32,17 +82,23 @@ export function ConfigurationTab() {
         <LibraryManagement />
       </div>
 
-      <div className="rounded-md border border-surface-a20 bg-surface-tonal-a0 p-6">
-        <h2 className="mb-4 font-semibold text-text-a0 text-xl">
-          OpenLibrary Data Dumps
-        </h2>
-        <p className="mb-4 text-sm text-text-a30 leading-relaxed">
-          OpenLibrary data dumps are automatically downloaded for library scans,
-          provided for free by OpenLibrary. You can trigger a manual download
-          here to fetch the latest data.
-        </p>
+      <CollapsibleSection
+        title="Ingestion Configuration"
+        description="Configure automatic book ingestion settings including watch directory, metadata providers, retry settings, and processing options."
+        isExpanded={ingestSection.isExpanded}
+        onToggle={ingestSection.toggle}
+      >
+        <IngestConfigSettings />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="OpenLibrary Data Dumps"
+        description="OpenLibrary data dumps are automatically downloaded for library scans, provided for free by OpenLibrary. You can trigger a manual download here to fetch the latest data."
+        isExpanded={openLibrarySection.isExpanded}
+        onToggle={openLibrarySection.toggle}
+      >
         <OpenLibrarySettings />
-      </div>
+      </CollapsibleSection>
     </div>
   );
 }

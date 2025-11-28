@@ -21,6 +21,7 @@ Scans the ingest directory and queues book processing tasks.
 import logging
 from typing import Any
 
+from fundamental.models.tasks import TaskType
 from fundamental.services.ingest.file_discovery_service import FileDiscoveryService
 from fundamental.services.ingest.ingest_config_service import IngestConfigService
 from fundamental.services.ingest.ingest_processor_service import IngestProcessorService
@@ -55,6 +56,7 @@ class IngestDiscoveryTask(BaseTask):
                 session=worker_context["session"],
                 update_progress=worker_context["update_progress"],
                 task_service=worker_context["task_service"],
+                enqueue_task=worker_context.get("enqueue_task"),  # type: ignore[arg-type]
             )
         else:
             context = worker_context
@@ -122,9 +124,23 @@ class IngestDiscoveryTask(BaseTask):
                     history_ids.append(history_id)
 
                     # Queue IngestBookTask for this group
-                    # Note: We'll need access to task_runner, which should be in app state
-                    # For now, we'll store the history_id and let the watcher or
-                    # a scheduled task pick it up
+                    if context.enqueue_task:
+                        task_id = context.enqueue_task(
+                            TaskType.INGEST_BOOK,
+                            {},  # payload
+                            self.user_id,
+                            {"history_id": history_id},  # metadata
+                        )
+                        logger.info(
+                            "Queued ingest book task %d for history %d",
+                            task_id,
+                            history_id,
+                        )
+                    else:
+                        logger.warning(
+                            "Cannot queue ingest book task: enqueue_task not available in context"
+                        )
+
                     logger.info(
                         "Created ingest history %d for group: %s",
                         history_id,

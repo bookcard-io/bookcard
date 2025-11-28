@@ -54,7 +54,7 @@ class ThreadTaskRunner(TaskRunner):
     engine : Engine
         SQLAlchemy engine for database access.
     task_factory : Callable[[TaskType, int, dict], BaseTask]
-        Factory function to create task instances from task type.
+    Factory function to create task instances from task type.
     """
 
     def __init__(
@@ -142,6 +142,7 @@ class ThreadTaskRunner(TaskRunner):
                             "session": session,
                             "task_service": task_service,
                             "update_progress": update_progress,
+                            "enqueue_task": self.enqueue,
                         }
 
                         try:

@@ -15,7 +15,7 @@
 
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useListSelection } from "@/hooks/useListSelection";
 import { useSuggestionInputNavigation } from "@/hooks/useSuggestionInputNavigation";
 import { cn } from "@/libs/utils";
@@ -41,6 +41,7 @@ export function PathInputWithSuggestions({
   onSubmit,
   busy,
 }: Props) {
+  const [isFocused, setIsFocused] = useState(false);
   const { suggestions, show, setShow } = usePathSuggestions({
     query: value,
     enabled: !busy,
@@ -64,6 +65,13 @@ export function PathInputWithSuggestions({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetAll]);
 
+  // Show suggestions when they arrive, but only if input is focused
+  useEffect(() => {
+    if (isFocused && suggestions.length > 0) {
+      setShow(true);
+    }
+  }, [isFocused, suggestions.length, setShow]);
+
   const handleSelectSuggestion = useCallback(
     (suggestion: string) => {
       onChange(suggestion);
@@ -81,10 +89,12 @@ export function PathInputWithSuggestions({
   );
 
   const handleInputFocus = useCallback(() => {
+    setIsFocused(true);
     setShow(suggestions.length > 0);
   }, [suggestions.length, setShow]);
 
   const handleInputBlur = useCallback(() => {
+    setIsFocused(false);
     setShow(false);
   }, [setShow]);
 
@@ -120,14 +130,14 @@ export function PathInputWithSuggestions({
         onBlur={handleInputBlur}
         disabled={!!busy}
         className={cn(
-          "w-full bg-surface-a10 px-3 py-2 text-sm text-text-a0",
+          "w-full bg-surface-a0 px-3 py-2 text-sm text-text-a0",
           "rounded-md border border-[var(--color-surface-a20)]",
           "transition-colors duration-200",
           "focus:border-[var(--color-primary-a0)] focus:outline-none",
           "disabled:cursor-not-allowed disabled:opacity-70",
         )}
       />
-      {show && suggestions.length > 0 && (
+      {isFocused && show && suggestions.length > 0 && (
         <div
           className={cn(
             "absolute top-[calc(100%+4px)] right-0 left-0 z-10",

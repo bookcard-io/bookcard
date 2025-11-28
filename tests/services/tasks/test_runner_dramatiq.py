@@ -347,6 +347,7 @@ def test_execute_task_actor_success(
             payload={"key": "value"},
             metadata={"meta": "data"},
             engine=mock_engine,
+            enqueue_callback=MagicMock(),
         )
 
         mock_task_service.get_task.assert_called_once_with(1)
@@ -383,6 +384,7 @@ def test_execute_task_actor_task_not_found(
             payload={},
             metadata=None,
             engine=mock_engine,
+            enqueue_callback=MagicMock(),
         )
 
         mock_logger.warning.assert_called_once_with("Task %s not found in database", 1)
@@ -410,6 +412,7 @@ def test_execute_task_actor_exception(
             payload={},
             metadata=None,
             engine=mock_engine,
+            enqueue_callback=MagicMock(),
         )
 
         mock_logger.exception.assert_called_once_with("Error executing task %s", 1)

@@ -41,6 +41,8 @@ if TYPE_CHECKING:
 
     from sqlalchemy import Engine
 
+    from fundamental.services.tasks.context import EnqueueTaskCallback
+
 logger = logging.getLogger(__name__)
 
 
@@ -51,6 +53,7 @@ def _execute_task_actor(
     payload: dict[str, Any],
     metadata: dict[str, Any] | None,
     engine: Engine,  # type: ignore[name-defined]
+    enqueue_callback: EnqueueTaskCallback,
 ) -> None:
     """Dramatiq actor function for executing tasks.
 
@@ -71,6 +74,8 @@ def _execute_task_actor(
         Task metadata.
     engine : Engine
         SQLAlchemy engine for database access.
+    enqueue_callback : EnqueueTaskCallback
+        Callback for enqueuing new tasks.
     """
     try:
         with _get_session(engine) as session:
@@ -104,6 +109,7 @@ def _execute_task_actor(
                 "session": session,
                 "task_service": task_service,
                 "update_progress": update_progress,
+                "enqueue_task": enqueue_callback,
             }
 
             # Execute task using executor service
@@ -177,7 +183,13 @@ class DramatiqTaskRunner(TaskRunner):
         ) -> None:
             """Execute task with engine captured from closure."""
             _execute_task_actor(
-                task_id, user_id, task_type, payload, metadata, self._engine
+                task_id,
+                user_id,
+                task_type,
+                payload,
+                metadata,
+                self._engine,
+                self.enqueue,
             )
 
         # Register as Dramatiq actor

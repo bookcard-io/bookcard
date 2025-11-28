@@ -136,7 +136,7 @@ export function LibraryManagement() {
                 value={newLibraryName}
                 onChange={handleNewLibraryNameChange}
                 placeholder="Library name (optional)"
-                className="flex-1 rounded-md border border-[var(--color-surface-a20)] bg-surface-a10 px-3 py-2 text-sm text-text-a0 transition-colors duration-200 focus:border-[var(--color-primary-a0)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
+                className="flex-1 rounded-md border border-[var(--color-surface-a20)] bg-surface-a0 px-3 py-2 text-sm text-text-a0 transition-colors duration-200 focus:border-[var(--color-primary-a0)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
                 disabled={isBusy}
               />
               <Button
@@ -176,7 +176,7 @@ export function LibraryManagement() {
                 value={newName}
                 onChange={handleNameChange}
                 placeholder="Library name (optional)"
-                className="flex-1 rounded-md border border-[var(--color-surface-a20)] bg-surface-a10 px-3 py-2 text-sm text-text-a0 transition-colors duration-200 focus:border-[var(--color-primary-a0)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
+                className="flex-1 rounded-md border border-[var(--color-surface-a20)] bg-surface-a0 px-3 py-2 text-sm text-text-a0 transition-colors duration-200 focus:border-[var(--color-primary-a0)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
                 disabled={isBusy}
               />
               <div className="min-w-0 flex-1">
@@ -231,7 +231,7 @@ export function LibraryManagement() {
                 value={newName}
                 onChange={handleNameChange}
                 placeholder="Library name (optional)"
-                className="flex-1 rounded-md border border-[var(--color-surface-a20)] bg-surface-a10 px-3 py-2 text-sm text-text-a0 transition-colors duration-200 focus:border-[var(--color-primary-a0)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
+                className="flex-1 rounded-md border border-[var(--color-surface-a20)] bg-surface-a0 px-3 py-2 text-sm text-text-a0 transition-colors duration-200 focus:border-[var(--color-primary-a0)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"
                 disabled={isBusy}
               />
               <div className="min-w-0 flex-1">

@@ -238,7 +238,7 @@ async def _run_migrations(cfg: AppConfig) -> None:
 
 
 def _start_background_services(app: FastAPI) -> None:
-    """Start background services (scan workers, scheduler).
+    """Start background services (scan workers, scheduler, ingest watcher).
 
     Parameters
     ----------
@@ -262,6 +262,16 @@ def _start_background_services(app: FastAPI) -> None:
         except (ConnectionError, ValueError, RuntimeError) as e:
             logger.warning(
                 "Failed to start scheduler: %s. Scheduled tasks will not be available.",
+                e,
+            )
+
+    # Start ingest watcher if configured
+    if app.state.ingest_watcher:
+        try:
+            app.state.ingest_watcher.start_watching()
+        except (ConnectionError, ValueError, RuntimeError, OSError) as e:
+            logger.warning(
+                "Failed to start ingest watcher: %s. Automatic ingest will not be available.",
                 e,
             )
 
@@ -323,7 +333,7 @@ def _initialize_ingest_watcher(app: FastAPI, engine: "Engine", cfg: AppConfig) -
         return
 
     try:
-        # Create config service to check if ingest is enabled
+        # Check if ingest is enabled before creating watcher
         with get_session(engine) as session:
             config_service = IngestConfigService(session)
             config = config_service.get_config()
@@ -333,13 +343,13 @@ def _initialize_ingest_watcher(app: FastAPI, engine: "Engine", cfg: AppConfig) -
                 app.state.ingest_watcher = None
                 return
 
-            # Create watcher service
-            watcher = IngestWatcherService(
-                config_service=config_service,
-                task_runner=app.state.task_runner,
-            )
-            app.state.ingest_watcher = watcher
-            logger.info("Initialized ingest watcher service")
+        # Create watcher service with engine (creates sessions on demand)
+        watcher = IngestWatcherService(
+            engine=engine,
+            task_runner=app.state.task_runner,
+        )
+        app.state.ingest_watcher = watcher
+        logger.info("Initialized ingest watcher service")
     except (ConnectionError, ValueError, RuntimeError, ImportError) as exc:
         logger.warning(
             "Failed to initialize ingest watcher: %s. Automatic ingest will not be available.",
@@ -363,6 +373,20 @@ def _setup_app_state(app: FastAPI, engine: "Engine", cfg: AppConfig) -> None:  #
     # Application state
     app.state.engine = engine
     app.state.config = cfg
+
+
+def _initialize_services(app: FastAPI) -> None:
+    """Initialize all application services.
+
+    Should be called after migrations have run.
+
+    Parameters
+    ----------
+    app : FastAPI
+        FastAPI application instance.
+    """
+    engine = app.state.engine
+    cfg = app.state.config
 
     # Initialize task runner
     _initialize_task_runner(app, engine, cfg)
@@ -469,6 +493,9 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
             # Access app.state early to ensure it is created by Starlette.
             _ = getattr(app, "state", None)
 
+            # Initialize services that depend on database tables being present
+            _initialize_services(app)
+
             _start_background_services(app)
 
             # Yield control to allow the application to serve requests.
@@ -490,7 +517,7 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
         lifespan=_lifespan,
     )
 
-    # Set up application state and initialize services
+    # Set up application state
     engine = create_db_engine(cfg)
     _setup_app_state(app, engine, cfg)
 

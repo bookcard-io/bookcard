@@ -99,7 +99,7 @@ export function usePathSuggestions(
             ? data.suggestions
             : [];
           setSuggestions(suggestionsList);
-          setShow(suggestionsList.length > 0);
+          // Don't automatically show suggestions - let the component control visibility based on focus
         }
       } catch {
         // Ignore suggest errors

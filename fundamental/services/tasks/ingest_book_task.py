@@ -127,6 +127,7 @@ class IngestBookTask(BaseTask):
                 session=worker_context["session"],
                 update_progress=worker_context["update_progress"],
                 task_service=worker_context["task_service"],
+                enqueue_task=worker_context.get("enqueue_task"),  # type: ignore[arg-type]
             )
         return worker_context
 
@@ -323,6 +324,16 @@ class IngestBookTask(BaseTask):
             title=title,
             author_name=author_name,
         )
+
+        # Handle cover download if URL is available
+        cover_url = None
+        if fetched_metadata and fetched_metadata.get("cover_url"):
+            cover_url = fetched_metadata["cover_url"]
+        elif metadata_hint and metadata_hint.get("cover_url"):
+            cover_url = metadata_hint["cover_url"]
+
+        if cover_url:
+            processor_service.set_book_cover(book_id, cover_url)
 
         # Handle file deletion if configured (separate concern)
         if config.auto_delete_after_ingest:

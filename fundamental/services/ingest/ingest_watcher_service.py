@@ -29,12 +29,13 @@ from typing import TYPE_CHECKING
 
 from watchfiles import Change, watch
 
+from fundamental.database import get_session
 from fundamental.models.tasks import TaskType
-from fundamental.services.ingest.ingest_config_service import (
-    IngestConfigService,  # noqa: TC001
-)
+from fundamental.services.ingest.ingest_config_service import IngestConfigService
 
 if TYPE_CHECKING:
+    from sqlalchemy import Engine
+
     from fundamental.services.tasks.base import TaskRunner
 
 logger = logging.getLogger(__name__)
@@ -48,8 +49,8 @@ class IngestWatcherService:
 
     Parameters
     ----------
-    config_service : IngestConfigService
-        Configuration service for ingest settings.
+    engine : Engine
+        Database engine for creating sessions on demand.
     task_runner : TaskRunner | None
         Optional task runner for enqueueing discovery tasks.
     debounce_seconds : float
@@ -58,7 +59,7 @@ class IngestWatcherService:
 
     def __init__(
         self,
-        config_service: IngestConfigService,
+        engine: Engine,  # type: ignore[name-defined]
         task_runner: TaskRunner | None = None,  # type: ignore[name-defined]
         debounce_seconds: float = 5.0,
     ) -> None:
@@ -66,19 +67,21 @@ class IngestWatcherService:
 
         Parameters
         ----------
-        config_service : IngestConfigService
-            Configuration service.
+        engine : Engine
+            Database engine for creating sessions.
         task_runner : TaskRunner | None
             Optional task runner.
         debounce_seconds : float
             Debounce time in seconds.
         """
-        self._config_service = config_service
+        self._engine = engine
         self._task_runner = task_runner
         self._debounce_seconds = debounce_seconds
         self._watch_thread: threading.Thread | None = None
+        self._poll_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._last_trigger_time = 0.0
+        self._last_scan_files: set[Path] = set()
         self._lock = threading.Lock()
 
     def start_watching(self) -> None:
@@ -94,17 +97,23 @@ class IngestWatcherService:
             logger.warning("Task runner not available, cannot start watcher")
             return
 
-        config = self._config_service.get_config()
-        if not config.enabled:
-            logger.info("Ingest service is disabled, not starting watcher")
-            return
+        # Create a fresh session to check config
+        with get_session(self._engine) as session:
+            config_service = IngestConfigService(session)
+            config = config_service.get_config()
 
-        ingest_dir = self._config_service.get_ingest_dir()
-        if not ingest_dir.exists():
-            logger.warning("Ingest directory does not exist: %s", ingest_dir)
-            return
+            if not config.enabled:
+                logger.info("Ingest service is disabled, not starting watcher")
+                return
+
+            ingest_dir = config_service.get_ingest_dir()
+            if not ingest_dir.exists():
+                logger.warning("Ingest directory does not exist: %s", ingest_dir)
+                return
 
         self._stop_event.clear()
+
+        # Start watch thread (for inotify-based watching)
         self._watch_thread = threading.Thread(
             target=self._watch_loop,
             args=(ingest_dir,),
@@ -112,37 +121,64 @@ class IngestWatcherService:
             name="IngestWatcher",
         )
         self._watch_thread.start()
+
+        # Start polling thread as fallback (for network mounts)
+        self._poll_thread = threading.Thread(
+            target=self._poll_loop,
+            args=(ingest_dir,),
+            daemon=True,
+            name="IngestWatcherPoll",
+        )
+        self._poll_thread.start()
+
         logger.info("Started ingest watcher for directory: %s", ingest_dir)
+
+        # Trigger initial scan for existing files (bypass debounce)
+        logger.info("Triggering initial scan for existing files in ingest directory")
+        self._trigger_discovery(bypass_debounce=True)
 
     def stop_watching(self) -> None:
         """Stop watching the ingest directory.
 
-        Gracefully stops the watcher thread.
+        Gracefully stops the watcher threads.
         """
-        if self._watch_thread is None:
+        if self._watch_thread is None and self._poll_thread is None:
             return
 
         logger.info("Stopping ingest watcher")
         self._stop_event.set()
 
-        if self._watch_thread.is_alive():
+        if self._watch_thread and self._watch_thread.is_alive():
             self._watch_thread.join(timeout=5.0)
             if self._watch_thread.is_alive():
                 logger.warning("Watcher thread did not stop within timeout")
 
+        if self._poll_thread and self._poll_thread.is_alive():
+            self._poll_thread.join(timeout=5.0)
+            if self._poll_thread.is_alive():
+                logger.warning("Poll thread did not stop within timeout")
+
         self._watch_thread = None
+        self._poll_thread = None
         logger.info("Ingest watcher stopped")
 
     def _watch_loop(self, ingest_dir: Path) -> None:
         """Run main watch loop.
 
         Monitors the directory for changes and triggers discovery tasks.
+        Uses polling mode for network mounts that don't support inotify.
 
         Parameters
         ----------
         ingest_dir : Path
             Directory to watch.
         """
+        logger.info("Watch loop started for directory: %s", ingest_dir)
+
+        # Note: watchfiles uses inotify which doesn't work on network mounts (NFS/SMB)
+        # We have a polling fallback thread that will handle network mounts
+        # To force polling in watchfiles, set WATCHFILES_FORCE_POLLING=true environment variable
+
         try:
             for changes in watch(
                 str(ingest_dir),
@@ -150,7 +186,10 @@ class IngestWatcherService:
                 recursive=True,
             ):
                 if self._stop_event.is_set():
+                    logger.info("Stop event set, exiting watch loop")
                     break
+
+                logger.debug("Watch detected %d change(s)", len(changes))
 
                 # Filter to only file additions and modifications
                 relevant_changes = [
@@ -160,11 +199,68 @@ class IngestWatcherService:
                     and Path(change[1]).is_file()
                 ]
 
-                if relevant_changes and self._should_trigger():
+                if relevant_changes:
+                    logger.info(
+                        "Detected %d relevant file change(s): %s",
+                        len(relevant_changes),
+                        [Path(change[1]).name for change in relevant_changes],
+                    )
                     self._trigger_discovery()
+                elif changes:
+                    logger.debug(
+                        "Ignored %d change(s) (not file additions/modifications)",
+                        len(changes),
+                    )
 
         except Exception:
             logger.exception("Error in watch loop")
+
+    def _poll_loop(self, ingest_dir: Path) -> None:
+        """Run polling loop as fallback for network mounts.
+
+        Periodically scans the directory for new files since inotify
+        doesn't work on network filesystems (NFS/SMB).
+
+        Parameters
+        ----------
+        ingest_dir : Path
+            Directory to poll.
+        """
+        logger.info(
+            "Poll loop started for directory: %s (polling every 30s)", ingest_dir
+        )
+        poll_interval = 30.0  # Poll every 30 seconds
+
+        try:
+            while not self._stop_event.is_set():
+                # Wait for poll interval or stop event
+                if self._stop_event.wait(timeout=poll_interval):
+                    break
+
+                if not ingest_dir.exists():
+                    logger.debug("Ingest directory does not exist, skipping poll")
+                    continue
+
+                # Get current files in directory
+                try:
+                    current_files = {f for f in ingest_dir.iterdir() if f.is_file()}
+
+                    # Check for new files
+                    new_files = current_files - self._last_scan_files
+                    if new_files:
+                        logger.info(
+                            "Poll detected %d new file(s): %s",
+                            len(new_files),
+                            [f.name for f in new_files],
+                        )
+                        self._trigger_discovery()
+
+                    self._last_scan_files = current_files
+                except Exception:
+                    logger.exception("Error during poll scan")
+
+        except Exception:
+            logger.exception("Error in poll loop")
 
     def _should_trigger(self) -> bool:
         """Check if discovery should be triggered (debounce).
@@ -182,13 +278,23 @@ class IngestWatcherService:
                 return True
             return False
 
-    def _trigger_discovery(self) -> None:
+    def _trigger_discovery(self, bypass_debounce: bool = False) -> None:
         """Trigger a discovery task.
 
         Enqueues an IngestDiscoveryTask via the task runner.
+
+        Parameters
+        ----------
+        bypass_debounce : bool
+            If True, bypass debounce check (for initial scans).
         """
         if not self._task_runner:
             logger.warning("Task runner not available, cannot trigger discovery")
+            return
+
+        # Check debounce unless bypassed
+        if not bypass_debounce and not self._should_trigger():
+            logger.debug("Discovery trigger skipped due to debounce")
             return
 
         try:

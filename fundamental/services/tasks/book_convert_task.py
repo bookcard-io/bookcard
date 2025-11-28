@@ -230,6 +230,7 @@ class BookConvertTask(BaseTask):
                 session=worker_context["session"],
                 update_progress=worker_context["update_progress"],
                 task_service=worker_context["task_service"],
+                enqueue_task=worker_context.get("enqueue_task"),  # type: ignore[arg-type]
             )
         else:
             context = worker_context

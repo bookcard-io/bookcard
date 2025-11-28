@@ -20,6 +20,7 @@ Repositories for ingest management models. Follows SRP and IOC principles.
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime
 
 from sqlmodel import Session, select
@@ -32,6 +33,39 @@ from fundamental.models.ingest import (
     IngestStatus,
 )
 from fundamental.repositories.base import Repository
+
+# Default supported file formats for ingest
+DEFAULT_SUPPORTED_FORMATS = [
+    "acsm",
+    "azw",
+    "azw3",
+    "azw4",
+    "mobi",
+    "cbz",
+    "cbr",
+    "cb7",
+    "cbc",
+    "chm",
+    "djvu",
+    "docx",
+    "epub",
+    "fb2",
+    "fbz",
+    "html",
+    "htmlz",
+    "lit",
+    "lrf",
+    "odt",
+    "pdf",
+    "prc",
+    "pdb",
+    "pml",
+    "rb",
+    "rtf",
+    "snb",
+    "tcr",
+    "txtz",
+]
 
 
 class IngestHistoryRepository(Repository[IngestHistory]):
@@ -279,47 +313,14 @@ class IngestConfigRepository(Repository[IngestConfig]):
         stmt = select(IngestConfig).limit(1)
         config = self._session.exec(stmt).first()
         if config is None:
-            # Create default config
-            import os
-
             ingest_dir = os.getenv("BOOKS_INGEST_DIR", "/app/books_ingest")
             config = IngestConfig(
                 ingest_dir=ingest_dir,
-                enabled=False,
+                enabled=True,
                 metadata_providers=["google", "hardcover", "openlibrary"],
                 metadata_merge_strategy="merge_best",
                 metadata_priority_order=["google", "hardcover", "openlibrary"],
-                supported_formats=[
-                    "acsm",
-                    "azw",
-                    "azw3",
-                    "azw4",
-                    "mobi",
-                    "cbz",
-                    "cbr",
-                    "cb7",
-                    "cbc",
-                    "chm",
-                    "djvu",
-                    "docx",
-                    "epub",
-                    "fb2",
-                    "fbz",
-                    "html",
-                    "htmlz",
-                    "lit",
-                    "lrf",
-                    "odt",
-                    "pdf",
-                    "prc",
-                    "pdb",
-                    "pml",
-                    "rb",
-                    "rtf",
-                    "snb",
-                    "tcr",
-                    "txtz",
-                ],
+                supported_formats=DEFAULT_SUPPORTED_FORMATS,
                 ignore_patterns=["*.tmp", "*.bak", "*.swp"],
                 retry_max_attempts=3,
                 retry_backoff_seconds=300,

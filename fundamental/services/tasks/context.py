@@ -25,7 +25,12 @@ from typing import Any, Protocol
 
 from sqlmodel import Session
 
+from fundamental.models.tasks import TaskType
+
 ProgressCallback = Callable[[float, dict[str, Any] | None], None]
+EnqueueTaskCallback = Callable[
+    [TaskType, dict[str, Any], int, dict[str, Any] | None], int
+]
 
 
 class TaskServiceProtocol(Protocol):
@@ -72,8 +77,11 @@ class WorkerContext:
     task_service : TaskServiceProtocol
         Task service for database operations. Uses Protocol to avoid
         circular imports while maintaining type safety.
+    enqueue_task : EnqueueTaskCallback
+        Callback function for enqueuing new tasks.
     """
 
     session: Session  # type: ignore[type-arg]
     update_progress: ProgressCallback
     task_service: TaskServiceProtocol
+    enqueue_task: EnqueueTaskCallback

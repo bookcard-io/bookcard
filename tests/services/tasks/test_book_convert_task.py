@@ -82,6 +82,7 @@ def worker_context(session: DummySession) -> WorkerContext:
         session=session,  # type: ignore[arg-type]
         update_progress=MagicMock(),
         task_service=MagicMock(),
+        enqueue_task=MagicMock(),
     )
 
 
