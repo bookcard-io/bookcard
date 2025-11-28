@@ -86,7 +86,7 @@ dev: setup-uv
 		. ./.env; \
 	fi; \
 	set +a; \
-	uv run uvicorn fundamental.api.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude tests --reload-exclude "**/test_*.py" --reload-exclude "**/*_test.py" & \
+	uv run uvicorn fundamental.api.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude tests --reload-exclude web --reload-exclude "**/test_*.py" --reload-exclude "**/*_test.py" & \
 	PID1=$$!; \
 	cd web && npm run dev & \
 	PID2=$$!; \
