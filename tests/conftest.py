@@ -152,6 +152,25 @@ class DummySession:
             return self._entities_by_class_and_id[model_class].get(entity_id)
         return None
 
+    def set_get_result(self, model_class: type[Any], entity: Any) -> None:  # noqa: ANN401
+        """Configure the result for get() calls.
+
+        Registers an entity so that get(model_class, entity.id) returns it.
+
+        Parameters
+        ----------
+        model_class : type
+            Model class to register.
+        entity : Any
+            Entity to register. Must have an id attribute.
+        """
+        if not hasattr(entity, "id") or entity.id is None:
+            msg = "Entity must have a non-None id to be registered for get()"
+            raise ValueError(msg)
+        if model_class not in self._entities_by_class_and_id:
+            self._entities_by_class_and_id[model_class] = {}
+        self._entities_by_class_and_id[model_class][entity.id] = entity
+
     def set_exec_result(self, result: list[Any]) -> None:
         """Configure the next result for exec() calls."""
         self._exec_results = [result]
