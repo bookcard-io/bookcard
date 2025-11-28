@@ -45,6 +45,8 @@ export interface LibraryListItemProps {
   scanningLibraryId: number | null;
   /** Callback when library is updated. */
   onUpdate: (libraryId: number, updates: { name?: string }) => Promise<void>;
+  /** Whether there is an active scan task for this library. */
+  hasActiveScan: boolean;
 }
 
 /**
@@ -67,8 +69,9 @@ export function LibraryListItem({
   onScan,
   scanningLibraryId,
   onUpdate,
+  hasActiveScan,
 }: LibraryListItemProps) {
-  const isScanning = scanningLibraryId === library.id;
+  const isScanning = scanningLibraryId === library.id || hasActiveScan;
 
   const handleNameSave = async (name: string) => {
     await onUpdate(library.id, { name: name.trim() || library.name });
@@ -118,7 +121,11 @@ export function LibraryListItem({
           disabled={isScanning || deletingLibraryId === library.id}
           loading={isScanning}
         >
-          <i className="pi pi-sync" aria-hidden="true" />
+          {hasActiveScan ? (
+            <i className="pi pi-spinner animate-spin" aria-hidden="true" />
+          ) : (
+            <i className="pi pi-sync" aria-hidden="true" />
+          )}
           Scan
         </Button>
         <Button

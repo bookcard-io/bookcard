@@ -15,9 +15,11 @@
 
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/forms/Button";
 import { useActiveLibrary } from "@/contexts/ActiveLibraryContext";
+import { useTasks } from "@/hooks/useTasks";
+import { TaskStatus, TaskType } from "@/types/tasks";
 import { useLibraryManagement } from "./hooks/useLibraryManagement";
 import { LibraryList } from "./LibraryList";
 import { PathInputWithSuggestions } from "./PathInputWithSuggestions";
@@ -46,12 +48,73 @@ export function LibraryManagement() {
     createLibrary,
     toggleLibrary,
     deleteLibrary,
-    scanLibrary,
+    scanLibrary: originalScanLibrary,
     updateLibrary,
     clearError,
   } = useLibraryManagement({
     onRefresh: refreshActiveLibrary,
   });
+
+  // Check for active library scan tasks - only poll when there's an active task
+  const { tasks: activeScanTasks, refresh: refreshScanTasks } = useTasks({
+    taskType: TaskType.LIBRARY_SCAN,
+    status: null, // Get all statuses, we'll filter for PENDING/RUNNING
+    page: 1,
+    pageSize: 100,
+    autoRefresh: false, // Disable continuous polling
+    enabled: true,
+  });
+
+  // Wrap scanLibrary to refresh scan tasks after initiating a scan
+  const scanLibrary = useCallback(
+    async (libraryId: number) => {
+      await originalScanLibrary(libraryId);
+      // Refresh task list to catch the newly created task
+      void refreshScanTasks();
+    },
+    [originalScanLibrary, refreshScanTasks],
+  );
+
+  const hasActiveScanTask = activeScanTasks.some(
+    (task) =>
+      task.task_type === TaskType.LIBRARY_SCAN &&
+      (task.status === TaskStatus.PENDING ||
+        task.status === TaskStatus.RUNNING),
+  );
+
+  // Only poll when there's an active scan task
+  useEffect(() => {
+    if (!hasActiveScanTask) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      void refreshScanTasks();
+    }, 2000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [hasActiveScanTask, refreshScanTasks]);
+
+  // Create a map of library_id -> hasActiveScan
+  const libraryScanStatusMap = useMemo(() => {
+    const map = new Map<number, boolean>();
+    activeScanTasks.forEach((task) => {
+      if (
+        task.task_type === TaskType.LIBRARY_SCAN &&
+        (task.status === TaskStatus.PENDING ||
+          task.status === TaskStatus.RUNNING) &&
+        task.metadata &&
+        typeof task.metadata === "object" &&
+        "library_id" in task.metadata &&
+        typeof task.metadata.library_id === "number"
+      ) {
+        map.set(task.metadata.library_id, true);
+      }
+    });
+    return map;
+  }, [activeScanTasks]);
 
   const handleCreateNewLibrary = useCallback(async () => {
     try {
@@ -266,6 +329,7 @@ export function LibraryManagement() {
           onScan={scanLibrary}
           scanningLibraryId={scanningLibraryId}
           onUpdate={updateLibrary}
+          libraryScanStatusMap={libraryScanStatusMap}
         />
       )}
     </div>
