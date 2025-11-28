@@ -83,6 +83,7 @@ class IngestWatcherService:
         self._last_trigger_time = 0.0
         self._last_scan_files: set[Path] = set()
         self._lock = threading.Lock()
+        self._restart_lock = threading.Lock()
 
     def start_watching(self) -> None:
         """Start watching the ingest directory.
@@ -141,25 +142,36 @@ class IngestWatcherService:
         """Stop watching the ingest directory.
 
         Gracefully stops the watcher threads.
+        Thread-safe: can be called multiple times safely.
         """
-        if self._watch_thread is None and self._poll_thread is None:
-            return
+        with self._lock:
+            # Check if already stopped
+            if self._watch_thread is None and self._poll_thread is None:
+                return
 
-        logger.info("Stopping ingest watcher")
-        self._stop_event.set()
+            logger.info("Stopping ingest watcher")
+            self._stop_event.set()
 
-        if self._watch_thread and self._watch_thread.is_alive():
-            self._watch_thread.join(timeout=5.0)
-            if self._watch_thread.is_alive():
+            # Capture thread references while holding lock
+            watch_thread = self._watch_thread
+            poll_thread = self._poll_thread
+
+        # Join threads outside the lock to avoid deadlock
+        if watch_thread is not None and watch_thread.is_alive():
+            watch_thread.join(timeout=5.0)
+            if watch_thread.is_alive():
                 logger.warning("Watcher thread did not stop within timeout")
 
-        if self._poll_thread and self._poll_thread.is_alive():
-            self._poll_thread.join(timeout=5.0)
-            if self._poll_thread.is_alive():
+        if poll_thread is not None and poll_thread.is_alive():
+            poll_thread.join(timeout=5.0)
+            if poll_thread.is_alive():
                 logger.warning("Poll thread did not stop within timeout")
 
-        self._watch_thread = None
-        self._poll_thread = None
+        # Clear thread references while holding lock
+        with self._lock:
+            self._watch_thread = None
+            self._poll_thread = None
+
         logger.info("Ingest watcher stopped")
 
     def restart_watching(self) -> None:
@@ -170,16 +182,23 @@ class IngestWatcherService:
         directory or enabled flag).
 
         This method is safe to call even if the watcher is not running.
+        Uses a lock to prevent concurrent restarts.
         """
-        logger.info("Restarting ingest watcher")
-        # Stop current watcher if running
-        self.stop_watching()
-        # Wait a brief moment to ensure threads are fully stopped
-        import time
+        # Use restart lock to prevent concurrent restarts
+        if not self._restart_lock.acquire(blocking=False):
+            logger.debug("Restart already in progress, skipping duplicate restart")
+            return
 
-        time.sleep(0.5)
-        # Start watching again (will read fresh config)
-        self.start_watching()
+        try:
+            logger.info("Restarting ingest watcher")
+            # Stop current watcher if running
+            self.stop_watching()
+            # Wait a brief moment to ensure threads are fully stopped
+            time.sleep(0.5)
+            # Start watching again (will read fresh config)
+            self.start_watching()
+        finally:
+            self._restart_lock.release()
 
     def _watch_loop(self, ingest_dir: Path) -> None:
         """Run main watch loop.

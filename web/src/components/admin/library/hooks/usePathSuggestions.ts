@@ -92,7 +92,13 @@ export function usePathSuggestions(
             signal: controller.signal,
           },
         );
-        if (!response.ok) return;
+        if (!response.ok) {
+          // Clear suggestions on error response (path doesn't exist, not allowed, etc.)
+          if (active) {
+            setSuggestions([]);
+          }
+          return;
+        }
         const data = (await response.json()) as { suggestions?: string[] };
         if (active) {
           const suggestionsList = Array.isArray(data?.suggestions)
@@ -101,8 +107,15 @@ export function usePathSuggestions(
           setSuggestions(suggestionsList);
           // Don't automatically show suggestions - let the component control visibility based on focus
         }
-      } catch {
-        // Ignore suggest errors
+      } catch (err) {
+        // Ignore AbortError (expected when request is cancelled)
+        if (err instanceof Error && err.name === "AbortError") {
+          return;
+        }
+        // For other errors, clear suggestions gracefully
+        if (active) {
+          setSuggestions([]);
+        }
       }
     };
 

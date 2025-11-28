@@ -149,20 +149,23 @@ def update_ingest_config(
     """
     config_service = IngestConfigService(session)
 
-    # Check if settings that require watcher restart are being changed
-    update_dict = config_update.model_dump(exclude_unset=True)
-    requires_restart = "ingest_dir" in update_dict or "enabled" in update_dict
-
-    # Get old config values for comparison
+    # Get old config values for comparison before updating
     old_config = config_service.get_config()
     old_enabled = old_config.enabled
     old_ingest_dir = old_config.ingest_dir
 
     # Update configuration
+    update_dict = config_update.model_dump(exclude_unset=True)
     config = config_service.update_config(**update_dict)
 
-    # Restart watcher if needed
-    if requires_restart:
+    # Only restart watcher if values actually changed
+    # This prevents unnecessary restarts when user is typing (debounced saves with same values)
+    enabled_changed = "enabled" in update_dict and old_enabled != config.enabled
+    ingest_dir_changed = (
+        "ingest_dir" in update_dict and old_ingest_dir != config.ingest_dir
+    )
+
+    if enabled_changed or ingest_dir_changed:
         watcher = _get_ingest_watcher(request)
         if watcher:
             try:

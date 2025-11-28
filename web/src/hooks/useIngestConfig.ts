@@ -86,7 +86,27 @@ export function useIngestConfig(): UseIngestConfigReturn {
       return;
     }
 
-    const updatesToSave = { ...updates };
+    // Filter out blank/null string values before saving
+    // This prevents submitting empty values that the backend doesn't accept
+    const updatesToSave: Partial<IngestConfigUpdate> = {};
+    for (const [key, value] of Object.entries(updates)) {
+      // Skip null/undefined values
+      if (value === null || value === undefined) {
+        continue;
+      }
+      // Skip empty strings for string fields
+      if (typeof value === "string" && value.trim() === "") {
+        continue;
+      }
+      (updatesToSave as Record<string, unknown>)[key] = value;
+    }
+
+    // If all updates were filtered out, don't make the API call
+    if (Object.keys(updatesToSave).length === 0) {
+      pendingUpdatesRef.current = {};
+      return;
+    }
+
     pendingUpdatesRef.current = {};
     setIsSaving(true);
     setError(null);
