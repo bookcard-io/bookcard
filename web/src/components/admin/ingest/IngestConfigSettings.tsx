@@ -15,7 +15,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AVAILABLE_METADATA_PROVIDERS,
   PROVIDER_NAME_TO_ID,
@@ -23,6 +23,7 @@ import {
 import { ToggleButtonGroup } from "@/components/profile/ToggleButtonGroup";
 import { useIngestConfig } from "@/hooks/useIngestConfig";
 import { useMultiSelect } from "@/hooks/useMultiSelect";
+import { cn } from "@/libs/utils";
 import { PathInputWithSuggestions } from "../library/PathInputWithSuggestions";
 
 /**
@@ -73,6 +74,48 @@ export function IngestConfigSettings() {
     updateField: updateConfigField,
     error,
   } = useIngestConfig();
+
+  // Local state for ingest_dir to prevent debounced auto-save
+  const [ingestDirValue, setIngestDirValue] = useState<string>("");
+  // Track if the ingest_dir input is focused
+  const [isIngestDirFocused, setIsIngestDirFocused] = useState(false);
+  const ingestDirContainerRef = useRef<HTMLDivElement>(null);
+
+  // Sync local state when config changes externally
+  useEffect(() => {
+    if (config?.ingest_dir !== undefined) {
+      setIngestDirValue(config.ingest_dir);
+    }
+  }, [config?.ingest_dir]);
+
+  // Monitor focus changes
+  useEffect(() => {
+    const handleFocusIn = (e: FocusEvent) => {
+      if (
+        ingestDirContainerRef.current?.contains(e.target as Node) &&
+        (e.target as HTMLElement).tagName === "INPUT"
+      ) {
+        setIsIngestDirFocused(true);
+      }
+    };
+
+    const handleFocusOut = (e: FocusEvent) => {
+      if (
+        ingestDirContainerRef.current &&
+        !ingestDirContainerRef.current.contains(e.relatedTarget as Node)
+      ) {
+        setIsIngestDirFocused(false);
+      }
+    };
+
+    document.addEventListener("focusin", handleFocusIn);
+    document.addEventListener("focusout", handleFocusOut);
+
+    return () => {
+      document.removeEventListener("focusin", handleFocusIn);
+      document.removeEventListener("focusout", handleFocusOut);
+    };
+  }, []);
 
   // Convert provider IDs from config to display names for UI
   const selectedProviderNames = useMemo(() => {
@@ -163,15 +206,61 @@ export function IngestConfigSettings() {
               >
                 Watch Directory
               </label>
-              <PathInputWithSuggestions
-                value={config.ingest_dir}
-                onChange={(value) => {
-                  updateConfigField("ingest_dir", value);
-                }}
-                onSubmit={() => {
-                  // No-op: changes are auto-saved via updateField
-                }}
-              />
+              <div ref={ingestDirContainerRef} className="flex gap-2">
+                <PathInputWithSuggestions
+                  value={ingestDirValue}
+                  onChange={(value) => {
+                    setIngestDirValue(value);
+                  }}
+                  onSubmit={() => {
+                    // No-op: changes are saved via Okay button
+                  }}
+                />
+                {isIngestDirFocused && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateConfigField("ingest_dir", ingestDirValue);
+                      }}
+                      disabled={ingestDirValue === config?.ingest_dir}
+                      className={cn(
+                        "flex items-center justify-center px-4 py-2",
+                        "rounded-md border border-primary-a20 bg-primary-a0",
+                        "font-medium text-[var(--color-text-primary-a0)] text-sm",
+                        "transition-[background-color_0.2s,opacity_0.2s]",
+                        "hover:bg-primary-a10",
+                        "disabled:cursor-not-allowed disabled:opacity-50",
+                        "focus:outline-none focus:ring-2 focus:ring-primary-a0 focus:ring-offset-2",
+                      )}
+                    >
+                      Okay
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // Revert to the latest config value (source of truth)
+                        if (config?.ingest_dir !== undefined) {
+                          setIngestDirValue(config.ingest_dir);
+                        }
+                      }}
+                      disabled={ingestDirValue === config?.ingest_dir}
+                      className={cn(
+                        "flex items-center justify-center px-4 py-2",
+                        "rounded-md border border-surface-a30 bg-surface-a10",
+                        "font-medium text-sm text-text-a0",
+                        "transition-[background-color_0.2s,opacity_0.2s]",
+                        "hover:bg-surface-a20",
+                        "disabled:cursor-not-allowed disabled:opacity-50",
+                        "focus:outline-none focus:ring-2 focus:ring-primary-a0 focus:ring-offset-2",
+                      )}
+                      aria-label="Cancel"
+                    >
+                      <i className="pi pi-times" aria-hidden="true" />
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Enabled Toggle */}
