@@ -154,6 +154,14 @@ class DramatiqTaskRunner(TaskRunner):
         self._engine = engine
         self._redis_url = redis_url
         self._broker = RedisBroker(url=redis_url)
+
+        # Remove default TimeLimit and ShutdownNotifications to avoid duplicates
+        self._broker.middleware = [
+            m
+            for m in self._broker.middleware
+            if not isinstance(m, (TimeLimit, ShutdownNotifications))
+        ]
+
         self._broker.add_middleware(TimeLimit(time_limit=3600000))  # 1 hour max
         self._broker.add_middleware(ShutdownNotifications())
         dramatiq.set_broker(self._broker)
