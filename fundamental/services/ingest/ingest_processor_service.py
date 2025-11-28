@@ -548,8 +548,10 @@ class IngestProcessorService:
         """
         if self._metadata_fetch_service is None:
             enabled_providers = self._config_service.get_enabled_providers()
+            merge_strategy = self._config_service.get_merge_strategy()
             self._metadata_fetch_service = MetadataFetchService.create_default(
                 enabled_providers=enabled_providers,
+                merge_strategy=merge_strategy,
             )
         return self._metadata_fetch_service
 

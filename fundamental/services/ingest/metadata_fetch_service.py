@@ -26,6 +26,7 @@ import logging
 
 from fundamental.models.metadata import MetadataRecord  # noqa: TC001
 from fundamental.services.ingest.metadata_merger import (
+    MergeStrategy,
     MetadataMerger,
     ScoredMetadataRecord,
 )
@@ -86,6 +87,7 @@ class MetadataFetchService:
         enabled_providers: list[str] | None = None,
         provider_weights: dict[str, float] | None = None,
         scoring_config: ScoringConfig | None = None,
+        merge_strategy: MergeStrategy | str | None = None,
     ) -> MetadataFetchService:
         """Create service with default dependencies.
 
@@ -100,6 +102,8 @@ class MetadataFetchService:
             Optional provider weights for scoring.
         scoring_config : ScoringConfig | None
             Optional scoring configuration.
+        merge_strategy : MergeStrategy | str | None
+            Optional merge strategy (default: MERGE_BEST).
 
         Returns
         -------
@@ -110,7 +114,7 @@ class MetadataFetchService:
         scorer = MetadataScorer(
             config=scoring_config, provider_weights=provider_weights
         )
-        merger = MetadataMerger()
+        merger = MetadataMerger(strategy=merge_strategy or MergeStrategy.MERGE_BEST)
         return cls(
             metadata_service=metadata_service,
             scorer=scorer,

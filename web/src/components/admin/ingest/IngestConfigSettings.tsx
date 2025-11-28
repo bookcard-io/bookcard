@@ -137,6 +137,7 @@ export function IngestConfigSettings() {
                 <option value="merge_best">Merge Best</option>
                 <option value="first_wins">First Wins</option>
                 <option value="last_wins">Last Wins</option>
+                <option value="merge_all">Merge All</option>
               </select>
             </div>
 

@@ -177,3 +177,16 @@ class IngestConfigService:
         if isinstance(config.ignore_patterns, list):
             return config.ignore_patterns
         return []
+
+    def get_merge_strategy(self) -> str:
+        """Get metadata merge strategy.
+
+        Returns
+        -------
+        str
+            Merge strategy name (e.g., "merge_best", "first_wins", etc.).
+        """
+        config = self.get_config()
+        if config.metadata_merge_strategy:
+            return config.metadata_merge_strategy
+        return "merge_best"

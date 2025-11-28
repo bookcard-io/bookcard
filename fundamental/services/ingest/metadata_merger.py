@@ -21,8 +21,30 @@ Follows DRY by consolidating duplicate merge patterns.
 """
 
 from dataclasses import dataclass
+from enum import StrEnum
 
 from fundamental.models.metadata import MetadataRecord
+
+
+class MergeStrategy(StrEnum):
+    """Metadata merge strategy.
+
+    Attributes
+    ----------
+    MERGE_BEST : str
+        Merge from high-scoring records (within threshold of best).
+    FIRST_WINS : str
+        Use only the first (highest-scoring) record.
+    LAST_WINS : str
+        Use only the last (lowest-scoring) record.
+    MERGE_ALL : str
+        Merge from all records regardless of score.
+    """
+
+    MERGE_BEST = "merge_best"
+    FIRST_WINS = "first_wins"
+    LAST_WINS = "last_wins"
+    MERGE_ALL = "merge_all"
 
 
 @dataclass
@@ -48,15 +70,29 @@ class MetadataMerger:
     Separates merging concerns from fetching/scoring logic.
     """
 
-    def __init__(self, score_threshold_ratio: float = 0.8) -> None:
+    def __init__(
+        self,
+        strategy: MergeStrategy | str = MergeStrategy.MERGE_BEST,
+        score_threshold_ratio: float = 0.8,
+    ) -> None:
         """Initialize metadata merger.
 
         Parameters
         ----------
+        strategy : MergeStrategy | str
+            Merge strategy to use (default: MERGE_BEST).
         score_threshold_ratio : float
             Only merge from records with score within this ratio of best
             (default: 0.8, meaning 80% of best score).
+            Only used for MERGE_BEST strategy.
         """
+        if isinstance(strategy, str):
+            try:
+                self._strategy = MergeStrategy(strategy)
+            except ValueError:
+                self._strategy = MergeStrategy.MERGE_BEST
+        else:
+            self._strategy = strategy
         self._score_threshold_ratio = score_threshold_ratio
 
     def merge(
@@ -65,8 +101,7 @@ class MetadataMerger:
     ) -> MetadataRecord:
         """Merge metadata from multiple scored records.
 
-        Uses highest-scoring record as base, then merges fields from
-        other high-scoring records.
+        Uses strategy-specific logic to merge records.
 
         Parameters
         ----------
@@ -87,6 +122,31 @@ class MetadataMerger:
             msg = "Cannot merge empty record list"
             raise ValueError(msg)
 
+        if self._strategy == MergeStrategy.FIRST_WINS:
+            return self._merge_first_wins(scored_records)
+        if self._strategy == MergeStrategy.LAST_WINS:
+            return self._merge_last_wins(scored_records)
+        if self._strategy == MergeStrategy.MERGE_ALL:
+            return self._merge_all(scored_records)
+        # Default strategy is MERGE_BEST
+        return self._merge_best(scored_records)
+
+    def _merge_best(self, scored_records: list[ScoredMetadataRecord]) -> MetadataRecord:
+        """Merge using best strategy (high-scoring records only).
+
+        Uses highest-scoring record as base, then merges fields from
+        other high-scoring records within threshold.
+
+        Parameters
+        ----------
+        scored_records : list[ScoredMetadataRecord]
+            List of scored metadata records (should be sorted by score).
+
+        Returns
+        -------
+        MetadataRecord
+            Merged metadata record.
+        """
         # Use highest-scoring record as base
         best_record = scored_records[0].record
         merged = self._initialize_merged_record(best_record)
@@ -97,6 +157,70 @@ class MetadataMerger:
             # Only merge from records with score within threshold of best
             if scored.score < best_score * self._score_threshold_ratio:
                 break
+            self._merge_record_into_merged(scored.record, merged)
+
+        return merged
+
+    def _merge_first_wins(
+        self, scored_records: list[ScoredMetadataRecord]
+    ) -> MetadataRecord:
+        """Merge using first wins strategy (first record only).
+
+        Uses only the first (highest-scoring) record.
+
+        Parameters
+        ----------
+        scored_records : list[ScoredMetadataRecord]
+            List of scored metadata records (should be sorted by score).
+
+        Returns
+        -------
+        MetadataRecord
+            First metadata record.
+        """
+        return self._initialize_merged_record(scored_records[0].record)
+
+    def _merge_last_wins(
+        self, scored_records: list[ScoredMetadataRecord]
+    ) -> MetadataRecord:
+        """Merge using last wins strategy (last record only).
+
+        Uses only the last (lowest-scoring) record.
+
+        Parameters
+        ----------
+        scored_records : list[ScoredMetadataRecord]
+            List of scored metadata records (should be sorted by score).
+
+        Returns
+        -------
+        MetadataRecord
+            Last metadata record.
+        """
+        return self._initialize_merged_record(scored_records[-1].record)
+
+    def _merge_all(self, scored_records: list[ScoredMetadataRecord]) -> MetadataRecord:
+        """Merge using merge all strategy (all records).
+
+        Uses highest-scoring record as base, then merges fields from
+        all other records regardless of score.
+
+        Parameters
+        ----------
+        scored_records : list[ScoredMetadataRecord]
+            List of scored metadata records (should be sorted by score).
+
+        Returns
+        -------
+        MetadataRecord
+            Merged metadata record.
+        """
+        # Use highest-scoring record as base
+        best_record = scored_records[0].record
+        merged = self._initialize_merged_record(best_record)
+
+        # Merge from all other records
+        for scored in scored_records[1:]:
             self._merge_record_into_merged(scored.record, merged)
 
         return merged
