@@ -276,7 +276,7 @@ def test_closure_function_calls_execute_task_actor(
         mock_thread.is_alive.return_value = False
         mock_thread_class.return_value = mock_thread
 
-        DramatiqTaskRunner(
+        runner = DramatiqTaskRunner(
             engine=mock_engine,
             redis_url="redis://localhost:6379/0",
         )
@@ -292,14 +292,16 @@ def test_closure_function_calls_execute_task_actor(
         )
 
         # Verify _execute_task_actor was called with correct arguments
-        mock_execute.assert_called_once_with(
-            1,
-            1,
-            TaskType.BOOK_UPLOAD.value,
-            {"key": "value"},
-            {"meta": "data"},
-            mock_engine,
-        )
+        # The closure passes self.enqueue as the enqueue_callback parameter
+        mock_execute.assert_called_once()
+        call_args = mock_execute.call_args
+        assert call_args[0][0] == 1  # task_id
+        assert call_args[0][1] == 1  # user_id
+        assert call_args[0][2] == TaskType.BOOK_UPLOAD.value  # task_type
+        assert call_args[0][3] == {"key": "value"}  # payload
+        assert call_args[0][4] == {"meta": "data"}  # metadata
+        assert call_args[0][5] == mock_engine  # engine
+        assert call_args[0][6] == runner.enqueue  # enqueue_callback
 
 
 # ============================================================================

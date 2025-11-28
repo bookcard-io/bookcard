@@ -125,6 +125,7 @@ def test_create_app_lifespan_with_alembic_enabled() -> None:
         patch("fundamental.api.main._AlembicConfig") as mock_config_class,
         patch("fundamental.api.main._alembic_command") as mock_command,
         patch("asyncio.to_thread") as mock_to_thread,
+        patch("fundamental.api.main._initialize_ingest_watcher") as mock_init_watcher,
     ):
         mock_config = MagicMock()
         mock_config_class.return_value = mock_config
@@ -168,6 +169,7 @@ def test_create_app_lifespan_with_alembic_enabled() -> None:
 def test_create_app_lifespan_without_alembic() -> None:
     """Test that lifespan skips alembic when disabled."""
     import asyncio
+    from unittest.mock import patch
 
     config = AppConfig(
         jwt_secret="test-secret",
@@ -179,21 +181,22 @@ def test_create_app_lifespan_without_alembic() -> None:
         alembic_enabled=False,
     )
 
-    app = create_app(config)
+    with patch("fundamental.api.main._initialize_ingest_watcher") as mock_init_watcher:
+        app = create_app(config)
 
-    # Initialize required state attributes for shutdown
-    app.state.ingest_watcher = None
-    app.state.scheduler = None
-    app.state.scan_worker_manager = None
-    app.state.task_runner = None
+        # Initialize required state attributes for shutdown
+        app.state.ingest_watcher = None
+        app.state.scheduler = None
+        app.state.scan_worker_manager = None
+        app.state.task_runner = None
 
-    async def run_lifespan() -> None:
-        if app.router.lifespan_context:  # type: ignore[attr-defined]
-            async with app.router.lifespan_context(app):  # type: ignore[attr-defined]
-                pass
+        async def run_lifespan() -> None:
+            if app.router.lifespan_context:  # type: ignore[attr-defined]
+                async with app.router.lifespan_context(app):  # type: ignore[attr-defined]
+                    pass
 
-    # Should not raise any errors
-    asyncio.run(run_lifespan())
+        # Should not raise any errors
+        asyncio.run(run_lifespan())
 
 
 def test_register_routers() -> None:
