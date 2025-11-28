@@ -88,6 +88,10 @@ class IngestBookTask(BaseTask):
                 context,
             )
 
+            # Check if any books were successfully processed
+            if not book_ids:
+                self._handle_no_books_processed(processor_service, history_id, context)
+
             # Finalize processing (delegates persistence to service)
             processor_service.finalize_history(history_id, book_ids)
             context.update_progress(1.0, {"book_ids": book_ids})
@@ -424,6 +428,40 @@ class IngestBookTask(BaseTask):
             logger.info("Deleted source file: %s", file_path)
         except (OSError, PermissionError) as e:
             logger.warning("Failed to delete source file %s: %s", file_path, e)
+
+    def _handle_no_books_processed(
+        self,
+        processor_service: IngestProcessorService,
+        history_id: int,
+        context: WorkerContext,
+    ) -> None:
+        """Handle case where no books were successfully processed.
+
+        Parameters
+        ----------
+        processor_service : IngestProcessorService
+            Processor service for status updates.
+        history_id : int
+            Ingest history ID.
+        context : WorkerContext
+            Worker context for progress updates.
+
+        Raises
+        ------
+        RuntimeError
+            Always raised to signal task failure.
+        """
+        error_msg = "No books were successfully processed. All files failed to ingest."
+        logger.warning(
+            "Ingest book task failed: history_id=%d, reason=%s",
+            history_id,
+            error_msg,
+        )
+        processor_service.update_history_status(
+            history_id, IngestStatus.FAILED, error_msg
+        )
+        context.update_progress(1.0, {"book_ids": [], "error": error_msg})
+        raise RuntimeError(error_msg)
 
     def _handle_cancellation(
         self, processor_service: IngestProcessorService, history_id: int
