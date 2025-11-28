@@ -84,4 +84,6 @@ class WorkerContext:
     session: Session  # type: ignore[type-arg]
     update_progress: ProgressCallback
     task_service: TaskServiceProtocol
-    enqueue_task: EnqueueTaskCallback
+
+    # used to enqueue child tasks (e.g. IngestBookTask)
+    enqueue_task: EnqueueTaskCallback | None = None
