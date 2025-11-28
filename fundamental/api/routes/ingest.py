@@ -124,13 +124,19 @@ def get_ingest_config(
     dependencies=[Depends(get_admin_user)],
 )
 def update_ingest_config(
+    request: Request,
     session: SessionDep,
     config_update: IngestConfigUpdate,
 ) -> IngestConfigResponse:
     """Update ingest configuration.
 
+    Automatically restarts the ingest watcher if watch directory or
+    enabled flag changes, so changes take effect immediately.
+
     Parameters
     ----------
+    request : Request
+        FastAPI request object.
     session : SessionDep
         Database session dependency.
     config_update : IngestConfigUpdate
@@ -142,8 +148,41 @@ def update_ingest_config(
         Updated configuration.
     """
     config_service = IngestConfigService(session)
+
+    # Check if settings that require watcher restart are being changed
     update_dict = config_update.model_dump(exclude_unset=True)
+    requires_restart = "ingest_dir" in update_dict or "enabled" in update_dict
+
+    # Get old config values for comparison
+    old_config = config_service.get_config()
+    old_enabled = old_config.enabled
+    old_ingest_dir = old_config.ingest_dir
+
+    # Update configuration
     config = config_service.update_config(**update_dict)
+
+    # Restart watcher if needed
+    if requires_restart:
+        watcher = _get_ingest_watcher(request)
+        if watcher:
+            try:
+                watcher.restart_watching()
+                logger.info(
+                    "Restarted ingest watcher after config update (enabled: %s -> %s, dir: %s -> %s)",
+                    old_enabled,
+                    config.enabled,
+                    old_ingest_dir,
+                    config.ingest_dir,
+                )
+            except (ValueError, RuntimeError, OSError) as e:
+                logger.warning(
+                    "Failed to restart ingest watcher after config update: %s", e
+                )
+        else:
+            logger.info(
+                "Ingest watcher not available, config updated but watcher not restarted"
+            )
+
     return IngestConfigResponse.model_validate(config)
 
 
@@ -241,6 +280,54 @@ def get_ingest_history(
         )
 
     return IngestHistoryResponse.model_validate(history)
+
+
+@router.post(
+    "/watcher/restart",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(get_admin_user)],
+)
+def restart_watcher(
+    request: Request,
+) -> dict[str, str]:
+    """Manually restart the ingest watcher.
+
+    Restarts the watcher with current configuration. Useful if you need
+    to reload watcher settings without changing configuration.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+
+    Returns
+    -------
+    dict[str, str]
+        Success message.
+
+    Raises
+    ------
+    HTTPException
+        If watcher not available.
+    """
+    watcher = _get_ingest_watcher(request)
+    if not watcher:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Ingest watcher not available",
+        )
+
+    try:
+        watcher.restart_watching()
+        logger.info("Manually restarted ingest watcher")
+    except (ValueError, RuntimeError, OSError) as e:
+        logger.warning("Failed to restart ingest watcher: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to restart watcher: {e}",
+        ) from e
+    else:
+        return {"message": "Ingest watcher restarted successfully"}
 
 
 @router.post(

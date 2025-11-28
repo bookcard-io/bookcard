@@ -162,6 +162,25 @@ class IngestWatcherService:
         self._poll_thread = None
         logger.info("Ingest watcher stopped")
 
+    def restart_watching(self) -> None:
+        """Restart watching with current configuration.
+
+        Stops the current watcher, re-reads configuration, and starts
+        watching again. Useful when configuration changes (e.g., watch
+        directory or enabled flag).
+
+        This method is safe to call even if the watcher is not running.
+        """
+        logger.info("Restarting ingest watcher")
+        # Stop current watcher if running
+        self.stop_watching()
+        # Wait a brief moment to ensure threads are fully stopped
+        import time
+
+        time.sleep(0.5)
+        # Start watching again (will read fresh config)
+        self.start_watching()
+
     def _watch_loop(self, ingest_dir: Path) -> None:
         """Run main watch loop.
 
