@@ -125,7 +125,7 @@ def test_create_app_lifespan_with_alembic_enabled() -> None:
         patch("fundamental.api.main._AlembicConfig") as mock_config_class,
         patch("fundamental.api.main._alembic_command") as mock_command,
         patch("asyncio.to_thread") as mock_to_thread,
-        patch("fundamental.api.main._initialize_ingest_watcher") as mock_init_watcher,
+        patch("fundamental.api.main._initialize_ingest_watcher"),
     ):
         mock_config = MagicMock()
         mock_config_class.return_value = mock_config
@@ -181,7 +181,7 @@ def test_create_app_lifespan_without_alembic() -> None:
         alembic_enabled=False,
     )
 
-    with patch("fundamental.api.main._initialize_ingest_watcher") as mock_init_watcher:
+    with patch("fundamental.api.main._initialize_ingest_watcher"):
         app = create_app(config)
 
         # Initialize required state attributes for shutdown
