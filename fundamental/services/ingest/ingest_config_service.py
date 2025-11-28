@@ -103,11 +103,6 @@ class IngestConfigService:
             if not isinstance(providers, list):
                 msg = "metadata_providers must be a list"
                 raise ValueError(msg)
-            valid_providers = ["google", "hardcover", "openlibrary"]
-            for provider in providers:
-                if provider not in valid_providers:
-                    msg = f"Invalid metadata provider: {provider}. Valid: {valid_providers}"
-                    raise ValueError(msg)
 
         return self._config_repo.update_config(**kwargs)
 

@@ -15,30 +15,116 @@
 
 "use client";
 
+import { useEffect, useMemo, useRef } from "react";
+import {
+  AVAILABLE_METADATA_PROVIDERS,
+  PROVIDER_NAME_TO_ID,
+} from "@/components/profile/config/configurationConstants";
+import { ToggleButtonGroup } from "@/components/profile/ToggleButtonGroup";
 import { useIngestConfig } from "@/hooks/useIngestConfig";
-import { useBlurAfterClick } from "@/components/profile/BlurAfterClickContext";
+import { useMultiSelect } from "@/hooks/useMultiSelect";
 import { PathInputWithSuggestions } from "../library/PathInputWithSuggestions";
 
 /**
- * Ingest configuration settings component.
+ * Convert provider IDs to display names.
  *
- * Manages ingest service configuration including watch directory, metadata
- * providers, retry settings, and processing options.
+ * Parameters
+ * ----------
+ * providerIds : string[]
+ *     List of provider IDs.
  *
- * Follows SOLID principles:
- * - SRP: Delegates business logic to useIngestConfig hook
- * - IOC: Uses dependency injection via hook callbacks
- * - SOC: Separates concerns into hook layer and UI layer
- * - DRY: Reuses form components and centralizes state management
+ * Returns
+ * -------
+ * string[]
+ *     List of provider display names.
  */
+function convertProviderIdsToNames(providerIds: string[]): string[] {
+  const idToName = Object.fromEntries(
+    Object.entries(PROVIDER_NAME_TO_ID).map(([name, id]) => [id, name]),
+  );
+  return providerIds
+    .map((id) => idToName[id])
+    .filter((name): name is string => name !== undefined);
+}
+
+/**
+ * Convert provider display names to IDs.
+ *
+ * Parameters
+ * ----------
+ * providerNames : string[]
+ *     List of provider display names.
+ *
+ * Returns
+ * -------
+ * string[]
+ *     List of provider IDs.
+ */
+function convertProviderNamesToIds(providerNames: string[]): string[] {
+  return providerNames
+    .map((name) => PROVIDER_NAME_TO_ID[name])
+    .filter((id): id is string => id !== undefined);
+}
+
 export function IngestConfigSettings() {
-  const { onBlurChange } = useBlurAfterClick();
   const {
     config,
     isLoading: isConfigLoading,
     updateField: updateConfigField,
     error,
   } = useIngestConfig();
+
+  // Convert provider IDs from config to display names for UI
+  const selectedProviderNames = useMemo(() => {
+    if (!config?.metadata_providers) {
+      return [];
+    }
+    return convertProviderIdsToNames(config.metadata_providers);
+  }, [config?.metadata_providers]);
+
+  // Track if update is from user action to prevent circular updates
+  const isUserActionRef = useRef(false);
+
+  // Manage multi-select state for provider names
+  const { selected, toggle, setSelected } = useMultiSelect<string>({
+    initialSelected: selectedProviderNames,
+    onSelectionChange: (newSelected) => {
+      // Only update config if this is a user action
+      if (isUserActionRef.current) {
+        // Convert display names back to IDs and update config
+        const providerIds = convertProviderNamesToIds(newSelected);
+        updateConfigField("metadata_providers", providerIds);
+        isUserActionRef.current = false;
+      }
+    },
+  });
+
+  // Create stable string representation for dependency comparison
+  const selectedProviderNamesStr = useMemo(
+    () => [...selectedProviderNames].sort().join(","),
+    [selectedProviderNames],
+  );
+  const selectedStr = useMemo(() => [...selected].sort().join(","), [selected]);
+
+  // Sync selected state when config changes externally
+  useEffect(() => {
+    // Only update if values are different
+    if (selectedStr !== selectedProviderNamesStr) {
+      isUserActionRef.current = false;
+      setSelected(selectedProviderNames);
+    }
+  }, [
+    selectedProviderNamesStr,
+    selectedStr,
+    selectedProviderNames,
+    setSelected,
+  ]);
+
+  // Wrap toggle to mark as user action
+  const handleToggle = (providerName: string) => {
+    isUserActionRef.current = true;
+    toggle(providerName);
+  };
 
   if (isConfigLoading) {
     return (
@@ -67,9 +153,7 @@ export function IngestConfigSettings() {
       <div className="flex flex-col gap-6">
         {/* Basic Settings */}
         <div className="flex flex-col gap-4">
-          <h3 className="font-semibold text-lg text-text-a0">
-            Basic Settings
-          </h3>
+          <h3 className="font-semibold text-lg text-text-a0">Basic Settings</h3>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {/* Watch Directory */}
             <div className="flex flex-col gap-2">
@@ -95,9 +179,9 @@ export function IngestConfigSettings() {
               <input
                 type="checkbox"
                 checked={config.enabled}
-                onChange={onBlurChange((e) => {
+                onChange={(e) => {
                   updateConfigField("enabled", e.target.checked);
-                })}
+                }}
                 className="mt-0.5 h-4 w-4 cursor-pointer rounded border-surface-a20 text-primary-a0 accent-[var(--color-primary-a0)] focus:ring-2 focus:ring-primary-a0"
               />
               <div className="flex flex-col gap-1">
@@ -140,34 +224,20 @@ export function IngestConfigSettings() {
                 <option value="merge_all">Merge All</option>
               </select>
             </div>
-
-            {/* Auto Delete After Ingest */}
-            <label className="flex cursor-pointer items-start gap-3 rounded-md border border-surface-a20 bg-surface-tonal-a0 p-4 transition-colors hover:border-surface-a30">
-              <input
-                type="checkbox"
-                checked={config.auto_delete_after_ingest}
-                onChange={onBlurChange((e) => {
-                  updateConfigField("auto_delete_after_ingest", e.target.checked);
-                })}
-                className="mt-0.5 h-4 w-4 cursor-pointer rounded border-surface-a20 text-primary-a0 accent-[var(--color-primary-a0)] focus:ring-2 focus:ring-primary-a0"
-              />
-              <div className="flex flex-col gap-1">
-                <span className="font-medium text-sm text-text-a10">
-                  Auto Delete After Ingest
-                </span>
-                <span className="text-text-a30 text-xs">
-                  Delete source files after successful ingest.
-                </span>
-              </div>
-            </label>
           </div>
+
+          {/* Metadata Providers */}
+          <ToggleButtonGroup
+            label="Metadata Providers"
+            options={[...AVAILABLE_METADATA_PROVIDERS]}
+            selected={selected}
+            onToggle={handleToggle}
+          />
         </div>
 
         {/* Retry Settings */}
         <div className="flex flex-col gap-4">
-          <h3 className="font-semibold text-lg text-text-a0">
-            Retry Settings
-          </h3>
+          <h3 className="font-semibold text-lg text-text-a0">Retry Settings</h3>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {/* Max Attempts */}
             <div className="flex flex-col gap-2">

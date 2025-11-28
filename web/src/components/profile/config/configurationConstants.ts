@@ -43,6 +43,22 @@ export const AVAILABLE_METADATA_PROVIDERS = [
   "OpenLibrary",
 ] as const;
 
+/**
+ * Mapping from display names to provider IDs.
+ *
+ * Maps the display names used in the UI to the provider IDs used in the backend.
+ */
+export const PROVIDER_NAME_TO_ID: Record<string, string> = {
+  Hardcover: "hardcover",
+  "Google Books": "google",
+  Amazon: "amazon",
+  豆瓣: "douban",
+  "Google Scholar": "googlescholar",
+  "LubimyCzytac.pl": "lubimyczytac",
+  ComicVine: "comicvine",
+  OpenLibrary: "openlibrary",
+};
+
 export const DISPLAY_MODE_OPTIONS = [
   { value: "pagination", label: "Use pagination" },
   { value: "infinite-scroll", label: "Use infinite scroll" },

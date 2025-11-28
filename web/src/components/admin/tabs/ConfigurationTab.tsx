@@ -15,11 +15,11 @@
 
 "use client";
 
-import { LibraryManagement } from "../library/LibraryManagement";
-import { OpenLibrarySettings } from "../openlibrary/OpenLibrarySettings";
-import { IngestConfigSettings } from "../ingest/IngestConfigSettings";
 import { useCollapsibleSection } from "@/hooks/useCollapsibleSection";
 import { cn } from "@/libs/utils";
+import { IngestConfigSettings } from "../ingest/IngestConfigSettings";
+import { LibraryManagement } from "../library/LibraryManagement";
+import { OpenLibrarySettings } from "../openlibrary/OpenLibrarySettings";
 
 /**
  * Collapsible section wrapper component.
@@ -57,9 +57,7 @@ function CollapsibleSection({
         />
       </button>
       {isExpanded && (
-        <div className="border-t border-surface-a20 px-6 py-4">
-          {children}
-        </div>
+        <div className="border-surface-a20 border-t px-6 py-4">{children}</div>
       )}
     </div>
   );

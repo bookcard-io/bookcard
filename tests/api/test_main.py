@@ -143,6 +143,12 @@ def test_create_app_lifespan_with_alembic_enabled() -> None:
 
         app = create_app(config)
 
+        # Initialize required state attributes for shutdown
+        app.state.ingest_watcher = None
+        app.state.scheduler = None
+        app.state.scan_worker_manager = None
+        app.state.task_runner = None
+
         async def run_lifespan() -> None:
             if app.router.lifespan_context:  # type: ignore[attr-defined]
                 async with app.router.lifespan_context(app):  # type: ignore[attr-defined]
@@ -174,6 +180,12 @@ def test_create_app_lifespan_without_alembic() -> None:
     )
 
     app = create_app(config)
+
+    # Initialize required state attributes for shutdown
+    app.state.ingest_watcher = None
+    app.state.scheduler = None
+    app.state.scan_worker_manager = None
+    app.state.task_runner = None
 
     async def run_lifespan() -> None:
         if app.router.lifespan_context:  # type: ignore[attr-defined]
