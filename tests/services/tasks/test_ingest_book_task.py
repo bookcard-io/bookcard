@@ -415,8 +415,41 @@ class TestProcessFiles:
 class TestProcessSingleFile:
     """Test _process_single_file method."""
 
+    def test_delete_source_files_and_dirs_cleans_up_companions_and_directories(
+        self, tmp_path: Path
+    ) -> None:
+        """Ensure _delete_source_files_and_dirs deletes companions and empty dirs."""
+        # Layout: /Author/Book/book.epub, book.mobi, cover.jpg, metadata.opf
+        author_dir = tmp_path / "Author"
+        book_dir = author_dir / "Book"
+        book_dir.mkdir(parents=True)
+
+        main_file = book_dir / "book.epub"
+        main_file.write_bytes(b"epub")
+        mobi_file = book_dir / "book.mobi"
+        mobi_file.write_bytes(b"mobi")
+        cover_file = book_dir / "cover.jpg"
+        cover_file.write_bytes(b"cover")
+        opf_file = book_dir / "metadata.opf"
+        opf_file.write_bytes(b"opf")
+
+        task = IngestBookTask(task_id=1, user_id=1, metadata={"history_id": 123})
+
+        # Call internal helper directly
+        task._delete_source_files_and_dirs(main_file)
+
+        # All book-level files should be gone
+        assert not main_file.exists()
+        assert not mobi_file.exists()
+        assert not cover_file.exists()
+        assert not opf_file.exists()
+
+        # Book and Author directories should be removed as they are empty
+        assert not book_dir.exists()
+        assert not author_dir.exists()
+
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_file"
+        "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
     def test_process_single_file_with_auto_delete(
         self,
@@ -438,7 +471,7 @@ class TestProcessSingleFile:
         mock_delete.assert_called_once_with(temp_file)
 
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_file"
+        "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
     def test_process_single_file_without_auto_delete(
         self,
@@ -460,7 +493,7 @@ class TestProcessSingleFile:
         mock_delete.assert_not_called()
 
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_file"
+        "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
     def test_process_single_file_with_cover_url_in_fetched_metadata(
         self,
@@ -485,7 +518,7 @@ class TestProcessSingleFile:
         )
 
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_file"
+        "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
     def test_process_single_file_with_cover_url_in_metadata_hint(
         self,
@@ -510,7 +543,7 @@ class TestProcessSingleFile:
         )
 
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_file"
+        "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
     def test_process_single_file_cover_url_priority(
         self,
@@ -536,7 +569,7 @@ class TestProcessSingleFile:
         )
 
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_file"
+        "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
     def test_process_single_file_extracts_file_format(
         self,
@@ -556,7 +589,7 @@ class TestProcessSingleFile:
         assert call_kwargs["file_format"] == "epub"
 
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_file"
+        "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
     def test_process_single_file_no_extension(
         self,
@@ -699,31 +732,35 @@ class TestMergeMetadata:
         assert result == {}  # 0 is falsy, so it's skipped
 
 
-class TestDeleteSourceFile:
-    """Test _delete_source_file method."""
+class TestDeleteSourceFilesAndDirs:
+    """Test _delete_source_files_and_dirs method."""
 
-    def test_delete_source_file_success(
+    def test_delete_main_file_success(
         self, task: IngestBookTask, temp_file: Path
     ) -> None:
-        """Test _delete_source_file successfully deletes file."""
-        task._delete_source_file(temp_file)
+        """Test _delete_main_file successfully deletes file."""
+        task._delete_main_file(temp_file)
         assert not temp_file.exists()
 
-    def test_delete_source_file_oserror(self, task: IngestBookTask) -> None:
-        """Test _delete_source_file handles OSError gracefully."""
+    def test_delete_main_file_oserror(self, task: IngestBookTask) -> None:
+        """Test _delete_main_file handles OSError gracefully."""
         mock_path = MagicMock()
+        mock_path.exists.return_value = True
+        mock_path.is_file.return_value = True
         mock_path.unlink.side_effect = OSError("Permission denied")
 
-        task._delete_source_file(mock_path)
+        task._delete_main_file(mock_path)
 
         mock_path.unlink.assert_called_once()
 
-    def test_delete_source_file_permission_error(self, task: IngestBookTask) -> None:
-        """Test _delete_source_file handles PermissionError gracefully."""
+    def test_delete_main_file_permission_error(self, task: IngestBookTask) -> None:
+        """Test _delete_main_file handles PermissionError gracefully."""
         mock_path = MagicMock()
+        mock_path.exists.return_value = True
+        mock_path.is_file.return_value = True
         mock_path.unlink.side_effect = PermissionError("Permission denied")
 
-        task._delete_source_file(mock_path)
+        task._delete_main_file(mock_path)
 
         mock_path.unlink.assert_called_once()
 

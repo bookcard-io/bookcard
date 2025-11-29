@@ -344,7 +344,7 @@ class IngestBookTask(BaseTask):
 
         # Handle file deletion if configured (separate concern)
         if config.auto_delete_after_ingest:
-            self._delete_source_file(file_path)
+            self._delete_source_files_and_dirs(file_path)
 
         return book_id
 
@@ -494,19 +494,108 @@ class IngestBookTask(BaseTask):
 
         return result
 
-    def _delete_source_file(self, file_path: Path) -> None:
-        """Delete source file after processing.
+    def _delete_source_files_and_dirs(self, file_path: Path) -> None:
+        """Delete source book file, companion files, and empty parent directories.
+
+        This method is intentionally conservative and only removes:
+
+        - The main book file that was just processed.
+        - Companion files that belong to the same logical book:
+          all files in the same directory whose stem matches the main file,
+          plus common companion files such as ``cover.*`` and ``metadata.opf``.
+        - The immediate parent directory (``Book``) if it is empty after file
+          deletion.
+        - The parent of the parent directory (``Author``) if it is also empty.
 
         Parameters
         ----------
         file_path : Path
-            Path to file to delete.
+            Path to the primary book file that was ingested.
         """
+        book_dir = file_path.parent
+        author_dir = book_dir.parent
+
+        self._delete_main_file(file_path)
+        self._delete_companion_files(file_path, book_dir)
+        self._try_delete_empty_directory(book_dir, "book")
+        self._try_delete_empty_directory(author_dir, "author")
+
+    def _delete_main_file(self, file_path: Path) -> None:
+        """Delete the main book file.
+
+        Parameters
+        ----------
+        file_path : Path
+            Path to the main book file to delete.
+        """
+        if file_path.exists() and file_path.is_file():
+            try:
+                file_path.unlink()
+                logger.info("Deleted source file: %s", file_path)
+            except (OSError, PermissionError) as exc:
+                logger.warning("Failed to delete source file %s: %s", file_path, exc)
+
+    def _delete_companion_files(self, file_path: Path, book_dir: Path) -> None:
+        """Delete companion files belonging to the same book.
+
+        Parameters
+        ----------
+        file_path : Path
+            Path to the main book file.
+        book_dir : Path
+            Directory containing the book files.
+        """
+        if not book_dir.exists() or not book_dir.is_dir():
+            return
+
+        main_stem = file_path.stem
+        companion_suffixes = {".opf", ".jpg", ".jpeg", ".png", ".gif", ".webp"}
+
+        for child in book_dir.iterdir():
+            if not child.is_file():
+                continue
+
+            is_matching_stem = child.stem == main_stem
+            is_cover = (
+                child.stem == "cover" and child.suffix.lower() in companion_suffixes
+            )
+            is_metadata = child.name.lower() == "metadata.opf"
+
+            if not (is_matching_stem or is_cover or is_metadata):
+                continue
+
+            try:
+                child.unlink()
+                logger.info("Deleted companion ingest file: %s", child)
+            except (OSError, PermissionError) as exc:
+                logger.warning("Failed to delete companion file %s: %s", child, exc)
+
+    def _try_delete_empty_directory(self, directory: Path, dir_type: str) -> None:
+        """Attempt to delete an empty directory.
+
+        Parameters
+        ----------
+        directory : Path
+            Directory to delete if empty.
+        dir_type : str
+            Type of directory (e.g., "book", "author") for logging.
+        """
+        if not directory.exists() or not directory.is_dir():
+            return
+
         try:
-            file_path.unlink()
-            logger.info("Deleted source file: %s", file_path)
-        except (OSError, PermissionError) as e:
-            logger.warning("Failed to delete source file %s: %s", file_path, e)
+            remaining_items = [
+                item for item in directory.iterdir() if item.name not in (".", "..")
+            ]
+            if not remaining_items:
+                directory.rmdir()
+                logger.info(
+                    "Deleted empty ingest %s directory: %s", dir_type, directory
+                )
+        except (OSError, PermissionError) as exc:
+            logger.warning(
+                "Failed to delete ingest %s directory %s: %s", dir_type, directory, exc
+            )
 
     def _handle_no_books_processed(
         self,
