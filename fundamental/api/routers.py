@@ -32,6 +32,7 @@ from fundamental.api.routes.fs import router as fs_router
 from fundamental.api.routes.ingest import router as ingest_router
 from fundamental.api.routes.library_scanning import router as library_scanning_router
 from fundamental.api.routes.metadata import router as metadata_router
+from fundamental.api.routes.opds import router as opds_router
 from fundamental.api.routes.reading import router as reading_router
 from fundamental.api.routes.shelves import router as shelves_router
 from fundamental.api.routes.tasks import router as tasks_router
@@ -48,6 +49,7 @@ ROUTERS: list[APIRouter] = [
     ingest_router,
     library_scanning_router,
     metadata_router,
+    opds_router,
     reading_router,
     shelves_router,
     tasks_router,

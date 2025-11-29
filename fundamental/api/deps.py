@@ -31,8 +31,9 @@ from fundamental.repositories.user_repository import (
     TokenBlacklistRepository,
     UserRepository,
 )
+from fundamental.services.opds.auth_service import OpdsAuthService
 from fundamental.services.permission_service import PermissionService
-from fundamental.services.security import JWTManager, SecurityTokenError
+from fundamental.services.security import JWTManager, PasswordHasher, SecurityTokenError
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -227,3 +228,38 @@ def require_permission(
         )
 
     return permission_checker
+
+
+def get_opds_user(
+    request: Request,
+    session: Annotated[Session, Depends(get_db_session)],
+) -> User | None:
+    """Authenticate request via HTTP Basic Auth or JWT for OPDS feeds.
+
+    Supports both HTTP Basic Auth (for e-reader compatibility) and
+    JWT Bearer tokens (for web clients). Returns None if authentication fails.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+    session : Session
+        Database session.
+
+    Returns
+    -------
+    User | None
+        Authenticated user or None if authentication fails.
+    """
+    user_repo = UserRepository(session)
+    hasher = PasswordHasher()
+    jwt_mgr = JWTManager(request.app.state.config)
+
+    auth_service = OpdsAuthService(
+        session=session,
+        user_repo=user_repo,
+        hasher=hasher,
+        jwt_manager=jwt_mgr,
+    )
+
+    return auth_service.authenticate_request(request)
