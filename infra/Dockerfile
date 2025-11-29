@@ -55,9 +55,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install runtime dependencies
+# Install runtime dependencies including gosu for user switching
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy virtual environment from builder
@@ -131,9 +132,10 @@ ENV PATH="/app/calibre:${PATH}"
 # Create version file
 RUN echo "${CALIBRE_RELEASE}" > /app/CALIBRE_RELEASE
 
-# Copy startup script
+# Copy startup and entrypoint scripts
 COPY infra/start.sh /app/start.sh
-RUN chmod +x /app/start.sh
+COPY infra/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/start.sh /app/entrypoint.sh
 
 # Expose ports
 EXPOSE 3000 8000
@@ -142,5 +144,8 @@ EXPOSE 3000 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/health && curl -f http://localhost:3000 || exit 1
 
-# Run startup script
+# Set entrypoint to handle user creation and switching
+ENTRYPOINT ["/app/entrypoint.sh"]
+
+# Run startup script as the default command
 CMD ["/app/start.sh"]
