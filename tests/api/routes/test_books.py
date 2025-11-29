@@ -1604,6 +1604,7 @@ def test_update_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
         book_service=mock_service,
         permission_helper=mock_permission_helper,
         response_builder=mock_response_builder,
+        session=session,
     )
     assert result.id == 1
     assert result.title == "Updated Book"
@@ -1653,6 +1654,7 @@ def test_update_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
             book_service=mock_service,
             permission_helper=mock_permission_helper,
             response_builder=mock_response_builder,
+            session=session,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
@@ -1716,6 +1718,7 @@ def test_update_book_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
             book_service=mock_service,
             permission_helper=mock_permission_helper,
             response_builder=mock_response_builder,
+            session=session,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
@@ -1801,6 +1804,7 @@ def test_update_book_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
             book_service=mock_service,
             permission_helper=mock_permission_helper,
             response_builder=mock_response_builder,
+            session=session,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 500

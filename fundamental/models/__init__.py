@@ -88,6 +88,10 @@ from fundamental.models.ingest import (
 )
 from fundamental.models.library_scanning import LibraryScanState
 from fundamental.models.media import ConversionOptions, Data
+from fundamental.models.metadata_enforcement import (
+    EnforcementStatus,
+    MetadataEnforcementOperation,
+)
 from fundamental.models.openlibrary import (
     OpenLibraryAuthor,
     OpenLibraryAuthorWork,
@@ -161,6 +165,7 @@ __all__ = [
     "EReaderDevice",
     "EmailServerConfig",
     "EmailServerType",
+    "EnforcementStatus",
     "Feed",
     "FileHandlingConfig",
     "Identifier",
@@ -177,6 +182,7 @@ __all__ = [
     "LibraryScanState",
     "LogLevel",
     "MetadataDirtied",
+    "MetadataEnforcementOperation",
     "OpenLibraryAuthor",
     "OpenLibraryAuthorWork",
     "OpenLibraryEdition",

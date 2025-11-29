@@ -38,6 +38,9 @@ from fundamental.models.auth import (
     UserSetting,
 )
 from fundamental.models.conversion import BookConversion
+from fundamental.models.metadata_enforcement import (
+    MetadataEnforcementOperation,
+)
 from fundamental.models.openlibrary import (
     OpenLibraryAuthor,
     OpenLibraryAuthorWork,

@@ -26,6 +26,9 @@ from typing import TYPE_CHECKING, Annotated
 
 from fundamental.models import BookConversion, ConversionStatus
 from fundamental.services.conversion_service import ConversionService
+from fundamental.services.metadata_enforcement_trigger_service import (
+    MetadataEnforcementTriggerService,
+)
 
 if TYPE_CHECKING:
     from fundamental.services.tasks.base import TaskRunner
@@ -463,6 +466,7 @@ def update_book(
     book_service: BookServiceDep,
     permission_helper: PermissionHelperDep,
     response_builder: ResponseBuilderDep,
+    session: SessionDep,
 ) -> BookRead:
     """Update book metadata.
 
@@ -520,6 +524,14 @@ def update_book(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="book_not_found",
         )
+
+    # Trigger metadata enforcement if enabled (non-blocking)
+    enforcement_trigger = MetadataEnforcementTriggerService(session=session)
+    enforcement_trigger.trigger_enforcement_if_enabled(
+        book_id=book_id,
+        book_with_rels=updated_book,
+        user_id=current_user.id,
+    )
 
     try:
         return response_builder.build_book_read(updated_book, full=True)

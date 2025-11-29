@@ -141,6 +141,9 @@ class Library(SQLModel, table=True):
         Directory for split library mode.
     auto_reconnect : bool
         Whether to automatically reconnect to database on errors (default: True).
+    auto_metadata_enforcement : bool
+        Whether to automatically enforce metadata and cover changes to ebook files
+        when metadata is updated via the Web UI (default: False).
     is_active : bool
         Whether this is the currently active library (only one can be active).
     created_at : datetime
@@ -160,6 +163,7 @@ class Library(SQLModel, table=True):
     use_split_library: bool = Field(default=False)
     split_library_dir: str | None = Field(default=None, max_length=1000)
     auto_reconnect: bool = Field(default=True)
+    auto_metadata_enforcement: bool = Field(default=True)
     is_active: bool = Field(default=False, index=True)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
