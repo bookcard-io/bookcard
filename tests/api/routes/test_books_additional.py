@@ -1325,7 +1325,16 @@ def test_get_temp_cover_no_dot(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test get_temp_cover returns 404 when no dot in filename (covers lines 865-866)."""
     from fastapi import Response
 
-    result = books.get_temp_cover("nofileextension")
+    session = DummySession()
+    current_user = _create_mock_user()
+    mock_permission_helper = MockPermissionHelper(session)
+    _mock_permission_service(monkeypatch)
+
+    result = books.get_temp_cover(
+        "nofileextension",
+        current_user=current_user,
+        permission_helper=mock_permission_helper,
+    )
 
     assert isinstance(result, Response)
     assert result.status_code == 404
@@ -1335,7 +1344,16 @@ def test_get_temp_cover_not_in_storage(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test get_temp_cover returns 404 when hash not in storage (covers lines 870-871)."""
     from fastapi import Response
 
-    result = books.get_temp_cover("nonexistent123.jpg")
+    session = DummySession()
+    current_user = _create_mock_user()
+    mock_permission_helper = MockPermissionHelper(session)
+    _mock_permission_service(monkeypatch)
+
+    result = books.get_temp_cover(
+        "nonexistent123.jpg",
+        current_user=current_user,
+        permission_helper=mock_permission_helper,
+    )
 
     assert isinstance(result, Response)
     assert result.status_code == 404
@@ -1345,13 +1363,22 @@ def test_get_temp_cover_file_not_exists(monkeypatch: pytest.MonkeyPatch) -> None
     """Test get_temp_cover returns 404 and cleans up when file doesn't exist (covers lines 874-877)."""
     from fastapi import Response
 
+    session = DummySession()
+    current_user = _create_mock_user()
+    mock_permission_helper = MockPermissionHelper(session)
+    _mock_permission_service(monkeypatch)
+
     # Add a non-existent path to storage
     fake_hash = "fakehash123"
     fake_path = Path("/nonexistent/path/to/file.jpg")
     books._temp_cover_storage[fake_hash] = fake_path
 
     try:
-        result = books.get_temp_cover(f"{fake_hash}.jpg")
+        result = books.get_temp_cover(
+            f"{fake_hash}.jpg",
+            current_user=current_user,
+            permission_helper=mock_permission_helper,
+        )
 
         assert isinstance(result, Response)
         assert result.status_code == 404
@@ -1366,6 +1393,11 @@ def test_get_temp_cover_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test get_temp_cover returns FileResponse when file exists (covers lines 879-882)."""
     from fastapi.responses import FileResponse
 
+    session = DummySession()
+    current_user = _create_mock_user()
+    mock_permission_helper = MockPermissionHelper(session)
+    _mock_permission_service(monkeypatch)
+
     with tempfile.TemporaryDirectory() as tmpdir:
         temp_file = Path(tmpdir) / "test_cover.jpg"
         temp_file.write_bytes(b"fake image data")
@@ -1375,7 +1407,11 @@ def test_get_temp_cover_success(monkeypatch: pytest.MonkeyPatch) -> None:
         books._temp_cover_storage[fake_hash] = temp_file
 
         try:
-            result = books.get_temp_cover(f"{fake_hash}.jpg")
+            result = books.get_temp_cover(
+                f"{fake_hash}.jpg",
+                current_user=current_user,
+                permission_helper=mock_permission_helper,
+            )
 
             assert isinstance(result, FileResponse)
             assert result.path == str(temp_file)
