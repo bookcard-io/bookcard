@@ -1280,6 +1280,19 @@ class CalibreBookRepository(IBookRepository):
                 if book is None:
                     return None
 
+                # Store old path for potential file move
+                old_path = book.path
+
+                # Get existing authors before update to check if path needs to change
+                existing_authors_stmt = (
+                    select(Author.name)
+                    .join(BookAuthorLink, Author.id == BookAuthorLink.author)
+                    .where(BookAuthorLink.book == book_id)
+                    .order_by(BookAuthorLink.id)
+                )
+                existing_authors = list(session.exec(existing_authors_stmt).all())
+                existing_title = book.title
+
                 # Update relationships first (before book fields to avoid trigger issues)
                 self._update_book_relationships(
                     session,
@@ -1298,6 +1311,52 @@ class CalibreBookRepository(IBookRepository):
                     rating_id=rating_id,
                 )
 
+                # Get updated authors after relationship update
+                updated_authors_stmt = (
+                    select(Author.name)
+                    .join(BookAuthorLink, Author.id == BookAuthorLink.author)
+                    .where(BookAuthorLink.book == book_id)
+                    .order_by(BookAuthorLink.id)
+                )
+                updated_authors = list(session.exec(updated_authors_stmt).all())
+
+                # Determine final author and title for path calculation
+                final_author_names = (
+                    updated_authors if author_names is not None else existing_authors
+                )
+                final_title = title if title is not None else existing_title
+
+                # Calculate new path if author or title changed
+                new_path = self._calculate_book_path(final_author_names, final_title)
+
+                # Update book path if it changed
+                if new_path and new_path != old_path:
+                    book.path = new_path
+                    # Move files after database update but before commit
+                    # This ensures we have the new path in the database
+                    # but files are moved atomically
+                    library_path = self._get_library_path()
+                    try:
+                        self._file_manager.move_book_directory(
+                            old_book_path=old_path,
+                            new_book_path=new_path,
+                            library_path=library_path,
+                        )
+                        logger.info(
+                            "Moved book directory: book_id=%d, %s -> %s",
+                            book_id,
+                            old_path,
+                            new_path,
+                        )
+                    except OSError:
+                        logger.exception(
+                            "Failed to move book directory for book_id=%d",
+                            book_id,
+                        )
+                        # Rollback path change on filesystem error
+                        book.path = old_path
+                        raise
+
                 # Update book fields last (after all other operations to avoid
                 # triggering title_sort function during intermediate flushes)
                 self._update_book_fields(
@@ -1309,6 +1368,18 @@ class CalibreBookRepository(IBookRepository):
 
             # Return updated book with full relations
             return self.get_book_full(book_id)
+
+    def _get_library_path(self) -> Path:
+        """Get library root path from calibre_db_path.
+
+        Returns
+        -------
+        Path
+            Library root path.
+        """
+        if self._calibre_db_path.is_dir():
+            return self._calibre_db_path
+        return self._calibre_db_path.parent
 
     def add_book(
         self,
@@ -1391,6 +1462,32 @@ class CalibreBookRepository(IBookRepository):
         if len(sanitized) > max_length:
             sanitized = sanitized[:max_length]
         return sanitized.strip() or "Unknown"
+
+    def _calculate_book_path(
+        self, author_names: list[str] | None, title: str | None
+    ) -> str | None:
+        """Calculate book path from author names and title.
+
+        Parameters
+        ----------
+        author_names : list[str] | None
+            List of author names. If None, returns None.
+        title : str | None
+            Book title. If None, returns None.
+
+        Returns
+        -------
+        str | None
+            Book path string (Author/Title format) or None if insufficient data.
+        """
+        if not author_names or not title:
+            return None
+
+        # Use first author for directory structure (Calibre convention)
+        author_name = author_names[0] if author_names else "Unknown"
+        author_dir = self._sanitize_filename(author_name)
+        title_dir = self._sanitize_filename(title)
+        return f"{author_dir}/{title_dir}".replace("\\", "/")
 
     def _get_or_create_author(self, session: Session, author_name: str) -> Author:
         """Get existing author or create a new one."""

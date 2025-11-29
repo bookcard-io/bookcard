@@ -251,3 +251,141 @@ class CalibreFileManager(IFileManager):
             )
 
         return matched_paths
+
+    def move_book_directory(
+        self,
+        old_book_path: str,
+        new_book_path: str,
+        library_path: Path,
+    ) -> None:
+        """Move book directory and all its contents to a new location.
+
+        Moves all files in the book directory including:
+        - All book format files (epub, pdf, mobi, etc.)
+        - Companion files (cover.jpg, metadata.opf, etc.)
+        - Any other files in the directory
+
+        After moving, cleans up empty directories.
+
+        Parameters
+        ----------
+        old_book_path : str
+            Current book path string (Author/Title format).
+        new_book_path : str
+            New book path string (Author/Title format).
+        library_path : Path
+            Library root path.
+
+        Raises
+        ------
+        OSError
+            If filesystem operations fail.
+        """
+        old_dir = library_path / old_book_path
+        new_dir = library_path / new_book_path
+
+        # If paths are the same, nothing to do
+        if old_dir == new_dir:
+            logger.debug("Book path unchanged, skipping move: %s", old_book_path)
+            return
+
+        # If old directory doesn't exist, nothing to move
+        if not old_dir.exists() or not old_dir.is_dir():
+            logger.warning(
+                "Old book directory does not exist: %s, creating new directory",
+                old_dir,
+            )
+            new_dir.mkdir(parents=True, exist_ok=True)
+            return
+
+        # If new directory already exists and has files, log warning but proceed
+        if new_dir.exists() and new_dir.is_dir():
+            existing_files = list(new_dir.iterdir())
+            if existing_files:
+                logger.warning(
+                    "New book directory already exists with files: %s, "
+                    "files will be moved into it",
+                    new_dir,
+                )
+
+        # Create new directory structure
+        new_dir.mkdir(parents=True, exist_ok=True)
+
+        # Move all files from old directory to new directory
+        moved_files = []
+        try:
+            for item in old_dir.iterdir():
+                if item.is_file():
+                    new_item_path = new_dir / item.name
+                    # If target file exists, log warning but overwrite
+                    if new_item_path.exists():
+                        logger.warning(
+                            "Target file already exists, overwriting: %s", new_item_path
+                        )
+                    shutil.move(str(item), str(new_item_path))
+                    moved_files.append(item.name)
+                    logger.debug("Moved file: %s -> %s", item.name, new_item_path)
+                elif item.is_dir():
+                    # Move subdirectories if any (shouldn't happen in Calibre structure)
+                    new_subdir = new_dir / item.name
+                    shutil.move(str(item), str(new_subdir))
+                    moved_files.append(item.name)
+                    logger.debug("Moved subdirectory: %s -> %s", item.name, new_subdir)
+
+            logger.info(
+                "Moved %d items from %s to %s",
+                len(moved_files),
+                old_dir,
+                new_dir,
+            )
+        except (OSError, shutil.Error):
+            logger.exception(
+                "Failed to move book directory from %s to %s",
+                old_dir,
+                new_dir,
+            )
+            raise
+
+        # Clean up empty directories
+        self._cleanup_empty_directories(old_dir, library_path)
+
+    def _cleanup_empty_directories(self, book_dir: Path, library_path: Path) -> None:
+        """Clean up empty directories after moving book files.
+
+        Removes the book directory and author directory if they are empty,
+        working up the directory tree.
+
+        Parameters
+        ----------
+        book_dir : Path
+            Book directory that was moved from.
+        library_path : Path
+            Library root path (stop cleanup at this level).
+        """
+        current_dir = book_dir
+
+        # Walk up the directory tree, removing empty directories
+        # Stop at library_path to avoid removing the library root
+        while current_dir != library_path and current_dir.parent != library_path:
+            try:
+                # Check if directory is empty
+                if current_dir.exists() and current_dir.is_dir():
+                    remaining_items = list(current_dir.iterdir())
+                    if not remaining_items:
+                        current_dir.rmdir()
+                        logger.debug("Removed empty directory: %s", current_dir)
+                    else:
+                        # Directory not empty, stop cleanup
+                        logger.debug(
+                            "Directory not empty, stopping cleanup: %s (%d items)",
+                            current_dir,
+                            len(remaining_items),
+                        )
+                        break
+            except OSError as exc:
+                logger.warning("Failed to remove directory %s: %s", current_dir, exc)
+                # Stop on error to avoid cascading failures
+                break
+
+            # Move up one level
+            current_dir = current_dir.parent

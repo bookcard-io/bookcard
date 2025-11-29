@@ -137,6 +137,38 @@ class IFileManager(ABC):
         """
         ...
 
+    @abstractmethod
+    def move_book_directory(
+        self,
+        old_book_path: str,
+        new_book_path: str,
+        library_path: Path,
+    ) -> None:
+        """Move book directory and all its contents to a new location.
+
+        Moves all files in the book directory including:
+        - All book format files (epub, pdf, mobi, etc.)
+        - Companion files (cover.jpg, metadata.opf, etc.)
+        - Any other files in the directory
+
+        After moving, cleans up empty directories.
+
+        Parameters
+        ----------
+        old_book_path : str
+            Current book path string (Author/Title format).
+        new_book_path : str
+            New book path string (Author/Title format).
+        library_path : "Path"
+            Library root path.
+
+        Raises
+        ------
+        OSError
+            If filesystem operations fail.
+        """
+        ...
+
 
 class IBookRelationshipManager(ABC):
     """Interface for managing book relationships."""
