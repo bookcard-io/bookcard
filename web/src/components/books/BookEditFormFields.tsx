@@ -83,7 +83,7 @@ export function BookEditFormFields({ book, form }: BookEditFormFieldsProps) {
           <TextInput
             id="title_sort"
             label="Title Sort"
-            value={book.title || ""}
+            value={book.title_sort || ""}
             disabled
             className="min-w-0"
           />

@@ -12,6 +12,7 @@ describe("book utils", () => {
     title,
     authors,
     author_sort: authors.join(", "),
+    title_sort: null,
     pubdate: null,
     timestamp: null,
     series: null,

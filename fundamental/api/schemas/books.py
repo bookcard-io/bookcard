@@ -37,6 +37,8 @@ class BookRead(BaseModel):
         List of author names.
     author_sort : str | None
         Sortable author name.
+    title_sort : str | None
+        Sortable title (with articles removed).
     pubdate : datetime | None
         Publication date.
     timestamp : datetime | None
@@ -83,6 +85,7 @@ class BookRead(BaseModel):
     title: str
     authors: list[str] = Field(default_factory=list)
     author_sort: str | None = None
+    title_sort: str | None = None
     pubdate: datetime | None = None
     timestamp: datetime | None = None
     series: str | None = None
@@ -139,6 +142,10 @@ class BookUpdate(BaseModel):
         Rating value to set (creates if doesn't exist).
     rating_id : int | None
         Rating ID to set (if provided, rating_value is ignored).
+    author_sort : str | None
+        Author sort value to set.
+    title_sort : str | None
+        Title sort value to set.
     """
 
     title: str | None = None
@@ -156,6 +163,8 @@ class BookUpdate(BaseModel):
     language_ids: list[int] | None = None
     rating_value: int | None = None
     rating_id: int | None = None
+    author_sort: str | None = None
+    title_sort: str | None = None
 
 
 class BookListResponse(BaseModel):

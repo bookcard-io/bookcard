@@ -574,6 +574,8 @@ def update_book(
         language_ids=update.language_ids,
         rating_value=update.rating_value,
         rating_id=update.rating_id,
+        author_sort=update.author_sort,
+        title_sort=update.title_sort,
     )
 
     if updated_book is None:

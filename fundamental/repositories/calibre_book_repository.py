@@ -1228,6 +1228,8 @@ class CalibreBookRepository(IBookRepository):
         title: str | None = None,
         pubdate: datetime | None = None,
         series_index: float | None = None,
+        author_sort: str | None = None,
+        title_sort: str | None = None,
     ) -> None:
         """Update book core fields.
 
@@ -1241,6 +1243,10 @@ class CalibreBookRepository(IBookRepository):
             Publication date to update.
         series_index : float | None
             Series index to update.
+        author_sort : str | None
+            Author sort value to update.
+        title_sort : str | None
+            Title sort value to update.
         """
         if title is not None:
             book.title = title
@@ -1248,6 +1254,10 @@ class CalibreBookRepository(IBookRepository):
             book.pubdate = pubdate
         if series_index is not None:
             book.series_index = series_index
+        if author_sort is not None:
+            book.author_sort = author_sort
+        if title_sort is not None:
+            book.sort = title_sort
         book.last_modified = datetime.now(UTC)
 
     def update_book(
@@ -1268,6 +1278,8 @@ class CalibreBookRepository(IBookRepository):
         language_ids: list[int] | None = None,
         rating_value: int | None = None,
         rating_id: int | None = None,
+        author_sort: str | None = None,
+        title_sort: str | None = None,
     ) -> BookWithFullRelations | None:
         """Update book metadata."""
         with self.get_session() as session:
@@ -1360,7 +1372,12 @@ class CalibreBookRepository(IBookRepository):
                 # Update book fields last (after all other operations to avoid
                 # triggering title_sort function during intermediate flushes)
                 self._update_book_fields(
-                    book, title=title, pubdate=pubdate, series_index=series_index
+                    book,
+                    title=title,
+                    pubdate=pubdate,
+                    series_index=series_index,
+                    author_sort=author_sort,
+                    title_sort=title_sort,
                 )
 
             session.commit()

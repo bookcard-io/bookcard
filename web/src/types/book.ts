@@ -28,6 +28,8 @@ export interface Book {
   authors: string[];
   /** Sortable author name. */
   author_sort: string | null;
+  /** Sortable title (with articles removed). */
+  title_sort: string | null;
   /** Publication date. */
   pubdate: string | null;
   /** Date book was added to library. */
@@ -99,6 +101,10 @@ export interface BookUpdate {
   rating_value?: number | null;
   /** Rating ID to set (if provided, rating_value is ignored). */
   rating_id?: number | null;
+  /** Author sort value to set. */
+  author_sort?: string | null;
+  /** Title sort value to set. */
+  title_sort?: string | null;
 }
 
 export interface BookListResponse {

@@ -33,6 +33,7 @@ describe("useFilteredBooks", () => {
         title: "Book 1",
         authors: ["Author 1"],
         author_sort: "Author 1",
+        title_sort: null,
         pubdate: null,
         timestamp: null,
         series: null,

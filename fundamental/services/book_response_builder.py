@@ -77,6 +77,7 @@ class BookResponseBuilder:
             title=book.title,
             authors=book_with_rels.authors,
             author_sort=book.author_sort,
+            title_sort=book.sort,
             pubdate=book.pubdate,
             timestamp=book.timestamp,
             series=book_with_rels.series,

@@ -15,12 +15,13 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type UseFormReturn, useForm } from "react-hook-form";
+import { type UseFormReturn, useForm, useWatch } from "react-hook-form";
 import {
   type BookUpdateFormData,
   bookUpdateSchema,
 } from "@/schemas/bookUpdateSchema";
 import type { Book, BookUpdate } from "@/types/book";
+import { generateAuthorSort, generateTitleSort } from "@/utils/sortValues";
 
 export interface UseBookFormOptions {
   /** Book data to initialize form from. */
@@ -110,6 +111,10 @@ export function useBookForm({
           ? bookData.languages
           : null,
       rating_value: bookData.rating ?? null,
+      // Generate sort values from book data
+      author_sort:
+        generateAuthorSort(bookData.authors) ?? bookData.author_sort ?? null,
+      title_sort: generateTitleSort(bookData.title) ?? null,
     };
   }, []);
 
@@ -122,6 +127,67 @@ export function useBookForm({
 
   // Track form changes
   const hasChanges = form.formState.isDirty;
+
+  // Watch author_names and title for auto-generating sort values
+  const authorNames = useWatch({
+    control: form.control,
+    name: "author_names",
+  });
+  const title = useWatch({
+    control: form.control,
+    name: "title",
+  });
+
+  // Track if we're updating sort values programmatically to avoid loops
+  const isUpdatingSortRef = useRef(false);
+
+  // Auto-generate author_sort when author_names changes
+  useEffect(() => {
+    if (isUpdatingSortRef.current) {
+      return;
+    }
+
+    const generatedAuthorSort = generateAuthorSort(authorNames);
+    const currentAuthorSort = form.getValues("author_sort");
+
+    // Only update if the generated value is different from current
+    // and if author_names was actually changed by the user (not initial load)
+    if (
+      generatedAuthorSort !== null &&
+      generatedAuthorSort !== currentAuthorSort
+    ) {
+      isUpdatingSortRef.current = true;
+      form.setValue("author_sort", generatedAuthorSort, {
+        shouldDirty: true,
+        shouldValidate: false,
+      });
+      isUpdatingSortRef.current = false;
+    }
+  }, [authorNames, form]);
+
+  // Auto-generate title_sort when title changes
+  useEffect(() => {
+    if (isUpdatingSortRef.current) {
+      return;
+    }
+
+    const generatedTitleSort = generateTitleSort(title);
+    const currentTitleSort = form.getValues("title_sort");
+
+    // Only update if the generated value is different from current
+    // and if title was actually changed by the user (not initial load)
+    if (
+      generatedTitleSort !== null &&
+      generatedTitleSort !== currentTitleSort
+    ) {
+      isUpdatingSortRef.current = true;
+      form.setValue("title_sort", generatedTitleSort, {
+        shouldDirty: true,
+        shouldValidate: false,
+      });
+      isUpdatingSortRef.current = false;
+    }
+  }, [title, form]);
 
   // Initialize form data when book loads (only on initial load or book ID change)
   useEffect(() => {

@@ -663,6 +663,8 @@ class IBookRepository(ABC):
         language_ids: list[int] | None = None,
         rating_value: int | None = None,
         rating_id: int | None = None,
+        author_sort: str | None = None,
+        title_sort: str | None = None,
     ) -> BookWithFullRelations | None:
         """Update book metadata.
 
@@ -700,6 +702,10 @@ class IBookRepository(ABC):
             Rating value to set (creates if doesn't exist).
         rating_id : int | None
             Rating ID to set (if provided, rating_value is ignored).
+        author_sort : str | None
+            Author sort value to set.
+        title_sort : str | None
+            Title sort value to set.
 
         Returns
         -------

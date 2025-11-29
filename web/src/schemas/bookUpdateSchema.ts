@@ -125,6 +125,18 @@ export const bookUpdateSchema = z.object({
     .nullable()
     .optional(),
   rating_id: z.number().int().positive().nullable().optional(),
+  author_sort: z
+    .string()
+    .max(255, "Author sort must be less than 255 characters")
+    .transform((val) => (val === "" ? null : val))
+    .nullable()
+    .optional(),
+  title_sort: z
+    .string()
+    .max(255, "Title sort must be less than 255 characters")
+    .transform((val) => (val === "" ? null : val))
+    .nullable()
+    .optional(),
 });
 
 /**

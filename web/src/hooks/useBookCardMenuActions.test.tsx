@@ -94,6 +94,7 @@ function createMockBook(id: number): Book {
     title: `Test Book ${id}`,
     authors: [`Author ${id}`],
     author_sort: `Author ${id}`,
+    title_sort: null,
     pubdate: null,
     timestamp: null,
     series: null,
