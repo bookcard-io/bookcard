@@ -1441,6 +1441,8 @@ def download_cover_from_url(
 @router.get("/temp-covers/{hash_and_ext}", response_model=None)
 def get_temp_cover(
     hash_and_ext: str,
+    current_user: CurrentUserDep,
+    permission_helper: PermissionHelperDep,
 ) -> FileResponse | Response:
     """Serve temporary cover image.
 
@@ -1448,12 +1450,22 @@ def get_temp_cover(
     ----------
     hash_and_ext : str
         Hash and extension (e.g., "abc123def456.jpg").
+    current_user : CurrentUserDep
+        Current authenticated user.
+    permission_helper : PermissionHelperDep
+        Permission helper instance.
 
     Returns
     -------
     FileResponse | Response
         Cover image file or 404 response.
+
+    Raises
+    ------
+    HTTPException
+        If permission denied (403).
     """
+    permission_helper.check_read_permission(current_user)
     # Extract hash from filename
     if "." not in hash_and_ext:
         return Response(status_code=status.HTTP_404_NOT_FOUND)

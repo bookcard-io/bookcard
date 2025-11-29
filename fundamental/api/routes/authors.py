@@ -54,6 +54,7 @@ from fundamental.services.author_permission_helper import AuthorPermissionHelper
 from fundamental.services.author_rematch_service import AuthorRematchService
 from fundamental.services.author_service import AuthorService
 from fundamental.services.config_service import LibraryService
+from fundamental.services.permission_service import PermissionService
 
 if TYPE_CHECKING:
     from fundamental.services.messaging.base import MessageBroker
@@ -255,6 +256,8 @@ def _get_author_or_raise(
 
 @router.get("")
 def list_authors(
+    current_user: CurrentUserDep,
+    session: SessionDep,
     author_service: AuthorServiceDep,
     page: int = 1,
     page_size: int = 20,
@@ -267,6 +270,10 @@ def list_authors(
 
     Parameters
     ----------
+    current_user : CurrentUserDep
+        Current authenticated user.
+    session : SessionDep
+        Database session dependency.
     author_service : AuthorServiceDep
         Author service instance.
     page : int
@@ -284,8 +291,11 @@ def list_authors(
     Raises
     ------
     HTTPException
-        If no active library is found.
+        If no active library is found or permission denied (403).
     """
+    # Check books:read permission
+    permission_service = PermissionService(session)
+    permission_service.check_permission(current_user, "books", "read")
     if page < 1:
         page = 1
     if page_size < 1:
@@ -315,7 +325,9 @@ def list_authors(
 @router.get("/{author_id}")
 def get_author(
     author_id: str,
+    current_user: CurrentUserDep,
     author_service: AuthorServiceDep,
+    permission_helper: PermissionHelperDep,
 ) -> dict[str, object]:
     """Get a single author by ID or OpenLibrary key.
 
@@ -323,8 +335,12 @@ def get_author(
     ----------
     author_id : str
         Author ID (numeric) or OpenLibrary key (e.g., "OL23919A").
+    current_user : CurrentUserDep
+        Current authenticated user.
     author_service : AuthorServiceDep
         Author service instance.
+    permission_helper : PermissionHelperDep
+        Permission helper instance.
 
     Returns
     -------
@@ -334,9 +350,12 @@ def get_author(
     Raises
     ------
     HTTPException
-        If author is not found or no active library exists.
+        If author is not found, no active library exists, or permission denied (403).
     """
-    return _get_author_or_raise(author_id, author_service)
+    author_data = _get_author_or_raise(author_id, author_service)
+    # Check books:read permission with author context
+    permission_helper.check_read_permission(current_user, author_data)
+    return author_data
 
 
 @router.put(
