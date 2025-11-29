@@ -500,6 +500,7 @@ class BookService:
         file_format: str,
         title: str | None = None,
         author_name: str | None = None,
+        pubdate: datetime | None = None,
     ) -> int:
         """Add a book directly to the Calibre library.
 
@@ -516,6 +517,8 @@ class BookService:
             Book title. If None, uses filename without extension.
         author_name : str | None
             Author name. If None, uses 'Unknown'.
+        pubdate : datetime | None
+            Publication date. If None, uses date from file metadata or current date.
 
         Returns
         -------
@@ -534,12 +537,12 @@ class BookService:
             library_path = Path(lib_root)
         else:
             library_path = Path(self._library.calibre_db_path)
-
         return self._book_repo.add_book(
             file_path=file_path,
             file_format=file_format,
             title=title,
             author_name=author_name,
+            pubdate=pubdate,
             library_path=library_path,
         )
 

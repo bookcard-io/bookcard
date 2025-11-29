@@ -1316,6 +1316,7 @@ class CalibreBookRepository(IBookRepository):
         file_format: str,
         title: str | None = None,
         author_name: str | None = None,
+        pubdate: datetime | None = None,
         library_path: Path | None = None,
     ) -> int:
         """Add a book directly to the Calibre database."""
@@ -1342,6 +1343,11 @@ class CalibreBookRepository(IBookRepository):
         if not author_name or author_name.strip() == "":
             author_name = "Unknown"
 
+        # Use provided pubdate, fallback to metadata pubdate, then None
+        # (None will use file metadata or current date in _create_book_record)
+        if pubdate is None:
+            pubdate = metadata.pubdate
+
         file_format_upper = file_format.upper().lstrip(".")
         author_dir = self._sanitize_filename(author_name)
         title_dir = self._sanitize_filename(title)
@@ -1358,6 +1364,7 @@ class CalibreBookRepository(IBookRepository):
                 file_format_upper,
                 title_dir,
                 file_size,
+                pubdate=pubdate,
             )
 
             # Save file using file manager
@@ -1417,7 +1424,7 @@ class CalibreBookRepository(IBookRepository):
             sort=title,
             author_sort=author_name,
             timestamp=now,
-            pubdate=pubdate if pubdate is not None else now,
+            pubdate=pubdate,  # Use provided pubdate (from API or file), None will use model default
             series_index=series_index if series_index is not None else 1.0,
             flags=1,
             uuid=book_uuid,
@@ -1444,17 +1451,21 @@ class CalibreBookRepository(IBookRepository):
         file_format_upper: str,
         title_dir: str,
         file_size: int,
+        pubdate: datetime | None = None,
     ) -> tuple[Book, int]:
         """Create all database records for a new book."""
         author = self._get_or_create_author(session, author_name)
         sort_title = metadata.sort_title or title
+
+        # Use provided pubdate (from metadata provider API), fallback to file metadata
+        final_pubdate = pubdate if pubdate is not None else metadata.pubdate
 
         db_book = self._create_book_record(
             session,
             title,
             author_name,
             book_path_str,
-            pubdate=metadata.pubdate,
+            pubdate=final_pubdate,
             series_index=metadata.series_index,
         )
 

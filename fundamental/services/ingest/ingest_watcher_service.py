@@ -27,9 +27,11 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from sqlmodel import Session, select
 from watchfiles import Change, watch
 
 from fundamental.database import get_session
+from fundamental.models.auth import User
 from fundamental.models.tasks import TaskType
 from fundamental.services.ingest.ingest_config_service import IngestConfigService
 
@@ -316,6 +318,35 @@ class IngestWatcherService:
                 return True
             return False
 
+    @staticmethod
+    def _get_system_user_id(session: Session) -> int | None:
+        """Get system user ID for system tasks.
+
+        Returns first admin user ID, or first user ID if no admin exists.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+
+        Returns
+        -------
+        int | None
+            System user ID, or None if no users exist.
+        """
+        stmt = select(User).where(User.is_admin == True).limit(1)  # noqa: E712
+        system_user = session.exec(stmt).first()
+        if system_user is None:
+            # Fallback to first user if no admin exists
+            stmt = select(User).limit(1)
+            system_user = session.exec(stmt).first()
+
+        if system_user is None or system_user.id is None:
+            logger.error("No user found for system tasks")
+            return None
+
+        return system_user.id
+
     def _trigger_discovery(self, bypass_debounce: bool = False) -> None:
         """Trigger a discovery task.
 
@@ -336,9 +367,12 @@ class IngestWatcherService:
             return
 
         try:
-            # Get system user ID (0 or find system user)
-            # For now, use 0 as system user
-            system_user_id = 0
+            # Get system user ID for the task
+            with get_session(self._engine) as session:
+                system_user_id = self._get_system_user_id(session)
+                if system_user_id is None:
+                    logger.error("Cannot trigger discovery task: no system user found")
+                    return
 
             task_id = self._task_runner.enqueue(
                 task_type=TaskType.INGEST_DISCOVERY,
@@ -363,8 +397,15 @@ class IngestWatcherService:
             logger.warning("Task runner not available")
             return None
 
+        task_id: int | None = None
         try:
-            system_user_id = 0
+            # Get system user ID for the task
+            with get_session(self._engine) as session:
+                system_user_id = self._get_system_user_id(session)
+                if system_user_id is None:
+                    logger.error("Cannot trigger manual scan: no system user found")
+                    return None
+
             task_id = self._task_runner.enqueue(
                 task_type=TaskType.INGEST_DISCOVERY,
                 payload={},
@@ -374,6 +415,6 @@ class IngestWatcherService:
             logger.info("Manually triggered ingest discovery task: %d", task_id)
         except Exception:
             logger.exception("Failed to trigger manual scan")
+            return None
         else:
             return task_id
-        return None

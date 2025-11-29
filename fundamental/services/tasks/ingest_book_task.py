@@ -20,6 +20,7 @@ Refactored to follow SOLID principles, SRP, IoC, SoC, and DRY.
 """
 
 import logging
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -320,13 +321,15 @@ class IngestBookTask(BaseTask):
         # Extract title and author using DRY metadata merging
         title, author_name = self._extract_title_author(fetched_metadata, metadata_hint)
 
-        # Add book to library (delegates to service)
+        # Extract and convert published_date to pubdate
+        pubdate = self._extract_pubdate(fetched_metadata, metadata_hint)
         book_id = processor_service.add_book_to_library(
             history_id=history_id,
             file_path=file_path,
             file_format=file_format,
             title=title,
             author_name=author_name,
+            pubdate=pubdate,
         )
 
         # Handle cover download if URL is available
@@ -376,6 +379,82 @@ class IngestBookTask(BaseTask):
         author_name = authors[0] if authors else None
 
         return title, author_name
+
+    def _extract_pubdate(
+        self,
+        fetched_metadata: dict[str, Any] | None,
+        metadata_hint: dict[str, Any] | None,
+    ) -> datetime | None:
+        """Extract and convert published_date to datetime pubdate.
+
+        Parameters
+        ----------
+        fetched_metadata : dict[str, Any] | None
+            Fetched metadata from external sources (higher priority).
+        metadata_hint : dict[str, Any] | None
+            Metadata hint from file extraction (fallback).
+
+        Returns
+        -------
+        datetime | None
+            Parsed datetime pubdate or None if not available.
+        """
+        # Use generic metadata merge utility to get published_date
+        merged = self._merge_metadata(
+            fetched_metadata, metadata_hint, keys=["published_date"]
+        )
+
+        published_date = merged.get("published_date")
+        if not published_date:
+            return None
+
+        return self._parse_published_date(published_date)
+
+    def _parse_published_date(self, date_str: str) -> datetime | None:
+        """Parse published_date string to datetime.
+
+        Parameters
+        ----------
+        date_str : str
+            Published date string in various formats.
+
+        Returns
+        -------
+        datetime | None
+            Parsed datetime or None if invalid.
+        """
+        if not date_str:
+            return None
+
+        # Try common date formats in order of specificity
+        # Each format tuple is (format_string, min_length)
+        formats = [
+            ("%Y-%m-%d", 10),  # YYYY-MM-DD
+            ("%Y-%m", 7),  # YYYY-MM
+            ("%Y", 4),  # YYYY
+            ("%Y-%m-%dT%H:%M:%S", 19),  # YYYY-MM-DDTHH:MM:SS
+            ("%Y-%m-%dT%H:%M:%SZ", 20),  # YYYY-MM-DDTHH:MM:SSZ
+            ("%Y-%m-%dT%H:%M:%S%z", 25),  # YYYY-MM-DDTHH:MM:SS+HH:MM
+        ]
+
+        for fmt, min_length in formats:
+            try:
+                # Check if date string is long enough for this format
+                if len(date_str) >= min_length:
+                    # Parse date string - strptime returns naive datetime
+                    parsed = datetime.strptime(date_str, fmt)  # noqa: DTZ007
+                    # Ensure UTC timezone
+                    if parsed.tzinfo is None:
+                        parsed = parsed.replace(tzinfo=UTC)
+                    return parsed
+            except (ValueError, TypeError):
+                continue
+
+        logger.warning(
+            "Failed to parse published_date: %s",
+            date_str,
+        )
+        return None
 
     def _merge_metadata(
         self,

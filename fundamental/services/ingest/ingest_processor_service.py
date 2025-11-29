@@ -204,6 +204,7 @@ class IngestProcessorService:
         file_format: str,
         title: str | None = None,
         author_name: str | None = None,
+        pubdate: datetime | None = None,
     ) -> int:
         """Add a book file to the library.
 
@@ -219,6 +220,8 @@ class IngestProcessorService:
             Optional book title.
         author_name : str | None
             Optional author name.
+        pubdate : datetime | None
+            Optional publication date.
 
         Returns
         -------
@@ -249,6 +252,7 @@ class IngestProcessorService:
             file_format=file_format,
             title=title,
             author_name=author_name,
+            pubdate=pubdate,
         )
 
         # Update history with book ID
