@@ -89,7 +89,7 @@ export function useBookForm({
     }
 
     return {
-      title: bookData.title || undefined,
+      title: bookData.title,
       pubdate: pubdateValue,
       author_names:
         bookData.authors && bookData.authors.length > 0
@@ -127,7 +127,7 @@ export function useBookForm({
   useEffect(() => {
     if (book && book.id !== lastBookId) {
       const initialFormData = bookToFormData(book);
-      form.reset(initialFormData);
+      form.reset(initialFormData, { keepDefaultValues: false });
       // Store initial form data for reset on cancel
       initialFormDataRef.current = initialFormData;
       setLastBookId(book.id);
@@ -139,7 +139,7 @@ export function useBookForm({
     } else if (book && book.id === lastBookId && justUpdatedRef.current) {
       // Book was just updated (same ID), update form and initial data to reflect saved state
       const updatedFormData = bookToFormData(book);
-      form.reset(updatedFormData);
+      form.reset(updatedFormData, { keepDefaultValues: false });
       initialFormDataRef.current = updatedFormData;
       justUpdatedRef.current = false;
     }
