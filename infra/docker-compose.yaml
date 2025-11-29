@@ -66,13 +66,10 @@ services:
     container_name: fundamental-redis
     restart: unless-stopped
     command: redis-server ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
-    ports:
-      - "6379:6379"
+    # ports:
+    #   - "6379:6379"
     env_file:
       - .env
-    profiles:
-      - redis  # Use 'docker-compose --profile redis up' to include Redis
-      - advanced
     networks:
       - fundamental-network
 
@@ -98,9 +95,6 @@ services:
       retries: 5
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    profiles:
-      - postgres  # Use 'docker-compose --profile postgres up' to include PostgreSQL
-      - advanced
     networks:
       - fundamental-network
 
