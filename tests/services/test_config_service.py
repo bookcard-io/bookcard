@@ -17,11 +17,17 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 
-from fundamental.models.config import Library
+from fundamental.models.config import EPUBFixerConfig, Library, ScheduledTasksConfig
 from fundamental.repositories.config_repository import LibraryRepository
-from fundamental.services.config_service import LibraryService
+from fundamental.services.config_service import (
+    EPUBFixerConfigService,
+    LibraryService,
+    ScheduledTasksConfigService,
+)
 from tests.conftest import DummySession
 
 
@@ -575,3 +581,895 @@ def test_get_library_stats_not_found() -> None:
 
     with pytest.raises(ValueError, match="library_not_found"):
         service.get_library_stats(999)
+
+
+# ============================================================================
+# Tests for create_library - missing coverage
+# ============================================================================
+
+
+@pytest.fixture
+def library_service(session: DummySession) -> LibraryService:
+    """Create a LibraryService instance for testing.
+
+    Parameters
+    ----------
+    session : DummySession
+        Test session.
+
+    Returns
+    -------
+    LibraryService
+        Library service instance.
+    """
+    repo = LibraryRepository(session)  # type: ignore[arg-type]
+    return LibraryService(session, repo)  # type: ignore[arg-type]
+
+
+def test_create_library_with_auto_generated_path(
+    library_service: LibraryService,
+) -> None:
+    """Test create_library auto-generates path when calibre_db_path is None (covers line 150).
+
+    Parameters
+    ----------
+    library_service : LibraryService
+        Library service instance.
+    """
+    session = library_service._session
+    session.add_exec_result([])  # type: ignore[possibly-missing-attribute]  # find_by_path() call - no existing library
+    session.add_exec_result([])  # type: ignore[possibly-missing-attribute]  # list_all() call in _deactivate_all_libraries
+
+    with (
+        patch(
+            "fundamental.services.config_service.CalibreDatabaseInitializer"
+        ) as mock_initializer_class,
+        patch("pathlib.Path.exists") as mock_exists,
+        patch(
+            "fundamental.services.config_service.LibraryService._get_default_library_directory"
+        ) as mock_get_dir,
+        patch(
+            "fundamental.services.config_service.LibraryService._sync_shelves_for_library"
+        ),
+    ):
+        mock_exists.return_value = False
+        mock_get_dir.return_value = "/default/lib/dir"
+        mock_initializer = MagicMock()
+        mock_initializer_class.return_value = mock_initializer
+
+        library = library_service.create_library(name="Test Library")
+
+        assert library.name == "Test Library"
+        assert library.calibre_db_path is not None
+        mock_initializer.initialize.assert_called_once()
+
+
+def test_create_library_existing_database_invalid(
+    library_service: LibraryService,
+) -> None:
+    """Test create_library raises ValueError when existing database is invalid (covers lines 167-171).
+
+    Parameters
+    ----------
+    library_service : LibraryService
+        Library service instance.
+    """
+    session = library_service._session
+    session.add_exec_result([])  # type: ignore[possibly-missing-attribute]  # find_by_path() call
+
+    with (
+        patch(
+            "fundamental.services.config_service.CalibreDatabaseInitializer.validate_existing_database"
+        ) as mock_validate,
+        patch("pathlib.Path.exists") as mock_exists,
+    ):
+        mock_exists.return_value = True
+        mock_validate.return_value = False
+
+        with pytest.raises(ValueError, match="Invalid Calibre database"):
+            library_service.create_library(
+                name="Test Library",
+                calibre_db_path="/path/to/library",
+            )
+
+
+def test_create_library_existing_database_valid(
+    library_service: LibraryService,
+) -> None:
+    """Test create_library succeeds when existing database is valid (covers lines 167-171).
+
+    Parameters
+    ----------
+    library_service : LibraryService
+        Library service instance.
+    """
+    session = library_service._session
+    session.add_exec_result([])  # type: ignore[possibly-missing-attribute]  # find_by_path() call
+    session.add_exec_result([])  # type: ignore[possibly-missing-attribute]  # list_all() call in _deactivate_all_libraries
+
+    with (
+        patch(
+            "fundamental.services.config_service.CalibreDatabaseInitializer.validate_existing_database"
+        ) as mock_validate,
+        patch("pathlib.Path.exists") as mock_exists,
+        patch(
+            "fundamental.services.config_service.LibraryService._sync_shelves_for_library"
+        ),
+    ):
+        mock_exists.return_value = True
+        mock_validate.return_value = True
+
+        library = library_service.create_library(
+            name="Test Library",
+            calibre_db_path="/path/to/library",
+            is_active=True,
+        )
+
+        assert library.name == "Test Library"
+        assert library.calibre_db_path == "/path/to/library"
+
+
+def test_create_library_file_exists_error(
+    library_service: LibraryService,
+) -> None:
+    """Test create_library handles FileExistsError during initialization (covers lines 180-187).
+
+    Parameters
+    ----------
+    library_service : LibraryService
+        Library service instance.
+    """
+    session = library_service._session
+    session.add_exec_result([])  # type: ignore[possibly-missing-attribute]  # find_by_path() call
+    session.add_exec_result([])  # type: ignore[possibly-missing-attribute]  # list_all() call in _deactivate_all_libraries
+
+    with (
+        patch(
+            "fundamental.services.config_service.CalibreDatabaseInitializer"
+        ) as mock_initializer_class,
+        patch(
+            "fundamental.services.config_service.CalibreDatabaseInitializer.validate_existing_database"
+        ) as mock_validate,
+        patch("pathlib.Path.exists") as mock_exists,
+        patch(
+            "fundamental.services.config_service.LibraryService._sync_shelves_for_library"
+        ),
+    ):
+        mock_exists.return_value = False
+        mock_initializer = MagicMock()
+        mock_initializer.initialize.side_effect = FileExistsError("File exists")
+        mock_initializer_class.return_value = mock_initializer
+        mock_validate.return_value = True  # Valid after creation
+
+        library = library_service.create_library(
+            name="Test Library",
+            calibre_db_path="/path/to/library",
+            is_active=True,
+        )
+
+        assert library.name == "Test Library"
+
+
+def test_create_library_file_exists_error_invalid_db(
+    library_service: LibraryService,
+) -> None:
+    """Test create_library raises ValueError when FileExistsError and database is invalid (covers lines 180-187).
+
+    Parameters
+    ----------
+    library_service : LibraryService
+        Library service instance.
+    """
+    session = library_service._session
+    session.add_exec_result([])  # type: ignore[possibly-missing-attribute]  # find_by_path() call
+
+    with (
+        patch(
+            "fundamental.services.config_service.CalibreDatabaseInitializer"
+        ) as mock_initializer_class,
+        patch(
+            "fundamental.services.config_service.CalibreDatabaseInitializer.validate_existing_database"
+        ) as mock_validate,
+        patch("pathlib.Path.exists") as mock_exists,
+    ):
+        mock_exists.return_value = False
+        mock_initializer = MagicMock()
+        mock_initializer.initialize.side_effect = FileExistsError("File exists")
+        mock_initializer_class.return_value = mock_initializer
+        mock_validate.return_value = False  # Invalid database
+
+        with pytest.raises(ValueError, match="Invalid Calibre database"):
+            library_service.create_library(
+                name="Test Library",
+                calibre_db_path="/path/to/library",
+            )
+
+
+@pytest.mark.parametrize(
+    ("exception_class", "exception_msg"),
+    [
+        (PermissionError, "Permission denied"),
+        (ValueError, "Invalid path"),
+    ],
+)
+def test_create_library_initialization_errors(
+    library_service: LibraryService,
+    exception_class: type[Exception],
+    exception_msg: str,
+) -> None:
+    """Test create_library handles PermissionError and ValueError during initialization (covers lines 188-190).
+
+    Parameters
+    ----------
+    library_service : LibraryService
+        Library service instance.
+    exception_class : type[Exception]
+        Exception class to raise.
+    exception_msg : str
+        Exception message.
+    """
+    session = library_service._session
+    session.add_exec_result([])  # type: ignore[possibly-missing-attribute]  # find_by_path() call
+
+    with (
+        patch(
+            "fundamental.services.config_service.CalibreDatabaseInitializer"
+        ) as mock_initializer_class,
+        patch("pathlib.Path.exists") as mock_exists,
+    ):
+        mock_exists.return_value = False
+        mock_initializer = MagicMock()
+        mock_initializer.initialize.side_effect = exception_class(exception_msg)
+        mock_initializer_class.return_value = mock_initializer
+
+        with pytest.raises(ValueError, match="Failed to initialize database"):
+            library_service.create_library(
+                name="Test Library",
+                calibre_db_path="/path/to/library",
+            )
+
+
+# ============================================================================
+# Tests for _generate_library_path
+# ============================================================================
+
+
+@pytest.mark.parametrize(
+    ("name", "existing_paths", "expected_suffix"),
+    [
+        ("My Library", [], ""),
+        ("My Library", ["/default/lib/my-library"], "-1"),
+        ("My Library", ["/default/lib/my-library", "/default/lib/my-library-1"], "-2"),
+        ("Library@#$%", [], ""),  # Special chars removed
+        ("", [], ""),  # Empty name defaults to "library"
+        ("   ", [], ""),  # Whitespace-only defaults to "library"
+    ],
+)
+def test_generate_library_path(
+    library_service: LibraryService,
+    name: str,
+    existing_paths: list[str],
+    expected_suffix: str,
+) -> None:
+    """Test _generate_library_path generates correct paths (covers lines 231-248).
+
+    Parameters
+    ----------
+    library_service : LibraryService
+        Library service instance.
+    name : str
+        Library name to generate path for.
+    existing_paths : list[str]
+        List of existing paths to simulate conflicts.
+    expected_suffix : str
+        Expected suffix in generated path.
+    """
+    session = library_service._session
+
+    # Setup find_by_path results for conflict checking
+    for existing_path in existing_paths:
+        existing_lib = Library(
+            id=len(session.added) + 1,  # type: ignore[possibly-missing-attribute]
+            name="Existing",
+            calibre_db_path=existing_path,
+            calibre_db_file="metadata.db",
+        )
+        session.add_exec_result([existing_lib])  # type: ignore[possibly-missing-attribute]
+
+    # Add one more empty result for the final call
+    session.add_exec_result([])  # type: ignore[possibly-missing-attribute]
+
+    with (
+        patch(
+            "fundamental.services.config_service.LibraryService._get_default_library_directory"
+        ) as mock_get_dir,
+    ):
+        mock_get_dir.return_value = "/default/lib/dir"
+
+        result = library_service._generate_library_path(name)
+
+        assert result.startswith("/default/lib/dir/")
+        if expected_suffix:
+            assert result.endswith(expected_suffix)
+
+
+# ============================================================================
+# Tests for _parse_library_path
+# ============================================================================
+
+
+@pytest.mark.parametrize(
+    ("path", "default_filename", "expected_dir", "expected_file"),
+    [
+        ("/path/to/file.db", "metadata.db", "/path/to", "file.db"),  # File path
+        ("/path/to/dir", "metadata.db", "/path/to/dir", "metadata.db"),  # Directory
+        (
+            "/path/to/nonexistent.db",
+            "metadata.db",
+            "/path/to",
+            "nonexistent.db",
+        ),  # File-like (has extension)
+        (
+            "/path/to/nonexistent",
+            "metadata.db",
+            "/path/to/nonexistent",
+            "metadata.db",
+        ),  # Dir-like (no extension)
+    ],
+)
+def test_parse_library_path(
+    path: str,
+    default_filename: str,
+    expected_dir: str,
+    expected_file: str,
+) -> None:
+    """Test _parse_library_path parses different path types (covers lines 276, 279, 283, 286-288).
+
+    Parameters
+    ----------
+    path : str
+        Path to parse.
+    default_filename : str
+        Default filename to use.
+    expected_dir : str
+        Expected directory path.
+    expected_file : str
+        Expected filename.
+    """
+    with (
+        patch("pathlib.Path.exists") as mock_exists,
+        patch("pathlib.Path.is_file") as mock_is_file,
+        patch("pathlib.Path.is_dir") as mock_is_dir,
+    ):
+        # Simulate different scenarios
+        if path.endswith(".db") and "nonexistent" not in path:
+            # Existing file
+            mock_exists.return_value = True
+            mock_is_file.return_value = True
+            mock_is_dir.return_value = False
+        elif "nonexistent" not in path:
+            # Existing directory
+            mock_exists.return_value = True
+            mock_is_file.return_value = False
+            mock_is_dir.return_value = True
+        else:
+            # Non-existent path
+            mock_exists.return_value = False
+            mock_is_file.return_value = False
+            mock_is_dir.return_value = False
+
+        result_dir, result_file = LibraryService._parse_library_path(
+            path, default_filename
+        )
+
+        assert result_dir == expected_dir
+        assert result_file == expected_file
+
+
+def test_parse_library_path_oserror() -> None:
+    """Test _parse_library_path handles OSError (covers lines 286-288).
+
+    Returns
+    -------
+    None
+    """
+    with patch("pathlib.Path.exists", side_effect=OSError("Permission denied")):
+        result_dir, result_file = LibraryService._parse_library_path(
+            "/path/to/test", "metadata.db"
+        )
+
+        assert result_dir == "/path/to/test"
+        assert result_file == "metadata.db"
+
+
+def test_parse_library_path_valueerror() -> None:
+    """Test _parse_library_path handles ValueError (covers lines 286-288).
+
+    Returns
+    -------
+    None
+    """
+    with patch("pathlib.Path.exists", side_effect=ValueError("Invalid path")):
+        result_dir, result_file = LibraryService._parse_library_path(
+            "/path/to/test", "metadata.db"
+        )
+
+        assert result_dir == "/path/to/test"
+        assert result_file == "metadata.db"
+
+
+# ============================================================================
+# Tests for _get_default_library_directory
+# ============================================================================
+
+
+def test_get_default_library_directory_with_env_var() -> None:
+    """Test _get_default_library_directory uses environment variable (covers lines 304-306).
+
+    Returns
+    -------
+    None
+    """
+    with patch(
+        "fundamental.services.config_service.os.getenv",
+        return_value="/custom/lib/dir",
+    ) as mock_getenv:
+        result = LibraryService._get_default_library_directory()
+        assert result == "/custom/lib/dir"
+        mock_getenv.assert_called_once_with("FUNDAMENTAL_DEFAULT_LIBRARY_DIR")
+
+
+def test_get_default_library_directory_without_env_var() -> None:
+    """Test _get_default_library_directory uses AppConfig when env var not set (covers lines 308-310).
+
+    Returns
+    -------
+    None
+    """
+    with (
+        patch(
+            "fundamental.services.config_service.os.getenv", return_value=None
+        ) as mock_getenv,
+        patch("fundamental.services.config_service.AppConfig.from_env") as mock_config,
+    ):
+        mock_config_instance = MagicMock()
+        mock_config_instance.data_directory = "/default/data/dir"
+        mock_config.return_value = mock_config_instance
+
+        result = LibraryService._get_default_library_directory()
+
+        assert result == "/default/data/dir"
+        mock_config.assert_called_once()
+        mock_getenv.assert_called_once_with("FUNDAMENTAL_DEFAULT_LIBRARY_DIR")
+
+
+# ============================================================================
+# Tests for EPUBFixerConfigService
+# ============================================================================
+
+
+@pytest.fixture
+def epub_fixer_service(session: DummySession) -> EPUBFixerConfigService:
+    """Create an EPUBFixerConfigService instance for testing.
+
+    Parameters
+    ----------
+    session : DummySession
+        Test session.
+
+    Returns
+    -------
+    EPUBFixerConfigService
+        EPUB fixer config service instance.
+    """
+    return EPUBFixerConfigService(session)  # type: ignore[arg-type]
+
+
+def test_epub_fixer_config_service_init(
+    epub_fixer_service: EPUBFixerConfigService,
+) -> None:
+    """Test EPUBFixerConfigService initialization (covers line 612).
+
+    Parameters
+    ----------
+    epub_fixer_service : EPUBFixerConfigService
+        EPUB fixer config service instance.
+    """
+    assert epub_fixer_service._session is not None
+
+
+def test_get_epub_fixer_config_existing(
+    epub_fixer_service: EPUBFixerConfigService,
+) -> None:
+    """Test get_epub_fixer_config returns existing config (covers lines 624-625).
+
+    Parameters
+    ----------
+    epub_fixer_service : EPUBFixerConfigService
+        EPUB fixer config service instance.
+    """
+    session = epub_fixer_service._session
+    existing_config = EPUBFixerConfig(id=1, enabled=True)
+    session.add_exec_result([existing_config])  # type: ignore[possibly-missing-attribute]
+
+    result = epub_fixer_service.get_epub_fixer_config()
+
+    assert result == existing_config
+    assert result.enabled is True
+
+
+def test_get_epub_fixer_config_creates_default(
+    epub_fixer_service: EPUBFixerConfigService,
+) -> None:
+    """Test get_epub_fixer_config creates default config when none exists (covers lines 624-632).
+
+    Parameters
+    ----------
+    epub_fixer_service : EPUBFixerConfigService
+        EPUB fixer config service instance.
+    """
+    session = epub_fixer_service._session
+    session.add_exec_result([])  # type: ignore[possibly-missing-attribute]  # No existing config
+
+    result = epub_fixer_service.get_epub_fixer_config()
+
+    assert result is not None
+    assert isinstance(result, EPUBFixerConfig)
+    assert result in session.added  # type: ignore[possibly-missing-attribute]
+    assert session.commit_count == 1  # type: ignore[possibly-missing-attribute]
+
+
+@pytest.mark.parametrize(
+    (
+        "enabled",
+        "backup_enabled",
+        "backup_directory",
+        "default_language",
+        "skip_already_fixed",
+        "skip_failed",
+    ),
+    [
+        (True, None, None, None, None, None),
+        (None, True, None, None, None, None),
+        (None, None, "/backup/dir", None, None, None),
+        (None, None, None, "fr", None, None),
+        (None, None, None, None, True, None),
+        (None, None, None, None, None, True),
+        (True, True, "/backup", "en", True, True),
+    ],
+)
+def test_update_epub_fixer_config(
+    epub_fixer_service: EPUBFixerConfigService,
+    enabled: bool | None,
+    backup_enabled: bool | None,
+    backup_directory: str | None,
+    default_language: str | None,
+    skip_already_fixed: bool | None,
+    skip_failed: bool | None,
+) -> None:
+    """Test update_epub_fixer_config updates all fields (covers lines 666-684).
+
+    Parameters
+    ----------
+    epub_fixer_service : EPUBFixerConfigService
+        EPUB fixer config service instance.
+    enabled : bool | None
+        Enabled flag to set.
+    backup_enabled : bool | None
+        Backup enabled flag to set.
+    backup_directory : str | None
+        Backup directory to set.
+    default_language : str | None
+        Default language to set.
+    skip_already_fixed : bool | None
+        Skip already fixed flag to set.
+    skip_failed : bool | None
+        Skip failed flag to set.
+    """
+    session = epub_fixer_service._session
+    existing_config = EPUBFixerConfig(
+        id=1,
+        enabled=False,
+        backup_enabled=False,
+        backup_directory="/old/backup",
+        default_language="en",
+        skip_already_fixed=False,
+        skip_failed=False,
+    )
+    session.add_exec_result([existing_config])  # type: ignore[possibly-missing-attribute]
+
+    result = epub_fixer_service.update_epub_fixer_config(
+        enabled=enabled,
+        backup_enabled=backup_enabled,
+        backup_directory=backup_directory,
+        default_language=default_language,
+        skip_already_fixed=skip_already_fixed,
+        skip_failed=skip_failed,
+    )
+
+    if enabled is not None:
+        assert result.enabled == enabled
+    if backup_enabled is not None:
+        assert result.backup_enabled == backup_enabled
+    if backup_directory is not None:
+        assert result.backup_directory == backup_directory
+    if default_language is not None:
+        assert result.default_language == default_language
+    if skip_already_fixed is not None:
+        assert result.skip_already_fixed == skip_already_fixed
+    if skip_failed is not None:
+        assert result.skip_failed == skip_failed
+
+    assert session.commit_count == 1  # type: ignore[possibly-missing-attribute]
+
+
+def test_is_epub_fixer_enabled(
+    epub_fixer_service: EPUBFixerConfigService,
+) -> None:
+    """Test is_epub_fixer_enabled returns config value (covers lines 694-695).
+
+    Parameters
+    ----------
+    epub_fixer_service : EPUBFixerConfigService
+        EPUB fixer config service instance.
+    """
+    session = epub_fixer_service._session
+    config = EPUBFixerConfig(id=1, enabled=True)
+    session.add_exec_result([config])  # type: ignore[possibly-missing-attribute]
+    session.add_exec_result([config])  # type: ignore[possibly-missing-attribute]  # Second call for is_epub_fixer_enabled
+
+    result = epub_fixer_service.is_epub_fixer_enabled()
+
+    assert result is True
+
+
+def test_is_auto_fix_on_ingest_enabled_with_config(
+    epub_fixer_service: EPUBFixerConfigService,
+) -> None:
+    """Test is_auto_fix_on_ingest_enabled returns config value when config exists (covers lines 705-709).
+
+    Parameters
+    ----------
+    epub_fixer_service : EPUBFixerConfigService
+        EPUB fixer config service instance.
+    """
+    session = epub_fixer_service._session
+    scheduled_config = ScheduledTasksConfig(id=1, epub_fixer_auto_fix_on_ingest=True)
+    session.add_exec_result([scheduled_config])  # type: ignore[possibly-missing-attribute]
+
+    result = epub_fixer_service.is_auto_fix_on_ingest_enabled()
+
+    assert result is True
+
+
+def test_is_auto_fix_on_ingest_enabled_no_config(
+    epub_fixer_service: EPUBFixerConfigService,
+) -> None:
+    """Test is_auto_fix_on_ingest_enabled returns False when config is None (covers lines 705-709).
+
+    Parameters
+    ----------
+    epub_fixer_service : EPUBFixerConfigService
+        EPUB fixer config service instance.
+    """
+    session = epub_fixer_service._session
+    session.add_exec_result([])  # type: ignore[possibly-missing-attribute]  # No config
+
+    result = epub_fixer_service.is_auto_fix_on_ingest_enabled()
+
+    assert result is False
+
+
+def test_is_daily_scan_enabled_with_config(
+    epub_fixer_service: EPUBFixerConfigService,
+) -> None:
+    """Test is_daily_scan_enabled returns config value when config exists (covers lines 719-723).
+
+    Parameters
+    ----------
+    epub_fixer_service : EPUBFixerConfigService
+        EPUB fixer config service instance.
+    """
+    session = epub_fixer_service._session
+    scheduled_config = ScheduledTasksConfig(id=1, epub_fixer_daily_scan=True)
+    session.add_exec_result([scheduled_config])  # type: ignore[possibly-missing-attribute]
+
+    result = epub_fixer_service.is_daily_scan_enabled()
+
+    assert result is True
+
+
+def test_is_daily_scan_enabled_no_config(
+    epub_fixer_service: EPUBFixerConfigService,
+) -> None:
+    """Test is_daily_scan_enabled returns False when config is None (covers lines 719-723).
+
+    Parameters
+    ----------
+    epub_fixer_service : EPUBFixerConfigService
+        EPUB fixer config service instance.
+    """
+    session = epub_fixer_service._session
+    session.add_exec_result([])  # type: ignore[possibly-missing-attribute]  # No config
+
+    result = epub_fixer_service.is_daily_scan_enabled()
+
+    assert result is False
+
+
+# ============================================================================
+# Tests for ScheduledTasksConfigService
+# ============================================================================
+
+
+@pytest.fixture
+def scheduled_tasks_service(session: DummySession) -> ScheduledTasksConfigService:
+    """Create a ScheduledTasksConfigService instance for testing.
+
+    Parameters
+    ----------
+    session : DummySession
+        Test session.
+
+    Returns
+    -------
+    ScheduledTasksConfigService
+        Scheduled tasks config service instance.
+    """
+    return ScheduledTasksConfigService(session)  # type: ignore[arg-type]
+
+
+def test_scheduled_tasks_config_service_init(
+    scheduled_tasks_service: ScheduledTasksConfigService,
+) -> None:
+    """Test ScheduledTasksConfigService initialization (covers line 743).
+
+    Parameters
+    ----------
+    scheduled_tasks_service : ScheduledTasksConfigService
+        Scheduled tasks config service instance.
+    """
+    assert scheduled_tasks_service._session is not None
+
+
+def test_get_scheduled_tasks_config_existing(
+    scheduled_tasks_service: ScheduledTasksConfigService,
+) -> None:
+    """Test get_scheduled_tasks_config returns existing config (covers lines 755-756).
+
+    Parameters
+    ----------
+    scheduled_tasks_service : ScheduledTasksConfigService
+        Scheduled tasks config service instance.
+    """
+    session = scheduled_tasks_service._session
+    existing_config = ScheduledTasksConfig(id=1, start_time_hour=5)
+    session.add_exec_result([existing_config])  # type: ignore[possibly-missing-attribute]
+
+    result = scheduled_tasks_service.get_scheduled_tasks_config()
+
+    assert result == existing_config
+    assert result.start_time_hour == 5
+
+
+def test_get_scheduled_tasks_config_creates_default(
+    scheduled_tasks_service: ScheduledTasksConfigService,
+) -> None:
+    """Test get_scheduled_tasks_config creates default config when none exists (covers lines 755-763).
+
+    Parameters
+    ----------
+    scheduled_tasks_service : ScheduledTasksConfigService
+        Scheduled tasks config service instance.
+    """
+    session = scheduled_tasks_service._session
+    session.add_exec_result([])  # type: ignore[possibly-missing-attribute]  # No existing config
+
+    result = scheduled_tasks_service.get_scheduled_tasks_config()
+
+    assert result is not None
+    assert isinstance(result, ScheduledTasksConfig)
+    assert result in session.added  # type: ignore[possibly-missing-attribute]
+    assert session.commit_count == 1  # type: ignore[possibly-missing-attribute]
+
+
+@pytest.mark.parametrize(
+    (
+        "start_time_hour",
+        "duration_hours",
+        "generate_book_covers",
+        "generate_series_covers",
+        "reconnect_database",
+        "metadata_backup",
+        "epub_fixer_daily_scan",
+        "epub_fixer_auto_fix_on_ingest",
+    ),
+    [
+        (5, None, None, None, None, None, None, None),
+        (None, 8, None, None, None, None, None, None),
+        (None, None, True, None, None, None, None, None),
+        (None, None, None, True, None, None, None, None),
+        (None, None, None, None, True, None, None, None),
+        (None, None, None, None, None, True, None, None),
+        (None, None, None, None, None, None, True, None),
+        (None, None, None, None, None, None, None, True),
+        (6, 12, True, True, True, True, True, True),
+    ],
+)
+def test_update_scheduled_tasks_config(
+    scheduled_tasks_service: ScheduledTasksConfigService,
+    start_time_hour: int | None,
+    duration_hours: int | None,
+    generate_book_covers: bool | None,
+    generate_series_covers: bool | None,
+    reconnect_database: bool | None,
+    metadata_backup: bool | None,
+    epub_fixer_daily_scan: bool | None,
+    epub_fixer_auto_fix_on_ingest: bool | None,
+) -> None:
+    """Test update_scheduled_tasks_config updates all fields (covers lines 803-825).
+
+    Parameters
+    ----------
+    scheduled_tasks_service : ScheduledTasksConfigService
+        Scheduled tasks config service instance.
+    start_time_hour : int | None
+        Start time hour to set.
+    duration_hours : int | None
+        Duration hours to set.
+    generate_book_covers : bool | None
+        Generate book covers flag to set.
+    generate_series_covers : bool | None
+        Generate series covers flag to set.
+    reconnect_database : bool | None
+        Reconnect database flag to set.
+    metadata_backup : bool | None
+        Metadata backup flag to set.
+    epub_fixer_daily_scan : bool | None
+        EPUB fixer daily scan flag to set.
+    epub_fixer_auto_fix_on_ingest : bool | None
+        EPUB fixer auto fix on ingest flag to set.
+    """
+    session = scheduled_tasks_service._session
+    existing_config = ScheduledTasksConfig(
+        id=1,
+        start_time_hour=4,
+        duration_hours=10,
+        generate_book_covers=False,
+        generate_series_covers=False,
+        reconnect_database=False,
+        metadata_backup=False,
+        epub_fixer_daily_scan=False,
+        epub_fixer_auto_fix_on_ingest=False,
+    )
+    session.add_exec_result([existing_config])  # type: ignore[possibly-missing-attribute]
+
+    result = scheduled_tasks_service.update_scheduled_tasks_config(
+        start_time_hour=start_time_hour,
+        duration_hours=duration_hours,
+        generate_book_covers=generate_book_covers,
+        generate_series_covers=generate_series_covers,
+        reconnect_database=reconnect_database,
+        metadata_backup=metadata_backup,
+        epub_fixer_daily_scan=epub_fixer_daily_scan,
+        epub_fixer_auto_fix_on_ingest=epub_fixer_auto_fix_on_ingest,
+    )
+
+    if start_time_hour is not None:
+        assert result.start_time_hour == start_time_hour
+    if duration_hours is not None:
+        assert result.duration_hours == duration_hours
+    if generate_book_covers is not None:
+        assert result.generate_book_covers == generate_book_covers
+    if generate_series_covers is not None:
+        assert result.generate_series_covers == generate_series_covers
+    if reconnect_database is not None:
+        assert result.reconnect_database == reconnect_database
+    if metadata_backup is not None:
+        assert result.metadata_backup == metadata_backup
+    if epub_fixer_daily_scan is not None:
+        assert result.epub_fixer_daily_scan == epub_fixer_daily_scan
+    if epub_fixer_auto_fix_on_ingest is not None:
+        assert result.epub_fixer_auto_fix_on_ingest == epub_fixer_auto_fix_on_ingest
+
+    assert session.commit_count == 1  # type: ignore[possibly-missing-attribute]
