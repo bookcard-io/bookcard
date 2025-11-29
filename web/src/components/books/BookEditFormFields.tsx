@@ -51,7 +51,6 @@ export function BookEditFormFields({ book, form }: BookEditFormFieldsProps) {
   const canWrite = canPerformAction("books", "write", bookContext);
 
   const {
-    register,
     control,
     formState: { errors },
   } = form;
@@ -62,13 +61,21 @@ export function BookEditFormFields({ book, form }: BookEditFormFieldsProps) {
         {/* Row 1: Title and Title Sort */}
         <div className="col-span-full grid grid-cols-1 items-start gap-4 sm:grid-cols-[1fr_1fr]">
           <div className="grid min-w-0 grid-cols-[1fr_auto] items-end gap-3">
-            <TextInput
-              id="title"
-              label="Title"
-              {...register("title", { required: "Title is required" })}
-              error={errors.title?.message}
-              disabled={!canWrite}
-              className="min-w-0"
+            <Controller
+              name="title"
+              control={control}
+              rules={{ required: "Title is required" }}
+              render={({ field }) => (
+                <TextInput
+                  id="title"
+                  label="Title"
+                  {...field}
+                  value={field.value || ""}
+                  error={errors.title?.message}
+                  disabled={!canWrite}
+                  className="min-w-0"
+                />
+              )}
             />
             <button
               type="button"
@@ -290,26 +297,40 @@ export function BookEditFormFields({ book, form }: BookEditFormFieldsProps) {
               />
             )}
           />
-          <DateInput
-            id="pubdate"
-            label="Publish date"
-            {...register("pubdate")}
-            error={errors.pubdate?.message}
-            disabled={!canWrite}
+          <Controller
+            name="pubdate"
+            control={control}
+            render={({ field }) => (
+              <DateInput
+                id="pubdate"
+                label="Publish date"
+                {...field}
+                value={field.value || ""}
+                error={errors.pubdate?.message}
+                disabled={!canWrite}
+              />
+            )}
           />
         </div>
       </div>
 
       {/* Full-width Description */}
       <div className="mt-2 flex flex-col gap-3">
-        <TextArea
-          id="description"
-          label="Description"
-          {...register("description")}
-          error={errors.description?.message}
-          placeholder="Enter book description..."
-          rows={6}
-          disabled={!canWrite}
+        <Controller
+          name="description"
+          control={control}
+          render={({ field }) => (
+            <TextArea
+              id="description"
+              label="Description"
+              {...field}
+              value={field.value || ""}
+              error={errors.description?.message}
+              placeholder="Enter book description..."
+              rows={6}
+              disabled={!canWrite}
+            />
+          )}
         />
       </div>
     </div>
