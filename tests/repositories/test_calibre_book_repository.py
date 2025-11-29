@@ -2476,12 +2476,20 @@ def test_update_book_orchestration() -> None:
             mock_exec8 = MagicMock()
             mock_exec8.first.return_value = None  # Tag doesn't exist
 
+            # Additional mocks for path calculation logic
+            mock_exec9 = MagicMock()
+            mock_exec9.all.return_value = []  # Existing authors query (before update)
+            mock_exec10 = MagicMock()
+            mock_exec10.all.return_value = []  # Updated authors query (after update)
+
             mock_session_obj.exec.side_effect = [
                 mock_exec1,  # Book lookup
-                mock_exec2,  # Authors: get current names
+                mock_exec9,  # Existing authors: get current names (for path calculation)
+                mock_exec2,  # Authors: get current names (for relationship update)
                 mock_exec3,  # Authors: delete links
                 mock_exec4,  # Authors: lookup author
                 mock_exec5,  # Authors: check link
+                mock_exec10,  # Updated authors: get names (for path calculation)
                 mock_exec6,  # Tags: get current names
                 mock_exec7,  # Tags: delete links
                 mock_exec8,  # Tags: lookup tag

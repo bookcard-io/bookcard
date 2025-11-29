@@ -149,9 +149,9 @@ class OpfImporter(MetadataImporter):
             update["description"] = desc_elem.text.strip()
 
         # Publication date
-        date_elem = metadata_elem.find("dcterms:date", ns) or metadata_elem.find(
-            "dc:date", ns
-        )
+        date_elem = metadata_elem.find("dcterms:date", ns)
+        if date_elem is None:
+            date_elem = metadata_elem.find("dc:date", ns)
         if date_elem is not None and date_elem.text:
             pubdate = OpfImporter._parse_date(date_elem.text.strip())
             if pubdate:
