@@ -52,7 +52,7 @@ def mock_ingest_config() -> MagicMock:
     config.metadata_providers = ["openlibrary", "google"]
     config.supported_formats = ["epub", "pdf", "mobi"]
     config.ignore_patterns = ["*.tmp", "*.bak"]
-    config.metadata_merge_strategy = "merge_best"
+    config.metadata_merge_strategy = "first_wins"
     return config
 
 
@@ -65,7 +65,7 @@ def ingest_config() -> IngestConfig:
         metadata_providers=["openlibrary", "google"],
         supported_formats=["epub", "pdf", "mobi"],
         ignore_patterns=["*.tmp", "*.bak"],
-        metadata_merge_strategy="merge_best",
+        metadata_merge_strategy="first_wins",
     )
 
 

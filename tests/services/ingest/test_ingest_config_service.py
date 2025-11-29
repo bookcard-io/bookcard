@@ -41,7 +41,7 @@ def mock_config_repo() -> MagicMock:
     config.metadata_providers = ["openlibrary", "google"]
     config.supported_formats = ["epub", "pdf"]
     config.ignore_patterns = ["*.tmp"]
-    config.metadata_merge_strategy = "merge_best"
+    config.metadata_merge_strategy = "first_wins"
     repo.get_config.return_value = config
     repo.update_config.return_value = config
     return repo
@@ -234,7 +234,7 @@ def test_get_merge_strategy(
 ) -> None:
     """Test get_merge_strategy method."""
     result = service.get_merge_strategy()
-    assert result == "merge_best"
+    assert result == "first_wins"
     mock_config_repo.get_config.assert_called_once()
 
 
@@ -245,4 +245,4 @@ def test_get_merge_strategy_none(
     config = mock_config_repo.get_config.return_value
     config.metadata_merge_strategy = None
     result = service.get_merge_strategy()
-    assert result == "merge_best"
+    assert result == "first_wins"

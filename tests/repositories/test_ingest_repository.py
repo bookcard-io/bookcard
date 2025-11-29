@@ -416,7 +416,7 @@ class TestIngestConfigRepository:
         assert result.ingest_dir == "/custom/ingest"
         assert result.enabled is True
         assert result.metadata_providers == ["google", "hardcover", "openlibrary"]
-        assert result.metadata_merge_strategy == "merge_best"
+        assert result.metadata_merge_strategy == "first_wins"
         assert result in session.added
         assert session.commit_count > 0
 

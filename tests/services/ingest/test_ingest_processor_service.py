@@ -59,7 +59,7 @@ def mock_config_service() -> MagicMock:
     """Create a mock IngestConfigService."""
     service = MagicMock(spec=IngestConfigService)
     service.get_enabled_providers.return_value = ["openlibrary", "google"]
-    service.get_merge_strategy.return_value = "merge_best"
+    service.get_merge_strategy.return_value = "first_wins"
     return service
 
 

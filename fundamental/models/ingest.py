@@ -262,7 +262,7 @@ class IngestConfig(SQLModel, table=True):
         (e.g., ["google", "hardcover", "openlibrary"]).
     metadata_merge_strategy : str
         Strategy for merging metadata from multiple providers
-        (default: 'merge_best').
+        (default: 'first_wins').
     metadata_priority_order : dict | None
         JSON data containing provider priority list for metadata fetching.
     supported_formats : dict | None
@@ -293,7 +293,7 @@ class IngestConfig(SQLModel, table=True):
         default=["google", "openlibrary", "hardcover"],
         sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
     )
-    metadata_merge_strategy: str = Field(default="merge_best", max_length=50)
+    metadata_merge_strategy: str = Field(default="first_wins", max_length=50)
     metadata_priority_order: dict | None = Field(
         default=None,
         sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]

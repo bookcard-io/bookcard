@@ -184,4 +184,4 @@ class IngestConfigService:
         config = self.get_config()
         if config.metadata_merge_strategy:
             return config.metadata_merge_strategy
-        return "merge_best"
+        return "first_wins"
