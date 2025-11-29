@@ -1372,12 +1372,14 @@ def download_cover_from_url(
     book_service: BookServiceDep,
     permission_helper: PermissionHelperDep,
     cover_service: CoverServiceDep,
+    session: SessionDep,
 ) -> CoverFromUrlResponse:
     """Download cover image from URL and save directly to book.
 
     Downloads an image from the provided URL, validates it's an image,
-    saves it directly to the book's directory as cover.jpg, and updates
-    the database to mark the book as having a cover.
+    saves it directly to the book's directory as cover.jpg, updates
+    the database to mark the book as having a cover, and embeds the
+    cover into supported ebook files (EPUB, AZW3) for device compatibility.
 
     Parameters
     ----------
@@ -1412,6 +1414,20 @@ def download_cover_from_url(
 
     try:
         cover_url = cover_service.save_cover_from_url(book_id, url)
+
+        # Refresh book data to get updated cover status
+        updated_book_with_rels = book_service.get_book_full(book_id)
+
+        # Trigger metadata enforcement if enabled (includes cover embedding)
+        # This embeds the cover into EPUB/AZW3 files for Kindle compatibility
+        if updated_book_with_rels is not None:
+            enforcement_trigger = MetadataEnforcementTriggerService(session=session)
+            enforcement_trigger.trigger_enforcement_if_enabled(
+                book_id=book_id,
+                book_with_rels=updated_book_with_rels,
+                user_id=current_user.id,
+            )
+
         return CoverFromUrlResponse(temp_url=cover_url)
     except ValueError as exc:
         raise BookExceptionMapper.map_cover_error_to_http_exception(exc) from exc
