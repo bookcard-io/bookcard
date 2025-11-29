@@ -485,6 +485,7 @@ class TestAddBookToLibrary:
                 file_format="epub",
                 title=expected_title,
                 author_name=expected_author,
+                pubdate=None,
             )
 
     def test_add_book_to_library_updates_history(

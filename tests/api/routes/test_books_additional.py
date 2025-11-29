@@ -1066,6 +1066,7 @@ def test_download_cover_from_url_success(
                 book_service=mock_service,
                 permission_helper=mock_permission_helper,
                 cover_service=cover_service,
+                session=session,
             )
 
             assert result.temp_url == "/api/books/1/cover"
@@ -1190,6 +1191,7 @@ def test_download_cover_from_url_with_library_root(
                 book_service=mock_service,
                 permission_helper=mock_permission_helper,
                 cover_service=cover_service,
+                session=session,
             )
 
             assert result.temp_url == "/api/books/1/cover"
@@ -1313,6 +1315,7 @@ def test_download_cover_from_url_db_path_is_file(
                 book_service=mock_service,
                 permission_helper=mock_permission_helper,
                 cover_service=cover_service,
+                session=session,
             )
 
             assert result.temp_url == "/api/books/1/cover"
@@ -1425,6 +1428,7 @@ def test_download_cover_from_url_book_not_found(
             book_service=mock_service,
             permission_helper=mock_permission_helper,
             cover_service=cover_service,
+            session=session,
         )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -1503,6 +1507,7 @@ def test_download_cover_from_url_empty_url(
             book_service=mock_service,
             permission_helper=mock_permission_helper,
             cover_service=cover_service,
+            session=session,
         )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -1579,6 +1584,7 @@ def test_download_cover_from_url_invalid_url_format(
             book_service=mock_service,
             permission_helper=mock_permission_helper,
             cover_service=cover_service,
+            session=session,
         )
 
     assert isinstance(exc_info.value, HTTPException)

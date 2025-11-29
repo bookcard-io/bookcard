@@ -614,14 +614,30 @@ class TestTriggerDiscovery:
         mock_task_runner: MagicMock,
     ) -> None:
         """Test successful discovery trigger."""
+        from fundamental.models.auth import User
+
         service._last_trigger_time = 0.0  # Reset to allow trigger
 
-        service._trigger_discovery()
+        # Mock the database session and user query
+        mock_user = User(
+            id=0, username="system", email="system@example.com", password_hash="hash"
+        )
+        mock_session = MagicMock()
+        mock_session.exec.return_value.first.return_value = mock_user
+        mock_session.__enter__ = MagicMock(return_value=mock_session)
+        mock_session.__exit__ = MagicMock(return_value=False)
 
-        mock_task_runner.enqueue.assert_called_once()
-        call_args = mock_task_runner.enqueue.call_args
-        assert call_args.kwargs["task_type"] == TaskType.INGEST_DISCOVERY
-        assert call_args.kwargs["user_id"] == 0
+        with patch(
+            "fundamental.services.ingest.ingest_watcher_service.get_session"
+        ) as mock_get_session:
+            mock_get_session.return_value = mock_session
+
+            service._trigger_discovery()
+
+            mock_task_runner.enqueue.assert_called_once()
+            call_args = mock_task_runner.enqueue.call_args
+            assert call_args.kwargs["task_type"] == TaskType.INGEST_DISCOVERY
+            assert call_args.kwargs["user_id"] == 0
 
     def test_trigger_discovery_no_runner(
         self,
