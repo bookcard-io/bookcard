@@ -171,6 +171,7 @@ class MockResponseBuilder:
             title=book.title,
             authors=book_with_rels.authors,
             author_sort=book.author_sort,
+            title_sort=book.sort,
             pubdate=book.pubdate,
             timestamp=book.timestamp,
             series=book_with_rels.series,
@@ -340,6 +341,8 @@ class MockBookService:
         language_ids: list[int] | None = None,
         rating_value: int | None = None,
         rating_id: int | None = None,
+        author_sort: str | None = None,
+        title_sort: str | None = None,
     ) -> BookWithFullRelations | None:
         """Mock update_book method."""
         return self._update_book_result
