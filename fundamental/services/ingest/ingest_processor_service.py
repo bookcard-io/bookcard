@@ -178,6 +178,16 @@ class IngestProcessorService:
         IngestHistoryNotFoundError
             If history record not found.
         """
+        # Respect configuration flag for metadata fetching
+        config = self._config_service.get_config()
+        if not config.metadata_fetch_enabled:
+            logger.info(
+                "Metadata fetch is disabled in ingest configuration; "
+                "skipping fetch for history %d",
+                history_id,
+            )
+            return None
+
         history = self._get_history_or_raise(history_id)
         extracted = extract_metadata(history, metadata_hint)
 

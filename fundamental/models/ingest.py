@@ -257,6 +257,8 @@ class IngestConfig(SQLModel, table=True):
         Watch directory path for book files (default: '/data/books_ingest').
     enabled : bool
         Whether automatic ingest is active (default: True).
+    metadata_fetch_enabled : bool
+        Whether to fetch external metadata during ingest (default: False).
     metadata_providers : dict | None
         JSON data containing list of enabled provider IDs
         (e.g., ["google", "hardcover", "openlibrary"]).
@@ -289,6 +291,7 @@ class IngestConfig(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     ingest_dir: str = Field(default="/data/books_ingest", max_length=2000)
     enabled: bool = Field(default=True)
+    metadata_fetch_enabled: bool = Field(default=False)
     metadata_providers: dict | None = Field(
         default=["google", "openlibrary", "hardcover"],
         sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]

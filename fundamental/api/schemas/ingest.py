@@ -31,6 +31,7 @@ class IngestConfigResponse(BaseModel):
 
     ingest_dir: str
     enabled: bool
+    metadata_fetch_enabled: bool
     metadata_providers: list[str] | None = None
     metadata_merge_strategy: str
     metadata_priority_order: list[str] | None = None
@@ -49,6 +50,10 @@ class IngestConfigUpdate(BaseModel):
 
     ingest_dir: str | None = Field(default=None, description="Watch directory path")
     enabled: bool | None = Field(default=None, description="Whether ingest is enabled")
+    metadata_fetch_enabled: bool | None = Field(
+        default=None,
+        description="Whether external metadata fetching is enabled during ingest",
+    )
     metadata_providers: list[str] | None = Field(
         default=None, description="List of enabled provider IDs"
     )

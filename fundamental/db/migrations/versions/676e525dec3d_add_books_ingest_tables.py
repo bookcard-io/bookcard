@@ -176,6 +176,12 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("ingest_dir", sqlmodel.AutoString(length=2000), nullable=False),
         sa.Column("enabled", sa.Boolean(), nullable=False),
+        sa.Column(
+            "metadata_fetch_enabled",
+            sa.Boolean(),
+            nullable=False,
+            server_default=sa.true(),
+        ),
         sa.Column("metadata_providers", sa.JSON(), nullable=True),
         sa.Column(
             "metadata_merge_strategy",

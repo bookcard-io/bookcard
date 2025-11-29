@@ -317,6 +317,7 @@ class IngestConfigRepository(Repository[IngestConfig]):
             config = IngestConfig(
                 ingest_dir=ingest_dir,
                 enabled=True,
+                metadata_fetch_enabled=False,
                 metadata_providers=["google", "hardcover", "openlibrary"],
                 metadata_merge_strategy="first_wins",
                 metadata_priority_order=["google", "hardcover", "openlibrary"],

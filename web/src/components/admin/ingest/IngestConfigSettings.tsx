@@ -291,11 +291,37 @@ export function IngestConfigSettings() {
             Metadata Settings
           </h3>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {/* Metadata Fetch Toggle */}
+            <label className="flex cursor-pointer items-start gap-3 rounded-md border border-surface-a20 bg-surface-tonal-a0 p-4 transition-colors hover:border-surface-a30">
+              <input
+                type="checkbox"
+                checked={config.metadata_fetch_enabled}
+                onChange={(e) => {
+                  updateConfigField("metadata_fetch_enabled", e.target.checked);
+                }}
+                className="mt-0.5 h-4 w-4 cursor-pointer rounded border-surface-a20 text-primary-a0 accent-[var(--color-primary-a0)] focus:ring-2 focus:ring-primary-a0"
+              />
+              <div className="flex flex-col gap-1">
+                <span className="font-medium text-sm text-text-a10">
+                  Enable Metadata Fetch
+                </span>
+                <span className="text-text-a30 text-xs">
+                  Fetch and merge metadata from external providers during
+                  ingest.
+                </span>
+              </div>
+            </label>
+
             {/* Metadata Merge Strategy */}
             <div className="flex flex-col gap-2">
               <label
                 htmlFor="metadata_merge_strategy"
-                className="font-medium text-sm text-text-a10 leading-normal"
+                className={cn(
+                  "font-medium text-sm leading-normal",
+                  !config.metadata_fetch_enabled
+                    ? "text-text-a40"
+                    : "text-text-a10",
+                )}
               >
                 Merge Strategy
               </label>
@@ -303,9 +329,20 @@ export function IngestConfigSettings() {
                 id="metadata_merge_strategy"
                 value={config.metadata_merge_strategy}
                 onChange={(e) => {
+                  if (!config.metadata_fetch_enabled) {
+                    return;
+                  }
                   updateConfigField("metadata_merge_strategy", e.target.value);
                 }}
-                className="w-full rounded-md border border-surface-a20 bg-surface-a0 px-4 py-3 font-inherit text-base text-text-a0 leading-normal transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s] focus:border-primary-a0 focus:bg-surface-a10 focus:shadow-[var(--shadow-focus-ring)] focus:outline-none hover:not(:focus):border-surface-a30"
+                disabled={!config.metadata_fetch_enabled}
+                className={cn(
+                  "w-full rounded-md border px-4 py-3 font-inherit text-base leading-normal",
+                  "border-surface-a20 bg-surface-a0 text-text-a0",
+                  "transition-[background-color_0.2s,border-color_0.2s,box-shadow_0.2s]",
+                  "focus:border-primary-a0 focus:bg-surface-a10 focus:shadow-[var(--shadow-focus-ring)] focus:outline-none hover:not(:focus):border-surface-a30",
+                  !config.metadata_fetch_enabled &&
+                    "cursor-not-allowed bg-surface-a10 opacity-60",
+                )}
               >
                 <option value="merge_best">Merge Best</option>
                 <option value="first_wins">First Wins</option>
@@ -316,12 +353,24 @@ export function IngestConfigSettings() {
           </div>
 
           {/* Metadata Providers */}
-          <ToggleButtonGroup
-            label="Metadata Providers"
-            options={[...AVAILABLE_METADATA_PROVIDERS]}
-            selected={selected}
-            onToggle={handleToggle}
-          />
+          <div
+            className={cn(
+              "rounded-md border border-transparent",
+              !config.metadata_fetch_enabled && "opacity-60",
+            )}
+          >
+            <ToggleButtonGroup
+              label="Metadata Providers"
+              options={[...AVAILABLE_METADATA_PROVIDERS]}
+              selected={selected}
+              onToggle={(providerName) => {
+                if (!config.metadata_fetch_enabled) {
+                  return;
+                }
+                handleToggle(providerName);
+              }}
+            />
+          </div>
         </div>
 
         {/* Retry Settings */}

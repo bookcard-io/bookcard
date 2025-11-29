@@ -24,6 +24,7 @@
 export interface IngestConfig {
   ingest_dir: string;
   enabled: boolean;
+  metadata_fetch_enabled: boolean;
   metadata_providers: string[] | null;
   metadata_merge_strategy: string;
   metadata_priority_order: string[] | null;
@@ -40,6 +41,7 @@ export interface IngestConfig {
 export interface IngestConfigUpdate {
   ingest_dir?: string | null;
   enabled?: boolean | null;
+  metadata_fetch_enabled?: boolean | null;
   metadata_providers?: string[] | null;
   metadata_merge_strategy?: string | null;
   metadata_priority_order?: string[] | null;
