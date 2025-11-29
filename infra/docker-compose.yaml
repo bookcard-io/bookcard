@@ -56,6 +56,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+    networks:
+      - fundamental-network
 
   # Optional Redis service - only needed if ENABLE_REDIS=true
   # The application will work without Redis (library scanning features will be disabled)
@@ -71,6 +73,8 @@ services:
     profiles:
       - redis  # Use 'docker-compose --profile redis up' to include Redis
       - advanced
+    networks:
+      - fundamental-network
 
   # Optional PostgreSQL service - only needed if you want to use PostgreSQL instead of SQLite
   # The application defaults to SQLite if FUNDAMENTAL_DATABASE_URL is not set
@@ -97,6 +101,12 @@ services:
     profiles:
       - postgres  # Use 'docker-compose --profile postgres up' to include PostgreSQL
       - advanced
+    networks:
+      - fundamental-network
+
+networks:
+  fundamental-network:
+    driver: bridge
 
 volumes:
   postgres_data:
