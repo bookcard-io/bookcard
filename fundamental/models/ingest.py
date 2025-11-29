@@ -254,7 +254,7 @@ class IngestConfig(SQLModel, table=True):
     id : int | None
         Primary key identifier. Only one record should exist (singleton).
     ingest_dir : str
-        Watch directory path for book files (default: '/app/books_ingest').
+        Watch directory path for book files (default: '/data/books_ingest').
     enabled : bool
         Whether automatic ingest is active (default: True).
     metadata_providers : dict | None
@@ -287,7 +287,7 @@ class IngestConfig(SQLModel, table=True):
     __tablename__ = "ingest_config"
 
     id: int | None = Field(default=None, primary_key=True)
-    ingest_dir: str = Field(default="/app/books_ingest", max_length=2000)
+    ingest_dir: str = Field(default="/data/books_ingest", max_length=2000)
     enabled: bool = Field(default=True)
     metadata_providers: dict | None = Field(
         default=["google", "openlibrary", "hardcover"],

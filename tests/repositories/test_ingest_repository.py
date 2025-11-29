@@ -392,7 +392,7 @@ class TestIngestConfigRepository:
         """Test get_config returns existing config."""
         config = IngestConfig(
             id=1,
-            ingest_dir="/app/books_ingest",
+            ingest_dir="/data/books_ingest",
             enabled=True,
         )
 
@@ -433,7 +433,7 @@ class TestIngestConfigRepository:
             os.environ.pop("BOOKS_INGEST_DIR", None)
             result = config_repo.get_config()
 
-        assert result.ingest_dir == "/app/books_ingest"
+        assert result.ingest_dir == "/data/books_ingest"
 
     def test_update_config(
         self,
@@ -443,7 +443,7 @@ class TestIngestConfigRepository:
         """Test update_config updates existing config."""
         config = IngestConfig(
             id=1,
-            ingest_dir="/app/books_ingest",
+            ingest_dir="/data/books_ingest",
             enabled=True,
         )
 
@@ -464,7 +464,7 @@ class TestIngestConfigRepository:
         # First call returns None (no config), second call returns created config
         created_config = IngestConfig(
             id=1,
-            ingest_dir="/app/books_ingest",
+            ingest_dir="/data/books_ingest",
             enabled=True,
         )
 
@@ -485,7 +485,7 @@ class TestIngestConfigRepository:
         """Test update_config ignores attributes that don't exist on config."""
         config = IngestConfig(
             id=1,
-            ingest_dir="/app/books_ingest",
+            ingest_dir="/data/books_ingest",
             enabled=True,
         )
 

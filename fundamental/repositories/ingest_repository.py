@@ -313,7 +313,7 @@ class IngestConfigRepository(Repository[IngestConfig]):
         stmt = select(IngestConfig).limit(1)
         config = self._session.exec(stmt).first()
         if config is None:
-            ingest_dir = os.getenv("BOOKS_INGEST_DIR", "/app/books_ingest")
+            ingest_dir = os.getenv("BOOKS_INGEST_DIR", "/data/books_ingest")
             config = IngestConfig(
                 ingest_dir=ingest_dir,
                 enabled=True,
