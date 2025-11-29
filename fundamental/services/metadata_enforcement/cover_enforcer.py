@@ -15,12 +15,21 @@
 
 """Cover file enforcement service.
 
-Updates cover.jpg files in book directories with current cover image.
+Updates cover.jpg files in book directories and embeds covers into ebook files.
 """
 
 import logging
+import shutil
+import subprocess  # noqa: S404
+from pathlib import Path
+from typing import ClassVar
+
+from PIL import Image
+from sqlmodel import select
 
 from fundamental.models.config import Library
+from fundamental.models.media import Data
+from fundamental.repositories.calibre_book_repository import CalibreBookRepository
 from fundamental.repositories.models import BookWithFullRelations
 from fundamental.services.metadata_enforcement.library_path_resolver import (
     LibraryPathResolver,
@@ -32,14 +41,18 @@ logger = logging.getLogger(__name__)
 class CoverEnforcementService:
     """Service for enforcing cover image files.
 
-    Updates cover.jpg files in book directories to reflect current
-    database cover. Follows SRP by focusing solely on cover file updates.
+    Updates cover.jpg files in book directories and embeds covers into
+    ebook files (EPUB, AZW3) for device compatibility. Follows SRP by
+    focusing solely on cover file updates and embedding.
 
     Parameters
     ----------
     library : Library
         Library configuration for path resolution.
     """
+
+    # Supported formats for cover embedding
+    SUPPORTED_FORMATS: ClassVar[list[str]] = ["epub", "azw3"]
 
     def __init__(self, library: Library) -> None:
         """Initialize cover enforcement service.
@@ -55,7 +68,8 @@ class CoverEnforcementService:
     def enforce_cover(self, book_with_rels: BookWithFullRelations) -> bool:
         """Enforce cover image file for a book.
 
-        Copies the current cover image to the book's directory as cover.jpg.
+        Verifies cover.jpg exists in the book directory and embeds the cover
+        into supported ebook files (EPUB, AZW3) for device compatibility.
         If the book has no cover, the operation is skipped gracefully.
 
         Parameters
@@ -66,8 +80,8 @@ class CoverEnforcementService:
         Returns
         -------
         bool
-            True if cover file was successfully updated, False otherwise.
-            Returns False if book has no cover (not an error).
+            True if cover file was verified and embedded successfully,
+            False otherwise. Returns False if book has no cover (not an error).
         """
         try:
             book = book_with_rels.book
@@ -91,41 +105,7 @@ class CoverEnforcementService:
             # Calibre stores covers as cover.jpg
             cover_file_path = book_path / "cover.jpg"
 
-            # Check if cover already exists and is up to date
-            # We could compare file modification times, but for simplicity,
-            # we'll always update if the book has a cover flag set
-            if cover_file_path.exists():
-                # Verify it's actually an image file
-                try:
-                    from PIL import Image
-
-                    with Image.open(cover_file_path) as img:
-                        img.verify()
-                    # Cover exists and is valid, assume it's current
-                    logger.debug(
-                        "Cover file already exists and is valid: book_id=%d, path=%s",
-                        book.id,
-                        cover_file_path,
-                    )
-                except (OSError, ValueError, TypeError, AttributeError):
-                    # Cover file exists but is invalid, will be replaced
-                    logger.warning(
-                        "Existing cover file is invalid, will replace: book_id=%d, path=%s",
-                        book.id,
-                        cover_file_path,
-                    )
-                else:
-                    return True
-
-            # Get cover path from BookService pattern
-            # The cover should already be in the book directory as cover.jpg
-            # If it's not there, we need to get it from the database or generate it
-            # For now, we'll check if the file exists in the expected location
-            # In a full implementation, we might need to extract the cover from the database
-
-            # Since Calibre stores covers in the book directory, and we're updating
-            # metadata, we assume the cover is already there if has_cover is True
-            # If the file doesn't exist, we can't enforce it (would need cover extraction)
+            # Verify cover file exists and is valid
             if not cover_file_path.exists():
                 logger.warning(
                     "Cover file not found in book directory: book_id=%d, path=%s",
@@ -134,12 +114,36 @@ class CoverEnforcementService:
                 )
                 return False
 
-            # Cover file exists and is valid
-            logger.info(
-                "Cover file verified: book_id=%d, path=%s",
-                book.id,
-                cover_file_path,
+            # Verify it's actually an image file
+            try:
+                with Image.open(cover_file_path) as img:
+                    img.verify()
+            except (OSError, ValueError, TypeError, AttributeError) as e:
+                logger.warning(
+                    "Cover file exists but is invalid: book_id=%d, path=%s, error=%s",
+                    book.id,
+                    cover_file_path,
+                    e,
+                )
+                return False
+
+            # Embed cover into supported ebook files
+            embedded = self._embed_cover_into_ebooks(
+                book_with_rels, book_path, cover_file_path
             )
+
+            if embedded:
+                logger.info(
+                    "Cover file verified and embedded: book_id=%d, path=%s",
+                    book.id,
+                    cover_file_path,
+                )
+            else:
+                logger.info(
+                    "Cover file verified (no supported formats to embed): book_id=%d, path=%s",
+                    book.id,
+                    cover_file_path,
+                )
         except OSError:
             logger.exception(
                 "Failed to access cover file for book_id=%d",
@@ -154,3 +158,216 @@ class CoverEnforcementService:
             return False
         else:
             return True
+
+    def _embed_cover_into_ebooks(
+        self,
+        book_with_rels: BookWithFullRelations,
+        book_path: Path,
+        cover_file_path: Path,
+    ) -> bool:
+        """Embed cover image into supported ebook files.
+
+        Uses ebook-polish to embed the cover into EPUB and AZW3 files.
+        This ensures covers display correctly on Kindle and other devices.
+
+        Parameters
+        ----------
+        book_with_rels : BookWithFullRelations
+            Book with all related metadata.
+        book_path : Path
+            Book directory path.
+        cover_file_path : Path
+            Path to cover.jpg file.
+
+        Returns
+        -------
+        bool
+            True if at least one ebook file was updated, False otherwise.
+        """
+        book = book_with_rels.book
+        if book.id is None:
+            logger.warning("Book ID is None, cannot embed cover")
+            return False
+
+        # Get ebook-polish binary path
+        polish_path = self._get_ebook_polish_path()
+        if polish_path is None:
+            logger.warning(
+                "ebook-polish not found, skipping cover embedding: book_id=%d",
+                book.id,
+            )
+            return False
+
+        book_repo = CalibreBookRepository(
+            calibre_db_path=self._library.calibre_db_path,
+            calibre_db_file=self._library.calibre_db_file,
+        )
+
+        with book_repo.get_session() as calibre_session:
+            data_stmt = select(Data).where(Data.book == book.id)
+            data_records = list(calibre_session.exec(data_stmt).all())
+
+        any_embedded = False
+
+        for data_record in data_records:
+            format_lower = data_record.format.lower()
+
+            # Only process supported formats
+            if format_lower not in self.SUPPORTED_FORMATS:
+                continue
+
+            # Find ebook file
+            file_path = self._find_ebook_file(book_path, book.id, data_record)
+            if file_path is None:
+                logger.debug(
+                    "Ebook file not found for cover embedding: book_id=%d, format=%s",
+                    book.id,
+                    format_lower,
+                )
+                continue
+
+            # Embed cover using ebook-polish
+            try:
+                success = self._run_ebook_polish(
+                    polish_path, cover_file_path, file_path
+                )
+                if success:
+                    any_embedded = True
+                    logger.info(
+                        "Cover embedded into ebook: book_id=%d, format=%s, path=%s",
+                        book.id,
+                        format_lower,
+                        file_path,
+                    )
+            except Exception:
+                logger.exception(
+                    "Failed to embed cover into ebook: book_id=%d, format=%s, path=%s",
+                    book.id,
+                    format_lower,
+                    file_path,
+                )
+
+        return any_embedded
+
+    def _get_ebook_polish_path(self) -> str | None:
+        """Get path to Calibre ebook-polish binary.
+
+        Returns
+        -------
+        str | None
+            Path to ebook-polish if found, None otherwise.
+        """
+        # Check Docker installation path first
+        docker_path = Path("/app/calibre/ebook-polish")
+        if docker_path.exists():
+            return str(docker_path)
+
+        # Fallback to PATH lookup
+        polish = shutil.which("ebook-polish")
+        if polish:
+            return polish
+
+        return None
+
+    def _run_ebook_polish(
+        self, polish_path: str, cover_path: Path, ebook_path: Path
+    ) -> bool:
+        """Run ebook-polish to embed cover into ebook file.
+
+        Parameters
+        ----------
+        polish_path : str
+            Path to ebook-polish binary.
+        cover_path : Path
+            Path to cover image file.
+        ebook_path : Path
+            Path to ebook file to update.
+
+        Returns
+        -------
+        bool
+            True if successful, False otherwise.
+        """
+        try:
+            # ebook-polish -c cover.jpg -U file.epub file.epub
+            # -c: cover image path
+            # -U: update file in place
+            cmd = [
+                polish_path,
+                "-c",
+                str(cover_path),
+                "-U",
+                str(ebook_path),
+                str(ebook_path),
+            ]
+
+            result = subprocess.run(  # noqa: S603
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=300,  # 5 minute timeout
+            )
+
+            if result.returncode == 0:
+                return True
+
+            logger.warning(
+                "ebook-polish failed: path=%s, returncode=%d, stderr=%s",
+                ebook_path,
+                result.returncode,
+                result.stderr[:500] if result.stderr else "",
+            )
+        except subprocess.TimeoutExpired:
+            logger.exception(
+                "ebook-polish timed out after 5 minutes: path=%s",
+                ebook_path,
+            )
+            return False
+        except Exception:
+            logger.exception(
+                "Error running ebook-polish: path=%s",
+                ebook_path,
+            )
+            return False
+        else:
+            return False
+
+    def _find_ebook_file(
+        self, book_dir: Path, book_id: int, data_record: Data
+    ) -> Path | None:
+        """Find ebook file path.
+
+        Parameters
+        ----------
+        book_dir : Path
+            Book directory path.
+        book_id : int
+            Book ID.
+        data_record : Data
+            Data record for the format.
+
+        Returns
+        -------
+        Path | None
+            Path to ebook file if found, None otherwise.
+        """
+        file_name = data_record.name or str(book_id)
+        format_lower = data_record.format.lower()
+
+        # Try primary path: {name}.{format}
+        primary = book_dir / f"{file_name}.{format_lower}"
+        if primary.exists():
+            return primary
+
+        # Try alternative path: {book_id}.{format}
+        alt = book_dir / f"{book_id}.{format_lower}"
+        if alt.exists():
+            return alt
+
+        # Try to find by extension
+        for file_path in book_dir.iterdir():
+            if file_path.is_file() and file_path.suffix.lower() == f".{format_lower}":
+                return file_path
+
+        return None
