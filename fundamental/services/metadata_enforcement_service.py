@@ -263,20 +263,19 @@ class MetadataEnforcementService:
             return False, []
 
         # Get book formats from database
-        with self._session.begin():
-            # Use Calibre repository session to query Data table
-            from fundamental.repositories.calibre_book_repository import (
-                CalibreBookRepository,
-            )
+        # Use Calibre repository session to query Data table
+        from fundamental.repositories.calibre_book_repository import (
+            CalibreBookRepository,
+        )
 
-            book_repo = CalibreBookRepository(
-                calibre_db_path=self._library.calibre_db_path,
-                calibre_db_file=self._library.calibre_db_file,
-            )
+        book_repo = CalibreBookRepository(
+            calibre_db_path=self._library.calibre_db_path,
+            calibre_db_file=self._library.calibre_db_file,
+        )
 
-            with book_repo.get_session() as calibre_session:
-                data_stmt = select(Data).where(Data.book == book.id)
-                data_records = list(calibre_session.exec(data_stmt).all())
+        with book_repo.get_session() as calibre_session:
+            data_stmt = select(Data).where(Data.book == book.id)
+            data_records = list(calibre_session.exec(data_stmt).all())
 
         supported_formats: list[str] = []
         any_updated = False
