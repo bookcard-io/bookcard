@@ -1171,7 +1171,7 @@ def convert_book_format(
         )
 
     # Check write permission
-    permission_helper.check_update_permission(
+    permission_helper.check_create_permission(
         current_user, existing_book, book_id, session
     )
 
