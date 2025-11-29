@@ -15,7 +15,7 @@
 
 "use client";
 
-import { Controller, type UseFormReturn } from "react-hook-form";
+import { Controller, type UseFormReturn, useWatch } from "react-hook-form";
 import { AutocompleteTextInput } from "@/components/forms/AutocompleteTextInput";
 import { Button } from "@/components/forms/Button";
 import { DateInput } from "@/components/forms/DateInput";
@@ -55,6 +55,16 @@ export function BookEditFormFields({ book, form }: BookEditFormFieldsProps) {
     formState: { errors },
   } = form;
 
+  // Watch sort values to display them in real-time as user types
+  const titleSort = useWatch({
+    control,
+    name: "title_sort",
+  });
+  const authorSort = useWatch({
+    control,
+    name: "author_sort",
+  });
+
   return (
     <div className="flex min-w-0 flex-col gap-6">
       <div className="grid grid-cols-3 gap-4 sm:grid-cols-1">
@@ -90,7 +100,7 @@ export function BookEditFormFields({ book, form }: BookEditFormFieldsProps) {
           <TextInput
             id="title_sort"
             label="Title Sort"
-            value={book.title_sort || ""}
+            value={titleSort || ""}
             disabled
             className="min-w-0"
           />
@@ -128,8 +138,8 @@ export function BookEditFormFields({ book, form }: BookEditFormFieldsProps) {
           </div>
           <TextInput
             id="author_sort"
-            label="Author(s)"
-            value={book.author_sort || ""}
+            label="Author(s) Sort"
+            value={authorSort || ""}
             disabled
             className="min-w-0"
           />
