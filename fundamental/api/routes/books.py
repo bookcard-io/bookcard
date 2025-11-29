@@ -24,8 +24,9 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
-from fundamental.models import BookConversion, ConversionStatus
-from fundamental.services.conversion_service import ConversionService
+from fundamental.services.book_conversion_orchestration_service import (
+    BookConversionOrchestrationService,
+)
 from fundamental.services.metadata_enforcement_trigger_service import (
     MetadataEnforcementTriggerService,
 )
@@ -45,13 +46,14 @@ from fastapi import (
     status,
 )
 from fastapi.responses import FileResponse
-from sqlmodel import Session, desc, select
+from sqlmodel import Session
 
 from fundamental.api.deps import get_current_user, get_db_session
 from fundamental.api.schemas import (
     BookBatchUploadResponse,
     BookBulkSendRequest,
     BookConversionListResponse,
+    BookConversionRead,
     BookConvertRequest,
     BookConvertResponse,
     BookDeleteRequest,
@@ -297,6 +299,61 @@ BookServiceDep = Annotated[BookService, Depends(_get_active_library_service)]
 PermissionHelperDep = Annotated[
     BookPermissionHelper,
     Depends(_get_permission_helper),
+]
+
+
+def _get_conversion_orchestration_service(
+    request: Request,
+    session: SessionDep,
+    book_service: BookServiceDep,
+) -> BookConversionOrchestrationService:
+    """Get book conversion orchestration service instance.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object for accessing app state.
+    session : SessionDep
+        Database session dependency.
+    book_service : BookServiceDep
+        Book service dependency.
+
+    Returns
+    -------
+    BookConversionOrchestrationService
+        Conversion orchestration service instance.
+
+    Raises
+    ------
+    HTTPException
+        If no active library exists.
+    """
+    # Get task runner (optional for read operations)
+    task_runner: TaskRunner | None = None
+    if hasattr(request.app.state, "task_runner"):
+        task_runner = request.app.state.task_runner
+
+    # Get active library
+    library_repo = LibraryRepository(session)
+    library_service = LibraryService(session, library_repo)
+    library = library_service.get_active_library()
+    if library is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="no_active_library",
+        )
+
+    return BookConversionOrchestrationService(
+        session=session,
+        book_service=book_service,
+        library=library,
+        task_runner=task_runner,
+    )
+
+
+ConversionOrchestrationServiceDep = Annotated[
+    BookConversionOrchestrationService,
+    Depends(_get_conversion_orchestration_service),
 ]
 ResponseBuilderDep = Annotated[
     BookResponseBuilder,
@@ -1120,13 +1177,13 @@ def send_books_to_device_batch(
     status_code=status.HTTP_201_CREATED,
 )
 def convert_book_format(
-    request: Request,
     session: SessionDep,
     book_id: int,
     current_user: CurrentUserDep,
     convert_request: BookConvertRequest,
     book_service: BookServiceDep,
     permission_helper: PermissionHelperDep,
+    orchestration_service: ConversionOrchestrationServiceDep,
 ) -> BookConvertResponse:
     """Convert a book from one format to another.
 
@@ -1135,8 +1192,6 @@ def convert_book_format(
 
     Parameters
     ----------
-    request : Request
-        FastAPI request object.
     session : SessionDep
         Database session dependency.
     book_id : int
@@ -1149,6 +1204,8 @@ def convert_book_format(
         Book service dependency.
     permission_helper : PermissionHelperDep
         Permission helper dependency.
+    orchestration_service : ConversionOrchestrationServiceDep
+        Conversion orchestration service dependency.
 
     Returns
     -------
@@ -1162,7 +1219,7 @@ def convert_book_format(
         permission denied (403), task runner unavailable (503),
         or user missing ID (500).
     """
-    # Verify book exists
+    # Verify book exists for permission check
     existing_book = book_service.get_book_full(book_id)
     if existing_book is None:
         raise HTTPException(
@@ -1182,82 +1239,38 @@ def convert_book_format(
             detail="user_missing_id",
         )
 
-    # Get task runner
-    if (
-        not hasattr(request.app.state, "task_runner")
-        or request.app.state.task_runner is None
-    ):
+    # Delegate business logic to service
+    try:
+        result = orchestration_service.initiate_conversion(
+            book_id=book_id,
+            source_format=convert_request.source_format,
+            target_format=convert_request.target_format,
+            user_id=current_user.id,
+        )
+    except ValueError as e:
+        # Map business exceptions to HTTP exceptions
+        raise BookExceptionMapper.map_value_error_to_http_exception(e) from e
+    except RuntimeError as e:
+        # Map runtime errors (e.g., task runner unavailable) to HTTP exceptions
+        error_msg = str(e)
+        if "Task runner" in error_msg or "not available" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=error_msg,
+            ) from e
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Task runner not available",
-        )
-    task_runner: TaskRunner = request.app.state.task_runner
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_msg,
+        ) from e
 
-    library_repo = LibraryRepository(session)
-    library_service = LibraryService(session, library_repo)
-    library = library_service.get_active_library()
-    if library is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="no_active_library",
-        )
-
-    conversion_service = ConversionService(session, library)
-    existing = conversion_service.check_existing_conversion(
-        book_id,
-        convert_request.source_format,
-        convert_request.target_format,
+    # Build response
+    return BookConvertResponse(
+        task_id=result.task_id,
+        message=result.message,
+        existing_conversion_id=result.existing_conversion.id
+        if result.existing_conversion
+        else None,
     )
-
-    if existing and existing.status == ConversionStatus.COMPLETED:
-        # Return friendly message about existing conversion
-
-        completed_date = (
-            existing.completed_at.strftime("%Y-%m-%d %H:%M:%S")
-            if existing.completed_at
-            else "previously"
-        )
-        message = (
-            f"This book has already been converted from {convert_request.source_format} "
-            f"to {convert_request.target_format} on {completed_date}"
-        )
-        return BookConvertResponse(
-            task_id=0,  # No task created
-            message=message,
-            existing_conversion_id=existing.id,
-        )
-
-    # Validate that source format exists
-    formats = existing_book.formats or []
-    source_format_upper = convert_request.source_format.upper()
-    format_found = any(
-        str(f.get("format", "")).upper() == source_format_upper for f in formats
-    )
-    if not format_found:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"source_format_not_found: {convert_request.source_format}",
-        )
-
-    # Enqueue conversion task
-    task_id = task_runner.enqueue(
-        task_type=TaskType.BOOK_CONVERT,
-        payload={
-            "book_id": book_id,
-            "source_format": convert_request.source_format,
-            "target_format": convert_request.target_format,
-        },
-        user_id=current_user.id,
-        metadata={
-            "task_type": TaskType.BOOK_CONVERT,
-            "book_id": book_id,
-            "source_format": convert_request.source_format,
-            "target_format": convert_request.target_format,
-            "conversion_method": "manual",
-        },
-    )
-
-    return BookConvertResponse(task_id=task_id)
 
 
 @router.get(
@@ -1270,6 +1283,7 @@ def get_book_conversions(
     current_user: CurrentUserDep,
     book_service: BookServiceDep,
     permission_helper: PermissionHelperDep,
+    orchestration_service: ConversionOrchestrationServiceDep,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
 ) -> BookConversionListResponse:
@@ -1287,6 +1301,8 @@ def get_book_conversions(
         Book service dependency.
     permission_helper : PermissionHelperDep
         Permission helper dependency.
+    orchestration_service : ConversionOrchestrationServiceDep
+        Conversion orchestration service dependency.
     page : int
         Page number (1-indexed).
     page_size : int
@@ -1302,7 +1318,7 @@ def get_book_conversions(
     HTTPException
         If book not found (404) or permission denied (403).
     """
-    # Verify book exists
+    # Verify book exists for permission check
     existing_book = book_service.get_book_full(book_id)
     if existing_book is None:
         raise HTTPException(
@@ -1315,22 +1331,16 @@ def get_book_conversions(
         current_user, existing_book, book_id, session
     )
 
-    stmt = (
-        select(BookConversion)
-        .where(BookConversion.book_id == book_id)
-        .order_by(desc(BookConversion.created_at))
-    )
-
-    # Get total count
-    count_stmt = select(BookConversion).where(BookConversion.book_id == book_id)
-    total = len(list(session.exec(count_stmt).all()))
-
-    # Apply pagination
-    offset = (page - 1) * page_size
-    conversions = list(session.exec(stmt.offset(offset).limit(page_size)).all())
-
-    # Convert to response models
-    from fundamental.api.schemas.conversion import BookConversionRead
+    # Delegate business logic to service
+    try:
+        result = orchestration_service.get_conversions(
+            book_id=book_id,
+            page=page,
+            page_size=page_size,
+        )
+    except ValueError as e:
+        # Map business exceptions to HTTP exceptions
+        raise BookExceptionMapper.map_value_error_to_http_exception(e) from e
 
     items = [
         BookConversionRead(
@@ -1346,17 +1356,15 @@ def get_book_conversions(
             completed_at=conv.completed_at,
             duration=conv.duration,
         )
-        for conv in conversions
+        for conv in result.conversions
     ]
-
-    total_pages = math.ceil(total / page_size) if total > 0 else 0
 
     return BookConversionListResponse(
         items=items,
-        total=total,
-        page=page,
-        page_size=page_size,
-        total_pages=total_pages,
+        total=result.total,
+        page=result.page,
+        page_size=result.page_size,
+        total_pages=result.total_pages,
     )
 
 
