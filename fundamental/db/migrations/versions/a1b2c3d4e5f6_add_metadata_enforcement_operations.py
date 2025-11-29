@@ -71,10 +71,10 @@ def upgrade() -> None:
         sa.Column(
             "status",
             sa.Enum(
-                "pending",
-                "in_progress",
-                "completed",
-                "failed",
+                "PENDING",
+                "IN_PROGRESS",
+                "COMPLETED",
+                "FAILED",
                 name="enforcementstatus",
                 native_enum=is_postgresql,
                 create_type=not is_postgresql,  # Don't create type for PostgreSQL, we do it manually
