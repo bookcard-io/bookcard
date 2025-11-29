@@ -5,7 +5,19 @@ services:
       dockerfile: infra/Dockerfile
     container_name: fundamental
     restart: unless-stopped
+    volumes:
+      # Your books directory, typically where calibre's `metadata.db` is located
+      - /path/to/books:/books:ro
+
+      # Fundamental's data/configs directory; mount this to persist data and configs
+      - ~/.fundamental:/data
+
+      # Path to automatically ingest books from.  Files here will be automatically ingested and deleted.
+      - /path/to/books/ingest:/data/books_ingest
     environment:
+      PGID: ${PGID:-1000}
+      PUID: ${PUID:-1000}
+
       # backend authentication settings
       FUNDAMENTAL_JWT_SECRET: ${FUNDAMENTAL_JWT_SECRET:-youShouldChangeThis}
       FUNDAMENTAL_JWT_ALG: ${FUNDAMENTAL_JWT_ALG:-HS256}
@@ -47,12 +59,6 @@ services:
       - .env
     ports:
       - "3000:3000"  # Frontend
-    volumes:
-      # Your books directory, typically where calibre's `metadata.db` is located
-      # - /media/nas/books:/app/books:ro
-      - ~/.fundamental:/data
-      - /path/to/books:/media/nas/books:ro
-      - /path/to/books/ingest:/data/books_ingest
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health | grep -q 'ok' && curl -fsS http://localhost:3000 | grep -q '<!DOCTYPE html>' || exit 1"]
       interval: 30s
