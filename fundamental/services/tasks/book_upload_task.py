@@ -39,7 +39,11 @@ from fundamental.services.tasks.exceptions import (
     LibraryNotConfiguredError,
     TaskCancelledError,
 )
-from fundamental.services.tasks.post_processors import PostIngestProcessor
+from fundamental.services.tasks.post_processors import (
+    ConversionPostIngestProcessor,
+    EPUBPostIngestProcessor,
+    PostIngestProcessor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -403,12 +407,6 @@ class BookUploadTask(BaseTask):
         """
         if self._post_processors is not None:
             return self._post_processors
-
-        # Create default processors
-        from fundamental.services.tasks.post_processors import (
-            ConversionPostIngestProcessor,
-            EPUBPostIngestProcessor,
-        )
 
         processors = [EPUBPostIngestProcessor(session)]
         # Add conversion processor using library-level config
