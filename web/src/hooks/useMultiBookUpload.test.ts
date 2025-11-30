@@ -15,6 +15,7 @@
 
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getBookFormatsAcceptString } from "@/constants/bookFormats";
 import { useMultiBookUpload } from "./useMultiBookUpload";
 
 describe("useMultiBookUpload", () => {
@@ -39,8 +40,6 @@ describe("useMultiBookUpload", () => {
 
   it("should have correct accept string", () => {
     const { result } = renderHook(() => useMultiBookUpload());
-
-    const { getBookFormatsAcceptString } = require("@/constants/bookFormats");
     expect(result.current.fileInputProps.accept).toBe(
       getBookFormatsAcceptString(),
     );

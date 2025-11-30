@@ -16,6 +16,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import React, { type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getBookFormatsAcceptString } from "@/constants/bookFormats";
 import { GlobalMessageProvider } from "@/contexts/GlobalMessageContext";
 import { useBookUpload } from "./useBookUpload";
 
@@ -40,7 +41,6 @@ describe("useBookUpload", () => {
 
   it("should have correct accept string", () => {
     const { result } = renderHook(() => useBookUpload(), { wrapper });
-    const { getBookFormatsAcceptString } = require("@/constants/bookFormats");
     expect(result.current.accept).toBe(getBookFormatsAcceptString());
   });
 
