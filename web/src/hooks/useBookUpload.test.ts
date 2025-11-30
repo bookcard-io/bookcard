@@ -40,10 +40,8 @@ describe("useBookUpload", () => {
 
   it("should have correct accept string", () => {
     const { result } = renderHook(() => useBookUpload(), { wrapper });
-
-    expect(result.current.accept).toBe(
-      ".epub,.mobi,.azw,.azw3,.azw4,.cbz,.cbr,.cb7,.cbc,.chm,.djvu,.docx,.fb2,.fbz,.html,.htmlz,.kepub,.lit,.lrf,.odt,.pdf,.prc,.pdb,.pml,.rb,.rtf,.snb,.tcr,.txt,.txtz",
-    );
+    const { getBookFormatsAcceptString } = require("@/constants/bookFormats");
+    expect(result.current.accept).toBe(getBookFormatsAcceptString());
   });
 
   it("should open file browser when openFileBrowser is called", () => {

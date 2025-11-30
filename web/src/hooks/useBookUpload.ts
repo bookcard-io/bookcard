@@ -14,6 +14,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { useCallback, useRef, useState } from "react";
+import { getBookFormatsAcceptString } from "@/constants/bookFormats";
 import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { useBookUploadOrchestrator } from "./useBookUploadOrchestrator";
 import { useFileUpload } from "./useFileUpload";
@@ -195,9 +196,8 @@ export function useBookUpload(
     [orchestrator],
   );
 
-  // Supported Calibre formats: AZW, AZW3, AZW4, CBZ, CBR, CB7, CBC, CHM, DJVU, DOCX, EPUB, FB2, FBZ, HTML, HTMLZ, KEPUB, LIT, LRF, MOBI, ODT, PDF, PRC, PDB, PML, RB, RTF, SNB, TCR, TXT, TXTZ
-  const accept =
-    ".epub,.mobi,.azw,.azw3,.azw4,.cbz,.cbr,.cb7,.cbc,.chm,.djvu,.docx,.fb2,.fbz,.html,.htmlz,.kepub,.lit,.lrf,.odt,.pdf,.prc,.pdb,.pml,.rb,.rtf,.snb,.tcr,.txt,.txtz";
+  // Use shared constant for supported formats (single source of truth)
+  const accept = getBookFormatsAcceptString();
 
   return {
     fileInputRef,

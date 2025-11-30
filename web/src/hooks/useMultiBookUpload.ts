@@ -21,6 +21,7 @@ Follows IOC by accepting callbacks for success/error handling.
 */
 
 import { useCallback, useRef, useState } from "react";
+import { getBookFormatsAcceptString } from "@/constants/bookFormats";
 
 export interface UseMultiBookUploadOptions {
   /**Callback when upload task is created successfully. */
@@ -156,8 +157,8 @@ export function useMultiBookUpload(
     clearError,
     fileInputProps: {
       multiple: true,
-      accept:
-        ".epub,.mobi,.azw,.azw3,.pdf,.txt,.rtf,.fb2,.lit,.lrf,.oeb,.pdb,.rb,.snb,.tcr",
+      // Use shared constant for supported formats (single source of truth)
+      accept: getBookFormatsAcceptString(),
       onChange: handleFileChange,
     },
   };

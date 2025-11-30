@@ -114,37 +114,8 @@ export const CONVERSION_TARGET_FORMAT_OPTIONS = [
   { value: "pdf", label: "PDF" },
 ] as const;
 
-export const SUPPORTED_BOOK_FORMATS = [
-  { value: "epub", label: "EPUB" },
-  { value: "mobi", label: "MOBI" },
-  { value: "azw3", label: "AZW3" },
-  { value: "azw", label: "AZW" },
-  { value: "azw4", label: "AZW4" },
-  { value: "kepub", label: "KEPUB" },
-  { value: "pdf", label: "PDF" },
-  { value: "fb2", label: "FB2" },
-  { value: "html", label: "HTML" },
-  { value: "htmlz", label: "HTMLZ" },
-  { value: "txt", label: "TXT" },
-  { value: "txtz", label: "TXTZ" },
-  { value: "rtf", label: "RTF" },
-  { value: "lit", label: "LIT" },
-  { value: "lrf", label: "LRF" },
-  { value: "odt", label: "ODT" },
-  { value: "docx", label: "DOCX" },
-  { value: "cbz", label: "CBZ" },
-  { value: "cbr", label: "CBR" },
-  { value: "cb7", label: "CB7" },
-  { value: "cbc", label: "CBC" },
-  { value: "chm", label: "CHM" },
-  { value: "djvu", label: "DJVU" },
-  { value: "prc", label: "PRC" },
-  { value: "pdb", label: "PDB" },
-  { value: "pml", label: "PML" },
-  { value: "rb", label: "RB" },
-  { value: "snb", label: "SNB" },
-  { value: "tcr", label: "TCR" },
-] as const;
+// Re-export from shared constants (single source of truth)
+export { SUPPORTED_BOOK_FORMATS } from "@/constants/bookFormats";
 
 export const THEME_PREFERENCE_SETTING_KEY = "theme_preference";
 

@@ -40,8 +40,9 @@ describe("useMultiBookUpload", () => {
   it("should have correct accept string", () => {
     const { result } = renderHook(() => useMultiBookUpload());
 
+    const { getBookFormatsAcceptString } = require("@/constants/bookFormats");
     expect(result.current.fileInputProps.accept).toBe(
-      ".epub,.mobi,.azw,.azw3,.pdf,.txt,.rtf,.fb2,.lit,.lrf,.oeb,.pdb,.rb,.snb,.tcr",
+      getBookFormatsAcceptString(),
     );
   });
 
