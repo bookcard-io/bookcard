@@ -25,6 +25,7 @@ from datetime import UTC, datetime
 
 from sqlmodel import Session, select
 
+from fundamental.models.config import DEFAULT_SUPPORTED_FORMATS
 from fundamental.models.ingest import (
     IngestAudit,
     IngestConfig,
@@ -33,42 +34,6 @@ from fundamental.models.ingest import (
     IngestStatus,
 )
 from fundamental.repositories.base import Repository
-
-# Default supported file formats for ingest
-# Matches Calibre-supported formats: 30 formats total
-DEFAULT_SUPPORTED_FORMATS = [
-    "acsm",
-    "azw",
-    "azw3",
-    "azw4",
-    "cbz",
-    "cbr",
-    "cb7",
-    "cbc",
-    "chm",
-    "djvu",
-    "docx",
-    "epub",
-    "fb2",
-    "fbz",
-    "html",
-    "htmlz",
-    "kepub",
-    "lit",
-    "lrf",
-    "mobi",
-    "odt",
-    "pdf",
-    "prc",
-    "pdb",
-    "pml",
-    "rb",
-    "rtf",
-    "snb",
-    "tcr",
-    "txt",
-    "txtz",
-]
 
 
 class IngestHistoryRepository(Repository[IngestHistory]):

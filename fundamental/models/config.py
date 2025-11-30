@@ -29,7 +29,41 @@ from sqlalchemy import JSON, Column
 from sqlalchemy import Enum as SQLEnum
 from sqlmodel import Field, SQLModel
 
-from fundamental.repositories.ingest_repository import DEFAULT_SUPPORTED_FORMATS
+# Default supported file formats for ingest
+# Matches Calibre-supported formats: 30 formats total
+DEFAULT_SUPPORTED_FORMATS = [
+    "acsm",
+    "azw",
+    "azw3",
+    "azw4",
+    "cbz",
+    "cbr",
+    "cb7",
+    "cbc",
+    "chm",
+    "djvu",
+    "docx",
+    "epub",
+    "fb2",
+    "fbz",
+    "html",
+    "htmlz",
+    "kepub",
+    "lit",
+    "lrf",
+    "mobi",
+    "odt",
+    "pdf",
+    "prc",
+    "pdb",
+    "pml",
+    "rb",
+    "rtf",
+    "snb",
+    "tcr",
+    "txt",
+    "txtz",
+]
 
 
 class LogLevel(StrEnum):
