@@ -36,6 +36,7 @@ dependencies = [
     "dramatiq[redis,watch]>=2.0.0",
     "redis>=6.4.0",
     "watchfiles>=1.1.1",
+    "py7zr>=1.0.0",
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -16,15 +16,27 @@
 """Cover art extraction strategies for different book formats."""
 
 from fundamental.services.cover_extractors.base import CoverExtractionStrategy
+from fundamental.services.cover_extractors.cbz import CbzCoverExtractor
+from fundamental.services.cover_extractors.docx import DocxCoverExtractor
 from fundamental.services.cover_extractors.epub import EpubCoverExtractor
 from fundamental.services.cover_extractors.fb2 import Fb2CoverExtractor
+from fundamental.services.cover_extractors.fbz import FbzCoverExtractor
+from fundamental.services.cover_extractors.html import HtmlCoverExtractor
+from fundamental.services.cover_extractors.kepub import KepubCoverExtractor
 from fundamental.services.cover_extractors.mobi import MobiCoverExtractor
+from fundamental.services.cover_extractors.odt import OdtCoverExtractor
 from fundamental.services.cover_extractors.pdf import PdfCoverExtractor
 
 __all__ = [
+    "CbzCoverExtractor",
     "CoverExtractionStrategy",
+    "DocxCoverExtractor",
     "EpubCoverExtractor",
     "Fb2CoverExtractor",
+    "FbzCoverExtractor",
+    "HtmlCoverExtractor",
+    "KepubCoverExtractor",
     "MobiCoverExtractor",
+    "OdtCoverExtractor",
     "PdfCoverExtractor",
 ]

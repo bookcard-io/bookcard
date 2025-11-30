@@ -26,10 +26,16 @@ from contextlib import suppress
 from typing import TYPE_CHECKING
 
 from fundamental.services.cover_extractors import (
+    CbzCoverExtractor,
     CoverExtractionStrategy,
+    DocxCoverExtractor,
     EpubCoverExtractor,
     Fb2CoverExtractor,
+    FbzCoverExtractor,
+    HtmlCoverExtractor,
+    KepubCoverExtractor,
     MobiCoverExtractor,
+    OdtCoverExtractor,
     PdfCoverExtractor,
 )
 
@@ -46,12 +52,27 @@ class BookCoverExtractor:
     """
 
     def __init__(self) -> None:
-        """Initialize extractor with default strategies."""
+        """Initialize extractor with default strategies.
+
+        Strategies are ordered by format prevalence and specificity.
+        More specific formats (e.g., KEPUB, FBZ) come before their base formats.
+        """
         self._strategies: list[CoverExtractionStrategy] = [
+            # Specific variants first (before base formats)
+            KepubCoverExtractor(),  # KEPUB (before EPUB)
+            FbzCoverExtractor(),  # FBZ (before FB2)
+            # Common formats (high prevalence)
             EpubCoverExtractor(),
             PdfCoverExtractor(),
-            MobiCoverExtractor(),
+            MobiCoverExtractor(),  # Also handles AZW, AZW3, AZW4, PRC
             Fb2CoverExtractor(),
+            # Document formats
+            DocxCoverExtractor(),
+            OdtCoverExtractor(),
+            # Web-based formats
+            HtmlCoverExtractor(),  # Also handles HTMLZ
+            # Comic book formats
+            CbzCoverExtractor(),  # Also handles CBR, CB7, CBC
         ]
 
     def register_strategy(self, strategy: CoverExtractionStrategy) -> None:
