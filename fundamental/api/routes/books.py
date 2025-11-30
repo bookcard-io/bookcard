@@ -79,7 +79,10 @@ from fundamental.services.book_exception_mapper import BookExceptionMapper
 from fundamental.services.book_permission_helper import BookPermissionHelper
 from fundamental.services.book_response_builder import BookResponseBuilder
 from fundamental.services.book_service import BookService
-from fundamental.services.config_service import LibraryService
+from fundamental.services.config_service import (
+    FileHandlingConfigService,
+    LibraryService,
+)
 from fundamental.services.email_config_service import EmailConfigService
 from fundamental.services.metadata_export_service import MetadataExportService
 from fundamental.services.metadata_import_service import MetadataImportService
@@ -1753,6 +1756,7 @@ def upload_book(
     current_user: CurrentUserDep,
     file: UploadFile,
     permission_helper: PermissionHelperDep,
+    session: SessionDep,
 ) -> BookUploadResponse:
     """Upload a book file to the active library (asynchronous).
 
@@ -1800,6 +1804,15 @@ def upload_book(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="file_extension_required",
+        )
+
+    # Validate file format against allowed formats
+    file_handling_service = FileHandlingConfigService(session)
+    if not file_handling_service.is_format_allowed(file_ext):
+        allowed_formats = file_handling_service.get_allowed_upload_formats()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File format '{file_ext}' is not allowed. Allowed formats: {', '.join(allowed_formats)}",
         )
 
     # Save file to temporary location
@@ -1896,7 +1909,9 @@ def _validate_files(files: list[UploadFile]) -> None:
 
 
 def _save_file_to_temp(
-    file: UploadFile, temp_paths: list[Path]
+    file: UploadFile,
+    temp_paths: list[Path],
+    session: Session,
 ) -> dict[str, str | None]:
     """Save a single file to temporary location.
 
@@ -1923,6 +1938,15 @@ def _save_file_to_temp(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"file_extension_required: {file.filename}",
+        )
+
+    # Validate file format against allowed formats
+    file_handling_service = FileHandlingConfigService(session)
+    if not file_handling_service.is_format_allowed(file_ext):
+        allowed_formats = file_handling_service.get_allowed_upload_formats()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File format '{file_ext}' is not allowed for file '{file.filename}'. Allowed formats: {', '.join(allowed_formats)}",
         )
 
     # Save file to temporary location
@@ -1955,6 +1979,7 @@ def _save_file_to_temp(
 
 def _save_files_to_temp(
     files: list[UploadFile],
+    session: Session,
 ) -> tuple[list[dict[str, str | None]], list[Path]]:
     """Save all files to temporary locations.
 
@@ -1978,7 +2003,7 @@ def _save_files_to_temp(
 
     try:
         for file in files:
-            file_info = _save_file_to_temp(file, temp_paths)
+            file_info = _save_file_to_temp(file, temp_paths, session)
             file_infos.append(file_info)
     except HTTPException:
         # Clean up already saved files
@@ -2031,6 +2056,7 @@ def upload_books_batch(
     request: Request,
     current_user: CurrentUserDep,
     permission_helper: PermissionHelperDep,
+    session: SessionDep,
     files: list[UploadFile] = File(...),  # noqa: B008
 ) -> BookBatchUploadResponse:
     """Upload multiple book files to the active library (asynchronous).
@@ -2068,7 +2094,7 @@ def upload_books_batch(
 
     temp_paths: list[Path] = []
     try:
-        file_infos, temp_paths = _save_files_to_temp(files)
+        file_infos, temp_paths = _save_files_to_temp(files, session)
         task_id = _enqueue_batch_upload_task(
             task_runner, file_infos, current_user.id or 0
         )

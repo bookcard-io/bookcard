@@ -29,7 +29,12 @@ from typing import TYPE_CHECKING
 from sqlmodel import select
 
 from fundamental.config import AppConfig
-from fundamental.models.config import EPUBFixerConfig, Library, ScheduledTasksConfig
+from fundamental.models.config import (
+    EPUBFixerConfig,
+    FileHandlingConfig,
+    Library,
+    ScheduledTasksConfig,
+)
 from fundamental.repositories.calibre_book_repository import (
     CalibreBookRepository,
 )
@@ -959,3 +964,79 @@ class ScheduledTasksConfigService:
         self._session.commit()
         self._session.refresh(config)
         return config
+
+
+class FileHandlingConfigService:
+    """Service for managing file handling configuration.
+
+    Parameters
+    ----------
+    session : Session
+        Active SQLModel session.
+    """
+
+    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+        """Initialize file handling config service.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        """
+        self._session = session
+
+    def get_file_handling_config(self) -> FileHandlingConfig:
+        """Get file handling configuration.
+
+        Returns the existing config or creates a default one if none exists.
+
+        Returns
+        -------
+        FileHandlingConfig
+            File handling configuration.
+        """
+        stmt = select(FileHandlingConfig).limit(1)
+        config = self._session.exec(stmt).first()
+        if config is None:
+            # Create default config
+            config = FileHandlingConfig()
+            self._session.add(config)
+            self._session.commit()
+            self._session.refresh(config)
+        return config
+
+    def get_allowed_upload_formats(self) -> list[str]:
+        """Get list of allowed upload formats.
+
+        Returns
+        -------
+        list[str]
+            List of allowed file format extensions (without dots).
+        """
+        config = self.get_file_handling_config()
+        if not config.allowed_upload_formats:
+            return []
+        # Parse comma-separated string and normalize (lowercase, strip whitespace)
+        return [
+            fmt.strip().lower()
+            for fmt in config.allowed_upload_formats.split(",")
+            if fmt.strip()
+        ]
+
+    def is_format_allowed(self, file_format: str) -> bool:
+        """Check if a file format is allowed for upload.
+
+        Parameters
+        ----------
+        file_format : str
+            File format extension (with or without dot).
+
+        Returns
+        -------
+        bool
+            True if format is allowed, False otherwise.
+        """
+        # Normalize format (remove dot, lowercase)
+        normalized = file_format.lower().lstrip(".")
+        allowed_formats = self.get_allowed_upload_formats()
+        return normalized in allowed_formats

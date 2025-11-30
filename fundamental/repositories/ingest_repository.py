@@ -35,12 +35,12 @@ from fundamental.models.ingest import (
 from fundamental.repositories.base import Repository
 
 # Default supported file formats for ingest
+# Matches Calibre-supported formats: 30 formats total
 DEFAULT_SUPPORTED_FORMATS = [
     "acsm",
     "azw",
     "azw3",
     "azw4",
-    "mobi",
     "cbz",
     "cbr",
     "cb7",
@@ -53,8 +53,10 @@ DEFAULT_SUPPORTED_FORMATS = [
     "fbz",
     "html",
     "htmlz",
+    "kepub",
     "lit",
     "lrf",
+    "mobi",
     "odt",
     "pdf",
     "prc",
@@ -64,6 +66,7 @@ DEFAULT_SUPPORTED_FORMATS = [
     "rtf",
     "snb",
     "tcr",
+    "txt",
     "txtz",
 ]
 

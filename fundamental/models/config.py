@@ -29,6 +29,8 @@ from sqlalchemy import JSON, Column
 from sqlalchemy import Enum as SQLEnum
 from sqlmodel import Field, SQLModel
 
+from fundamental.repositories.ingest_repository import DEFAULT_SUPPORTED_FORMATS
+
 
 class LogLevel(StrEnum):
     """Application log level enumeration."""
@@ -550,7 +552,7 @@ class FileHandlingConfig(SQLModel, table=True):
     kepubify_path: str | None = Field(default=None, max_length=1000)
     unrar_path: str | None = Field(default=None, max_length=1000)
     allowed_upload_formats: str = Field(
-        default="epub,mobi,azw,azw3,pdf,txt,rtf,fb2",
+        default=",".join(DEFAULT_SUPPORTED_FORMATS),
         max_length=500,
     )
     support_unicode_filenames: bool = Field(default=False)
