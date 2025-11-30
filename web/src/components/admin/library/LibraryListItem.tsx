@@ -292,10 +292,10 @@ export function LibraryListItem({
         <div className="border-[var(--color-surface-a20)] border-t pt-3">
           {/* Duplicate Handling */}
           <div className="mb-4 flex flex-col gap-2">
-            <div className="font-medium text-[var(--color-text-a20)] text-sm">
+            <div className="font-semibold text-[var(--color-text-a0)] text-lg">
               Duplicate Handling
             </div>
-            <div className="mb-1 text-[var(--color-text-a30)] text-xs">
+            <div className="mb-1 text-[var(--color-text-a10)] text-xs">
               Strategy for handling duplicate books during ingest and upload
             </div>
             <div className="flex flex-wrap gap-4">
@@ -365,7 +365,7 @@ export function LibraryListItem({
             </div>
           </div>
 
-          <div className="mb-3 font-medium text-[var(--color-text-a20)] text-sm">
+          <div className="mb-3 font-semibold text-[var(--color-text-a0)] text-lg">
             Auto-Convert on Ingest Settings
           </div>
           <div className="flex flex-col gap-4">
