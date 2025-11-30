@@ -37,6 +37,10 @@ class LibraryRead(BaseModel):
     use_split_library: bool
     split_library_dir: str | None = None
     auto_reconnect: bool
+    auto_convert_on_ingest: bool
+    auto_convert_target_format: str | None = None
+    auto_convert_ignored_formats: str | None = None
+    auto_convert_backup_originals: bool
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -87,6 +91,22 @@ class LibraryUpdate(BaseModel):
     )
     auto_reconnect: bool | None = Field(
         default=None, description="Whether to automatically reconnect on errors"
+    )
+    auto_convert_on_ingest: bool | None = Field(
+        default=None,
+        description="Whether to automatically convert books to target format during auto-ingest",
+    )
+    auto_convert_target_format: str | None = Field(
+        default=None,
+        description="Target format for automatic conversion during ingest (e.g., 'epub')",
+    )
+    auto_convert_ignored_formats: str | None = Field(
+        default=None,
+        description="JSON array of format strings to ignore during auto-conversion on ingest",
+    )
+    auto_convert_backup_originals: bool | None = Field(
+        default=None,
+        description="Whether to backup original files before conversion during ingest",
     )
     is_active: bool | None = Field(
         default=None, description="Set as the active library"

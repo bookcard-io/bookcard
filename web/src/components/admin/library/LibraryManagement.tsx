@@ -44,6 +44,7 @@ export function LibraryManagement() {
     error,
     deletingLibraryId,
     scanningLibraryId,
+    updatingLibraryId,
     addLibrary,
     createLibrary,
     toggleLibrary,
@@ -328,6 +329,7 @@ export function LibraryManagement() {
           deletingLibraryId={deletingLibraryId}
           onScan={scanLibrary}
           scanningLibraryId={scanningLibraryId}
+          updatingLibraryId={updatingLibraryId}
           onUpdate={updateLibrary}
           libraryScanStatusMap={libraryScanStatusMap}
         />

@@ -37,6 +37,8 @@ export interface UseLibraryManagementResult {
   deletingLibraryId: number | null;
   /** ID of library currently being scanned. */
   scanningLibraryId: number | null;
+  /** ID of library currently being updated. */
+  updatingLibraryId: number | null;
   /** Function to manually refresh libraries. */
   refresh: () => Promise<void>;
   /** Function to add a new library with optional path. */
@@ -88,6 +90,9 @@ export function useLibraryManagement(
     null,
   );
   const [scanningLibraryId, setScanningLibraryId] = useState<number | null>(
+    null,
+  );
+  const [updatingLibraryId, setUpdatingLibraryId] = useState<number | null>(
     null,
   );
 
@@ -346,9 +351,18 @@ export function useLibraryManagement(
   }, []);
 
   const updateLibrary = useCallback(
-    async (libraryId: number, updates: { name?: string }) => {
+    async (
+      libraryId: number,
+      updates: {
+        name?: string;
+        auto_convert_on_ingest?: boolean;
+        auto_convert_target_format?: string | null;
+        auto_convert_ignored_formats?: string | null;
+        auto_convert_backup_originals?: boolean;
+      },
+    ) => {
       setError(null);
-      setIsBusy(true);
+      setUpdatingLibraryId(libraryId);
       try {
         const response = await fetch(`/api/admin/libraries/${libraryId}`, {
           method: "PUT",
@@ -373,7 +387,7 @@ export function useLibraryManagement(
         );
         throw err;
       } finally {
-        setIsBusy(false);
+        setUpdatingLibraryId(null);
       }
     },
     [refresh, onRefresh],
@@ -390,6 +404,7 @@ export function useLibraryManagement(
     error,
     deletingLibraryId,
     scanningLibraryId,
+    updatingLibraryId,
     refresh,
     addLibrary,
     createLibrary,

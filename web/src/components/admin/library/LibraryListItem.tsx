@@ -20,8 +20,16 @@
  * Follows SRP by focusing solely on individual library item rendering.
  */
 
+"use client";
+
+import { useEffect, useState } from "react";
 import { Button } from "@/components/forms/Button";
+import {
+  CONVERSION_TARGET_FORMAT_OPTIONS,
+  SUPPORTED_BOOK_FORMATS,
+} from "@/components/profile/config/configurationConstants";
 import { EditableTextField } from "@/components/profile/EditableNameField";
+import { cn } from "@/libs/utils";
 import type { LibraryStats } from "@/services/libraryStatsService";
 import { LibraryStatsPills } from "./LibraryStatsPills";
 import type { Library } from "./types";
@@ -43,8 +51,19 @@ export interface LibraryListItemProps {
   onScan: (libraryId: number) => void;
   /** ID of library currently being scanned. */
   scanningLibraryId: number | null;
+  /** ID of library currently being updated. */
+  updatingLibraryId: number | null;
   /** Callback when library is updated. */
-  onUpdate: (libraryId: number, updates: { name?: string }) => Promise<void>;
+  onUpdate: (
+    libraryId: number,
+    updates: {
+      name?: string;
+      auto_convert_on_ingest?: boolean;
+      auto_convert_target_format?: string | null;
+      auto_convert_ignored_formats?: string | null;
+      auto_convert_backup_originals?: boolean;
+    },
+  ) => Promise<void>;
   /** Whether there is an active scan task for this library. */
   hasActiveScan: boolean;
 }
@@ -68,78 +87,285 @@ export function LibraryListItem({
   deletingLibraryId,
   onScan,
   scanningLibraryId,
+  updatingLibraryId,
   onUpdate,
   hasActiveScan,
 }: LibraryListItemProps) {
   const isScanning = scanningLibraryId === library.id || hasActiveScan;
+  const isUpdating = updatingLibraryId === library.id;
+  const isExpanded = library.is_active;
+
+  // Auto-convert settings state
+  const [autoConvertOnIngest, setAutoConvertOnIngest] = useState(
+    library.auto_convert_on_ingest ?? false,
+  );
+  const [targetFormat, setTargetFormat] = useState(
+    library.auto_convert_target_format ?? "epub",
+  );
+  const [ignoredFormats, setIgnoredFormats] = useState<Set<string>>(new Set());
+  const [backupOriginals, setBackupOriginals] = useState(
+    library.auto_convert_backup_originals ?? true,
+  );
+
+  // Load ignored formats from library
+  useEffect(() => {
+    if (library.auto_convert_ignored_formats) {
+      try {
+        const parsed = JSON.parse(
+          library.auto_convert_ignored_formats,
+        ) as string[];
+        if (Array.isArray(parsed)) {
+          setIgnoredFormats(new Set(parsed.map((f) => f.trim().toLowerCase())));
+        }
+      } catch {
+        // Not JSON, try comma-separated string
+        const formats = library.auto_convert_ignored_formats
+          .split(",")
+          .map((f) => f.trim().toLowerCase())
+          .filter((f) => f.length > 0);
+        setIgnoredFormats(new Set(formats));
+      }
+    }
+  }, [library.auto_convert_ignored_formats]);
+
+  // Sync state when library changes
+  useEffect(() => {
+    setAutoConvertOnIngest(library.auto_convert_on_ingest ?? false);
+    setTargetFormat(library.auto_convert_target_format ?? "epub");
+    setBackupOriginals(library.auto_convert_backup_originals ?? true);
+  }, [library]);
 
   const handleNameSave = async (name: string) => {
     await onUpdate(library.id, { name: name.trim() || library.name });
   };
 
+  const handleAutoConvertToggle = async (value: boolean) => {
+    setAutoConvertOnIngest(value);
+    await onUpdate(library.id, { auto_convert_on_ingest: value });
+  };
+
+  const handleTargetFormatChange = async (value: string) => {
+    setTargetFormat(value);
+    await onUpdate(library.id, { auto_convert_target_format: value });
+  };
+
+  const handleFormatToggle = async (format: string) => {
+    const formatLower = format.toLowerCase();
+    const next = new Set(ignoredFormats);
+    if (next.has(formatLower)) {
+      next.delete(formatLower);
+    } else {
+      next.add(formatLower);
+    }
+    setIgnoredFormats(next);
+
+    // Save as JSON array
+    const formatsArray = Array.from(next).sort();
+    const jsonValue = JSON.stringify(formatsArray);
+    await onUpdate(library.id, { auto_convert_ignored_formats: jsonValue });
+  };
+
+  const handleBackupOriginalsToggle = async (value: boolean) => {
+    setBackupOriginals(value);
+    await onUpdate(library.id, { auto_convert_backup_originals: value });
+  };
+
   return (
-    <div className="flex items-center gap-3 rounded-md border border-[var(--color-surface-a20)] bg-[var(--color-surface-a10)] p-3">
-      <div className="flex min-w-[250px] flex-1 items-center gap-3">
-        <input
-          type="checkbox"
-          checked={library.is_active}
-          onChange={() => onToggle(library)}
-          className="h-[18px] w-[18px] cursor-pointer accent-[var(--color-primary-a0)]"
-        />
-        <div className="flex flex-1 flex-col gap-1">
-          <div className="font-medium text-sm">
-            <EditableTextField
-              currentValue={library.name}
-              onSave={handleNameSave}
-              placeholder="Enter library name"
-              editLabel="Edit library name"
-              allowEmpty={false}
-            />
-          </div>
-          <div className="break-all text-[var(--color-text-a30)] text-xs">
-            {library.calibre_db_path}
-          </div>
-          {library.updated_at && (
-            <div className="text-[11px] text-[var(--color-text-a40)]">
-              Last updated: {new Date(library.updated_at).toLocaleString()}
+    <div className="flex flex-col gap-3 rounded-md border border-[var(--color-surface-a20)] bg-[var(--color-surface-a10)] p-3">
+      <div className="flex items-center gap-3">
+        <div className="flex min-w-[250px] flex-1 items-center gap-3">
+          <input
+            type="checkbox"
+            checked={library.is_active}
+            onChange={() => onToggle(library)}
+            className="h-[18px] w-[18px] cursor-pointer accent-[var(--color-primary-a0)]"
+          />
+          <div className="flex flex-1 flex-col gap-1">
+            <div className="font-medium text-sm">
+              <EditableTextField
+                currentValue={library.name}
+                onSave={handleNameSave}
+                placeholder="Enter library name"
+                editLabel="Edit library name"
+                allowEmpty={false}
+              />
             </div>
-          )}
+            <div className="break-all text-[var(--color-text-a30)] text-xs">
+              {library.calibre_db_path}
+            </div>
+            {library.updated_at && (
+              <div className="text-[11px] text-[var(--color-text-a40)]">
+                Last updated: {new Date(library.updated_at).toLocaleString()}
+              </div>
+            )}
+          </div>
+        </div>
+        {stats && <LibraryStatsPills stats={stats} />}
+        {isLoadingStats === true && (
+          <div className="text-[var(--color-text-a30)] text-xs">
+            Loading stats...
+          </div>
+        )}
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="success"
+            size="small"
+            onClick={() => onScan(library.id)}
+            disabled={isScanning || deletingLibraryId === library.id}
+            loading={isScanning}
+          >
+            {hasActiveScan ? (
+              <i className="pi pi-spinner animate-spin" aria-hidden="true" />
+            ) : (
+              <i className="pi pi-sync" aria-hidden="true" />
+            )}
+            Scan
+          </Button>
+          <Button
+            type="button"
+            variant="danger"
+            size="small"
+            onClick={() => onDelete(library.id)}
+            disabled={deletingLibraryId === library.id || isScanning}
+            className="bg-[var(--color-danger-a-1)] text-[var(--color-white)] hover:bg-[var(--color-danger-a0)]"
+          >
+            <i className="pi pi-trash" aria-hidden="true" />
+            Remove
+          </Button>
         </div>
       </div>
-      {stats && <LibraryStatsPills stats={stats} />}
-      {isLoadingStats === true && (
-        <div className="text-[var(--color-text-a30)] text-xs">
-          Loading stats...
+
+      {/* Auto-convert settings - only visible when library is active */}
+      {isExpanded && (
+        <div className="border-[var(--color-surface-a20)] border-t pt-3">
+          <div className="mb-3 font-medium text-[var(--color-text-a20)] text-sm">
+            Auto-Convert on Ingest Settings
+          </div>
+          <div className="flex flex-col gap-4">
+            {/* Auto-convert on ingest toggle */}
+            <div className="flex flex-col gap-2">
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={autoConvertOnIngest}
+                  onChange={(e) => handleAutoConvertToggle(e.target.checked)}
+                  disabled={isUpdating}
+                  className="h-4 w-4 cursor-pointer rounded border-[var(--color-surface-a20)] text-[var(--color-primary-a0)] accent-[var(--color-primary-a0)] focus:ring-2 focus:ring-[var(--color-primary-a0)] disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <span
+                  className={cn(
+                    "text-[var(--color-text-a0)] text-sm",
+                    isUpdating && "opacity-50",
+                  )}
+                >
+                  Automatically convert books to target format during
+                  auto-ingest
+                </span>
+              </label>
+            </div>
+
+            {/* Target format */}
+            {autoConvertOnIngest && (
+              <>
+                <div className="flex flex-col gap-2">
+                  <div className="font-medium text-[var(--color-text-a20)] text-xs">
+                    Target Format
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {CONVERSION_TARGET_FORMAT_OPTIONS.map((option) => (
+                      <label
+                        key={option.value}
+                        className="flex cursor-pointer items-center gap-2"
+                      >
+                        <input
+                          type="radio"
+                          name={`target-format-${library.id}`}
+                          value={option.value}
+                          checked={targetFormat === option.value}
+                          onChange={(e) =>
+                            handleTargetFormatChange(e.target.value)
+                          }
+                          disabled={isUpdating}
+                          className="h-4 w-4 cursor-pointer accent-[var(--color-primary-a0)] disabled:cursor-not-allowed disabled:opacity-50"
+                        />
+                        <span
+                          className={cn(
+                            "text-[var(--color-text-a0)] text-sm",
+                            isUpdating && "opacity-50",
+                          )}
+                        >
+                          {option.label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Ignored formats */}
+                <div className="flex flex-col gap-2">
+                  <div className="font-medium text-[var(--color-text-a20)] text-xs">
+                    Ignored Formats
+                  </div>
+                  <div className="mb-1 text-[var(--color-text-a30)] text-xs">
+                    Select formats to skip during auto-conversion
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                    {SUPPORTED_BOOK_FORMATS.map((format) => {
+                      const isChecked = ignoredFormats.has(format.value);
+                      return (
+                        <label
+                          key={format.value}
+                          className="flex cursor-pointer items-center gap-2"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => handleFormatToggle(format.value)}
+                            disabled={isUpdating}
+                            className="h-4 w-4 shrink-0 cursor-pointer rounded border-[var(--color-surface-a20)] text-[var(--color-primary-a0)] accent-[var(--color-primary-a0)] focus:ring-2 focus:ring-[var(--color-primary-a0)] disabled:cursor-not-allowed disabled:opacity-50"
+                          />
+                          <span
+                            className={cn(
+                              "text-[var(--color-text-a0)] text-sm",
+                              isUpdating && "opacity-50",
+                            )}
+                          >
+                            {format.label}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Backup originals */}
+                <div className="flex flex-col gap-2">
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={backupOriginals}
+                      onChange={(e) =>
+                        handleBackupOriginalsToggle(e.target.checked)
+                      }
+                      disabled={isUpdating}
+                      className="h-4 w-4 cursor-pointer rounded border-[var(--color-surface-a20)] text-[var(--color-primary-a0)] accent-[var(--color-primary-a0)] focus:ring-2 focus:ring-[var(--color-primary-a0)] disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <span
+                      className={cn(
+                        "text-[var(--color-text-a0)] text-sm",
+                        isUpdating && "opacity-50",
+                      )}
+                    >
+                      Create backup copies of original files before conversion
+                    </span>
+                  </label>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
-      <div className="flex items-center gap-2">
-        <Button
-          type="button"
-          variant="success"
-          size="small"
-          onClick={() => onScan(library.id)}
-          disabled={isScanning || deletingLibraryId === library.id}
-          loading={isScanning}
-        >
-          {hasActiveScan ? (
-            <i className="pi pi-spinner animate-spin" aria-hidden="true" />
-          ) : (
-            <i className="pi pi-sync" aria-hidden="true" />
-          )}
-          Scan
-        </Button>
-        <Button
-          type="button"
-          variant="danger"
-          size="small"
-          onClick={() => onDelete(library.id)}
-          disabled={deletingLibraryId === library.id || isScanning}
-          className="bg-[var(--color-danger-a-1)] text-[var(--color-white)] hover:bg-[var(--color-danger-a0)]"
-        >
-          <i className="pi pi-trash" aria-hidden="true" />
-          Remove
-        </Button>
-      </div>
     </div>
   );
 }

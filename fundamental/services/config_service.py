@@ -320,6 +320,10 @@ class LibraryService:
         use_split_library: bool | None = None,
         split_library_dir: str | None = None,
         auto_reconnect: bool | None = None,
+        auto_convert_on_ingest: bool | None = None,
+        auto_convert_target_format: str | None = None,
+        auto_convert_ignored_formats: str | None = None,
+        auto_convert_backup_originals: bool | None = None,
         is_active: bool | None = None,
     ) -> Library:
         """Update a library.
@@ -342,6 +346,14 @@ class LibraryService:
             Directory for split library mode.
         auto_reconnect : bool | None
             Whether to automatically reconnect on errors.
+        auto_convert_on_ingest : bool | None
+            Whether to automatically convert books to target format during auto-ingest.
+        auto_convert_target_format : str | None
+            Target format for automatic conversion during ingest.
+        auto_convert_ignored_formats : str | None
+            JSON array of format strings to ignore during auto-conversion on ingest.
+        auto_convert_backup_originals : bool | None
+            Whether to backup original files before conversion during ingest.
         is_active : bool | None
             Whether to set this as the active library.
 
@@ -369,6 +381,10 @@ class LibraryService:
             use_split_library=use_split_library,
             split_library_dir=split_library_dir,
             auto_reconnect=auto_reconnect,
+            auto_convert_on_ingest=auto_convert_on_ingest,
+            auto_convert_target_format=auto_convert_target_format,
+            auto_convert_ignored_formats=auto_convert_ignored_formats,
+            auto_convert_backup_originals=auto_convert_backup_originals,
         )
         self._handle_active_status_change(library, is_active)
 
@@ -420,8 +436,67 @@ class LibraryService:
         use_split_library: bool | None = None,
         split_library_dir: str | None = None,
         auto_reconnect: bool | None = None,
+        auto_convert_on_ingest: bool | None = None,
+        auto_convert_target_format: str | None = None,
+        auto_convert_ignored_formats: str | None = None,
+        auto_convert_backup_originals: bool | None = None,
     ) -> None:
         """Update library fields.
+
+        Parameters
+        ----------
+        library : Library
+            Library to update.
+        name : str | None
+            User-friendly library name.
+        calibre_db_file : str | None
+            Calibre database filename.
+        calibre_uuid : str | None
+            Calibre library UUID.
+        use_split_library : bool | None
+            Whether to use split library mode.
+        split_library_dir : str | None
+            Directory for split library mode.
+        auto_reconnect : bool | None
+            Whether to automatically reconnect on errors.
+        auto_convert_on_ingest : bool | None
+            Whether to automatically convert books to target format during auto-ingest.
+        auto_convert_target_format : str | None
+            Target format for automatic conversion during ingest.
+        auto_convert_ignored_formats : str | None
+            JSON array of format strings to ignore during auto-conversion on ingest.
+        auto_convert_backup_originals : bool | None
+            Whether to backup original files before conversion during ingest.
+        """
+        self._update_basic_library_fields(
+            library,
+            name=name,
+            calibre_db_file=calibre_db_file,
+            calibre_uuid=calibre_uuid,
+            use_split_library=use_split_library,
+            split_library_dir=split_library_dir,
+            auto_reconnect=auto_reconnect,
+        )
+        self._update_auto_convert_fields(
+            library,
+            auto_convert_on_ingest=auto_convert_on_ingest,
+            auto_convert_target_format=auto_convert_target_format,
+            auto_convert_ignored_formats=auto_convert_ignored_formats,
+            auto_convert_backup_originals=auto_convert_backup_originals,
+        )
+
+    def _update_basic_library_fields(
+        self,
+        library: Library,
+        *,
+        name: str | None = None,
+        calibre_db_file: str | None = None,
+        calibre_uuid: str | None = None,
+        use_split_library: bool | None = None,
+        split_library_dir: str | None = None,
+        auto_reconnect: bool | None = None,
+    ) -> None:
+        """Update basic library fields.
 
         Parameters
         ----------
@@ -452,6 +527,39 @@ class LibraryService:
             library.split_library_dir = split_library_dir
         if auto_reconnect is not None:
             library.auto_reconnect = auto_reconnect
+
+    def _update_auto_convert_fields(
+        self,
+        library: Library,
+        *,
+        auto_convert_on_ingest: bool | None = None,
+        auto_convert_target_format: str | None = None,
+        auto_convert_ignored_formats: str | None = None,
+        auto_convert_backup_originals: bool | None = None,
+    ) -> None:
+        """Update auto-convert library fields.
+
+        Parameters
+        ----------
+        library : Library
+            Library to update.
+        auto_convert_on_ingest : bool | None
+            Whether to automatically convert books to target format during auto-ingest.
+        auto_convert_target_format : str | None
+            Target format for automatic conversion during ingest.
+        auto_convert_ignored_formats : str | None
+            JSON array of format strings to ignore during auto-conversion on ingest.
+        auto_convert_backup_originals : bool | None
+            Whether to backup original files before conversion during ingest.
+        """
+        if auto_convert_on_ingest is not None:
+            library.auto_convert_on_ingest = auto_convert_on_ingest
+        if auto_convert_target_format is not None:
+            library.auto_convert_target_format = auto_convert_target_format
+        if auto_convert_ignored_formats is not None:
+            library.auto_convert_ignored_formats = auto_convert_ignored_formats
+        if auto_convert_backup_originals is not None:
+            library.auto_convert_backup_originals = auto_convert_backup_originals
 
     def _handle_active_status_change(
         self,

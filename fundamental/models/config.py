@@ -144,6 +144,17 @@ class Library(SQLModel, table=True):
     auto_metadata_enforcement : bool
         Whether to automatically enforce metadata and cover changes to ebook files
         when metadata is updated via the Web UI (default: False).
+    auto_convert_on_ingest : bool
+        Whether to automatically convert books to target format during auto-ingest
+        (default: False).
+    auto_convert_target_format : str | None
+        Target format for automatic conversion during ingest (default: None, uses 'epub').
+    auto_convert_ignored_formats : str | None
+        JSON array of format strings to ignore during auto-conversion on ingest
+        (default: None).
+    auto_convert_backup_originals : bool
+        Whether to backup original files before conversion during ingest
+        (default: True).
     is_active : bool
         Whether this is the currently active library (only one can be active).
     created_at : datetime
@@ -164,6 +175,12 @@ class Library(SQLModel, table=True):
     split_library_dir: str | None = Field(default=None, max_length=1000)
     auto_reconnect: bool = Field(default=True)
     auto_metadata_enforcement: bool = Field(default=True)
+    auto_convert_on_ingest: bool = Field(default=False)
+    auto_convert_target_format: str | None = Field(default="epub", max_length=20)
+    auto_convert_ignored_formats: str | None = Field(
+        default='["pdf", "epub"]', max_length=500
+    )
+    auto_convert_backup_originals: bool = Field(default=True)
     is_active: bool = Field(default=False, index=True)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),

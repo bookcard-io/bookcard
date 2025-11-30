@@ -53,9 +53,12 @@ export function ShelvesProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Extract library ID to avoid unnecessary refreshes when only library object reference changes
+  const activeLibraryId = activeLibrary?.id ?? null;
+
   const refresh = useCallback(async () => {
     // Only load shelves if there's an active library
-    if (!activeLibrary) {
+    if (!activeLibraryId) {
       setShelves([]);
       setIsLoading(false);
       return;
@@ -67,7 +70,7 @@ export function ShelvesProvider({ children }: { children: ReactNode }) {
       const response = await listShelves();
       // Filter to only active shelves for the active library
       const activeShelves = response.shelves.filter(
-        (shelf) => shelf.is_active && shelf.library_id === activeLibrary.id,
+        (shelf) => shelf.is_active && shelf.library_id === activeLibraryId,
       );
       setShelves(activeShelves);
     } catch (err) {
@@ -76,7 +79,7 @@ export function ShelvesProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [activeLibrary]);
+  }, [activeLibraryId]); // Only depend on library ID, not the whole object
 
   useEffect(() => {
     void refresh();

@@ -20,9 +20,12 @@ Refactored to follow SOLID principles, SRP, IoC, SoC, and DRY.
 """
 
 import logging
+from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from sqlmodel import Session
 
 from fundamental.models.ingest import IngestHistory, IngestStatus
 from fundamental.services.ingest.ingest_config_service import IngestConfigService
@@ -30,9 +33,15 @@ from fundamental.services.ingest.ingest_processor_service import IngestProcessor
 from fundamental.services.tasks.base import BaseTask
 from fundamental.services.tasks.context import WorkerContext
 from fundamental.services.tasks.exceptions import TaskCancelledError
+from fundamental.services.tasks.post_processors import (
+    ConversionPostIngestProcessor,
+    EPUBPostIngestProcessor,
+)
 
 if TYPE_CHECKING:
+    from fundamental.models.config import Library
     from fundamental.models.ingest import IngestConfig
+    from fundamental.services.tasks.post_processors import PostIngestProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -258,6 +267,9 @@ class IngestBookTask(BaseTask):
         context.update_progress(0.4, {"file_count": len(file_paths)})
         book_ids: list[int] = []
 
+        # Get library once for all files (used by post-processors)
+        library = processor_service.get_active_library()
+
         for i, file_path in enumerate(file_paths):
             self._check_cancellation()
 
@@ -273,6 +285,8 @@ class IngestBookTask(BaseTask):
                     fetched_metadata,
                     metadata_hint,
                     config,
+                    library,
+                    context.session,
                 )
                 book_ids.append(book_id)
             except Exception:
@@ -292,6 +306,8 @@ class IngestBookTask(BaseTask):
         fetched_metadata: dict[str, Any] | None,
         metadata_hint: dict[str, Any] | None,
         config: "IngestConfig",
+        library: "Library",
+        session: Session,  # type: ignore[type-arg]
     ) -> int:
         """Process a single file.
 
@@ -309,6 +325,10 @@ class IngestBookTask(BaseTask):
             Metadata hint from file extraction.
         config : IngestConfig
             Ingest configuration.
+        library : Library
+            Active library configuration.
+        session : Session
+            Database session.
 
         Returns
         -------
@@ -341,6 +361,14 @@ class IngestBookTask(BaseTask):
 
         if cover_url:
             processor_service.set_book_cover(book_id, cover_url)
+
+        # Run post-processors (e.g., auto-conversion, EPUB fixing)
+        self._run_post_processors(
+            session,
+            book_id,
+            library,
+            file_format,
+        )
 
         # Handle file deletion if configured (separate concern)
         if config.auto_delete_after_ingest:
@@ -647,6 +675,58 @@ class IngestBookTask(BaseTask):
         processor_service.update_history_status(
             history_id, IngestStatus.FAILED, "Task cancelled"
         )
+
+    def _get_post_processors(
+        self,
+        session: Session,  # type: ignore[type-arg]
+        library: "Library",
+    ) -> list["PostIngestProcessor"]:
+        """Get post-ingest processors for auto-ingest.
+
+        Parameters
+        ----------
+        session : Session
+            Database session for creating processors.
+        library : Library
+            Library configuration.
+
+        Returns
+        -------
+        list[PostIngestProcessor]
+            List of post-ingest processors.
+        """
+        processors = [EPUBPostIngestProcessor(session)]
+        # Add conversion processor using library-level settings
+        processors.append(ConversionPostIngestProcessor(session, library=library))
+        return processors
+
+    def _run_post_processors(
+        self,
+        session: Session,  # type: ignore[type-arg]
+        book_id: int,
+        library: "Library",
+        file_format: str,
+    ) -> None:
+        """Run post-ingest processors for the ingested book.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Book ID that was just added.
+        library : Library
+            Library configuration.
+        file_format : str
+            File format that was ingested.
+        """
+        processors = self._get_post_processors(session, library)
+        for processor in processors:
+            if processor.supports_format(file_format):
+                with suppress(Exception):
+                    # Don't fail the ingest if post-processing fails
+                    # Use None for user_id since this is library-level auto-ingest
+                    processor.process(session, book_id, library, user_id=None)
 
     def _handle_error(
         self,

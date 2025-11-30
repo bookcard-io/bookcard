@@ -125,6 +125,18 @@ def temp_file() -> Path:
         return Path(f.name)
 
 
+@pytest.fixture
+def mock_library() -> MagicMock:
+    """Create a mock Library."""
+    library = MagicMock()
+    library.id = 1
+    library.auto_convert_on_ingest = False
+    library.auto_convert_target_format = None
+    library.auto_convert_ignored_formats = None
+    library.auto_convert_backup_originals = True
+    return library
+
+
 class TestGetWorkerContext:
     """Test _get_worker_context method."""
 
@@ -327,13 +339,22 @@ class TestProcessFiles:
         worker_context: WorkerContext,
         mock_ingest_config: MagicMock,
         temp_file: Path,
+        mock_library: MagicMock,
     ) -> None:
         """Test _process_files processes all files successfully."""
         file_paths = [temp_file, temp_file]
         mock_process_single.side_effect = [101, 102]
+        mock_processor = MagicMock()
+        mock_processor.get_active_library.return_value = mock_library
 
         book_ids = task._process_files(
-            MagicMock(), 123, file_paths, None, None, mock_ingest_config, worker_context
+            mock_processor,
+            123,
+            file_paths,
+            None,
+            None,
+            mock_ingest_config,
+            worker_context,
         )
 
         assert book_ids == [101, 102]
@@ -350,14 +371,23 @@ class TestProcessFiles:
         worker_context: WorkerContext,
         mock_ingest_config: MagicMock,
         temp_file: Path,
+        mock_library: MagicMock,
     ) -> None:
         """Test _process_files skips missing files."""
         missing_file = Path("/nonexistent/file.epub")
         file_paths = [temp_file, missing_file]
         mock_process_single.return_value = 101
+        mock_processor = MagicMock()
+        mock_processor.get_active_library.return_value = mock_library
 
         book_ids = task._process_files(
-            MagicMock(), 123, file_paths, None, None, mock_ingest_config, worker_context
+            mock_processor,
+            123,
+            file_paths,
+            None,
+            None,
+            mock_ingest_config,
+            worker_context,
         )
 
         assert book_ids == [101]
@@ -373,13 +403,22 @@ class TestProcessFiles:
         worker_context: WorkerContext,
         mock_ingest_config: MagicMock,
         temp_file: Path,
+        mock_library: MagicMock,
     ) -> None:
         """Test _process_files continues on file processing exception."""
         file_paths = [temp_file, temp_file]
         mock_process_single.side_effect = [101, Exception("Processing failed")]
+        mock_processor = MagicMock()
+        mock_processor.get_active_library.return_value = mock_library
 
         book_ids = task._process_files(
-            MagicMock(), 123, file_paths, None, None, mock_ingest_config, worker_context
+            mock_processor,
+            123,
+            file_paths,
+            None,
+            None,
+            mock_ingest_config,
+            worker_context,
         )
 
         assert book_ids == [101]
@@ -395,14 +434,17 @@ class TestProcessFiles:
         worker_context: WorkerContext,
         mock_ingest_config: MagicMock,
         temp_file: Path,
+        mock_library: MagicMock,
     ) -> None:
         """Test _process_files raises TaskCancelledError when cancelled."""
         file_paths = [temp_file]
         task.mark_cancelled()
+        mock_processor = MagicMock()
+        mock_processor.get_active_library.return_value = mock_library
 
         with pytest.raises(TaskCancelledError):
             task._process_files(
-                MagicMock(),
+                mock_processor,
                 123,
                 file_paths,
                 None,
@@ -451,11 +493,17 @@ class TestProcessSingleFile:
     @patch(
         "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
+    @patch(
+        "fundamental.services.tasks.ingest_book_task.IngestBookTask._run_post_processors"
+    )
     def test_process_single_file_with_auto_delete(
         self,
+        mock_run_post_processors: MagicMock,
         mock_delete: MagicMock,
         task: IngestBookTask,
         temp_file: Path,
+        mock_library: MagicMock,
+        mock_session: MagicMock,
     ) -> None:
         """Test _process_single_file deletes file when auto_delete enabled."""
         mock_processor = MagicMock()
@@ -464,20 +512,34 @@ class TestProcessSingleFile:
         config.auto_delete_after_ingest = True
 
         book_id = task._process_single_file(
-            mock_processor, 123, temp_file, None, None, config
+            mock_processor,
+            123,
+            temp_file,
+            None,
+            None,
+            config,
+            mock_library,
+            mock_session,
         )
 
         assert book_id == 101
         mock_delete.assert_called_once_with(temp_file)
+        mock_run_post_processors.assert_called_once()
 
     @patch(
         "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
+    @patch(
+        "fundamental.services.tasks.ingest_book_task.IngestBookTask._run_post_processors"
+    )
     def test_process_single_file_without_auto_delete(
         self,
+        mock_run_post_processors: MagicMock,
         mock_delete: MagicMock,
         task: IngestBookTask,
         temp_file: Path,
+        mock_library: MagicMock,
+        mock_session: MagicMock,
     ) -> None:
         """Test _process_single_file does not delete file when auto_delete disabled."""
         mock_processor = MagicMock()
@@ -486,20 +548,34 @@ class TestProcessSingleFile:
         config.auto_delete_after_ingest = False
 
         book_id = task._process_single_file(
-            mock_processor, 123, temp_file, None, None, config
+            mock_processor,
+            123,
+            temp_file,
+            None,
+            None,
+            config,
+            mock_library,
+            mock_session,
         )
 
         assert book_id == 101
         mock_delete.assert_not_called()
+        mock_run_post_processors.assert_called_once()
 
     @patch(
         "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
+    @patch(
+        "fundamental.services.tasks.ingest_book_task.IngestBookTask._run_post_processors"
+    )
     def test_process_single_file_with_cover_url_in_fetched_metadata(
         self,
+        mock_run_post_processors: MagicMock,
         mock_delete: MagicMock,
         task: IngestBookTask,
         temp_file: Path,
+        mock_library: MagicMock,
+        mock_session: MagicMock,
     ) -> None:
         """Test _process_single_file sets cover from fetched_metadata."""
         mock_processor = MagicMock()
@@ -509,22 +585,36 @@ class TestProcessSingleFile:
         fetched_metadata = {"cover_url": "http://example.com/cover.jpg"}
 
         book_id = task._process_single_file(
-            mock_processor, 123, temp_file, fetched_metadata, None, config
+            mock_processor,
+            123,
+            temp_file,
+            fetched_metadata,
+            None,
+            config,
+            mock_library,
+            mock_session,
         )
 
         assert book_id == 101
         mock_processor.set_book_cover.assert_called_once_with(
             101, "http://example.com/cover.jpg"
         )
+        mock_run_post_processors.assert_called_once()
 
     @patch(
         "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
+    @patch(
+        "fundamental.services.tasks.ingest_book_task.IngestBookTask._run_post_processors"
+    )
     def test_process_single_file_with_cover_url_in_metadata_hint(
         self,
+        mock_run_post_processors: MagicMock,
         mock_delete: MagicMock,
         task: IngestBookTask,
         temp_file: Path,
+        mock_library: MagicMock,
+        mock_session: MagicMock,
     ) -> None:
         """Test _process_single_file sets cover from metadata_hint."""
         mock_processor = MagicMock()
@@ -534,22 +624,36 @@ class TestProcessSingleFile:
         metadata_hint = {"cover_url": "http://example.com/cover2.jpg"}
 
         book_id = task._process_single_file(
-            mock_processor, 123, temp_file, None, metadata_hint, config
+            mock_processor,
+            123,
+            temp_file,
+            None,
+            metadata_hint,
+            config,
+            mock_library,
+            mock_session,
         )
 
         assert book_id == 101
         mock_processor.set_book_cover.assert_called_once_with(
             101, "http://example.com/cover2.jpg"
         )
+        mock_run_post_processors.assert_called_once()
 
     @patch(
         "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
+    @patch(
+        "fundamental.services.tasks.ingest_book_task.IngestBookTask._run_post_processors"
+    )
     def test_process_single_file_cover_url_priority(
         self,
+        mock_run_post_processors: MagicMock,
         mock_delete: MagicMock,
         task: IngestBookTask,
         temp_file: Path,
+        mock_library: MagicMock,
+        mock_session: MagicMock,
     ) -> None:
         """Test _process_single_file prefers fetched_metadata cover_url over hint."""
         mock_processor = MagicMock()
@@ -560,22 +664,36 @@ class TestProcessSingleFile:
         metadata_hint = {"cover_url": "http://example.com/hint.jpg"}
 
         book_id = task._process_single_file(
-            mock_processor, 123, temp_file, fetched_metadata, metadata_hint, config
+            mock_processor,
+            123,
+            temp_file,
+            fetched_metadata,
+            metadata_hint,
+            config,
+            mock_library,
+            mock_session,
         )
 
         assert book_id == 101
         mock_processor.set_book_cover.assert_called_once_with(
             101, "http://example.com/fetched.jpg"
         )
+        mock_run_post_processors.assert_called_once()
 
     @patch(
         "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
+    @patch(
+        "fundamental.services.tasks.ingest_book_task.IngestBookTask._run_post_processors"
+    )
     def test_process_single_file_extracts_file_format(
         self,
+        mock_run_post_processors: MagicMock,
         mock_delete: MagicMock,
         task: IngestBookTask,
         temp_file: Path,
+        mock_library: MagicMock,
+        mock_session: MagicMock,
     ) -> None:
         """Test _process_single_file extracts file format from extension."""
         mock_processor = MagicMock()
@@ -583,18 +701,34 @@ class TestProcessSingleFile:
         config = MagicMock()
         config.auto_delete_after_ingest = False
 
-        task._process_single_file(mock_processor, 123, temp_file, None, None, config)
+        task._process_single_file(
+            mock_processor,
+            123,
+            temp_file,
+            None,
+            None,
+            config,
+            mock_library,
+            mock_session,
+        )
 
         call_kwargs = mock_processor.add_book_to_library.call_args[1]
         assert call_kwargs["file_format"] == "epub"
+        mock_run_post_processors.assert_called_once()
 
     @patch(
         "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
+    @patch(
+        "fundamental.services.tasks.ingest_book_task.IngestBookTask._run_post_processors"
+    )
     def test_process_single_file_no_extension(
         self,
+        mock_run_post_processors: MagicMock,
         mock_delete: MagicMock,
         task: IngestBookTask,
+        mock_library: MagicMock,
+        mock_session: MagicMock,
     ) -> None:
         """Test _process_single_file handles file without extension."""
         with tempfile.NamedTemporaryFile(delete=False) as f:
@@ -606,10 +740,20 @@ class TestProcessSingleFile:
         config = MagicMock()
         config.auto_delete_after_ingest = False
 
-        task._process_single_file(mock_processor, 123, file_path, None, None, config)
+        task._process_single_file(
+            mock_processor,
+            123,
+            file_path,
+            None,
+            None,
+            config,
+            mock_library,
+            mock_session,
+        )
 
         call_kwargs = mock_processor.add_book_to_library.call_args[1]
         assert call_kwargs["file_format"] == ""
+        mock_run_post_processors.assert_called_once()
 
 
 class TestExtractTitleAuthor:

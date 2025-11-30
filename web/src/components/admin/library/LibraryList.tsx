@@ -42,8 +42,19 @@ export interface LibraryListProps {
   onScan: (libraryId: number) => void;
   /** ID of library currently being scanned. */
   scanningLibraryId: number | null;
+  /** ID of library currently being updated. */
+  updatingLibraryId: number | null;
   /** Callback when library is updated. */
-  onUpdate: (libraryId: number, updates: { name?: string }) => Promise<void>;
+  onUpdate: (
+    libraryId: number,
+    updates: {
+      name?: string;
+      auto_convert_on_ingest?: boolean;
+      auto_convert_target_format?: string | null;
+      auto_convert_ignored_formats?: string | null;
+      auto_convert_backup_originals?: boolean;
+    },
+  ) => Promise<void>;
   /** Map of library_id to whether it has an active scan task. */
   libraryScanStatusMap: Map<number, boolean>;
 }
@@ -66,6 +77,7 @@ export function LibraryList({
   deletingLibraryId,
   onScan,
   scanningLibraryId,
+  updatingLibraryId,
   onUpdate,
   libraryScanStatusMap,
 }: LibraryListProps) {
@@ -84,6 +96,7 @@ export function LibraryList({
           deletingLibraryId={deletingLibraryId}
           onScan={onScan}
           scanningLibraryId={scanningLibraryId}
+          updatingLibraryId={updatingLibraryId}
           onUpdate={onUpdate}
           hasActiveScan={libraryScanStatusMap.get(lib.id) ?? false}
         />

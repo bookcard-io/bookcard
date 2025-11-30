@@ -415,6 +415,21 @@ class IngestProcessorService:
         """
         return self._get_history_or_raise(history_id)
 
+    def get_active_library(self) -> Library:
+        """Get active library or raise exception if none exists.
+
+        Returns
+        -------
+        Library
+            Active library.
+
+        Raises
+        ------
+        NoActiveLibraryError
+            If no active library is configured.
+        """
+        return self._get_active_library_or_raise()
+
     # Private helper methods
 
     def _get_history_or_raise(self, history_id: int) -> IngestHistory:
