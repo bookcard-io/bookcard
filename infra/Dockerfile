@@ -61,6 +61,51 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gosu \
     && rm -rf /var/lib/apt/lists/*
 
+# ============================================================================
+# Install Calibre ebook-convert binary
+# ============================================================================
+ARG CALIBRE_RELEASE=8.15.0
+ENV CALIBRE_RELEASE=${CALIBRE_RELEASE}
+
+# Install additional required packages for Calibre
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libxtst6 \
+        libxrandr2 \
+        libxkbfile1 \
+        libxcomposite1 \
+        libopengl0 \
+        libnss3 \
+        libxkbcommon0 \
+        libegl1 \
+        libxdamage1 \
+        libgl1 \
+        libglx-mesa0 \
+        libfontconfig1 \
+        xz-utils \
+        binutils && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create directory for Calibre installation
+RUN mkdir -p /app/calibre
+
+# Download and install Calibre based on architecture
+RUN if [ "$(uname -m)" = "x86_64" ]; then \
+        curl -o /calibre.txz -L \
+            "https://download.calibre-ebook.com/${CALIBRE_RELEASE}/calibre-${CALIBRE_RELEASE}-x86_64.txz"; \
+    elif [ "$(uname -m)" = "aarch64" ]; then \
+        curl -o /calibre.txz -L \
+            "https://download.calibre-ebook.com/${CALIBRE_RELEASE}/calibre-${CALIBRE_RELEASE}-arm64.txz"; \
+    fi && \
+    tar xf /calibre.txz -C /app/calibre && \
+    rm /calibre.txz
+
+# Add Calibre to PATH
+ENV PATH="/app/calibre:${PATH}"
+
+# Create version file
+RUN echo "${CALIBRE_RELEASE}" > /app/CALIBRE_RELEASE
+
 # Copy virtual environment from builder
 COPY --from=backend-builder /opt/venv /opt/venv
 
@@ -87,50 +132,6 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get install -y --no-install-recommends nodejs && \
     rm -rf /var/lib/apt/lists/* && \
     node --version && npm --version
-
-# ============================================================================
-# Install Calibre ebook-convert binary
-# ============================================================================
-ARG CALIBRE_RELEASE=8.15.0
-ENV CALIBRE_RELEASE=${CALIBRE_RELEASE}
-
-# Install additional required packages for Calibre
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        libxtst6 \
-        libxrandr2 \
-        libxkbfile1 \
-        libxcomposite1 \
-        libopengl0 \
-        libnss3 \
-        libxkbcommon0 \
-        libegl1 \
-        libxdamage1 \
-        libgl1 \
-        libglx-mesa0 \
-        xz-utils \
-        binutils && \
-    rm -rf /var/lib/apt/lists/*
-
-# Create directory for Calibre installation
-RUN mkdir -p /app/calibre
-
-# Download and install Calibre based on architecture
-RUN if [ "$(uname -m)" = "x86_64" ]; then \
-        curl -o /calibre.txz -L \
-            "https://download.calibre-ebook.com/${CALIBRE_RELEASE}/calibre-${CALIBRE_RELEASE}-x86_64.txz"; \
-    elif [ "$(uname -m)" = "aarch64" ]; then \
-        curl -o /calibre.txz -L \
-            "https://download.calibre-ebook.com/${CALIBRE_RELEASE}/calibre-${CALIBRE_RELEASE}-arm64.txz"; \
-    fi && \
-    tar xf /calibre.txz -C /app/calibre && \
-    rm /calibre.txz
-
-# Add Calibre to PATH
-ENV PATH="/app/calibre:${PATH}"
-
-# Create version file
-RUN echo "${CALIBRE_RELEASE}" > /app/CALIBRE_RELEASE
 
 # Copy startup and entrypoint scripts
 COPY infra/start.sh /app/start.sh
