@@ -322,6 +322,7 @@ class LibraryService:
         auto_convert_ignored_formats: str | None = None,
         auto_convert_backup_originals: bool | None = None,
         epub_fixer_auto_fix_on_ingest: bool | None = None,
+        duplicate_handling: str | None = None,
         is_active: bool | None = None,
     ) -> Library:
         """Update a library.
@@ -354,6 +355,8 @@ class LibraryService:
             Whether to backup original files before conversion during ingest.
         epub_fixer_auto_fix_on_ingest : bool | None
             Whether to automatically fix EPUBs on book upload/ingest.
+        duplicate_handling : str | None
+            Strategy for handling duplicate books during ingest: IGNORE, OVERWRITE, or CREATE_NEW.
         is_active : bool | None
             Whether to set this as the active library.
 
@@ -386,6 +389,7 @@ class LibraryService:
             auto_convert_ignored_formats=auto_convert_ignored_formats,
             auto_convert_backup_originals=auto_convert_backup_originals,
             epub_fixer_auto_fix_on_ingest=epub_fixer_auto_fix_on_ingest,
+            duplicate_handling=duplicate_handling,
         )
         self._handle_active_status_change(library, is_active)
 
@@ -442,6 +446,7 @@ class LibraryService:
         auto_convert_ignored_formats: str | None = None,
         auto_convert_backup_originals: bool | None = None,
         epub_fixer_auto_fix_on_ingest: bool | None = None,
+        duplicate_handling: str | None = None,
     ) -> None:
         """Update library fields.
 
@@ -471,6 +476,8 @@ class LibraryService:
             Whether to backup original files before conversion during ingest.
         epub_fixer_auto_fix_on_ingest : bool | None
             Whether to automatically fix EPUBs on book upload/ingest.
+        duplicate_handling : str | None
+            Strategy for handling duplicate books during ingest: IGNORE, OVERWRITE, or CREATE_NEW.
         """
         self._update_basic_library_fields(
             library,
@@ -488,6 +495,7 @@ class LibraryService:
             auto_convert_ignored_formats=auto_convert_ignored_formats,
             auto_convert_backup_originals=auto_convert_backup_originals,
             epub_fixer_auto_fix_on_ingest=epub_fixer_auto_fix_on_ingest,
+            duplicate_handling=duplicate_handling,
         )
 
     def _update_basic_library_fields(
@@ -542,6 +550,7 @@ class LibraryService:
         auto_convert_ignored_formats: str | None = None,
         auto_convert_backup_originals: bool | None = None,
         epub_fixer_auto_fix_on_ingest: bool | None = None,
+        duplicate_handling: str | None = None,
     ) -> None:
         """Update auto-convert library fields.
 
@@ -559,6 +568,8 @@ class LibraryService:
             Whether to backup original files before conversion during ingest.
         epub_fixer_auto_fix_on_ingest : bool | None
             Whether to automatically fix EPUBs on book upload/ingest.
+        duplicate_handling : str | None
+            Strategy for handling duplicate books during ingest: IGNORE, OVERWRITE, or CREATE_NEW.
         """
         if auto_convert_on_ingest is not None:
             library.auto_convert_on_ingest = auto_convert_on_ingest
@@ -570,6 +581,8 @@ class LibraryService:
             library.auto_convert_backup_originals = auto_convert_backup_originals
         if epub_fixer_auto_fix_on_ingest is not None:
             library.epub_fixer_auto_fix_on_ingest = epub_fixer_auto_fix_on_ingest
+        if duplicate_handling is not None:
+            library.duplicate_handling = duplicate_handling
 
     def _handle_active_status_change(
         self,

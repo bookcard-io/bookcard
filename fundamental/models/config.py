@@ -47,6 +47,14 @@ class EmailServerType(StrEnum):
     GMAIL = "gmail"
 
 
+class DuplicateHandling(StrEnum):
+    """Duplicate handling strategy enumeration."""
+
+    IGNORE = "IGNORE"
+    OVERWRITE = "OVERWRITE"
+    CREATE_NEW = "CREATE_NEW"
+
+
 class EmailServerConfig(SQLModel, table=True):
     """Email server configuration for sending e-books to devices.
 
@@ -155,6 +163,11 @@ class Library(SQLModel, table=True):
     auto_convert_backup_originals : bool
         Whether to backup original files before conversion during ingest
         (default: True).
+    duplicate_handling : DuplicateHandling
+        Strategy for handling duplicate books during ingest:
+        IGNORE (skip duplicates), OVERWRITE (replace existing), or
+        CREATE_NEW (create new entry even if duplicate exists)
+        (default: IGNORE).
     is_active : bool
         Whether this is the currently active library (only one can be active).
     created_at : datetime
@@ -184,6 +197,11 @@ class Library(SQLModel, table=True):
     epub_fixer_auto_fix_on_ingest: bool = Field(
         default=False,
         description="Whether to automatically fix EPUBs on book upload/ingest.",
+    )
+    duplicate_handling: DuplicateHandling = Field(
+        default=DuplicateHandling.IGNORE,
+        sa_column=Column(SQLEnum(DuplicateHandling, native_enum=False)),
+        description="Strategy for handling duplicate books during ingest.",
     )
     is_active: bool = Field(default=False, index=True)
     created_at: datetime = Field(

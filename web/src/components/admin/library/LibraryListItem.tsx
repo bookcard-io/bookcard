@@ -63,6 +63,7 @@ export interface LibraryListItemProps {
       auto_convert_ignored_formats?: string | null;
       auto_convert_backup_originals?: boolean;
       epub_fixer_auto_fix_on_ingest?: boolean;
+      duplicate_handling?: string;
     },
   ) => Promise<void>;
   /** Whether there is an active scan task for this library. */
@@ -108,6 +109,9 @@ export function LibraryListItem({
   const [epubFixerAutoFix, setEpubFixerAutoFix] = useState(
     library.epub_fixer_auto_fix_on_ingest ?? false,
   );
+  const [duplicateHandling, setDuplicateHandling] = useState(
+    library.duplicate_handling ?? "IGNORE",
+  );
 
   // Track which specific field is updating to avoid disabling unrelated fields
   const [busyField, setBusyField] = useState<string | null>(null);
@@ -139,6 +143,7 @@ export function LibraryListItem({
     setTargetFormat(library.auto_convert_target_format ?? "epub");
     setBackupOriginals(library.auto_convert_backup_originals ?? true);
     setEpubFixerAutoFix(library.epub_fixer_auto_fix_on_ingest ?? false);
+    setDuplicateHandling(library.duplicate_handling ?? "IGNORE");
   }, [library]);
 
   const handleNameSave = async (name: string) => {
@@ -201,6 +206,16 @@ export function LibraryListItem({
     setEpubFixerAutoFix(value);
     try {
       await onUpdate(library.id, { epub_fixer_auto_fix_on_ingest: value });
+    } finally {
+      setBusyField(null);
+    }
+  };
+
+  const handleDuplicateHandlingChange = async (value: string) => {
+    setBusyField("duplicate_handling");
+    setDuplicateHandling(value);
+    try {
+      await onUpdate(library.id, { duplicate_handling: value });
     } finally {
       setBusyField(null);
     }
@@ -272,9 +287,84 @@ export function LibraryListItem({
         </div>
       </div>
 
-      {/* Auto-convert settings - only visible when library is active */}
+      {/* Settings - only visible when library is active */}
       {isExpanded && (
         <div className="border-[var(--color-surface-a20)] border-t pt-3">
+          {/* Duplicate Handling */}
+          <div className="mb-4 flex flex-col gap-2">
+            <div className="font-medium text-[var(--color-text-a20)] text-sm">
+              Duplicate Handling
+            </div>
+            <div className="mb-1 text-[var(--color-text-a30)] text-xs">
+              Strategy for handling duplicate books during ingest and upload
+            </div>
+            <div className="flex flex-wrap gap-4">
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name={`duplicate-handling-${library.id}`}
+                  value="IGNORE"
+                  checked={duplicateHandling === "IGNORE"}
+                  onChange={(e) =>
+                    handleDuplicateHandlingChange(e.target.value)
+                  }
+                  disabled={busyField === "duplicate_handling"}
+                  className="h-4 w-4 cursor-pointer accent-[var(--color-primary-a0)] disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <span
+                  className={cn(
+                    "text-[var(--color-text-a0)] text-sm",
+                    busyField === "duplicate_handling" && "opacity-50",
+                  )}
+                >
+                  Ignore (skip duplicates, keep existing)
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name={`duplicate-handling-${library.id}`}
+                  value="OVERWRITE"
+                  checked={duplicateHandling === "OVERWRITE"}
+                  onChange={(e) =>
+                    handleDuplicateHandlingChange(e.target.value)
+                  }
+                  disabled={busyField === "duplicate_handling"}
+                  className="h-4 w-4 cursor-pointer accent-[var(--color-primary-a0)] disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <span
+                  className={cn(
+                    "text-[var(--color-text-a0)] text-sm",
+                    busyField === "duplicate_handling" && "opacity-50",
+                  )}
+                >
+                  Overwrite (replace existing with incoming)
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name={`duplicate-handling-${library.id}`}
+                  value="CREATE_NEW"
+                  checked={duplicateHandling === "CREATE_NEW"}
+                  onChange={(e) =>
+                    handleDuplicateHandlingChange(e.target.value)
+                  }
+                  disabled={busyField === "duplicate_handling"}
+                  className="h-4 w-4 cursor-pointer accent-[var(--color-primary-a0)] disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <span
+                  className={cn(
+                    "text-[var(--color-text-a0)] text-sm",
+                    busyField === "duplicate_handling" && "opacity-50",
+                  )}
+                >
+                  Create new (add even if duplicate)
+                </span>
+              </label>
+            </div>
+          </div>
+
           <div className="mb-3 font-medium text-[var(--color-text-a20)] text-sm">
             Auto-Convert on Ingest Settings
           </div>
