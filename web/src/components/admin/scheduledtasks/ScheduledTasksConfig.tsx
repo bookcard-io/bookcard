@@ -215,28 +215,6 @@ export function ScheduledTasksConfig() {
                 </span>
               </div>
             </label>
-
-            <label className="flex cursor-pointer items-start gap-3 rounded-md border border-surface-a20 bg-surface-tonal-a0 p-4 transition-colors hover:border-surface-a30">
-              <input
-                type="checkbox"
-                checked={config.epub_fixer_auto_fix_on_ingest}
-                onChange={onBlurChange((e) => {
-                  updateField(
-                    "epub_fixer_auto_fix_on_ingest",
-                    e.target.checked,
-                  );
-                })}
-                className="mt-0.5 h-4 w-4 cursor-pointer rounded border-surface-a20 text-primary-a0 accent-[var(--color-primary-a0)] focus:ring-2 focus:ring-primary-a0"
-              />
-              <div className="flex flex-col gap-1">
-                <span className="font-medium text-sm text-text-a10">
-                  Auto-Fix on Ingest
-                </span>
-                <span className="text-text-a30 text-xs">
-                  Automatically fix EPUBs when books are uploaded.
-                </span>
-              </div>
-            </label>
           </div>
         </div>
       </div>

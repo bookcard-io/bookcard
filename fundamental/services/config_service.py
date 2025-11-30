@@ -33,6 +33,7 @@ from fundamental.models.config import EPUBFixerConfig, Library, ScheduledTasksCo
 from fundamental.repositories.calibre_book_repository import (
     CalibreBookRepository,
 )
+from fundamental.repositories.config_repository import LibraryRepository
 from fundamental.repositories.shelf_repository import ShelfRepository
 from fundamental.services.calibre_db_initializer import (
     CalibreDatabaseInitializer,
@@ -40,10 +41,6 @@ from fundamental.services.calibre_db_initializer import (
 
 if TYPE_CHECKING:
     from sqlmodel import Session
-
-    from fundamental.repositories.config_repository import (
-        LibraryRepository,
-    )
 
 logger = logging.getLogger(__name__)
 
@@ -324,6 +321,7 @@ class LibraryService:
         auto_convert_target_format: str | None = None,
         auto_convert_ignored_formats: str | None = None,
         auto_convert_backup_originals: bool | None = None,
+        epub_fixer_auto_fix_on_ingest: bool | None = None,
         is_active: bool | None = None,
     ) -> Library:
         """Update a library.
@@ -354,6 +352,8 @@ class LibraryService:
             JSON array of format strings to ignore during auto-conversion on ingest.
         auto_convert_backup_originals : bool | None
             Whether to backup original files before conversion during ingest.
+        epub_fixer_auto_fix_on_ingest : bool | None
+            Whether to automatically fix EPUBs on book upload/ingest.
         is_active : bool | None
             Whether to set this as the active library.
 
@@ -385,6 +385,7 @@ class LibraryService:
             auto_convert_target_format=auto_convert_target_format,
             auto_convert_ignored_formats=auto_convert_ignored_formats,
             auto_convert_backup_originals=auto_convert_backup_originals,
+            epub_fixer_auto_fix_on_ingest=epub_fixer_auto_fix_on_ingest,
         )
         self._handle_active_status_change(library, is_active)
 
@@ -440,6 +441,7 @@ class LibraryService:
         auto_convert_target_format: str | None = None,
         auto_convert_ignored_formats: str | None = None,
         auto_convert_backup_originals: bool | None = None,
+        epub_fixer_auto_fix_on_ingest: bool | None = None,
     ) -> None:
         """Update library fields.
 
@@ -467,6 +469,8 @@ class LibraryService:
             JSON array of format strings to ignore during auto-conversion on ingest.
         auto_convert_backup_originals : bool | None
             Whether to backup original files before conversion during ingest.
+        epub_fixer_auto_fix_on_ingest : bool | None
+            Whether to automatically fix EPUBs on book upload/ingest.
         """
         self._update_basic_library_fields(
             library,
@@ -483,6 +487,7 @@ class LibraryService:
             auto_convert_target_format=auto_convert_target_format,
             auto_convert_ignored_formats=auto_convert_ignored_formats,
             auto_convert_backup_originals=auto_convert_backup_originals,
+            epub_fixer_auto_fix_on_ingest=epub_fixer_auto_fix_on_ingest,
         )
 
     def _update_basic_library_fields(
@@ -536,6 +541,7 @@ class LibraryService:
         auto_convert_target_format: str | None = None,
         auto_convert_ignored_formats: str | None = None,
         auto_convert_backup_originals: bool | None = None,
+        epub_fixer_auto_fix_on_ingest: bool | None = None,
     ) -> None:
         """Update auto-convert library fields.
 
@@ -551,6 +557,8 @@ class LibraryService:
             JSON array of format strings to ignore during auto-conversion on ingest.
         auto_convert_backup_originals : bool | None
             Whether to backup original files before conversion during ingest.
+        epub_fixer_auto_fix_on_ingest : bool | None
+            Whether to automatically fix EPUBs on book upload/ingest.
         """
         if auto_convert_on_ingest is not None:
             library.auto_convert_on_ingest = auto_convert_on_ingest
@@ -560,6 +568,8 @@ class LibraryService:
             library.auto_convert_ignored_formats = auto_convert_ignored_formats
         if auto_convert_backup_originals is not None:
             library.auto_convert_backup_originals = auto_convert_backup_originals
+        if epub_fixer_auto_fix_on_ingest is not None:
+            library.epub_fixer_auto_fix_on_ingest = epub_fixer_auto_fix_on_ingest
 
     def _handle_active_status_change(
         self,
@@ -802,19 +812,29 @@ class EPUBFixerConfigService:
         config = self.get_epub_fixer_config()
         return config.enabled
 
-    def is_auto_fix_on_ingest_enabled(self) -> bool:
-        """Check if auto-fix on ingest is enabled.
+    def is_auto_fix_on_ingest_enabled(self, library: Library | None = None) -> bool:  # type: ignore[name-defined]
+        """Check if auto-fix on ingest is enabled for a library.
+
+        Parameters
+        ----------
+        library : Library | None
+            Library to check. If None, uses the active library.
 
         Returns
         -------
         bool
             True if enabled, False otherwise.
         """
-        stmt = select(ScheduledTasksConfig).limit(1)
-        scheduled_config = self._session.exec(stmt).first()
-        if scheduled_config is None:
+        if library is None:
+            # Get active library if not provided
+            library_repo = LibraryRepository(self._session)
+            library_service = LibraryService(self._session, library_repo)
+            library = library_service.get_active_library()
+
+        if library is None:
             return False
-        return scheduled_config.epub_fixer_auto_fix_on_ingest
+
+        return library.epub_fixer_auto_fix_on_ingest
 
     def is_daily_scan_enabled(self) -> bool:
         """Check if daily scan is enabled.
@@ -880,7 +900,6 @@ class ScheduledTasksConfigService:
         reconnect_database: bool | None = None,
         metadata_backup: bool | None = None,
         epub_fixer_daily_scan: bool | None = None,
-        epub_fixer_auto_fix_on_ingest: bool | None = None,
     ) -> ScheduledTasksConfig:
         """Update scheduled tasks configuration.
 
@@ -900,8 +919,6 @@ class ScheduledTasksConfigService:
             Whether to backup metadata.
         epub_fixer_daily_scan : bool | None
             Whether to enable daily EPUB fixer scan.
-        epub_fixer_auto_fix_on_ingest : bool | None
-            Whether to automatically fix EPUBs on book upload.
 
         Returns
         -------
@@ -924,8 +941,6 @@ class ScheduledTasksConfigService:
             config.metadata_backup = metadata_backup
         if epub_fixer_daily_scan is not None:
             config.epub_fixer_daily_scan = epub_fixer_daily_scan
-        if epub_fixer_auto_fix_on_ingest is not None:
-            config.epub_fixer_auto_fix_on_ingest = epub_fixer_auto_fix_on_ingest
 
         self._session.add(config)
         self._session.commit()

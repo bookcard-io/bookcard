@@ -62,6 +62,7 @@ export interface LibraryListItemProps {
       auto_convert_target_format?: string | null;
       auto_convert_ignored_formats?: string | null;
       auto_convert_backup_originals?: boolean;
+      epub_fixer_auto_fix_on_ingest?: boolean;
     },
   ) => Promise<void>;
   /** Whether there is an active scan task for this library. */
@@ -87,12 +88,10 @@ export function LibraryListItem({
   deletingLibraryId,
   onScan,
   scanningLibraryId,
-  updatingLibraryId,
   onUpdate,
   hasActiveScan,
 }: LibraryListItemProps) {
   const isScanning = scanningLibraryId === library.id || hasActiveScan;
-  const isUpdating = updatingLibraryId === library.id;
   const isExpanded = library.is_active;
 
   // Auto-convert settings state
@@ -106,6 +105,12 @@ export function LibraryListItem({
   const [backupOriginals, setBackupOriginals] = useState(
     library.auto_convert_backup_originals ?? true,
   );
+  const [epubFixerAutoFix, setEpubFixerAutoFix] = useState(
+    library.epub_fixer_auto_fix_on_ingest ?? false,
+  );
+
+  // Track which specific field is updating to avoid disabling unrelated fields
+  const [busyField, setBusyField] = useState<string | null>(null);
 
   // Load ignored formats from library
   useEffect(() => {
@@ -133,6 +138,7 @@ export function LibraryListItem({
     setAutoConvertOnIngest(library.auto_convert_on_ingest ?? false);
     setTargetFormat(library.auto_convert_target_format ?? "epub");
     setBackupOriginals(library.auto_convert_backup_originals ?? true);
+    setEpubFixerAutoFix(library.epub_fixer_auto_fix_on_ingest ?? false);
   }, [library]);
 
   const handleNameSave = async (name: string) => {
@@ -140,16 +146,27 @@ export function LibraryListItem({
   };
 
   const handleAutoConvertToggle = async (value: boolean) => {
+    setBusyField("auto_convert_on_ingest");
     setAutoConvertOnIngest(value);
-    await onUpdate(library.id, { auto_convert_on_ingest: value });
+    try {
+      await onUpdate(library.id, { auto_convert_on_ingest: value });
+    } finally {
+      setBusyField(null);
+    }
   };
 
   const handleTargetFormatChange = async (value: string) => {
+    setBusyField("target_format");
     setTargetFormat(value);
-    await onUpdate(library.id, { auto_convert_target_format: value });
+    try {
+      await onUpdate(library.id, { auto_convert_target_format: value });
+    } finally {
+      setBusyField(null);
+    }
   };
 
   const handleFormatToggle = async (format: string) => {
+    setBusyField("ignored_formats");
     const formatLower = format.toLowerCase();
     const next = new Set(ignoredFormats);
     if (next.has(formatLower)) {
@@ -162,12 +179,31 @@ export function LibraryListItem({
     // Save as JSON array
     const formatsArray = Array.from(next).sort();
     const jsonValue = JSON.stringify(formatsArray);
-    await onUpdate(library.id, { auto_convert_ignored_formats: jsonValue });
+    try {
+      await onUpdate(library.id, { auto_convert_ignored_formats: jsonValue });
+    } finally {
+      setBusyField(null);
+    }
   };
 
   const handleBackupOriginalsToggle = async (value: boolean) => {
+    setBusyField("backup_originals");
     setBackupOriginals(value);
-    await onUpdate(library.id, { auto_convert_backup_originals: value });
+    try {
+      await onUpdate(library.id, { auto_convert_backup_originals: value });
+    } finally {
+      setBusyField(null);
+    }
+  };
+
+  const handleEpubFixerToggle = async (value: boolean) => {
+    setBusyField("epub_fixer");
+    setEpubFixerAutoFix(value);
+    try {
+      await onUpdate(library.id, { epub_fixer_auto_fix_on_ingest: value });
+    } finally {
+      setBusyField(null);
+    }
   };
 
   return (
@@ -243,26 +279,50 @@ export function LibraryListItem({
             Auto-Convert on Ingest Settings
           </div>
           <div className="flex flex-col gap-4">
-            {/* Auto-convert on ingest toggle */}
-            <div className="flex flex-col gap-2">
-              <label className="flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={autoConvertOnIngest}
-                  onChange={(e) => handleAutoConvertToggle(e.target.checked)}
-                  disabled={isUpdating}
-                  className="h-4 w-4 cursor-pointer rounded border-[var(--color-surface-a20)] text-[var(--color-primary-a0)] accent-[var(--color-primary-a0)] focus:ring-2 focus:ring-[var(--color-primary-a0)] disabled:cursor-not-allowed disabled:opacity-50"
-                />
-                <span
-                  className={cn(
-                    "text-[var(--color-text-a0)] text-sm",
-                    isUpdating && "opacity-50",
-                  )}
-                >
-                  Automatically convert books to target format during
-                  auto-ingest
-                </span>
-              </label>
+            {/* Two-column layout for main toggles */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {/* Auto-convert on ingest toggle */}
+              <div className="flex flex-col gap-2">
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={autoConvertOnIngest}
+                    onChange={(e) => handleAutoConvertToggle(e.target.checked)}
+                    disabled={busyField === "auto_convert_on_ingest"}
+                    className="h-4 w-4 cursor-pointer rounded border-[var(--color-surface-a20)] text-[var(--color-primary-a0)] accent-[var(--color-primary-a0)] focus:ring-2 focus:ring-[var(--color-primary-a0)] disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <span
+                    className={cn(
+                      "text-[var(--color-text-a0)] text-sm",
+                      busyField === "auto_convert_on_ingest" && "opacity-50",
+                    )}
+                  >
+                    Automatically convert books to target format during
+                    auto-ingest
+                  </span>
+                </label>
+              </div>
+
+              {/* EPUB Fixer auto-fix on ingest */}
+              <div className="flex flex-col gap-2">
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={epubFixerAutoFix}
+                    onChange={(e) => handleEpubFixerToggle(e.target.checked)}
+                    disabled={busyField === "epub_fixer"}
+                    className="h-4 w-4 cursor-pointer rounded border-[var(--color-surface-a20)] text-[var(--color-primary-a0)] accent-[var(--color-primary-a0)] focus:ring-2 focus:ring-[var(--color-primary-a0)] disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <span
+                    className={cn(
+                      "text-[var(--color-text-a0)] text-sm",
+                      busyField === "epub_fixer" && "opacity-50",
+                    )}
+                  >
+                    Automatically fix EPUB files on upload/ingest
+                  </span>
+                </label>
+              </div>
             </div>
 
             {/* Target format */}
@@ -286,13 +346,13 @@ export function LibraryListItem({
                           onChange={(e) =>
                             handleTargetFormatChange(e.target.value)
                           }
-                          disabled={isUpdating}
+                          disabled={busyField === "target_format"}
                           className="h-4 w-4 cursor-pointer accent-[var(--color-primary-a0)] disabled:cursor-not-allowed disabled:opacity-50"
                         />
                         <span
                           className={cn(
                             "text-[var(--color-text-a0)] text-sm",
-                            isUpdating && "opacity-50",
+                            busyField === "target_format" && "opacity-50",
                           )}
                         >
                           {option.label}
@@ -322,13 +382,13 @@ export function LibraryListItem({
                             type="checkbox"
                             checked={isChecked}
                             onChange={() => handleFormatToggle(format.value)}
-                            disabled={isUpdating}
+                            disabled={busyField === "ignored_formats"}
                             className="h-4 w-4 shrink-0 cursor-pointer rounded border-[var(--color-surface-a20)] text-[var(--color-primary-a0)] accent-[var(--color-primary-a0)] focus:ring-2 focus:ring-[var(--color-primary-a0)] disabled:cursor-not-allowed disabled:opacity-50"
                           />
                           <span
                             className={cn(
                               "text-[var(--color-text-a0)] text-sm",
-                              isUpdating && "opacity-50",
+                              busyField === "ignored_formats" && "opacity-50",
                             )}
                           >
                             {format.label}
@@ -348,13 +408,13 @@ export function LibraryListItem({
                       onChange={(e) =>
                         handleBackupOriginalsToggle(e.target.checked)
                       }
-                      disabled={isUpdating}
+                      disabled={busyField === "backup_originals"}
                       className="h-4 w-4 cursor-pointer rounded border-[var(--color-surface-a20)] text-[var(--color-primary-a0)] accent-[var(--color-primary-a0)] focus:ring-2 focus:ring-[var(--color-primary-a0)] disabled:cursor-not-allowed disabled:opacity-50"
                     />
                     <span
                       className={cn(
                         "text-[var(--color-text-a0)] text-sm",
-                        isUpdating && "opacity-50",
+                        busyField === "backup_originals" && "opacity-50",
                       )}
                     >
                       Create backup copies of original files before conversion

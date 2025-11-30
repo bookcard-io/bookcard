@@ -526,7 +526,6 @@ class ScheduledTasksConfigRead(BaseModel):
     reconnect_database: bool
     metadata_backup: bool
     epub_fixer_daily_scan: bool
-    epub_fixer_auto_fix_on_ingest: bool
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -541,4 +540,3 @@ class ScheduledTasksConfigUpdate(BaseModel):
     reconnect_database: bool | None = None
     metadata_backup: bool | None = None
     epub_fixer_daily_scan: bool | None = None
-    epub_fixer_auto_fix_on_ingest: bool | None = None

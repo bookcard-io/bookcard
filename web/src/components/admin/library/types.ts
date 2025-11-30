@@ -32,6 +32,7 @@ export interface Library {
   auto_convert_target_format: string | null;
   auto_convert_ignored_formats: string | null;
   auto_convert_backup_originals: boolean;
+  epub_fixer_auto_fix_on_ingest: boolean;
   is_active: boolean;
   created_at: string;
   updated_at: string;

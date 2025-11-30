@@ -1798,6 +1798,7 @@ def update_library(
             auto_convert_target_format=payload.auto_convert_target_format,
             auto_convert_ignored_formats=payload.auto_convert_ignored_formats,
             auto_convert_backup_originals=payload.auto_convert_backup_originals,
+            epub_fixer_auto_fix_on_ingest=payload.epub_fixer_auto_fix_on_ingest,
             is_active=payload.is_active,
         )
         session.commit()

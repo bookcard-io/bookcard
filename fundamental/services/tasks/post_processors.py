@@ -26,7 +26,7 @@ from pathlib import Path
 from sqlmodel import Session, select
 
 from fundamental.models.auth import UserSetting
-from fundamental.models.config import EPUBFixerConfig, Library, ScheduledTasksConfig
+from fundamental.models.config import EPUBFixerConfig, Library
 from fundamental.models.conversion import ConversionMethod
 from fundamental.models.core import Book
 from fundamental.models.media import Data
@@ -94,15 +94,22 @@ class EPUBAutoFixPolicy:
     configuration checking logic.
     """
 
-    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+    def __init__(
+        self,
+        session: Session,
+        library: Library | None,  # type: ignore[type-arg]
+    ) -> None:
         """Initialize EPUB auto-fix policy.
 
         Parameters
         ----------
         session : Session
             Database session for querying configuration.
+        library : Library | None
+            Library configuration to check for auto-fix settings.
         """
         self._session = session
+        self._library = library
 
     def should_auto_fix(self) -> bool:
         """Check if EPUB auto-fix on ingest is enabled.
@@ -112,14 +119,16 @@ class EPUBAutoFixPolicy:
         bool
             True if auto-fix should run, False otherwise.
         """
-        # Check if auto-fix on ingest is enabled
-        stmt = select(ScheduledTasksConfig).limit(1)
-        scheduled_config = self._session.exec(stmt).first()
-        if (
-            scheduled_config is None
-            or not scheduled_config.epub_fixer_auto_fix_on_ingest
-        ):
-            logger.debug("EPUB auto-fix on ingest is disabled")
+        # Check if library is provided
+        if self._library is None:
+            logger.debug("EPUB auto-fix on ingest: library is None")
+            return False
+
+        # Check if auto-fix on ingest is enabled for this library
+        if not self._library.epub_fixer_auto_fix_on_ingest:
+            logger.debug(
+                "EPUB auto-fix on ingest is disabled for library %d", self._library.id
+            )
             return False
 
         # Check if EPUB fixer is enabled
@@ -221,7 +230,6 @@ class EPUBPostIngestProcessor(PostIngestProcessor):
             Database session.
         """
         self._session = session
-        self._policy = EPUBAutoFixPolicy(session)
 
     def supports_format(self, file_format: str) -> bool:
         """Check if this processor supports EPUB format.
@@ -242,7 +250,7 @@ class EPUBPostIngestProcessor(PostIngestProcessor):
         self,
         session: Session,  # type: ignore[type-arg]
         book_id: int,
-        library: Library,
+        library: Library | None,
         user_id: int | None = None,
     ) -> None:
         """Process EPUB file after ingestion.
@@ -253,8 +261,8 @@ class EPUBPostIngestProcessor(PostIngestProcessor):
             Database session.
         book_id : int
             Book ID that was just added.
-        library : Library
-            Library configuration.
+        library : Library | None
+            Library configuration (None if not available).
         user_id : int | None
             User ID who triggered the upload (None for library-level auto-ingest).
 
@@ -264,7 +272,8 @@ class EPUBPostIngestProcessor(PostIngestProcessor):
             If processing fails. Should be caught by caller.
         """
         # Check if auto-fix should run
-        if not self._policy.should_auto_fix():
+        policy = EPUBAutoFixPolicy(session, library)
+        if not policy.should_auto_fix():
             return
 
         # Get book and EPUB data
@@ -281,7 +290,13 @@ class EPUBPostIngestProcessor(PostIngestProcessor):
 
         book, data = result
 
-        # Resolve file path
+        # Resolve file path (requires library)
+        if library is None:
+            logger.warning(
+                "Cannot resolve EPUB file path: library is None for book_id=%d", book_id
+            )
+            return
+
         path_resolver = LibraryPathResolver(library)
         file_path = path_resolver.get_book_file_path(book, data)
         if file_path is None:

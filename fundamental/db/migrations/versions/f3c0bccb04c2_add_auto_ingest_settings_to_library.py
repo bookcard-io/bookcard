@@ -58,6 +58,11 @@ def upgrade() -> None:
         "libraries",
         sa.Column("auto_convert_backup_originals", sa.Boolean(), nullable=False),
     )
+    op.add_column(
+        "libraries",
+        sa.Column("epub_fixer_auto_fix_on_ingest", sa.Boolean(), nullable=False),
+    )
+    op.drop_column("scheduled_tasks_config", "epub_fixer_auto_fix_on_ingest")
     # ### end Alembic commands ###
 
 
@@ -68,4 +73,9 @@ def downgrade() -> None:
     op.drop_column("libraries", "auto_convert_ignored_formats")
     op.drop_column("libraries", "auto_convert_target_format")
     op.drop_column("libraries", "auto_convert_on_ingest")
+    op.add_column(
+        "scheduled_tasks_config",
+        sa.Column("epub_fixer_auto_fix_on_ingest", sa.BOOLEAN(), nullable=False),
+    )
+    op.drop_column("libraries", "epub_fixer_auto_fix_on_ingest")
     # ### end Alembic commands ###

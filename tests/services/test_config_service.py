@@ -1234,18 +1234,31 @@ def test_is_auto_fix_on_ingest_enabled_with_config(
         EPUB fixer config service instance.
     """
     session = epub_fixer_service._session
-    scheduled_config = ScheduledTasksConfig(id=1, epub_fixer_auto_fix_on_ingest=True)
-    session.add_exec_result([scheduled_config])  # type: ignore[possibly-missing-attribute]
+    # Create a library with auto-fix enabled
+    from datetime import UTC, datetime
 
-    result = epub_fixer_service.is_auto_fix_on_ingest_enabled()
+    from fundamental.models.config import Library
+
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/test/path",
+        calibre_db_file="metadata.db",
+        epub_fixer_auto_fix_on_ingest=True,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    session.add_exec_result([library])  # type: ignore[possibly-missing-attribute]
+
+    result = epub_fixer_service.is_auto_fix_on_ingest_enabled(library=library)
 
     assert result is True
 
 
-def test_is_auto_fix_on_ingest_enabled_no_config(
+def test_is_auto_fix_on_ingest_enabled_no_library(
     epub_fixer_service: EPUBFixerConfigService,
 ) -> None:
-    """Test is_auto_fix_on_ingest_enabled returns False when config is None (covers lines 705-709).
+    """Test is_auto_fix_on_ingest_enabled returns False when library is None (covers lines 805-817).
 
     Parameters
     ----------
@@ -1382,18 +1395,16 @@ def test_get_scheduled_tasks_config_creates_default(
         "reconnect_database",
         "metadata_backup",
         "epub_fixer_daily_scan",
-        "epub_fixer_auto_fix_on_ingest",
     ),
     [
-        (5, None, None, None, None, None, None, None),
-        (None, 8, None, None, None, None, None, None),
-        (None, None, True, None, None, None, None, None),
-        (None, None, None, True, None, None, None, None),
-        (None, None, None, None, True, None, None, None),
-        (None, None, None, None, None, True, None, None),
-        (None, None, None, None, None, None, True, None),
-        (None, None, None, None, None, None, None, True),
-        (6, 12, True, True, True, True, True, True),
+        (5, None, None, None, None, None, None),
+        (None, 8, None, None, None, None, None),
+        (None, None, True, None, None, None, None),
+        (None, None, None, True, None, None, None),
+        (None, None, None, None, True, None, None),
+        (None, None, None, None, None, True, None),
+        (None, None, None, None, None, None, True),
+        (6, 12, True, True, True, True, True),
     ],
 )
 def test_update_scheduled_tasks_config(
@@ -1405,7 +1416,6 @@ def test_update_scheduled_tasks_config(
     reconnect_database: bool | None,
     metadata_backup: bool | None,
     epub_fixer_daily_scan: bool | None,
-    epub_fixer_auto_fix_on_ingest: bool | None,
 ) -> None:
     """Test update_scheduled_tasks_config updates all fields (covers lines 803-825).
 
@@ -1427,8 +1437,6 @@ def test_update_scheduled_tasks_config(
         Metadata backup flag to set.
     epub_fixer_daily_scan : bool | None
         EPUB fixer daily scan flag to set.
-    epub_fixer_auto_fix_on_ingest : bool | None
-        EPUB fixer auto fix on ingest flag to set.
     """
     session = scheduled_tasks_service._session
     existing_config = ScheduledTasksConfig(
@@ -1440,7 +1448,6 @@ def test_update_scheduled_tasks_config(
         reconnect_database=False,
         metadata_backup=False,
         epub_fixer_daily_scan=False,
-        epub_fixer_auto_fix_on_ingest=False,
     )
     session.add_exec_result([existing_config])  # type: ignore[possibly-missing-attribute]
 
@@ -1452,7 +1459,6 @@ def test_update_scheduled_tasks_config(
         reconnect_database=reconnect_database,
         metadata_backup=metadata_backup,
         epub_fixer_daily_scan=epub_fixer_daily_scan,
-        epub_fixer_auto_fix_on_ingest=epub_fixer_auto_fix_on_ingest,
     )
 
     if start_time_hour is not None:
@@ -1469,7 +1475,5 @@ def test_update_scheduled_tasks_config(
         assert result.metadata_backup == metadata_backup
     if epub_fixer_daily_scan is not None:
         assert result.epub_fixer_daily_scan == epub_fixer_daily_scan
-    if epub_fixer_auto_fix_on_ingest is not None:
-        assert result.epub_fixer_auto_fix_on_ingest == epub_fixer_auto_fix_on_ingest
 
     assert session.commit_count == 1  # type: ignore[possibly-missing-attribute]

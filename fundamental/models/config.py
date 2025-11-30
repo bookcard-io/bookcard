@@ -181,6 +181,10 @@ class Library(SQLModel, table=True):
         default='["pdf", "epub"]', max_length=500
     )
     auto_convert_backup_originals: bool = Field(default=True)
+    epub_fixer_auto_fix_on_ingest: bool = Field(
+        default=False,
+        description="Whether to automatically fix EPUBs on book upload/ingest.",
+    )
     is_active: bool = Field(default=False, index=True)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
@@ -361,8 +365,6 @@ class ScheduledTasksConfig(SQLModel, table=True):
         Whether to backup metadata (default: False).
     epub_fixer_daily_scan : bool
         Whether to enable daily EPUB fixer scan (default: False).
-    epub_fixer_auto_fix_on_ingest : bool
-        Whether to automatically fix EPUBs on book upload (default: False).
     created_at : datetime
         Configuration creation timestamp.
     updated_at : datetime
@@ -379,7 +381,6 @@ class ScheduledTasksConfig(SQLModel, table=True):
     reconnect_database: bool = Field(default=False)
     metadata_backup: bool = Field(default=False)
     epub_fixer_daily_scan: bool = Field(default=False)
-    epub_fixer_auto_fix_on_ingest: bool = Field(default=False)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         index=True,

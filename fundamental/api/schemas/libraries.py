@@ -41,6 +41,7 @@ class LibraryRead(BaseModel):
     auto_convert_target_format: str | None = None
     auto_convert_ignored_formats: str | None = None
     auto_convert_backup_originals: bool
+    epub_fixer_auto_fix_on_ingest: bool
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -107,6 +108,10 @@ class LibraryUpdate(BaseModel):
     auto_convert_backup_originals: bool | None = Field(
         default=None,
         description="Whether to backup original files before conversion during ingest",
+    )
+    epub_fixer_auto_fix_on_ingest: bool | None = Field(
+        default=None,
+        description="Whether to automatically fix EPUBs on book upload/ingest",
     )
     is_active: bool | None = Field(
         default=None, description="Set as the active library"

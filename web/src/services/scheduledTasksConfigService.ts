@@ -30,7 +30,6 @@ export interface ScheduledTasksConfig {
   reconnect_database: boolean;
   metadata_backup: boolean;
   epub_fixer_daily_scan: boolean;
-  epub_fixer_auto_fix_on_ingest: boolean;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -43,7 +42,6 @@ export interface ScheduledTasksConfigUpdate {
   reconnect_database?: boolean;
   metadata_backup?: boolean;
   epub_fixer_daily_scan?: boolean;
-  epub_fixer_auto_fix_on_ingest?: boolean;
 }
 
 const CONFIG_API_BASE = "/api/admin/scheduled-tasks-config";
