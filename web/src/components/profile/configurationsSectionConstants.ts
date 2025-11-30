@@ -27,8 +27,7 @@ export type TabId =
   | "sorting"
   | "navigation"
   | "deletion"
-  | "content"
-  | "conversion";
+  | "content";
 
 /**
  * Tab configuration interface.
@@ -60,10 +59,6 @@ export const CONFIGURATION_TABS: readonly TabConfig[] = [
   {
     id: "content",
     label: "Uploads & Metadata",
-  },
-  {
-    id: "conversion",
-    label: "Format Conversion",
   },
   {
     id: "navigation",

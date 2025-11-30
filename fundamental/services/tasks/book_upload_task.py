@@ -285,6 +285,7 @@ class BookUploadTask(BaseTask):
     def _get_post_processors(
         self,
         session: Session,  # type: ignore[type-arg]
+        library: Library,  # type: ignore[name-defined]
     ) -> list[PostIngestProcessor]:  # type: ignore[type-arg]
         """Get post-ingest processors, creating defaults if needed.
 
@@ -292,6 +293,8 @@ class BookUploadTask(BaseTask):
         ----------
         session : Session
             Database session for creating processors.
+        library : Library
+            Library configuration for library-level conversion settings.
 
         Returns
         -------
@@ -308,9 +311,9 @@ class BookUploadTask(BaseTask):
         )
 
         processors = [EPUBPostIngestProcessor(session)]
-        # Add conversion processor if user has auto-convert enabled
-        # We'll add it for all users and let the processor check the setting
-        processors.append(ConversionPostIngestProcessor(session, self.user_id))
+        # Add conversion processor using library-level config
+        # User uploads now follow library-level auto-convert settings
+        processors.append(ConversionPostIngestProcessor(session, library=library))
         return processors
 
     def _run_post_processors(
@@ -330,7 +333,7 @@ class BookUploadTask(BaseTask):
         library : Library
             Library configuration.
         """
-        processors = self._get_post_processors(session)
+        processors = self._get_post_processors(session, library)
         for processor in processors:
             if processor.supports_format(self.file_info.file_format):
                 with suppress(Exception):
