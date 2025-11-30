@@ -25,8 +25,15 @@ from sqlalchemy import JSON, Column
 from sqlalchemy import Enum as SQLEnum
 from sqlmodel import Field, Relationship, SQLModel
 
+from fundamental.models.kobo import (
+    KoboAuthToken,
+)
+
 if TYPE_CHECKING:
     from fundamental.models.epub_fixer import EPUBFixRun
+    from fundamental.models.kobo import (
+        KoboReadingState,
+    )
     from fundamental.models.reading import (
         Annotation,
         ReadingProgress,
@@ -117,6 +124,11 @@ class User(SQLModel, table=True):
     read_statuses: list["ReadStatus"] = Relationship(back_populates="user")
     annotations: list["Annotation"] = Relationship(back_populates="user")
     epub_fix_runs: list["EPUBFixRun"] = Relationship(back_populates="user")
+    kobo_auth_token: KoboAuthToken | None = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan", "uselist": False},
+    )
+    kobo_reading_states: list["KoboReadingState"] = Relationship(back_populates="user")
 
 
 class UserSetting(SQLModel, table=True):

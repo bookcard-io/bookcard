@@ -30,6 +30,7 @@ from fundamental.api.routes.devices import router as devices_router
 from fundamental.api.routes.epub_fixer import router as epub_fixer_router
 from fundamental.api.routes.fs import router as fs_router
 from fundamental.api.routes.ingest import router as ingest_router
+from fundamental.api.routes.kobo import router as kobo_router
 from fundamental.api.routes.library_scanning import router as library_scanning_router
 from fundamental.api.routes.metadata import router as metadata_router
 from fundamental.api.routes.opds import router as opds_router
@@ -48,6 +49,7 @@ ROUTERS: list[APIRouter] = [
     fs_router,
     ingest_router,
     library_scanning_router,
+    kobo_router,
     metadata_router,
     opds_router,
     reading_router,

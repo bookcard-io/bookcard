@@ -180,6 +180,22 @@ class ShelfRepository:
         )
         return list(self._session.exec(stmt).all())
 
+    def find_by_uuid(self, uuid: str) -> Shelf | None:
+        """Find a shelf by UUID.
+
+        Parameters
+        ----------
+        uuid : str
+            Shelf UUID.
+
+        Returns
+        -------
+        Shelf | None
+            Shelf if found, None otherwise.
+        """
+        stmt = select(Shelf).where(Shelf.uuid == uuid)
+        return self._session.exec(stmt).first()
+
     def find_by_name(
         self,
         library_id: int,

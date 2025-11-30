@@ -27,10 +27,14 @@ from sqlmodel import Session  # noqa: TC002
 
 from fundamental.database import get_session
 from fundamental.models.auth import User  # noqa: TC001
+from fundamental.repositories.kobo_repository import (
+    KoboAuthTokenRepository,
+)
 from fundamental.repositories.user_repository import (
     TokenBlacklistRepository,
     UserRepository,
 )
+from fundamental.services.kobo.auth_service import KoboAuthService
 from fundamental.services.opds.auth_service import OpdsAuthService
 from fundamental.services.permission_service import PermissionService
 from fundamental.services.security import JWTManager, PasswordHasher, SecurityTokenError
@@ -263,3 +267,72 @@ def get_opds_user(
     )
 
     return auth_service.authenticate_request(request)
+
+
+def get_kobo_auth_token(request: Request) -> str:
+    """Extract Kobo auth token from URL path.
+
+    Kobo requests include the auth token in the path:
+    /kobo/{auth_token}/v1/...
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+
+    Returns
+    -------
+    str
+        Auth token from path.
+
+    Raises
+    ------
+    HTTPException
+        If token is missing from path (404).
+    """
+    path_parts = request.url.path.split("/")
+    if len(path_parts) < 3 or path_parts[1] != "kobo":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="kobo_path_invalid"
+        )
+    return path_parts[2]
+
+
+def get_kobo_user(
+    auth_token: Annotated[str, Depends(get_kobo_auth_token)],
+    session: Annotated[Session, Depends(get_db_session)],
+) -> User:
+    """Authenticate Kobo user from auth token.
+
+    Parameters
+    ----------
+    auth_token : str
+        Auth token from path.
+    session : Session
+        Database session.
+
+    Returns
+    -------
+    User
+        Authenticated user.
+
+    Raises
+    ------
+    HTTPException
+        If token is invalid or user not found (401).
+    """
+    auth_token_repo = KoboAuthTokenRepository(session)
+    user_repo = UserRepository(session)
+
+    auth_service = KoboAuthService(
+        session=session,
+        auth_token_repo=auth_token_repo,
+        user_repo=user_repo,
+    )
+
+    user = auth_service.validate_auth_token(auth_token)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="kobo_auth_invalid"
+        )
+    return user

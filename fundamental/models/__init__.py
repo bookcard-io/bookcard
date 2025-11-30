@@ -86,6 +86,14 @@ from fundamental.models.ingest import (
     IngestRetry,
     IngestStatus,
 )
+from fundamental.models.kobo import (
+    KoboArchivedBook,
+    KoboAuthToken,
+    KoboBookmark,
+    KoboReadingState,
+    KoboStatistics,
+    KoboSyncedBook,
+)
 from fundamental.models.library_scanning import LibraryScanState
 from fundamental.models.media import ConversionOptions, Data
 from fundamental.models.metadata_enforcement import (
@@ -175,6 +183,12 @@ __all__ = [
     "IngestRetry",
     "IngestStatus",
     "IntegrationConfig",
+    "KoboArchivedBook",
+    "KoboAuthToken",
+    "KoboBookmark",
+    "KoboReadingState",
+    "KoboStatistics",
+    "KoboSyncedBook",
     "LDAPConfig",
     "Language",
     "Library",
