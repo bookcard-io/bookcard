@@ -28,11 +28,18 @@ from fundamental.services.metadata_extractors import (
     FilenameMetadataExtractor,
     MetadataExtractionStrategy,
 )
+from fundamental.services.metadata_extractors.docx import DocxMetadataExtractor
 from fundamental.services.metadata_extractors.epub import EpubMetadataExtractor
 from fundamental.services.metadata_extractors.fb2 import Fb2MetadataExtractor
+from fundamental.services.metadata_extractors.fbz import FbzMetadataExtractor
+from fundamental.services.metadata_extractors.html import HtmlMetadataExtractor
+from fundamental.services.metadata_extractors.kepub import KepubMetadataExtractor
 from fundamental.services.metadata_extractors.mobi import MobiMetadataExtractor
+from fundamental.services.metadata_extractors.odt import OdtMetadataExtractor
 from fundamental.services.metadata_extractors.opds import OpdsMetadataExtractor
 from fundamental.services.metadata_extractors.pdf import PdfMetadataExtractor
+from fundamental.services.metadata_extractors.rtf import RtfMetadataExtractor
+from fundamental.services.metadata_extractors.txt import TxtMetadataExtractor
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -49,12 +56,29 @@ class BookMetadataExtractor:
     """
 
     def __init__(self) -> None:
-        """Initialize extractor with default strategies."""
+        """Initialize extractor with default strategies.
+
+        Strategies are ordered by format prevalence and specificity.
+        More specific formats (e.g., KEPUB, FBZ) come before their base formats.
+        """
         self._strategies: list[MetadataExtractionStrategy] = [
+            # Specific variants first (before base formats)
+            KepubMetadataExtractor(),  # KEPUB (before EPUB)
+            FbzMetadataExtractor(),  # FBZ (before FB2)
+            # Common formats (high prevalence)
             EpubMetadataExtractor(),
             PdfMetadataExtractor(),
-            MobiMetadataExtractor(),
+            MobiMetadataExtractor(),  # Also handles AZW, AZW3, AZW4, PRC
             Fb2MetadataExtractor(),
+            # Document formats
+            DocxMetadataExtractor(),
+            OdtMetadataExtractor(),
+            RtfMetadataExtractor(),
+            # Web-based formats
+            HtmlMetadataExtractor(),  # Also handles HTMLZ
+            # Plain text
+            TxtMetadataExtractor(),  # Also handles TXTZ
+            # Other formats
             OpdsMetadataExtractor(),
             FilenameMetadataExtractor(),  # Fallback - must be last
         ]
