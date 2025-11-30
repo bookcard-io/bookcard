@@ -54,7 +54,6 @@ export function ConversionModal({
   const { showSuccess, showDanger } = useGlobalMessages();
   const [sourceFormat, setSourceFormat] = useState<string>("");
   const [targetFormat, setTargetFormat] = useState<string>("");
-  const [isConverting, setIsConverting] = useState(false);
 
   // Available formats from book
   const availableFormats = useMemo(() => {
@@ -104,7 +103,7 @@ export function ConversionModal({
     onClose,
   });
 
-  const handleConvert = useCallback(async () => {
+  const handleConvert = useCallback(() => {
     if (!sourceFormat || !targetFormat) {
       showDanger("Please select both source and target formats");
       return;
@@ -115,34 +114,32 @@ export function ConversionModal({
       return;
     }
 
-    try {
-      setIsConverting(true);
-      const response = await convertBookFormat(
-        book.id,
-        sourceFormat,
-        targetFormat,
-      );
+    // Fire-and-forget: queue conversion and close modal immediately
+    convertBookFormat(book.id, sourceFormat, targetFormat)
+      .then((response) => {
+        if (response.message) {
+          // Conversion already exists
+          showSuccess(response.message);
+        } else {
+          // Conversion queued successfully
+          showSuccess(
+            `Conversion from ${sourceFormat} to ${targetFormat} has been queued. You can track progress in the tasks panel.`,
+          );
+          onConversionStarted?.(response.task_id);
+        }
+        // Refresh history in background
+        refetchHistory().catch(() => {
+          // Silently fail - history refresh is not critical
+        });
+      })
+      .catch((error) => {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to queue conversion";
+        showDanger(errorMessage);
+      });
 
-      if (response.message) {
-        // Conversion already exists
-        showSuccess(response.message);
-        onClose();
-      } else {
-        // Conversion started
-        showSuccess(
-          "Conversion started. You can track progress in the tasks panel.",
-        );
-        onConversionStarted?.(response.task_id);
-        await refetchHistory();
-        onClose();
-      }
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to start conversion";
-      showDanger(errorMessage);
-    } finally {
-      setIsConverting(false);
-    }
+    // Close modal immediately (fire-and-forget)
+    onClose();
   }, [
     sourceFormat,
     targetFormat,
@@ -202,7 +199,6 @@ export function ConversionModal({
               value={sourceFormat}
               onChange={(e) => setSourceFormat(e.target.value)}
               className="w-full rounded-md border border-[var(--color-surface-a20)] bg-[var(--color-surface-a0)] px-3 py-2 text-[var(--color-text-a0)] text-sm focus:border-[var(--color-primary-a0)] focus:outline-none"
-              disabled={isConverting}
             >
               <option value="">Select source format</option>
               {availableFormats.map((format) => (
@@ -225,7 +221,6 @@ export function ConversionModal({
               value={targetFormat}
               onChange={(e) => setTargetFormat(e.target.value)}
               className="w-full rounded-md border border-[var(--color-surface-a20)] bg-[var(--color-surface-a0)] px-3 py-2 text-[var(--color-text-a0)] text-sm focus:border-[var(--color-primary-a0)] focus:outline-none"
-              disabled={isConverting}
             >
               <option value="">Select target format</option>
               {targetFormatOptions.map((format) => (
@@ -296,20 +291,15 @@ export function ConversionModal({
         )}
 
         <div className="flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onClose}
-            disabled={isConverting}
-          >
+          <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
           <Button
             type="button"
             onClick={handleConvert}
-            disabled={isConverting || !sourceFormat || !targetFormat}
+            disabled={!sourceFormat || !targetFormat}
           >
-            {isConverting ? "Converting..." : "Convert"}
+            Convert
           </Button>
         </div>
       </div>

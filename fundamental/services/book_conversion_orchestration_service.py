@@ -188,12 +188,29 @@ class BookConversionOrchestrationService:
         # Validate that source format exists
         formats = existing_book.formats or []
         source_format_upper = source_format.upper()
+        target_format_upper = target_format.upper()
         format_found = any(
             str(f.get("format", "")).upper() == source_format_upper for f in formats
         )
         if not format_found:
             error_msg = f"source_format_not_found: {source_format}"
             raise ValueError(error_msg)
+
+        # Check if target format already exists (duplicate detection)
+        target_format_exists = any(
+            str(f.get("format", "")).upper() == target_format_upper for f in formats
+        )
+        if target_format_exists:
+            # Target format file already exists - no-op and report conversion exists
+            message = (
+                f"This book already has the {target_format} format. "
+                f"No conversion needed."
+            )
+            return ConversionInitiationResult(
+                task_id=0,
+                existing_conversion=None,
+                message=message,
+            )
 
         # Check task runner is available
         if self._task_runner is None:
