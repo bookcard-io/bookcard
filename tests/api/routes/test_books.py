@@ -2060,6 +2060,7 @@ def test_upload_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
         current_user=current_user,
         file=mock_file,  # type: ignore[arg-type]
         permission_helper=mock_permission_helper,
+        session=session,
     )
     assert result.task_id == 123
     mock_task_runner.enqueue.assert_called_once()
@@ -2107,6 +2108,7 @@ def test_upload_book_no_extension(monkeypatch: pytest.MonkeyPatch) -> None:
             current_user=current_user,
             file=mock_file,  # type: ignore[arg-type]
             permission_helper=mock_permission_helper,
+            session=session,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 400
@@ -2166,6 +2168,7 @@ def test_upload_book_save_error(monkeypatch: pytest.MonkeyPatch) -> None:
                     current_user=current_user,
                     file=mock_file,
                     permission_helper=mock_permission_helper,
+                    session=session,
                 )  # type: ignore[arg-type]
             assert isinstance(exc_info.value, HTTPException)
             assert exc_info.value.status_code == 500

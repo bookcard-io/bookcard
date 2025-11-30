@@ -55,7 +55,7 @@ class MockMetadataStrategy(MetadataExtractionStrategy):
 def test_book_metadata_extractor_init() -> None:
     """Test BookMetadataExtractor initialization (covers lines 58-67)."""
     extractor = BookMetadataExtractor()
-    assert len(extractor._strategies) == 6
+    assert len(extractor._strategies) == 13  # Updated: 13 extractors (was 6)
     # Last strategy should be FilenameMetadataExtractor (fallback)
     from fundamental.services.metadata_extractors import FilenameMetadataExtractor
 

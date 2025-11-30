@@ -51,7 +51,7 @@ class MockStrategy(CoverExtractionStrategy):
 def test_book_cover_extractor_init() -> None:
     """Test BookCoverExtractor initialization (covers lines 55-62)."""
     extractor = BookCoverExtractor()
-    assert len(extractor._strategies) == 4
+    assert len(extractor._strategies) == 10  # Updated: 10 extractors (was 4)
     assert all(isinstance(s, CoverExtractionStrategy) for s in extractor._strategies)
 
 
