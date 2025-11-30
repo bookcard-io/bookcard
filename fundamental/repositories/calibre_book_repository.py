@@ -26,6 +26,7 @@ This repository has been refactored to follow SOLID principles:
 from __future__ import annotations
 
 import logging
+import uuid
 from contextlib import contextmanager, suppress
 from datetime import UTC, datetime
 from pathlib import Path
@@ -77,6 +78,10 @@ from fundamental.repositories.delete_commands import (
     DeleteIdentifiersCommand,
 )
 from fundamental.repositories.file_manager import CalibreFileManager
+from fundamental.repositories.filename_utils import (
+    calculate_book_path,
+    sanitize_filename,
+)
 from fundamental.repositories.filters import FilterBuilder
 from fundamental.repositories.interfaces import (
     IBookMetadataService,
@@ -1398,6 +1403,213 @@ class CalibreBookRepository(IBookRepository):
             return self._calibre_db_path
         return self._calibre_db_path.parent
 
+    def _normalize_title_and_author(
+        self,
+        title: str | None,
+        author_name: str | None,
+        metadata: object,
+    ) -> tuple[str, str]:
+        """Normalize title and author with fallbacks.
+
+        Parameters
+        ----------
+        title : str | None
+            Provided title.
+        author_name : str | None
+            Provided author name.
+        metadata : object
+            Metadata object with title and author attributes.
+
+        Returns
+        -------
+        tuple[str, str]
+            Normalized (title, author_name) tuple.
+        """
+        # Normalize title
+        if title is None:
+            title = getattr(metadata, "title", None)
+        if not title or title.strip() == "":
+            title = "Unknown"
+
+        # Normalize author
+        if author_name is None or author_name.strip() == "":
+            author_name = getattr(metadata, "author", None)
+        if not author_name or author_name.strip() == "":
+            author_name = "Unknown"
+
+        return title, author_name
+
+    def _prepare_book_path_and_format(
+        self,
+        title: str,
+        author_name: str,
+        file_format: str,
+        session: Session | None = None,
+    ) -> tuple[str, str, str]:
+        """Prepare book path, title directory, and normalized format.
+
+        If a session is provided, ensures the path is unique by appending
+        a number (e.g., " (2)", " (3)") if a book with the same path exists.
+        This is important for CREATE_NEW duplicate handling mode.
+
+        Parameters
+        ----------
+        title : str
+            Book title.
+        author_name : str
+            Author name.
+        file_format : str
+            File format extension.
+        session : Session | None
+            Optional database session to check for existing paths.
+
+        Returns
+        -------
+        tuple[str, str, str]
+            (book_path_str, title_dir, file_format_upper) tuple.
+
+        Raises
+        ------
+        ValueError
+            If book path cannot be calculated.
+        """
+        file_format_upper = file_format.upper().lstrip(".")
+        base_book_path_str = calculate_book_path(author_name, title)
+        if not base_book_path_str:
+            msg = "Cannot calculate book path: title is required"
+            raise ValueError(msg)
+
+        # Make path unique if session is provided and path already exists
+        book_path_str = base_book_path_str
+        unique_title = title
+        if session is not None:
+            book_path_str, unique_title = self._make_path_unique(
+                session, base_book_path_str, title, author_name
+            )
+
+        title_dir = self._sanitize_filename(unique_title)
+        return book_path_str, title_dir, file_format_upper
+
+    def _make_path_unique(
+        self,
+        session: Session,
+        base_path: str,
+        base_title: str,
+        author_name: str,
+    ) -> tuple[str, str]:
+        """Make book path unique by appending a number if it already exists.
+
+        Parameters
+        ----------
+        session : Session
+            Database session to check for existing paths.
+        base_path : str
+            Base book path (e.g., "Author/Title").
+        base_title : str
+            Base book title.
+        author_name : str
+            Author name for recalculating path.
+
+        Returns
+        -------
+        tuple[str, str]
+            Tuple of (unique_path, unique_title).
+        """
+        # Check if base path exists
+        stmt = select(Book).where(Book.path == base_path)
+        existing_book = session.exec(stmt).first()
+
+        if existing_book is None:
+            # Path is unique, return as-is
+            return base_path, base_title
+
+        # Path exists, find a unique one by appending numbers
+        counter = 2
+        while True:
+            # Create unique title with number appended
+            unique_title = f"{base_title} ({counter})"
+            # Recalculate path with unique title using original author
+            unique_path = calculate_book_path(author_name, unique_title)
+
+            if not unique_path:
+                # Fallback if calculation fails
+                unique_path = f"{base_path} ({counter})"
+
+            # Check if this path is unique
+            stmt = select(Book).where(Book.path == unique_path)
+            existing_book = session.exec(stmt).first()
+
+            if existing_book is None:
+                # Found unique path
+                logger.debug(
+                    "Made path unique: %s -> %s (title: %s -> %s)",
+                    base_path,
+                    unique_path,
+                    base_title,
+                    unique_title,
+                )
+                return unique_path, unique_title
+
+            counter += 1
+            # Safety limit to prevent infinite loop
+            if counter > 1000:
+                logger.warning(
+                    "Could not find unique path after 1000 attempts for: %s",
+                    base_path,
+                )
+                unique_suffix = str(uuid.uuid4())[:8]
+                unique_title = f"{base_title} ({unique_suffix})"
+                unique_path = calculate_book_path(author_name, unique_title)
+                if not unique_path:
+                    unique_path = f"{base_path} ({unique_suffix})"
+                return unique_path, unique_title
+
+    def _save_book_files_and_cover(
+        self,
+        session: Session,
+        db_book: Book,
+        file_path: Path,
+        library_path: Path,
+        book_path_str: str,
+        title_dir: str,
+        file_format: str,
+        cover_data: bytes | None,
+    ) -> None:
+        """Save book file and cover to filesystem.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        db_book : Book
+            Book database record.
+        file_path : Path
+            Source file path.
+        library_path : Path
+            Library root path.
+        book_path_str : str
+            Book path string.
+        title_dir : str
+            Sanitized title directory name.
+        file_format : str
+            File format extension.
+        cover_data : bytes | None
+            Cover image data if available.
+        """
+        # Save file using file manager
+        self._file_manager.save_book_file(
+            file_path, library_path, book_path_str, title_dir, file_format
+        )
+
+        # Save cover if available
+        if cover_data:
+            cover_saved = self._file_manager.save_book_cover(
+                cover_data, library_path, book_path_str
+            )
+            if cover_saved:
+                db_book.has_cover = True
+                session.add(db_book)
+
     def add_book(
         self,
         file_path: Path,
@@ -1421,27 +1633,22 @@ class CalibreBookRepository(IBookRepository):
         )
 
         # Normalize title and author
-        if title is None:
-            title = metadata.title
-        if not title or title.strip() == "":
-            title = "Unknown"
-
-        if author_name is None or author_name.strip() == "":
-            author_name = metadata.author
-        if not author_name or author_name.strip() == "":
-            author_name = "Unknown"
+        title, author_name = self._normalize_title_and_author(
+            title, author_name, metadata
+        )
 
         # Use provided pubdate, fallback to metadata pubdate, then None
         # (None will use file metadata or current date in _create_book_record)
         if pubdate is None:
-            pubdate = metadata.pubdate
-
-        file_format_upper = file_format.upper().lstrip(".")
-        author_dir = self._sanitize_filename(author_name)
-        title_dir = self._sanitize_filename(title)
-        book_path_str = f"{author_dir}/{title_dir}".replace("\\", "/")
+            pubdate = getattr(metadata, "pubdate", None)
 
         with self.get_session() as session:
+            # Prepare book path and format (check for uniqueness within session)
+            book_path_str, title_dir, file_format_upper = (
+                self._prepare_book_path_and_format(
+                    title, author_name, file_format, session=session
+                )
+            )
             file_size = file_path.stat().st_size
             db_book, book_id = self._create_book_database_records(
                 session,
@@ -1455,30 +1662,24 @@ class CalibreBookRepository(IBookRepository):
                 pubdate=pubdate,
             )
 
-            # Save file using file manager
-            self._file_manager.save_book_file(
-                file_path, library_path, book_path_str, title_dir, file_format
+            # Save file and cover
+            self._save_book_files_and_cover(
+                session,
+                db_book,
+                file_path,
+                library_path,
+                book_path_str,
+                title_dir,
+                file_format,
+                cover_data,
             )
-
-            # Save cover if available
-            if cover_data:
-                cover_saved = self._file_manager.save_book_cover(
-                    cover_data, library_path, book_path_str
-                )
-                if cover_saved:
-                    db_book.has_cover = True
-                    session.add(db_book)
 
             session.commit()
             return book_id
 
     def _sanitize_filename(self, name: str, max_length: int = 96) -> str:
         """Sanitize filename by removing invalid characters."""
-        invalid_chars = '<>:"/\\|?*'
-        sanitized = "".join(c if c not in invalid_chars else "_" for c in name)
-        if len(sanitized) > max_length:
-            sanitized = sanitized[:max_length]
-        return sanitized.strip() or "Unknown"
+        return sanitize_filename(name, max_length)
 
     def _calculate_book_path(
         self, author_names: list[str] | None, title: str | None
@@ -1500,11 +1701,8 @@ class CalibreBookRepository(IBookRepository):
         if not author_names or not title:
             return None
 
-        # Use first author for directory structure (Calibre convention)
         author_name = author_names[0] if author_names else "Unknown"
-        author_dir = self._sanitize_filename(author_name)
-        title_dir = self._sanitize_filename(title)
-        return f"{author_dir}/{title_dir}".replace("\\", "/")
+        return calculate_book_path(author_name, title)
 
     def _get_or_create_author(self, session: Session, author_name: str) -> Author:
         """Get existing author or create a new one."""

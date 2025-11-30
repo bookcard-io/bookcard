@@ -188,10 +188,8 @@ class ServiceContainer:
             Ingest watcher service instance, or None if dependencies are not available
             or ingest is disabled.
         """
-        if not self.config.redis_enabled or task_runner is None:
-            logger.info(
-                "Ingest watcher not initialized: Redis or task runner not available"
-            )
+        if task_runner is None:
+            logger.info("Ingest watcher not initialized: Task runner not available")
             return None
 
         try:

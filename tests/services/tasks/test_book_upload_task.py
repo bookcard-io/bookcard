@@ -184,6 +184,9 @@ class TestBookUploadTaskAddBookToLibrary:
             metadata=metadata,
         )
 
+    @patch(
+        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+    )
     @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
     @patch("fundamental.services.tasks.book_upload_task.LibraryService")
     @patch("fundamental.services.tasks.book_upload_task.BookService")
@@ -192,15 +195,29 @@ class TestBookUploadTaskAddBookToLibrary:
         mock_book_service_class: MagicMock,
         mock_library_service_class: MagicMock,
         mock_library_repo_class: MagicMock,
+        mock_calibre_repo_class: MagicMock,
         task: BookUploadTask,
         worker_context: dict[str, MagicMock],
     ) -> None:
         """Test _add_book_to_library successfully adds book."""
+        mock_calibre_repo = MagicMock()
+        mock_calibre_session = MagicMock()
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = None  # No duplicate found
+        mock_calibre_session.exec.return_value = mock_exec_result
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
+            mock_calibre_session
+        )
+        mock_calibre_repo.get_session.return_value.__exit__.return_value = None
+        mock_calibre_repo_class.return_value = mock_calibre_repo
         # Setup mocks
         mock_library_repo = MagicMock()
         mock_library_repo_class.return_value = mock_library_repo
         mock_library_service = MagicMock()
         mock_library = MagicMock()
+        mock_library.duplicate_handling = "IGNORE"
+        mock_library.calibre_db_path = "/test/calibre"
+        mock_library.calibre_db_file = "metadata.db"
         mock_library_service.get_active_library.return_value = mock_library
         mock_library_service_class.return_value = mock_library_service
         mock_book_service = MagicMock()
@@ -252,6 +269,9 @@ class TestBookUploadTaskAddBookToLibrary:
         mock_library_repo_class.return_value = mock_library_repo
         mock_library_service = MagicMock()
         mock_library = MagicMock()
+        mock_library.duplicate_handling = "IGNORE"
+        mock_library.calibre_db_path = "/test/calibre"
+        mock_library.calibre_db_file = "metadata.db"
         mock_library_service.get_active_library.return_value = mock_library
         mock_library_service_class.return_value = mock_library_service
 
@@ -280,6 +300,9 @@ class TestBookUploadTaskAddBookToLibrary:
         mock_library_repo_class.return_value = mock_library_repo
         mock_library_service = MagicMock()
         mock_library = MagicMock()
+        mock_library.duplicate_handling = "IGNORE"
+        mock_library.calibre_db_path = "/test/calibre"
+        mock_library.calibre_db_file = "metadata.db"
         mock_library_service.get_active_library.return_value = mock_library
         mock_library_service_class.return_value = mock_library_service
 
@@ -296,6 +319,9 @@ class TestBookUploadTaskAddBookToLibrary:
                 worker_context["update_progress"],
             )
 
+    @patch(
+        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+    )
     @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
     @patch("fundamental.services.tasks.book_upload_task.LibraryService")
     @patch("fundamental.services.tasks.book_upload_task.BookService")
@@ -304,14 +330,28 @@ class TestBookUploadTaskAddBookToLibrary:
         mock_book_service_class: MagicMock,
         mock_library_service_class: MagicMock,
         mock_library_repo_class: MagicMock,
+        mock_calibre_repo_class: MagicMock,
         task: BookUploadTask,
         worker_context: dict[str, MagicMock],
     ) -> None:
         """Test _add_book_to_library extracts title from filename if not provided."""
+        mock_calibre_repo = MagicMock()
+        mock_calibre_session = MagicMock()
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = None  # No duplicate found
+        mock_calibre_session.exec.return_value = mock_exec_result
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
+            mock_calibre_session
+        )
+        mock_calibre_repo.get_session.return_value.__exit__.return_value = None
+        mock_calibre_repo_class.return_value = mock_calibre_repo
         mock_library_repo = MagicMock()
         mock_library_repo_class.return_value = mock_library_repo
         mock_library_service = MagicMock()
         mock_library = MagicMock()
+        mock_library.duplicate_handling = "IGNORE"
+        mock_library.calibre_db_path = "/test/calibre"
+        mock_library.calibre_db_file = "metadata.db"
         mock_library_service.get_active_library.return_value = mock_library
         mock_library_service_class.return_value = mock_library_service
         mock_book_service = MagicMock()
@@ -350,6 +390,9 @@ class TestBookUploadTaskRun:
             metadata=metadata,
         )
 
+    @patch(
+        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+    )
     @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
     @patch("fundamental.services.tasks.book_upload_task.LibraryService")
     @patch("fundamental.services.tasks.book_upload_task.BookService")
@@ -358,15 +401,29 @@ class TestBookUploadTaskRun:
         mock_book_service_class: MagicMock,
         mock_library_service_class: MagicMock,
         mock_library_repo_class: MagicMock,
+        mock_calibre_repo_class: MagicMock,
         task: BookUploadTask,
         worker_context: dict[str, MagicMock],
     ) -> None:
         """Test run successfully uploads book."""
+        mock_calibre_repo = MagicMock()
+        mock_calibre_session = MagicMock()
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = None  # No duplicate found
+        mock_calibre_session.exec.return_value = mock_exec_result
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
+            mock_calibre_session
+        )
+        mock_calibre_repo.get_session.return_value.__exit__.return_value = None
+        mock_calibre_repo_class.return_value = mock_calibre_repo
         # Setup mocks
         mock_library_repo = MagicMock()
         mock_library_repo_class.return_value = mock_library_repo
         mock_library_service = MagicMock()
         mock_library = MagicMock()
+        mock_library.duplicate_handling = "IGNORE"
+        mock_library.calibre_db_path = "/test/calibre"
+        mock_library.calibre_db_file = "metadata.db"
         mock_library_service.get_active_library.return_value = mock_library
         mock_library_service_class.return_value = mock_library_service
         mock_book_service = MagicMock()
@@ -417,6 +474,9 @@ class TestBookUploadTaskRun:
         mock_library_repo_class.return_value = mock_library_repo
         mock_library_service = MagicMock()
         mock_library = MagicMock()
+        mock_library.duplicate_handling = "IGNORE"
+        mock_library.calibre_db_path = "/test/calibre"
+        mock_library.calibre_db_file = "metadata.db"
         mock_library_service.get_active_library.return_value = mock_library
         mock_library_service_class.return_value = mock_library_service
 
@@ -431,6 +491,9 @@ class TestBookUploadTaskRun:
         # Should not call add_book
         mock_book_service_class.assert_not_called()
 
+    @patch(
+        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+    )
     @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
     @patch("fundamental.services.tasks.book_upload_task.LibraryService")
     @patch("fundamental.services.tasks.book_upload_task.BookService")
@@ -439,15 +502,29 @@ class TestBookUploadTaskRun:
         mock_book_service_class: MagicMock,
         mock_library_service_class: MagicMock,
         mock_library_repo_class: MagicMock,
+        mock_calibre_repo_class: MagicMock,
         task: BookUploadTask,
         worker_context: dict[str, MagicMock],
     ) -> None:
         """Test run raises exception on error."""
+        mock_calibre_repo = MagicMock()
+        mock_calibre_session = MagicMock()
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = None  # No duplicate found
+        mock_calibre_session.exec.return_value = mock_exec_result
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
+            mock_calibre_session
+        )
+        mock_calibre_repo.get_session.return_value.__exit__.return_value = None
+        mock_calibre_repo_class.return_value = mock_calibre_repo
         # Setup mocks
         mock_library_repo = MagicMock()
         mock_library_repo_class.return_value = mock_library_repo
         mock_library_service = MagicMock()
         mock_library = MagicMock()
+        mock_library.duplicate_handling = "IGNORE"
+        mock_library.calibre_db_path = "/test/calibre"
+        mock_library.calibre_db_file = "metadata.db"
         mock_library_service.get_active_library.return_value = mock_library
         mock_library_service_class.return_value = mock_library_service
         mock_book_service = MagicMock()
@@ -457,6 +534,9 @@ class TestBookUploadTaskRun:
         with pytest.raises(ValueError, match="Test error"):
             task.run(worker_context)
 
+    @patch(
+        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+    )
     @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
     @patch("fundamental.services.tasks.book_upload_task.LibraryService")
     @patch("fundamental.services.tasks.book_upload_task.BookService")
@@ -465,15 +545,29 @@ class TestBookUploadTaskRun:
         mock_book_service_class: MagicMock,
         mock_library_service_class: MagicMock,
         mock_library_repo_class: MagicMock,
+        mock_calibre_repo_class: MagicMock,
         task: BookUploadTask,
         worker_context: dict[str, MagicMock],
     ) -> None:
         """Test run sets file_size in metadata."""
+        mock_calibre_repo = MagicMock()
+        mock_calibre_session = MagicMock()
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = None  # No duplicate found
+        mock_calibre_session.exec.return_value = mock_exec_result
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
+            mock_calibre_session
+        )
+        mock_calibre_repo.get_session.return_value.__exit__.return_value = None
+        mock_calibre_repo_class.return_value = mock_calibre_repo
         # Setup mocks
         mock_library_repo = MagicMock()
         mock_library_repo_class.return_value = mock_library_repo
         mock_library_service = MagicMock()
         mock_library = MagicMock()
+        mock_library.duplicate_handling = "IGNORE"
+        mock_library.calibre_db_path = "/test/calibre"
+        mock_library.calibre_db_file = "metadata.db"
         mock_library_service.get_active_library.return_value = mock_library
         mock_library_service_class.return_value = mock_library_service
         mock_book_service = MagicMock()
@@ -485,6 +579,9 @@ class TestBookUploadTaskRun:
         assert "file_size" in task.metadata
         assert task.metadata["file_size"] > 0
 
+    @patch(
+        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+    )
     @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
     @patch("fundamental.services.tasks.book_upload_task.LibraryService")
     @patch("fundamental.services.tasks.book_upload_task.BookService")
@@ -493,15 +590,29 @@ class TestBookUploadTaskRun:
         mock_book_service_class: MagicMock,
         mock_library_service_class: MagicMock,
         mock_library_repo_class: MagicMock,
+        mock_calibre_repo_class: MagicMock,
         task: BookUploadTask,
         worker_context: dict[str, MagicMock],
     ) -> None:
         """Test run logs confirmation when book_ids is in metadata."""
+        mock_calibre_repo = MagicMock()
+        mock_calibre_session = MagicMock()
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = None  # No duplicate found
+        mock_calibre_session.exec.return_value = mock_exec_result
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
+            mock_calibre_session
+        )
+        mock_calibre_repo.get_session.return_value.__exit__.return_value = None
+        mock_calibre_repo_class.return_value = mock_calibre_repo
         # Setup mocks
         mock_library_repo = MagicMock()
         mock_library_repo_class.return_value = mock_library_repo
         mock_library_service = MagicMock()
         mock_library = MagicMock()
+        mock_library.duplicate_handling = "IGNORE"
+        mock_library.calibre_db_path = "/test/calibre"
+        mock_library.calibre_db_file = "metadata.db"
         mock_library_service.get_active_library.return_value = mock_library
         mock_library_service_class.return_value = mock_library_service
         mock_book_service = MagicMock()

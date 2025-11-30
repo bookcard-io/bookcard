@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any
 from sqlmodel import Session
 
 from fundamental.models.ingest import IngestHistory, IngestStatus
+from fundamental.services.duplicate_detection import BookDuplicateHandler
 from fundamental.services.ingest.ingest_config_service import IngestConfigService
 from fundamental.services.ingest.ingest_processor_service import IngestProcessorService
 from fundamental.services.tasks.base import BaseTask
@@ -82,13 +83,13 @@ class IngestBookTask(BaseTask):
             history = processor_service.get_history(history_id)
             file_paths, metadata_hint = self._extract_file_info(history)
 
-            # Fetch metadata
+            # Fetch metadata (only if enabled in config)
             fetched_metadata = self._fetch_metadata(
-                processor_service, history_id, metadata_hint, context
+                processor_service, history_id, metadata_hint, config, context
             )
 
             # Process all files
-            book_ids = self._process_files(
+            book_ids, skipped_duplicates = self._process_files(
                 processor_service,
                 history_id,
                 file_paths,
@@ -99,8 +100,17 @@ class IngestBookTask(BaseTask):
             )
 
             # Check if any books were successfully processed
-            if not book_ids:
+            # If all files were skipped as duplicates (IGNORE mode), that's success
+            # Only fail if there were actual processing errors
+            if not book_ids and skipped_duplicates == 0:
                 self._handle_no_books_processed(processor_service, history_id, context)
+            elif not book_ids and skipped_duplicates > 0:
+                # All files were skipped as duplicates - this is success in IGNORE mode
+                logger.info(
+                    "All files skipped as duplicates (IGNORE mode): history_id=%d, skipped=%d",
+                    history_id,
+                    skipped_duplicates,
+                )
 
             # Finalize processing (delegates persistence to service)
             processor_service.finalize_history(history_id, book_ids)
@@ -207,6 +217,7 @@ class IngestBookTask(BaseTask):
         processor_service: IngestProcessorService,
         history_id: int,
         metadata_hint: dict[str, Any] | None,
+        config: "IngestConfig",
         context: WorkerContext,
     ) -> dict[str, Any] | None:
         """Fetch metadata for the book.
@@ -219,14 +230,25 @@ class IngestBookTask(BaseTask):
             Ingest history ID.
         metadata_hint : dict[str, Any] | None
             Optional metadata hint from file extraction.
+        config : IngestConfig
+            Ingest configuration.
         context : WorkerContext
             Worker context for progress updates.
 
         Returns
         -------
         dict[str, Any] | None
-            Fetched metadata or None if not found.
+            Fetched metadata or None if not found or disabled.
         """
+        # Skip metadata fetch if disabled in configuration
+        if not config.metadata_fetch_enabled:
+            logger.info(
+                "Metadata fetch is disabled in ingest configuration; "
+                "skipping fetch for history %d",
+                history_id,
+            )
+            return None
+
         context.update_progress(0.2, None)
         return processor_service.fetch_and_store_metadata(history_id, metadata_hint)
 
@@ -239,7 +261,7 @@ class IngestBookTask(BaseTask):
         metadata_hint: dict[str, Any] | None,
         config: "IngestConfig",
         context: WorkerContext,
-    ) -> list[int]:
+    ) -> tuple[list[int], int]:
         """Process all files in the file group.
 
         Parameters
@@ -261,11 +283,12 @@ class IngestBookTask(BaseTask):
 
         Returns
         -------
-        list[int]
-            List of created book IDs.
+        tuple[list[int], int]
+            Tuple of (list of created book IDs, count of skipped duplicates).
         """
         context.update_progress(0.4, {"file_count": len(file_paths)})
         book_ids: list[int] = []
+        skipped_duplicates = 0
 
         # Get library once for all files (used by post-processors)
         library = processor_service.get_active_library()
@@ -289,6 +312,16 @@ class IngestBookTask(BaseTask):
                     context.session,
                 )
                 book_ids.append(book_id)
+            except ValueError as exc:
+                # Handle duplicate skip (IGNORE mode) - log, delete file, and continue
+                if "skipping per library settings" in str(exc):
+                    logger.info("Skipping duplicate file: %s", file_path)
+                    skipped_duplicates += 1
+                    # Delete skipped duplicate file to clean up ingest directory
+                    self._delete_source_files_and_dirs(file_path)
+                else:
+                    logger.exception("Failed to process file %s", file_path)
+                # Continue with other files
             except Exception:
                 logger.exception("Failed to process file %s", file_path)
                 # Continue with other files
@@ -296,7 +329,85 @@ class IngestBookTask(BaseTask):
             progress = 0.4 + (0.5 * (i + 1) / len(file_paths))
             context.update_progress(progress, {"processed": i + 1})
 
-        return book_ids
+        return book_ids, skipped_duplicates
+
+    def _check_and_handle_duplicate(
+        self,
+        library: "Library",
+        processor_service: IngestProcessorService,
+        file_path: Path,
+        file_format: str,
+        title: str | None,
+        author_name: str | None,
+    ) -> int | None:
+        """Check for duplicate and handle according to library settings.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        library : Library
+            Active library configuration.
+        processor_service : IngestProcessorService
+            Processor service for book operations.
+        file_path : Path
+            Path to book file.
+        file_format : str
+            File format extension.
+        title : str | None
+            Book title.
+        author_name : str | None
+            Author name.
+
+        Returns
+        -------
+        int | None
+            Book ID if duplicate should be used (OVERWRITE mode), None otherwise.
+            Returns None if IGNORE mode and duplicate found (caller should skip).
+
+        Note
+        ----
+        For IGNORE mode, returns None to signal skip. For OVERWRITE mode,
+        deletes existing book and returns its ID. For CREATE_NEW mode, returns None.
+        """
+        duplicate_handler = BookDuplicateHandler()
+        result = duplicate_handler.check_duplicate(
+            library=library,
+            file_path=file_path,
+            title=title,
+            author_name=author_name,
+            file_format=file_format,
+        )
+
+        if result.should_skip:
+            # IGNORE mode: skip duplicate
+            logger.info(
+                "Duplicate book found (book_id=%d), skipping per library settings",
+                result.duplicate_book_id,
+            )
+            return None  # Signal to caller to skip this file
+
+        if result.should_overwrite and result.duplicate_book_id:
+            # OVERWRITE mode: delete existing book
+            logger.info(
+                "Duplicate found (book_id=%d), overwriting per library settings",
+                result.duplicate_book_id,
+            )
+            # Get book service to delete - access via public method if available
+            # Otherwise use the factory directly (it's a public attribute in practice)
+            book_service_factory = getattr(
+                processor_service, "_book_service_factory", None
+            )
+            if book_service_factory:
+                book_service = book_service_factory(library)
+                book_service.delete_book(
+                    book_id=result.duplicate_book_id,
+                    delete_files_from_drive=True,
+                )
+            return result.duplicate_book_id
+
+        # CREATE_NEW mode or no duplicate: proceed normally
+        return None
 
     def _process_single_file(
         self,
@@ -334,12 +445,43 @@ class IngestBookTask(BaseTask):
         -------
         int
             Created book ID.
+
+        Raises
+        ------
+        ValueError
+            If file should be skipped (duplicate in IGNORE mode).
         """
         # Extract file format (low-level detail, but needed for service call)
         file_format = file_path.suffix.lower().lstrip(".")
 
         # Extract title and author using DRY metadata merging
         title, author_name = self._extract_title_author(fetched_metadata, metadata_hint)
+
+        # Check for duplicates and handle according to library settings
+        # Returns None if IGNORE mode (should skip) or CREATE_NEW mode (proceed)
+        # Returns book_id if OVERWRITE mode (existing book deleted)
+        duplicate_result = self._check_and_handle_duplicate(
+            library=library,
+            processor_service=processor_service,
+            file_path=file_path,
+            file_format=file_format,
+            title=title,
+            author_name=author_name,
+        )
+
+        # If IGNORE mode and duplicate found, skip this file
+        if duplicate_result is None and title:
+            duplicate_handler = BookDuplicateHandler()
+            result = duplicate_handler.check_duplicate(
+                library=library,
+                file_path=file_path,
+                title=title,
+                author_name=author_name,
+                file_format=file_format,
+            )
+            if result.should_skip:
+                msg = f"Duplicate book found (book_id={result.duplicate_book_id}), skipping per library settings"
+                raise ValueError(msg)
 
         # Extract and convert published_date to pubdate
         pubdate = self._extract_pubdate(fetched_metadata, metadata_hint)
@@ -607,8 +749,17 @@ class IngestBookTask(BaseTask):
             Directory to delete if empty.
         dir_type : str
             Type of directory (e.g., "book", "author") for logging.
+
+        Note
+        ----
+        Will not delete the root ingest directory (named "books_ingest")
+        even if it becomes empty, to preserve the ingest directory structure.
         """
         if not directory.exists() or not directory.is_dir():
+            return
+
+        # Never delete the root ingest directory (books_ingest)
+        if directory.name == "books_ingest":
             return
 
         try:

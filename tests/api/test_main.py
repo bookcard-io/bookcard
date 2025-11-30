@@ -979,6 +979,9 @@ def test_initialize_ingest_watcher_redis_disabled(
 ) -> None:
     """Test _initialize_ingest_watcher when Redis is disabled.
 
+    When Redis is disabled, a thread-based task runner is created,
+    so the ingest watcher should be initialized if ingest is enabled.
+
     Parameters
     ----------
     fastapi_app : FastAPI
@@ -999,9 +1002,31 @@ def test_initialize_ingest_watcher_redis_disabled(
         redis_url=test_config.redis_url,
     )
     container = ServiceContainer(config_no_redis, mock_engine)
-    with patch("fundamental.database.get_session"):
+    with (
+        patch("fundamental.database.get_session") as mock_get_session,
+        patch(
+            "fundamental.services.ingest.ingest_config_service.IngestConfigService"
+        ) as mock_config_service_class,
+    ):
+        # Mock ingest config to be enabled
+        mock_session = MagicMock()
+        mock_get_session.return_value.__enter__.return_value = mock_session
+        mock_get_session.return_value.__exit__.return_value = None
+        mock_config_service = MagicMock()
+        mock_config = MagicMock()
+        mock_config.enabled = True
+        mock_config_service.get_config.return_value = mock_config
+        mock_config_service_class.return_value = mock_config_service
+
         initialize_services(fastapi_app, container)
-    assert fastapi_app.state.ingest_watcher is None
+
+        # When Redis is disabled, thread-based runner is created, so watcher should be initialized
+        from fundamental.services.ingest.ingest_watcher_service import (
+            IngestWatcherService,
+        )
+
+        assert fastapi_app.state.ingest_watcher is not None
+        assert isinstance(fastapi_app.state.ingest_watcher, IngestWatcherService)
 
 
 def test_initialize_ingest_watcher_task_runner_none(

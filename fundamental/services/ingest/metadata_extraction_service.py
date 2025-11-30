@@ -22,6 +22,8 @@ Follows SRP by focusing solely on metadata extraction and grouping.
 from __future__ import annotations
 
 import logging
+import struct
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path  # noqa: TC003
 
@@ -122,7 +124,17 @@ class MetadataExtractionService:
                 "authors": authors,
                 "isbn": getattr(metadata, "isbn", None),
             }
-        except (ValueError, ImportError, OSError, KeyError, AttributeError) as e:
+        except (
+            ValueError,
+            ImportError,
+            OSError,
+            KeyError,
+            AttributeError,
+            zipfile.BadZipFile,
+            struct.error,
+            UnicodeDecodeError,
+            EOFError,
+        ) as e:
             logger.warning(
                 "Failed to extract metadata from %s: %s",
                 file_path,
@@ -156,69 +168,158 @@ class MetadataExtractionService:
             return []
 
         # Extract metadata from all files
+        file_metadata_list = self._extract_metadata_from_files(files)
+
+        # Group files by matching metadata
+        groups = self._group_metadata_by_matching(file_metadata_list)
+
+        # Convert to FileGroup objects
+        return self._convert_groups_to_file_groups(groups)
+
+    def _extract_metadata_from_files(self, files: list[Path]) -> list[FileMetadata]:
+        """Extract metadata from a list of files.
+
+        Parameters
+        ----------
+        files : list[Path]
+            List of file paths to extract metadata from.
+
+        Returns
+        -------
+        list[FileMetadata]
+            List of file metadata objects.
+        """
         file_metadata_list: list[FileMetadata] = []
         for file_path in files:
             file_format = file_path.suffix.lower().lstrip(".")
             if not file_format:
                 continue
 
-            try:
-                metadata = self.extract_metadata(file_path, file_format)
-                file_metadata_list.append(
-                    FileMetadata(
-                        file_path=file_path,
-                        file_format=file_format,
-                        title=metadata.get("title"),
-                        authors=metadata.get("authors", []),
-                        isbn=metadata.get("isbn"),
-                    )
-                )
-            except (ValueError, OSError, AttributeError) as e:
-                logger.warning(
-                    "Failed to extract metadata from %s: %s",
-                    file_path,
-                    e,
-                )
-                # Add with minimal metadata
-                file_metadata_list.append(
-                    FileMetadata(
-                        file_path=file_path,
-                        file_format=file_format,
-                        title=None,
-                        authors=[],
-                        isbn=None,
-                    )
-                )
+            file_meta = self._extract_single_file_metadata(file_path, file_format)
+            if file_meta:
+                file_metadata_list.append(file_meta)
 
-        # Group files by matching metadata
+        return file_metadata_list
+
+    def _extract_single_file_metadata(
+        self, file_path: Path, file_format: str
+    ) -> FileMetadata | None:
+        """Extract metadata from a single file.
+
+        Parameters
+        ----------
+        file_path : Path
+            Path to the file.
+        file_format : str
+            File format extension.
+
+        Returns
+        -------
+        FileMetadata | None
+            File metadata or None if extraction fails completely.
+        """
+        try:
+            metadata = self.extract_metadata(file_path, file_format)
+            return FileMetadata(
+                file_path=file_path,
+                file_format=file_format,
+                title=metadata.get("title"),
+                authors=metadata.get("authors", []),
+                isbn=metadata.get("isbn"),
+            )
+        except (
+            ValueError,
+            OSError,
+            AttributeError,
+            zipfile.BadZipFile,
+            struct.error,
+            UnicodeDecodeError,
+            EOFError,
+        ) as e:
+            logger.warning(
+                "Failed to extract metadata from %s: %s",
+                file_path,
+                e,
+            )
+            # Add with minimal metadata
+            return FileMetadata(
+                file_path=file_path,
+                file_format=file_format,
+                title=None,
+                authors=[],
+                isbn=None,
+            )
+
+    def _group_metadata_by_matching(
+        self, file_metadata_list: list[FileMetadata]
+    ) -> list[list[FileMetadata]]:
+        """Group file metadata by matching title/author.
+
+        Parameters
+        ----------
+        file_metadata_list : list[FileMetadata]
+            List of file metadata to group.
+
+        Returns
+        -------
+        list[list[FileMetadata]]
+            List of groups, where each group contains matching files.
+        """
         groups: list[list[FileMetadata]] = []
         for file_meta in file_metadata_list:
-            # Try to find a matching group
-            matched = False
-            for group in groups:
-                if self._files_match(group[0], file_meta):
-                    group.append(file_meta)
-                    matched = True
-                    break
-
-            if not matched:
-                # Create new group
+            matched_group = self._find_matching_group(groups, file_meta)
+            if matched_group is not None:
+                matched_group.append(file_meta)
+            else:
                 groups.append([file_meta])
+        return groups
 
-        # Convert to FileGroup objects
+    def _find_matching_group(
+        self, groups: list[list[FileMetadata]], file_meta: FileMetadata
+    ) -> list[FileMetadata] | None:
+        """Find a group that matches the given file metadata.
+
+        Parameters
+        ----------
+        groups : list[list[FileMetadata]]
+            Existing groups to search.
+        file_meta : FileMetadata
+            File metadata to match.
+
+        Returns
+        -------
+        list[FileMetadata] | None
+            Matching group or None if no match found.
+        """
+        for group in groups:
+            if self._files_match(group[0], file_meta):
+                return group
+        return None
+
+    def _convert_groups_to_file_groups(
+        self, groups: list[list[FileMetadata]]
+    ) -> list[FileGroup]:
+        """Convert metadata groups to FileGroup objects.
+
+        Parameters
+        ----------
+        groups : list[list[FileMetadata]]
+            Groups of file metadata.
+
+        Returns
+        -------
+        list[FileGroup]
+            List of FileGroup objects.
+        """
         file_groups: list[FileGroup] = []
         for group in groups:
-            # Use the first file's metadata as the hint
             first_meta = group[0]
             metadata_hint = {
                 "title": first_meta.title,
                 "authors": first_meta.authors,
                 "isbn": first_meta.isbn,
             }
-
-            # Create book key from metadata or path
             book_key = self._create_book_key_from_metadata(first_meta)
-
             file_groups.append(
                 FileGroup(
                     book_key=book_key,
@@ -226,7 +327,6 @@ class MetadataExtractionService:
                     metadata_hint=metadata_hint,
                 )
             )
-
         return file_groups
 
     def _files_match(self, file_meta1: FileMetadata, file_meta2: FileMetadata) -> bool:

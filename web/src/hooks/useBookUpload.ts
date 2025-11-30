@@ -113,7 +113,7 @@ export function useBookUpload(
 
   const showErrorMessage = useCallback(
     (message: string) => {
-      showDanger(message, { durationMs: 3000 });
+      showDanger(message, { durationMs: 5000 });
     },
     [showDanger],
   );

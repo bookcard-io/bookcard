@@ -68,7 +68,7 @@ const GlobalMessageContext = createContext<
   GlobalMessageContextValue | undefined
 >(undefined);
 
-const DEFAULT_DURATION_MS = 3000;
+const DEFAULT_DURATION_MS = 5000;
 
 /**
  * Provider for global message publishing and subscription.

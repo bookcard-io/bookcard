@@ -80,14 +80,20 @@ class EpubMetadataExtractor(MetadataExtractionStrategy):
     def extract(self, file_path: Path, original_filename: str) -> BookMetadata:
         """Extract metadata from EPUB file."""
         # EPUB is a ZIP file containing OPF metadata
-        with zipfile.ZipFile(file_path, "r") as epub_zip:
-            opf_path = self._find_opf_file(epub_zip)
-            if opf_path is None:
-                msg = "No OPF file found in EPUB"
-                raise ValueError(msg)
+        try:
+            with zipfile.ZipFile(file_path, "r") as epub_zip:
+                opf_path = self._find_opf_file(epub_zip)
+                if opf_path is None:
+                    msg = "No OPF file found in EPUB"
+                    raise ValueError(msg)
 
-            root = self._parse_opf(epub_zip, opf_path)
-            return self._extract_metadata_from_opf(root, original_filename, opf_path)
+                root = self._parse_opf(epub_zip, opf_path)
+                return self._extract_metadata_from_opf(
+                    root, original_filename, opf_path
+                )
+        except zipfile.BadZipFile as e:
+            msg = f"File is not a valid EPUB/ZIP file: {e}"
+            raise ValueError(msg) from e
 
     def _find_opf_file(self, epub_zip: zipfile.ZipFile) -> str | None:
         """Find the OPF file in the EPUB archive."""

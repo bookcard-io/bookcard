@@ -134,6 +134,9 @@ def mock_library() -> MagicMock:
     library.auto_convert_target_format = None
     library.auto_convert_ignored_formats = None
     library.auto_convert_backup_originals = True
+    library.duplicate_handling = "IGNORE"
+    library.calibre_db_path = "/test/calibre"
+    library.calibre_db_file = "metadata.db"
     return library
 
 
@@ -289,6 +292,7 @@ class TestFetchMetadata:
         mock_processor_service_class: MagicMock,
         task: IngestBookTask,
         worker_context: WorkerContext,
+        mock_ingest_config: MagicMock,
     ) -> None:
         """Test _fetch_metadata calls service and updates progress."""
         mock_processor_service = MagicMock()
@@ -296,9 +300,14 @@ class TestFetchMetadata:
             "title": "Fetched Title"
         }
         mock_processor_service_class.return_value = mock_processor_service
+        mock_ingest_config.metadata_fetch_enabled = True
 
         metadata = task._fetch_metadata(
-            mock_processor_service, 123, {"title": "Hint"}, worker_context
+            mock_processor_service,
+            123,
+            {"title": "Hint"},
+            mock_ingest_config,
+            worker_context,
         )
 
         assert metadata == {"title": "Fetched Title"}
@@ -313,14 +322,16 @@ class TestFetchMetadata:
         mock_processor_service_class: MagicMock,
         task: IngestBookTask,
         worker_context: WorkerContext,
+        mock_ingest_config: MagicMock,
     ) -> None:
         """Test _fetch_metadata handles None result."""
         mock_processor_service = MagicMock()
         mock_processor_service.fetch_and_store_metadata.return_value = None
         mock_processor_service_class.return_value = mock_processor_service
+        mock_ingest_config.metadata_fetch_enabled = True
 
         metadata = task._fetch_metadata(
-            mock_processor_service, 123, None, worker_context
+            mock_processor_service, 123, None, mock_ingest_config, worker_context
         )
 
         assert metadata is None
@@ -347,7 +358,7 @@ class TestProcessFiles:
         mock_processor = MagicMock()
         mock_processor.get_active_library.return_value = mock_library
 
-        book_ids = task._process_files(
+        book_ids, skipped_duplicates = task._process_files(
             mock_processor,
             123,
             file_paths,
@@ -358,6 +369,7 @@ class TestProcessFiles:
         )
 
         assert book_ids == [101, 102]
+        assert skipped_duplicates == 0
         assert mock_process_single.call_count == 2
         assert worker_context.update_progress.call_count == 3  # Initial + 2 files
 
@@ -380,7 +392,7 @@ class TestProcessFiles:
         mock_processor = MagicMock()
         mock_processor.get_active_library.return_value = mock_library
 
-        book_ids = task._process_files(
+        book_ids, skipped_duplicates = task._process_files(
             mock_processor,
             123,
             file_paths,
@@ -391,6 +403,7 @@ class TestProcessFiles:
         )
 
         assert book_ids == [101]
+        assert skipped_duplicates == 0
         assert mock_process_single.call_count == 1
 
     @patch(
@@ -411,7 +424,7 @@ class TestProcessFiles:
         mock_processor = MagicMock()
         mock_processor.get_active_library.return_value = mock_library
 
-        book_ids = task._process_files(
+        book_ids, skipped_duplicates = task._process_files(
             mock_processor,
             123,
             file_paths,
@@ -422,6 +435,7 @@ class TestProcessFiles:
         )
 
         assert book_ids == [101]
+        assert skipped_duplicates == 0
         assert mock_process_single.call_count == 2
 
     @patch(
@@ -491,6 +505,9 @@ class TestProcessSingleFile:
         assert not author_dir.exists()
 
     @patch(
+        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+    )
+    @patch(
         "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
     @patch(
@@ -500,12 +517,23 @@ class TestProcessSingleFile:
         self,
         mock_run_post_processors: MagicMock,
         mock_delete: MagicMock,
+        mock_calibre_repo_class: MagicMock,
         task: IngestBookTask,
         temp_file: Path,
         mock_library: MagicMock,
         mock_session: MagicMock,
     ) -> None:
         """Test _process_single_file deletes file when auto_delete enabled."""
+        mock_calibre_repo = MagicMock()
+        mock_calibre_session = MagicMock()
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = None  # No duplicate found
+        mock_calibre_session.exec.return_value = mock_exec_result
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
+            mock_calibre_session
+        )
+        mock_calibre_repo.get_session.return_value.__exit__.return_value = None
+        mock_calibre_repo_class.return_value = mock_calibre_repo
         mock_processor = MagicMock()
         mock_processor.add_book_to_library.return_value = 101
         config = MagicMock()
@@ -527,6 +555,9 @@ class TestProcessSingleFile:
         mock_run_post_processors.assert_called_once()
 
     @patch(
+        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+    )
+    @patch(
         "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
     @patch(
@@ -536,12 +567,23 @@ class TestProcessSingleFile:
         self,
         mock_run_post_processors: MagicMock,
         mock_delete: MagicMock,
+        mock_calibre_repo_class: MagicMock,
         task: IngestBookTask,
         temp_file: Path,
         mock_library: MagicMock,
         mock_session: MagicMock,
     ) -> None:
         """Test _process_single_file does not delete file when auto_delete disabled."""
+        mock_calibre_repo = MagicMock()
+        mock_calibre_session = MagicMock()
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = None  # No duplicate found
+        mock_calibre_session.exec.return_value = mock_exec_result
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
+            mock_calibre_session
+        )
+        mock_calibre_repo.get_session.return_value.__exit__.return_value = None
+        mock_calibre_repo_class.return_value = mock_calibre_repo
         mock_processor = MagicMock()
         mock_processor.add_book_to_library.return_value = 101
         config = MagicMock()
@@ -563,6 +605,9 @@ class TestProcessSingleFile:
         mock_run_post_processors.assert_called_once()
 
     @patch(
+        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+    )
+    @patch(
         "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
     @patch(
@@ -572,12 +617,23 @@ class TestProcessSingleFile:
         self,
         mock_run_post_processors: MagicMock,
         mock_delete: MagicMock,
+        mock_calibre_repo_class: MagicMock,
         task: IngestBookTask,
         temp_file: Path,
         mock_library: MagicMock,
         mock_session: MagicMock,
     ) -> None:
         """Test _process_single_file sets cover from fetched_metadata."""
+        mock_calibre_repo = MagicMock()
+        mock_calibre_session = MagicMock()
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = None  # No duplicate found
+        mock_calibre_session.exec.return_value = mock_exec_result
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
+            mock_calibre_session
+        )
+        mock_calibre_repo.get_session.return_value.__exit__.return_value = None
+        mock_calibre_repo_class.return_value = mock_calibre_repo
         mock_processor = MagicMock()
         mock_processor.add_book_to_library.return_value = 101
         config = MagicMock()
@@ -602,6 +658,9 @@ class TestProcessSingleFile:
         mock_run_post_processors.assert_called_once()
 
     @patch(
+        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+    )
+    @patch(
         "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
     @patch(
@@ -611,12 +670,23 @@ class TestProcessSingleFile:
         self,
         mock_run_post_processors: MagicMock,
         mock_delete: MagicMock,
+        mock_calibre_repo_class: MagicMock,
         task: IngestBookTask,
         temp_file: Path,
         mock_library: MagicMock,
         mock_session: MagicMock,
     ) -> None:
         """Test _process_single_file sets cover from metadata_hint."""
+        mock_calibre_repo = MagicMock()
+        mock_calibre_session = MagicMock()
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = None  # No duplicate found
+        mock_calibre_session.exec.return_value = mock_exec_result
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
+            mock_calibre_session
+        )
+        mock_calibre_repo.get_session.return_value.__exit__.return_value = None
+        mock_calibre_repo_class.return_value = mock_calibre_repo
         mock_processor = MagicMock()
         mock_processor.add_book_to_library.return_value = 101
         config = MagicMock()
@@ -641,6 +711,9 @@ class TestProcessSingleFile:
         mock_run_post_processors.assert_called_once()
 
     @patch(
+        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+    )
+    @patch(
         "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
     @patch(
@@ -650,12 +723,23 @@ class TestProcessSingleFile:
         self,
         mock_run_post_processors: MagicMock,
         mock_delete: MagicMock,
+        mock_calibre_repo_class: MagicMock,
         task: IngestBookTask,
         temp_file: Path,
         mock_library: MagicMock,
         mock_session: MagicMock,
     ) -> None:
         """Test _process_single_file prefers fetched_metadata cover_url over hint."""
+        mock_calibre_repo = MagicMock()
+        mock_calibre_session = MagicMock()
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = None  # No duplicate found
+        mock_calibre_session.exec.return_value = mock_exec_result
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
+            mock_calibre_session
+        )
+        mock_calibre_repo.get_session.return_value.__exit__.return_value = None
+        mock_calibre_repo_class.return_value = mock_calibre_repo
         mock_processor = MagicMock()
         mock_processor.add_book_to_library.return_value = 101
         config = MagicMock()
@@ -681,6 +765,9 @@ class TestProcessSingleFile:
         mock_run_post_processors.assert_called_once()
 
     @patch(
+        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+    )
+    @patch(
         "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
     @patch(
@@ -690,12 +777,23 @@ class TestProcessSingleFile:
         self,
         mock_run_post_processors: MagicMock,
         mock_delete: MagicMock,
+        mock_calibre_repo_class: MagicMock,
         task: IngestBookTask,
         temp_file: Path,
         mock_library: MagicMock,
         mock_session: MagicMock,
     ) -> None:
         """Test _process_single_file extracts file format from extension."""
+        mock_calibre_repo = MagicMock()
+        mock_calibre_session = MagicMock()
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = None  # No duplicate found
+        mock_calibre_session.exec.return_value = mock_exec_result
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
+            mock_calibre_session
+        )
+        mock_calibre_repo.get_session.return_value.__exit__.return_value = None
+        mock_calibre_repo_class.return_value = mock_calibre_repo
         mock_processor = MagicMock()
         mock_processor.add_book_to_library.return_value = 101
         config = MagicMock()
@@ -717,6 +815,9 @@ class TestProcessSingleFile:
         mock_run_post_processors.assert_called_once()
 
     @patch(
+        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+    )
+    @patch(
         "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
     @patch(
@@ -726,11 +827,22 @@ class TestProcessSingleFile:
         self,
         mock_run_post_processors: MagicMock,
         mock_delete: MagicMock,
+        mock_calibre_repo_class: MagicMock,
         task: IngestBookTask,
         mock_library: MagicMock,
         mock_session: MagicMock,
     ) -> None:
         """Test _process_single_file handles file without extension."""
+        mock_calibre_repo = MagicMock()
+        mock_calibre_session = MagicMock()
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = None  # No duplicate found
+        mock_calibre_session.exec.return_value = mock_exec_result
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
+            mock_calibre_session
+        )
+        mock_calibre_repo.get_session.return_value.__exit__.return_value = None
+        mock_calibre_repo_class.return_value = mock_calibre_repo
         with tempfile.NamedTemporaryFile(delete=False) as f:
             f.write(b"test")
             file_path = Path(f.name)
@@ -1003,12 +1115,16 @@ class TestHandleError:
 class TestRun:
     """Test run method."""
 
+    @patch(
+        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+    )
     @patch("fundamental.services.tasks.ingest_book_task.IngestConfigService")
     @patch("fundamental.services.tasks.ingest_book_task.IngestProcessorService")
     def test_run_success(
         self,
         mock_processor_service_class: MagicMock,
         mock_config_service_class: MagicMock,
+        mock_calibre_repo_class: MagicMock,
         task: IngestBookTask,
         worker_context: WorkerContext,
         mock_ingest_config: MagicMock,
@@ -1016,7 +1132,22 @@ class TestRun:
         temp_file: Path,
     ) -> None:
         """Test run completes successfully."""
+        mock_calibre_repo = MagicMock()
+        mock_calibre_session = MagicMock()
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = None  # No duplicate found
+        mock_calibre_session.exec.return_value = mock_exec_result
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
+            mock_calibre_session
+        )
+        mock_calibre_repo.get_session.return_value.__exit__.return_value = None
+        mock_calibre_repo_class.return_value = mock_calibre_repo
         mock_processor_service = MagicMock()
+        mock_library = MagicMock()
+        mock_library.duplicate_handling = "IGNORE"
+        mock_library.calibre_db_path = "/test/calibre"
+        mock_library.calibre_db_file = "metadata.db"
+        mock_processor_service.get_active_library.return_value = mock_library
         mock_processor_service.get_history.return_value = mock_ingest_history
         mock_processor_service.fetch_and_store_metadata.return_value = {
             "title": "Fetched Title"
@@ -1043,12 +1174,16 @@ class TestRun:
         mock_processor_service.finalize_history.assert_called_once_with(123, [101, 101])
         worker_context.update_progress.assert_called()
 
+    @patch(
+        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+    )
     @patch("fundamental.services.tasks.ingest_book_task.IngestConfigService")
     @patch("fundamental.services.tasks.ingest_book_task.IngestProcessorService")
     def test_run_with_dict_context(
         self,
         mock_processor_service_class: MagicMock,
         mock_config_service_class: MagicMock,
+        mock_calibre_repo_class: MagicMock,
         task: IngestBookTask,
         worker_context_dict: dict[str, MagicMock],
         mock_ingest_config: MagicMock,
@@ -1056,7 +1191,22 @@ class TestRun:
         temp_file: Path,
     ) -> None:
         """Test run works with dict context."""
+        mock_calibre_repo = MagicMock()
+        mock_calibre_session = MagicMock()
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = None  # No duplicate found
+        mock_calibre_session.exec.return_value = mock_exec_result
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
+            mock_calibre_session
+        )
+        mock_calibre_repo.get_session.return_value.__exit__.return_value = None
+        mock_calibre_repo_class.return_value = mock_calibre_repo
         mock_processor_service = MagicMock()
+        mock_library = MagicMock()
+        mock_library.duplicate_handling = "IGNORE"
+        mock_library.calibre_db_path = "/test/calibre"
+        mock_library.calibre_db_file = "metadata.db"
+        mock_processor_service.get_active_library.return_value = mock_library
         mock_processor_service.get_history.return_value = mock_ingest_history
         mock_processor_service.fetch_and_store_metadata.return_value = None
         mock_processor_service.add_book_to_library.return_value = 101

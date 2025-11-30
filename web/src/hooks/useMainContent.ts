@@ -16,7 +16,6 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LibraryTabId } from "@/components/library/LibraryTabs";
-import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import type { Book } from "@/types/book";
 import { useBookEditModal } from "./useBookEditModal";
 import { useBookUpload } from "./useBookUpload";
@@ -212,8 +211,6 @@ export function useMainContent(): UseMainContentResult {
   // Book edit modal state
   const bookEditModal = useBookEditModal();
 
-  const { showDanger } = useGlobalMessages();
-
   // Book upload state - adds book to grid and opens edit modal on success
   const bookUpload = useBookUpload({
     onUploadSuccess: async (bookId) => {
@@ -226,8 +223,9 @@ export function useMainContent(): UseMainContentResult {
       // Add book to grid without opening modal (for multi-file uploads)
       await booksGridBookDataUpdateRef.current?.addBook?.(bookId);
     },
-    onUploadError: (error) => {
-      showDanger(error);
+    onUploadError: (_error) => {
+      // Error messages are already displayed via onSetErrorMessage in useBookUpload
+      // This callback is kept for potential future error handling logic
     },
   });
 

@@ -28,9 +28,11 @@ from typing import Any
 from sqlmodel import Session
 
 from fundamental.models.config import Library
+from fundamental.repositories.book_metadata_service import BookMetadataService
 from fundamental.repositories.config_repository import LibraryRepository
 from fundamental.services.book_service import BookService
 from fundamental.services.config_service import LibraryService
+from fundamental.services.duplicate_detection import BookDuplicateHandler
 from fundamental.services.tasks.base import BaseTask
 from fundamental.services.tasks.context import ProgressCallback, WorkerContext
 from fundamental.services.tasks.exceptions import (
@@ -228,6 +230,95 @@ class BookUploadTask(BaseTask):
             title = Path(self.file_info.filename).stem
         return title
 
+    def _extract_author(self) -> str | None:
+        """Extract author from file metadata.
+
+        Extracts author from the book file using BookMetadataService.
+        Falls back to None if extraction fails.
+
+        Returns
+        -------
+        str | None
+            Author name if found, None otherwise.
+        """
+        try:
+            metadata_service = BookMetadataService()
+            metadata, _ = metadata_service.extract_metadata(
+                self.file_info.file_path, self.file_info.file_format
+            )
+            author = metadata.author
+            # Handle case where author might be "Unknown" or empty
+            if author and author != "Unknown":
+                return author
+        except (ValueError, ImportError, OSError, KeyError, AttributeError) as exc:
+            logger.debug(
+                "Failed to extract author from %s: %s",
+                self.file_info.file_path,
+                exc,
+            )
+        return None
+
+    def _check_and_handle_duplicate(
+        self,
+        library: Library,  # type: ignore[name-defined]
+        book_service: BookService,
+        title: str,
+        author_name: str | None,
+    ) -> int | None:
+        """Check for duplicate and handle according to library settings.
+
+        Parameters
+        ----------
+        library : Library
+            Active library configuration.
+        book_service : BookService
+            Book service instance.
+        title : str
+            Book title.
+        author_name : str | None
+            Author name extracted from file.
+
+        Returns
+        -------
+        int | None
+            Book ID if duplicate should be used (OVERWRITE mode), None otherwise.
+            Raises exception if IGNORE mode and duplicate found.
+
+        Raises
+        ------
+        ValueError
+            If duplicate found and IGNORE mode is set.
+        """
+        duplicate_handler = BookDuplicateHandler()
+        result = duplicate_handler.check_duplicate(
+            library=library,
+            file_path=self.file_info.file_path,
+            title=title,
+            author_name=author_name,
+            file_format=self.file_info.file_format,
+        )
+
+        if result.should_skip:
+            # IGNORE mode: skip duplicate
+            msg = f"Duplicate book found (book_id={result.duplicate_book_id}), skipping per library settings"
+            logger.info(msg)
+            raise ValueError(msg)
+
+        if result.should_overwrite and result.duplicate_book_id:
+            # OVERWRITE mode: delete existing book
+            logger.info(
+                "Duplicate found (book_id=%d), overwriting per library settings",
+                result.duplicate_book_id,
+            )
+            book_service.delete_book(
+                book_id=result.duplicate_book_id,
+                delete_files_from_drive=True,
+            )
+            return result.duplicate_book_id
+
+        # CREATE_NEW mode or no duplicate: proceed normally
+        return None
+
     def _add_book_to_library(
         self,
         session: Session,  # type: ignore[type-arg]
@@ -254,6 +345,8 @@ class BookUploadTask(BaseTask):
         ------
         TaskCancelledError
             If task has been cancelled.
+        ValueError
+            If duplicate found and IGNORE mode is set.
         """
         # Update progress: 0.2 - library found
         self._update_progress_or_cancel(0.2, update_progress)
@@ -261,8 +354,15 @@ class BookUploadTask(BaseTask):
         # Create book service
         book_service = BookService(library, session=session)
 
-        # Extract title
+        # Extract title and author from file
         title = self._extract_title()
+        author_name = self._extract_author()
+
+        # Update progress: 0.25 - checking for duplicates
+        self._update_progress_or_cancel(0.25, update_progress)
+
+        # Check for duplicates and handle according to library settings
+        self._check_and_handle_duplicate(library, book_service, title, author_name)
 
         # Update progress: 0.3 - ready to add book
         self._update_progress_or_cancel(0.3, update_progress)
@@ -273,7 +373,7 @@ class BookUploadTask(BaseTask):
             file_path=self.file_info.file_path,
             file_format=self.file_info.file_format,
             title=title,
-            author_name=self.metadata.get("author_name"),
+            author_name=author_name,
         )
 
         # Store final metadata
