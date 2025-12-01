@@ -17,12 +17,27 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from datetime import datetime  # noqa: TC003
 
 from pydantic import BaseModel, Field
 
-if TYPE_CHECKING:
-    from datetime import datetime
+
+class ConversionRequest(BaseModel):
+    """Request DTO for book format conversion.
+
+    Attributes
+    ----------
+    book_id : int
+        Book ID to convert.
+    original_format : str
+        Source format (e.g., "MOBI", "AZW3").
+    target_format : str
+        Target format (e.g., "EPUB", "KEPUB").
+    """
+
+    book_id: int
+    original_format: str
+    target_format: str
 
 
 class BookConversionRead(BaseModel):

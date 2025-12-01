@@ -787,9 +787,9 @@ class ConversionPostIngestProcessor(PostIngestProcessor):
             User ID (None for library-level auto-ingest).
         """
         try:
-            from fundamental.services.conversion_service import ConversionService
+            from fundamental.services.conversion import create_conversion_service
 
-            conversion_service = ConversionService(session, library)
+            conversion_service = create_conversion_service(session, library)
             backup_original = self._policy.should_backup_original()
 
             conversion_service.convert_book(

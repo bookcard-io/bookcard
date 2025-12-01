@@ -24,7 +24,11 @@ from __future__ import annotations
 
 import logging
 import time
+from contextlib import suppress
 from typing import TYPE_CHECKING, Any
+
+from sqlalchemy.exc import PendingRollbackError
+from sqlmodel import Session
 
 from fundamental.models.tasks import TaskStatus
 
@@ -106,8 +110,23 @@ class TaskExecutor:
 
             logger.exception("Task %s failed: %s", task_id, error_message)
 
+            # Handle session rollback if needed before accessing task
+            session = worker_context.get("session")
+            if session and isinstance(session, Session):
+                # Try to rollback if session is in error state
+                # Session may already be closed or in an invalid state, so suppress errors
+                with suppress(Exception):
+                    session.rollback()
+
             # Get task to check current status
-            task = self._task_service.get_task(task_id)
+            try:
+                task = self._task_service.get_task(task_id)
+            except PendingRollbackError:
+                # Session is in error state, rollback and retry
+                if session and isinstance(session, Session):
+                    session.rollback()
+                task = self._task_service.get_task(task_id)
+
             if not task or task.status != TaskStatus.FAILED:
                 # Only fail if not already failed
                 self._task_service.fail_task(task_id, error_message)

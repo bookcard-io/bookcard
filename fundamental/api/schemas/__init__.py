@@ -87,6 +87,7 @@ from fundamental.api.schemas.books import (
 from fundamental.api.schemas.conversion import (
     BookConversionListResponse,
     BookConversionRead,
+    ConversionRequest,
 )
 from fundamental.api.schemas.epub_fixer import (
     EPUBFixBatchRequest,
@@ -163,6 +164,7 @@ __all__ = [
     "BookShelfLinkRead",
     "BookUpdate",
     "BookUploadResponse",
+    "ConversionRequest",
     "CoverFromUrlRequest",
     "CoverFromUrlResponse",
     "EPUBFixBatchRequest",

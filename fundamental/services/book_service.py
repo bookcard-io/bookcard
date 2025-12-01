@@ -37,7 +37,7 @@ from fundamental.repositories import (
 )
 from fundamental.repositories.config_repository import LibraryRepository
 from fundamental.services.config_service import LibraryService
-from fundamental.services.conversion_service import ConversionService
+from fundamental.services.conversion import create_conversion_service
 from fundamental.services.conversion_utils import raise_conversion_error
 
 if TYPE_CHECKING:
@@ -1167,7 +1167,7 @@ class BookService:
             msg = "No active library configured for conversion"
             raise ValueError(msg)
 
-        conversion_service = ConversionService(self._session, library)
+        conversion_service = create_conversion_service(self._session, library)
 
         try:
             conversion = conversion_service.convert_book(

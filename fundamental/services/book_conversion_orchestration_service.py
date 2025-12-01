@@ -28,7 +28,7 @@ from fundamental.models.config import Library
 from fundamental.models.conversion import BookConversion, ConversionStatus
 from fundamental.models.tasks import TaskType
 from fundamental.services.book_service import BookService
-from fundamental.services.conversion_service import ConversionService
+from fundamental.services.conversion import create_conversion_service
 from fundamental.services.tasks.base import TaskRunner
 
 
@@ -118,7 +118,7 @@ class BookConversionOrchestrationService:
         self._book_service = book_service
         self._library = library
         self._task_runner = task_runner
-        self._conversion_service = ConversionService(session, library)
+        self._conversion_service = create_conversion_service(session, library)
 
     def initiate_conversion(
         self,

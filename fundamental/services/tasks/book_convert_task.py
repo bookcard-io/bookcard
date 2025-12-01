@@ -26,7 +26,7 @@ from fundamental.models.config import Library
 from fundamental.models.conversion import ConversionMethod, ConversionStatus
 from fundamental.repositories.config_repository import LibraryRepository
 from fundamental.services.config_service import LibraryService
-from fundamental.services.conversion_service import ConversionService
+from fundamental.services.conversion import create_conversion_service
 from fundamental.services.conversion_utils import raise_conversion_error
 from fundamental.services.tasks.base import BaseTask
 from fundamental.services.tasks.context import ProgressCallback, WorkerContext
@@ -248,7 +248,7 @@ class BookConvertTask(BaseTask):
             self._update_progress_or_cancel(0.2, context.update_progress)
 
             # Check for existing conversion
-            conversion_service = ConversionService(context.session, library)
+            conversion_service = create_conversion_service(context.session, library)
             existing = conversion_service.check_existing_conversion(
                 self._book_id, self._source_format, self._target_format
             )

@@ -1182,7 +1182,6 @@ def send_books_to_device_batch(
     status_code=status.HTTP_201_CREATED,
 )
 def convert_book_format(
-    session: SessionDep,
     book_id: int,
     current_user: CurrentUserDep,
     convert_request: BookConvertRequest,
@@ -1232,10 +1231,8 @@ def convert_book_format(
             detail="book_not_found",
         )
 
-    # Check write permission
-    permission_helper.check_create_permission(
-        current_user, existing_book, book_id, session
-    )
+    # Check create permission
+    permission_helper.check_create_permission(current_user)
 
     # Validate user ID
     if current_user.id is None:
@@ -1283,7 +1280,6 @@ def convert_book_format(
     response_model=BookConversionListResponse,
 )
 def get_book_conversions(
-    session: SessionDep,
     book_id: int,
     current_user: CurrentUserDep,
     book_service: BookServiceDep,
@@ -1332,9 +1328,7 @@ def get_book_conversions(
         )
 
     # Check read permission
-    permission_helper.check_read_permission(
-        current_user, existing_book, book_id, session
-    )
+    permission_helper.check_read_permission(current_user, existing_book)
 
     # Delegate business logic to service
     try:
