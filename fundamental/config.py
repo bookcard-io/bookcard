@@ -211,11 +211,8 @@ class AppConfig:
             Fully constructed configuration with env overrides applied.
         """
         jwt_expires_min = AppConfig._normalize_env_value(
-            os.getenv("FUNDAMENTAL_JWT_EXPIRES_MIN")
+            os.getenv("FUNDAMENTAL_JWT_EXPIRES_MIN", "131400")
         )
-        if jwt_expires_min is None:
-            msg = "FUNDAMENTAL_JWT_EXPIRES_MIN is not set"
-            raise ValueError(msg)
         return AppConfig(
             jwt_secret=AppConfig._get_jwt_secret(),
             jwt_algorithm=AppConfig._get_jwt_algorithm(),
