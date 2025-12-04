@@ -2284,8 +2284,8 @@ def test_ensure_epub_for_kindle_conversion_success(
             "fundamental.services.book_service.LibraryService"
         ) as mock_lib_service_class,
         patch(
-            "fundamental.services.book_service.ConversionService"
-        ) as mock_conv_service_class,
+            "fundamental.services.book_service.create_conversion_service"
+        ) as mock_create_conversion,
     ):
         mock_lib_service = MagicMock()
         mock_lib_service.get_active_library.return_value = library
@@ -2293,7 +2293,7 @@ def test_ensure_epub_for_kindle_conversion_success(
 
         mock_conv_service = MagicMock()
         mock_conv_service.convert_book.return_value = conversion
-        mock_conv_service_class.return_value = mock_conv_service
+        mock_create_conversion.return_value = mock_conv_service
 
         service = BookService(library)
         service._session = DummySession()  # type: ignore[assignment]
@@ -2359,8 +2359,8 @@ def test_ensure_epub_for_kindle_conversion_failed(library: Library, book: Book) 
             "fundamental.services.book_service.LibraryService"
         ) as mock_lib_service_class,
         patch(
-            "fundamental.services.book_service.ConversionService"
-        ) as mock_conv_service_class,
+            "fundamental.services.book_service.create_conversion_service"
+        ) as mock_create_conversion,
     ):
         mock_lib_service = MagicMock()
         mock_lib_service.get_active_library.return_value = library
@@ -2368,7 +2368,7 @@ def test_ensure_epub_for_kindle_conversion_failed(library: Library, book: Book) 
 
         mock_conv_service = MagicMock()
         mock_conv_service.convert_book.return_value = conversion
-        mock_conv_service_class.return_value = mock_conv_service
+        mock_create_conversion.return_value = mock_conv_service
 
         service = BookService(library)
         service._session = DummySession()  # type: ignore[assignment]
@@ -2416,8 +2416,8 @@ def test_ensure_epub_for_kindle_exception_handling(
             "fundamental.services.book_service.LibraryService"
         ) as mock_lib_service_class,
         patch(
-            "fundamental.services.book_service.ConversionService"
-        ) as mock_conv_service_class,
+            "fundamental.services.book_service.create_conversion_service"
+        ) as mock_create_conversion,
     ):
         mock_lib_service = MagicMock()
         mock_lib_service.get_active_library.return_value = library
@@ -2425,7 +2425,7 @@ def test_ensure_epub_for_kindle_exception_handling(
 
         mock_conv_service = MagicMock()
         mock_conv_service.convert_book.side_effect = ValueError("Conversion error")
-        mock_conv_service_class.return_value = mock_conv_service
+        mock_create_conversion.return_value = mock_conv_service
 
         service = BookService(library)
         service._session = DummySession()  # type: ignore[assignment]
@@ -2497,8 +2497,8 @@ def test_ensure_epub_for_kindle_refresh_no_epub(library: Library, book: Book) ->
             "fundamental.services.book_service.LibraryService"
         ) as mock_lib_service_class,
         patch(
-            "fundamental.services.book_service.ConversionService"
-        ) as mock_conv_service_class,
+            "fundamental.services.book_service.create_conversion_service"
+        ) as mock_create_conversion,
     ):
         mock_lib_service = MagicMock()
         mock_lib_service.get_active_library.return_value = library
@@ -2506,7 +2506,7 @@ def test_ensure_epub_for_kindle_refresh_no_epub(library: Library, book: Book) ->
 
         mock_conv_service = MagicMock()
         mock_conv_service.convert_book.return_value = conversion
-        mock_conv_service_class.return_value = mock_conv_service
+        mock_create_conversion.return_value = mock_conv_service
 
         service = BookService(library)
         service._session = DummySession()  # type: ignore[assignment]
@@ -2564,8 +2564,8 @@ def test_ensure_epub_for_kindle_refresh_none(library: Library, book: Book) -> No
             "fundamental.services.book_service.LibraryService"
         ) as mock_lib_service_class,
         patch(
-            "fundamental.services.book_service.ConversionService"
-        ) as mock_conv_service_class,
+            "fundamental.services.book_service.create_conversion_service"
+        ) as mock_create_conversion,
     ):
         mock_lib_service = MagicMock()
         mock_lib_service.get_active_library.return_value = library
@@ -2573,7 +2573,7 @@ def test_ensure_epub_for_kindle_refresh_none(library: Library, book: Book) -> No
 
         mock_conv_service = MagicMock()
         mock_conv_service.convert_book.return_value = conversion
-        mock_conv_service_class.return_value = mock_conv_service
+        mock_create_conversion.return_value = mock_conv_service
 
         service = BookService(library)
         service._session = DummySession()  # type: ignore[assignment]
@@ -2631,8 +2631,8 @@ def test_ensure_epub_for_kindle_no_user_id(library: Library, book: Book) -> None
             "fundamental.services.book_service.LibraryService"
         ) as mock_lib_service_class,
         patch(
-            "fundamental.services.book_service.ConversionService"
-        ) as mock_conv_service_class,
+            "fundamental.services.book_service.create_conversion_service"
+        ) as mock_create_conversion,
     ):
         mock_lib_service = MagicMock()
         mock_lib_service.get_active_library.return_value = library
@@ -2640,7 +2640,7 @@ def test_ensure_epub_for_kindle_no_user_id(library: Library, book: Book) -> None
 
         mock_conv_service = MagicMock()
         mock_conv_service.convert_book.return_value = conversion
-        mock_conv_service_class.return_value = mock_conv_service
+        mock_create_conversion.return_value = mock_conv_service
 
         service = BookService(library)
         service._session = DummySession()  # type: ignore[assignment]

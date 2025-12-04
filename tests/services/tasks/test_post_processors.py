@@ -1254,18 +1254,23 @@ class TestConversionPostIngestProcessor:
         # Mock policy to return True
         processor._policy.should_auto_convert = MagicMock(return_value=True)  # type: ignore[method-assign]
 
-        # Book found
-        session.add_exec_result([book])
-        # Data not found for uploaded format
+        # Data not found for uploaded format (this is the query in _get_original_format)
         session.add_exec_result([None])
 
-        assert book.id is not None
-        processor.process(
-            session,  # type: ignore[arg-type]
-            book.id,
-            library,
-            user_id=1,
-        )
+        # Defensively patch create_conversion_service to prevent it from being called
+        # (it shouldn't be called since original_format will be None, but patch it anyway)
+        with patch(
+            "fundamental.services.conversion.create_conversion_service"
+        ) as mock_create_conversion:
+            assert book.id is not None
+            processor.process(
+                session,  # type: ignore[arg-type]
+                book.id,
+                library,
+                user_id=1,
+            )
+            # Verify that create_conversion_service was not called
+            mock_create_conversion.assert_not_called()
 
     @pytest.mark.parametrize(
         ("original_format", "target_format", "ignored_formats", "should_convert"),
@@ -1412,10 +1417,10 @@ class TestConversionPostIngestProcessor:
 
         # Mock conversion service
         with patch(
-            "fundamental.services.conversion_service.ConversionService"
-        ) as mock_conversion_class:
+            "fundamental.services.conversion.create_conversion_service"
+        ) as mock_create_conversion:
             mock_conversion = MagicMock()
-            mock_conversion_class.return_value = mock_conversion
+            mock_create_conversion.return_value = mock_conversion
 
             assert book.id is not None
             processor.process(
@@ -1482,11 +1487,11 @@ class TestConversionPostIngestProcessor:
 
         # Mock conversion service to raise error
         with patch(
-            "fundamental.services.conversion_service.ConversionService"
-        ) as mock_conversion_class:
+            "fundamental.services.conversion.create_conversion_service"
+        ) as mock_create_conversion:
             mock_conversion = MagicMock()
             mock_conversion.convert_book.side_effect = exception_type("Test error")
-            mock_conversion_class.return_value = mock_conversion
+            mock_create_conversion.return_value = mock_conversion
 
             # Should not raise, just log warning
             assert book.id is not None

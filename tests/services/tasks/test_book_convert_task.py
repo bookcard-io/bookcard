@@ -572,8 +572,8 @@ class TestBookConvertTaskRun:
                 "fundamental.services.tasks.book_convert_task.LibraryService"
             ) as mock_service_class,
             patch(
-                "fundamental.services.tasks.book_convert_task.ConversionService"
-            ) as mock_conversion_class,
+                "fundamental.services.tasks.book_convert_task.create_conversion_service"
+            ) as mock_create_conversion,
         ):
             mock_service = MagicMock()
             mock_service.get_active_library.return_value = library
@@ -589,7 +589,7 @@ class TestBookConvertTaskRun:
                 status=ConversionStatus.COMPLETED,
             )
             mock_conversion.convert_book.return_value = conversion
-            mock_conversion_class.return_value = mock_conversion
+            mock_create_conversion.return_value = mock_conversion
 
             worker_context = {
                 "session": session,
@@ -656,8 +656,8 @@ class TestBookConvertTaskRun:
                 "fundamental.services.tasks.book_convert_task.LibraryService"
             ) as mock_service_class,
             patch(
-                "fundamental.services.tasks.book_convert_task.ConversionService"
-            ) as mock_conversion_class,
+                "fundamental.services.tasks.book_convert_task.create_conversion_service"
+            ) as mock_create_conversion,
         ):
             mock_service = MagicMock()
             mock_service.get_active_library.return_value = library
@@ -665,7 +665,7 @@ class TestBookConvertTaskRun:
 
             mock_conversion = MagicMock()
             mock_conversion.check_existing_conversion.return_value = existing_conversion
-            mock_conversion_class.return_value = mock_conversion
+            mock_create_conversion.return_value = mock_conversion
 
             task.run(worker_context)
 
@@ -707,8 +707,8 @@ class TestBookConvertTaskRun:
                 "fundamental.services.tasks.book_convert_task.LibraryService"
             ) as mock_service_class,
             patch(
-                "fundamental.services.tasks.book_convert_task.ConversionService"
-            ) as mock_conversion_class,
+                "fundamental.services.tasks.book_convert_task.create_conversion_service"
+            ) as mock_create_conversion,
         ):
             mock_service = MagicMock()
             mock_service.get_active_library.return_value = library
@@ -717,7 +717,7 @@ class TestBookConvertTaskRun:
             mock_conversion = MagicMock()
             mock_conversion.check_existing_conversion.return_value = None
             mock_conversion.convert_book.return_value = conversion
-            mock_conversion_class.return_value = mock_conversion
+            mock_create_conversion.return_value = mock_conversion
 
             task.run(worker_context)
 
@@ -759,8 +759,8 @@ class TestBookConvertTaskRun:
                 "fundamental.services.tasks.book_convert_task.LibraryService"
             ) as mock_service_class,
             patch(
-                "fundamental.services.tasks.book_convert_task.ConversionService"
-            ) as mock_conversion_class,
+                "fundamental.services.tasks.book_convert_task.create_conversion_service"
+            ) as mock_create_conversion,
         ):
             mock_service = MagicMock()
             mock_service.get_active_library.return_value = library
@@ -769,7 +769,7 @@ class TestBookConvertTaskRun:
             mock_conversion = MagicMock()
             mock_conversion.check_existing_conversion.return_value = None
             mock_conversion.convert_book.return_value = conversion
-            mock_conversion_class.return_value = mock_conversion
+            mock_create_conversion.return_value = mock_conversion
 
             with pytest.raises(RuntimeError, match="Conversion failed"):
                 task.run(worker_context)
@@ -810,8 +810,8 @@ class TestBookConvertTaskRun:
                 "fundamental.services.tasks.book_convert_task.LibraryService"
             ) as mock_service_class,
             patch(
-                "fundamental.services.tasks.book_convert_task.ConversionService"
-            ) as mock_conversion_class,
+                "fundamental.services.tasks.book_convert_task.create_conversion_service"
+            ) as mock_create_conversion,
         ):
             mock_service = MagicMock()
             mock_service.get_active_library.return_value = library
@@ -820,7 +820,7 @@ class TestBookConvertTaskRun:
             mock_conversion = MagicMock()
             mock_conversion.check_existing_conversion.return_value = None
             mock_conversion.convert_book.return_value = conversion
-            mock_conversion_class.return_value = mock_conversion
+            mock_create_conversion.return_value = mock_conversion
 
             with pytest.raises(RuntimeError, match="Conversion failed"):
                 task.run(worker_context)
