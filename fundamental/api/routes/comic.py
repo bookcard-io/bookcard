@@ -75,6 +75,118 @@ def _get_book_service(session: SessionDep) -> BookService:
     return BookService(library, session=session)
 
 
+def _find_format_data(
+    formats: list[dict],
+    file_format: str,
+) -> dict:
+    """Find format data matching the requested format.
+
+    Parameters
+    ----------
+    formats : list[dict]
+        List of format dictionaries from book.
+    file_format : str
+        File format to find (CBZ, CBR, CB7, CBC).
+
+    Returns
+    -------
+    dict
+        Format data dictionary.
+
+    Raises
+    ------
+    HTTPException
+        If format not found.
+    """
+    format_upper = file_format.upper()
+    for fmt in formats:
+        fmt_format = fmt.get("format")
+        if isinstance(fmt_format, str) and fmt_format.upper() == format_upper:
+            return fmt
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"format_not_found: {format_upper}",
+    )
+
+
+def _get_library_path(book_service: BookService) -> Path:
+    """Get the library root path.
+
+    Parameters
+    ----------
+    book_service : BookService
+        Book service instance.
+
+    Returns
+    -------
+    Path
+        Library root path.
+    """
+    lib_root = getattr(book_service._library, "library_root", None)  # type: ignore[attr-defined]  # noqa: SLF001
+    if lib_root:
+        return Path(lib_root)
+
+    library_db_path = book_service._library.calibre_db_path  # type: ignore[attr-defined]  # noqa: SLF001
+    library_db_path_obj = Path(library_db_path)
+    if library_db_path_obj.is_dir():
+        return library_db_path_obj
+
+    return library_db_path_obj.parent
+
+
+def _find_comic_file(
+    book_path: Path,
+    format_data: dict,
+    book_id: int,
+    file_format: str,
+) -> Path:
+    """Find the comic file on disk.
+
+    Parameters
+    ----------
+    book_path : Path
+        Path to the book directory.
+    format_data : dict
+        Format data dictionary.
+    book_id : int
+        Book ID.
+    file_format : str
+        File format (CBZ, CBR, CB7, CBC).
+
+    Returns
+    -------
+    Path
+        Path to the comic file.
+
+    Raises
+    ------
+    HTTPException
+        If file not found.
+    """
+    name = format_data.get("name")
+    if name:
+        file_name = f"{name}.{file_format.lower()}"
+    else:
+        file_name = f"{book_id}.{file_format.lower()}"
+
+    file_path = book_path / file_name
+
+    if file_path.exists():
+        return file_path
+
+    # Try alternative: just the format extension
+    alt_file_name = f"{book_id}.{file_format.lower()}"
+    alt_file_path = book_path / alt_file_name
+    if alt_file_path.exists():
+        return alt_file_path
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"file_not_found: {file_path}",
+    )
+
+
 def _get_comic_file_path(
     book_service: BookService,
     book_id: int,
@@ -116,52 +228,11 @@ def _get_comic_file_path(
             detail="book_missing_id",
         )
 
-    # Find the format in the book's formats
-    format_upper = file_format.upper()
-    format_data = None
-    for fmt in book_with_rels.formats:
-        fmt_format = fmt.get("format")
-        if isinstance(fmt_format, str) and fmt_format.upper() == format_upper:
-            format_data = fmt
-            break
-
-    if format_data is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"format_not_found: {format_upper}",
-        )
-
-    # Construct file path
-    lib_root = getattr(book_service._library, "library_root", None)  # type: ignore[attr-defined]  # noqa: SLF001
-    if lib_root:
-        library_path = Path(lib_root)
-    else:
-        library_db_path = book_service._library.calibre_db_path  # type: ignore[attr-defined]  # noqa: SLF001
-        library_db_path_obj = Path(library_db_path)
-        if library_db_path_obj.is_dir():
-            library_path = library_db_path_obj
-        else:
-            library_path = library_db_path_obj.parent
-
+    format_data = _find_format_data(book_with_rels.formats, file_format)
+    library_path = _get_library_path(book_service)
     book_path = library_path / book.path
 
-    # Try to find file
-    file_name = format_data.get("name") or f"{book_id}.{file_format.lower()}"  # type: ignore[union-attr]
-    file_path = book_path / file_name
-
-    if not file_path.exists():
-        # Try alternative: just the format extension
-        alt_file_name = f"{book_id}.{file_format.lower()}"
-        alt_file_path = book_path / alt_file_name
-        if alt_file_path.exists():
-            file_path = alt_file_path
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"file_not_found: {file_path}",
-            )
-
-    return file_path
+    return _find_comic_file(book_path, format_data, book_id, file_format)
 
 
 @router.get("/{book_id}/pages")
