@@ -27,8 +27,23 @@ from typing import TYPE_CHECKING
 from sqlalchemy import func, or_
 from sqlmodel import select
 
-from fundamental.models.conversion import ConversionMethod
+from fundamental.models.conversion import BookConversion, ConversionMethod
 from fundamental.models.core import Book, Tag
+from fundamental.models.epub_fixer import EPUBFix
+from fundamental.models.ingest import IngestHistory
+from fundamental.models.kobo import (
+    KoboArchivedBook,
+    KoboReadingState,
+    KoboSyncedBook,
+)
+from fundamental.models.metadata_enforcement import MetadataEnforcementOperation
+from fundamental.models.reading import (
+    Annotation,
+    AnnotationDirtied,
+    ReadingProgress,
+    ReadingSession,
+    ReadStatus,
+)
 from fundamental.repositories import (
     BookWithFullRelations,
     BookWithRelations,
@@ -563,6 +578,7 @@ class BookService:
 
         Performs atomic deletion with rollback on error.
         Follows SRP by delegating to repository.
+        Deletes both Calibre database associations and Fundamental database associations.
 
         Parameters
         ----------
@@ -578,6 +594,10 @@ class BookService:
         OSError
             If filesystem operations fail (only if delete_files_from_drive is True).
         """
+        # Delete Fundamental database associations first (before Calibre deletion)
+        if self._session is not None:
+            self._delete_fundamental_associations(book_id)
+
         # Determine library path (prefer library_root if set)
         library_path = None
         lib_root = getattr(self._library, "library_root", None)
@@ -1207,6 +1227,113 @@ class BookService:
             )
             # Re-raise to let caller handle
             raise
+
+    def _delete_fundamental_associations(self, book_id: int) -> None:
+        """Delete all Fundamental database associations for a book.
+
+        Deletes all non-Calibre associations including:
+        - Conversion history (BookConversion)
+        - Reading progress (ReadingProgress)
+        - Reading sessions (ReadingSession)
+        - Read status (ReadStatus)
+        - Annotations (Annotation, AnnotationDirtied)
+        - Kobo associations (KoboReadingState, KoboSyncedBook, KoboArchivedBook)
+        - EPUB fixes (EPUBFix)
+        - Metadata enforcement operations (MetadataEnforcementOperation)
+        - Ingest history (IngestHistory)
+
+        Parameters
+        ----------
+        book_id : int
+            Calibre book ID to delete associations for.
+
+        Notes
+        -----
+        This method requires a valid Fundamental database session.
+        If session is None, this method does nothing (no-op).
+        """
+        if self._session is None:
+            logger.warning(
+                "Cannot delete Fundamental associations for book_id=%d: no session available",
+                book_id,
+            )
+            return
+
+        logger.info(
+            "Deleting Fundamental database associations for book_id=%d", book_id
+        )
+
+        try:
+            # Define all models that reference books by book_id
+            models_to_delete = [
+                (BookConversion, "conversion"),
+                (ReadingProgress, "reading progress"),
+                (ReadingSession, "reading session"),
+                (ReadStatus, "read status"),
+                (Annotation, "annotation"),
+                (AnnotationDirtied, "annotation dirtied"),
+                (KoboReadingState, "Kobo reading state"),
+                (KoboSyncedBook, "Kobo synced book"),
+                (KoboArchivedBook, "Kobo archived book"),
+                (EPUBFix, "EPUB fix"),
+                (MetadataEnforcementOperation, "metadata enforcement operation"),
+                (IngestHistory, "ingest history"),
+            ]
+
+            # Delete all associations
+            for model_class, model_name in models_to_delete:
+                self._delete_associations_by_model(book_id, model_class, model_name)
+
+            # Commit all deletions
+            self._session.commit()
+            logger.info(
+                "Successfully deleted all Fundamental database associations for book_id=%d",
+                book_id,
+            )
+
+        except Exception:
+            # Rollback on any error
+            self._session.rollback()
+            logger.exception(
+                "Failed to delete Fundamental associations for book_id=%d",
+                book_id,
+            )
+            raise
+
+    def _delete_associations_by_model(
+        self, book_id: int, model_class: type, model_name: str
+    ) -> None:
+        """Delete associations for a specific model by book_id.
+
+        Parameters
+        ----------
+        book_id : int
+            Calibre book ID to delete associations for.
+        model_class : type
+            SQLModel class to query and delete.
+        model_name : str
+            Human-readable name for logging purposes.
+
+        Notes
+        -----
+        This method assumes self._session is not None. It should only be called
+        from _delete_fundamental_associations after session validation.
+        """
+        if self._session is None:
+            return
+
+        records = self._session.exec(
+            select(model_class).where(model_class.book_id == book_id)  # type: ignore[attr-defined]
+        ).all()
+        for record in records:
+            self._session.delete(record)
+        if records:
+            logger.debug(
+                "Deleted %d %s records for book_id=%d",
+                len(records),
+                model_name,
+                book_id,
+            )
 
     @staticmethod
     def _get_primary_author_name(
