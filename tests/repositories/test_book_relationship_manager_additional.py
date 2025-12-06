@@ -41,18 +41,6 @@ from tests.conftest import DummySession, MockResult
 
 
 @pytest.fixture
-def session() -> DummySession:
-    """Create a DummySession instance.
-
-    Returns
-    -------
-    DummySession
-        Dummy database session.
-    """
-    return DummySession()  # type: ignore[arg-type]
-
-
-@pytest.fixture
 def manager() -> BookRelationshipManager:
     """Create a BookRelationshipManager instance.
 

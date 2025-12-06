@@ -26,6 +26,8 @@ import pytest
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from tests.conftest import DummySession
+
 from fundamental.models.author_metadata import (
     AuthorAlternateName,
     AuthorLink,
@@ -52,17 +54,10 @@ from fundamental.services.author_exceptions import (
 from fundamental.services.author_service import AuthorService
 from fundamental.services.config_service import LibraryService
 from fundamental.services.library_scanning.data_sources.types import AuthorData
-from tests.conftest import DummySession
 
 # ============================================================================
 # Fixtures
 # ============================================================================
-
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a dummy session."""
-    return DummySession()
 
 
 @pytest.fixture

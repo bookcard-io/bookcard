@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -27,7 +28,9 @@ import fundamental.api.routes.kobo as kobo_routes
 from fundamental.models.auth import User
 from fundamental.models.config import IntegrationConfig, Library
 from fundamental.models.core import Book
-from tests.conftest import DummySession
+
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 
 @pytest.fixture
@@ -57,18 +60,6 @@ def auth_token() -> str:
         Mock auth token.
     """
     return "test_auth_token_123"
-
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a dummy session.
-
-    Returns
-    -------
-    DummySession
-        Dummy session instance.
-    """
-    return DummySession()
 
 
 @pytest.fixture

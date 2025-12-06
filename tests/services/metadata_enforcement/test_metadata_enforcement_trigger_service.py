@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -27,13 +28,9 @@ from fundamental.repositories.models import BookWithFullRelations
 from fundamental.services.metadata_enforcement_trigger_service import (
     MetadataEnforcementTriggerService,
 )
-from tests.conftest import DummySession
 
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a test session."""
-    return DummySession()
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 
 @pytest.fixture

@@ -35,17 +35,10 @@ from fundamental.services.author_merge.value_objects import (
     AuthorScore,
     RelationshipCounts,
 )
-from tests.conftest import DummySession
 
 # ============================================================================
 # Fixtures
 # ============================================================================
-
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a dummy session."""
-    return DummySession()
 
 
 @pytest.fixture

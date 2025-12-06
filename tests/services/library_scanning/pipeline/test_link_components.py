@@ -17,6 +17,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from fundamental.models.author_metadata import AuthorMapping, AuthorMetadata
@@ -31,17 +33,13 @@ from fundamental.services.library_scanning.pipeline.link_components import (
     MappingService,
     ProgressReporter,
 )
-from tests.conftest import DummySession
+
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 # ============================================================================
 # Fixtures
 # ============================================================================
-
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a dummy session."""
-    return DummySession()
 
 
 @pytest.fixture

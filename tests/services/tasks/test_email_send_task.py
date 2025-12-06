@@ -18,7 +18,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -32,13 +32,9 @@ from fundamental.services.tasks.exceptions import (
     EmailServerNotConfiguredError,
     LibraryNotConfiguredError,
 )
-from tests.conftest import DummySession
 
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a dummy session."""
-    return DummySession()
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 
 @pytest.fixture

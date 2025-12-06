@@ -20,6 +20,7 @@ from __future__ import annotations
 import shutil
 from io import BytesIO
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
@@ -27,19 +28,15 @@ from PIL import Image
 
 from fundamental.models.media import Data
 from fundamental.repositories.file_manager import CalibreFileManager
-from tests.conftest import DummySession
+
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 
 @pytest.fixture
 def file_manager() -> CalibreFileManager:
     """Create a CalibreFileManager instance."""
     return CalibreFileManager()
-
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a dummy database session."""
-    return DummySession()
 
 
 @pytest.fixture

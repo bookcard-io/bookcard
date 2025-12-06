@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pytest
@@ -26,7 +27,9 @@ from fundamental.repositories.calibre_book_repository import CalibreBookReposito
 from fundamental.services.author_merge.calibre_author_service import (
     CalibreAuthorService,
 )
-from tests.conftest import DummySession
+
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 # ============================================================================
 # Fixtures
@@ -37,12 +40,6 @@ from tests.conftest import DummySession
 def mock_calibre_repo() -> MagicMock:
     """Create a mock Calibre repository."""
     return MagicMock(spec=CalibreBookRepository)
-
-
-@pytest.fixture
-def calibre_session() -> DummySession:
-    """Create a dummy Calibre session."""
-    return DummySession()
 
 
 @pytest.fixture
@@ -90,16 +87,14 @@ class TestGetBookCount:
         self,
         calibre_author_service: CalibreAuthorService,
         mock_calibre_repo: MagicMock,
-        calibre_session: DummySession,
+        session: DummySession,
     ) -> None:
         """Test get_book_count with zero books."""
         calibre_author_id = 1
 
-        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
-            calibre_session
-        )
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = session
         mock_calibre_repo.get_session.return_value.__exit__.return_value = None
-        calibre_session.set_exec_result([])
+        session.set_exec_result([])
 
         result = calibre_author_service.get_book_count(calibre_author_id)
 
@@ -109,7 +104,7 @@ class TestGetBookCount:
         self,
         calibre_author_service: CalibreAuthorService,
         mock_calibre_repo: MagicMock,
-        calibre_session: DummySession,
+        session: DummySession,
         book_author_link: BookAuthorLink,
     ) -> None:
         """Test get_book_count with multiple books."""
@@ -119,11 +114,9 @@ class TestGetBookCount:
         link2 = BookAuthorLink(book=2, author=calibre_author_id)
         link3 = BookAuthorLink(book=3, author=calibre_author_id)
 
-        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
-            calibre_session
-        )
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = session
         mock_calibre_repo.get_session.return_value.__exit__.return_value = None
-        calibre_session.set_exec_result([link1, link2, link3])
+        session.set_exec_result([link1, link2, link3])
 
         result = calibre_author_service.get_book_count(calibre_author_id)
 
@@ -133,17 +126,15 @@ class TestGetBookCount:
         self,
         calibre_author_service: CalibreAuthorService,
         mock_calibre_repo: MagicMock,
-        calibre_session: DummySession,
+        session: DummySession,
         book_author_link: BookAuthorLink,
     ) -> None:
         """Test get_book_count with one book."""
         calibre_author_id = 1
 
-        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
-            calibre_session
-        )
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = session
         mock_calibre_repo.get_session.return_value.__exit__.return_value = None
-        calibre_session.set_exec_result([book_author_link])
+        session.set_exec_result([book_author_link])
 
         result = calibre_author_service.get_book_count(calibre_author_id)
 
@@ -162,7 +153,7 @@ class TestReassignBooks:
         self,
         calibre_author_service: CalibreAuthorService,
         mock_calibre_repo: MagicMock,
-        calibre_session: DummySession,
+        session: DummySession,
     ) -> None:
         """Test reassign_books when keep author has no existing link."""
         from_author_id = 1
@@ -170,24 +161,22 @@ class TestReassignBooks:
 
         link = BookAuthorLink(book=1, author=from_author_id)
 
-        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
-            calibre_session
-        )
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = session
         mock_calibre_repo.get_session.return_value.__exit__.return_value = None
-        calibre_session.set_exec_result([link])  # merge links
-        calibre_session.add_exec_result([])  # existing link check
+        session.set_exec_result([link])  # merge links
+        session.add_exec_result([])  # existing link check
 
         calibre_author_service.reassign_books(from_author_id, to_author_id)
 
         assert link.author == to_author_id
-        assert link in calibre_session.added
-        assert calibre_session.commit_count == 1
+        assert link in session.added
+        assert session.commit_count == 1
 
     def test_reassign_books_existing_link(
         self,
         calibre_author_service: CalibreAuthorService,
         mock_calibre_repo: MagicMock,
-        calibre_session: DummySession,
+        session: DummySession,
     ) -> None:
         """Test reassign_books when keep author already has link."""
         from_author_id = 1
@@ -196,24 +185,22 @@ class TestReassignBooks:
         merge_link = BookAuthorLink(book=1, author=from_author_id)
         existing_link = BookAuthorLink(book=1, author=to_author_id)
 
-        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
-            calibre_session
-        )
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = session
         mock_calibre_repo.get_session.return_value.__exit__.return_value = None
-        calibre_session.set_exec_result([merge_link])  # merge links
-        calibre_session.add_exec_result([existing_link])  # existing link check
+        session.set_exec_result([merge_link])  # merge links
+        session.add_exec_result([existing_link])  # existing link check
 
         calibre_author_service.reassign_books(from_author_id, to_author_id)
 
-        assert merge_link in calibre_session.deleted
+        assert merge_link in session.deleted
         assert merge_link.author == from_author_id  # Not changed
-        assert calibre_session.commit_count == 1
+        assert session.commit_count == 1
 
     def test_reassign_books_multiple_links(
         self,
         calibre_author_service: CalibreAuthorService,
         mock_calibre_repo: MagicMock,
-        calibre_session: DummySession,
+        session: DummySession,
     ) -> None:
         """Test reassign_books with multiple book links."""
         from_author_id = 1
@@ -223,27 +210,25 @@ class TestReassignBooks:
         link2 = BookAuthorLink(book=2, author=from_author_id)
         link3 = BookAuthorLink(book=3, author=from_author_id)
 
-        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
-            calibre_session
-        )
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = session
         mock_calibre_repo.get_session.return_value.__exit__.return_value = None
-        calibre_session.set_exec_result([link1, link2, link3])  # merge links
-        calibre_session.add_exec_result([])  # existing link check for link1
-        calibre_session.add_exec_result([])  # existing link check for link2
-        calibre_session.add_exec_result([])  # existing link check for link3
+        session.set_exec_result([link1, link2, link3])  # merge links
+        session.add_exec_result([])  # existing link check for link1
+        session.add_exec_result([])  # existing link check for link2
+        session.add_exec_result([])  # existing link check for link3
 
         calibre_author_service.reassign_books(from_author_id, to_author_id)
 
         assert link1.author == to_author_id
         assert link2.author == to_author_id
         assert link3.author == to_author_id
-        assert calibre_session.commit_count == 1
+        assert session.commit_count == 1
 
     def test_reassign_books_mixed_existing(
         self,
         calibre_author_service: CalibreAuthorService,
         mock_calibre_repo: MagicMock,
-        calibre_session: DummySession,
+        session: DummySession,
     ) -> None:
         """Test reassign_books with some existing links."""
         from_author_id = 1
@@ -253,43 +238,37 @@ class TestReassignBooks:
         link2 = BookAuthorLink(book=2, author=from_author_id)
         existing_link = BookAuthorLink(book=2, author=to_author_id)
 
-        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
-            calibre_session
-        )
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = session
         mock_calibre_repo.get_session.return_value.__exit__.return_value = None
-        calibre_session.set_exec_result([link1, link2])  # merge links
-        calibre_session.add_exec_result([])  # existing link check for link1
-        calibre_session.add_exec_result([
-            existing_link
-        ])  # existing link check for link2
+        session.set_exec_result([link1, link2])  # merge links
+        session.add_exec_result([])  # existing link check for link1
+        session.add_exec_result([existing_link])  # existing link check for link2
 
         calibre_author_service.reassign_books(from_author_id, to_author_id)
 
         assert link1.author == to_author_id
-        assert link2 in calibre_session.deleted
-        assert calibre_session.commit_count == 1
+        assert link2 in session.deleted
+        assert session.commit_count == 1
 
     def test_reassign_books_no_links(
         self,
         calibre_author_service: CalibreAuthorService,
         mock_calibre_repo: MagicMock,
-        calibre_session: DummySession,
+        session: DummySession,
     ) -> None:
         """Test reassign_books with no links to reassign."""
         from_author_id = 1
         to_author_id = 2
 
-        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
-            calibre_session
-        )
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = session
         mock_calibre_repo.get_session.return_value.__exit__.return_value = None
-        calibre_session.set_exec_result([])  # merge links
+        session.set_exec_result([])  # merge links
 
         calibre_author_service.reassign_books(from_author_id, to_author_id)
 
-        assert len(calibre_session.added) == 0
-        assert len(calibre_session.deleted) == 0
-        assert calibre_session.commit_count == 1
+        assert len(session.added) == 0
+        assert len(session.deleted) == 0
+        assert session.commit_count == 1
 
 
 # ============================================================================
@@ -304,40 +283,36 @@ class TestDeleteAuthor:
         self,
         calibre_author_service: CalibreAuthorService,
         mock_calibre_repo: MagicMock,
-        calibre_session: DummySession,
+        session: DummySession,
         calibre_author: Author,
     ) -> None:
         """Test delete_author when author exists."""
         calibre_author_id = 1
 
-        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
-            calibre_session
-        )
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = session
         mock_calibre_repo.get_session.return_value.__exit__.return_value = None
-        calibre_session.set_exec_result([calibre_author])
+        session.set_exec_result([calibre_author])
 
         calibre_author_service.delete_author(calibre_author_id)
 
-        assert calibre_author in calibre_session.deleted
-        assert calibre_session.commit_count == 1
+        assert calibre_author in session.deleted
+        assert session.commit_count == 1
 
     def test_delete_author_not_exists(
         self,
         calibre_author_service: CalibreAuthorService,
         mock_calibre_repo: MagicMock,
-        calibre_session: DummySession,
+        session: DummySession,
     ) -> None:
         """Test delete_author when author does not exist."""
         calibre_author_id = 999
 
-        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
-            calibre_session
-        )
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = session
         mock_calibre_repo.get_session.return_value.__exit__.return_value = None
-        calibre_session.set_exec_result([])
+        session.set_exec_result([])
 
         calibre_author_service.delete_author(calibre_author_id)
 
-        assert len(calibre_session.deleted) == 0
+        assert len(session.deleted) == 0
         # When author doesn't exist, commit is not called
-        assert calibre_session.commit_count == 0
+        assert session.commit_count == 0

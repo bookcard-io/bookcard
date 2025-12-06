@@ -35,18 +35,6 @@ from tests.conftest import DummySession
 
 
 @pytest.fixture
-def session() -> DummySession:
-    """Create a dummy session for testing.
-
-    Returns
-    -------
-    DummySession
-        Dummy session instance.
-    """
-    return DummySession()
-
-
-@pytest.fixture
 def library() -> Library:
     """Create a library instance for testing.
 

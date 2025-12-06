@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pytest
@@ -24,23 +25,13 @@ import pytest
 from fundamental.models.auth import User
 from fundamental.models.kobo import KoboAuthToken
 from fundamental.services.kobo.auth_service import KoboAuthService
-from tests.conftest import DummySession
+
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 # ============================================================================
 # Fixtures
 # ============================================================================
-
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a dummy session for testing.
-
-    Returns
-    -------
-    DummySession
-        Dummy session instance.
-    """
-    return DummySession()
 
 
 @pytest.fixture

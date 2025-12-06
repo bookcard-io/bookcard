@@ -39,12 +39,6 @@ from tests.conftest import DummySession
 
 
 @pytest.fixture
-def session() -> DummySession:
-    """Create a dummy session."""
-    return DummySession()
-
-
-@pytest.fixture
 def relationship_repo(session: DummySession) -> AuthorRelationshipRepository:
     """Create AuthorRelationshipRepository instance."""
     return AuthorRelationshipRepository(session=session)  # type: ignore[arg-type]

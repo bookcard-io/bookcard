@@ -26,6 +26,8 @@ import pytest
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from tests.conftest import DummySession
+
 from fundamental.models.config import EPUBFixerConfig
 from fundamental.models.epub_fixer import EPUBFix, EPUBFixRun, EPUBFixType
 from fundamental.repositories.epub_fixer_repository import (
@@ -33,13 +35,6 @@ from fundamental.repositories.epub_fixer_repository import (
     EPUBFixRunRepository,
 )
 from fundamental.services.epub_fixer_service import EPUBFixerService
-from tests.conftest import DummySession
-
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a dummy database session."""
-    return DummySession()
 
 
 @pytest.fixture

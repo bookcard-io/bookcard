@@ -26,6 +26,8 @@ import pytest
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from tests.conftest import DummySession
+
 from fundamental.models.config import Library
 from fundamental.models.ingest import IngestHistory, IngestStatus
 from fundamental.models.metadata import MetadataRecord
@@ -45,13 +47,6 @@ from fundamental.services.ingest.ingest_config_service import IngestConfigServic
 from fundamental.services.ingest.ingest_processor_service import IngestProcessorService
 from fundamental.services.ingest.metadata_extraction import ExtractedMetadata
 from fundamental.services.ingest.metadata_fetch_service import MetadataFetchService
-from tests.conftest import DummySession
-
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a dummy database session."""
-    return DummySession()
 
 
 @pytest.fixture

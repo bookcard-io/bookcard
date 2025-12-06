@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -33,13 +34,9 @@ from fundamental.services.metadata_enforcement.ebook_enforcer import (
 from fundamental.services.metadata_enforcement_service import (
     MetadataEnforcementService,
 )
-from tests.conftest import DummySession
 
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a test session."""
-    return DummySession()
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 
 @pytest.fixture

@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -27,7 +28,9 @@ from fundamental.api.schemas.ingest import IngestConfigUpdate
 from fundamental.models.auth import User
 from fundamental.models.ingest import IngestHistory, IngestStatus
 from fundamental.models.tasks import TaskType
-from tests.conftest import DummySession
+
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 
 @pytest.fixture
@@ -77,18 +80,6 @@ def mock_request_no_watcher() -> MagicMock:
     request.app.state = MagicMock()
     delattr(request.app.state, "ingest_watcher")
     return request
-
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a dummy session.
-
-    Returns
-    -------
-    DummySession
-        Dummy session instance.
-    """
-    return DummySession()
 
 
 # ==================== _get_task_runner Tests ====================

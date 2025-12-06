@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pytest
@@ -26,17 +27,13 @@ from fundamental.models.core import Book
 from fundamental.repositories.models import BookWithFullRelations, BookWithRelations
 from fundamental.services.book_permission_helper import BookPermissionHelper
 from fundamental.services.permission_service import PermissionService
-from tests.conftest import DummySession
+
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 # ============================================================================
 # Fixtures
 # ============================================================================
-
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a dummy session."""
-    return DummySession()
 
 
 @pytest.fixture

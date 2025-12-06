@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -34,23 +35,13 @@ from fundamental.services.kobo.shelf_service import KoboShelfService
 from fundamental.services.kobo.store_proxy_service import KoboStoreProxyService
 from fundamental.services.kobo.sync_service import KoboSyncService
 from fundamental.services.kobo.sync_token_service import SyncToken
-from tests.conftest import DummySession
+
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 # ============================================================================
 # Fixtures
 # ============================================================================
-
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a dummy session for testing.
-
-    Returns
-    -------
-    DummySession
-        Dummy session instance.
-    """
-    return DummySession()
 
 
 @pytest.fixture

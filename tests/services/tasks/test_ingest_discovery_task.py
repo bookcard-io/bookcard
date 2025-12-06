@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -27,13 +28,9 @@ from fundamental.models.tasks import TaskType
 from fundamental.services.ingest.file_discovery_service import FileGroup
 from fundamental.services.tasks.context import WorkerContext
 from fundamental.services.tasks.ingest_discovery_task import IngestDiscoveryTask
-from tests.conftest import DummySession
 
-
-@pytest.fixture
-def mock_session() -> DummySession:
-    """Create a dummy database session."""
-    return DummySession()
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 
 @pytest.fixture
@@ -56,14 +53,14 @@ def mock_enqueue_task() -> MagicMock:
 
 @pytest.fixture
 def worker_context_dict(
-    mock_session: DummySession,
+    session: DummySession,
     mock_update_progress: MagicMock,
     mock_task_service: MagicMock,
     mock_enqueue_task: MagicMock,
 ) -> dict[str, MagicMock | DummySession]:
     """Create a worker context as dict."""
     return {
-        "session": mock_session,
+        "session": session,
         "update_progress": mock_update_progress,
         "task_service": mock_task_service,
         "enqueue_task": mock_enqueue_task,
@@ -72,14 +69,14 @@ def worker_context_dict(
 
 @pytest.fixture
 def worker_context(
-    mock_session: DummySession,
+    session: DummySession,
     mock_update_progress: MagicMock,
     mock_task_service: MagicMock,
     mock_enqueue_task: MagicMock,
 ) -> WorkerContext:
     """Create a WorkerContext object."""
     return WorkerContext(
-        session=mock_session,  # type: ignore[valid-type]
+        session=session,  # type: ignore[valid-type]
         update_progress=mock_update_progress,
         task_service=mock_task_service,
         enqueue_task=mock_enqueue_task,
@@ -349,7 +346,7 @@ def test_run_successful_discovery(
 
 def test_run_without_enqueue_task(
     task: IngestDiscoveryTask,
-    mock_session: DummySession,
+    session: DummySession,
     mock_update_progress: MagicMock,
     mock_task_service: MagicMock,
     mock_ingest_config: MagicMock,
@@ -362,7 +359,7 @@ def test_run_without_enqueue_task(
 
     # Create context without enqueue_task
     context = WorkerContext(
-        session=mock_session,  # type: ignore[valid-type]
+        session=session,  # type: ignore[valid-type]
         update_progress=mock_update_progress,
         task_service=mock_task_service,
         enqueue_task=None,

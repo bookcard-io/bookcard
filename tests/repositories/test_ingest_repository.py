@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import os
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
@@ -36,13 +37,9 @@ from fundamental.repositories.ingest_repository import (
     IngestHistoryRepository,
     IngestRetryRepository,
 )
-from tests.conftest import DummySession
 
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a dummy database session."""
-    return DummySession()
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 
 @pytest.fixture

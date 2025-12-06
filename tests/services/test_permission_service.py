@@ -18,19 +18,16 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import pytest
 from fastapi import HTTPException, status
 
 from fundamental.models.auth import Permission, RolePermission, User, UserRole
 from fundamental.services.permission_service import PermissionService
-from tests.conftest import DummySession
 
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a dummy session."""
-    return DummySession()
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 
 @pytest.fixture

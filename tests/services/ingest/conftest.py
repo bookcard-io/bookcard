@@ -28,13 +28,6 @@ if TYPE_CHECKING:
 from fundamental.models.ingest import IngestConfig, IngestHistory, IngestStatus
 from fundamental.models.metadata import MetadataRecord
 from fundamental.services.ingest.file_discovery_service import FileGroup
-from tests.conftest import DummySession
-
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a dummy database session."""
-    return DummySession()
 
 
 @pytest.fixture

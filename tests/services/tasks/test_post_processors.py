@@ -25,6 +25,8 @@ import pytest
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from tests.conftest import DummySession
+
 from fundamental.models.auth import UserSetting
 from fundamental.models.config import EPUBFixerConfig, Library, ScheduledTasksConfig
 from fundamental.models.conversion import ConversionMethod
@@ -38,23 +40,10 @@ from fundamental.services.tasks.post_processors import (
     LibraryPathResolver,
     PostIngestProcessor,
 )
-from tests.conftest import DummySession
 
 # ============================================================================
 # Fixtures
 # ============================================================================
-
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a dummy session for testing.
-
-    Returns
-    -------
-    DummySession
-        Dummy session instance.
-    """
-    return DummySession()
 
 
 @pytest.fixture

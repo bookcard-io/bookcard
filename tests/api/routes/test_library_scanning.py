@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -26,13 +27,9 @@ from fastapi import HTTPException, Request, status
 import fundamental.api.routes.library_scanning as library_scanning
 from fundamental.models.auth import User
 from fundamental.models.library_scanning import LibraryScanState
-from tests.conftest import DummySession
 
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a DummySession instance."""
-    return DummySession()
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 
 @pytest.fixture

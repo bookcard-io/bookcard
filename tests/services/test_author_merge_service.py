@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -45,17 +46,13 @@ from fundamental.services.author_merge.merge_strategies import MergeStrategyFact
 from fundamental.services.author_merge.value_objects import RelationshipCounts
 from fundamental.services.author_merge_service import AuthorMergeService
 from fundamental.services.config_service import LibraryService
-from tests.conftest import DummySession
+
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 # ============================================================================
 # Fixtures
 # ============================================================================
-
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a dummy session."""
-    return DummySession()
 
 
 @pytest.fixture

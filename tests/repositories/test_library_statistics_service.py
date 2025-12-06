@@ -17,24 +17,22 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from fundamental.repositories.library_statistics_service import (
     LibraryStatisticsService,
 )
-from tests.conftest import DummySession
+
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 
 @pytest.fixture
 def service() -> LibraryStatisticsService:
     """Create LibraryStatisticsService instance."""
     return LibraryStatisticsService()
-
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a dummy database session."""
-    return DummySession()
 
 
 class TestLibraryStatisticsServiceGetStatistics:

@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -24,13 +25,9 @@ from fastapi import HTTPException
 
 import fundamental.api.routes.devices as devices
 from fundamental.models.auth import EBookFormat, EReaderDevice, User
-from tests.conftest import DummySession
 
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a DummySession instance."""
-    return DummySession()
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 
 @pytest.fixture

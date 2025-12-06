@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 from pathlib import Path  # noqa: TC003
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pytest
@@ -56,13 +57,9 @@ from fundamental.repositories.delete_commands import (
     DeleteUserRolesCommand,
     DeleteUserSettingsCommand,
 )
-from tests.conftest import DummySession
 
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a DummySession instance."""
-    return DummySession()
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 
 @pytest.fixture

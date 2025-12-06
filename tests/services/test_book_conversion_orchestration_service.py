@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -34,13 +35,9 @@ from fundamental.services.book_conversion_orchestration_service import (
 )
 from fundamental.services.book_service import BookService
 from fundamental.services.tasks.base import TaskRunner
-from tests.conftest import DummySession
 
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a dummy database session."""
-    return DummySession()
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 
 @pytest.fixture

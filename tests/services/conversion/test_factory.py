@@ -51,20 +51,6 @@ def library() -> Library:
     )
 
 
-@pytest.fixture
-def session() -> DummySession:  # type: ignore[valid-type]
-    """Create a dummy session.
-
-    Returns
-    -------
-    DummySession
-        Session instance.
-    """
-    from tests.conftest import DummySession
-
-    return DummySession()
-
-
 @pytest.mark.parametrize(
     ("converter_path", "should_raise"),
     [

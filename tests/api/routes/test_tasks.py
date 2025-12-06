@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -27,13 +28,9 @@ import fundamental.api.routes.tasks as tasks
 from fundamental.models.auth import User
 from fundamental.models.tasks import Task, TaskStatistics, TaskStatus, TaskType
 from fundamental.services.messaging.redis_broker import RedisBroker
-from tests.conftest import DummySession
 
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a DummySession instance."""
-    return DummySession()
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 
 @pytest.fixture

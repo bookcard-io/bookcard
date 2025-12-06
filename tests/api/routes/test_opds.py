@@ -31,22 +31,11 @@ from fundamental.models.auth import User
 from fundamental.models.config import Library
 from fundamental.models.core import Book
 from fundamental.repositories.models import BookWithRelations
-from tests.conftest import DummySession
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a DummySession instance.
-
-    Returns
-    -------
-    DummySession
-        Mock database session.
-    """
-    return DummySession()
+    from tests.conftest import DummySession
 
 
 @pytest.fixture

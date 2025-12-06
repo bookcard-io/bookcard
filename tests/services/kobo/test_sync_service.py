@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pytest
@@ -33,23 +34,13 @@ from fundamental.repositories.models import BookWithFullRelations, BookWithRelat
 from fundamental.services.kobo.metadata_service import KoboMetadataService
 from fundamental.services.kobo.sync_service import KoboSyncService
 from fundamental.services.kobo.sync_token_service import SyncToken
-from tests.conftest import DummySession
+
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 # ============================================================================
 # Fixtures
 # ============================================================================
-
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a dummy session for testing.
-
-    Returns
-    -------
-    DummySession
-        Dummy session instance.
-    """
-    return DummySession()
 
 
 @pytest.fixture

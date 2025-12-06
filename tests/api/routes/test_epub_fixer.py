@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -29,7 +30,9 @@ from fundamental.api.schemas.epub_fixer import (
 )
 from fundamental.models.auth import User
 from fundamental.models.epub_fixer import EPUBFix, EPUBFixRun, EPUBFixType
-from tests.conftest import DummySession
+
+if TYPE_CHECKING:
+    from tests.conftest import DummySession
 
 
 @pytest.fixture
@@ -94,18 +97,6 @@ def mock_request_no_task_runner() -> MagicMock:
     request.app.state = MagicMock()
     delattr(request.app.state, "task_runner")
     return request
-
-
-@pytest.fixture
-def session() -> DummySession:
-    """Create a dummy session.
-
-    Returns
-    -------
-    DummySession
-        Dummy session instance.
-    """
-    return DummySession()
 
 
 # ==================== _get_task_runner Tests ====================
