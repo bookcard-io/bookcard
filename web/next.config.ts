@@ -33,10 +33,13 @@ const baseConfig: NextConfig = {
   },
   experimental: {
     turbopackFileSystemCacheForDev: true,
+    // Support large file uploads for comic books (>200MB)
+    serverActions: {
+      bodySizeLimit: "250mb",
+    },
+    // New name for middleware body size limit in recent Next.js versions
+    proxyClientMaxBodySize: "250mb",
   },
-  // Support large file uploads for comic books (>200MB)
-  // This configures the middleware body size limit
-  middlewareClientMaxBodySize: "250mb",
 };
 
 // Initialize the Next-Intl plugin
