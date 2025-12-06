@@ -2589,3 +2589,1052 @@ def test_delete_user_other_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
 
         with pytest.raises(ValueError, match="other_error"):
             admin.delete_user(request, session, admin_user, user_id=999)  # type: ignore[arg-type]
+
+
+def test_create_user_generic_value_error() -> None:
+    """Test create_user raises 400 for generic ValueError (covers line 264)."""
+    session = DummySession()
+    payload = admin.AdminUserCreate(
+        username="testuser",
+        email="test@example.com",
+        password="password123",
+    )
+
+    with (
+        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("fundamental.api.routes.admin.PasswordHasher") as mock_hasher_class,
+        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+    ):
+        mock_repo = MagicMock()
+        mock_repo_class.return_value = mock_repo
+
+        mock_hasher = MagicMock()
+        mock_hasher_class.return_value = mock_hasher
+
+        mock_service = MagicMock()
+        mock_service.create_admin_user.side_effect = ValueError("generic_error")
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.create_user(session, payload)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == "generic_error"
+
+
+def test_auth_service_function(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test _auth_service function creates AuthService (covers lines 104-109)."""
+    from unittest.mock import MagicMock
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            class DummyConfig:
+                encryption_key = "test_key"
+                data_directory = "/tmp"
+
+            self.app = type(
+                "App", (), {"state": type("State", (), {"config": DummyConfig()})()}
+            )()
+
+    session = DummySession()
+    request = DummyRequest()
+
+    with (
+        patch("fundamental.api.routes.admin.JWTManager") as mock_jwt_class,
+        patch("fundamental.api.routes.admin.PasswordHasher") as mock_hasher_class,
+        patch("fundamental.api.routes.admin.DataEncryptor") as mock_encryptor_class,
+        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("fundamental.api.routes.admin.AuthService") as mock_auth_service_class,
+    ):
+        mock_jwt = MagicMock()
+        mock_jwt_class.return_value = mock_jwt
+
+        mock_hasher = MagicMock()
+        mock_hasher_class.return_value = mock_hasher
+
+        mock_encryptor = MagicMock()
+        mock_encryptor_class.return_value = mock_encryptor
+
+        mock_repo = MagicMock()
+        mock_repo_class.return_value = mock_repo
+
+        mock_auth_service = MagicMock()
+        mock_auth_service_class.return_value = mock_auth_service
+
+        result = admin._auth_service(request, session)  # type: ignore[arg-type]
+
+        assert result is not None
+        mock_jwt_class.assert_called_once()
+        mock_hasher_class.assert_called_once()
+        mock_encryptor_class.assert_called_once()
+        mock_repo_class.assert_called_once_with(session)
+        mock_auth_service_class.assert_called_once()
+
+
+def test_ensure_role_exists_role_not_found() -> None:
+    """Test _ensure_role_exists raises 404 when role not found (covers lines 715-717)."""
+    with patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class:
+        mock_repo = MagicMock()
+        mock_repo.get.return_value = None
+        mock_repo_class.return_value = mock_repo
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin._ensure_role_exists(mock_repo, 999)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == "role_not_found"
+
+
+def test_get_role_with_permissions_success() -> None:
+    """Test _get_role_with_permissions returns role (covers line 753)."""
+    session = DummySession()
+    role = Role(id=1, name="test", description="test")
+    role.permissions = []  # type: ignore[attr-defined]
+
+    mock_result = MagicMock()
+    mock_result.first.return_value = role
+
+    with patch.object(session, "exec", return_value=mock_result):
+        result = admin._get_role_with_permissions(session, 1)
+        assert result.id == 1
+        assert result.name == "test"
+
+
+def test_create_role_id_is_none() -> None:
+    """Test create_role raises 500 when role.id is None (covers lines 802-803)."""
+    session = DummySession()
+    payload = admin.RoleCreate(name="testrole", description="Test role")
+
+    role = Role(id=None, name="testrole", description="Test role")  # type: ignore[call-arg]
+    role.permissions = []  # type: ignore[attr-defined]
+
+    with patch("fundamental.api.routes.admin.RoleService") as mock_service_class:
+        mock_service = MagicMock()
+        mock_service.create_role_from_schema.return_value = role
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.create_role(session, payload)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 500
+        assert exc_info.value.detail == "role_id_is_none"
+
+
+def test_create_role_reload_fails() -> None:
+    """Test create_role handles reload failure (covers line 810)."""
+    session = DummySession()
+    payload = admin.RoleCreate(name="testrole", description="Test role")
+
+    role = Role(id=1, name="testrole", description="Test role")
+    role.permissions = []  # type: ignore[attr-defined]
+
+    mock_result = MagicMock()
+    mock_result.first.return_value = None  # Simulate reload failure
+
+    with (
+        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch.object(session, "exec", return_value=mock_result),
+    ):
+        mock_service = MagicMock()
+        mock_service.create_role_from_schema.return_value = role
+        mock_service_class.return_value = mock_service
+
+        result = admin.create_role(session, payload)
+        assert result.id == 1
+        assert result.name == "testrole"
+
+
+def test_create_role_generic_value_error() -> None:
+    """Test create_role re-raises unexpected ValueError (covers line 829)."""
+    session = DummySession()
+    payload = admin.RoleCreate(name="testrole", description="Test role")
+
+    with patch("fundamental.api.routes.admin.RoleService") as mock_service_class:
+        mock_service = MagicMock()
+        mock_service.create_role_from_schema.side_effect = ValueError(
+            "unexpected_error"
+        )
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(ValueError, match="unexpected_error"):
+            admin.create_role(session, payload)
+
+
+def test_update_role_ensure_role_not_found() -> None:
+    """Test update_role calls _ensure_role_exists (covers line 919)."""
+    session = DummySession()
+    payload = admin.RoleUpdate(name="updated")
+
+    with (
+        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+    ):
+        mock_repo = MagicMock()
+        mock_repo.get.return_value = None  # Role not found
+        mock_repo_class.return_value = mock_repo
+
+        mock_service = MagicMock()
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.update_role(session, role_id=999, payload=payload)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("error_msg", "expected_status"),
+    [
+        ("name_cannot_be_blank", 400),
+        ("permission_name_cannot_be_blank", 400),
+        ("resource_cannot_be_blank", 400),
+        ("action_cannot_be_blank", 400),
+        ("cannot_modify_locked_role_name", 400),
+        ("cannot_remove_permissions_from_locked_role", 400),
+        ("permission_not_found", 400),
+        ("permission_already_exists", 400),
+        ("permission_with_resource_action_already_exists", 400),
+        ("permission_name_exists_with_different_resource_action", 400),
+        ("permission_resource_action_exists_with_different_name", 400),
+        ("resource_and_action_required_for_new_permission", 400),
+        ("permission_id_or_permission_name_required", 400),
+        ("permission_id_is_none", 400),
+        ("role_permission_not_found", 400),
+        ("role_permission_belongs_to_different_role", 400),
+    ],
+)
+def test_update_role_value_error_handlers(error_msg: str, expected_status: int) -> None:
+    """Test update_role handles various ValueError messages (covers lines 933-951)."""
+    session = DummySession()
+    payload = admin.RoleUpdate(name="updated")
+
+    role = Role(id=1, name="test", description="test")
+    role.permissions = []  # type: ignore[attr-defined]
+
+    mock_result = MagicMock()
+    mock_result.first.return_value = role
+
+    with (
+        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch.object(session, "exec", return_value=mock_result),
+    ):
+        mock_repo = MagicMock()
+        mock_repo.get.return_value = role
+        mock_repo_class.return_value = mock_repo
+
+        mock_service = MagicMock()
+        mock_service.update_role_from_schema.side_effect = ValueError(error_msg)
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.update_role(session, role_id=1, payload=payload)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == expected_status
+        assert exc_info.value.detail == error_msg
+
+
+def test_update_role_unexpected_value_error() -> None:
+    """Test update_role re-raises unexpected ValueError (covers line 953)."""
+    session = DummySession()
+    payload = admin.RoleUpdate(name="updated")
+
+    role = Role(id=1, name="test", description="test")
+    role.permissions = []  # type: ignore[attr-defined]
+
+    mock_result = MagicMock()
+    mock_result.first.return_value = role
+
+    with (
+        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch.object(session, "exec", return_value=mock_result),
+    ):
+        mock_repo = MagicMock()
+        mock_repo.get.return_value = role
+        mock_repo_class.return_value = mock_repo
+
+        mock_service = MagicMock()
+        mock_service.update_role_from_schema.side_effect = ValueError("unexpected")
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(ValueError, match="unexpected"):
+            admin.update_role(session, role_id=1, payload=payload)
+
+
+def test_delete_role_assigned_to_users() -> None:
+    """Test delete_role raises 409 when role assigned to users (covers lines 999-1003)."""
+    session = DummySession()
+
+    with (
+        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+    ):
+        mock_repo = MagicMock()
+        mock_repo.get.return_value = Role(id=2, name="test", description="test")
+        mock_repo_class.return_value = mock_repo
+
+        mock_service = MagicMock()
+        mock_service.delete_role.side_effect = ValueError("role_assigned_to_users_5")
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.delete_role(session, role_id=2)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 409
+        assert exc_info.value.detail == "role_assigned_to_users"
+
+
+def test_delete_role_generic_value_error() -> None:
+    """Test delete_role raises 400 for generic ValueError (covers line 1004)."""
+    session = DummySession()
+
+    with (
+        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+    ):
+        mock_repo = MagicMock()
+        mock_repo.get.return_value = Role(id=2, name="test", description="test")
+        mock_repo_class.return_value = mock_repo
+
+        mock_service = MagicMock()
+        mock_service.delete_role.side_effect = ValueError("generic_error")
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.delete_role(session, role_id=2)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == "generic_error"
+
+
+def test_grant_permission_to_role_reload_fails() -> None:
+    """Test grant_permission_to_role handles reload failure (covers line 1074)."""
+    session = DummySession()
+    payload = admin.RolePermissionGrant(permission_id=1, condition=None)
+
+    role = Role(id=1, name="test", description="test")
+    role.permissions = []  # type: ignore[attr-defined]
+
+    mock_result = MagicMock()
+    mock_result.first.return_value = None  # Simulate reload failure
+
+    with (
+        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch.object(session, "exec", return_value=mock_result),
+    ):
+        mock_service = MagicMock()
+        mock_service.grant_permission_to_role.return_value = None
+        mock_service_class.return_value = mock_service
+
+        mock_repo = MagicMock()
+        mock_repo.get.return_value = role
+        mock_repo_class.return_value = mock_repo
+
+        result = admin.grant_permission_to_role(session, role_id=1, payload=payload)
+        assert result.id == 1
+
+
+def test_revoke_permission_from_role_reload_fails() -> None:
+    """Test revoke_permission_from_role handles reload failure (covers line 1139)."""
+    session = DummySession()
+    role = Role(id=1, name="test", description="test")
+    role.permissions = []  # type: ignore[attr-defined]
+
+    mock_result = MagicMock()
+    mock_result.first.return_value = None  # Simulate reload failure
+
+    with (
+        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch.object(session, "exec", return_value=mock_result),
+    ):
+        mock_service = MagicMock()
+        mock_service.revoke_permission_from_role.return_value = None
+        mock_service_class.return_value = mock_service
+
+        mock_repo = MagicMock()
+        mock_repo.get.return_value = role
+        mock_repo_class.return_value = mock_repo
+
+        result = admin.revoke_permission_from_role(session, role_id=1, permission_id=1)
+        assert result.id == 1
+
+
+def test_update_permission_id_is_none() -> None:
+    """Test update_permission raises 500 when permission.id is None (covers lines 1188-1190)."""
+    from fundamental.models.auth import Permission
+
+    session = DummySession()
+    payload = admin.PermissionUpdate(name="updated")
+
+    permission = Permission(
+        id=None,
+        name="updated",
+        resource="books",
+        action="read",  # type: ignore[call-arg]
+    )
+
+    with (
+        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("fundamental.api.routes.admin.RoleRepository"),
+        patch("fundamental.api.routes.admin.PermissionRepository"),
+        patch("fundamental.api.routes.admin.UserRoleRepository"),
+        patch("fundamental.api.routes.admin.RolePermissionRepository"),
+    ):
+        mock_service = MagicMock()
+        mock_service.update_permission_from_schema.return_value = permission
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.update_permission(session, permission_id=1, payload=payload)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 500
+        assert exc_info.value.detail == "permission_id_is_none"
+
+
+def test_update_permission_already_exists() -> None:
+    """Test update_permission raises 409 when permission already exists (covers lines 1205-1208)."""
+    session = DummySession()
+    payload = admin.PermissionUpdate(name="existing")
+
+    with (
+        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("fundamental.api.routes.admin.RoleRepository"),
+        patch("fundamental.api.routes.admin.PermissionRepository"),
+        patch("fundamental.api.routes.admin.UserRoleRepository"),
+        patch("fundamental.api.routes.admin.RolePermissionRepository"),
+    ):
+        mock_service = MagicMock()
+        mock_service.update_permission_from_schema.side_effect = ValueError(
+            "permission_already_exists"
+        )
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.update_permission(session, permission_id=1, payload=payload)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 409
+        assert exc_info.value.detail == "permission_already_exists"
+
+
+def test_update_permission_generic_value_error() -> None:
+    """Test update_permission raises 400 for generic ValueError (covers line 1209)."""
+    session = DummySession()
+    payload = admin.PermissionUpdate(name="updated")
+
+    with (
+        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("fundamental.api.routes.admin.RoleRepository"),
+        patch("fundamental.api.routes.admin.PermissionRepository"),
+        patch("fundamental.api.routes.admin.UserRoleRepository"),
+        patch("fundamental.api.routes.admin.RolePermissionRepository"),
+    ):
+        mock_service = MagicMock()
+        mock_service.update_permission_from_schema.side_effect = ValueError("generic")
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.update_permission(session, permission_id=1, payload=payload)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == "generic"
+
+
+def test_delete_permission_cannot_delete() -> None:
+    """Test delete_permission raises 400 when cannot_delete_permission (covers line 1258)."""
+    session = DummySession()
+
+    with (
+        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("fundamental.api.routes.admin.RoleRepository"),
+        patch("fundamental.api.routes.admin.PermissionRepository"),
+        patch("fundamental.api.routes.admin.UserRoleRepository"),
+        patch("fundamental.api.routes.admin.RolePermissionRepository"),
+    ):
+        mock_service = MagicMock()
+        mock_service.delete_permission.side_effect = ValueError(
+            "cannot_delete_permission"
+        )
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.delete_permission(session, permission_id=1)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == "cannot_delete_permission"
+
+
+def test_delete_permission_generic_value_error() -> None:
+    """Test delete_permission raises 400 for generic ValueError (covers line 1259)."""
+    session = DummySession()
+
+    with (
+        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("fundamental.api.routes.admin.RoleRepository"),
+        patch("fundamental.api.routes.admin.PermissionRepository"),
+        patch("fundamental.api.routes.admin.UserRoleRepository"),
+        patch("fundamental.api.routes.admin.RolePermissionRepository"),
+    ):
+        mock_service = MagicMock()
+        mock_service.delete_permission.side_effect = ValueError("generic")
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.delete_permission(session, permission_id=1)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == "generic"
+
+
+def test_update_role_permission_generic_value_error() -> None:
+    """Test update_role_permission raises 400 for generic ValueError (covers line 1322)."""
+    session = DummySession()
+    payload = admin.RolePermissionUpdate(condition={"key": "value"})
+
+    role = Role(id=1, name="test", description="test")
+    role.permissions = []  # type: ignore[attr-defined]
+
+    mock_result = MagicMock()
+    mock_result.first.return_value = role
+
+    with (
+        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("fundamental.api.routes.admin.RoleRepository"),
+        patch("fundamental.api.routes.admin.PermissionRepository"),
+        patch("fundamental.api.routes.admin.UserRoleRepository"),
+        patch("fundamental.api.routes.admin.RolePermissionRepository"),
+        patch.object(session, "exec", return_value=mock_result),
+    ):
+        mock_service = MagicMock()
+        mock_service.update_role_permission_condition.side_effect = ValueError(
+            "generic"
+        )
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.update_role_permission(
+                session, role_id=1, role_permission_id=1, payload=payload
+            )
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == "generic"
+
+
+def test_create_permission_id_is_none() -> None:
+    """Test create_permission raises 500 when permission.id is None (covers lines 1374-1376)."""
+    from fundamental.models.auth import Permission
+
+    session = DummySession()
+    payload = admin.PermissionCreate(name="new", resource="books", action="read")
+
+    permission = Permission(
+        id=None,
+        name="new",
+        resource="books",
+        action="read",  # type: ignore[call-arg]
+    )
+
+    with (
+        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("fundamental.api.routes.admin.RoleRepository"),
+        patch("fundamental.api.routes.admin.PermissionRepository"),
+        patch("fundamental.api.routes.admin.UserRoleRepository"),
+        patch("fundamental.api.routes.admin.RolePermissionRepository"),
+    ):
+        mock_service = MagicMock()
+        mock_service.create_permission.return_value = permission
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.create_permission(session, payload=payload)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 500
+        assert exc_info.value.detail == "permission_id_is_none"
+
+
+@pytest.mark.parametrize(
+    ("error_msg", "expected_status"),
+    [
+        ("name_cannot_be_blank", 400),
+        ("permission_name_cannot_be_blank", 400),
+        ("resource_cannot_be_blank", 400),
+        ("action_cannot_be_blank", 400),
+    ],
+)
+def test_create_permission_value_error_handlers(
+    error_msg: str, expected_status: int
+) -> None:
+    """Test create_permission handles various ValueError messages (covers lines 1393-1399)."""
+    session = DummySession()
+    payload = admin.PermissionCreate(name="new", resource="books", action="read")
+
+    with (
+        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("fundamental.api.routes.admin.RoleRepository"),
+        patch("fundamental.api.routes.admin.PermissionRepository"),
+        patch("fundamental.api.routes.admin.UserRoleRepository"),
+        patch("fundamental.api.routes.admin.RolePermissionRepository"),
+    ):
+        mock_service = MagicMock()
+        mock_service.create_permission.side_effect = ValueError(error_msg)
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.create_permission(session, payload=payload)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == expected_status
+        assert exc_info.value.detail == error_msg
+
+
+def test_create_permission_generic_value_error() -> None:
+    """Test create_permission raises 400 for generic ValueError (covers line 1400)."""
+    session = DummySession()
+    payload = admin.PermissionCreate(name="new", resource="books", action="read")
+
+    with (
+        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("fundamental.api.routes.admin.RoleRepository"),
+        patch("fundamental.api.routes.admin.PermissionRepository"),
+        patch("fundamental.api.routes.admin.UserRoleRepository"),
+        patch("fundamental.api.routes.admin.RolePermissionRepository"),
+    ):
+        mock_service = MagicMock()
+        mock_service.create_permission.side_effect = ValueError("generic")
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.create_permission(session, payload=payload)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == "generic"
+
+
+def test_create_library_invalid_database() -> None:
+    """Test create_library raises 400 for invalid_calibre_database (covers line 1743)."""
+    session = DummySession()
+    payload = admin.LibraryCreate(
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+
+    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+        mock_service = MagicMock()
+        mock_service.create_library.side_effect = ValueError("invalid_calibre_database")
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.create_library(session, payload=payload)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == "invalid_calibre_database"
+
+
+def test_create_library_permission_error() -> None:
+    """Test create_library raises 403 for PermissionError (covers lines 1746-1748)."""
+    session = DummySession()
+    payload = admin.LibraryCreate(
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+
+    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+        mock_service = MagicMock()
+        mock_service.create_library.side_effect = PermissionError("Access denied")
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.create_library(session, payload=payload)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 403
+        assert "Permission denied" in exc_info.value.detail
+
+
+def test_create_library_file_not_found() -> None:
+    """Test create_library raises 404 for FileNotFoundError (covers lines 1749-1750)."""
+    session = DummySession()
+    payload = admin.LibraryCreate(
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+
+    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+        mock_service = MagicMock()
+        mock_service.create_library.side_effect = FileNotFoundError("File not found")
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.create_library(session, payload=payload)
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 404
+
+
+def test_download_openlibrary_dumps_task_runner_unavailable() -> None:
+    """Test download_openlibrary_dumps raises 503 when task runner unavailable (covers lines 1974-1981)."""
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            class DummyConfig:
+                data_directory = "/tmp"
+
+            self.app = type(
+                "App", (), {"state": type("State", (), {"config": DummyConfig()})()}
+            )()
+
+    request = DummyRequest()
+    current_user = User(
+        id=1,
+        username="admin",
+        email="admin@test.com",
+        password_hash="hash",
+        is_admin=True,
+    )
+    payload = admin.DownloadFilesRequest(urls=["https://example.com/file.txt"])
+
+    with pytest.raises(HTTPException) as exc_info:
+        admin.download_openlibrary_dumps(request, current_user, payload)  # type: ignore[arg-type]
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail == "Task runner not available"
+
+
+def test_download_openlibrary_dumps_value_error() -> None:
+    """Test download_openlibrary_dumps raises 400 for ValueError (covers lines 1993-1997)."""
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            class DummyConfig:
+                data_directory = "/tmp"
+
+            class DummyTaskRunner:
+                pass
+
+            self.app = type(
+                "App",
+                (),
+                {
+                    "state": type(
+                        "State",
+                        (),
+                        {"config": DummyConfig(), "task_runner": DummyTaskRunner()},
+                    )()
+                },
+            )()
+
+    request = DummyRequest()
+    current_user = User(
+        id=1,
+        username="admin",
+        email="admin@test.com",
+        password_hash="hash",
+        is_admin=True,
+    )
+    payload = admin.DownloadFilesRequest(urls=[])
+
+    with (
+        patch("fundamental.api.routes.admin.OpenLibraryService") as mock_service_class,
+    ):
+        mock_service = MagicMock()
+        mock_service.create_download_task.side_effect = ValueError("No URLs provided")
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.download_openlibrary_dumps(request, current_user, payload)  # type: ignore[arg-type]
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == "No URLs provided"
+
+
+def test_ingest_openlibrary_dumps_no_file_types() -> None:
+    """Test ingest_openlibrary_dumps raises 400 when no file types selected (covers lines 2075-2083)."""
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            class DummyConfig:
+                data_directory = "/tmp"
+
+            class DummyTaskRunner:
+                pass
+
+            self.app = type(
+                "App",
+                (),
+                {
+                    "state": type(
+                        "State",
+                        (),
+                        {"config": DummyConfig(), "task_runner": DummyTaskRunner()},
+                    )()
+                },
+            )()
+
+    request = DummyRequest()
+    current_user = User(
+        id=1,
+        username="admin",
+        email="admin@test.com",
+        password_hash="hash",
+        is_admin=True,
+    )
+    payload = admin.IngestFilesRequest(
+        process_authors=False, process_works=False, process_editions=False
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        admin.ingest_openlibrary_dumps(request, current_user, payload)  # type: ignore[arg-type]
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 400
+    assert "At least one file type" in exc_info.value.detail
+
+
+def test_ingest_openlibrary_dumps_task_runner_unavailable() -> None:
+    """Test ingest_openlibrary_dumps raises 503 when task runner unavailable (covers lines 2086-2093)."""
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            class DummyConfig:
+                data_directory = "/tmp"
+
+            self.app = type(
+                "App", (), {"state": type("State", (), {"config": DummyConfig()})()}
+            )()
+
+    request = DummyRequest()
+    current_user = User(
+        id=1,
+        username="admin",
+        email="admin@test.com",
+        password_hash="hash",
+        is_admin=True,
+    )
+    payload = admin.IngestFilesRequest(process_authors=True)
+
+    with pytest.raises(HTTPException) as exc_info:
+        admin.ingest_openlibrary_dumps(request, current_user, payload)  # type: ignore[arg-type]
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail == "Task runner not available"
+
+
+def test_get_openlibrary_dump_config_none() -> None:
+    """Test get_openlibrary_dump_config returns defaults when config is None (covers lines 2139-2155)."""
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            class DummyConfig:
+                encryption_key = "test_key"
+                data_directory = "/tmp"
+
+            self.app = type(
+                "App", (), {"state": type("State", (), {"config": DummyConfig()})()}
+            )()
+
+    session = DummySession()
+    request = DummyRequest()
+
+    with (
+        patch("fundamental.api.routes.admin._auth_service") as mock_auth_service,
+        patch("fundamental.api.routes.admin.get_current_user"),
+    ):
+        mock_service = MagicMock()
+        mock_service.get_openlibrary_dump_config.return_value = None
+        mock_auth_service.return_value = mock_service
+
+        result = admin.get_openlibrary_dump_config(request, session)  # type: ignore[arg-type]
+
+        assert result.id is None
+        assert (
+            result.authors_url
+            == "https://openlibrary.org/data/ol_dump_authors_latest.txt.gz"
+        )
+        assert result.default_process_authors is True
+
+
+def test_upsert_openlibrary_dump_config_not_admin() -> None:
+    """Test upsert_openlibrary_dump_config raises 403 when user not admin (covers lines 2187-2188)."""
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            class DummyConfig:
+                encryption_key = "test_key"
+                data_directory = "/tmp"
+
+            self.app = type(
+                "App", (), {"state": type("State", (), {"config": DummyConfig()})()}
+            )()
+
+    session = DummySession()
+    request = DummyRequest()
+    payload = admin.OpenLibraryDumpConfigUpdate(
+        authors_url="https://example.com/authors.txt"
+    )
+
+    non_admin_user = User(
+        id=1,
+        username="user",
+        email="user@test.com",
+        password_hash="hash",
+        is_admin=False,
+    )
+
+    with (
+        patch("fundamental.api.routes.admin._auth_service") as mock_auth_service,
+        patch(
+            "fundamental.api.routes.admin.get_current_user", return_value=non_admin_user
+        ),
+    ):
+        mock_service = MagicMock()
+        mock_auth_service.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.upsert_openlibrary_dump_config(request, session, payload)  # type: ignore[arg-type]
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 403
+        assert exc_info.value.detail == "forbidden"
+
+
+def test_upsert_openlibrary_dump_config_value_error() -> None:
+    """Test upsert_openlibrary_dump_config raises 400 for ValueError (covers lines 2196-2198)."""
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            class DummyConfig:
+                encryption_key = "test_key"
+                data_directory = "/tmp"
+
+            self.app = type(
+                "App", (), {"state": type("State", (), {"config": DummyConfig()})()}
+            )()
+
+    session = DummySession()
+    request = DummyRequest()
+    payload = admin.OpenLibraryDumpConfigUpdate(authors_url="invalid")
+
+    admin_user = User(
+        id=1,
+        username="admin",
+        email="admin@test.com",
+        password_hash="hash",
+        is_admin=True,
+    )
+
+    with (
+        patch("fundamental.api.routes.admin._auth_service") as mock_auth_service,
+        patch("fundamental.api.routes.admin.get_current_user", return_value=admin_user),
+    ):
+        mock_service = MagicMock()
+        mock_service.upsert_openlibrary_dump_config.side_effect = ValueError(
+            "Invalid URL"
+        )
+        mock_auth_service.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.upsert_openlibrary_dump_config(request, session, payload)  # type: ignore[arg-type]
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == "Invalid URL"
+
+
+def test_get_scheduled_tasks_config() -> None:
+    """Test get_scheduled_tasks_config returns config (covers lines 2225-2227)."""
+    from datetime import UTC, datetime
+
+    from fundamental.models.config import ScheduledTasksConfig
+
+    session = DummySession()
+    config = ScheduledTasksConfig(
+        id=1,
+        start_time_hour=2,
+        duration_hours=4,
+        generate_book_covers=True,
+        generate_series_covers=False,
+        reconnect_database=True,
+        metadata_backup=False,
+        epub_fixer_daily_scan=True,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    with patch(
+        "fundamental.api.routes.admin.ScheduledTasksConfigService"
+    ) as mock_service_class:
+        mock_service = MagicMock()
+        mock_service.get_scheduled_tasks_config.return_value = config
+        mock_service_class.return_value = mock_service
+
+        result = admin.get_scheduled_tasks_config(session)
+
+        assert result.id == 1
+        assert result.start_time_hour == 2
+        assert result.generate_book_covers is True
+
+
+def test_upsert_scheduled_tasks_config_not_admin() -> None:
+    """Test upsert_scheduled_tasks_config raises 403 when user not admin (covers lines 2257-2258)."""
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            self.app = type("App", (), {"state": type("State", (), {})()})()
+
+    session = DummySession()
+    request = DummyRequest()
+    payload = admin.ScheduledTasksConfigUpdate(generate_book_covers=True)
+
+    non_admin_user = User(
+        id=1,
+        username="user",
+        email="user@test.com",
+        password_hash="hash",
+        is_admin=False,
+    )
+
+    with patch(
+        "fundamental.api.routes.admin.get_current_user", return_value=non_admin_user
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            admin.upsert_scheduled_tasks_config(request, session, payload)  # type: ignore[arg-type]
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 403
+        assert exc_info.value.detail == "forbidden"
+
+
+def test_upsert_scheduled_tasks_config_value_error() -> None:
+    """Test upsert_scheduled_tasks_config raises 400 for ValueError (covers lines 2267-2269)."""
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            self.app = type("App", (), {"state": type("State", (), {})()})()
+
+    session = DummySession()
+    request = DummyRequest()
+    payload = admin.ScheduledTasksConfigUpdate(generate_book_covers=True)
+
+    admin_user = User(
+        id=1,
+        username="admin",
+        email="admin@test.com",
+        password_hash="hash",
+        is_admin=True,
+    )
+
+    with (
+        patch("fundamental.api.routes.admin.get_current_user", return_value=admin_user),
+        patch(
+            "fundamental.api.routes.admin.ScheduledTasksConfigService"
+        ) as mock_service_class,
+    ):
+        mock_service = MagicMock()
+        mock_service.update_scheduled_tasks_config.side_effect = ValueError(
+            "Invalid config"
+        )
+        mock_service_class.return_value = mock_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            admin.upsert_scheduled_tasks_config(request, session, payload)  # type: ignore[arg-type]
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == "Invalid config"
