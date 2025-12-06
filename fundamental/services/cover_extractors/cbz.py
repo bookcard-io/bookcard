@@ -25,7 +25,8 @@ import zipfile
 from io import BytesIO
 from typing import TYPE_CHECKING
 
-from PIL import Image  # type: ignore[import-untyped]
+import rarfile
+from PIL import Image
 
 from fundamental.services.cover_extractors.base import CoverExtractionStrategy
 
@@ -131,8 +132,6 @@ class CbzCoverExtractor(CoverExtractionStrategy):
         """
         # CBR requires rarfile library
         try:
-            import rarfile  # type: ignore[import-untyped]
-
             with rarfile.RarFile(file_path, "r") as cbr_rar:
                 # Find image files (sorted to get first page)
                 image_files = [
@@ -157,9 +156,6 @@ class CbzCoverExtractor(CoverExtractionStrategy):
 
                 # Process and convert to JPEG
                 return self._process_image(image_data)
-        except ImportError:
-            # rarfile not available
-            return None
         except (OSError, ValueError, TypeError, AttributeError, rarfile.Error):
             return None
 

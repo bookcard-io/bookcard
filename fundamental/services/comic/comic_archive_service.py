@@ -29,7 +29,8 @@ from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PIL import Image  # type: ignore[import-untyped]
+import rarfile
+from PIL import Image
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -299,12 +300,6 @@ class ComicArchiveService:
         ImportError
             If rarfile library is not available.
         """
-        try:
-            import rarfile  # type: ignore[import-untyped]
-        except ImportError as e:
-            msg = "rarfile library required for CBR support"
-            raise ImportError(msg) from e
-
         with rarfile.RarFile(file_path, "r") as cbr_rar:
             return [
                 f
