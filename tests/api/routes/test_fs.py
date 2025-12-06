@@ -34,6 +34,7 @@ from fundamental.api.routes.fs import (
     _build_suggestions,
     _is_under_excluded,
     _list_children_filtered,
+    _list_files,
     _list_subdirectories,
     _normalize_query,
     _resolve_base_and_needle,
@@ -661,3 +662,184 @@ def test_suggest_dirs_handles_oserror(
             suggest_dirs(q="/invalid/path", limit=50)
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 400
+
+
+# ==================== _list_files Tests ====================
+
+
+def test_list_files_returns_files(
+    temp_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _list_files lists accessible files (lines 140-150)."""
+    # Create files
+    (temp_dir / "file1.txt").write_text("content1")
+    (temp_dir / "file2.txt").write_text("content2")
+    (temp_dir / "dir").mkdir()
+
+    # Patch _is_under_excluded to return False for temp directories
+    with patch("fundamental.api.routes.fs._is_under_excluded", return_value=False):
+        result = list(_list_files(temp_dir))
+        assert len(result) == 2
+        assert any(p.name == "file1.txt" for p in result)
+        assert any(p.name == "file2.txt" for p in result)
+
+
+def test_list_files_no_permissions(
+    temp_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _list_files returns empty when no read/execute permissions (line 135)."""
+    with patch("os.access", return_value=False):
+        result = list(_list_files(temp_dir))
+        assert len(result) == 0
+
+
+def test_list_files_skips_directories(
+    temp_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _list_files skips directories (lines 140-141)."""
+    (temp_dir / "file.txt").write_text("content")
+    (temp_dir / "dir").mkdir()
+
+    with patch("fundamental.api.routes.fs._is_under_excluded", return_value=False):
+        result = list(_list_files(temp_dir))
+        assert len(result) == 1
+        assert result[0].name == "file.txt"
+
+
+def test_list_files_handles_oserror_on_stat(
+    temp_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _list_files handles OSError when statting entries (lines 142-144)."""
+    mock_entry = MagicMock()
+    mock_entry.is_file.side_effect = OSError("Permission denied")
+    mock_entry.path = "/some/path"
+
+    # Create a context manager mock that returns an iterator
+    mock_scandir_result = MagicMock()
+    mock_scandir_result.__enter__ = MagicMock(return_value=iter([mock_entry]))
+    mock_scandir_result.__exit__ = MagicMock(return_value=False)
+
+    with patch("os.scandir", return_value=mock_scandir_result):
+        result = list(_list_files(temp_dir))
+        assert len(result) == 0
+
+
+def test_list_files_skips_excluded(
+    temp_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _list_files skips excluded files (line 147)."""
+    (temp_dir / "file1.txt").write_text("content1")
+    (temp_dir / "file2.txt").write_text("content2")
+
+    # Mock _is_under_excluded to exclude file2
+    def mock_is_under_excluded(path: Path) -> bool:
+        return path.name == "file2.txt"
+
+    with patch(
+        "fundamental.api.routes.fs._is_under_excluded",
+        side_effect=mock_is_under_excluded,
+    ):
+        result = list(_list_files(temp_dir))
+        assert len(result) == 1
+        assert result[0].name == "file1.txt"
+
+
+def test_list_files_skips_no_permission_file(
+    temp_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _list_files skips files without read permissions (line 149)."""
+    (temp_dir / "file1.txt").write_text("content1")
+    (temp_dir / "file2.txt").write_text("content2")
+
+    call_count = 0
+
+    def mock_access(path: Path | str, mode: int) -> bool:
+        nonlocal call_count
+        call_count += 1
+        # First call is for base dir (should pass), subsequent calls are for files
+        if call_count == 1:
+            return True
+        # Only file1 has read permissions
+        path_obj = Path(path) if isinstance(path, str) else path
+        return path_obj.name == "file1.txt"
+
+    with (
+        patch("os.access", side_effect=mock_access),
+        patch("fundamental.api.routes.fs._is_under_excluded", return_value=False),
+    ):
+        result = list(_list_files(temp_dir))
+        assert len(result) == 1
+        assert result[0].name == "file1.txt"
+
+
+def test_list_files_handles_scandir_exceptions(
+    temp_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _list_files handles scandir exceptions (lines 151-152)."""
+    with patch("os.scandir", side_effect=FileNotFoundError("Not found")):
+        result = list(_list_files(temp_dir))
+        assert len(result) == 0
+
+    with patch("os.scandir", side_effect=PermissionError("Permission denied")):
+        result = list(_list_files(temp_dir))
+        assert len(result) == 0
+
+    with patch("os.scandir", side_effect=NotADirectoryError("Not a directory")):
+        result = list(_list_files(temp_dir))
+        assert len(result) == 0
+
+    with patch("os.scandir", side_effect=OSError("Other error")):
+        result = list(_list_files(temp_dir))
+        assert len(result) == 0
+
+
+# ==================== suggest_dirs with include_files Tests ====================
+
+
+def test_suggest_dirs_include_files_false(
+    temp_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test suggest_dirs with include_files=False uses _list_children_filtered (line 322)."""
+    test_dir = temp_dir / "books"
+    test_dir.mkdir()
+    (temp_dir / "file.txt").write_text("content")
+
+    with (
+        patch("fundamental.api.routes.fs._is_under_excluded", return_value=False),
+        patch(
+            "fundamental.api.routes.fs._resolve_base_and_needle",
+            return_value=(temp_dir, ""),
+        ),
+        patch(
+            "fundamental.api.routes.fs._list_children_filtered", return_value=[test_dir]
+        ) as mock_filtered,
+    ):
+        result = suggest_dirs(q=str(temp_dir), limit=50, include_files=False)
+        assert "suggestions" in result
+        mock_filtered.assert_called_once()
+
+
+def test_suggest_dirs_include_files_true(
+    temp_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test suggest_dirs with include_files=True uses _list_children_with_files_filtered."""
+
+    test_dir = temp_dir / "books"
+    test_dir.mkdir()
+    test_file = temp_dir / "file.txt"
+    test_file.write_text("content")
+
+    with (
+        patch("fundamental.api.routes.fs._is_under_excluded", return_value=False),
+        patch(
+            "fundamental.api.routes.fs._resolve_base_and_needle",
+            return_value=(temp_dir, ""),
+        ),
+        patch(
+            "fundamental.api.routes.fs._list_children_with_files_filtered",
+            return_value=[test_dir, test_file],
+        ) as mock_with_files,
+    ):
+        result = suggest_dirs(q=str(temp_dir), limit=50, include_files=True)
+        assert "suggestions" in result
+        mock_with_files.assert_called_once()
