@@ -39,9 +39,13 @@ class ReadingProgressCreate(BaseModel):
     cfi : str | None
         Canonical Fragment Identifier for EPUB (optional).
     page_number : int | None
-        Page number for PDF (optional).
+        Page number for PDF or comic formats (optional).
     device : str | None
         Device identifier (optional).
+    spread_mode : bool | None
+        Whether reading in spread mode for comics (optional).
+    reading_direction : str | None
+        Reading direction for comics: 'ltr', 'rtl', or 'vertical' (optional).
     """
 
     book_id: int = Field(description="Book ID")
@@ -59,12 +63,21 @@ class ReadingProgressCreate(BaseModel):
     page_number: int | None = Field(
         default=None,
         ge=0,
-        description="Page number for PDF",
+        description="Page number for PDF or comic formats",
     )
     device: str | None = Field(
         default=None,
         max_length=255,
         description="Device identifier",
+    )
+    spread_mode: bool | None = Field(
+        default=None,
+        description="Whether reading in spread mode for comics",
+    )
+    reading_direction: str | None = Field(
+        default=None,
+        max_length=20,
+        description="Reading direction for comics: 'ltr', 'rtl', or 'vertical'",
     )
 
 
@@ -88,9 +101,13 @@ class ReadingProgressRead(BaseModel):
     cfi : str | None
         CFI for EPUB.
     page_number : int | None
-        Page number for PDF.
+        Page number for PDF or comic formats.
     device : str | None
         Device identifier.
+    spread_mode : bool | None
+        Whether reading in spread mode for comics.
+    reading_direction : str | None
+        Reading direction for comics: 'ltr', 'rtl', or 'vertical'.
     updated_at : datetime
         Last update timestamp.
     """
@@ -104,6 +121,8 @@ class ReadingProgressRead(BaseModel):
     cfi: str | None
     page_number: int | None
     device: str | None
+    spread_mode: bool | None = None
+    reading_direction: str | None = None
     updated_at: datetime
 
 

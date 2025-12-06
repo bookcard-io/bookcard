@@ -32,10 +32,14 @@ export interface ReadingProgressCreate {
   progress: number;
   /** Canonical Fragment Identifier for EPUB (optional). */
   cfi?: string | null;
-  /** Page number for PDF (optional). */
+  /** Page number for PDF or comic formats (optional). */
   page_number?: number | null;
   /** Device identifier (optional). */
   device?: string | null;
+  /** Whether reading in spread mode for comics (optional). */
+  spread_mode?: boolean | null;
+  /** Reading direction for comics: 'ltr', 'rtl', or 'vertical' (optional). */
+  reading_direction?: string | null;
 }
 
 /**
@@ -56,10 +60,14 @@ export interface ReadingProgress {
   progress: number;
   /** CFI for EPUB. */
   cfi?: string | null;
-  /** Page number for PDF. */
+  /** Page number for PDF or comic formats. */
   page_number?: number | null;
   /** Device identifier. */
   device?: string | null;
+  /** Whether reading in spread mode for comics. */
+  spread_mode?: boolean | null;
+  /** Reading direction for comics: 'ltr', 'rtl', or 'vertical'. */
+  reading_direction?: string | null;
   /** Last update timestamp. */
   updated_at: string;
 }

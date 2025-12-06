@@ -180,6 +180,8 @@ def update_progress(
             cfi=progress_data.cfi,
             page_number=progress_data.page_number,
             device=progress_data.device,
+            spread_mode=getattr(progress_data, "spread_mode", None),
+            reading_direction=getattr(progress_data, "reading_direction", None),
         )
         session.commit()
 
@@ -199,6 +201,8 @@ def update_progress(
             cfi=progress.cfi,
             page_number=progress.page_number,
             device=progress.device,
+            spread_mode=progress.spread_mode,
+            reading_direction=progress.reading_direction,
             updated_at=progress.updated_at,
         )
     except ValueError as e:
@@ -281,6 +285,8 @@ def get_progress(
         cfi=progress.cfi,
         page_number=progress.page_number,
         device=progress.device,
+        spread_mode=progress.spread_mode,
+        reading_direction=progress.reading_direction,
         updated_at=progress.updated_at,
     )
 

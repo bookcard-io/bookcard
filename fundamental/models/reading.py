@@ -73,6 +73,10 @@ class ReadingProgress(SQLModel, table=True):
         Page number for PDF and other page-based formats.
     device : str | None
         Device identifier where reading occurred.
+    spread_mode : bool | None
+        Whether reading in spread mode for comics (optional).
+    reading_direction : str | None
+        Reading direction for comics: 'ltr', 'rtl', or 'vertical' (optional).
     updated_at : datetime
         Last update timestamp.
     """
@@ -92,6 +96,14 @@ class ReadingProgress(SQLModel, table=True):
     cfi: str | None = Field(default=None, max_length=2000)
     page_number: int | None = None
     device: str | None = Field(default=None, max_length=255)
+    spread_mode: bool | None = Field(
+        default=None, description="Whether reading in spread mode for comics"
+    )
+    reading_direction: str | None = Field(
+        default=None,
+        max_length=20,
+        description="Reading direction for comics: 'ltr', 'rtl', or 'vertical'",
+    )
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         index=True,

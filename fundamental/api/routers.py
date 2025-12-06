@@ -26,6 +26,7 @@ from fundamental.api.routes.admin import router as admin_router
 from fundamental.api.routes.auth import router as auth_router
 from fundamental.api.routes.authors import router as authors_router
 from fundamental.api.routes.books import router as books_router
+from fundamental.api.routes.comic import router as comic_router
 from fundamental.api.routes.devices import router as devices_router
 from fundamental.api.routes.epub_fixer import router as epub_fixer_router
 from fundamental.api.routes.fs import router as fs_router
@@ -44,6 +45,7 @@ ROUTERS: list[APIRouter] = [
     admin_router,
     authors_router,
     books_router,
+    comic_router,
     devices_router,
     epub_fixer_router,
     fs_router,

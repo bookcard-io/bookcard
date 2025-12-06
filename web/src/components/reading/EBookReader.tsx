@@ -20,6 +20,7 @@ import { useReadingProgress } from "@/hooks/useReadingProgress";
 import { useReadingSession } from "@/hooks/useReadingSession";
 import { useTheme } from "@/hooks/useTheme";
 import { cn } from "@/libs/utils";
+import { ComicReader } from "./ComicReader";
 import { EPUBReader, type SearchResult } from "./EPUBReader";
 import { PDFReader } from "./PDFReader";
 import type { PagingInfo } from "./ReaderControls";
@@ -115,9 +116,11 @@ export function EBookReader({
 
   const isEPUB = format.toUpperCase() === "EPUB";
   const isPDF = format.toUpperCase() === "PDF";
+  const isComic = ["CBZ", "CBR", "CB7", "CBC"].includes(format.toUpperCase());
 
   // For EPUB, locations need to be generated, so start as false
   // For PDF, locations are ready immediately, so start as true
+  // For comics, locations are ready immediately (page-based)
   const [areLocationsReady, setAreLocationsReady] = useState(!isEPUB);
 
   // Track paging information for EPUB
@@ -215,7 +218,7 @@ export function EBookReader({
     }
   }, [progress]);
 
-  if (!isEPUB && !isPDF) {
+  if (!isEPUB && !isPDF && !isComic) {
     return (
       <div className={cn("flex items-center justify-center p-8", className)}>
         <span className="text-text-a40">
@@ -267,11 +270,21 @@ export function EBookReader({
             className="h-full w-full"
           />
         )}
+        {isComic && (
+          <ComicReader
+            bookId={bookId}
+            format={format}
+            onJumpToProgress={(handler) => {
+              jumpToProgressRef.current = handler;
+            }}
+            className="h-full w-full"
+          />
+        )}
       </div>
       <ReaderControls
         progress={currentProgress}
         onProgressChange={handleProgressChange}
-        isProgressDisabled={isEPUB && !areLocationsReady}
+        isProgressDisabled={(isEPUB && !areLocationsReady) || isComic}
         pageColor={pageColor}
         pagingInfo={pagingInfo || undefined}
       />

@@ -101,6 +101,8 @@ class ReadingService:
         cfi: str | None = None,
         page_number: int | None = None,
         device: str | None = None,
+        spread_mode: bool | None = None,
+        reading_direction: str | None = None,
     ) -> ReadingProgress:
         """Update reading progress for a book.
 
@@ -121,9 +123,13 @@ class ReadingService:
         cfi : str | None
             Canonical Fragment Identifier for EPUB (optional).
         page_number : int | None
-            Page number for PDF (optional).
+            Page number for PDF or comic formats (optional).
         device : str | None
             Device identifier (optional).
+        spread_mode : bool | None
+            Whether reading in spread mode for comics (optional).
+        reading_direction : str | None
+            Reading direction for comics: 'ltr', 'rtl', or 'vertical' (optional).
 
         Returns
         -------
@@ -157,6 +163,8 @@ class ReadingService:
                 cfi=cfi,
                 page_number=page_number,
                 device=device,
+                spread_mode=spread_mode,
+                reading_direction=reading_direction,
                 updated_at=datetime.now(UTC),
             )
             self._progress_repo.add(progress_obj)
@@ -168,6 +176,10 @@ class ReadingService:
                 existing.page_number = page_number
             if device is not None:
                 existing.device = device
+            if spread_mode is not None:
+                existing.spread_mode = spread_mode
+            if reading_direction is not None:
+                existing.reading_direction = reading_direction
             existing.updated_at = datetime.now(UTC)
             progress_obj = existing
 
