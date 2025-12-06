@@ -140,3 +140,43 @@ def test_get_encryption_key_missing() -> None:
         pytest.raises(ValueError, match="FUNDAMENTAL_FERNET_KEY is not set"),
     ):
         AppConfig._get_encryption_key()
+
+
+@pytest.mark.parametrize(
+    ("redis_password", "redis_host", "redis_port", "expected_url"),
+    [
+        ("mypassword", "localhost", "6379", "redis://:mypassword@localhost:6379/0"),
+        (
+            "secret123",
+            "redis.example.com",
+            "6380",
+            "redis://:secret123@redis.example.com:6380/0",
+        ),
+        (None, "localhost", "6379", "redis://localhost:6379/0"),
+        ("", "localhost", "6379", "redis://localhost:6379/0"),
+    ],
+)
+def test_get_redis_url(
+    redis_password: str | None,
+    redis_host: str,
+    redis_port: str,
+    expected_url: str,
+) -> None:
+    """Test Redis URL generation with and without password (covers line 183)."""
+    env_vars: dict[str, str] = {
+        "REDIS_HOST": redis_host,
+        "REDIS_PORT": redis_port,
+    }
+    if redis_password is not None:
+        env_vars["REDIS_PASSWORD"] = redis_password
+
+    with patch.dict(os.environ, env_vars):
+        result = AppConfig._get_redis_url()
+        assert result == expected_url
+
+
+def test_get_redis_url_defaults() -> None:
+    """Test Redis URL generation with default host and port."""
+    with patch.dict(os.environ, {}, clear=True):
+        result = AppConfig._get_redis_url()
+        assert result == "redis://localhost:6379/0"

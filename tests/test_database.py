@@ -15,9 +15,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path  # noqa: TC003
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy import text
 
 import fundamental.database as db
 
@@ -105,3 +107,130 @@ def test_get_session_rollback_on_exception(monkeypatch: pytest.MonkeyPatch) -> N
         raise RuntimeError("boom")
     assert session.rolled is True
     assert session.closed is True
+
+
+class DummySessionWithLockError:
+    """Session that raises OperationalError with 'database is locked' message."""
+
+    def __init__(self, engine: object) -> None:
+        self.committed = False
+        self.rolled = False
+        self.closed = False
+        self.commit_count = 0
+
+    def commit(self) -> None:
+        """Raise OperationalError on first two commits, succeed on third."""
+        self.commit_count += 1
+        if self.commit_count < 3:
+            from sqlalchemy.exc import OperationalError
+
+            raise OperationalError("database is locked", None, RuntimeError("Locked"))
+
+        self.committed = True
+
+    def rollback(self) -> None:
+        self.rolled = True
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def test_get_session_retry_on_lock_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that get_session retries on database lock errors (covers lines 130-141)."""
+    monkeypatch.setattr(db, "Session", DummySessionWithLockError)
+    with db.get_session(object()) as session:
+        assert isinstance(session, DummySessionWithLockError)
+    # Should have retried and eventually succeeded
+    assert session.committed is True
+    assert session.commit_count == 3
+    assert session.closed is True
+    assert session.rolled is False
+
+
+class DummySessionWithMaxRetries:
+    """Session that always raises OperationalError with 'database is locked'."""
+
+    def __init__(self, engine: object) -> None:
+        self.committed = False
+        self.rolled = False
+        self.closed = False
+        self.commit_count = 0
+
+    def commit(self) -> None:
+        """Always raise OperationalError."""
+        self.commit_count += 1
+        from sqlalchemy.exc import OperationalError
+
+        raise OperationalError("database is locked", None, RuntimeError("Locked"))
+
+    def rollback(self) -> None:
+        self.rolled = True
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def test_get_session_max_retries_exceeded(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that get_session raises after max retries (covers lines 130-141)."""
+    monkeypatch.setattr(db, "Session", DummySessionWithMaxRetries)
+    from sqlalchemy.exc import OperationalError
+
+    with (
+        pytest.raises(OperationalError),
+        db.get_session(object(), max_retries=2) as session,
+    ):
+        pass
+    # Should have tried max_retries times
+    assert session.commit_count == 2
+    assert session.closed is True
+
+
+class DummySessionWithOtherError:
+    """Session that raises OperationalError without 'database is locked'."""
+
+    def __init__(self, engine: object) -> None:
+        self.committed = False
+        self.rolled = False
+        self.closed = False
+
+    def commit(self) -> None:
+        """Raise OperationalError with different message."""
+        from sqlalchemy.exc import OperationalError
+
+        raise OperationalError("connection lost", None, RuntimeError("Connection lost"))
+
+    def rollback(self) -> None:
+        self.rolled = True
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def test_get_session_no_retry_on_other_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that get_session does not retry on non-lock errors (covers lines 130-141)."""
+    monkeypatch.setattr(db, "Session", DummySessionWithOtherError)
+    from sqlalchemy.exc import OperationalError
+
+    with pytest.raises(OperationalError), db.get_session(object()) as session:
+        pass
+    assert session.rolled is True
+    assert session.closed is True
+
+
+def test_create_db_engine_sqlite_pragma_setup(tmp_path: Path) -> None:
+    """Test SQLite pragma setup on connection (covers lines 79-84)."""
+    # Use a temporary file-based database
+    db_file = tmp_path / "test_pragma.db"
+    cfg = SimpleNamespace(database_url=f"sqlite:///{db_file}", echo_sql=False)
+    engine = db.create_db_engine(cfg)  # type: ignore[arg-type]
+
+    # Connect to trigger the event listener
+    with engine.connect() as conn:
+        # Execute raw SQL to check pragma values
+        result = conn.execute(text("PRAGMA journal_mode")).fetchone()
+        assert result is not None
+        assert result[0].lower() == "wal"  # SQLite returns lowercase
+
+        result = conn.execute(text("PRAGMA busy_timeout")).fetchone()
+        assert result is not None
+        assert result[0] == 30000
