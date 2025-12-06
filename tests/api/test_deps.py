@@ -25,6 +25,9 @@ from sqlmodel import Session
 from fundamental.api.deps import (
     get_current_user,
     get_db_session,
+    get_kobo_auth_token,
+    get_kobo_user,
+    get_opds_user,
     require_permission,
 )
 from fundamental.config import AppConfig
@@ -304,3 +307,259 @@ def test_require_permission_denied() -> None:
         exc = exc_info.value
         assert exc.status_code == status.HTTP_403_FORBIDDEN  # type: ignore[attr-defined]
         assert "permission_denied" in exc.detail  # type: ignore[attr-defined]
+
+
+# ============================================================================
+# Tests for get_opds_user
+# ============================================================================
+
+
+@pytest.fixture
+def mock_request_with_config() -> MagicMock:
+    """Create a mock request with app state config.
+
+    Returns
+    -------
+    MagicMock
+        Mock request object with app.state.config set.
+    """
+    request = MagicMock(spec=Request)
+    request.app.state.config = AppConfig(
+        jwt_secret="test-secret",
+        jwt_algorithm="HS256",
+        jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
+    )
+    return request
+
+
+@pytest.fixture
+def test_user() -> User:
+    """Create a test user.
+
+    Returns
+    -------
+    User
+        Test user instance.
+    """
+    return User(
+        id=1,
+        username="testuser",
+        email="test@example.com",
+        password_hash="hash",
+    )
+
+
+@pytest.mark.parametrize(
+    ("auth_result", "expected_result"),
+    [
+        (None, None),
+        (
+            User(id=1, username="user", email="user@example.com", password_hash="hash"),
+            User(id=1, username="user", email="user@example.com", password_hash="hash"),
+        ),
+    ],
+)
+def test_get_opds_user(
+    mock_request_with_config: MagicMock,
+    auth_result: User | None,
+    expected_result: User | None,
+) -> None:
+    """Test get_opds_user with different authentication results.
+
+    Parameters
+    ----------
+    mock_request_with_config : MagicMock
+        Mock request with config.
+    auth_result : User | None
+        Result from auth service.
+    expected_result : User | None
+        Expected return value.
+    """
+    session = DummySession()
+    with (
+        patch("fundamental.api.deps.UserRepository") as mock_repo_class,
+        patch("fundamental.api.deps.PasswordHasher") as mock_hasher_class,
+        patch("fundamental.api.deps.JWTManager") as mock_jwt_class,
+        patch("fundamental.api.deps.OpdsAuthService") as mock_service_class,
+    ):
+        mock_repo = MagicMock()
+        mock_repo_class.return_value = mock_repo
+        mock_hasher = MagicMock()
+        mock_hasher_class.return_value = mock_hasher
+        mock_jwt = MagicMock()
+        mock_jwt_class.return_value = mock_jwt
+        mock_service = MagicMock()
+        mock_service.authenticate_request.return_value = auth_result
+        mock_service_class.return_value = mock_service
+
+        result = get_opds_user(
+            mock_request_with_config,
+            session,  # type: ignore[arg-type]
+        )
+
+        if expected_result is None:
+            assert result is None
+        else:
+            assert result is not None
+            assert result.id == expected_result.id
+            assert result.username == expected_result.username
+            assert result.email == expected_result.email
+        mock_service_class.assert_called_once_with(
+            session=session,
+            user_repo=mock_repo,
+            hasher=mock_hasher,
+            jwt_manager=mock_jwt,
+        )
+        mock_service.authenticate_request.assert_called_once_with(
+            mock_request_with_config
+        )
+
+
+# ============================================================================
+# Tests for get_kobo_auth_token
+# ============================================================================
+
+
+@pytest.fixture
+def mock_request_with_url() -> MagicMock:
+    """Create a mock request with URL path.
+
+    Returns
+    -------
+    MagicMock
+        Mock request object with url.path attribute.
+    """
+    return MagicMock(spec=Request)
+
+
+@pytest.mark.parametrize(
+    ("path", "expected_token"),
+    [
+        ("/kobo/token123/v1/books", "token123"),
+        ("/kobo/abc123def456/v1/library", "abc123def456"),
+        ("/kobo/test-token/v1/", "test-token"),
+    ],
+)
+def test_get_kobo_auth_token_success(
+    mock_request_with_url: MagicMock, path: str, expected_token: str
+) -> None:
+    """Test successful get_kobo_auth_token extraction.
+
+    Parameters
+    ----------
+    mock_request_with_url : MagicMock
+        Mock request object.
+    path : str
+        URL path to test.
+    expected_token : str
+        Expected token to be extracted.
+    """
+    mock_request_with_url.url.path = path
+    result = get_kobo_auth_token(mock_request_with_url)
+    assert result == expected_token
+
+
+@pytest.mark.parametrize(
+    ("path", "expected_detail"),
+    [
+        ("/invalid/path", "kobo_path_invalid"),
+        ("/notkobo/token/v1", "kobo_path_invalid"),
+        ("/kobo", "kobo_path_invalid"),
+        ("/", "kobo_path_invalid"),
+    ],
+)
+def test_get_kobo_auth_token_invalid_path(
+    mock_request_with_url: MagicMock, path: str, expected_detail: str
+) -> None:
+    """Test get_kobo_auth_token with invalid path.
+
+    Parameters
+    ----------
+    mock_request_with_url : MagicMock
+        Mock request object.
+    path : str
+        Invalid URL path.
+    expected_detail : str
+        Expected error detail.
+    """
+    mock_request_with_url.url.path = path
+    with pytest.raises(HTTPException) as exc_info:
+        get_kobo_auth_token(mock_request_with_url)
+    exc = exc_info.value
+    assert isinstance(exc, HTTPException)
+    assert exc.status_code == status.HTTP_404_NOT_FOUND
+    assert exc.detail == expected_detail
+
+
+# ============================================================================
+# Tests for get_kobo_user
+# ============================================================================
+
+
+@pytest.mark.parametrize(
+    ("auth_token", "validate_result", "expected_user", "should_raise"),
+    [
+        (
+            "valid_token",
+            User(id=1, username="user", email="user@example.com", password_hash="hash"),
+            User(id=1, username="user", email="user@example.com", password_hash="hash"),
+            False,
+        ),
+        ("invalid_token", None, None, True),
+    ],
+)
+def test_get_kobo_user(
+    auth_token: str,
+    validate_result: User | None,
+    expected_user: User | None,
+    should_raise: bool,
+) -> None:
+    """Test get_kobo_user with different validation results.
+
+    Parameters
+    ----------
+    auth_token : str
+        Auth token to validate.
+    validate_result : User | None
+        Result from auth service validation.
+    expected_user : User | None
+        Expected user if successful.
+    should_raise : bool
+        Whether an exception should be raised.
+    """
+    session = DummySession()
+    with (
+        patch("fundamental.api.deps.KoboAuthTokenRepository") as mock_token_repo_class,
+        patch("fundamental.api.deps.UserRepository") as mock_user_repo_class,
+        patch("fundamental.api.deps.KoboAuthService") as mock_service_class,
+    ):
+        mock_token_repo = MagicMock()
+        mock_token_repo_class.return_value = mock_token_repo
+        mock_user_repo = MagicMock()
+        mock_user_repo_class.return_value = mock_user_repo
+        mock_service = MagicMock()
+        mock_service.validate_auth_token.return_value = validate_result
+        mock_service_class.return_value = mock_service
+
+        if should_raise:
+            with pytest.raises(HTTPException) as exc_info:
+                get_kobo_user(auth_token, session)  # type: ignore[arg-type]
+            exc = exc_info.value
+            assert isinstance(exc, HTTPException)
+            assert exc.status_code == status.HTTP_401_UNAUTHORIZED
+            assert exc.detail == "kobo_auth_invalid"
+        else:
+            result = get_kobo_user(auth_token, session)  # type: ignore[arg-type]
+            assert result is not None
+            assert expected_user is not None
+            assert result.id == expected_user.id
+            assert result.username == expected_user.username
+            assert result.email == expected_user.email
+
+        mock_service_class.assert_called_once_with(
+            session=session,
+            auth_token_repo=mock_token_repo,
+            user_repo=mock_user_repo,
+        )
+        mock_service.validate_auth_token.assert_called_once_with(auth_token)
