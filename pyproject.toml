@@ -37,6 +37,7 @@ dependencies = [
     "redis>=6.4.0",
     "watchfiles>=1.1.1",
     "py7zr>=1.0.0",
+    "rarfile>=4.2",
 ]
 
 [tool.hatch.build.targets.wheel]

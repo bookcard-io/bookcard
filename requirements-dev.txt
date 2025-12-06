@@ -1916,6 +1916,10 @@ pyzstd==0.18.0 \
     --hash=sha256:fdaee8c33f96a6568225e821e6cc33045917628ae0bc7d8d3855332085c1aa7c \
     --hash=sha256:fdd76049c8ccbb98276cfa78d807b4a497ec6bad2603361eceae993c6130e5bf
     # via py7zr
+rarfile==4.2 \
+    --hash=sha256:8757e1e3757e32962e229cab2432efc1f15f210823cc96ccba0f6a39d17370c9 \
+    --hash=sha256:8e1c8e72d0845ad2b32a47ab11a719bc2e41165ec101fd4d3fe9e92aa3f469ef
+    # via calibre-fundamental (pyproject.toml)
 redis==6.4.0 \
     --hash=sha256:b01bc7282b8444e28ec36b261df5375183bb47a07eb9c603f284e89cbc5ef010 \
     --hash=sha256:f0544fa9604264e9464cdf4814e7d4830f74b165d52f2a330a760a88dd248b7f
