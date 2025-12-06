@@ -157,7 +157,7 @@ class TestBookUploadTaskValidateFile:
                 task._validate_file()
 
     def test_validate_file_not_file(self, metadata: dict[str, str]) -> None:
-        """Test _validate_file raises ValueError when path is not a file."""
+        """Test _validate_file raises ValueError when path is not a file (covers lines 190-191)."""
         with tempfile.TemporaryDirectory() as tmpdir:
             task = BookUploadTask(
                 task_id=1,
@@ -168,7 +168,8 @@ class TestBookUploadTaskValidateFile:
                     "file_format": "epub",
                 },
             )
-            with pytest.raises(ValueError, match=r".*"):
+            # First check will fail because it's a directory, not a file
+            with pytest.raises(ValueError, match="file_path is a directory"):
                 task._validate_file()
 
 
@@ -622,4 +623,183 @@ class TestBookUploadTaskRun:
         task.run(worker_context)
 
         # book_ids should be in metadata
+        assert "book_ids" in task.metadata
+
+
+class TestBookUploadTaskAdditional:
+    """Additional tests for uncovered lines."""
+
+    @pytest.fixture
+    def task(self, metadata: dict[str, str]) -> BookUploadTask:
+        """Create BookUploadTask instance."""
+        return BookUploadTask(
+            task_id=1,
+            user_id=1,
+            metadata=metadata,
+        )
+
+    @patch("fundamental.services.tasks.book_upload_task.BookMetadataService")
+    def test_extract_author_exception_handling(
+        self,
+        mock_metadata_service_class: MagicMock,
+        task: BookUploadTask,
+    ) -> None:
+        """Test _extract_author handles exceptions (covers lines 256-258)."""
+        mock_metadata_service = MagicMock()
+        mock_metadata_service.extract_metadata.side_effect = ValueError("Test error")
+        mock_metadata_service_class.return_value = mock_metadata_service
+
+        result = task._extract_author()
+
+        assert result is None
+
+    @patch("fundamental.services.tasks.book_upload_task.BookDuplicateHandler")
+    def test_check_and_handle_duplicate_skip(
+        self,
+        mock_duplicate_handler_class: MagicMock,
+        task: BookUploadTask,
+    ) -> None:
+        """Test _check_and_handle_duplicate when should_skip is True (covers lines 307-309)."""
+        from fundamental.services.duplicate_detection.book_duplicate_handler import (
+            DuplicateCheckResult,
+        )
+
+        mock_duplicate_handler = MagicMock()
+        duplicate_result = DuplicateCheckResult(
+            is_duplicate=True,
+            duplicate_book_id=123,
+            should_skip=True,
+            should_overwrite=False,
+        )
+        mock_duplicate_handler.check_duplicate.return_value = duplicate_result
+        mock_duplicate_handler_class.return_value = mock_duplicate_handler
+
+        mock_library = MagicMock()
+        mock_book_service = MagicMock()
+
+        with pytest.raises(ValueError, match="Duplicate book found"):
+            task._check_and_handle_duplicate(
+                mock_library,
+                mock_book_service,
+                "Test Title",
+                "Test Author",
+            )
+
+    @patch("fundamental.services.tasks.book_upload_task.BookDuplicateHandler")
+    def test_check_and_handle_duplicate_overwrite(
+        self,
+        mock_duplicate_handler_class: MagicMock,
+        task: BookUploadTask,
+    ) -> None:
+        """Test _check_and_handle_duplicate when should_overwrite is True (covers lines 313-321)."""
+        from fundamental.services.duplicate_detection.book_duplicate_handler import (
+            DuplicateCheckResult,
+        )
+
+        mock_duplicate_handler = MagicMock()
+        duplicate_result = DuplicateCheckResult(
+            is_duplicate=True,
+            duplicate_book_id=123,
+            should_skip=False,
+            should_overwrite=True,
+        )
+        mock_duplicate_handler.check_duplicate.return_value = duplicate_result
+        mock_duplicate_handler_class.return_value = mock_duplicate_handler
+
+        mock_library = MagicMock()
+        mock_book_service = MagicMock()
+
+        result = task._check_and_handle_duplicate(
+            mock_library,
+            mock_book_service,
+            "Test Title",
+            "Test Author",
+        )
+
+        assert result == 123
+        mock_book_service.delete_book.assert_called_once_with(
+            book_id=123,
+            delete_files_from_drive=True,
+        )
+
+    def test_get_post_processors_returns_existing(
+        self,
+        task: BookUploadTask,
+        worker_context: dict[str, MagicMock],
+    ) -> None:
+        """Test _get_post_processors returns existing processors (covers line 409)."""
+        from fundamental.services.tasks.post_processors import PostIngestProcessor
+
+        mock_processor = MagicMock(spec=PostIngestProcessor)
+        task._post_processors = [mock_processor]
+
+        result = task._get_post_processors(
+            worker_context["session"],
+            MagicMock(),
+        )
+
+        assert result == [mock_processor]
+
+    def test_validate_metadata_before_completion_missing_book_ids(
+        self,
+        task: BookUploadTask,
+    ) -> None:
+        """Test _validate_metadata_before_completion raises when book_ids missing (covers lines 450-451)."""
+        task.metadata = {}
+
+        with pytest.raises(
+            ValueError, match="Required metadata field 'book_ids' missing"
+        ):
+            task._validate_metadata_before_completion()
+
+    @patch(
+        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+    )
+    @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
+    @patch("fundamental.services.tasks.book_upload_task.LibraryService")
+    @patch("fundamental.services.tasks.book_upload_task.BookService")
+    def test_run_with_worker_context_object(
+        self,
+        mock_book_service_class: MagicMock,
+        mock_library_service_class: MagicMock,
+        mock_library_repo_class: MagicMock,
+        mock_calibre_repo_class: MagicMock,
+        task: BookUploadTask,
+    ) -> None:
+        """Test run with WorkerContext object instead of dict (covers line 471)."""
+        from fundamental.services.tasks.context import WorkerContext
+
+        mock_calibre_repo = MagicMock()
+        mock_calibre_session = MagicMock()
+        mock_exec_result = MagicMock()
+        mock_exec_result.first.return_value = None
+        mock_calibre_session.exec.return_value = mock_exec_result
+        mock_calibre_repo.get_session.return_value.__enter__.return_value = (
+            mock_calibre_session
+        )
+        mock_calibre_repo.get_session.return_value.__exit__.return_value = None
+        mock_calibre_repo_class.return_value = mock_calibre_repo
+
+        mock_library_repo = MagicMock()
+        mock_library_repo_class.return_value = mock_library_repo
+        mock_library_service = MagicMock()
+        mock_library = MagicMock()
+        mock_library.duplicate_handling = "IGNORE"
+        mock_library.calibre_db_path = "/test/calibre"
+        mock_library.calibre_db_file = "metadata.db"
+        mock_library_service.get_active_library.return_value = mock_library
+        mock_library_service_class.return_value = mock_library_service
+        mock_book_service = MagicMock()
+        mock_book_service.add_book.return_value = 123
+        mock_book_service_class.return_value = mock_book_service
+
+        update_progress = MagicMock()
+        context = WorkerContext(
+            session=MagicMock(),
+            update_progress=update_progress,
+            task_service=MagicMock(),
+        )
+
+        task.run(context)
+
         assert "book_ids" in task.metadata

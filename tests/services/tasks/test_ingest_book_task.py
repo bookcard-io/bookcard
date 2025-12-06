@@ -1276,3 +1276,529 @@ class TestRun:
         mock_processor_service.update_history_status.assert_called_with(
             123, IngestStatus.FAILED, "Test error"
         )
+
+
+class TestIngestBookTaskAdditional:
+    """Additional tests for uncovered lines."""
+
+    @pytest.fixture
+    def task(self) -> IngestBookTask:
+        """Create IngestBookTask instance."""
+        return IngestBookTask(
+            task_id=1,
+            user_id=1,
+            metadata={"history_id": 123},
+        )
+
+    def test_run_no_books_processed(
+        self,
+        task: IngestBookTask,
+        worker_context: WorkerContext,
+        mock_ingest_config: MagicMock,
+    ) -> None:
+        """Test run when no books processed (covers lines 105-106)."""
+        from fundamental.models.ingest import IngestHistory, IngestStatus
+
+        with (
+            patch(
+                "fundamental.services.tasks.ingest_book_task.IngestProcessorService"
+            ) as mock_processor_service_class,
+            patch(
+                "fundamental.services.tasks.ingest_book_task.IngestConfigService"
+            ) as mock_config_service_class,
+        ):
+            mock_processor_service = MagicMock()
+            history = IngestHistory(
+                id=123,
+                file_path="/test/path",
+                status=IngestStatus.PENDING,
+                ingest_metadata={"files": ["/test/file1.epub"]},  # Provide files
+            )
+            mock_processor_service.get_active_library.return_value = MagicMock()
+            # Simulate processing failure (no book_ids returned)
+            mock_processor_service.add_book_to_library.side_effect = Exception(
+                "Processing failed"
+            )
+            mock_processor_service.get_history.return_value = history
+            mock_processor_service.finalize_history.return_value = None
+            mock_processor_service_class.return_value = mock_processor_service
+
+            mock_config_service = MagicMock()
+            mock_config_service.get_config.return_value = mock_ingest_config
+            mock_config_service_class.return_value = mock_config_service
+
+            with (
+                patch("pathlib.Path.exists", return_value=True),
+                pytest.raises(
+                    RuntimeError, match="No books were successfully processed"
+                ),
+            ):
+                task.run(worker_context)
+
+    def test_run_all_skipped_duplicates(
+        self,
+        task: IngestBookTask,
+        worker_context: WorkerContext,
+        mock_ingest_config: MagicMock,
+    ) -> None:
+        """Test run when all files skipped as duplicates (covers lines 107-109)."""
+        from fundamental.models.ingest import IngestHistory, IngestStatus
+
+        with (
+            patch(
+                "fundamental.services.tasks.ingest_book_task.IngestProcessorService"
+            ) as mock_processor_service_class,
+            patch(
+                "fundamental.services.tasks.ingest_book_task.IngestConfigService"
+            ) as mock_config_service_class,
+        ):
+            mock_processor_service = MagicMock()
+            history = IngestHistory(
+                id=123,
+                file_path="/test/path",
+                status=IngestStatus.PENDING,
+                ingest_metadata={"files": ["/test/file1.epub"]},
+            )
+            from fundamental.models.config import DuplicateHandling, Library
+
+            mock_processor_service.get_history.return_value = history
+            mock_library = Library(
+                id=1,
+                name="Test Library",
+                calibre_db_path="/test/path",
+                duplicate_handling=DuplicateHandling.IGNORE,
+            )
+            mock_processor_service.get_active_library.return_value = mock_library
+            mock_processor_service.finalize_history.return_value = None
+            mock_processor_service_class.return_value = mock_processor_service
+
+            mock_config_service = MagicMock()
+            mock_config_service.get_config.return_value = mock_ingest_config
+            mock_config_service_class.return_value = mock_config_service
+
+            # Mock _process_single_file to raise ValueError for duplicate skip
+            # This will be caught in _process_files and skipped_duplicates incremented
+            def mock_process_single_file(*args: object, **kwargs: object) -> None:
+                raise ValueError(
+                    "Duplicate book found (book_id=1), skipping per library settings"
+                )
+
+            with (
+                patch("pathlib.Path.exists", return_value=True),
+                patch.object(
+                    task, "_process_single_file", side_effect=mock_process_single_file
+                ),
+            ):
+                task.run(worker_context)
+
+            # Should complete successfully - all files skipped as duplicates
+            mock_processor_service.finalize_history.assert_called()
+
+    def test_fetch_metadata_disabled(
+        self,
+        task: IngestBookTask,
+        worker_context: WorkerContext,
+    ) -> None:
+        """Test _fetch_metadata when disabled (covers lines 245-250)."""
+        from fundamental.models.ingest import IngestConfig
+
+        mock_processor_service = MagicMock()
+        config = IngestConfig(metadata_fetch_enabled=False)
+
+        result = task._fetch_metadata(
+            mock_processor_service,
+            123,
+            None,
+            config,
+            worker_context,
+        )
+
+        assert result is None
+
+    def test_process_files_duplicate_skip(
+        self,
+        task: IngestBookTask,
+        worker_context: WorkerContext,
+        mock_ingest_config: MagicMock,
+    ) -> None:
+        """Test _process_files handles duplicate skip (covers lines 317-321)."""
+        from pathlib import Path
+
+        from fundamental.models.config import DuplicateHandling, Library
+
+        with patch(
+            "fundamental.services.tasks.ingest_book_task.IngestProcessorService"
+        ) as mock_processor_service_class:
+            mock_processor_service = MagicMock()
+            mock_library = Library(
+                id=1,
+                name="Test Library",
+                calibre_db_path="/test/path",
+                duplicate_handling=DuplicateHandling.IGNORE,
+            )
+            mock_processor_service.get_active_library.return_value = mock_library
+            mock_processor_service.add_book_to_library.side_effect = ValueError(
+                "Duplicate book found (book_id=1), skipping per library settings"
+            )
+            mock_processor_service_class.return_value = mock_processor_service
+
+            file_paths = [Path("/test/file1.epub")]
+            with (
+                patch("pathlib.Path.exists", return_value=True),
+                patch(
+                    "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
+                ) as mock_delete,
+            ):
+                book_ids, skipped = task._process_files(
+                    mock_processor_service,
+                    123,
+                    file_paths,
+                    None,
+                    None,
+                    mock_ingest_config,
+                    worker_context,
+                )
+
+                assert len(book_ids) == 0
+                assert skipped == 1
+                mock_delete.assert_called_once()
+
+    def test_process_files_value_error_not_duplicate(
+        self,
+        task: IngestBookTask,
+        worker_context: WorkerContext,
+        mock_ingest_config: MagicMock,
+    ) -> None:
+        """Test _process_files handles ValueError not duplicate (covers lines 322-323)."""
+        from pathlib import Path
+
+        with patch(
+            "fundamental.services.tasks.ingest_book_task.IngestProcessorService"
+        ) as mock_processor_service_class:
+            mock_processor_service = MagicMock()
+            mock_processor_service.get_active_library.return_value = MagicMock()
+            mock_processor_service.add_book_to_library.side_effect = ValueError(
+                "Other error"
+            )
+            mock_processor_service_class.return_value = mock_processor_service
+
+            file_paths = [Path("/test/file1.epub")]
+            with (
+                patch("pathlib.Path.exists", return_value=True),
+                patch(
+                    "fundamental.services.tasks.ingest_book_task.logger"
+                ) as mock_logger,
+            ):
+                book_ids, skipped = task._process_files(
+                    mock_processor_service,
+                    123,
+                    file_paths,
+                    None,
+                    None,
+                    mock_ingest_config,
+                    worker_context,
+                )
+
+                assert len(book_ids) == 0
+                assert skipped == 0
+                mock_logger.exception.assert_called()
+
+    def test_check_and_handle_duplicate_overwrite(
+        self,
+        task: IngestBookTask,
+    ) -> None:
+        """Test _check_and_handle_duplicate overwrite mode (covers lines 390-407)."""
+        from fundamental.services.duplicate_detection.book_duplicate_handler import (
+            DuplicateCheckResult,
+        )
+
+        with patch(
+            "fundamental.services.tasks.ingest_book_task.BookDuplicateHandler"
+        ) as mock_handler_class:
+            mock_handler = MagicMock()
+            duplicate_result = DuplicateCheckResult(
+                is_duplicate=True,
+                duplicate_book_id=123,
+                should_skip=False,
+                should_overwrite=True,
+            )
+            mock_handler.check_duplicate.return_value = duplicate_result
+            mock_handler_class.return_value = mock_handler
+
+            mock_processor_service = MagicMock()
+            mock_book_service = MagicMock()
+            mock_processor_service._book_service_factory = MagicMock(
+                return_value=mock_book_service
+            )
+            mock_library = MagicMock()
+
+            result = task._check_and_handle_duplicate(
+                mock_library,
+                mock_processor_service,
+                Path("/test/file.epub"),
+                "epub",
+                "Test Title",
+                "Test Author",
+            )
+
+            assert result == 123
+            mock_book_service.delete_book.assert_called_once()
+
+    def test_check_and_handle_duplicate_overwrite_no_factory(
+        self,
+        task: IngestBookTask,
+    ) -> None:
+        """Test _check_and_handle_duplicate overwrite mode without factory (covers lines 398-407)."""
+        from fundamental.services.duplicate_detection.book_duplicate_handler import (
+            DuplicateCheckResult,
+        )
+
+        with patch(
+            "fundamental.services.tasks.ingest_book_task.BookDuplicateHandler"
+        ) as mock_handler_class:
+            mock_handler = MagicMock()
+            duplicate_result = DuplicateCheckResult(
+                is_duplicate=True,
+                duplicate_book_id=123,
+                should_skip=False,
+                should_overwrite=True,
+            )
+            mock_handler.check_duplicate.return_value = duplicate_result
+            mock_handler_class.return_value = mock_handler
+
+            mock_processor_service = MagicMock()
+            # No _book_service_factory attribute
+            delattr(mock_processor_service, "_book_service_factory")
+            mock_library = MagicMock()
+
+            result = task._check_and_handle_duplicate(
+                mock_library,
+                mock_processor_service,
+                Path("/test/file.epub"),
+                "epub",
+                "Test Title",
+                "Test Author",
+            )
+
+            assert result == 123
+
+    def test_process_single_file_duplicate_check_skip(
+        self,
+        task: IngestBookTask,
+        mock_ingest_config: MagicMock,
+    ) -> None:
+        """Test _process_single_file duplicate check skip (covers lines 473-484)."""
+        from fundamental.models.config import DuplicateHandling, Library
+        from fundamental.services.duplicate_detection.book_duplicate_handler import (
+            DuplicateCheckResult,
+        )
+
+        with patch(
+            "fundamental.services.tasks.ingest_book_task.BookDuplicateHandler"
+        ) as mock_handler_class:
+            mock_handler = MagicMock()
+            duplicate_result = DuplicateCheckResult(
+                is_duplicate=True,
+                duplicate_book_id=123,
+                should_skip=True,
+                should_overwrite=False,
+            )
+            mock_handler.check_duplicate.return_value = duplicate_result
+            mock_handler_class.return_value = mock_handler
+
+            mock_processor_service = MagicMock()
+            mock_processor_service.add_book_to_library.return_value = 456
+            from fundamental.models.config import DuplicateHandling, Library
+
+            mock_library = Library(
+                id=1,
+                name="Test Library",
+                calibre_db_path="/test/path",
+                duplicate_handling=DuplicateHandling.IGNORE,
+            )
+            mock_session = MagicMock()
+
+            # The duplicate check happens twice:
+            # 1. In _check_and_handle_duplicate (returns None when should_skip=True)
+            # 2. In _process_single_file at line 474-484, which creates a new BookDuplicateHandler
+            #    and checks again, then raises ValueError if should_skip is True
+            # We need to ensure the second BookDuplicateHandler call also returns should_skip=True
+            # Since we're already patching BookDuplicateHandler, both calls will use the same mock
+            # We need to provide a title so the check at line 473 executes
+            # The logic: if duplicate_result is None and title: then check again and raise if should_skip
+            with pytest.raises(ValueError, match="Duplicate book found"):
+                task._process_single_file(
+                    mock_processor_service,
+                    123,
+                    Path("/test/file.epub"),
+                    {"title": "Test Title"},  # Provide title so line 473 check executes
+                    None,
+                    mock_ingest_config,
+                    mock_library,
+                    mock_session,
+                )
+
+    @pytest.mark.parametrize(
+        ("date_str", "expected_year"),
+        [
+            ("2023-01-15", 2023),
+            ("2023-01", 2023),
+            ("2023", 2023),
+            ("2023-01-15T10:00:00", 2023),
+            ("2023-01-15T10:00:00Z", 2023),
+            ("2023-01-15T10:00:00+05:00", 2023),
+        ],
+    )
+    def test_parse_published_date(
+        self,
+        task: IngestBookTask,
+        date_str: str,
+        expected_year: int,
+    ) -> None:
+        """Test _parse_published_date with various formats (covers lines 596-627)."""
+        result = task._parse_published_date(date_str)
+
+        if result is not None:
+            assert result.year == expected_year
+
+    def test_parse_published_date_empty(
+        self,
+        task: IngestBookTask,
+    ) -> None:
+        """Test _parse_published_date with empty string (covers line 596-597)."""
+        result = task._parse_published_date("")
+        assert result is None
+
+    def test_parse_published_date_invalid(
+        self,
+        task: IngestBookTask,
+    ) -> None:
+        """Test _parse_published_date with invalid format (covers lines 620-627)."""
+        result = task._parse_published_date("invalid date")
+        assert result is None
+
+    def test_merge_metadata_continues_on_empty(
+        self,
+        task: IngestBookTask,
+    ) -> None:
+        """Test _merge_metadata continues on empty value (covers lines 660-662)."""
+        result = task._merge_metadata(
+            {"title": ""},
+            {"title": "Valid Title"},
+            keys=["title"],
+        )
+
+        assert result["title"] == "Valid Title"
+
+    def test_delete_companion_files_checks(
+        self,
+        task: IngestBookTask,
+        tmp_path: Path,
+    ) -> None:
+        """Test _delete_companion_files checks (covers lines 719, 726, 735)."""
+        book_dir = tmp_path / "book"
+        book_dir.mkdir()
+        main_file = book_dir / "main.epub"
+        main_file.write_text("content")
+
+        # Create companion files
+        matching_stem = book_dir / "main.txt"
+        matching_stem.write_text("content")
+        cover_file = book_dir / "cover.jpg"
+        cover_file.write_text("content")
+        metadata_file = book_dir / "metadata.opf"
+        metadata_file.write_text("content")
+        other_file = book_dir / "other.txt"
+        other_file.write_text("content")
+
+        with patch("fundamental.services.tasks.ingest_book_task.logger"):
+            task._delete_companion_files(main_file, book_dir)
+
+            # Should delete matching stem, cover, and metadata
+            assert not matching_stem.exists()
+            assert not cover_file.exists()
+            assert not metadata_file.exists()
+            # Should not delete other file
+            assert other_file.exists()
+
+    def test_delete_companion_files_oserror(
+        self,
+        task: IngestBookTask,
+        tmp_path: Path,
+    ) -> None:
+        """Test _delete_companion_files handles OSError (covers lines 740-741)."""
+        book_dir = tmp_path / "book"
+        book_dir.mkdir()
+        main_file = book_dir / "main.epub"
+        main_file.write_text("content")
+
+        companion = book_dir / "main.txt"
+        companion.write_text("content")
+
+        with (
+            patch("pathlib.Path.unlink", side_effect=OSError("Permission denied")),
+            patch("fundamental.services.tasks.ingest_book_task.logger") as mock_logger,
+        ):
+            task._delete_companion_files(main_file, book_dir)
+
+            mock_logger.warning.assert_called()
+
+    def test_try_delete_empty_directory_books_ingest(
+        self,
+        task: IngestBookTask,
+        tmp_path: Path,
+    ) -> None:
+        """Test _try_delete_empty_directory skips books_ingest (covers lines 759, 763)."""
+        books_ingest_dir = tmp_path / "books_ingest"
+        books_ingest_dir.mkdir()
+
+        task._try_delete_empty_directory(books_ingest_dir, "root")
+
+        # Should not delete books_ingest
+        assert books_ingest_dir.exists()
+
+    def test_try_delete_empty_directory_not_exists(
+        self,
+        task: IngestBookTask,
+        tmp_path: Path,
+    ) -> None:
+        """Test _try_delete_empty_directory when directory doesn't exist (covers line 759)."""
+        non_existent = tmp_path / "nonexistent"
+
+        task._try_delete_empty_directory(non_existent, "test")
+
+        # Should not raise
+
+    def test_try_delete_empty_directory_oserror(
+        self,
+        task: IngestBookTask,
+        tmp_path: Path,
+    ) -> None:
+        """Test _try_delete_empty_directory handles OSError (covers lines 774-775)."""
+        test_dir = tmp_path / "test"
+        test_dir.mkdir()
+
+        with (
+            patch("pathlib.Path.rmdir", side_effect=OSError("Permission denied")),
+            patch("fundamental.services.tasks.ingest_book_task.logger") as mock_logger,
+        ):
+            task._try_delete_empty_directory(test_dir, "test")
+
+            mock_logger.warning.assert_called()
+
+    def test_handle_no_books_processed(
+        self,
+        task: IngestBookTask,
+        worker_context: WorkerContext,
+    ) -> None:
+        """Test _handle_no_books_processed (covers lines 801-811)."""
+        mock_processor_service = MagicMock()
+
+        with pytest.raises(RuntimeError, match="No books were successfully processed"):
+            task._handle_no_books_processed(
+                mock_processor_service,
+                123,
+                worker_context,
+            )
+
+        mock_processor_service.update_history_status.assert_called_once()

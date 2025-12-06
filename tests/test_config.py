@@ -170,7 +170,10 @@ def test_get_redis_url(
     if redis_password is not None:
         env_vars["REDIS_PASSWORD"] = redis_password
 
-    with patch.dict(os.environ, env_vars):
+    # Clear REDIS_PASSWORD if it's None to avoid picking up values from other tests
+    with patch.dict(os.environ, env_vars, clear=False):
+        if redis_password is None and "REDIS_PASSWORD" in os.environ:
+            del os.environ["REDIS_PASSWORD"]
         result = AppConfig._get_redis_url()
         assert result == expected_url
 

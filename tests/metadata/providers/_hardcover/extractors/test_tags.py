@@ -148,3 +148,74 @@ def test_extract_with_falsy_values() -> None:
     assert 0 not in result
     assert False not in result
     assert [] not in result
+
+
+@pytest.mark.parametrize(
+    ("cached_tags", "expected"),
+    [
+        ('["tag1", "tag2"]', ["tag1", "tag2"]),
+        ('[{"name": "tag1"}, {"name": "tag2"}]', ["tag1", "tag2"]),
+        ('[{"tag": "tag1"}, {"tag": "tag2"}]', ["tag1", "tag2"]),
+        ('[{"value": "tag1"}, {"value": "tag2"}]', ["tag1", "tag2"]),
+        (["tag1", "tag2"], ["tag1", "tag2"]),
+        ([{"name": "tag1"}, {"name": "tag2"}], ["tag1", "tag2"]),
+        ("single_tag", ["single_tag"]),
+        ("", []),
+    ],
+)
+def test_extract_with_cached_tags(cached_tags: str | list, expected: list[str]) -> None:
+    """Test extraction with cached_tags (covers lines 43-44, 76-98)."""
+    book_data = {"cached_tags": cached_tags}
+    result = TagsExtractor.extract(book_data)
+    assert result == expected
+
+
+def test_extract_with_cached_tags_invalid_json() -> None:
+    """Test extraction with invalid JSON cached_tags (covers lines 77-81)."""
+    book_data = {"cached_tags": '{"invalid": json}'}
+    result = TagsExtractor.extract(book_data)
+    assert result == ['{"invalid": json}']
+
+
+def test_extract_with_cached_tags_non_list_non_string() -> None:
+    """Test extraction with cached_tags as non-list, non-string (covers lines 83-84)."""
+    book_data = {"cached_tags": 123}
+    result = TagsExtractor.extract(book_data)
+    assert result == []
+
+
+def test_extract_with_cached_tags_dict_no_name() -> None:
+    """Test extraction with cached_tags dict without name/tag/value (covers lines 90-94)."""
+    book_data = {"cached_tags": [{"other": "value"}]}
+    result = TagsExtractor.extract(book_data)
+    assert result == []
+
+
+def test_extract_with_cached_tags_mixed_list() -> None:
+    """Test extraction with cached_tags as mixed list (covers lines 88-96)."""
+    book_data = {
+        "cached_tags": [
+            {"name": "tag1"},
+            "tag2",
+            {"tag": "tag3"},
+            {"value": "tag4"},
+        ]
+    }
+    result = TagsExtractor.extract(book_data)
+    assert set(result) == {"tag1", "tag2", "tag3", "tag4"}
+
+
+def test_extract_with_cached_tags_and_other_sources() -> None:
+    """Test extraction with cached_tags combined with other sources (covers lines 43-44)."""
+    book_data = {
+        "cached_tags": '["cached1", "cached2"]',
+        "genres": ["Genre 1"],
+        "moods": ["Mood 1"],
+        "tags": ["Tag 1"],
+    }
+    result = TagsExtractor.extract(book_data)
+    assert "cached1" in result
+    assert "cached2" in result
+    assert "Genre 1" in result
+    assert "Mood 1" in result
+    assert "Tag 1" in result
