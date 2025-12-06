@@ -27,6 +27,8 @@ export interface ProgressBarProps {
   onProgressChange?: (progress: number) => void;
   /** Whether progress bar is disabled (e.g., locations not ready). */
   isDisabled?: boolean;
+  /** Whether EPUB data is currently loading. */
+  isLoadingEpubData?: boolean;
 }
 
 /**
@@ -44,6 +46,7 @@ export function ProgressBar({
   progress,
   onProgressChange,
   isDisabled = false,
+  isLoadingEpubData = false,
 }: ProgressBarProps) {
   const progressBarRef = useRef<HTMLDivElement>(null);
   const { localProgress, showTooltip, handleProgressChange } = useProgressBar(
@@ -82,7 +85,7 @@ export function ProgressBar({
           aria-label="Reading progress"
           aria-disabled={isDisabled}
         />
-        {showTooltip && isDisabled && (
+        {showTooltip && isDisabled && isLoadingEpubData && (
           <div className="-translate-x-1/2 -mb-6 absolute bottom-full left-1/2 z-10 flex items-center gap-1.5 rounded bg-surface-a20 px-3 py-1.5 text-text-a0 text-xs shadow-lg">
             <ReadingMode className="h-3 w-3" />
             <span>Loading epub data. Please wait...</span>

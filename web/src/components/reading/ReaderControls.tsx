@@ -39,6 +39,8 @@ export interface ReaderControlsProps {
   onProgressChange?: (progress: number) => void;
   /** Whether progress bar is disabled (e.g., locations not ready). */
   isProgressDisabled?: boolean;
+  /** Whether EPUB data is currently loading. */
+  isLoadingEpubData?: boolean;
   /** Current page color theme. */
   pageColor?: PageColor;
   /** Paging information for display. */
@@ -66,6 +68,7 @@ export function ReaderControls({
   progress,
   onProgressChange,
   isProgressDisabled = false,
+  isLoadingEpubData = false,
   pageColor = "light",
   pagingInfo,
   className,
@@ -80,6 +83,7 @@ export function ReaderControls({
           progress={progress}
           onProgressChange={onProgressChange}
           isDisabled={isProgressDisabled}
+          isLoadingEpubData={isLoadingEpubData}
         />
       </div>
 

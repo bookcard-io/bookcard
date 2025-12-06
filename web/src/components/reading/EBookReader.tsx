@@ -285,6 +285,7 @@ export function EBookReader({
         progress={currentProgress}
         onProgressChange={handleProgressChange}
         isProgressDisabled={(isEPUB && !areLocationsReady) || isComic}
+        isLoadingEpubData={isEPUB && !areLocationsReady}
         pageColor={pageColor}
         pagingInfo={pagingInfo || undefined}
       />
