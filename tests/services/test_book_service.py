@@ -24,8 +24,25 @@ import pytest
 
 from fundamental.models.auth import EBookFormat, EReaderDevice
 from fundamental.models.config import Library
-from fundamental.models.conversion import ConversionMethod
+from fundamental.models.conversion import BookConversion, ConversionMethod
 from fundamental.models.core import Book
+from fundamental.models.epub_fixer import EPUBFix
+from fundamental.models.ingest import IngestHistory
+from fundamental.models.kobo import (
+    KoboArchivedBook,
+    KoboReadingState,
+    KoboSyncedBook,
+)
+from fundamental.models.metadata_enforcement import (
+    MetadataEnforcementOperation,
+)
+from fundamental.models.reading import (
+    Annotation,
+    AnnotationDirtied,
+    ReadingProgress,
+    ReadingSession,
+    ReadStatus,
+)
 from fundamental.repositories import BookWithFullRelations, BookWithRelations
 from fundamental.services.book_service import BookService
 
@@ -820,6 +837,250 @@ def test_delete_book_without_library_root() -> None:
 
         call_kwargs = mock_repo.delete_book.call_args[1]
         assert call_kwargs["library_path"] == Path("/path/to/library")
+
+
+# Tests for Fundamental database associations deletion (bug fix)
+def test_delete_book_deletes_fundamental_associations_with_session() -> None:
+    """Test delete_book deletes Fundamental database associations when session is available."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+
+    mock_session = MagicMock()
+    mock_repo = MagicMock()
+
+    with patch(
+        "fundamental.services.book_service.CalibreBookRepository"
+    ) as mock_repo_class:
+        mock_repo_class.return_value = mock_repo
+
+        service = BookService(library, session=mock_session)
+        with patch.object(
+            service, "_delete_fundamental_associations"
+        ) as mock_delete_associations:
+            service.delete_book(book_id=123, delete_files_from_drive=False)
+
+            # Verify Fundamental associations are deleted before Calibre deletion
+            mock_delete_associations.assert_called_once_with(123)
+            mock_repo.delete_book.assert_called_once()
+
+
+def test_delete_book_skips_fundamental_associations_without_session() -> None:
+    """Test delete_book skips Fundamental associations deletion when session is None."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+
+    mock_repo = MagicMock()
+
+    with patch(
+        "fundamental.services.book_service.CalibreBookRepository"
+    ) as mock_repo_class:
+        mock_repo_class.return_value = mock_repo
+
+        service = BookService(library, session=None)
+        with patch.object(
+            service, "_delete_fundamental_associations"
+        ) as mock_delete_associations:
+            service.delete_book(book_id=123, delete_files_from_drive=False)
+
+            # Verify Fundamental associations deletion is not called
+            mock_delete_associations.assert_not_called()
+            mock_repo.delete_book.assert_called_once()
+
+
+def test_delete_fundamental_associations_deletes_all_model_types() -> None:
+    """Test _delete_fundamental_associations deletes all expected model types."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+
+    mock_session = MagicMock()
+    book_id = 123
+
+    # Create mock records for each model type
+    mock_conversion = MagicMock(spec=BookConversion)
+    mock_reading_progress = MagicMock(spec=ReadingProgress)
+    mock_reading_session = MagicMock(spec=ReadingSession)
+    mock_read_status = MagicMock(spec=ReadStatus)
+    mock_annotation = MagicMock(spec=Annotation)
+    mock_annotation_dirtied = MagicMock(spec=AnnotationDirtied)
+    mock_kobo_reading_state = MagicMock(spec=KoboReadingState)
+    mock_kobo_synced_book = MagicMock(spec=KoboSyncedBook)
+    mock_kobo_archived_book = MagicMock(spec=KoboArchivedBook)
+    mock_epub_fix = MagicMock(spec=EPUBFix)
+    mock_metadata_enforcement = MagicMock(spec=MetadataEnforcementOperation)
+    mock_ingest_history = MagicMock(spec=IngestHistory)
+
+    # Configure mock_session.exec to return different results for each model
+    # We'll return one record per call to simulate different model types
+    mock_records = [
+        [mock_conversion],
+        [mock_reading_progress],
+        [mock_reading_session],
+        [mock_read_status],
+        [mock_annotation],
+        [mock_annotation_dirtied],
+        [mock_kobo_reading_state],
+        [mock_kobo_synced_book],
+        [mock_kobo_archived_book],
+        [mock_epub_fix],
+        [mock_metadata_enforcement],
+        [mock_ingest_history],
+    ]
+
+    call_count = [0]  # Use list to allow modification in closure
+
+    def exec_side_effect(query: object) -> MagicMock:
+        """Return appropriate mock records based on call order."""
+        # Return next set of records
+        if call_count[0] < len(mock_records):
+            result = MagicMock()
+            result.all.return_value = mock_records[call_count[0]]
+            call_count[0] += 1
+            return result
+        return MagicMock(all=list)
+
+    mock_session.exec.side_effect = exec_side_effect
+
+    service = BookService(library, session=mock_session)
+
+    # Call the method
+    service._delete_fundamental_associations(book_id)
+
+    # Verify session.exec was called for each model type (12 models)
+    assert mock_session.exec.call_count == 12
+
+    # Verify session.delete was called for each record (12 records)
+    assert mock_session.delete.call_count == 12
+
+    # Verify commit was called
+    mock_session.commit.assert_called_once()
+
+
+def test_delete_fundamental_associations_handles_empty_results() -> None:
+    """Test _delete_fundamental_associations handles empty query results gracefully."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+
+    mock_session = MagicMock()
+    # Configure exec to return empty results
+    mock_session.exec.return_value.all.return_value = []
+
+    service = BookService(library, session=mock_session)
+
+    # Call the method
+    service._delete_fundamental_associations(123)
+
+    # Verify session.exec was called for each model type
+    assert mock_session.exec.call_count == 12
+
+    # Verify session.delete was never called (no records to delete)
+    mock_session.delete.assert_not_called()
+
+    # Verify commit was still called
+    mock_session.commit.assert_called_once()
+
+
+def test_delete_fundamental_associations_handles_errors() -> None:
+    """Test _delete_fundamental_associations rolls back on error."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+
+    mock_session = MagicMock()
+    mock_session.exec.side_effect = Exception("Database error")
+
+    service = BookService(library, session=mock_session)
+
+    # Call the method and expect it to raise
+    with pytest.raises(Exception, match="Database error"):
+        service._delete_fundamental_associations(123)
+
+    # Verify rollback was called
+    mock_session.rollback.assert_called_once()
+
+    # Verify commit was not called
+    mock_session.commit.assert_not_called()
+
+
+def test_delete_fundamental_associations_no_session() -> None:
+    """Test _delete_fundamental_associations does nothing when session is None."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+
+    service = BookService(library, session=None)
+
+    # Call the method - should not raise
+    service._delete_fundamental_associations(123)
+
+    # No assertions needed - method should return early without error
+
+
+def test_delete_associations_by_model_deletes_records() -> None:
+    """Test _delete_associations_by_model deletes records for a specific model."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+
+    mock_session = MagicMock()
+    mock_record1 = MagicMock(spec=BookConversion)
+    mock_record2 = MagicMock(spec=BookConversion)
+
+    mock_session.exec.return_value.all.return_value = [mock_record1, mock_record2]
+
+    service = BookService(library, session=mock_session)
+
+    # Call the helper method
+    service._delete_associations_by_model(123, BookConversion, "conversion")
+
+    # Verify exec was called with correct query
+    mock_session.exec.assert_called_once()
+
+    # Verify delete was called for each record
+    assert mock_session.delete.call_count == 2
+    mock_session.delete.assert_any_call(mock_record1)
+    mock_session.delete.assert_any_call(mock_record2)
+
+
+def test_delete_associations_by_model_no_session() -> None:
+    """Test _delete_associations_by_model handles None session gracefully."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+    )
+
+    service = BookService(library, session=None)
+
+    # Call the helper method - should return early
+    service._delete_associations_by_model(123, BookConversion, "conversion")
+
+    # No assertions needed - method should return early without error
 
 
 # Fixtures for send_book tests
