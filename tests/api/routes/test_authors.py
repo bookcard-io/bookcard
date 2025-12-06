@@ -1119,3 +1119,341 @@ def test_delete_author_photo_error(monkeypatch: pytest.MonkeyPatch) -> None:
             author_service=mock_service,
             permission_helper=mock_permission_helper,
         )
+
+
+def test_get_permission_helper(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test _get_permission_helper creates AuthorPermissionHelper (covers line 149)."""
+    session = DummySession()
+
+    with patch(
+        "fundamental.api.routes.authors.AuthorPermissionHelper"
+    ) as mock_helper_class:
+        mock_helper = MagicMock()
+        mock_helper_class.return_value = mock_helper
+
+        result = authors._get_permission_helper(session)  # type: ignore[arg-type]
+
+        assert result is not None
+        mock_helper_class.assert_called_once_with(session)
+
+
+def test_list_authors_page_size_less_than_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test list_authors validates page_size < 1 (covers line 302)."""
+    session = DummySession()
+    current_user = _create_mock_user()
+    mock_service = MockAuthorService()
+    mock_service._list_result = ([], 0)
+
+    _mock_permission_helper, _, _ = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+
+    with patch(
+        "fundamental.api.routes.authors.PermissionService"
+    ) as mock_perm_service_class:
+        mock_perm_service = MagicMock()
+        mock_perm_service.check_permission.return_value = None
+        mock_perm_service_class.return_value = mock_perm_service
+
+        result = authors.list_authors(
+            current_user=current_user,
+            session=session,
+            author_service=mock_service,
+            page=1,
+            page_size=0,
+        )
+        assert result["page_size"] == 20
+
+
+def test_update_author_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test update_author handles ValueError (covers lines 405-406)."""
+    session = DummySession()
+    current_user = _create_mock_user()
+    mock_service = MockAuthorService()
+    mock_service._author_data["1"] = {"id": "1", "name": "Test Author"}
+    mock_service.update_author = MagicMock(  # type: ignore[assignment]
+        side_effect=ValueError("author_not_found")
+    )
+
+    mock_permission_helper, _, _ = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+
+    update = AuthorUpdate(name="New Name")
+    with pytest.raises(HTTPException):
+        authors.update_author(
+            author_id="1",
+            update=update,
+            current_user=current_user,
+            author_service=mock_service,
+            permission_helper=mock_permission_helper,
+        )
+
+
+def test_recommend_merge_author_permission_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test recommend_merge_author handles permission errors (covers lines 547-548)."""
+    session = DummySession()
+    current_user = _create_mock_user()
+    mock_service = MockAuthorService()
+    mock_service.get_author_by_id_or_key = MagicMock(  # type: ignore[assignment]
+        side_effect=ValueError("author_not_found")
+    )
+
+    mock_permission_helper, _, _ = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+
+    request_body = AuthorMergeRecommendRequest(author_ids=["999", "998"])
+    with pytest.raises(HTTPException):
+        authors.recommend_merge_author(
+            request_body=request_body,
+            current_user=current_user,
+            author_service=mock_service,
+            merge_service=MockMergeService(),
+            permission_helper=mock_permission_helper,
+        )
+
+
+def test_recommend_merge_author_service_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test recommend_merge_author handles service errors (covers lines 552-553)."""
+    session = DummySession()
+    current_user = _create_mock_user()
+    mock_service = MockAuthorService()
+    mock_service._author_data["1"] = {"id": "1", "name": "Author 1"}
+    mock_service._author_data["2"] = {"id": "2", "name": "Author 2"}
+
+    mock_permission_helper, _, mock_merge_service = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+    mock_merge_service.recommend_keep_author = MagicMock(  # type: ignore[assignment]
+        side_effect=ValueError("invalid_author_ids")
+    )
+
+    request_body = AuthorMergeRecommendRequest(author_ids=["1", "2"])
+    with pytest.raises(HTTPException):
+        authors.recommend_merge_author(
+            request_body=request_body,
+            current_user=current_user,
+            author_service=mock_service,
+            merge_service=mock_merge_service,
+            permission_helper=mock_permission_helper,
+        )
+
+
+def test_merge_authors_permission_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test merge_authors handles permission errors (covers lines 598-599)."""
+    session = DummySession()
+    current_user = _create_mock_user()
+    mock_service = MockAuthorService()
+    mock_service.get_author_by_id_or_key = MagicMock(  # type: ignore[assignment]
+        side_effect=ValueError("author_not_found")
+    )
+
+    mock_permission_helper, _, _ = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+
+    request_body = AuthorMergeRequest(author_ids=["999", "998"], keep_author_id="999")
+    with pytest.raises(HTTPException):
+        authors.merge_authors(
+            request_body=request_body,
+            current_user=current_user,
+            author_service=mock_service,
+            merge_service=MockMergeService(),
+            permission_helper=mock_permission_helper,
+        )
+
+
+def test_merge_authors_service_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test merge_authors handles service errors (covers lines 606-607)."""
+    session = DummySession()
+    current_user = _create_mock_user()
+    mock_service = MockAuthorService()
+    mock_service._author_data["1"] = {"id": "1", "name": "Author 1"}
+    mock_service._author_data["2"] = {"id": "2", "name": "Author 2"}
+
+    mock_permission_helper, _, mock_merge_service = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+    mock_merge_service.merge_authors = MagicMock(  # type: ignore[assignment]
+        side_effect=ValueError("invalid_author_ids")
+    )
+
+    request_body = AuthorMergeRequest(author_ids=["1", "2"], keep_author_id="1")
+    with pytest.raises(HTTPException):
+        authors.merge_authors(
+            request_body=request_body,
+            current_user=current_user,
+            author_service=mock_service,
+            merge_service=mock_merge_service,
+            permission_helper=mock_permission_helper,
+        )
+
+
+def test_upload_author_photo_service_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test upload_author_photo handles service errors (covers lines 679-680)."""
+    session = DummySession()
+    current_user = _create_mock_user()
+    mock_service = MockAuthorService()
+    mock_service._author_data["1"] = {"id": "1", "name": "Test Author"}
+    mock_service.upload_author_photo = MagicMock(  # type: ignore[assignment]
+        side_effect=ValueError("invalid_file_format")
+    )
+
+    mock_permission_helper, _, _ = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+
+    mock_file = MagicMock()
+    mock_file.filename = "photo.jpg"
+    mock_file.file.read.return_value = b"fake image data"
+
+    with pytest.raises(HTTPException):
+        authors.upload_author_photo(
+            author_id="1",
+            current_user=current_user,
+            author_service=mock_service,
+            permission_helper=mock_permission_helper,
+            file=mock_file,
+        )
+
+
+def test_get_author_photo_404_http_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test get_author_photo returns 404 for HTTPException 404 (covers line 799)."""
+    session = DummySession()
+    current_user = _create_mock_user()
+    mock_service = MockAuthorService()
+    mock_service.get_author_by_id_or_key = MagicMock(  # type: ignore[assignment]
+        side_effect=HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="not_found"
+        )
+    )
+
+    mock_permission_helper, _, _ = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            class DummyConfig:
+                data_directory = "/tmp"
+
+            self.app = type(
+                "App", (), {"state": type("State", (), {"config": DummyConfig()})()}
+            )()
+
+    request = DummyRequest()
+    result = authors.get_author_photo(
+        author_id="999",
+        photo_id=1,
+        current_user=current_user,
+        author_service=mock_service,
+        permission_helper=mock_permission_helper,
+        request=request,  # type: ignore[arg-type]
+    )
+
+    assert isinstance(result, Response)
+    assert result.status_code == 404
+
+
+def test_get_author_photo_file_not_exists(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test get_author_photo returns 404 when file doesn't exist (covers line 814)."""
+    session = DummySession()
+    current_user = _create_mock_user()
+    mock_service = MockAuthorService()
+    mock_service._author_data["1"] = {"id": "1", "name": "Test Author"}
+
+    mock_photo = MagicMock()
+    mock_photo.file_path = "photos/1/nonexistent.jpg"
+    mock_photo.file_name = "nonexistent.jpg"
+    mock_photo.mime_type = "image/jpeg"
+    mock_service.get_author_photo_by_id = MagicMock(return_value=mock_photo)  # type: ignore[assignment]
+
+    mock_permission_helper, _, _ = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+
+        class DummyRequest:
+            def __init__(self, temp_dir: str) -> None:
+                class DummyConfig:
+                    data_directory = temp_dir
+
+                self.app = type(
+                    "App",
+                    (),
+                    {"state": type("State", (), {"config": DummyConfig()})()},
+                )()
+
+        request = DummyRequest(tmpdir)
+        result = authors.get_author_photo(
+            author_id="1",
+            photo_id=1,
+            current_user=current_user,
+            author_service=mock_service,
+            permission_helper=mock_permission_helper,
+            request=request,  # type: ignore[arg-type]
+        )
+
+        assert isinstance(result, Response)
+        assert result.status_code == 404
+
+
+def test_get_author_photo_invalid_media_type(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test get_author_photo handles invalid media type (covers line 819)."""
+    session = DummySession()
+    current_user = _create_mock_user()
+    mock_service = MockAuthorService()
+    mock_service._author_data["1"] = {"id": "1", "name": "Test Author"}
+
+    mock_permission_helper, _, _ = _setup_route_mocks(
+        monkeypatch, session, mock_service
+    )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        photo_path = Path(tmpdir) / "photos" / "1" / "photo_1.jpg"
+        photo_path.parent.mkdir(parents=True, exist_ok=True)
+        photo_path.write_bytes(b"fake image")
+
+        class DummyRequest:
+            def __init__(self, temp_dir: str) -> None:
+                class DummyConfig:
+                    data_directory = temp_dir
+
+                self.app = type(
+                    "App",
+                    (),
+                    {"state": type("State", (), {"config": DummyConfig()})()},
+                )()
+
+        request = DummyRequest(tmpdir)
+        mock_photo = MagicMock()
+        mock_photo.file_path = str(photo_path.relative_to(tmpdir))
+        mock_photo.file_name = "photo_1.jpg"
+        mock_photo.mime_type = "application/pdf"  # Invalid media type
+        mock_service.get_author_photo_by_id = MagicMock(return_value=mock_photo)  # type: ignore[assignment]
+
+        result = authors.get_author_photo(
+            author_id="1",
+            photo_id=1,
+            current_user=current_user,
+            author_service=mock_service,
+            permission_helper=mock_permission_helper,
+            request=request,  # type: ignore[arg-type]
+        )
+
+        assert isinstance(result, FileResponse)
+        assert result.media_type == "image/jpeg"  # Should default to image/jpeg

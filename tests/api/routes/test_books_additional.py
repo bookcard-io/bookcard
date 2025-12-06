@@ -2619,3 +2619,743 @@ def test_upload_books_batch_unexpected_error(monkeypatch: pytest.MonkeyPatch) ->
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 500
         assert "failed_to_save_file" in exc_info.value.detail
+
+
+def test_delete_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test delete_book raises 404 when book not found (covers line 633)."""
+    session = DummySession()
+    current_user = _create_mock_user()
+    mock_service = MockBookService()
+    mock_service.set_get_book_full_result(None)
+
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
+    with pytest.raises(HTTPException) as exc_info:
+        books.delete_book(
+            current_user=current_user,
+            book_id=999,
+            delete_request=MagicMock(),
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
+        )
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "book_not_found"
+
+
+def test_send_books_to_device_batch_email_not_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test send_books_to_device_batch when email not configured (covers line 1121)."""
+    from fundamental.api.schemas import BookBulkSendRequest
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            class DummyConfig:
+                encryption_key = b"test_key"
+
+            class DummyEmailConfig:
+                enabled = False
+
+            class DummyEmailConfigService:
+                def get_config(self, decrypt: bool = False) -> DummyEmailConfig | None:
+                    return DummyEmailConfig()
+
+            self.app = type(
+                "App",
+                (),
+                {
+                    "state": type(
+                        "State",
+                        (),
+                        {
+                            "config": DummyConfig(),
+                            "email_config_service": DummyEmailConfigService(),
+                        },
+                    )()
+                },
+            )()
+
+    session = DummySession()
+    current_user = _create_mock_user()
+    request = DummyRequest()
+    mock_service = MockBookService()
+
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
+    with (
+        patch(
+            "fundamental.api.routes.books._email_config_service"
+        ) as mock_email_service,
+    ):
+        mock_email_config = MagicMock()
+        mock_email_config.enabled = False
+        mock_email_service_instance = MagicMock()
+        mock_email_service_instance.get_config.return_value = mock_email_config
+        mock_email_service.return_value = mock_email_service_instance
+
+        send_request = BookBulkSendRequest(book_ids=[1, 2])
+        with pytest.raises(HTTPException) as exc_info:
+            books.send_books_to_device_batch(
+                request=request,  # type: ignore[arg-type]
+                session=session,
+                current_user=current_user,
+                send_request=send_request,
+                book_service=mock_service,
+                permission_helper=mock_permission_helper,
+            )
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == "email_server_not_configured_or_disabled"
+
+
+def test_send_books_to_device_batch_user_missing_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test send_books_to_device_batch when user missing ID (covers line 1128)."""
+    from fundamental.api.schemas import BookBulkSendRequest
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            class DummyConfig:
+                encryption_key = b"test_key"
+
+            class DummyTaskRunner:
+                def enqueue(
+                    self,
+                    task_type: object,
+                    payload: dict[str, object],
+                    user_id: int,
+                    metadata: dict[str, object] | None = None,
+                ) -> int:
+                    return 1
+
+            self.app = type(
+                "App",
+                (),
+                {
+                    "state": type(
+                        "State",
+                        (),
+                        {
+                            "config": DummyConfig(),
+                            "task_runner": DummyTaskRunner(),
+                        },
+                    )()
+                },
+            )()
+
+    session = DummySession()
+    current_user = User(
+        id=None,  # Missing ID
+        username="testuser",
+        email="test@example.com",
+        password_hash="hash",
+    )
+    request = DummyRequest()
+    mock_service = MockBookService()
+    book = Book(
+        id=1,
+        title="Test Book",
+        author_sort="Author, Test",
+        pubdate="2024-01-01",
+        timestamp="2024-01-01T00:00:00",
+        series_index=1.0,
+        isbn="1234567890",
+        uuid="test-uuid",
+        has_cover=True,
+        path="test/path",
+    )
+    book_with_rels = BookWithFullRelations(
+        book=book,
+        authors=["Test Author"],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        languages=[],
+        language_ids=[],
+        rating=None,
+        rating_id=None,
+        formats=[],
+    )
+    mock_service.set_get_book_full_result(book_with_rels)
+
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
+    with (
+        patch(
+            "fundamental.api.routes.books._email_config_service"
+        ) as mock_email_service,
+    ):
+        mock_email_config = MagicMock()
+        mock_email_config.enabled = True
+        mock_email_service_instance = MagicMock()
+        mock_email_service_instance.get_config.return_value = mock_email_config
+        mock_email_service.return_value = mock_email_service_instance
+
+        send_request = BookBulkSendRequest(book_ids=[1])
+        with pytest.raises(HTTPException) as exc_info:
+            books.send_books_to_device_batch(
+                request=request,  # type: ignore[arg-type]
+                session=session,
+                current_user=current_user,
+                send_request=send_request,
+                book_service=mock_service,
+                permission_helper=mock_permission_helper,
+            )
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 500
+        assert exc_info.value.detail == "user_missing_id"
+
+
+def test_send_books_to_device_batch_task_runner_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test send_books_to_device_batch when task runner unavailable (covers line 1138)."""
+    from fundamental.api.schemas import BookBulkSendRequest
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            class DummyConfig:
+                encryption_key = b"test_key"
+
+            self.app = type(
+                "App",
+                (),
+                {
+                    "state": type(
+                        "State",
+                        (),
+                        {
+                            "config": DummyConfig(),
+                            "task_runner": None,  # No task runner
+                        },
+                    )()
+                },
+            )()
+
+    session = DummySession()
+    current_user = _create_mock_user()
+    request = DummyRequest()
+    mock_service = MockBookService()
+
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
+    with (
+        patch(
+            "fundamental.api.routes.books._email_config_service"
+        ) as mock_email_service,
+    ):
+        mock_email_config = MagicMock()
+        mock_email_config.enabled = True
+        mock_email_service_instance = MagicMock()
+        mock_email_service_instance.get_config.return_value = mock_email_config
+        mock_email_service.return_value = mock_email_service_instance
+
+        send_request = BookBulkSendRequest(book_ids=[1])
+        with pytest.raises(HTTPException) as exc_info:
+            books.send_books_to_device_batch(
+                request=request,  # type: ignore[arg-type]
+                session=session,
+                current_user=current_user,
+                send_request=send_request,
+                book_service=mock_service,
+                permission_helper=mock_permission_helper,
+            )
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 503
+        assert exc_info.value.detail == "Task runner not available"
+
+
+def test_send_books_to_device_batch_book_not_found(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test send_books_to_device_batch when book not found (covers line 1152)."""
+    from fundamental.api.schemas import BookBulkSendRequest
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            class DummyConfig:
+                encryption_key = b"test_key"
+
+            class DummyTaskRunner:
+                def enqueue(
+                    self,
+                    task_type: object,
+                    payload: dict[str, object],
+                    user_id: int,
+                    metadata: dict[str, object] | None = None,
+                ) -> int:
+                    return 1
+
+            self.app = type(
+                "App",
+                (),
+                {
+                    "state": type(
+                        "State",
+                        (),
+                        {
+                            "config": DummyConfig(),
+                            "task_runner": DummyTaskRunner(),
+                        },
+                    )()
+                },
+            )()
+
+    session = DummySession()
+    current_user = _create_mock_user()
+    request = DummyRequest()
+    mock_service = MockBookService()
+    mock_service.set_get_book_full_result(None)  # Book not found
+
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
+    with (
+        patch(
+            "fundamental.api.routes.books._email_config_service"
+        ) as mock_email_service,
+    ):
+        mock_email_config = MagicMock()
+        mock_email_config.enabled = True
+        mock_email_service_instance = MagicMock()
+        mock_email_service_instance.get_config.return_value = mock_email_config
+        mock_email_service.return_value = mock_email_service_instance
+
+        send_request = BookBulkSendRequest(book_ids=[999])
+        with pytest.raises(HTTPException) as exc_info:
+            books.send_books_to_device_batch(
+                request=request,  # type: ignore[arg-type]
+                session=session,
+                current_user=current_user,
+                send_request=send_request,
+                book_service=mock_service,
+                permission_helper=mock_permission_helper,
+            )
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 404
+        assert "book_not_found" in exc_info.value.detail
+
+
+def test_convert_book_format_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test convert_book_format when book not found (covers line 1229)."""
+    from fundamental.api.schemas import BookConvertRequest
+
+    session = DummySession()
+    current_user = _create_mock_user()
+    mock_service = MockBookService()
+    mock_service.set_get_book_full_result(None)  # Book not found
+
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
+    mock_orchestration_service = MagicMock()
+
+    convert_request = BookConvertRequest(source_format="EPUB", target_format="MOBI")
+    with pytest.raises(HTTPException) as exc_info:
+        books.convert_book_format(
+            book_id=999,
+            current_user=current_user,
+            convert_request=convert_request,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
+            orchestration_service=mock_orchestration_service,
+        )
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "book_not_found"
+
+
+def test_convert_book_format_user_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test convert_book_format when user missing ID (covers line 1239)."""
+    from fundamental.api.schemas import BookConvertRequest
+
+    session = DummySession()
+    current_user = User(
+        id=None,  # Missing ID
+        username="testuser",
+        email="test@example.com",
+        password_hash="hash",
+    )
+    mock_service = MockBookService()
+    book = Book(
+        id=1,
+        title="Test Book",
+        author_sort="Author, Test",
+        pubdate="2024-01-01",
+        timestamp="2024-01-01T00:00:00",
+        series_index=1.0,
+        isbn="1234567890",
+        uuid="test-uuid",
+        has_cover=True,
+        path="test/path",
+    )
+    book_with_rels = BookWithFullRelations(
+        book=book,
+        authors=["Test Author"],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        languages=[],
+        language_ids=[],
+        rating=None,
+        rating_id=None,
+        formats=[],
+    )
+    mock_service.set_get_book_full_result(book_with_rels)
+
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
+    mock_orchestration_service = MagicMock()
+
+    convert_request = BookConvertRequest(source_format="EPUB", target_format="MOBI")
+    with pytest.raises(HTTPException) as exc_info:
+        books.convert_book_format(
+            book_id=1,
+            current_user=current_user,
+            convert_request=convert_request,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
+            orchestration_service=mock_orchestration_service,
+        )
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.detail == "user_missing_id"
+
+
+def test_convert_book_format_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test convert_book_format handles ValueError (covers line 1254)."""
+    from fundamental.api.schemas import BookConvertRequest
+
+    session = DummySession()
+    current_user = _create_mock_user()
+    mock_service = MockBookService()
+    book = Book(
+        id=1,
+        title="Test Book",
+        author_sort="Author, Test",
+        pubdate="2024-01-01",
+        timestamp="2024-01-01T00:00:00",
+        series_index=1.0,
+        isbn="1234567890",
+        uuid="test-uuid",
+        has_cover=True,
+        path="test/path",
+    )
+    book_with_rels = BookWithFullRelations(
+        book=book,
+        authors=["Test Author"],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        languages=[],
+        language_ids=[],
+        rating=None,
+        rating_id=None,
+        formats=[],
+    )
+    mock_service.set_get_book_full_result(book_with_rels)
+
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
+    mock_orchestration_service = MagicMock()
+    mock_orchestration_service.initiate_conversion.side_effect = ValueError(
+        "invalid_format"
+    )
+
+    convert_request = BookConvertRequest(source_format="EPUB", target_format="MOBI")
+    with (
+        patch("fundamental.api.routes.books.BookExceptionMapper") as mock_mapper_class,
+    ):
+        mock_mapper = MagicMock()
+        mock_mapper.map_value_error_to_http_exception.return_value = HTTPException(
+            status_code=400, detail="invalid_format"
+        )
+        mock_mapper_class.map_value_error_to_http_exception = (
+            mock_mapper.map_value_error_to_http_exception
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            books.convert_book_format(
+                book_id=1,
+                current_user=current_user,
+                convert_request=convert_request,
+                book_service=mock_service,
+                permission_helper=mock_permission_helper,
+                orchestration_service=mock_orchestration_service,
+            )
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 400
+
+
+def test_convert_book_format_runtime_error_other(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test convert_book_format handles other RuntimeError (covers line 1263)."""
+    from fundamental.api.schemas import BookConvertRequest
+
+    session = DummySession()
+    current_user = _create_mock_user()
+    mock_service = MockBookService()
+    book = Book(
+        id=1,
+        title="Test Book",
+        author_sort="Author, Test",
+        pubdate="2024-01-01",
+        timestamp="2024-01-01T00:00:00",
+        series_index=1.0,
+        isbn="1234567890",
+        uuid="test-uuid",
+        has_cover=True,
+        path="test/path",
+    )
+    book_with_rels = BookWithFullRelations(
+        book=book,
+        authors=["Test Author"],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        languages=[],
+        language_ids=[],
+        rating=None,
+        rating_id=None,
+        formats=[],
+    )
+    mock_service.set_get_book_full_result(book_with_rels)
+
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
+    mock_orchestration_service = MagicMock()
+    mock_orchestration_service.initiate_conversion.side_effect = RuntimeError(
+        "Other error"
+    )
+
+    convert_request = BookConvertRequest(source_format="EPUB", target_format="MOBI")
+    with pytest.raises(HTTPException) as exc_info:
+        books.convert_book_format(
+            book_id=1,
+            current_user=current_user,
+            convert_request=convert_request,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
+            orchestration_service=mock_orchestration_service,
+        )
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 500
+    assert "Other error" in exc_info.value.detail
+
+
+def test_get_book_conversions_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test get_book_conversions when book not found (covers line 1325)."""
+    session = DummySession()
+    current_user = _create_mock_user()
+    mock_service = MockBookService()
+    mock_service.set_get_book_full_result(None)  # Book not found
+
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
+    mock_orchestration_service = MagicMock()
+
+    with pytest.raises(HTTPException) as exc_info:
+        books.get_book_conversions(
+            book_id=999,
+            current_user=current_user,
+            book_service=mock_service,
+            permission_helper=mock_permission_helper,
+            orchestration_service=mock_orchestration_service,
+        )
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "book_not_found"
+
+
+def test_get_book_conversions_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test get_book_conversions handles ValueError (covers lines 1340-1342)."""
+
+    session = DummySession()
+    current_user = _create_mock_user()
+    mock_service = MockBookService()
+    book = Book(
+        id=1,
+        title="Test Book",
+        author_sort="Author, Test",
+        pubdate="2024-01-01",
+        timestamp="2024-01-01T00:00:00",
+        series_index=1.0,
+        isbn="1234567890",
+        uuid="test-uuid",
+        has_cover=True,
+        path="test/path",
+    )
+    book_with_rels = BookWithFullRelations(
+        book=book,
+        authors=["Test Author"],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        languages=[],
+        language_ids=[],
+        rating=None,
+        rating_id=None,
+        formats=[],
+    )
+    mock_service.set_get_book_full_result(book_with_rels)
+
+    mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
+
+    mock_orchestration_service = MagicMock()
+    mock_orchestration_service.get_conversions.side_effect = ValueError("invalid_book")
+
+    with (
+        patch("fundamental.api.routes.books.BookExceptionMapper") as mock_mapper_class,
+    ):
+        mock_mapper = MagicMock()
+        mock_mapper.map_value_error_to_http_exception.return_value = HTTPException(
+            status_code=400, detail="invalid_book"
+        )
+        mock_mapper_class.map_value_error_to_http_exception = (
+            mock_mapper.map_value_error_to_http_exception
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            books.get_book_conversions(
+                book_id=1,
+                current_user=current_user,
+                book_service=mock_service,
+                permission_helper=mock_permission_helper,
+                orchestration_service=mock_orchestration_service,
+            )
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 400
+
+
+def test_upload_book_task_runner_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test upload_book when task runner unavailable (covers line 1789)."""
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            self.app = type(
+                "App",
+                (),
+                {
+                    "state": type(
+                        "State",
+                        (),
+                        {
+                            "task_runner": None,  # No task runner
+                        },
+                    )()
+                },
+            )()
+
+    session = DummySession()
+    current_user = _create_mock_user()
+    request = DummyRequest()
+
+    mock_file = MagicMock()
+    mock_file.filename = "book.epub"
+    mock_file.file.read.return_value = b"fake book content"
+
+    mock_permission_helper, _ = _setup_route_mocks(
+        monkeypatch, session, MockBookService()
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        books.upload_book(
+            request=request,  # type: ignore[arg-type]
+            current_user=current_user,
+            file=mock_file,
+            permission_helper=mock_permission_helper,
+            session=session,
+        )
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail == "Task runner not available"
+
+
+def test_upload_books_batch_http_exception(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test upload_books_batch handles HTTPException (covers lines 2098-2103)."""
+
+    class DummyRequest:
+        def __init__(self) -> None:
+            class DummyTaskRunner:
+                def enqueue(
+                    self,
+                    task_type: object,
+                    payload: dict[str, object],
+                    user_id: int,
+                    metadata: dict[str, object] | None = None,
+                ) -> int:
+                    return 1
+
+            self.app = type(
+                "App",
+                (),
+                {
+                    "state": type(
+                        "State",
+                        (),
+                        {
+                            "task_runner": DummyTaskRunner(),
+                        },
+                    )()
+                },
+            )()
+
+    session = DummySession()
+    current_user = _create_mock_user()
+    request = DummyRequest()
+
+    mock_file = MagicMock()
+    mock_file.filename = "book.epub"
+    mock_file.file.read.side_effect = HTTPException(
+        status_code=400, detail="invalid_file"
+    )
+
+    mock_permission_helper, _ = _setup_route_mocks(
+        monkeypatch, session, MockBookService()
+    )
+
+    with (
+        patch(
+            "fundamental.api.routes.books.FileHandlingConfigService"
+        ) as mock_file_service_class,
+        patch("fundamental.api.routes.books._save_files_to_temp") as mock_save_files,
+    ):
+        mock_file_service = MagicMock()
+        mock_file_service.is_format_allowed.return_value = True
+        mock_file_service_class.return_value = mock_file_service
+
+        mock_save_files.side_effect = HTTPException(
+            status_code=400, detail="invalid_file"
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            books.upload_books_batch(
+                request=request,  # type: ignore[arg-type]
+                current_user=current_user,
+                permission_helper=mock_permission_helper,
+                session=session,
+                files=[mock_file],
+            )
+        assert isinstance(exc_info.value, HTTPException)
+        assert exc_info.value.status_code == 400

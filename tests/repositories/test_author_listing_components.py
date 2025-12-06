@@ -647,3 +647,88 @@ class TestAuthorHydrator:
         with pytest.raises(Exception, match="Database error"):
             hydrator.create_unmatched_metadata([1, 2], "/path/to/db", "metadata.db")
         mock_logger.exception.assert_called_once()
+
+
+class TestMappedAuthorWithoutKeyFetcher:
+    """Test MappedAuthorWithoutKeyFetcher."""
+
+    def test_init(self, mock_session: MockSession) -> None:
+        """Test initialization.
+
+        Parameters
+        ----------
+        mock_session : MockSession
+            Mock session.
+
+        Covers line 235.
+        """
+        from fundamental.repositories.author_listing_components import (
+            MappedAuthorWithoutKeyFetcher,
+        )
+
+        fetcher = MappedAuthorWithoutKeyFetcher(mock_session)  # type: ignore[arg-type]
+        assert fetcher._session is mock_session
+
+    def test_fetch_mapped_without_key_success(
+        self, mock_session: MockSession, library_id: int
+    ) -> None:
+        """Test fetch_mapped_without_key success.
+
+        Parameters
+        ----------
+        mock_session : MockSession
+            Mock session.
+        library_id : int
+            Library ID.
+
+        Covers lines 250-270.
+        """
+        from fundamental.repositories.author_listing_components import (
+            MappedAuthorWithoutKeyFetcher,
+        )
+
+        author1 = AuthorMetadata(
+            id=1, name="Author 1", openlibrary_key=None, is_unmatched=False
+        )
+        author2 = AuthorMetadata(
+            id=2, name="Author 2", openlibrary_key=None, is_unmatched=False
+        )
+        mock_session.set_exec_result([author1, author2])
+
+        fetcher = MappedAuthorWithoutKeyFetcher(mock_session)  # type: ignore[arg-type]
+        result = fetcher.fetch_mapped_without_key(library_id)
+
+        assert len(result) == 2
+        assert author1 in result
+        assert author2 in result
+
+    @patch("fundamental.repositories.author_listing_components.logger")
+    def test_fetch_mapped_without_key_exception(
+        self,
+        mock_logger: MagicMock,
+        mock_session: MockSession,
+        library_id: int,
+    ) -> None:
+        """Test fetch_mapped_without_key with exception.
+
+        Parameters
+        ----------
+        mock_logger : MagicMock
+            Mock logger.
+        mock_session : MockSession
+            Mock session.
+        library_id : int
+            Library ID.
+
+        Covers lines 271-273.
+        """
+        from fundamental.repositories.author_listing_components import (
+            MappedAuthorWithoutKeyFetcher,
+        )
+
+        mock_session.exec = MagicMock(side_effect=Exception("Database error"))  # type: ignore[assignment]
+
+        fetcher = MappedAuthorWithoutKeyFetcher(mock_session)  # type: ignore[arg-type]
+        with pytest.raises(Exception, match="Database error"):
+            fetcher.fetch_mapped_without_key(library_id)
+        mock_logger.exception.assert_called_once()
