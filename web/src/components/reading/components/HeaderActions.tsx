@@ -40,6 +40,8 @@ export interface HeaderActionHandlers {
 export interface HeaderActionsProps {
   /** Action handlers for header buttons. */
   handlers: HeaderActionHandlers;
+  /** Whether to hide TOC and Search buttons (e.g., for comic books). */
+  hideTocAndSearch?: boolean;
 }
 
 /**
@@ -54,18 +56,25 @@ export interface HeaderActionsProps {
  * props : HeaderActionsProps
  *     Component props including action handlers.
  */
-export function HeaderActions({ handlers }: HeaderActionsProps) {
+export function HeaderActions({
+  handlers,
+  hideTocAndSearch = false,
+}: HeaderActionsProps) {
   return (
     <div className="flex items-center gap-2">
-      <HeaderButton
-        onClick={handlers.onTocToggle}
-        ariaLabel="Toggle table of contents"
-      >
-        <i className="pi pi-list text-lg" />
-      </HeaderButton>
-      <HeaderButton onClick={handlers.onSearch} ariaLabel="Search">
-        <i className="pi pi-search text-lg" />
-      </HeaderButton>
+      {!hideTocAndSearch && (
+        <>
+          <HeaderButton
+            onClick={handlers.onTocToggle}
+            ariaLabel="Toggle table of contents"
+          >
+            <i className="pi pi-list text-lg" />
+          </HeaderButton>
+          <HeaderButton onClick={handlers.onSearch} ariaLabel="Search">
+            <i className="pi pi-search text-lg" />
+          </HeaderButton>
+        </>
+      )}
       <HeaderButton onClick={handlers.onFontSettings} ariaLabel="Letter case">
         <span className="text-2xl">Aa</span>
       </HeaderButton>

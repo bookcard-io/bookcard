@@ -31,6 +31,7 @@ export interface PagedComicViewProps {
   onPrevious: () => void;
   spreadMode?: boolean;
   readingDirection?: "ltr" | "rtl";
+  zoomLevel?: number;
   className?: string;
 }
 
@@ -58,6 +59,7 @@ export function PagedComicView({
   onPrevious,
   spreadMode = false,
   readingDirection = "ltr",
+  zoomLevel = 1.0,
   className,
 }: PagedComicViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -246,7 +248,7 @@ export function PagedComicView({
     <section
       ref={containerRef}
       className={cn(
-        "flex h-full w-full items-center justify-center overflow-hidden",
+        "flex h-full w-full items-center justify-center overflow-auto",
         className,
       )}
       onClick={handleContainerClick}
@@ -257,9 +259,13 @@ export function PagedComicView({
     >
       <div
         className={cn(
-          "flex h-full w-full items-center justify-center",
+          "flex items-center justify-center transition-[width,height] duration-200 ease-out",
           spreadMode && pagesToDisplay.length === 2 && "gap-0",
         )}
+        style={{
+          width: `${zoomLevel * 100}%`,
+          height: `${zoomLevel * 100}%`,
+        }}
       >
         {pagesToDisplay.map((pageNum) => (
           <ComicPage

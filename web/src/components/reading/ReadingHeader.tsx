@@ -19,6 +19,8 @@ import { useCallback, useMemo, useRef } from "react";
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { useHeaderVisibility } from "@/hooks/useHeaderVisibility";
 import { cn } from "@/libs/utils";
+import type { ComicReadingDirection, ComicReadingMode } from "./ComicReader";
+import { ComicReadingSettings } from "./ComicReadingSettings";
 import {
   type HeaderActionHandlers,
   HeaderActions,
@@ -39,6 +41,8 @@ import {
 export interface ReadingHeaderProps {
   /** Book title to display. */
   title: string | null;
+  /** Book format (EPUB, PDF, CBZ, etc.). */
+  format?: string;
   /** Callback when fullscreen toggle is clicked. */
   onFullscreenToggle?: () => void;
   /** Callback when TOC toggle is clicked. */
@@ -73,6 +77,23 @@ export interface ReadingHeaderProps {
   onResultClick?: (cfi: string) => void;
   /** Optional className. */
   className?: string;
+  // Comic-specific settings (only used when format is comic)
+  /** Current reading mode (comic). */
+  readingMode?: ComicReadingMode;
+  /** Callback when reading mode changes (comic). */
+  onReadingModeChange?: (mode: ComicReadingMode) => void;
+  /** Current reading direction (comic). */
+  readingDirection?: ComicReadingDirection;
+  /** Callback when reading direction changes (comic). */
+  onReadingDirectionChange?: (direction: ComicReadingDirection) => void;
+  /** Whether spread mode is enabled (comic). */
+  spreadMode?: boolean;
+  /** Callback when spread mode changes (comic). */
+  onSpreadModeChange?: (enabled: boolean) => void;
+  /** Current zoom level (comic). */
+  zoomLevel?: number;
+  /** Callback when zoom level changes (comic). */
+  onZoomLevelChange?: (level: number) => void;
 }
 
 /**
@@ -93,6 +114,7 @@ export interface ReadingHeaderProps {
  */
 export function ReadingHeader({
   title,
+  format,
   onFullscreenToggle,
   onTocToggle,
   areLocationsReady = true,
@@ -110,7 +132,20 @@ export function ReadingHeader({
   searchResults,
   onResultClick,
   className,
+  // Comic-specific props
+  readingMode,
+  onReadingModeChange,
+  readingDirection,
+  onReadingDirectionChange,
+  spreadMode,
+  onSpreadModeChange,
+  zoomLevel,
+  onZoomLevelChange,
 }: ReadingHeaderProps) {
+  // Detect if format is a comic
+  const isComic = format
+    ? ["CBZ", "CBR", "CB7", "CBC"].includes(format.toUpperCase())
+    : false;
   const containerRef = useRef<HTMLDivElement>(null);
   const fontPanel = useFontPanel();
   const searchPanel = useSearchPanel();
@@ -202,23 +237,44 @@ export function ReadingHeader({
           <div className="flex items-center justify-between">
             <BrandLogo showText={true} />
             <HeaderTitle title={title} />
-            <HeaderActions handlers={actionHandlers} />
+            <HeaderActions
+              handlers={actionHandlers}
+              hideTocAndSearch={isComic}
+            />
           </div>
         </div>
       </header>
-      <ReadingThemeSettings
-        isOpen={fontPanel.isOpen}
-        onClose={handleFontPanelClose}
-        fontFamily={fontFamily}
-        onFontFamilyChange={onFontFamilyChange || (() => {})}
-        fontSize={fontSize}
-        onFontSizeChange={onFontSizeChange || (() => {})}
-        pageColor={pageColor}
-        onPageColorChange={onPageColorChange}
-        onAppThemeChange={onAppThemeChange}
-        pageLayout={pageLayout}
-        onPageLayoutChange={onPageLayoutChange}
-      />
+      {isComic ? (
+        <ComicReadingSettings
+          isOpen={fontPanel.isOpen}
+          onClose={handleFontPanelClose}
+          readingMode={readingMode || "paged"}
+          onReadingModeChange={onReadingModeChange || (() => {})}
+          readingDirection={readingDirection || "ltr"}
+          onReadingDirectionChange={onReadingDirectionChange || (() => {})}
+          spreadMode={spreadMode ?? true}
+          onSpreadModeChange={onSpreadModeChange || (() => {})}
+          zoomLevel={zoomLevel || 1.0}
+          onZoomLevelChange={onZoomLevelChange || (() => {})}
+          pageColor={pageColor}
+          onPageColorChange={onPageColorChange}
+          onAppThemeChange={onAppThemeChange}
+        />
+      ) : (
+        <ReadingThemeSettings
+          isOpen={fontPanel.isOpen}
+          onClose={handleFontPanelClose}
+          fontFamily={fontFamily}
+          onFontFamilyChange={onFontFamilyChange || (() => {})}
+          fontSize={fontSize}
+          onFontSizeChange={onFontSizeChange || (() => {})}
+          pageColor={pageColor}
+          onPageColorChange={onPageColorChange}
+          onAppThemeChange={onAppThemeChange}
+          pageLayout={pageLayout}
+          onPageLayoutChange={onPageLayoutChange}
+        />
+      )}
       <ReadingSearchPanel
         isOpen={searchPanel.isOpen}
         onClose={handleSearchPanelClose}

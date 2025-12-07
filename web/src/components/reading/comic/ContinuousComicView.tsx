@@ -24,7 +24,7 @@ export interface ContinuousComicViewProps {
   format: string;
   totalPages: number;
   onPageChange: (page: number, totalPages: number, progress: number) => void;
-  readingDirection?: "ltr" | "rtl" | "vertical";
+  zoomLevel?: number;
   className?: string;
 }
 
@@ -45,6 +45,7 @@ export function ContinuousComicView({
   format,
   totalPages,
   onPageChange,
+  zoomLevel = 1.0,
   className,
 }: ContinuousComicViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -161,9 +162,14 @@ export function ContinuousComicView({
   return (
     <div
       ref={containerRef}
-      className={cn("h-full w-full overflow-y-auto", className)}
+      className={cn("h-full w-full overflow-x-auto overflow-y-auto", className)}
     >
-      <div className="flex flex-col items-center">
+      <div
+        className="mx-auto flex flex-col items-center transition-[width] duration-200 ease-out"
+        style={{
+          width: `${zoomLevel * 50}%`,
+        }}
+      >
         {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
           <div
             key={pageNum}
@@ -176,7 +182,7 @@ export function ContinuousComicView({
                 bookId={bookId}
                 format={format}
                 pageNumber={pageNum}
-                className="w-full"
+                className="h-full w-full object-contain"
               />
             )}
           </div>

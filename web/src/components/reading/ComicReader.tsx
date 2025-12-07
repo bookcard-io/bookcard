@@ -43,6 +43,8 @@ export interface ComicReaderProps {
   spreadMode?: boolean;
   /** Callback to register jump to progress handler. */
   onJumpToProgress?: (handler: ((progress: number) => void) | null) => void;
+  /** Zoom level (0.5 to 3.0). */
+  zoomLevel?: number;
   /** Optional className. */
   className?: string;
 }
@@ -65,6 +67,7 @@ export function ComicReader({
   readingMode: externalReadingMode,
   readingDirection: externalReadingDirection,
   spreadMode: externalSpreadMode,
+  zoomLevel: externalZoomLevel,
   onJumpToProgress,
   className,
 }: ComicReaderProps) {
@@ -76,6 +79,7 @@ export function ComicReader({
   const readingDirection =
     externalReadingDirection || settings.readingDirection;
   const spreadMode = externalSpreadMode ?? settings.spreadMode;
+  const zoomLevel = externalZoomLevel || settings.zoomLevel;
 
   const { progress, updateProgress } = useReadingProgress({
     bookId,
@@ -183,6 +187,7 @@ export function ComicReader({
         readingDirection={
           readingDirection === "vertical" ? "ltr" : readingDirection
         }
+        zoomLevel={zoomLevel}
         className={className}
       />
     );
@@ -195,7 +200,7 @@ export function ComicReader({
         format={format}
         totalPages={totalPages}
         onPageChange={handlePageChange}
-        readingDirection={readingDirection}
+        zoomLevel={zoomLevel}
         className={className}
       />
     );
@@ -208,6 +213,7 @@ export function ComicReader({
         format={format}
         totalPages={totalPages}
         onPageChange={handlePageChange}
+        zoomLevel={zoomLevel}
         className={className}
       />
     );

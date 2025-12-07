@@ -24,6 +24,7 @@ export interface WebtoonComicViewProps {
   format: string;
   totalPages: number;
   onPageChange: (page: number, totalPages: number, progress: number) => void;
+  zoomLevel?: number;
   className?: string;
 }
 
@@ -44,14 +45,15 @@ export function WebtoonComicView({
   format,
   totalPages,
   onPageChange,
+  zoomLevel = 1.0,
   className,
 }: WebtoonComicViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [loadedPages, setLoadedPages] = useState<Set<number>>(new Set([1]));
-  const [lastVisiblePage, setLastVisiblePage] = useState(1);
+  const [visiblePages, setVisiblePages] = useState<Set<number>>(new Set([1]));
+  const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
-  // Load more pages as user scrolls
-  const loadMorePages = useCallback(() => {
+  // Track which page is currently in view
+  const updateVisiblePage = useCallback(() => {
     if (!containerRef.current) {
       return;
     }
@@ -59,47 +61,39 @@ export function WebtoonComicView({
     const container = containerRef.current;
     const scrollTop = container.scrollTop;
     const containerHeight = container.clientHeight;
-    const scrollBottom = scrollTop + containerHeight;
+    const viewportCenter = scrollTop + containerHeight / 2;
 
-    // Find the last visible page
-    const pageElements = container.querySelectorAll("[data-page]");
-    let newLastVisiblePage = lastVisiblePage;
+    // Find the page that's closest to the viewport center
+    let closestPage = 1;
+    let closestDistance = Infinity;
 
-    pageElements.forEach((element) => {
-      const pageNum = parseInt(element.getAttribute("data-page") || "1", 10);
-      const rect = element.getBoundingClientRect();
-      const elementTop = rect.top + scrollTop - container.offsetTop;
-      const elementBottom = elementTop + rect.height;
+    pageRefs.current.forEach((pageElement, pageNum) => {
+      const pageTop = pageElement.offsetTop;
+      const pageHeight = pageElement.offsetHeight;
+      const pageCenter = pageTop + pageHeight / 2;
+      const distance = Math.abs(viewportCenter - pageCenter);
 
-      if (elementBottom <= scrollBottom + 500) {
-        // Load pages within 500px of viewport
-        newLastVisiblePage = Math.max(newLastVisiblePage, pageNum);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestPage = pageNum;
       }
     });
 
-    if (newLastVisiblePage > lastVisiblePage) {
-      setLastVisiblePage(newLastVisiblePage);
-      const newLoadedPages = new Set(loadedPages);
-      // Load current page and next 2 pages
-      for (
-        let i = newLastVisiblePage;
-        i <= Math.min(newLastVisiblePage + 2, totalPages);
-        i++
-      ) {
-        newLoadedPages.add(i);
-      }
-      setLoadedPages(newLoadedPages);
+    // Update progress
+    const progress = closestPage / totalPages;
+    onPageChange(closestPage, totalPages, progress);
+  }, [totalPages, onPageChange]);
 
-      // Update progress
-      const progress = newLastVisiblePage / totalPages;
-      onPageChange(newLastVisiblePage, totalPages, progress);
-    }
-  }, [lastVisiblePage, loadedPages, totalPages, onPageChange]);
-
-  // Handle scroll events
+  // Handle scroll events with debouncing
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const handleScroll = useCallback(() => {
-    loadMorePages();
-  }, [loadMorePages]);
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    scrollTimeoutRef.current = setTimeout(() => {
+      updateVisiblePage();
+    }, 100);
+  }, [updateVisiblePage]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -108,28 +102,91 @@ export function WebtoonComicView({
     }
 
     container.addEventListener("scroll", handleScroll);
-    // Initial load
-    loadMorePages();
-
     return () => {
       container.removeEventListener("scroll", handleScroll);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
     };
-  }, [handleScroll, loadMorePages]);
+  }, [handleScroll]);
+
+  // Register page refs
+  const registerPageRef = useCallback(
+    (pageNum: number, element: HTMLDivElement | null) => {
+      if (element) {
+        pageRefs.current.set(pageNum, element);
+      } else {
+        pageRefs.current.delete(pageNum);
+      }
+    },
+    [],
+  );
+
+  // Intersection Observer for lazy loading
+  useEffect(() => {
+    if (!containerRef.current) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const newVisiblePages = new Set(visiblePages);
+        entries.forEach((entry) => {
+          const pageNum = parseInt(
+            entry.target.getAttribute("data-page") || "1",
+            10,
+          );
+          if (entry.isIntersecting) {
+            newVisiblePages.add(pageNum);
+          } else {
+            // Optional: For "Webtoon" style, some prefer keeping pages loaded
+            // to prevent white flashing when scrolling up.
+            // However, to keep memory usage low, we'll mimic ContinuousView and unload.
+            newVisiblePages.delete(pageNum);
+          }
+        });
+        setVisiblePages(newVisiblePages);
+      },
+      {
+        root: containerRef.current,
+        // Larger rootMargin for webtoon to preload more ahead
+        rootMargin: "500px",
+      },
+    );
+
+    pageRefs.current.forEach((element) => {
+      observer.observe(element);
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [visiblePages]);
 
   return (
     <div
       ref={containerRef}
-      className={cn("h-full w-full overflow-y-auto", className)}
+      className={cn("h-full w-full overflow-x-auto overflow-y-auto", className)}
     >
-      <div className="flex flex-col items-center">
+      <div
+        className="mx-auto flex flex-col items-center transition-[width] duration-200 ease-out"
+        style={{
+          width: `${zoomLevel * 50}%`,
+        }}
+      >
         {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-          <div key={pageNum} data-page={pageNum} className="w-full">
-            {loadedPages.has(pageNum) && (
+          <div
+            key={pageNum}
+            ref={(el) => registerPageRef(pageNum, el)}
+            data-page={pageNum}
+            className="w-full"
+          >
+            {visiblePages.has(pageNum) && (
               <ComicPage
                 bookId={bookId}
                 format={format}
                 pageNumber={pageNum}
-                className="w-full"
+                className="h-full w-full object-contain"
               />
             )}
           </div>

@@ -81,6 +81,7 @@ export function ReaderControls({
       <div className="flex items-center justify-center">
         <ProgressBar
           progress={progress}
+          totalPages={pagingInfo?.totalPages}
           onProgressChange={onProgressChange}
           isDisabled={isProgressDisabled}
           isLoadingEpubData={isLoadingEpubData}

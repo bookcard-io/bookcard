@@ -23,6 +23,8 @@ import { useProgressBar } from "../hooks/useProgressBar";
 export interface ProgressBarProps {
   /** Current progress (0.0 to 1.0). */
   progress: number;
+  /** Total number of pages. Used to calculate step size. */
+  totalPages?: number;
   /** Callback when progress slider changes. */
   onProgressChange?: (progress: number) => void;
   /** Whether progress bar is disabled (e.g., locations not ready). */
@@ -44,6 +46,7 @@ export interface ProgressBarProps {
  */
 export function ProgressBar({
   progress,
+  totalPages,
   onProgressChange,
   isDisabled = false,
   isLoadingEpubData = false,
@@ -53,6 +56,13 @@ export function ProgressBar({
     progress,
     isDisabled,
   );
+
+  // Calculate dynamic step to ensure it moves at least one page
+  // If totalPages is known, step is 1/totalPages, otherwise default to 0.01 (1%)
+  // We use a slightly smaller step than exactly 1 page to allow fine control,
+  // but ensure it's not too small.
+  // Using 1 / totalPages ensures that one 'step' corresponds to roughly one page.
+  const step = totalPages && totalPages > 0 ? 1 / totalPages : 0.01;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newProgress = handleProgressChange(e);
@@ -74,7 +84,7 @@ export function ProgressBar({
           type="range"
           min="0"
           max="1"
-          step="0.01"
+          step={step}
           value={localProgress}
           onChange={handleChange}
           disabled={isDisabled}

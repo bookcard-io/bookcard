@@ -20,6 +20,7 @@ import { useReadingProgress } from "@/hooks/useReadingProgress";
 import { useReadingSession } from "@/hooks/useReadingSession";
 import { useTheme } from "@/hooks/useTheme";
 import { cn } from "@/libs/utils";
+import type { ComicReadingDirection, ComicReadingMode } from "./ComicReader";
 import { ComicReader } from "./ComicReader";
 import { EPUBReader, type SearchResult } from "./EPUBReader";
 import { PDFReader } from "./PDFReader";
@@ -52,6 +53,15 @@ export interface EBookReaderProps {
   onJumpToCfi?: (handler: ((cfi: string) => void) | null) => void;
   /** Optional className. */
   className?: string;
+  // Comic-specific props (only used when format is comic)
+  /** Reading mode (comic). */
+  readingMode?: ComicReadingMode;
+  /** Reading direction (comic). */
+  readingDirection?: ComicReadingDirection;
+  /** Whether spread mode is enabled (comic). */
+  spreadMode?: boolean;
+  /** Zoom level (comic). */
+  zoomLevel?: number;
 }
 
 /**
@@ -79,6 +89,11 @@ export function EBookReader({
   onSearchResults,
   onJumpToCfi,
   className,
+  // Comic-specific props
+  readingMode,
+  readingDirection,
+  spreadMode,
+  zoomLevel,
 }: EBookReaderProps) {
   const [fontSize, setFontSize] = useState(externalFontSize);
   const { theme } = useTheme();
@@ -274,6 +289,10 @@ export function EBookReader({
           <ComicReader
             bookId={bookId}
             format={format}
+            readingMode={readingMode}
+            readingDirection={readingDirection}
+            spreadMode={spreadMode}
+            zoomLevel={zoomLevel}
             onJumpToProgress={(handler) => {
               jumpToProgressRef.current = handler;
             }}
@@ -284,7 +303,7 @@ export function EBookReader({
       <ReaderControls
         progress={currentProgress}
         onProgressChange={handleProgressChange}
-        isProgressDisabled={(isEPUB && !areLocationsReady) || isComic}
+        isProgressDisabled={isEPUB && !areLocationsReady}
         isLoadingEpubData={isEPUB && !areLocationsReady}
         pageColor={pageColor}
         pagingInfo={pagingInfo || undefined}

@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EBookReader } from "@/components/reading/EBookReader";
 import type { SearchResult } from "@/components/reading/EPUBReader";
+import { useComicSettings } from "@/components/reading/hooks/useComicSettings";
 import { useFullscreen } from "@/components/reading/hooks/useFullscreen";
 import { useReadingSettings } from "@/components/reading/hooks/useReadingSettings";
 import { ReadingHeader } from "@/components/reading/ReadingHeader";
@@ -140,7 +141,10 @@ function ReadingPageContent({
     }
   }, []);
 
-  // Manage reading settings via centralized hook
+  // Detect if format is a comic
+  const isComic = ["CBZ", "CBR", "CB7", "CBC"].includes(format.toUpperCase());
+
+  // Manage reading settings via centralized hook (for books)
   const {
     fontFamily,
     setFontFamily,
@@ -151,6 +155,11 @@ function ReadingPageContent({
     pageLayout,
     setPageLayout,
   } = useReadingSettings();
+
+  // Manage comic settings (only used when format is comic)
+  const comicSettings = useComicSettings({
+    bookId: isComic ? bookId : undefined,
+  });
 
   // Manage fullscreen state via dedicated hook
   const { toggleFullscreen } = useFullscreen();
@@ -175,6 +184,7 @@ function ReadingPageContent({
     <>
       <ReadingHeader
         title={bookTitle}
+        format={format}
         onFullscreenToggle={toggleFullscreen}
         onTocToggle={handleTocToggle}
         fontFamily={fontFamily}
@@ -191,6 +201,17 @@ function ReadingPageContent({
         onSearchQueryChange={setSearchQuery}
         searchResults={searchResults}
         onResultClick={handleResultClick}
+        // Comic-specific props
+        readingMode={isComic ? comicSettings.readingMode : undefined}
+        onReadingModeChange={isComic ? comicSettings.setReadingMode : undefined}
+        readingDirection={isComic ? comicSettings.readingDirection : undefined}
+        onReadingDirectionChange={
+          isComic ? comicSettings.setReadingDirection : undefined
+        }
+        spreadMode={isComic ? comicSettings.spreadMode : undefined}
+        onSpreadModeChange={isComic ? comicSettings.setSpreadMode : undefined}
+        zoomLevel={isComic ? comicSettings.zoomLevel : undefined}
+        onZoomLevelChange={isComic ? comicSettings.setZoomLevel : undefined}
       />
       <EBookReader
         bookId={bookId}
@@ -208,6 +229,11 @@ function ReadingPageContent({
         onJumpToCfi={(handler) => {
           jumpToCfiRef.current = handler;
         }}
+        // Comic-specific props
+        readingMode={isComic ? comicSettings.readingMode : undefined}
+        readingDirection={isComic ? comicSettings.readingDirection : undefined}
+        spreadMode={isComic ? comicSettings.spreadMode : undefined}
+        zoomLevel={isComic ? comicSettings.zoomLevel : undefined}
       />
     </>
   );

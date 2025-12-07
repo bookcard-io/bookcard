@@ -90,6 +90,24 @@ export function useComicSettings({
     return DEFAULT_SETTINGS;
   });
 
+  // Reload settings when storage key changes (e.g., bookId updates)
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(stored) });
+      } else {
+        setSettings(DEFAULT_SETTINGS);
+      }
+    } catch {
+      setSettings(DEFAULT_SETTINGS);
+    }
+  }, [storageKey]);
+
   // Save to localStorage whenever settings change
   useEffect(() => {
     if (typeof window === "undefined") {
