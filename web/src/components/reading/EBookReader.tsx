@@ -17,11 +17,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReadingSettingsContext } from "@/contexts/ReadingSettingsContext";
+import { useHeaderVisibility } from "@/hooks/useHeaderVisibility";
 import { useReadingProgress } from "@/hooks/useReadingProgress";
 import { useReadingSession } from "@/hooks/useReadingSession";
 import { useTheme } from "@/hooks/useTheme";
 import { cn } from "@/libs/utils";
 import { ComicReader } from "./ComicReader";
+import { HeaderTriggerZone } from "./components/HeaderTriggerZone";
 import { EPUBReader, type SearchResult } from "./EPUBReader";
 import { PDFReader } from "./PDFReader";
 import type { PagingInfo } from "./ReaderControls";
@@ -110,6 +112,13 @@ export function EBookReader({
 
   // Track paging information for EPUB
   const [pagingInfo, setPagingInfo] = useState<PagingInfo | null>(null);
+
+  // Footer visibility logic
+  const {
+    isVisible: isFooterVisible,
+    handleMouseEnter: handleFooterMouseEnter,
+    handleMouseLeave: handleFooterMouseLeave,
+  } = useHeaderVisibility(areLocationsReady);
 
   // Debounced progress update
   const debouncedUpdateProgress = useCallback(
@@ -214,8 +223,8 @@ export function EBookReader({
   }
 
   return (
-    <div className={cn("flex h-screen flex-col", className)}>
-      <div className="flex-1 overflow-hidden">
+    <div className={cn("relative h-screen w-full overflow-hidden", className)}>
+      <div className="h-full w-full">
         {isEPUB && (
           <EPUBReader
             url={bookUrl}
@@ -261,14 +270,32 @@ export function EBookReader({
           />
         )}
       </div>
-      <ReaderControls
-        progress={currentProgress}
-        onProgressChange={handleProgressChange}
-        isProgressDisabled={isEPUB && !areLocationsReady}
-        isLoadingEpubData={isEPUB && !areLocationsReady}
-        pageColor={pageColor}
-        pagingInfo={pagingInfo || undefined}
+
+      <HeaderTriggerZone
+        isVisible={isFooterVisible}
+        onMouseEnter={handleFooterMouseEnter}
+        position="bottom"
       />
+
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: Footer uses hover for show/hide, not keyboard interaction */}
+      <div
+        onMouseEnter={handleFooterMouseEnter}
+        onMouseLeave={handleFooterMouseLeave}
+        className={cn(
+          "fixed right-0 bottom-0 left-0 z-[800] transition-transform duration-300 ease-in-out",
+          "flex min-h-[5rem] flex-col justify-end",
+          isFooterVisible ? "translate-y-0" : "translate-y-full",
+        )}
+      >
+        <ReaderControls
+          progress={currentProgress}
+          onProgressChange={handleProgressChange}
+          isProgressDisabled={isEPUB && !areLocationsReady}
+          isLoadingEpubData={isEPUB && !areLocationsReady}
+          pageColor={pageColor}
+          pagingInfo={pagingInfo || undefined}
+        />
+      </div>
     </div>
   );
 }

@@ -16,16 +16,19 @@
 "use client";
 
 import { useRef } from "react";
+import { cn } from "@/libs/utils";
 
 export interface HeaderTriggerZoneProps {
-  /** Whether the header is currently visible. */
+  /** Whether the header/footer is currently visible. */
   isVisible: boolean;
   /** Handler for mouse enter event. */
   onMouseEnter: () => void;
+  /** Position of the trigger zone. Defaults to 'top'. */
+  position?: "top" | "bottom";
 }
 
 /**
- * Invisible trigger zone for header visibility.
+ * Invisible trigger zone for header/footer visibility.
  *
  * Follows SRP by focusing solely on trigger zone rendering.
  * Follows SOC by separating trigger zone from header component.
@@ -38,6 +41,7 @@ export interface HeaderTriggerZoneProps {
 export function HeaderTriggerZone({
   isVisible,
   onMouseEnter,
+  position = "top",
 }: HeaderTriggerZoneProps) {
   const triggerZoneRef = useRef<HTMLButtonElement>(null);
 
@@ -50,7 +54,10 @@ export function HeaderTriggerZone({
       ref={triggerZoneRef}
       onMouseEnter={onMouseEnter}
       type="button"
-      className="fixed top-0 right-0 left-0 z-[850] h-[5rem] cursor-default border-0 bg-transparent p-0"
+      className={cn(
+        "fixed right-0 left-0 z-[850] h-[5rem] cursor-default border-0 bg-transparent p-0",
+        position === "top" ? "top-0" : "bottom-0",
+      )}
       aria-hidden="true"
       tabIndex={-1}
     />

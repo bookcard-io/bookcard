@@ -193,6 +193,7 @@ export function ComicReader({
           format={format}
           totalPages={totalPages}
           onPageChange={handlePageChange}
+          onRegisterJump={navigation.registerJumpHandler}
           zoomLevel={zoomLevel}
           className="h-full w-full"
         />
@@ -206,6 +207,7 @@ export function ComicReader({
           format={format}
           totalPages={totalPages}
           onPageChange={handlePageChange}
+          onRegisterJump={navigation.registerJumpHandler}
           zoomLevel={zoomLevel}
           className="h-full w-full"
         />

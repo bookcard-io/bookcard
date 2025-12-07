@@ -248,7 +248,7 @@ export function PagedComicView({
     <section
       ref={containerRef}
       className={cn(
-        "flex h-full w-full items-center justify-center overflow-auto",
+        "flex h-screen w-full items-center justify-center overflow-auto",
         className,
       )}
       onClick={handleContainerClick}
