@@ -43,7 +43,7 @@ function createMockRendition(): Rendition {
 /**
  * Create a mock document.
  */
-  function createMockDocument(): Document {
+function createMockDocument(): Document {
   const head = {
     appendChild: vi.fn(),
   };
@@ -123,10 +123,10 @@ describe("epubRendering", () => {
           "background",
           expect.any(String),
         );
-      expect(rendition.themes.override).toHaveBeenCalledWith(
-        "font-family",
-        `"${fontFamily}"`,
-      );
+        expect(rendition.themes.override).toHaveBeenCalledWith(
+          "font-family",
+          `"${fontFamily}"`,
+        );
         expect(rendition.themes.fontSize).toHaveBeenCalledWith(
           expect.stringContaining("%"),
         );
@@ -233,13 +233,16 @@ describe("epubRendering", () => {
 
       expect(iframeBody.style.color).toBe("#000");
       expect(iframeBody.style.backgroundColor).toBe("#fff");
-      expect(setProperty).toHaveBeenCalledWith("font-family", '"Bookerly"', "important");
+      expect(setProperty).toHaveBeenCalledWith(
+        "font-family",
+        '"Bookerly"',
+        "important",
+      );
     });
 
     it("should apply theme including font family to document body with correct global override", () => {
       const document = createMockDocument();
       const setProperty = vi.fn();
-      // @ts-expect-error - mock
       document.body.style.setProperty = setProperty;
 
       const styleElement = {
@@ -255,14 +258,20 @@ describe("epubRendering", () => {
 
       expect(document.body.style.color).toBe("#000");
       expect(document.body.style.backgroundColor).toBe("#fff");
-      expect(setProperty).toHaveBeenCalledWith("font-family", '"Bookerly"', "important");
+      expect(setProperty).toHaveBeenCalledWith(
+        "font-family",
+        '"Bookerly"',
+        "important",
+      );
       expect(document.createElement).toHaveBeenCalledWith("style");
 
       // Verify the global override style content
-      expect(styleElement.textContent).toContain('font-family: "Bookerly" !important');
-      expect(styleElement.textContent).toContain('p, span, div');
-      expect(styleElement.textContent).not.toContain('pre');
-      expect(styleElement.textContent).not.toContain('code');
+      expect(styleElement.textContent).toContain(
+        'font-family: "Bookerly" !important',
+      );
+      expect(styleElement.textContent).toContain("p, span, div");
+      expect(styleElement.textContent).not.toContain("pre");
+      expect(styleElement.textContent).not.toContain("code");
     });
 
     it("should handle missing iframe gracefully", () => {

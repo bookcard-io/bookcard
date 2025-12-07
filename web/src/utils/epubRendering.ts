@@ -98,7 +98,11 @@ export function applyDocumentTheme(
     document.body.style.color = colors.textColor;
     document.body.style.backgroundColor = colors.backgroundColor;
     if (fontFamily) {
-      document.body.style.setProperty("font-family", `"${fontFamily}"`, "important");
+      document.body.style.setProperty(
+        "font-family",
+        `"${fontFamily}"`,
+        "important",
+      );
     }
   }
 
@@ -126,7 +130,11 @@ export function applyDocumentTheme(
     iframe.contentDocument.body.style.color = colors.textColor;
     iframe.contentDocument.body.style.backgroundColor = colors.backgroundColor;
     if (fontFamily) {
-      iframe.contentDocument.body.style.setProperty("font-family", `"${fontFamily}"`, "important");
+      iframe.contentDocument.body.style.setProperty(
+        "font-family",
+        `"${fontFamily}"`,
+        "important",
+      );
     }
   }
 }

@@ -72,7 +72,6 @@ export function useEpubTheme({
 
     // Apply document theme (font/colors) to currently visible content immediately
     // This handles the manual DOM manipulations like global style injection that applyThemeToRendition misses
-    // @ts-expect-error - getContents() is not typed in all versions but exists in EPUB.js
     const contents = rendition.getContents();
     if (contents && Array.isArray(contents)) {
       const colors = getThemeColors(pageColor);
@@ -83,7 +82,6 @@ export function useEpubTheme({
       });
     } else if (contents) {
       // Single content object case
-      // @ts-expect-error - iterating generic contents object
       const contentList = [contents];
       contentList.forEach((content) => {
         if (content.document) {

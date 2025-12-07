@@ -112,7 +112,7 @@ export function ReadingSeriesPanel({
                   type="button"
                   disabled={!prevBook}
                   onClick={() => prevBook && handleBookClick(prevBook)}
-                  className="flex h-8 w-8 items-center justify-center rounded-full border border-surface-a20 text-text-a0 transition-colors hover:bg-surface-a10 disabled:opacity-50 disabled:hover:bg-transparent"
+                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-surface-a20 bg-surface-tonal-a10 text-sm text-text-a0 transition-[background-color,border-color,transform] duration-200 hover:border-primary-a0 hover:bg-surface-tonal-a20 focus:not-focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2 active:scale-95 active:bg-surface-tonal-a30 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 disabled:hover:border-surface-a20 disabled:hover:bg-surface-tonal-a10"
                   aria-label="Previous book in series"
                   title={
                     prevBook
@@ -126,7 +126,7 @@ export function ReadingSeriesPanel({
                   type="button"
                   disabled={!nextBook}
                   onClick={() => nextBook && handleBookClick(nextBook)}
-                  className="flex h-8 w-8 items-center justify-center rounded-full border border-surface-a20 text-text-a0 transition-colors hover:bg-surface-a10 disabled:opacity-50 disabled:hover:bg-transparent"
+                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-surface-a20 bg-surface-tonal-a10 text-sm text-text-a0 transition-[background-color,border-color,transform] duration-200 hover:border-primary-a0 hover:bg-surface-tonal-a20 focus:not-focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2 active:scale-95 active:bg-surface-tonal-a30 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 disabled:hover:border-surface-a20 disabled:hover:bg-surface-tonal-a10"
                   aria-label="Next book in series"
                   title={nextBook ? `Next: ${nextBook.title}` : "No next book"}
                 >
