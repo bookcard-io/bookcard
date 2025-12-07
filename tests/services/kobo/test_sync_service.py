@@ -740,7 +740,7 @@ def test_filter_books_for_sync_no_id(
         Sync token.
     """
     book.id = None
-    book_with_rels = BookWithRelations(book=book, authors=[], series=None)
+    book_with_rels = BookWithRelations(book=book, authors=[], series=None, formats=[])
     books = [book_with_rels]
     synced_book_ids: set[int] = set()
     shelf_book_ids: set[int] | None = None

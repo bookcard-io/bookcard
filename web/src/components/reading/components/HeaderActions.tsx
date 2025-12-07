@@ -16,6 +16,7 @@
 "use client";
 
 import { BookmarkOutline } from "@/icons/BookmarkOutline";
+import { ListNumberStroke16 } from "@/icons/ListNumberStroke16";
 import { MaximizeStroke12 } from "@/icons/MaximizeStroke12";
 import { Notebook } from "@/icons/Notebook";
 import { HeaderButton } from "./HeaderButton";
@@ -25,6 +26,8 @@ export interface HeaderActionHandlers {
   onTocToggle?: () => void;
   /** Handler for search action. */
   onSearch?: () => void;
+  /** Handler for series action. */
+  onSeries?: () => void;
   /** Handler for font settings action. */
   onFontSettings?: () => void;
   /** Handler for notebook action. */
@@ -74,6 +77,11 @@ export function HeaderActions({
             <i className="pi pi-search text-lg" />
           </HeaderButton>
         </>
+      )}
+      {handlers.onSeries && (
+        <HeaderButton onClick={handlers.onSeries} ariaLabel="View series">
+          <ListNumberStroke16 className="h-5 w-5" />
+        </HeaderButton>
       )}
       <HeaderButton onClick={handlers.onFontSettings} ariaLabel="Letter case">
         <span className="text-2xl">Aa</span>

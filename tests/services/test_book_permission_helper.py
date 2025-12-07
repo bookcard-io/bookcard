@@ -77,6 +77,7 @@ def book_with_relations(book: Book) -> BookWithRelations:
         book=book,
         authors=["Author One", "Author Two"],
         series=None,
+        formats=[],
     )
 
 

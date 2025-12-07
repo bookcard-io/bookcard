@@ -376,6 +376,12 @@ class CalibreBookRepository(IBookRepository):
         if not search_query:
             return stmt
 
+        # Handle exact series match: series:"=Series Name"
+        # This is used by the frontend series panel
+        if search_query.startswith('series:"=') and search_query.endswith('"'):
+            series_name = search_query[9:-1]
+            return stmt.where(series_alias.name == series_name)  # type: ignore[attr-defined]
+
         # Use case-insensitive search for SQLite
         query_lower = search_query.lower()
         pattern_lower = f"%{query_lower}%"
@@ -452,10 +458,22 @@ class CalibreBookRepository(IBookRepository):
         )
         authors = list(session.exec(authors_stmt).all())
 
+        # Fetch formats for the book
+        formats_stmt = (
+            select(Data.format, Data.uncompressed_size, Data.name)
+            .where(Data.book == book.id)
+            .order_by(Data.format)
+        )
+        formats = [
+            {"format": fmt, "size": size, "name": name or ""}
+            for fmt, size, name in session.exec(formats_stmt).all()
+        ]
+
         return BookWithRelations(
             book=book,
             authors=authors,
             series=series_name,
+            formats=formats,
         )
 
     def _build_books_from_results(
@@ -700,30 +718,46 @@ class CalibreBookRepository(IBookRepository):
                 )
 
             if search_query:
-                # Use case-insensitive search for SQLite
-                query_lower = search_query.lower()
-                pattern_lower = f"%{query_lower}%"
-                author_alias = aliased(Author)
-                tag_alias = aliased(Tag)
-                series_search_alias = aliased(Series)
-                stmt = (
-                    select(func.count(func.distinct(Book.id)))
-                    .outerjoin(BookAuthorLink, Book.id == BookAuthorLink.book)
-                    .outerjoin(author_alias, BookAuthorLink.author == author_alias.id)
-                    .outerjoin(BookTagLink, Book.id == BookTagLink.book)
-                    .outerjoin(tag_alias, BookTagLink.tag == tag_alias.id)
-                    .outerjoin(BookSeriesLink, Book.id == BookSeriesLink.book)
-                    .outerjoin(
-                        series_search_alias,
-                        BookSeriesLink.series == series_search_alias.id,
+                # Handle exact series match: series:"=Series Name"
+                if search_query.startswith('series:"=') and search_query.endswith('"'):
+                    series_name = search_query[9:-1]
+                    series_search_alias = aliased(Series)
+                    stmt = (
+                        select(func.count(func.distinct(Book.id)))
+                        .join(BookSeriesLink, Book.id == BookSeriesLink.book)
+                        .join(
+                            series_search_alias,
+                            BookSeriesLink.series == series_search_alias.id,
+                        )
+                        .where(series_search_alias.name == series_name)
                     )
-                    .where(
-                        (func.lower(Book.title).like(pattern_lower))  # type: ignore[attr-defined]
-                        | (func.lower(author_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
-                        | (func.lower(tag_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
-                        | (func.lower(series_search_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
+                else:
+                    # Use case-insensitive search for SQLite
+                    query_lower = search_query.lower()
+                    pattern_lower = f"%{query_lower}%"
+                    author_alias = aliased(Author)
+                    tag_alias = aliased(Tag)
+                    series_search_alias = aliased(Series)
+                    stmt = (
+                        select(func.count(func.distinct(Book.id)))
+                        .outerjoin(BookAuthorLink, Book.id == BookAuthorLink.book)
+                        .outerjoin(
+                            author_alias, BookAuthorLink.author == author_alias.id
+                        )
+                        .outerjoin(BookTagLink, Book.id == BookTagLink.book)
+                        .outerjoin(tag_alias, BookTagLink.tag == tag_alias.id)
+                        .outerjoin(BookSeriesLink, Book.id == BookSeriesLink.book)
+                        .outerjoin(
+                            series_search_alias,
+                            BookSeriesLink.series == series_search_alias.id,
+                        )
+                        .where(
+                            (func.lower(Book.title).like(pattern_lower))  # type: ignore[attr-defined]
+                            | (func.lower(author_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
+                            | (func.lower(tag_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
+                            | (func.lower(series_search_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
+                        )
                     )
-                )
             else:
                 stmt = select(func.count(Book.id))
 
@@ -991,6 +1025,7 @@ class CalibreBookRepository(IBookRepository):
                 book=book,
                 authors=authors,
                 series=series_name,
+                formats=self._fetch_formats_map(session, [book_id]).get(book_id, []),
             )
 
     def get_book_full(self, book_id: int) -> BookWithFullRelations | None:

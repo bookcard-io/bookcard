@@ -42,11 +42,14 @@ class BookWithRelations:
         List of author names.
     series : str | None
         Series name if part of a series.
+    formats : list[dict[str, str | int]]
+        List of file formats, each with 'format' and 'size' keys.
     """
 
     book: Book
     authors: list[str]
     series: str | None
+    formats: list[dict[str, str | int]]
 
 
 @dataclass

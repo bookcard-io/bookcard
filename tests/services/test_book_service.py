@@ -242,7 +242,7 @@ def test_get_thumbnail_url_with_book_with_relations_has_cover() -> None:
     )
 
     book = Book(id=456, title="Test Book", uuid="test-uuid", has_cover=True)
-    book_with_rels = BookWithRelations(book=book, authors=[], series=None)
+    book_with_rels = BookWithRelations(book=book, authors=[], series=None, formats=[])
 
     with patch("fundamental.services.book_service.CalibreBookRepository"):
         service = BookService(library)
@@ -261,7 +261,7 @@ def test_get_thumbnail_url_with_book_with_relations_no_cover() -> None:
     )
 
     book = Book(id=456, title="Test Book", uuid="test-uuid", has_cover=False)
-    book_with_rels = BookWithRelations(book=book, authors=[], series=None)
+    book_with_rels = BookWithRelations(book=book, authors=[], series=None, formats=[])
 
     with patch("fundamental.services.book_service.CalibreBookRepository"):
         service = BookService(library)
@@ -361,7 +361,7 @@ def test_get_thumbnail_path_with_book_with_relations() -> None:
         has_cover=True,
         path="Author Name/Test Book (456)",
     )
-    book_with_rels = BookWithRelations(book=book, authors=[], series=None)
+    book_with_rels = BookWithRelations(book=book, authors=[], series=None, formats=[])
 
     with (
         patch("fundamental.services.book_service.CalibreBookRepository"),

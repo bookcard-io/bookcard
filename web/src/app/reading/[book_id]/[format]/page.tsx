@@ -26,10 +26,13 @@ import { ReadingHeader } from "@/components/reading/ReadingHeader";
 import { parseReadingPageParams } from "@/components/reading/utils/parseReadingPageParams";
 import { ActiveLibraryProvider } from "@/contexts/ActiveLibraryContext";
 import { LibraryLoadingProvider } from "@/contexts/LibraryLoadingContext";
+import { SelectedBooksProvider } from "@/contexts/SelectedBooksContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
+import { ShelvesProvider } from "@/contexts/ShelvesContext";
 import { UserProvider } from "@/contexts/UserContext";
 import { useBook } from "@/hooks/useBook";
 import { useTheme } from "@/hooks/useTheme";
+import { isComicFormat } from "@/utils/formatUtils";
 
 interface ReadingPageProps {
   params: Promise<{ book_id: string; format: string }>;
@@ -79,11 +82,16 @@ export default function ReadingPage({ params }: ReadingPageProps) {
       <SettingsProvider>
         <ActiveLibraryProvider>
           <LibraryLoadingProvider>
-            <ReadingPageContent
-              bookId={bookId}
-              format={format}
-              bookTitle={book?.title || null}
-            />
+            <SelectedBooksProvider>
+              <ShelvesProvider>
+                <ReadingPageContent
+                  bookId={bookId}
+                  format={format}
+                  bookTitle={book?.title || null}
+                  seriesName={book?.series || null}
+                />
+              </ShelvesProvider>
+            </SelectedBooksProvider>
           </LibraryLoadingProvider>
         </ActiveLibraryProvider>
       </SettingsProvider>
@@ -112,10 +120,12 @@ function ReadingPageContent({
   bookId,
   format,
   bookTitle,
+  seriesName,
 }: {
   bookId: number;
   format: string;
   bookTitle: string | null;
+  seriesName: string | null;
 }) {
   const { theme: appTheme, toggleTheme } = useTheme();
   const tocToggleRef = useRef<(() => void) | null>(null);
@@ -142,7 +152,7 @@ function ReadingPageContent({
   }, []);
 
   // Detect if format is a comic
-  const isComic = ["CBZ", "CBR", "CB7", "CBC"].includes(format.toUpperCase());
+  const isComic = isComicFormat(format);
 
   // Manage reading settings via centralized hook (for books)
   const {
@@ -183,35 +193,46 @@ function ReadingPageContent({
   return (
     <>
       <ReadingHeader
-        title={bookTitle}
-        format={format}
+        book={{
+          title: bookTitle,
+          seriesName: seriesName || undefined,
+          format,
+          bookId,
+        }}
+        theme={{
+          fontFamily,
+          onFontFamilyChange: setFontFamily,
+          fontSize,
+          onFontSizeChange: setFontSize,
+          pageColor,
+          onPageColorChange: setPageColor,
+          onAppThemeChange: handleAppThemeChange,
+          pageLayout,
+          onPageLayoutChange: setPageLayout,
+        }}
+        search={{
+          searchQuery,
+          onSearchQueryChange: setSearchQuery,
+          searchResults,
+          onResultClick: handleResultClick,
+        }}
+        comic={
+          isComic
+            ? {
+                readingMode: comicSettings.readingMode,
+                onReadingModeChange: comicSettings.setReadingMode,
+                readingDirection: comicSettings.readingDirection,
+                onReadingDirectionChange: comicSettings.setReadingDirection,
+                spreadMode: comicSettings.spreadMode,
+                onSpreadModeChange: comicSettings.setSpreadMode,
+                zoomLevel: comicSettings.zoomLevel,
+                onZoomLevelChange: comicSettings.setZoomLevel,
+              }
+            : undefined
+        }
         onFullscreenToggle={toggleFullscreen}
         onTocToggle={handleTocToggle}
-        fontFamily={fontFamily}
-        onFontFamilyChange={setFontFamily}
-        fontSize={fontSize}
-        onFontSizeChange={setFontSize}
-        pageColor={pageColor}
-        onPageColorChange={setPageColor}
-        onAppThemeChange={handleAppThemeChange}
-        pageLayout={pageLayout}
-        onPageLayoutChange={setPageLayout}
         areLocationsReady={areLocationsReady}
-        searchQuery={searchQuery}
-        onSearchQueryChange={setSearchQuery}
-        searchResults={searchResults}
-        onResultClick={handleResultClick}
-        // Comic-specific props
-        readingMode={isComic ? comicSettings.readingMode : undefined}
-        onReadingModeChange={isComic ? comicSettings.setReadingMode : undefined}
-        readingDirection={isComic ? comicSettings.readingDirection : undefined}
-        onReadingDirectionChange={
-          isComic ? comicSettings.setReadingDirection : undefined
-        }
-        spreadMode={isComic ? comicSettings.spreadMode : undefined}
-        onSpreadModeChange={isComic ? comicSettings.setSpreadMode : undefined}
-        zoomLevel={isComic ? comicSettings.zoomLevel : undefined}
-        onZoomLevelChange={isComic ? comicSettings.setZoomLevel : undefined}
       />
       <EBookReader
         bookId={bookId}

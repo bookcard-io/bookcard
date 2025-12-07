@@ -987,7 +987,7 @@ def test_download_cover_from_url_success(
         has_cover=False,
         path="Author Name/Test Book (1)",
     )
-    book_with_rels = BookWithRelations(book=book, authors=[], series=None)
+    book_with_rels = BookWithRelations(book=book, authors=[], series=None, formats=[])
 
     # Create a simple test image
     from PIL import Image
@@ -1111,7 +1111,7 @@ def test_download_cover_from_url_with_library_root(
         has_cover=False,
         path="Author Name/Test Book (1)",
     )
-    book_with_rels = BookWithRelations(book=book, authors=[], series=None)
+    book_with_rels = BookWithRelations(book=book, authors=[], series=None, formats=[])
 
     # Create a simple test image
     from PIL import Image
@@ -1233,7 +1233,7 @@ def test_download_cover_from_url_db_path_is_file(
         has_cover=False,
         path="Author Name/Test Book (1)",
     )
-    book_with_rels = BookWithRelations(book=book, authors=[], series=None)
+    book_with_rels = BookWithRelations(book=book, authors=[], series=None, formats=[])
 
     # Create a simple test image
     from PIL import Image
@@ -1502,7 +1502,7 @@ def test_download_cover_from_url_empty_url(
         has_cover=False,
         path="test/path",
     )
-    book_with_rels = BookWithRelations(book=book, authors=[], series=None)
+    book_with_rels = BookWithRelations(book=book, authors=[], series=None, formats=[])
 
     library_with_path = Library(
         id=1,
@@ -1581,7 +1581,7 @@ def test_download_cover_from_url_invalid_url_format(
         has_cover=False,
         path="test/path",
     )
-    book_with_rels = BookWithRelations(book=book, authors=[], series=None)
+    book_with_rels = BookWithRelations(book=book, authors=[], series=None, formats=[])
 
     library_with_path = Library(
         id=1,

@@ -116,6 +116,7 @@ def book_with_rels_minimal(book: Book) -> BookWithRelations:
         book=book,
         authors=["Author One"],
         series=None,
+        formats=[],
     )
 
 
@@ -421,6 +422,7 @@ def test_get_book_metadata_series_no_index(
         book=book,
         authors=[],
         series="Test Series",
+        formats=[],
     )
     result = metadata_service.get_book_metadata(book_with_rels)
     assert "Series" in result

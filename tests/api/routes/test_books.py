@@ -418,6 +418,7 @@ def test_list_books_success(monkeypatch: pytest.MonkeyPatch) -> None:
         book=book,
         authors=["Test Author"],
         series=None,
+        formats=[],
     )
 
     mock_service = MockBookService(
@@ -531,9 +532,11 @@ def test_list_books_skips_books_without_id(monkeypatch: pytest.MonkeyPatch) -> N
         path="test/path",
     )
 
-    book_with_rels_no_id = BookWithRelations(book=book_no_id, authors=[], series=None)
+    book_with_rels_no_id = BookWithRelations(
+        book=book_no_id, authors=[], series=None, formats=[]
+    )
     book_with_rels_with_id = BookWithRelations(
-        book=book_with_id, authors=[], series=None
+        book=book_with_id, authors=[], series=None, formats=[]
     )
 
     mock_service = MockBookService(
@@ -663,6 +666,7 @@ def test_get_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
         book=book,
         authors=["Test Author"],
         series=None,
+        formats=[],
     )
 
     mock_service = MockBookService(
@@ -744,7 +748,7 @@ def test_get_book_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
         has_cover=False,
         path="test/path",
     )
-    book_with_rels = BookWithRelations(book=book, authors=[], series=None)
+    book_with_rels = BookWithRelations(book=book, authors=[], series=None, formats=[])
 
     mock_service = MockBookService(get_book_result=book_with_rels)
 
@@ -795,7 +799,7 @@ def test_get_book_cover_success(monkeypatch: pytest.MonkeyPatch) -> None:
         has_cover=True,
         path="test/path",
     )
-    book_with_rels = BookWithRelations(book=book, authors=[], series=None)
+    book_with_rels = BookWithRelations(book=book, authors=[], series=None, formats=[])
 
     import tempfile
 
@@ -878,7 +882,7 @@ def test_get_book_cover_file_not_exists(monkeypatch: pytest.MonkeyPatch) -> None
         has_cover=True,
         path="test/path",
     )
-    book_with_rels = BookWithRelations(book=book, authors=[], series=None)
+    book_with_rels = BookWithRelations(book=book, authors=[], series=None, formats=[])
 
     # Path that doesn't exist
     non_existent_path = Path("/nonexistent/cover.jpg")
@@ -1106,6 +1110,7 @@ def test_filter_books_success(monkeypatch: pytest.MonkeyPatch) -> None:
         book=book,
         authors=["Test Author"],
         series=None,
+        formats=[],
     )
 
     mock_service = MockBookService(
@@ -1249,9 +1254,11 @@ def test_filter_books_skips_books_without_id(monkeypatch: pytest.MonkeyPatch) ->
         path="test/path",
     )
 
-    book_with_rels_no_id = BookWithRelations(book=book_no_id, authors=[], series=None)
+    book_with_rels_no_id = BookWithRelations(
+        book=book_no_id, authors=[], series=None, formats=[]
+    )
     book_with_rels_with_id = BookWithRelations(
-        book=book_with_id, authors=[], series=None
+        book=book_with_id, authors=[], series=None, formats=[]
     )
 
     mock_service = MockBookService(
@@ -1472,6 +1479,7 @@ def test_get_book_with_full_false(monkeypatch: pytest.MonkeyPatch) -> None:
         book=book,
         authors=["Test Author"],
         series=None,
+        formats=[],
     )
 
     mock_service = MockBookService(
@@ -1549,6 +1557,7 @@ def test_update_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
         book=Book(id=1, title="Original Book", uuid="test-uuid"),
         authors=[],
         series=None,
+        formats=[],
     )
     existing_book_full = BookWithFullRelations(
         book=Book(id=1, title="Original Book", uuid="test-uuid"),
@@ -1674,6 +1683,7 @@ def test_update_book_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
         book=Book(id=1, title="Original Book", uuid="test-uuid"),
         authors=[],
         series=None,
+        formats=[],
     )
     existing_book_full = BookWithFullRelations(
         book=Book(id=1, title="Original Book", uuid="test-uuid"),
@@ -1738,6 +1748,7 @@ def test_update_book_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
         book=Book(id=1, title="Original Book", uuid="test-uuid"),
         authors=[],
         series=None,
+        formats=[],
     )
     existing_book_full = BookWithFullRelations(
         book=Book(id=1, title="Original Book", uuid="test-uuid"),

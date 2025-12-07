@@ -19,8 +19,8 @@ import { useCallback, useMemo, useRef } from "react";
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { useHeaderVisibility } from "@/hooks/useHeaderVisibility";
 import { cn } from "@/libs/utils";
-import type { ComicReadingDirection, ComicReadingMode } from "./ComicReader";
-import { ComicReadingSettings } from "./ComicReadingSettings";
+import { isComicFormat } from "@/utils/formatUtils";
+
 import {
   type HeaderActionHandlers,
   HeaderActions,
@@ -29,71 +29,36 @@ import { HeaderTitle } from "./components/HeaderTitle";
 import { HeaderTriggerZone } from "./components/HeaderTriggerZone";
 import { useExclusivePanels } from "./hooks/useExclusivePanels";
 import { useFontPanel } from "./hooks/useFontPanel";
+import { usePanelCloseHandler } from "./hooks/usePanelCloseHandler";
 import { useSearchPanel } from "./hooks/useSearchPanel";
+import { useSeriesPanel } from "./hooks/useSeriesPanel";
 import { ReadingSearchPanel } from "./ReadingSearchPanel";
-import {
-  type FontFamily,
-  type PageColor,
-  type PageLayout,
-  ReadingThemeSettings,
-} from "./ReadingThemeSettings";
+import { ReadingSeriesPanel } from "./ReadingSeriesPanel";
+import { SettingsPanelFactory } from "./SettingsPanelFactory";
+import type {
+  BookMetadata,
+  ComicSettings,
+  SearchSettings,
+  ThemeSettings,
+} from "./types";
 
 export interface ReadingHeaderProps {
-  /** Book title to display. */
-  title: string | null;
-  /** Book format (EPUB, PDF, CBZ, etc.). */
-  format?: string;
+  /** Book metadata. */
+  book: BookMetadata;
+  /** Theme settings for EPUB/PDF formats. */
+  theme?: ThemeSettings;
+  /** Search settings. */
+  search?: SearchSettings;
+  /** Comic-specific settings (only used when format is comic). */
+  comic?: ComicSettings;
   /** Callback when fullscreen toggle is clicked. */
   onFullscreenToggle?: () => void;
   /** Callback when TOC toggle is clicked. */
   onTocToggle?: () => void;
   /** Whether EPUB locations are ready (for EPUB format). */
   areLocationsReady?: boolean;
-  /** Current font family. */
-  fontFamily?: FontFamily;
-  /** Callback when font family changes. */
-  onFontFamilyChange?: (family: FontFamily) => void;
-  /** Current font size in pixels. */
-  fontSize?: number;
-  /** Callback when font size changes. */
-  onFontSizeChange?: (size: number) => void;
-  /** Current page color theme. */
-  pageColor?: PageColor;
-  /** Callback when page color changes. */
-  onPageColorChange?: (color: PageColor) => void;
-  /** Callback when main app theme should change. */
-  onAppThemeChange?: (theme: "light" | "dark") => void;
-  /** Current page layout. */
-  pageLayout?: PageLayout;
-  /** Callback when page layout changes. */
-  onPageLayoutChange?: (layout: PageLayout) => void;
-  /** Current search query. */
-  searchQuery?: string;
-  /** Callback when search query changes. */
-  onSearchQueryChange?: (query: string) => void;
-  /** Search results to display. */
-  searchResults?: import("./EPUBReader").SearchResult[];
-  /** Callback when a search result is clicked to navigate to it. */
-  onResultClick?: (cfi: string) => void;
   /** Optional className. */
   className?: string;
-  // Comic-specific settings (only used when format is comic)
-  /** Current reading mode (comic). */
-  readingMode?: ComicReadingMode;
-  /** Callback when reading mode changes (comic). */
-  onReadingModeChange?: (mode: ComicReadingMode) => void;
-  /** Current reading direction (comic). */
-  readingDirection?: ComicReadingDirection;
-  /** Callback when reading direction changes (comic). */
-  onReadingDirectionChange?: (direction: ComicReadingDirection) => void;
-  /** Whether spread mode is enabled (comic). */
-  spreadMode?: boolean;
-  /** Callback when spread mode changes (comic). */
-  onSpreadModeChange?: (enabled: boolean) => void;
-  /** Current zoom level (comic). */
-  zoomLevel?: number;
-  /** Callback when zoom level changes (comic). */
-  onZoomLevelChange?: (level: number) => void;
 }
 
 /**
@@ -106,77 +71,51 @@ export interface ReadingHeaderProps {
  * Follows SOC by separating concerns into distinct components.
  * Follows IOC by accepting handlers as props.
  * Follows DRY by reusing HeaderButton and other components.
+ * Follows OCP by using format detection utility and settings factory.
  *
  * Parameters
  * ----------
  * props : ReadingHeaderProps
- *     Component props including book title and action handlers.
+ *     Component props including book metadata and grouped settings.
  */
 export function ReadingHeader({
-  title,
-  format,
+  book,
+  theme,
+  search,
+  comic,
   onFullscreenToggle,
   onTocToggle,
   areLocationsReady = true,
-  fontFamily = "Bookerly",
-  onFontFamilyChange,
-  fontSize = 16,
-  onFontSizeChange,
-  pageColor = "light",
-  onPageColorChange,
-  onAppThemeChange,
-  pageLayout = "two-column",
-  onPageLayoutChange,
-  searchQuery,
-  onSearchQueryChange,
-  searchResults,
-  onResultClick,
   className,
-  // Comic-specific props
-  readingMode,
-  onReadingModeChange,
-  readingDirection,
-  onReadingDirectionChange,
-  spreadMode,
-  onSpreadModeChange,
-  zoomLevel,
-  onZoomLevelChange,
 }: ReadingHeaderProps) {
-  // Detect if format is a comic
-  const isComic = format
-    ? ["CBZ", "CBR", "CB7", "CBC"].includes(format.toUpperCase())
-    : false;
   const containerRef = useRef<HTMLDivElement>(null);
   const fontPanel = useFontPanel();
   const searchPanel = useSearchPanel();
+  const seriesPanel = useSeriesPanel();
 
   // Configure mutually exclusive panels
   // To disable mutual exclusivity, set enabled: false
   // To add more panels, add them to the panels array
   const { openFunctions } = useExclusivePanels({
-    panels: [fontPanel, searchPanel],
+    panels: [fontPanel, searchPanel, seriesPanel],
     enabled: true, // Set to false to allow multiple panels open simultaneously
   });
 
-  // Extract open functions - we know these exist since we provided 2 panels
+  // Extract open functions - we know these exist since we provided 3 panels
   const openFontPanel = openFunctions[0] ?? fontPanel.open;
   const openSearchPanel = openFunctions[1] ?? searchPanel.open;
+  const openSeriesPanel = openFunctions[2] ?? seriesPanel.open;
 
   const { isVisible, handleMouseEnter, handleMouseLeave, hideHeader } =
     useHeaderVisibility(
       areLocationsReady,
-      fontPanel.isOpen || searchPanel.isOpen,
+      fontPanel.isOpen || searchPanel.isOpen || seriesPanel.isOpen,
     );
 
-  const handleFontPanelClose = useCallback(() => {
-    fontPanel.close();
-    hideHeader();
-  }, [fontPanel, hideHeader]);
-
-  const handleSearchPanelClose = useCallback(() => {
-    searchPanel.close();
-    hideHeader();
-  }, [searchPanel, hideHeader]);
+  // Use factory hook for panel close handlers (DRY)
+  const handleFontPanelClose = usePanelCloseHandler(fontPanel, hideHeader);
+  const handleSearchPanelClose = usePanelCloseHandler(searchPanel, hideHeader);
+  const handleSeriesPanelClose = usePanelCloseHandler(seriesPanel, hideHeader);
 
   // Memoize no-op handlers to prevent unnecessary recreations
   const handleSearch = useCallback(() => {
@@ -199,6 +138,7 @@ export function ReadingHeader({
     () => ({
       onTocToggle,
       onSearch: handleSearch,
+      onSeries: book.seriesName ? openSeriesPanel : undefined,
       onFontSettings: openFontPanel,
       onNotebook: handleNotebook,
       onBookmark: handleBookmark,
@@ -208,6 +148,8 @@ export function ReadingHeader({
     [
       onTocToggle,
       handleSearch,
+      book.seriesName,
+      openSeriesPanel,
       openFontPanel,
       handleNotebook,
       handleBookmark,
@@ -215,6 +157,8 @@ export function ReadingHeader({
       handleMoreOptions,
     ],
   );
+
+  const isComic = isComicFormat(book.format);
 
   return (
     <>
@@ -236,7 +180,7 @@ export function ReadingHeader({
         <div className="border-surface-a20 border-b bg-surface-a0 px-4 py-3 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <BrandLogo showText={true} />
-            <HeaderTitle title={title} />
+            <HeaderTitle title={book.title} />
             <HeaderActions
               handlers={actionHandlers}
               hideTocAndSearch={isComic}
@@ -244,44 +188,29 @@ export function ReadingHeader({
           </div>
         </div>
       </header>
-      {isComic ? (
-        <ComicReadingSettings
-          isOpen={fontPanel.isOpen}
-          onClose={handleFontPanelClose}
-          readingMode={readingMode || "paged"}
-          onReadingModeChange={onReadingModeChange || (() => {})}
-          readingDirection={readingDirection || "ltr"}
-          onReadingDirectionChange={onReadingDirectionChange || (() => {})}
-          spreadMode={spreadMode ?? true}
-          onSpreadModeChange={onSpreadModeChange || (() => {})}
-          zoomLevel={zoomLevel || 1.0}
-          onZoomLevelChange={onZoomLevelChange || (() => {})}
-          pageColor={pageColor}
-          onPageColorChange={onPageColorChange}
-          onAppThemeChange={onAppThemeChange}
-        />
-      ) : (
-        <ReadingThemeSettings
-          isOpen={fontPanel.isOpen}
-          onClose={handleFontPanelClose}
-          fontFamily={fontFamily}
-          onFontFamilyChange={onFontFamilyChange || (() => {})}
-          fontSize={fontSize}
-          onFontSizeChange={onFontSizeChange || (() => {})}
-          pageColor={pageColor}
-          onPageColorChange={onPageColorChange}
-          onAppThemeChange={onAppThemeChange}
-          pageLayout={pageLayout}
-          onPageLayoutChange={onPageLayoutChange}
-        />
-      )}
+      <SettingsPanelFactory
+        format={book.format}
+        isOpen={fontPanel.isOpen}
+        onClose={handleFontPanelClose}
+        pageColor={theme?.pageColor}
+        onPageColorChange={theme?.onPageColorChange}
+        onAppThemeChange={theme?.onAppThemeChange}
+        theme={theme}
+        comic={comic}
+      />
       <ReadingSearchPanel
         isOpen={searchPanel.isOpen}
         onClose={handleSearchPanelClose}
-        searchQuery={searchQuery}
-        onSearchQueryChange={onSearchQueryChange}
-        searchResults={searchResults}
-        onResultClick={onResultClick}
+        searchQuery={search?.searchQuery}
+        onSearchQueryChange={search?.onSearchQueryChange}
+        searchResults={search?.searchResults}
+        onResultClick={search?.onResultClick}
+      />
+      <ReadingSeriesPanel
+        isOpen={seriesPanel.isOpen}
+        onClose={handleSeriesPanelClose}
+        seriesName={book.seriesName ?? null}
+        currentBookId={book.bookId ?? 0}
       />
     </>
   );

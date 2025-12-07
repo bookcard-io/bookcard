@@ -86,6 +86,7 @@ class BookResponseBuilder:
             uuid=book.uuid or "",
             thumbnail_url=thumbnail_url,
             has_cover=book.has_cover,
+            formats=book_with_rels.formats,
         )
 
         # Add full details if requested and available

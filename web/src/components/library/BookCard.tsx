@@ -48,6 +48,10 @@ export interface BookCardProps {
   onBookDeleted?: (bookId: number) => void;
   /** Whether to show selection checkbox. Defaults to false. */
   showSelection?: boolean;
+  /** Whether to hide all action buttons (checkbox, edit, menu). Defaults to false. */
+  hideActions?: boolean;
+  /** Layout variant. 'default' is responsive, 'compact' forces mobile-like layout. Defaults to 'default'. */
+  variant?: "default" | "compact";
 }
 
 /**
@@ -66,6 +70,8 @@ export function BookCard({
   onEdit,
   onBookDeleted,
   showSelection = false,
+  hideActions = false,
+  variant = "default",
 }: BookCardProps) {
   const { isSelected } = useSelectedBooks();
   const selected = isSelected(book.id);
@@ -80,6 +86,7 @@ export function BookCard({
     bookId: book.id,
   });
   const [showAddToShelfModal, setShowAddToShelfModal] = useState(false);
+  const showActions = !hideActions;
 
   /**
    * Handle book card click.
@@ -110,7 +117,7 @@ export function BookCard({
           // Row 1 (title/author) takes remaining space, row 2 (buttons) is auto
           "grid grid-cols-[75px_1fr] grid-rows-[1fr_auto] gap-0",
           // Desktop: vertical flex layout
-          "md:flex md:flex-col",
+          variant === "default" && "md:flex md:flex-col",
         )}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
@@ -125,33 +132,37 @@ export function BookCard({
             // Mobile: col 1, row-span-2
             "col-start-1 row-span-2 row-start-1",
             // Desktop: full width
-            "md:col-span-1 md:row-span-1",
+            variant === "default" && "md:col-span-1 md:row-span-1",
           )}
         >
           <BookCardCover title={book.title} thumbnailUrl={book.thumbnail_url} />
           {/* Desktop overlay (hidden on mobile) */}
-          <div className="hidden md:block">
-            <BookCardOverlay selected={selected}>
-              {showSelection && (
-                <BookCardCheckbox
-                  book={book}
-                  allBooks={allBooks}
-                  selected={selected}
+          {showActions && (
+            <div
+              className={cn("hidden", variant === "default" ? "md:block" : "")}
+            >
+              <BookCardOverlay selected={selected}>
+                {showSelection && (
+                  <BookCardCheckbox
+                    book={book}
+                    allBooks={allBooks}
+                    selected={selected}
+                  />
+                )}
+                {onEdit && (
+                  <BookCardEditButton
+                    bookTitle={book.title}
+                    onEdit={() => onEdit(book.id)}
+                  />
+                )}
+                <BookCardMenuButton
+                  buttonRef={menu.menuButtonRef}
+                  isMenuOpen={menu.isMenuOpen}
+                  onToggle={menu.handleMenuToggle}
                 />
-              )}
-              {onEdit && (
-                <BookCardEditButton
-                  bookTitle={book.title}
-                  onEdit={() => onEdit(book.id)}
-                />
-              )}
-              <BookCardMenuButton
-                buttonRef={menu.menuButtonRef}
-                isMenuOpen={menu.isMenuOpen}
-                onToggle={menu.handleMenuToggle}
-              />
-            </BookCardOverlay>
-          </div>
+              </BookCardOverlay>
+            </div>
+          )}
         </div>
 
         {/* Mobile: Title/Author in row 1, col 2 */}
@@ -161,92 +172,99 @@ export function BookCard({
             // Mobile: row 1, col 2, fill height
             "col-start-2 row-start-1 h-full",
             // Desktop: full width
-            "md:col-span-1 md:h-auto",
+            variant === "default" && "md:col-span-1 md:h-auto",
           )}
         >
           <BookCardMetadata title={book.title} authors={book.authors} />
         </div>
 
         {/* Mobile: Action buttons in row 2, col 2 */}
-        <div
-          className={cn(
-            "flex items-center justify-end gap-2 p-2",
-            // Mobile: row 2, col 2
-            "col-start-2 row-start-2",
-            // Desktop: hidden (overlay handles this)
-            "md:hidden",
-          )}
-        >
-          {showSelection && (
-            <BookCardCheckbox
-              book={book}
-              allBooks={allBooks}
-              selected={selected}
+        {showActions && (
+          <div
+            className={cn(
+              "flex items-center justify-end gap-2 p-2",
+              // Mobile: row 2, col 2
+              "col-start-2 row-start-2",
+              // Desktop: hidden (overlay handles this)
+              variant === "default" && "md:hidden",
+            )}
+          >
+            {showSelection && (
+              <BookCardCheckbox
+                book={book}
+                allBooks={allBooks}
+                selected={selected}
+                variant="mobile"
+              />
+            )}
+            {onEdit && (
+              <BookCardEditButton
+                bookTitle={book.title}
+                onEdit={() => onEdit(book.id)}
+                variant="mobile"
+              />
+            )}
+            <BookCardMenuButton
+              buttonRef={menu.menuButtonRef}
+              isMenuOpen={menu.isMenuOpen}
+              onToggle={menu.handleMenuToggle}
               variant="mobile"
             />
-          )}
-          {onEdit && (
-            <BookCardEditButton
-              bookTitle={book.title}
-              onEdit={() => onEdit(book.id)}
-              variant="mobile"
-            />
-          )}
-          <BookCardMenuButton
+          </div>
+        )}
+        {showActions && (
+          <BookCardMenu
+            isOpen={menu.isMenuOpen}
+            onClose={menu.handleMenuClose}
             buttonRef={menu.menuButtonRef}
-            isMenuOpen={menu.isMenuOpen}
-            onToggle={menu.handleMenuToggle}
-            variant="mobile"
+            cursorPosition={menu.cursorPosition}
+            book={book}
+            onBookInfo={menuActions.handleBookInfo}
+            onMoveToLibrary={menuActions.handleMoveToLibrary}
+            onConvert={menuActions.handleConvert}
+            onDelete={menuActions.handleDelete}
+            onMore={menuActions.handleMore}
+            isSendDisabled={menuActions.isSendDisabled}
+            onOpenAddToShelfModal={() => setShowAddToShelfModal(true)}
           />
-        </div>
-
-        <BookCardMenu
-          isOpen={menu.isMenuOpen}
-          onClose={menu.handleMenuClose}
-          buttonRef={menu.menuButtonRef}
-          cursorPosition={menu.cursorPosition}
-          book={book}
-          onBookInfo={menuActions.handleBookInfo}
-          onMoveToLibrary={menuActions.handleMoveToLibrary}
-          onConvert={menuActions.handleConvert}
-          onDelete={menuActions.handleDelete}
-          onMore={menuActions.handleMore}
-          isSendDisabled={menuActions.isSendDisabled}
-          onOpenAddToShelfModal={() => setShowAddToShelfModal(true)}
-        />
+        )}
       </button>
-      <DeleteBookConfirmationModal
-        isOpen={menuActions.deleteConfirmation.isOpen}
-        dontShowAgain={menuActions.deleteConfirmation.dontShowAgain}
-        deleteFilesFromDrive={
-          menuActions.deleteConfirmation.deleteFilesFromDrive
-        }
-        onClose={menuActions.deleteConfirmation.close}
-        onToggleDontShowAgain={
-          menuActions.deleteConfirmation.toggleDontShowAgain
-        }
-        onToggleDeleteFilesFromDrive={
-          menuActions.deleteConfirmation.toggleDeleteFilesFromDrive
-        }
-        onConfirm={menuActions.deleteConfirmation.confirm}
-        bookTitle={book.title}
-        book={book}
-        isDeleting={menuActions.deleteConfirmation.isDeleting}
-        error={menuActions.deleteConfirmation.error}
-      />
-      {shelfCreation.showCreateModal && (
-        <ShelfEditModal
-          shelf={null}
-          onClose={shelfCreation.closeCreateModal}
-          onSave={shelfCreation.handleCreateShelf}
-        />
-      )}
-      {showAddToShelfModal && (
-        <AddToShelfModal
-          books={[book]}
-          onClose={() => setShowAddToShelfModal(false)}
-          onSuccess={menu.handleMenuClose}
-        />
+      {showActions && (
+        <>
+          <DeleteBookConfirmationModal
+            isOpen={menuActions.deleteConfirmation.isOpen}
+            dontShowAgain={menuActions.deleteConfirmation.dontShowAgain}
+            deleteFilesFromDrive={
+              menuActions.deleteConfirmation.deleteFilesFromDrive
+            }
+            onClose={menuActions.deleteConfirmation.close}
+            onToggleDontShowAgain={
+              menuActions.deleteConfirmation.toggleDontShowAgain
+            }
+            onToggleDeleteFilesFromDrive={
+              menuActions.deleteConfirmation.toggleDeleteFilesFromDrive
+            }
+            onConfirm={menuActions.deleteConfirmation.confirm}
+            bookTitle={book.title}
+            book={book}
+            isDeleting={menuActions.deleteConfirmation.isDeleting}
+            error={menuActions.deleteConfirmation.error}
+          />
+          {shelfCreation.showCreateModal && (
+            <ShelfEditModal
+              shelf={null}
+              onClose={shelfCreation.closeCreateModal}
+              onSave={shelfCreation.handleCreateShelf}
+            />
+          )}
+          {showAddToShelfModal && (
+            <AddToShelfModal
+              books={[book]}
+              onClose={() => setShowAddToShelfModal(false)}
+              onSuccess={menu.handleMenuClose}
+            />
+          )}
+        </>
       )}
     </>
   );

@@ -68,6 +68,7 @@ def book_with_relations(book: Book) -> BookWithRelations:
         book=book,
         authors=["Author One", "Author Two"],
         series="Test Series",
+        formats=[],
     )
 
 
@@ -223,6 +224,7 @@ class TestBuildBookRead:
             book=book_no_id,
             authors=["Author One"],
             series=None,
+            formats=[],
         )
 
         with pytest.raises(ValueError, match="book_missing_id"):
@@ -283,6 +285,7 @@ class TestBuildBookReadList:
             book=book_no_id,
             authors=["Author One"],
             series=None,
+            formats=[],
         )
         books = [book_with_relations, book_with_no_id]
 
