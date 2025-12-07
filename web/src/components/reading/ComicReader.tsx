@@ -16,15 +16,16 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
+import { useReadingSettingsContext } from "@/contexts/ReadingSettingsContext";
 import { useReadingProgress } from "@/hooks/useReadingProgress";
 import { useReadingSession } from "@/hooks/useReadingSession";
 import { cn } from "@/libs/utils";
+import { getThemeColors } from "@/utils/readingTheme";
 import { ContinuousComicView } from "./comic/ContinuousComicView";
 import { PagedComicView } from "./comic/PagedComicView";
 import { WebtoonComicView } from "./comic/WebtoonComicView";
 import { useComicNavigation } from "./hooks/useComicNavigation";
 import { useComicPages } from "./hooks/useComicPages";
-import { useComicSettings } from "./hooks/useComicSettings";
 import { useComicSpreads } from "./hooks/useComicSpreads";
 
 export type ComicReadingMode = "paged" | "continuous" | "webtoon";
@@ -35,16 +36,8 @@ export interface ComicReaderProps {
   bookId: number;
   /** Book format (CBZ, CBR, CB7, CBC). */
   format: string;
-  /** Reading mode. */
-  readingMode?: ComicReadingMode;
-  /** Reading direction. */
-  readingDirection?: ComicReadingDirection;
-  /** Whether to use spread mode (two pages side-by-side). */
-  spreadMode?: boolean;
   /** Callback to register jump to progress handler. */
   onJumpToProgress?: (handler: ((progress: number) => void) | null) => void;
-  /** Zoom level (0.5 to 3.0). */
-  zoomLevel?: number;
   /** Optional className. */
   className?: string;
 }
@@ -64,22 +57,11 @@ export interface ComicReaderProps {
 export function ComicReader({
   bookId,
   format,
-  readingMode: externalReadingMode,
-  readingDirection: externalReadingDirection,
-  spreadMode: externalSpreadMode,
-  zoomLevel: externalZoomLevel,
   onJumpToProgress,
   className,
 }: ComicReaderProps) {
-  // Load settings from localStorage (book-specific or global)
-  const settings = useComicSettings({ bookId });
-
-  // Use external props if provided, otherwise use settings
-  const readingMode = externalReadingMode || settings.readingMode;
-  const readingDirection =
-    externalReadingDirection || settings.readingDirection;
-  const spreadMode = externalSpreadMode ?? settings.spreadMode;
-  const zoomLevel = externalZoomLevel || settings.zoomLevel;
+  const { readingMode, readingDirection, spreadMode, zoomLevel, pageColor } =
+    useReadingSettingsContext();
 
   const { progress, updateProgress } = useReadingProgress({
     bookId,
@@ -154,9 +136,15 @@ export function ComicReader({
     }
   }, [onJumpToProgress, navigation.jumpToProgress]);
 
+  // Calculate theme colors
+  const { backgroundColor } = getThemeColors(pageColor);
+
   if (pagesLoading) {
     return (
-      <div className={cn("flex items-center justify-center p-8", className)}>
+      <div
+        className={cn("flex items-center justify-center p-8", className)}
+        style={{ backgroundColor }}
+      >
         <span className="text-text-a40">Loading comic pages...</span>
       </div>
     );
@@ -164,64 +152,78 @@ export function ComicReader({
 
   if (totalPages === 0) {
     return (
-      <div className={cn("flex items-center justify-center p-8", className)}>
+      <div
+        className={cn("flex items-center justify-center p-8", className)}
+        style={{ backgroundColor }}
+      >
         <span className="text-text-a40">No pages found in comic.</span>
       </div>
     );
   }
 
   // Render based on reading mode
-  if (readingMode === "paged") {
-    return (
-      <PagedComicView
-        bookId={bookId}
-        format={format}
-        currentPage={navigation.currentPage}
-        totalPages={totalPages}
-        onPageChange={navigation.goToPage}
-        canGoNext={navigation.canGoNext}
-        canGoPrevious={navigation.canGoPrevious}
-        onNext={navigation.goToNext}
-        onPrevious={navigation.goToPrevious}
-        spreadMode={spreads.currentSpread.isSpread && spreadMode}
-        readingDirection={
-          readingDirection === "vertical" ? "ltr" : readingDirection
-        }
-        zoomLevel={zoomLevel}
-        className={className}
-      />
-    );
-  }
+  // Wrap in div to apply background color
+  const renderContent = () => {
+    if (readingMode === "paged") {
+      return (
+        <PagedComicView
+          bookId={bookId}
+          format={format}
+          currentPage={navigation.currentPage}
+          totalPages={totalPages}
+          onPageChange={navigation.goToPage}
+          canGoNext={navigation.canGoNext}
+          canGoPrevious={navigation.canGoPrevious}
+          onNext={navigation.goToNext}
+          onPrevious={navigation.goToPrevious}
+          spreadMode={spreads.currentSpread.isSpread && spreadMode}
+          readingDirection={
+            readingDirection === "vertical" ? "ltr" : readingDirection
+          }
+          zoomLevel={zoomLevel}
+          className="h-full w-full"
+        />
+      );
+    }
 
-  if (readingMode === "continuous") {
-    return (
-      <ContinuousComicView
-        bookId={bookId}
-        format={format}
-        totalPages={totalPages}
-        onPageChange={handlePageChange}
-        zoomLevel={zoomLevel}
-        className={className}
-      />
-    );
-  }
+    if (readingMode === "continuous") {
+      return (
+        <ContinuousComicView
+          bookId={bookId}
+          format={format}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          zoomLevel={zoomLevel}
+          className="h-full w-full"
+        />
+      );
+    }
 
-  if (readingMode === "webtoon") {
+    if (readingMode === "webtoon") {
+      return (
+        <WebtoonComicView
+          bookId={bookId}
+          format={format}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          zoomLevel={zoomLevel}
+          className="h-full w-full"
+        />
+      );
+    }
+
     return (
-      <WebtoonComicView
-        bookId={bookId}
-        format={format}
-        totalPages={totalPages}
-        onPageChange={handlePageChange}
-        zoomLevel={zoomLevel}
-        className={className}
-      />
+      <div className="flex h-full w-full items-center justify-center p-8">
+        <span className="text-text-a40">
+          Unknown reading mode: {readingMode}
+        </span>
+      </div>
     );
-  }
+  };
 
   return (
-    <div className={cn("flex items-center justify-center p-8", className)}>
-      <span className="text-text-a40">Unknown reading mode: {readingMode}</span>
+    <div className={cn("h-full w-full", className)} style={{ backgroundColor }}>
+      {renderContent()}
     </div>
   );
 }

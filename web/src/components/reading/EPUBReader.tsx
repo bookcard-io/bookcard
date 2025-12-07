@@ -17,6 +17,7 @@
 
 import { useMemo } from "react";
 import { ReactReader } from "react-reader";
+import { useReadingSettingsContext } from "@/contexts/ReadingSettingsContext";
 import { useEPUBBook } from "@/hooks/useEPUBBook";
 import { cn } from "@/libs/utils";
 import { createEpubInitOptions } from "@/utils/epubInitOptions";
@@ -44,7 +45,6 @@ import { useThemeRefs } from "./hooks/useThemeRefs";
 import { useTocToggle } from "./hooks/useTocToggle";
 import { useTocTracking } from "./hooks/useTocTracking";
 import type { PagingInfo } from "./ReaderControls";
-import type { FontFamily, PageColor, PageLayout } from "./ReadingThemeSettings";
 
 export type SearchResult = {
   cfi: string;
@@ -73,16 +73,8 @@ export interface EPUBReaderProps {
   onLocationsReadyChange?: (ready: boolean) => void;
   /** Callback when paging information changes. */
   onPagingInfoChange?: (info: PagingInfo | null) => void;
-  /** Font family. */
-  fontFamily?: FontFamily;
-  /** Font size in pixels. */
-  fontSize?: number;
   /** Current theme. */
   theme?: "light" | "dark";
-  /** Page color theme. */
-  pageColor?: PageColor;
-  /** Page layout (single or two-column). */
-  pageLayout?: PageLayout;
   /** Search query to search for in the book. */
   searchQuery?: string;
   /** Callback when search results are available. */
@@ -114,15 +106,15 @@ export function EPUBReader({
   onTocToggle,
   onLocationsReadyChange,
   onPagingInfoChange,
-  fontFamily = "Bookerly",
-  fontSize = 16,
-  pageColor = "light",
-  pageLayout = "two-column",
   searchQuery,
   onSearchResults,
   onJumpToCfi,
   className,
 }: EPUBReaderProps) {
+  // Get settings from context
+  const { fontFamily, fontSize, pageColor, pageLayout } =
+    useReadingSettingsContext();
+
   // Manage all refs in one place
   const {
     renditionRef,

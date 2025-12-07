@@ -16,17 +16,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useReadingSettingsContext } from "@/contexts/ReadingSettingsContext";
 import { useReadingProgress } from "@/hooks/useReadingProgress";
 import { useReadingSession } from "@/hooks/useReadingSession";
 import { useTheme } from "@/hooks/useTheme";
 import { cn } from "@/libs/utils";
-import type { ComicReadingDirection, ComicReadingMode } from "./ComicReader";
 import { ComicReader } from "./ComicReader";
 import { EPUBReader, type SearchResult } from "./EPUBReader";
 import { PDFReader } from "./PDFReader";
 import type { PagingInfo } from "./ReaderControls";
 import { ReaderControls } from "./ReaderControls";
-import type { FontFamily, PageColor, PageLayout } from "./ReadingThemeSettings";
 
 export interface EBookReaderProps {
   /** Book ID. */
@@ -37,14 +36,6 @@ export interface EBookReaderProps {
   onTocToggle?: (handler: (() => void) | null) => void;
   /** Callback when locations are ready (for EPUB). */
   onLocationsReadyChange?: (ready: boolean) => void;
-  /** Font family. */
-  fontFamily?: FontFamily;
-  /** Font size in pixels. */
-  fontSize?: number;
-  /** Page color theme. */
-  pageColor?: PageColor;
-  /** Page layout (single or two-column). */
-  pageLayout?: PageLayout;
   /** Search query to search for in the book. */
   searchQuery?: string;
   /** Callback when search results are available. */
@@ -53,15 +44,6 @@ export interface EBookReaderProps {
   onJumpToCfi?: (handler: ((cfi: string) => void) | null) => void;
   /** Optional className. */
   className?: string;
-  // Comic-specific props (only used when format is comic)
-  /** Reading mode (comic). */
-  readingMode?: ComicReadingMode;
-  /** Reading direction (comic). */
-  readingDirection?: ComicReadingDirection;
-  /** Whether spread mode is enabled (comic). */
-  spreadMode?: boolean;
-  /** Zoom level (comic). */
-  zoomLevel?: number;
 }
 
 /**
@@ -81,27 +63,15 @@ export function EBookReader({
   format,
   onTocToggle,
   onLocationsReadyChange,
-  fontFamily = "Bookerly",
-  fontSize: externalFontSize = 16,
-  pageColor = "light",
-  pageLayout = "two-column",
   searchQuery,
   onSearchResults,
   onJumpToCfi,
   className,
-  // Comic-specific props
-  readingMode,
-  readingDirection,
-  spreadMode,
-  zoomLevel,
 }: EBookReaderProps) {
-  const [fontSize, setFontSize] = useState(externalFontSize);
   const { theme } = useTheme();
 
-  // Sync internal fontSize state with external prop
-  useEffect(() => {
-    setFontSize(externalFontSize);
-  }, [externalFontSize]);
+  const { pageColor } = useReadingSettingsContext();
+
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const { progress, updateProgress } = useReadingProgress({
@@ -259,11 +229,6 @@ export function EBookReader({
             }}
             onLocationsReadyChange={setAreLocationsReady}
             onPagingInfoChange={setPagingInfo}
-            fontFamily={fontFamily}
-            fontSize={fontSize}
-            theme={theme}
-            pageColor={pageColor}
-            pageLayout={pageLayout}
             searchQuery={searchQuery}
             onSearchResults={onSearchResults}
             onJumpToCfi={(handler) => {
@@ -289,10 +254,6 @@ export function EBookReader({
           <ComicReader
             bookId={bookId}
             format={format}
-            readingMode={readingMode}
-            readingDirection={readingDirection}
-            spreadMode={spreadMode}
-            zoomLevel={zoomLevel}
             onJumpToProgress={(handler) => {
               jumpToProgressRef.current = handler;
             }}

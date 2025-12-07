@@ -19,13 +19,15 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EBookReader } from "@/components/reading/EBookReader";
 import type { SearchResult } from "@/components/reading/EPUBReader";
-import { useComicSettings } from "@/components/reading/hooks/useComicSettings";
 import { useFullscreen } from "@/components/reading/hooks/useFullscreen";
-import { useReadingSettings } from "@/components/reading/hooks/useReadingSettings";
 import { ReadingHeader } from "@/components/reading/ReadingHeader";
 import { parseReadingPageParams } from "@/components/reading/utils/parseReadingPageParams";
 import { ActiveLibraryProvider } from "@/contexts/ActiveLibraryContext";
 import { LibraryLoadingProvider } from "@/contexts/LibraryLoadingContext";
+import {
+  ReadingSettingsProvider,
+  useReadingSettingsContext,
+} from "@/contexts/ReadingSettingsContext";
 import { SelectedBooksProvider } from "@/contexts/SelectedBooksContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 import { ShelvesProvider } from "@/contexts/ShelvesContext";
@@ -77,6 +79,8 @@ export default function ReadingPage({ params }: ReadingPageProps) {
     );
   }
 
+  const isComic = isComicFormat(format);
+
   return (
     <UserProvider>
       <SettingsProvider>
@@ -84,12 +88,14 @@ export default function ReadingPage({ params }: ReadingPageProps) {
           <LibraryLoadingProvider>
             <SelectedBooksProvider>
               <ShelvesProvider>
-                <ReadingPageContent
-                  bookId={bookId}
-                  format={format}
-                  bookTitle={book?.title || null}
-                  seriesName={book?.series || null}
-                />
+                <ReadingSettingsProvider bookId={bookId} isComic={isComic}>
+                  <ReadingPageContent
+                    bookId={bookId}
+                    format={format}
+                    bookTitle={book?.title || null}
+                    seriesName={book?.series || null}
+                  />
+                </ReadingSettingsProvider>
               </ShelvesProvider>
             </SelectedBooksProvider>
           </LibraryLoadingProvider>
@@ -154,7 +160,7 @@ function ReadingPageContent({
   // Detect if format is a comic
   const isComic = isComicFormat(format);
 
-  // Manage reading settings via centralized hook (for books)
+  // Manage reading settings via centralized hook
   const {
     fontFamily,
     setFontFamily,
@@ -164,12 +170,15 @@ function ReadingPageContent({
     setPageColor,
     pageLayout,
     setPageLayout,
-  } = useReadingSettings();
-
-  // Manage comic settings (only used when format is comic)
-  const comicSettings = useComicSettings({
-    bookId: isComic ? bookId : undefined,
-  });
+    readingMode,
+    setReadingMode,
+    readingDirection,
+    setReadingDirection,
+    spreadMode,
+    setSpreadMode,
+    zoomLevel,
+    setZoomLevel,
+  } = useReadingSettingsContext();
 
   // Manage fullscreen state via dedicated hook
   const { toggleFullscreen } = useFullscreen();
@@ -219,14 +228,14 @@ function ReadingPageContent({
         comic={
           isComic
             ? {
-                readingMode: comicSettings.readingMode,
-                onReadingModeChange: comicSettings.setReadingMode,
-                readingDirection: comicSettings.readingDirection,
-                onReadingDirectionChange: comicSettings.setReadingDirection,
-                spreadMode: comicSettings.spreadMode,
-                onSpreadModeChange: comicSettings.setSpreadMode,
-                zoomLevel: comicSettings.zoomLevel,
-                onZoomLevelChange: comicSettings.setZoomLevel,
+                readingMode,
+                onReadingModeChange: setReadingMode,
+                readingDirection,
+                onReadingDirectionChange: setReadingDirection,
+                spreadMode,
+                onSpreadModeChange: setSpreadMode,
+                zoomLevel,
+                onZoomLevelChange: setZoomLevel,
               }
             : undefined
         }
@@ -241,20 +250,11 @@ function ReadingPageContent({
           tocToggleRef.current = handler;
         }}
         onLocationsReadyChange={setAreLocationsReady}
-        fontFamily={fontFamily}
-        fontSize={fontSize}
-        pageColor={pageColor}
-        pageLayout={pageLayout}
         searchQuery={searchQuery}
         onSearchResults={handleSearchResults}
         onJumpToCfi={(handler) => {
           jumpToCfiRef.current = handler;
         }}
-        // Comic-specific props
-        readingMode={isComic ? comicSettings.readingMode : undefined}
-        readingDirection={isComic ? comicSettings.readingDirection : undefined}
-        spreadMode={isComic ? comicSettings.spreadMode : undefined}
-        zoomLevel={isComic ? comicSettings.zoomLevel : undefined}
       />
     </>
   );
