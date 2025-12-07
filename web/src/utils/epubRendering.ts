@@ -54,7 +54,7 @@ export function applyThemeToRendition(
 
   themes.override("color", colors.textColor);
   themes.override("background", colors.backgroundColor);
-  themes.override("font-family", fontFamily);
+  themes.override("font-family", `"${fontFamily}"`);
   themes.fontSize(fontSizeToPercent(fontSize));
 }
 
@@ -92,16 +92,42 @@ export function ensureFontFacesInjected(document: Document): void {
 export function applyDocumentTheme(
   document: Document,
   colors: ThemeColors,
+  fontFamily?: string,
 ): void {
   if (document.body) {
     document.body.style.color = colors.textColor;
     document.body.style.backgroundColor = colors.backgroundColor;
+    if (fontFamily) {
+      document.body.style.setProperty("font-family", `"${fontFamily}"`, "important");
+    }
+  }
+
+  // Inject global font override to handle specific element styles (e.g. p tags with serif)
+  // This ensures user font preference overrides book-specific styles
+  if (fontFamily) {
+    const styleId = "epub-font-override";
+    let style = document.getElementById(styleId) as HTMLStyleElement;
+    if (!style) {
+      style = document.createElement("style");
+      style.id = styleId;
+      document.head.appendChild(style);
+    }
+    // Target common text elements to override specific class styles
+    // Exclude pre and code to preserve monospace formatting
+    style.textContent = `
+      p, span, div, h1, h2, h3, h4, h5, h6, a, li, blockquote, td, th, dt, dd {
+        font-family: "${fontFamily}" !important;
+      }
+    `;
   }
 
   const iframe = document.querySelector("iframe");
   if (iframe?.contentDocument?.body) {
     iframe.contentDocument.body.style.color = colors.textColor;
     iframe.contentDocument.body.style.backgroundColor = colors.backgroundColor;
+    if (fontFamily) {
+      iframe.contentDocument.body.style.setProperty("font-family", `"${fontFamily}"`, "important");
+    }
   }
 }
 
@@ -157,7 +183,7 @@ export function createContentHook(
       currentFontSize,
     );
 
-    applyDocumentTheme(document, currentColors);
+    applyDocumentTheme(document, currentColors, currentFontFamily);
   };
 }
 

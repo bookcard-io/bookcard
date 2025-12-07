@@ -17,9 +17,11 @@ import type { Rendition } from "epubjs";
 import type { RefObject } from "react";
 import { useEffect } from "react";
 import {
+  applyDocumentTheme,
   applyThemeToRendition,
   refreshPageForTheme,
 } from "@/utils/epubRendering";
+import { getThemeColors } from "@/utils/readingTheme";
 import type { FontFamily, PageColor } from "../ReadingThemeSettings";
 
 /**
@@ -67,6 +69,29 @@ export function useEpubTheme({
 
     const rendition = renditionRef.current;
     applyThemeToRendition(rendition, pageColor, fontFamily, fontSize);
+
+    // Apply document theme (font/colors) to currently visible content immediately
+    // This handles the manual DOM manipulations like global style injection that applyThemeToRendition misses
+    // @ts-expect-error - getContents() is not typed in all versions but exists in EPUB.js
+    const contents = rendition.getContents();
+    if (contents && Array.isArray(contents)) {
+      const colors = getThemeColors(pageColor);
+      contents.forEach((content) => {
+        if (content.document) {
+          applyDocumentTheme(content.document, colors, fontFamily);
+        }
+      });
+    } else if (contents) {
+      // Single content object case
+      // @ts-expect-error - iterating generic contents object
+      const contentList = [contents];
+      contentList.forEach((content) => {
+        if (content.document) {
+          const colors = getThemeColors(pageColor);
+          applyDocumentTheme(content.document, colors, fontFamily);
+        }
+      });
+    }
 
     // Force refresh of the current page to apply theme changes immediately
     // Only refresh if we're not currently navigating (checked inside refreshPageForTheme)

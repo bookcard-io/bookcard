@@ -15,8 +15,8 @@
 
 "use client";
 
+import { GiBookshelf } from "react-icons/gi";
 import { BookmarkOutline } from "@/icons/BookmarkOutline";
-import { ListNumberStroke16 } from "@/icons/ListNumberStroke16";
 import { MaximizeStroke12 } from "@/icons/MaximizeStroke12";
 import { Notebook } from "@/icons/Notebook";
 import { HeaderButton } from "./HeaderButton";
@@ -80,7 +80,7 @@ export function HeaderActions({
       )}
       {handlers.onSeries && (
         <HeaderButton onClick={handlers.onSeries} ariaLabel="View series">
-          <ListNumberStroke16 className="h-5 w-5" />
+          <GiBookshelf className="h-5 w-5" />
         </HeaderButton>
       )}
       <HeaderButton onClick={handlers.onFontSettings} ariaLabel="Letter case">

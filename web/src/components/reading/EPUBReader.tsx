@@ -73,8 +73,6 @@ export interface EPUBReaderProps {
   onLocationsReadyChange?: (ready: boolean) => void;
   /** Callback when paging information changes. */
   onPagingInfoChange?: (info: PagingInfo | null) => void;
-  /** Current theme. */
-  theme?: "light" | "dark";
   /** Search query to search for in the book. */
   searchQuery?: string;
   /** Callback when search results are available. */

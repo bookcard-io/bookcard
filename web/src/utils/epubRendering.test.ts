@@ -43,7 +43,7 @@ function createMockRendition(): Rendition {
 /**
  * Create a mock document.
  */
-function createMockDocument(): Document {
+  function createMockDocument(): Document {
   const head = {
     appendChild: vi.fn(),
   };
@@ -68,6 +68,7 @@ function createMockDocument(): Document {
       style: {
         color: "",
         backgroundColor: "",
+        setProperty: vi.fn(),
       },
     },
     querySelector: vi.fn(),
@@ -122,10 +123,10 @@ describe("epubRendering", () => {
           "background",
           expect.any(String),
         );
-        expect(rendition.themes.override).toHaveBeenCalledWith(
-          "font-family",
-          fontFamily,
-        );
+      expect(rendition.themes.override).toHaveBeenCalledWith(
+        "font-family",
+        `"${fontFamily}"`,
+      );
         expect(rendition.themes.fontSize).toHaveBeenCalledWith(
           expect.stringContaining("%"),
         );
@@ -211,10 +212,13 @@ describe("epubRendering", () => {
 
     it("should apply theme to iframe contentDocument body when present", () => {
       const document = createMockDocument();
+      const setProperty = vi.fn();
       const iframeBody = {
         style: {
           color: "",
           backgroundColor: "",
+          fontFamily: "",
+          setProperty,
         },
       };
       const iframe = {
@@ -225,10 +229,40 @@ describe("epubRendering", () => {
       document.querySelector = vi.fn().mockReturnValue(iframe);
       const colors = { textColor: "#000", backgroundColor: "#fff" };
 
-      applyDocumentTheme(document, colors);
+      applyDocumentTheme(document, colors, "Bookerly");
 
       expect(iframeBody.style.color).toBe("#000");
       expect(iframeBody.style.backgroundColor).toBe("#fff");
+      expect(setProperty).toHaveBeenCalledWith("font-family", '"Bookerly"', "important");
+    });
+
+    it("should apply theme including font family to document body with correct global override", () => {
+      const document = createMockDocument();
+      const setProperty = vi.fn();
+      // @ts-expect-error - mock
+      document.body.style.setProperty = setProperty;
+
+      const styleElement = {
+        id: "epub-font-override",
+        textContent: "",
+        appendChild: vi.fn(),
+      };
+      document.createElement = vi.fn().mockReturnValue(styleElement);
+
+      const colors = { textColor: "#000", backgroundColor: "#fff" };
+
+      applyDocumentTheme(document, colors, "Bookerly");
+
+      expect(document.body.style.color).toBe("#000");
+      expect(document.body.style.backgroundColor).toBe("#fff");
+      expect(setProperty).toHaveBeenCalledWith("font-family", '"Bookerly"', "important");
+      expect(document.createElement).toHaveBeenCalledWith("style");
+
+      // Verify the global override style content
+      expect(styleElement.textContent).toContain('font-family: "Bookerly" !important');
+      expect(styleElement.textContent).toContain('p, span, div');
+      expect(styleElement.textContent).not.toContain('pre');
+      expect(styleElement.textContent).not.toContain('code');
     });
 
     it("should handle missing iframe gracefully", () => {
@@ -347,7 +381,7 @@ describe("epubRendering", () => {
       expect(rendition.themes.override).toHaveBeenCalledWith("color", "#fff");
       expect(rendition.themes.override).toHaveBeenCalledWith(
         "font-family",
-        "Amazon Ember",
+        '"Amazon Ember"',
       );
     });
   });
