@@ -514,8 +514,12 @@ def test_list_books_no_search() -> None:
         with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
-            # First call returns books, second call returns authors
-            mock_exec.all.side_effect = [[mock_result], []]
+            # First call returns books, second call returns authors, third call returns formats
+            mock_exec.all.side_effect = [
+                [mock_result],  # Books query
+                [],  # Authors query
+                [],  # Formats query
+            ]
             mock_session_obj.exec.return_value = mock_exec
             mock_session.return_value.__enter__.return_value = mock_session_obj
 
@@ -523,6 +527,7 @@ def test_list_books_no_search() -> None:
 
             assert len(result) == 1
             assert result[0].book.id == 1
+            assert result[0].formats == []
 
 
 def test_list_books_with_search() -> None:
@@ -541,14 +546,19 @@ def test_list_books_with_search() -> None:
         with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
-            # First call returns books, second call returns authors
-            mock_exec.all.side_effect = [[mock_result], []]
+            # First call returns books, second call returns authors, third call returns formats
+            mock_exec.all.side_effect = [
+                [mock_result],  # Books query
+                [],  # Authors query
+                [],  # Formats query
+            ]
             mock_session_obj.exec.return_value = mock_exec
             mock_session.return_value.__enter__.return_value = mock_session_obj
 
             result = repo.list_books(limit=10, offset=0, search_query="test")
 
             assert len(result) == 1
+            assert result[0].formats == []
 
 
 def test_list_books_skips_result_when_book_unwrap_fails() -> None:
@@ -574,20 +584,21 @@ def test_list_books_skips_result_when_book_unwrap_fails() -> None:
         with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
-            # First call returns both results, second call returns authors for valid book
+            # First call returns both results, second call returns authors for valid book, third call returns formats
             mock_exec.all.side_effect = [
-                [mock_result_unwrappable, mock_result_valid],
+                [mock_result_unwrappable, mock_result_valid],  # Books query
                 [],  # Authors query for valid book
+                [],  # Formats query for valid book
             ]
             mock_session_obj.exec.return_value = mock_exec
             mock_session.return_value.__enter__.return_value = mock_session_obj
 
             result = repo.list_books(limit=10, offset=0)
 
-            # Should only include the valid book, skipping the unwrappable one
-            assert len(result) == 1
-            assert result[0].book.id == 1
-            assert result[0].book.title == "Valid Book"
+        # Should only include the valid book, skipping the unwrappable one
+        assert len(result) == 1
+        assert result[0].book.id == 1
+        assert result[0].book.title == "Valid Book"
 
 
 def test_list_books_skips_book_without_id() -> None:
@@ -632,8 +643,12 @@ def test_list_books_with_series() -> None:
         with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
-            # First call returns books, second call returns authors
-            mock_exec.all.side_effect = [[mock_result], []]
+            # First call returns books, second call returns authors, third call returns formats
+            mock_exec.all.side_effect = [
+                [mock_result],  # Books query
+                [],  # Authors query
+                [],  # Formats query
+            ]
             mock_session_obj.exec.return_value = mock_exec
             mock_session.return_value.__enter__.return_value = mock_session_obj
 
@@ -659,15 +674,19 @@ def test_list_books_with_authors() -> None:
         with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
-            # First call returns books, second call returns authors
-            mock_exec.all.side_effect = [[mock_result], ["Author 1", "Author 2"]]
+            # First call returns books, second call returns authors, third call returns formats
+            mock_exec.all.side_effect = [
+                [mock_result],  # Books query
+                ["Author 1", "Author 2"],  # Authors query
+                [],  # Formats query
+            ]
             mock_session_obj.exec.return_value = mock_exec
             mock_session.return_value.__enter__.return_value = mock_session_obj
 
             result = repo.list_books(limit=10, offset=0)
 
-            assert len(result) == 1
-            assert result[0].authors == ["Author 1", "Author 2"]
+        assert len(result) == 1
+        assert result[0].authors == ["Author 1", "Author 2"]
 
 
 def test_list_books_invalid_sort_order() -> None:
@@ -686,8 +705,12 @@ def test_list_books_invalid_sort_order() -> None:
         with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
-            # First call returns books, second call returns authors
-            mock_exec.all.side_effect = [[mock_result], []]
+            # First call returns books, second call returns authors, third call returns formats
+            mock_exec.all.side_effect = [
+                [mock_result],  # Books query
+                [],  # Authors query
+                [],  # Formats query
+            ]
             mock_session_obj.exec.return_value = mock_exec
             mock_session.return_value.__enter__.return_value = mock_session_obj
 
@@ -712,8 +735,12 @@ def test_list_books_asc_order() -> None:
         with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
-            # First call returns books, second call returns authors
-            mock_exec.all.side_effect = [[mock_result], []]
+            # First call returns books, second call returns authors, third call returns formats
+            mock_exec.all.side_effect = [
+                [mock_result],  # Books query
+                [],  # Authors query
+                [],  # Formats query
+            ]
             mock_session_obj.exec.return_value = mock_exec
             mock_session.return_value.__enter__.return_value = mock_session_obj
 
@@ -738,8 +765,12 @@ def test_list_books_invalid_sort_by() -> None:
         with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
-            # First call returns books, second call returns authors
-            mock_exec.all.side_effect = [[mock_result], []]
+            # First call returns books, second call returns authors, third call returns formats
+            mock_exec.all.side_effect = [
+                [mock_result],  # Books query
+                [],  # Authors query
+                [],  # Formats query
+            ]
             mock_session_obj.exec.return_value = mock_exec
             mock_session.return_value.__enter__.return_value = mock_session_obj
 
@@ -797,10 +828,19 @@ def test_get_book_success() -> None:
         mock_result.series_name = "Test Series"
 
         with patch.object(repo, "get_session") as mock_session:
-            mock_session.return_value.__enter__.return_value.exec.return_value.first.return_value = mock_result
-            mock_session.return_value.__enter__.return_value.exec.return_value.all.return_value = [
-                "Author 1"
-            ]  # Authors query
+            mock_session_obj = MagicMock()
+            mock_exec = MagicMock()
+            # First call: authors query returns list of strings
+            # Second call: formats query returns list of 4-tuples (book_id, format, size, name)
+            mock_exec.all.side_effect = [
+                ["Author 1"],  # Authors query
+                [
+                    (1, "EPUB", 12345, "book.epub")
+                ],  # Formats query (book_id, format, size, name)
+            ]
+            mock_exec.first.return_value = mock_result
+            mock_session_obj.exec.return_value = mock_exec
+            mock_session.return_value.__enter__.return_value = mock_session_obj
 
             result = repo.get_book(1)
 
@@ -808,6 +848,9 @@ def test_get_book_success() -> None:
             assert result.book.id == 1
             assert result.series == "Test Series"
             assert result.authors == ["Author 1"]
+            assert result.formats == [
+                {"format": "EPUB", "size": 12345, "name": "book.epub"}
+            ]
 
 
 # Note: _parse_datetime method was removed during refactoring
@@ -1312,7 +1355,12 @@ def test_build_book_with_relations() -> None:
         with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
-            mock_exec.all.return_value = ["Author 1", "Author 2"]
+            # First call: authors query returns list of strings
+            # Second call: formats query returns list of tuples
+            mock_exec.all.side_effect = [
+                ["Author 1", "Author 2"],  # Authors query
+                [("EPUB", 12345, "book.epub")],  # Formats query
+            ]
             mock_session_obj.exec.return_value = mock_exec
             mock_session.return_value.__enter__.return_value = mock_session_obj
 
@@ -1322,6 +1370,9 @@ def test_build_book_with_relations() -> None:
             assert result.book.id == 1
             assert result.series == "Test Series"
             assert result.authors == ["Author 1", "Author 2"]
+            assert result.formats == [
+                {"format": "EPUB", "size": 12345, "name": "book.epub"}
+            ]
 
 
 def test_build_book_with_relations_none_book() -> None:
@@ -1390,7 +1441,12 @@ def test_list_books_with_filters() -> None:
         with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
-            mock_exec.all.side_effect = [[mock_result], []]
+            # First call returns books, second call returns authors, third call returns formats
+            mock_exec.all.side_effect = [
+                [mock_result],  # Books query
+                [],  # Authors query
+                [],  # Formats query
+            ]
             mock_session_obj.exec.return_value = mock_exec
             mock_session.return_value.__enter__.return_value = mock_session_obj
 
@@ -1422,7 +1478,12 @@ def test_list_books_with_filters_asc() -> None:
         with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
-            mock_exec.all.side_effect = [[mock_result], []]
+            # First call returns books, second call returns authors, third call returns formats
+            mock_exec.all.side_effect = [
+                [mock_result],  # Books query
+                [],  # Authors query
+                [],  # Formats query
+            ]
             mock_session_obj.exec.return_value = mock_exec
             mock_session.return_value.__enter__.return_value = mock_session_obj
 
@@ -1446,7 +1507,12 @@ def test_list_books_with_filters_invalid_sort_order() -> None:
         with patch.object(repo, "get_session") as mock_session:
             mock_session_obj = MagicMock()
             mock_exec = MagicMock()
-            mock_exec.all.side_effect = [[mock_result], []]
+            # First call returns books, second call returns authors, third call returns formats
+            mock_exec.all.side_effect = [
+                [mock_result],  # Books query
+                [],  # Authors query
+                [],  # Formats query
+            ]
             mock_session_obj.exec.return_value = mock_exec
             mock_session.return_value.__enter__.return_value = mock_session_obj
 
