@@ -118,7 +118,7 @@ export function WebtoonComicView({
       <div
         className="relative mx-auto flex flex-col items-center transition-[width] duration-200 ease-out"
         style={{
-          width: `${zoomLevel * 50}%`,
+          width: "100%",
           height: `${rowVirtualizer.getTotalSize()}px`,
         }}
       >
@@ -127,16 +127,17 @@ export function WebtoonComicView({
             key={virtualRow.key}
             data-index={virtualRow.index}
             ref={rowVirtualizer.measureElement}
-            className="absolute top-0 left-0 w-full"
+            className="absolute top-0 left-0 flex w-full"
             style={{
               transform: `translateY(${virtualRow.start}px)`,
+              height: `${zoomLevel * 100}vh`,
             }}
           >
             <ComicPage
               bookId={bookId}
               format={format}
               pageNumber={virtualRow.index + 1}
-              className="h-full w-full object-contain"
+              className="mx-auto h-full w-auto object-contain"
             />
           </div>
         ))}

@@ -46,5 +46,5 @@ export function formatPagingText(
   }
 
   // When chapter label is not available
-  return `Page ${pagingInfo.currentPage} of ${pagingInfo.totalPages} of chapter`;
+  return `Page ${pagingInfo.currentPage} of ${pagingInfo.totalPages}`;
 }

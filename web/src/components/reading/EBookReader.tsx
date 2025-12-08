@@ -266,6 +266,7 @@ export function EBookReader({
             onJumpToProgress={(handler) => {
               jumpToProgressRef.current = handler;
             }}
+            onPagingInfoChange={setPagingInfo}
             className="h-full w-full"
           />
         )}

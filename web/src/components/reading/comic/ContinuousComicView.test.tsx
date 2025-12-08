@@ -48,12 +48,12 @@ describe("ContinuousComicView", () => {
   it("renders with correct snapping classes", () => {
     const { container } = render(<ContinuousComicView {...defaultProps} />);
     const scrollContainer = container.querySelector(
-      ".snap-y.snap-proximity.overflow-y-auto",
+      ".snap-y.snap-mandatory.overflow-y-auto",
     );
 
     expect(scrollContainer).toBeInTheDocument();
     expect(scrollContainer).toHaveClass("snap-y");
-    expect(scrollContainer).toHaveClass("snap-proximity");
+    expect(scrollContainer).toHaveClass("snap-mandatory");
   });
 
   it("renders pages with snap-start class", () => {

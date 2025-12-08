@@ -120,21 +120,19 @@ export const ContinuousComicView = forwardRef<
       }
     }, [onRegisterJump, totalPages, rowVirtualizer]);
 
-    const baseWidth = config?.baseWidthPercent ?? 50;
-
     return (
       <section
         ref={containerRef}
         aria-label={`Comic reader, page ${currentPage} of ${totalPages}`}
         className={cn(
-          "h-screen w-full snap-y snap-proximity overflow-x-auto overflow-y-auto",
+          "h-screen w-full snap-y snap-mandatory overflow-x-auto overflow-y-auto",
           className,
         )}
       >
         <div
           className="relative mx-auto flex flex-col items-center transition-[width] duration-200 ease-out"
           style={{
-            width: `${zoomLevel * baseWidth}%`,
+            width: "100%",
             height: `${rowVirtualizer.getTotalSize()}px`,
           }}
         >
@@ -143,16 +141,17 @@ export const ContinuousComicView = forwardRef<
               key={virtualRow.key}
               data-index={virtualRow.index}
               ref={rowVirtualizer.measureElement}
-              className="absolute top-0 left-0 w-full snap-start"
+              className="absolute top-0 left-0 flex w-full snap-start"
               style={{
                 transform: `translateY(${virtualRow.start}px)`,
+                height: `${zoomLevel * 100}vh`,
               }}
             >
               <ComicPage
                 bookId={bookId}
                 format={format}
                 pageNumber={virtualRow.index + 1}
-                className="h-full w-full object-contain"
+                className="mx-auto h-full w-auto object-contain"
               />
             </div>
           ))}
