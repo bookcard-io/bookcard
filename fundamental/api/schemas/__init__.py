@@ -100,6 +100,11 @@ from fundamental.api.schemas.epub_fixer import (
     EPUBFixSingleRequest,
     EPUBFixStatisticsRead,
 )
+from fundamental.api.schemas.kcc import (
+    KCCProfileCreate,
+    KCCProfileRead,
+    KCCProfileUpdate,
+)
 from fundamental.api.schemas.libraries import (
     LibraryCreate,
     LibraryRead,
@@ -183,6 +188,9 @@ __all__ = [
     "EmailServerConfigUpdate",
     "FilterSuggestionsResponse",
     "InviteValidationResponse",
+    "KCCProfileCreate",
+    "KCCProfileRead",
+    "KCCProfileUpdate",
     "LibraryCreate",
     "LibraryRead",
     "LibraryStats",

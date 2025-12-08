@@ -37,6 +37,9 @@ from fundamental.models.conversion import (
     ConversionStatus,
 )
 from fundamental.models.core import Book
+
+if TYPE_CHECKING:
+    from fundamental.models.kcc_config import KCCConversionProfile
 from fundamental.services.conversion.backup import FileBackupService
 from fundamental.services.conversion.book_repository import BookRepository
 from fundamental.services.conversion.exceptions import FormatNotFoundError
@@ -415,6 +418,7 @@ class ConversionService:
                 request.target_format,
                 book,
                 request.book_id,
+                user_id=user_id,
             )
 
             # Add converted format to Calibre database
@@ -460,6 +464,7 @@ class ConversionService:
         target_format: str,
         book: Book,
         book_id: int,
+        user_id: int | None = None,
     ) -> Path:
         """Execute the conversion using the conversion strategy.
 
@@ -473,6 +478,8 @@ class ConversionService:
             Book record.
         book_id : int
             Book ID.
+        user_id : int | None
+            Optional user ID for retrieving KCC profile.
 
         Returns
         -------
@@ -492,10 +499,47 @@ class ConversionService:
             temp_output_path = Path(temp_file.name)
 
         try:
+            # Check if this is a comic format and we have a user_id
+            # If so, retrieve user's KCC profile
+            source_format = input_path.suffix.upper().lstrip(".")
+            profile_getter = None
+            if user_id and source_format in {"CBZ", "CBR", "CB7", "PDF"}:
+                from fundamental.services.conversion.strategies.composite import (
+                    is_comic_format,
+                )
+
+                if is_comic_format(source_format):
+                    from fundamental.services.kcc_profile_service import (
+                        KCCProfileService,
+                    )
+
+                    profile_service = KCCProfileService(self._session)
+
+                    def profile_getter() -> "KCCConversionProfile | None":
+                        return profile_service.get_default_profile(user_id)
+
             # Execute conversion using strategy
-            self._conversion_strategy.convert(
-                input_path, target_format, temp_output_path
+            # If strategy is composite and we have a profile getter, use it
+            from fundamental.services.conversion.strategies.composite import (
+                CompositeConversionStrategy,
             )
+
+            if (
+                isinstance(self._conversion_strategy, CompositeConversionStrategy)
+                and profile_getter
+            ):
+                # Composite strategy with profile support
+                self._conversion_strategy.convert(
+                    input_path,
+                    target_format,
+                    temp_output_path,
+                    profile_getter=profile_getter,
+                )
+            else:
+                # Standard strategy
+                self._conversion_strategy.convert(
+                    input_path, target_format, temp_output_path
+                )
 
             # Determine final output path
             book_dir = self._library_root / book.path

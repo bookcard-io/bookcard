@@ -31,6 +31,7 @@ from fundamental.models.kobo import (
 
 if TYPE_CHECKING:
     from fundamental.models.epub_fixer import EPUBFixRun
+    from fundamental.models.kcc_config import KCCConversionProfile
     from fundamental.models.kobo import (
         KoboReadingState,
     )
@@ -129,6 +130,7 @@ class User(SQLModel, table=True):
         sa_relationship_kwargs={"cascade": "all, delete-orphan", "uselist": False},
     )
     kobo_reading_states: list["KoboReadingState"] = Relationship(back_populates="user")
+    kcc_profiles: list["KCCConversionProfile"] = Relationship(back_populates="user")
 
 
 class UserSetting(SQLModel, table=True):

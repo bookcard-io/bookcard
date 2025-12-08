@@ -86,6 +86,7 @@ from fundamental.models.ingest import (
     IngestRetry,
     IngestStatus,
 )
+from fundamental.models.kcc_config import KCCConversionProfile
 from fundamental.models.kobo import (
     KoboArchivedBook,
     KoboAuthToken,
@@ -183,6 +184,7 @@ __all__ = [
     "IngestRetry",
     "IngestStatus",
     "IntegrationConfig",
+    "KCCConversionProfile",
     "KoboArchivedBook",
     "KoboAuthToken",
     "KoboBookmark",

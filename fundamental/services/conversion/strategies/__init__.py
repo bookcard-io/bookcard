@@ -23,11 +23,19 @@ main service code.
 from fundamental.services.conversion.strategies.calibre import (
     CalibreConversionStrategy,
 )
+from fundamental.services.conversion.strategies.composite import (
+    CompositeConversionStrategy,
+    is_comic_format,
+)
+from fundamental.services.conversion.strategies.kcc import KCCConversionStrategy
 from fundamental.services.conversion.strategies.protocol import (
     ConversionStrategy,
 )
 
 __all__ = [
     "CalibreConversionStrategy",
+    "CompositeConversionStrategy",
     "ConversionStrategy",
+    "KCCConversionStrategy",
+    "is_comic_format",
 ]

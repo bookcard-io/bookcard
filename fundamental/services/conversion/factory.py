@@ -19,6 +19,7 @@ Provides a convenient factory function to create ConversionService
 with all dependencies properly configured.
 """
 
+import logging
 from typing import TYPE_CHECKING
 
 from sqlmodel import Session  # type: ignore[type-arg]
@@ -32,17 +33,24 @@ from fundamental.services.conversion.book_repository import (
 from fundamental.services.conversion.exceptions import (
     ConverterNotAvailableError,
 )
+from fundamental.services.conversion.kcc_locator import KCCLocator
 from fundamental.services.conversion.locator import ConverterLocator
 from fundamental.services.conversion.repository import ConversionRepository
 from fundamental.services.conversion.service import ConversionService
 from fundamental.services.conversion.strategies.calibre import (
     CalibreConversionStrategy,
 )
+from fundamental.services.conversion.strategies.composite import (
+    CompositeConversionStrategy,
+)
+from fundamental.services.conversion.strategies.kcc import KCCConversionStrategy
 
 if TYPE_CHECKING:
     from fundamental.services.conversion.strategies.protocol import (
         ConversionStrategy,
     )
+
+logger = logging.getLogger(__name__)
 
 
 def create_conversion_service(
@@ -80,7 +88,7 @@ def create_conversion_service(
     # Create conversion repository
     conversion_repository = ConversionRepository(session)
 
-    # Locate converter
+    # Locate Calibre converter
     locator = ConverterLocator()
     converter_path = locator.find_converter()
     if converter_path is None:
@@ -89,8 +97,28 @@ def create_conversion_service(
         )
         raise ConverterNotAvailableError(msg)
 
-    # Create conversion strategy
-    conversion_strategy: ConversionStrategy = CalibreConversionStrategy(converter_path)
+    # Create Calibre strategy
+    calibre_strategy = CalibreConversionStrategy(converter_path)
+
+    # Try to locate KCC (optional, graceful degradation if not available)
+    kcc_strategy: KCCConversionStrategy | None = None
+    try:
+        kcc_locator = KCCLocator()
+        kcc_path = kcc_locator.find_kcc()
+        if kcc_path:
+            # Create KCC strategy without profile (profile will be retrieved when needed)
+            kcc_strategy = KCCConversionStrategy(kcc_path, profile=None)
+            logger.info("KCC converter found and enabled")
+        else:
+            logger.info("KCC converter not found, using Calibre only")
+    except (OSError, ValueError, AttributeError) as e:
+        logger.warning("Failed to initialize KCC converter: %s", e)
+
+    # Create composite strategy
+    conversion_strategy: ConversionStrategy = CompositeConversionStrategy(
+        kcc_strategy=kcc_strategy,
+        calibre_strategy=calibre_strategy,
+    )
 
     # Create backup service if not provided
     if backup_service is None:

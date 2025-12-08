@@ -106,6 +106,43 @@ ENV PATH="/app/calibre:${PATH}"
 # Create version file
 RUN echo "${CALIBRE_RELEASE}" > /app/CALIBRE_RELEASE
 
+# ============================================================================
+# Install KCC (Kindle Comic Converter)
+# ============================================================================
+# Install system dependencies for KCC
+# libfreetype6 is needed for Pillow image processing
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git \
+        p7zip-full \
+        libfreetype6 \
+        && rm -rf /var/lib/apt/lists/*
+
+# Install uv for KCC installation (uv is available from base Python image)
+RUN pip install --no-cache-dir uv
+
+# Clone KCC repository
+ARG KCC_VERSION=master
+ENV KCC_VERSION=${KCC_VERSION}
+RUN git clone --depth 1 --branch ${KCC_VERSION} https://github.com/ciromattia/kcc.git /opt/kcc || \
+    git clone --depth 1 https://github.com/ciromattia/kcc.git /opt/kcc
+
+# Create Python virtual environment for KCC using uv
+RUN uv venv /opt/kcc/venv && \
+    . /opt/kcc/venv/bin/activate && \
+    uv pip install --upgrade pip && \
+    # Install numpy and PyMuPDF separately (large packages, as per KCC's Dockerfile)
+    uv pip install --no-cache-dir numpy==2.3.5 && \
+    uv pip install --no-cache-dir PyMuPDF==1.26.6 && \
+    # Install remaining KCC dependencies
+    uv pip install --no-cache-dir -r /opt/kcc/requirements-docker.txt || \
+    uv pip install --no-cache-dir -r /opt/kcc/requirements.txt
+
+# Make KCC CLI tools executable
+RUN chmod +x /opt/kcc/kcc-c2e.py /opt/kcc/kcc-c2p.py
+
+# Add KCC venv to PATH
+ENV PATH="/opt/kcc/venv/bin:/opt/kcc:${PATH}"
+
 # Copy virtual environment from builder
 COPY --from=backend-builder /opt/venv /opt/venv
 
