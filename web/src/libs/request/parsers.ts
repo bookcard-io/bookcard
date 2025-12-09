@@ -194,11 +194,12 @@ export async function parseIdParam(
     return err(new ValidationError(`Missing ${paramName} parameter`));
   }
 
-  const id = parseInt(idStr, 10);
-
-  if (Number.isNaN(id)) {
+  // Check if string contains non-numeric characters (excluding leading minus)
+  if (!/^-?\d+$/.test(idStr)) {
     return err(new ValidationError(`Invalid ${paramName}: must be a number`));
   }
+
+  const id = parseInt(idStr, 10);
 
   return ok(id);
 }
