@@ -102,7 +102,9 @@ export function useCreateShelfWithBook({
       options?: CreateShelfOptions,
     ): Promise<Shelf> => {
       try {
-        const newShelf = await createShelfService(data as ShelfCreate, options);
+        const newShelf = await (options
+          ? createShelfService(data as ShelfCreate, options)
+          : createShelfService(data as ShelfCreate));
         // Add book to the newly created shelf
         await addBook(newShelf.id, bookId);
         // Add to recent shelves

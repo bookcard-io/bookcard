@@ -14,6 +14,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { NextResponse } from "next/server";
+import type { ApiError } from "@/libs/errors";
 import { withAuthentication } from "@/libs/middleware/withAuth";
 import { parseIdParam, parseImportFormData } from "@/libs/request/parsers";
 import { HttpShelfRepository } from "@/services/shelf/shelfRepository";
@@ -61,7 +62,7 @@ export const POST = withAuthentication<{ id: string }>(
 
     return result.match({
       ok: (data) => NextResponse.json(data),
-      err: (error) => error.toResponse(),
+      err: (error) => (error as ApiError).toResponse(),
     });
   },
 );

@@ -14,6 +14,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { NextResponse } from "next/server";
+import type { ApiError } from "@/libs/errors";
 import { UnsupportedContentTypeError } from "@/libs/errors";
 import { withAuthentication } from "@/libs/middleware/withAuth";
 import {
@@ -37,7 +38,7 @@ export const GET = withAuthentication(async (ctx, _request) => {
 
   return result.match({
     ok: (shelves) => NextResponse.json(shelves),
-    err: (error) => error.toResponse(),
+    err: (error) => (error as ApiError).toResponse(),
   });
 });
 
@@ -68,7 +69,7 @@ export const POST = withAuthentication(async (ctx, request) => {
 
     return result.match({
       ok: (shelf) => NextResponse.json(shelf),
-      err: (error) => error.toResponse(),
+      err: (error) => (error as ApiError).toResponse(),
     });
   }
 
@@ -92,7 +93,7 @@ export const POST = withAuthentication(async (ctx, request) => {
 
     return result.match({
       ok: (shelf) => NextResponse.json(shelf),
-      err: (error) => error.toResponse(),
+      err: (error) => (error as ApiError).toResponse(),
     });
   }
 

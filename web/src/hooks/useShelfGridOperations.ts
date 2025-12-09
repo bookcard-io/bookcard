@@ -138,7 +138,9 @@ export function useShelfGridOperations(
       data: ShelfCreate | ShelfUpdate,
       options?: CreateShelfOptions,
     ): Promise<Shelf> => {
-      const newShelf = await createShelfApi(data as ShelfCreate, options);
+      const newShelf = await (options
+        ? createShelfApi(data as ShelfCreate, options)
+        : createShelfApi(data as ShelfCreate));
       // Refresh context to sync with Sidebar and other components
       await refreshContext();
       return newShelf;

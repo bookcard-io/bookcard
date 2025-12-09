@@ -83,7 +83,9 @@ export function useShelves(): UseShelvesReturn {
     async (data: ShelfCreate, options?: CreateShelfOptions): Promise<Shelf> => {
       setError(null);
       try {
-        const newShelf = await createShelf(data, options);
+        const newShelf = await (options
+          ? createShelf(data, options)
+          : createShelf(data));
         await loadShelves();
         return newShelf;
       } catch (err) {

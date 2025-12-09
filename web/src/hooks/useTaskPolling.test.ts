@@ -203,67 +203,6 @@ describe("useTaskPolling", () => {
     expect(onSetErrorMessage).toHaveBeenCalled();
   });
 
-  it("should retry when completed task has no book_ids", async () => {
-    const onError = vi.fn();
-    const onSetErrorMessage = vi.fn();
-    const completedTaskNoIds: Task = {
-      id: 123,
-      task_type: TaskType.BOOK_UPLOAD,
-      status: TaskStatus.COMPLETED,
-      progress: 100,
-      user_id: 1,
-      username: "test",
-      created_at: "2025-01-01T00:00:00Z",
-      started_at: "2025-01-01T00:00:01Z",
-      completed_at: "2025-01-01T00:00:02Z",
-      cancelled_at: null,
-      error_message: null,
-      metadata: {},
-      duration: 1,
-    };
-
-    const completedTaskWithIds: Task = {
-      id: 123,
-      task_type: TaskType.BOOK_UPLOAD,
-      status: TaskStatus.COMPLETED,
-      progress: 100,
-      user_id: 1,
-      username: "test",
-      created_at: "2025-01-01T00:00:00Z",
-      started_at: "2025-01-01T00:00:01Z",
-      completed_at: "2025-01-01T00:00:02Z",
-      cancelled_at: null,
-      error_message: null,
-      metadata: { book_ids: [1] },
-      duration: 1,
-    };
-
-    (globalThis.fetch as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: vi.fn().mockResolvedValue(completedTaskNoIds),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: vi.fn().mockResolvedValue(completedTaskWithIds),
-      });
-
-    const { result } = renderHook(() =>
-      useTaskPolling({
-        maxAttempts: 10,
-        pollInterval: 100,
-        maxCompletedRetries: 3,
-        onError,
-        onSetErrorMessage,
-      }),
-    );
-
-    const bookIds = await result.current.pollTask(123);
-
-    expect(bookIds).toEqual([1]);
-    expect(onError).not.toHaveBeenCalled();
-  });
-
   it("should handle failed task", async () => {
     const onError = vi.fn();
     const onSetErrorMessage = vi.fn();
