@@ -21,8 +21,11 @@ Pydantic models for request/response validation for shelf operations.
 from __future__ import annotations
 
 from datetime import datetime  # noqa: TC003
+from typing import Any
 
 from pydantic import BaseModel, Field
+
+from fundamental.models.shelves import ShelfTypeEnum
 
 
 class ShelfCreate(BaseModel):
@@ -36,6 +39,8 @@ class ShelfCreate(BaseModel):
         Optional description of the shelf.
     is_public : bool
         Whether the shelf is shared with everyone.
+    shelf_type : ShelfTypeEnum
+        Type of the shelf (SHELF or READ_LIST).
     """
 
     name: str = Field(max_length=255, description="Shelf name")
@@ -47,6 +52,10 @@ class ShelfCreate(BaseModel):
     is_public: bool = Field(
         default=False,
         description="Whether the shelf is shared with everyone",
+    )
+    shelf_type: ShelfTypeEnum = Field(
+        default=ShelfTypeEnum.SHELF,
+        description="Type of the shelf (SHELF or READ_LIST)",
     )
 
 
@@ -61,6 +70,8 @@ class ShelfUpdate(BaseModel):
         New description (optional).
     is_public : bool | None
         New public status (optional).
+    shelf_type : ShelfTypeEnum | None
+        New shelf type (optional).
     """
 
     name: str | None = Field(
@@ -76,6 +87,10 @@ class ShelfUpdate(BaseModel):
     is_public: bool | None = Field(
         default=None,
         description="Whether the shelf is shared with everyone",
+    )
+    shelf_type: ShelfTypeEnum | None = Field(
+        default=None,
+        description="Type of the shelf (SHELF or READ_LIST)",
     )
 
 
@@ -98,6 +113,10 @@ class ShelfRead(BaseModel):
         Whether the shelf is shared with everyone.
     is_active : bool
         Whether the shelf is active (mirrors library's active status).
+    shelf_type : ShelfTypeEnum
+        Type of the shelf (SHELF or READ_LIST).
+    read_list_metadata : dict[str, Any] | None
+        Original read list metadata if shelf was created from import.
     user_id : int
         Owner user ID.
     library_id : int
@@ -119,6 +138,11 @@ class ShelfRead(BaseModel):
     cover_picture: str | None
     is_public: bool
     is_active: bool
+    shelf_type: ShelfTypeEnum
+    read_list_metadata: dict[str, Any] | None = Field(
+        default=None,
+        description="Original read list metadata if shelf was created from import",
+    )
     user_id: int
     library_id: int
     created_at: datetime
@@ -199,3 +223,108 @@ class ShelfBooksResponse(BaseModel):
     page_size: int
     sort_by: str
     sort_order: str
+
+
+class BookMatch(BaseModel):
+    """Schema for a matched book in import result.
+
+    Attributes
+    ----------
+    book_id : int
+        Matched book ID.
+    confidence : float
+        Match confidence score (0.0 to 1.0).
+    match_type : str
+        Type of match: 'exact', 'fuzzy', 'title', or 'none'.
+    reference : dict
+        Original book reference data.
+    """
+
+    book_id: int = Field(description="Matched book ID")
+    confidence: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Match confidence score (0.0 to 1.0)",
+    )
+    match_type: str = Field(
+        description="Type of match: 'exact', 'fuzzy', 'title', or 'none'",
+    )
+    reference: dict = Field(description="Original book reference data")
+
+
+class BookReferenceSchema(BaseModel):
+    """Schema for an unmatched book reference.
+
+    Attributes
+    ----------
+    series : str | None
+        Series name.
+    volume : int | float | None
+        Volume number.
+    issue : int | float | None
+        Issue number.
+    year : int | None
+        Publication year.
+    title : str | None
+        Book title.
+    author : str | None
+        Author name.
+    """
+
+    series: str | None = None
+    volume: int | float | None = None
+    issue: int | float | None = None
+    year: int | None = None
+    title: str | None = None
+    author: str | None = None
+
+
+class ShelfImportRequest(BaseModel):
+    """Request schema for importing a read list.
+
+    Attributes
+    ----------
+    importer : str
+        Name of the importer to use (default: "comicrack").
+    auto_match : bool
+        If True, automatically add matched books to shelf (default: False).
+    """
+
+    importer: str = Field(
+        default="comicrack",
+        description="Name of the importer to use",
+    )
+    auto_match: bool = Field(
+        default=False,
+        description="If True, automatically add matched books to shelf",
+    )
+
+
+class ImportResultSchema(BaseModel):
+    """Response schema for read list import result.
+
+    Attributes
+    ----------
+    total_books : int
+        Total number of books in the read list.
+    matched : list[BookMatch]
+        Successfully matched books.
+    unmatched : list[BookReferenceSchema]
+        Books that could not be matched.
+    errors : list[str]
+        List of error messages encountered during import.
+    """
+
+    total_books: int = Field(description="Total number of books in the read list")
+    matched: list[BookMatch] = Field(
+        default_factory=list,
+        description="Successfully matched books",
+    )
+    unmatched: list[BookReferenceSchema] = Field(
+        default_factory=list,
+        description="Books that could not be matched",
+    )
+    errors: list[str] = Field(
+        default_factory=list,
+        description="List of error messages encountered during import",
+    )

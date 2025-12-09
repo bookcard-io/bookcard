@@ -614,6 +614,7 @@ describe("permissions", () => {
         cover_picture: null,
         is_public: false,
         is_active: true,
+        shelf_type: "shelf",
         book_count: 0,
         created_at: "2024-01-01T00:00:00Z",
         updated_at: "2024-01-01T00:00:00Z",

@@ -42,6 +42,7 @@ function createMockShelf(id: number, created_at: string): Shelf {
     cover_picture: null,
     is_public: false,
     is_active: true,
+    shelf_type: "shelf",
     user_id: 1,
     library_id: 1,
     created_at,

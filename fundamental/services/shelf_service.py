@@ -26,7 +26,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from fundamental.models.shelves import BookShelfLink, Shelf
+from fundamental.models.shelves import BookShelfLink, Shelf, ShelfTypeEnum
+from fundamental.repositories.config_repository import LibraryRepository
+from fundamental.services.config_service import LibraryService
+from fundamental.services.readlist.import_service import (
+    ImportResult,
+    ReadListImportService,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +98,7 @@ class ShelfService:
         name: str,
         is_public: bool,
         description: str | None = None,
+        shelf_type: ShelfTypeEnum = ShelfTypeEnum.SHELF,
     ) -> Shelf:
         """Create a new shelf.
 
@@ -125,6 +132,7 @@ class ShelfService:
             description=description,
             is_public=is_public,
             is_active=True,  # New shelves are active by default (library should be active)
+            shelf_type=shelf_type,
             user_id=user_id,
             library_id=library_id,
             created_at=datetime.now(UTC),
@@ -142,6 +150,7 @@ class ShelfService:
         name: str | None = None,
         description: str | None = None,
         is_public: bool | None = None,
+        shelf_type: ShelfTypeEnum | None = None,
     ) -> Shelf:
         """Update a shelf.
 
@@ -190,6 +199,8 @@ class ShelfService:
             shelf.description = description
         if is_public is not None:
             shelf.is_public = is_public
+        if shelf_type is not None:
+            shelf.shelf_type = shelf_type
 
         shelf.updated_at = datetime.now(UTC)
         self._session.flush()
@@ -697,3 +708,81 @@ class ShelfService:
         shelf.updated_at = datetime.now(UTC)
         self._session.flush()
         return shelf
+
+    def import_read_list(
+        self,
+        shelf_id: int,
+        file_path: Path,
+        importer_name: str,
+        user_id: int,
+        auto_match: bool = False,
+    ) -> ImportResult:
+        """Import a read list from a file into a shelf.
+
+        Parameters
+        ----------
+        shelf_id : int
+            Shelf ID to import into.
+        file_path : Path
+            Path to the read list file.
+        importer_name : str
+            Name of the importer to use (e.g., "comicrack").
+        user_id : int
+            User ID requesting the import (for permission check).
+        auto_match : bool
+            If True, automatically add matched books to shelf (default: False).
+
+        Returns
+        -------
+        ImportResult
+            Import result with matched and unmatched books.
+
+        Raises
+        ------
+        ValueError
+            If shelf not found, permission denied, or import fails.
+        """
+        # Validate shelf exists and user has permission
+        shelf = self._shelf_repo.get(shelf_id)
+        if shelf is None:
+            msg = f"Shelf {shelf_id} not found"
+            raise ValueError(msg)
+
+        if not self.can_edit_shelf(shelf, user_id, False):
+            msg = "Permission denied: cannot import to this shelf"
+            raise ValueError(msg)
+
+        # Get library configuration for Calibre database access
+        library_repo = LibraryRepository(self._session)
+        library_service = LibraryService(self._session, library_repo)
+        library = library_service.get_library(shelf.library_id)
+        if library is None:
+            msg = f"Library {shelf.library_id} not found"
+            raise ValueError(msg)
+
+        # Import read list
+        import_service = ReadListImportService(library)
+        result = import_service.import_read_list(file_path, importer_name)
+
+        # Save original metadata and set shelf type
+        if result.read_list_data:
+            shelf.read_list_metadata = result.read_list_data.model_dump(mode="json")
+            shelf.shelf_type = ShelfTypeEnum.READ_LIST
+
+        # If auto_match is True, add matched books to shelf
+        if auto_match:
+            for match_result in result.matched:
+                if match_result.book_id is not None:
+                    with suppress(ValueError):
+                        # Book already in shelf or other error - skip
+                        self.add_book_to_shelf(
+                            shelf_id,
+                            match_result.book_id,
+                            user_id,
+                        )
+
+            # Update shelf last_modified
+            shelf.last_modified = datetime.now(UTC)
+            self._session.flush()
+
+        return result

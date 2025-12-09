@@ -27,6 +27,7 @@ import { useModal } from "@/hooks/useModal";
 import { useModalInteractions } from "@/hooks/useModalInteractions";
 import { useShelfCoverOperations } from "@/hooks/useShelfCoverOperations";
 import { useShelfForm } from "@/hooks/useShelfForm";
+import { importReadList } from "@/services/shelfService";
 import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
 import { buildShelfPermissionContext } from "@/utils/permissions";
 
@@ -40,7 +41,10 @@ export interface ShelfEditModalProps {
   /** Callback when modal should be closed. */
   onClose: () => void;
   /** Callback when shelf is saved. Returns the created/updated shelf. */
-  onSave: (data: ShelfCreate | ShelfUpdate) => Promise<Shelf>;
+  onSave: (
+    data: ShelfCreate | ShelfUpdate,
+    options?: { readListFile?: File | null },
+  ) => Promise<Shelf>;
   /** Callback when cover picture is uploaded. Receives updated shelf with new cover. */
   onCoverSaved?: (shelf: Shelf) => void;
   /** Callback when cover picture is deleted. Receives updated shelf without cover. */
@@ -71,6 +75,8 @@ export function ShelfEditModal({
   const canCreate = !isEditMode && canPerformAction("shelves", "create");
   const canEdit =
     isEditMode && canPerformAction("shelves", "edit", shelfContext);
+  const [importFile, setImportFile] = useState<File | null>(null);
+
   const {
     name,
     description,
@@ -148,9 +154,55 @@ export function ShelfEditModal({
     [handleCoverFileChange],
   );
 
+  const handleCblFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const selectedFile = e.target.files?.[0] || null;
+      setImportFile(selectedFile);
+
+      if (!selectedFile) {
+        return;
+      }
+
+      // Only parse and auto-populate fields in create mode
+      if (!isEditMode) {
+        try {
+          const text = await selectedFile.text();
+          const parser = new DOMParser();
+          const xmlDoc = parser.parseFromString(text, "text/xml");
+
+          const parserError = xmlDoc.querySelector("parsererror");
+          if (parserError) {
+            showDanger("Invalid XML file");
+            setImportFile(null);
+            return;
+          }
+
+          const nameElement = xmlDoc.querySelector("ReadingList > Name");
+          if (nameElement?.textContent) {
+            setName(nameElement.textContent.trim());
+          }
+
+          const descriptionElement = xmlDoc.querySelector(
+            "ReadingList > Description",
+          );
+          if (descriptionElement?.textContent) {
+            setDescription(descriptionElement.textContent.trim());
+          }
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : "Failed to parse CBL file";
+          showDanger(errorMessage);
+          setImportFile(null);
+        }
+      }
+    },
+    [isEditMode, setName, setDescription, showDanger],
+  );
+
   const handleCancel = useCallback(() => {
     resetForm();
     resetCover();
+    setImportFile(null);
     setCoverOperationError(null);
     onClose();
   }, [resetForm, resetCover, onClose]);
@@ -174,10 +226,33 @@ export function ShelfEditModal({
           name: name.trim(),
           description: description.trim() || null,
           is_public: isPublic,
+          // shelf_type is handled by import or defaults
         };
 
-        // Save the shelf and get the result
-        const savedShelf = await onSave(data);
+        // Save the shelf and get the result. For create mode, optionally
+        // include the read list file so the API can import it in a single call.
+        const saveOptions =
+          !isEditMode && importFile ? { readListFile: importFile } : undefined;
+        const savedShelf = await onSave(data, saveOptions);
+
+        // Handle import in edit mode (after shelf is saved)
+        if (isEditMode && importFile && savedShelf) {
+          try {
+            await importReadList(
+              savedShelf.id,
+              { importer: "comicrack", auto_add_matched: true },
+              importFile,
+            );
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error
+                ? error.message
+                : "Failed to import reading list";
+            showDanger(errorMessage);
+            // Don't close modal on import error so user can retry
+            return;
+          }
+        }
 
         // Handle cover operations after shelf is saved
         if (savedShelf && (coverFile || isCoverDeleteStaged)) {
@@ -203,7 +278,9 @@ export function ShelfEditModal({
       name,
       description,
       isPublic,
+      isEditMode,
       onSave,
+      importFile,
       coverFile,
       isCoverDeleteStaged,
       executeCoverOperations,
@@ -263,6 +340,23 @@ export function ShelfEditModal({
                   : "You don't have permission to create shelves."}
               </div>
             )}
+
+            {/* Read list import */}
+            <div className="space-y-4">
+              <div className="font-medium text-sm text-text-a10">
+                {isEditMode
+                  ? "Import Reading List (ComicRack .cbl)"
+                  : "Create from Reading List (ComicRack .cbl)"}
+              </div>
+              <input
+                id="readlist-import-input"
+                type="file"
+                accept=".cbl"
+                onChange={handleCblFileChange}
+                disabled={!hasPermission}
+                className="block w-full rounded-md border border-surface-a20 bg-surface-a0 px-4 py-3 font-inherit text-base text-text-a0 leading-normal transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s] file:mr-4 file:cursor-pointer file:rounded file:border-0 file:bg-surface-a20 file:px-4 file:py-2 file:font-semibold file:text-sm file:text-text-a0 hover:file:bg-surface-a30 focus:border-primary-a0 focus:bg-surface-a10 focus:shadow-[var(--shadow-focus-ring)] focus:outline-none hover:not(:focus):border-surface-a30 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
 
             <TextInput
               label="Shelf name"

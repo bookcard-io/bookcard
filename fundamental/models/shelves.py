@@ -20,12 +20,20 @@ to organize books into named collections with public/private sharing.
 """
 
 from datetime import UTC, datetime
-from typing import ClassVar
+from enum import StrEnum
+from typing import Any, ClassVar
 from uuid import uuid4
 
 from pydantic import ConfigDict
-from sqlalchemy import Column, ForeignKey, Integer
+from sqlalchemy import JSON, Column, Enum, ForeignKey, Integer
 from sqlmodel import Field, Relationship, SQLModel
+
+
+class ShelfTypeEnum(StrEnum):
+    """Enumeration of shelf types."""
+
+    SHELF = "shelf"
+    READ_LIST = "read_list"
 
 
 class Shelf(SQLModel, table=True):
@@ -57,6 +65,8 @@ class Shelf(SQLModel, table=True):
         Foreign key to Library (the shelf belongs to this library).
     is_active : bool
         Whether the shelf is active (mirrors library's active status).
+    shelf_type : ShelfTypeEnum
+        Type of the shelf (SHELF or READ_LIST).
     created_at : datetime
         Shelf creation timestamp.
     updated_at : datetime
@@ -79,6 +89,19 @@ class Shelf(SQLModel, table=True):
     cover_picture: str | None = Field(default=None, max_length=500)
     is_public: bool = Field(default=False, index=True)
     is_active: bool = Field(default=True, index=True)
+    shelf_type: ShelfTypeEnum = Field(
+        default=ShelfTypeEnum.SHELF,
+        sa_column=Column(
+            Enum(ShelfTypeEnum, values_callable=lambda x: [e.value for e in x]),
+            default=ShelfTypeEnum.SHELF.value,
+            nullable=False,
+            index=True,
+        ),
+    )
+    read_list_metadata: dict[str, Any] | None = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),
+    )
     user_id: int = Field(foreign_key="users.id", index=True)
     library_id: int = Field(
         sa_column=Column(

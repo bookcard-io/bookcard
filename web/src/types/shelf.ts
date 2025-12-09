@@ -19,6 +19,8 @@
  * These types match the backend API schemas defined in fundamental/api/schemas/shelves.py
  */
 
+export type ShelfType = "shelf" | "read_list";
+
 export interface Shelf {
   /** Shelf primary key. */
   id: number;
@@ -34,6 +36,10 @@ export interface Shelf {
   is_public: boolean;
   /** Whether the shelf is active (mirrors library's active status). */
   is_active: boolean;
+  /** Type of the shelf (shelf or read_list). */
+  shelf_type: ShelfType;
+  /** Original read list metadata if shelf was created from import. */
+  read_list_metadata?: Record<string, unknown> | null;
   /** Owner user ID. */
   user_id: number;
   /** Library ID the shelf belongs to. */
@@ -51,6 +57,8 @@ export interface Shelf {
 export interface ShelfCreate {
   /** Shelf name (must be unique per user for private, globally for public). */
   name: string;
+  /** Type of the shelf (shelf or read_list). */
+  shelf_type?: ShelfType;
   /** Optional description of the shelf. */
   description?: string | null;
   /** Whether the shelf is shared with everyone. */
@@ -64,6 +72,45 @@ export interface ShelfUpdate {
   description?: string | null;
   /** New public status (optional). */
   is_public?: boolean | null;
+  /** New shelf type (optional). */
+  shelf_type?: ShelfType | null;
+}
+
+export interface BookReference {
+  /** Series name. */
+  series?: string | null;
+  /** Volume number. */
+  volume?: number | null;
+  /** Issue number. */
+  issue?: number | null;
+  /** Publication year. */
+  year?: number | null;
+  /** Book title. */
+  title?: string | null;
+  /** Author name. */
+  author?: string | null;
+}
+
+export interface BookMatch {
+  /** Matched book ID. */
+  book_id: number;
+  /** Match confidence score (0.0 to 1.0). */
+  confidence: number;
+  /** Type of match: 'exact', 'fuzzy', 'title', or 'none'. */
+  match_type: string;
+  /** Original book reference data. */
+  reference: BookReference;
+}
+
+export interface ImportResult {
+  /** Total number of books in the read list. */
+  total_books: number;
+  /** Successfully matched books. */
+  matched: BookMatch[];
+  /** Books that could not be matched. */
+  unmatched: BookReference[];
+  /** List of error messages encountered during import. */
+  errors: string[];
 }
 
 export interface ShelfListResponse {

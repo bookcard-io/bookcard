@@ -17,7 +17,10 @@ import { useCallback, useState } from "react";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
 import { useRecentShelves } from "@/hooks/useRecentShelves";
 import { useShelfActions } from "@/hooks/useShelfActions";
-import { createShelf as createShelfService } from "@/services/shelfService";
+import {
+  type CreateShelfOptions,
+  createShelf as createShelfService,
+} from "@/services/shelfService";
 import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
 
 export interface UseCreateShelfWithBookOptions {
@@ -37,7 +40,10 @@ export interface UseCreateShelfWithBookReturn {
   /** Close the create shelf modal. */
   closeCreateModal: () => void;
   /** Handle shelf creation with book addition. */
-  handleCreateShelf: (data: ShelfCreate | ShelfUpdate) => Promise<Shelf>;
+  handleCreateShelf: (
+    data: ShelfCreate | ShelfUpdate,
+    options?: CreateShelfOptions,
+  ) => Promise<Shelf>;
 }
 
 /**
@@ -91,9 +97,12 @@ export function useCreateShelfWithBook({
    *     Shelf creation data.
    */
   const handleCreateShelf = useCallback(
-    async (data: ShelfCreate | ShelfUpdate): Promise<Shelf> => {
+    async (
+      data: ShelfCreate | ShelfUpdate,
+      options?: CreateShelfOptions,
+    ): Promise<Shelf> => {
       try {
-        const newShelf = await createShelfService(data as ShelfCreate);
+        const newShelf = await createShelfService(data as ShelfCreate, options);
         // Add book to the newly created shelf
         await addBook(newShelf.id, bookId);
         // Add to recent shelves

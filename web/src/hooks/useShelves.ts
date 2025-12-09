@@ -21,6 +21,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  type CreateShelfOptions,
   createShelf,
   deleteShelf as deleteShelfApi,
   listShelves,
@@ -36,7 +37,10 @@ interface UseShelvesReturn {
   /** Error message if any. */
   error: string | null;
   /** Create a new shelf. */
-  createShelf: (data: ShelfCreate) => Promise<Shelf>;
+  createShelf: (
+    data: ShelfCreate,
+    options?: CreateShelfOptions,
+  ) => Promise<Shelf>;
   /** Update an existing shelf. */
   updateShelf: (id: number, data: ShelfUpdate) => Promise<Shelf>;
   /** Delete a shelf. */
@@ -76,10 +80,10 @@ export function useShelves(): UseShelvesReturn {
   }, [loadShelves]);
 
   const handleCreateShelf = useCallback(
-    async (data: ShelfCreate): Promise<Shelf> => {
+    async (data: ShelfCreate, options?: CreateShelfOptions): Promise<Shelf> => {
       setError(null);
       try {
-        const newShelf = await createShelf(data);
+        const newShelf = await createShelf(data, options);
         await loadShelves();
         return newShelf;
       } catch (err) {

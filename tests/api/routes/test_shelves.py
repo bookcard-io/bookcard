@@ -91,6 +91,7 @@ class MockShelfService:
         name: str,
         is_public: bool,
         description: str | None = None,
+        shelf_type: object | None = None,
     ) -> Shelf:
         """Mock create_shelf method."""
         if self.create_shelf_result is None:
@@ -104,6 +105,7 @@ class MockShelfService:
         name: str | None = None,
         description: str | None = None,
         is_public: bool | None = None,
+        shelf_type: object | None = None,
     ) -> Shelf:
         """Mock update_shelf method."""
         if self.update_shelf_result is None:

@@ -28,7 +28,10 @@ import { useSidebarNavigation } from "@/hooks/useSidebarNavigation";
 import { useSidebarScroll } from "@/hooks/useSidebarScroll";
 import { useSidebarSections } from "@/hooks/useSidebarSections";
 import { cn } from "@/libs/utils";
-import { createShelf as createShelfApi } from "@/services/shelfService";
+import {
+  type CreateShelfOptions,
+  createShelf as createShelfApi,
+} from "@/services/shelfService";
 import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
 import { LibrarySection } from "./LibrarySection";
 import { ShelvesSection } from "./ShelvesSection";
@@ -82,8 +85,9 @@ export function Sidebar() {
 
   const handleCreateShelf = async (
     data: ShelfCreate | ShelfUpdate,
+    options?: CreateShelfOptions,
   ): Promise<Shelf> => {
-    const newShelf = await createShelfApi(data as ShelfCreate);
+    const newShelf = await createShelfApi(data as ShelfCreate, options);
     setShowCreateModal(false);
     await refreshShelvesContext();
     return newShelf;

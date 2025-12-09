@@ -174,8 +174,8 @@ export function ShelvesGrid({
         <ShelfEditModal
           shelf={null}
           onClose={() => setShowCreateModal(false)}
-          onSave={async (data) => {
-            const newShelf = await handleCreateShelf(data);
+          onSave={async (data, options) => {
+            const newShelf = await handleCreateShelf(data, options);
             setShowCreateModal(false);
             return newShelf;
           }}

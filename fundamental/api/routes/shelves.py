@@ -17,6 +17,8 @@
 
 from __future__ import annotations
 
+import tempfile
+from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
@@ -24,6 +26,7 @@ from fastapi import (
     APIRouter,
     Depends,
     File,
+    Form,
     HTTPException,
     Query,
     Request,
@@ -35,6 +38,9 @@ from sqlmodel import Session
 
 from fundamental.api.deps import get_current_user, get_db_session
 from fundamental.api.schemas.shelves import (
+    BookMatch,
+    BookReferenceSchema,
+    ImportResultSchema,
     ShelfCreate,
     ShelfListResponse,
     ShelfRead,
@@ -191,6 +197,7 @@ def create_shelf(
             name=shelf_data.name,
             description=shelf_data.description,
             is_public=shelf_data.is_public,
+            shelf_type=shelf_data.shelf_type,
         )
         session.commit()
 
@@ -211,6 +218,8 @@ def create_shelf(
             cover_picture=shelf.cover_picture,
             is_public=shelf.is_public,
             is_active=shelf.is_active,
+            shelf_type=shelf.shelf_type,
+            read_list_metadata=shelf.read_list_metadata,
             user_id=shelf.user_id,
             library_id=shelf.library_id,
             created_at=shelf.created_at,
@@ -279,6 +288,8 @@ def list_shelves(
                 cover_picture=shelf.cover_picture,
                 is_public=shelf.is_public,
                 is_active=shelf.is_active,
+                shelf_type=shelf.shelf_type,
+                read_list_metadata=shelf.read_list_metadata,
                 user_id=shelf.user_id,
                 library_id=shelf.library_id,
                 created_at=shelf.created_at,
@@ -369,6 +380,7 @@ def get_shelf(
         cover_picture=shelf.cover_picture,
         is_public=shelf.is_public,
         is_active=shelf.is_active,
+        shelf_type=shelf.shelf_type,
         user_id=shelf.user_id,
         library_id=shelf.library_id,
         created_at=shelf.created_at,
@@ -435,6 +447,7 @@ def update_shelf(
             name=shelf_data.name,
             description=shelf_data.description,
             is_public=shelf_data.is_public,
+            shelf_type=shelf_data.shelf_type,
         )
         session.commit()
 
@@ -455,6 +468,8 @@ def update_shelf(
             cover_picture=shelf.cover_picture,
             is_public=shelf.is_public,
             is_active=shelf.is_active,
+            shelf_type=shelf.shelf_type,
+            read_list_metadata=shelf.read_list_metadata,
             user_id=shelf.user_id,
             library_id=shelf.library_id,
             created_at=shelf.created_at,
@@ -859,6 +874,8 @@ def upload_shelf_cover_picture(
             cover_picture=shelf.cover_picture,
             is_public=shelf.is_public,
             is_active=shelf.is_active,
+            shelf_type=shelf.shelf_type,
+            read_list_metadata=shelf.read_list_metadata,
             user_id=shelf.user_id,
             library_id=shelf.library_id,
             created_at=shelf.created_at,
@@ -1014,6 +1031,8 @@ def delete_shelf_cover_picture(
             cover_picture=shelf.cover_picture,
             is_public=shelf.is_public,
             is_active=shelf.is_active,
+            shelf_type=shelf.shelf_type,
+            read_list_metadata=shelf.read_list_metadata,
             user_id=shelf.user_id,
             library_id=shelf.library_id,
             created_at=shelf.created_at,
@@ -1031,3 +1050,124 @@ def delete_shelf_cover_picture(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="permission_denied",
         ) from exc
+
+
+@router.post(
+    "/{shelf_id}/import",
+    response_model=ImportResultSchema,
+    status_code=status.HTTP_200_OK,
+)
+def import_read_list(
+    shelf_id: int,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    shelf_service: ShelfServiceDep,
+    library_id: ActiveLibraryIdDep,
+    file: Annotated[UploadFile, File()],
+    importer: Annotated[str, Form()] = "comicrack",
+    auto_match: Annotated[bool, Form()] = False,
+) -> ImportResultSchema:
+    """Import a read list from a file into a shelf.
+
+    Parameters
+    ----------
+    shelf_id : int
+        Shelf ID to import into.
+    session : SessionDep
+        Database session dependency.
+    current_user : CurrentUserDep
+        Current authenticated user.
+    shelf_service : ShelfServiceDep
+        Shelf service dependency.
+    library_id : ActiveLibraryIdDep
+        Active library ID dependency.
+    file : UploadFile
+        Read list file to import (.cbl, etc.).
+    importer : str
+        Name of the importer to use (default: "comicrack").
+    auto_match : bool
+        If True, automatically add matched books to shelf (default: False).
+
+    Returns
+    -------
+    ImportResultSchema
+        Import result with matched and unmatched books.
+
+    Raises
+    ------
+    HTTPException
+        If shelf not found, permission denied, or import fails.
+    """
+    # Verify shelf belongs to active library
+    shelf_repo = ShelfRepository(session)
+    shelf_check = shelf_repo.get(shelf_id)
+    if shelf_check is None or shelf_check.library_id != library_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Shelf {shelf_id} not found",
+        )
+
+    # Check permission
+    permission_service = PermissionService(session)
+    shelf_context = _build_shelf_permission_context(shelf_check)
+    permission_service.check_permission(current_user, "shelves", "edit", shelf_context)
+
+    # Save uploaded file to temporary location
+    try:
+        file_content = file.file.read()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to read file: {exc!s}",
+        ) from exc
+
+    # Create temporary file
+    with tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=Path(file.filename or "").suffix,
+    ) as tmp_file:
+        tmp_file.write(file_content)
+        tmp_path = Path(tmp_file.name)
+
+    try:
+        # Import read list
+        result = shelf_service.import_read_list(
+            shelf_id=shelf_id,
+            file_path=tmp_path,
+            importer_name=importer,
+            user_id=current_user.id,  # type: ignore[arg-type]
+            auto_match=auto_match,
+        )
+        session.commit()
+
+        # Convert to response schema
+        matched = [
+            BookMatch(
+                book_id=match.book_id,  # type: ignore[arg-type]
+                confidence=match.confidence,
+                match_type=match.match_type,
+                reference=match.reference.model_dump(),
+            )
+            for match in result.matched
+            if match.book_id is not None
+        ]
+
+        unmatched = [
+            BookReferenceSchema(**ref.model_dump()) for ref in result.unmatched
+        ]
+
+        return ImportResultSchema(
+            total_books=result.total_books,
+            matched=matched,
+            unmatched=unmatched,
+            errors=result.errors,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+    finally:
+        # Clean up temporary file
+        with suppress(OSError):
+            tmp_path.unlink()

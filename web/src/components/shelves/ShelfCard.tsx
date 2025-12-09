@@ -17,6 +17,7 @@
 
 import { useRef } from "react";
 import { BookCardOverlay } from "@/components/library/BookCardOverlay";
+import { ReadListBadge } from "@/components/shelves/ReadListBadge";
 import { ShelfCardCheckbox } from "@/components/shelves/ShelfCardCheckbox";
 import { ShelfCardCover } from "@/components/shelves/ShelfCardCover";
 import { ShelfCardEditButton } from "@/components/shelves/ShelfCardEditButton";
@@ -183,6 +184,9 @@ export function ShelfCard({
           bookCount={shelf.book_count}
           isPublic={shelf.is_public}
         />
+        <div className="px-3 pb-3">
+          <ReadListBadge shelfType={shelf.shelf_type} />
+        </div>
       </button>
       {canDelete && (
         <ShelfCardMenu

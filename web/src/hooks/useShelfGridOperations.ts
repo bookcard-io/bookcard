@@ -15,6 +15,7 @@
 
 import { useCallback } from "react";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
+import type { CreateShelfOptions } from "@/services/shelfService";
 import {
   createShelf as createShelfApi,
   deleteShelf,
@@ -46,7 +47,10 @@ export interface UseShelfGridOperationsResult {
   /** Handle shelf deletion (single or multiple). */
   handleShelfDelete: (shelfIds: number | number[]) => Promise<void>;
   /** Handle shelf creation. */
-  handleCreateShelf: (data: ShelfCreate | ShelfUpdate) => Promise<Shelf>;
+  handleCreateShelf: (
+    data: ShelfCreate | ShelfUpdate,
+    options?: CreateShelfOptions,
+  ) => Promise<Shelf>;
 }
 
 /**
@@ -130,8 +134,11 @@ export function useShelfGridOperations(
   );
 
   const handleCreateShelf = useCallback(
-    async (data: ShelfCreate | ShelfUpdate): Promise<Shelf> => {
-      const newShelf = await createShelfApi(data as ShelfCreate);
+    async (
+      data: ShelfCreate | ShelfUpdate,
+      options?: CreateShelfOptions,
+    ): Promise<Shelf> => {
+      const newShelf = await createShelfApi(data as ShelfCreate, options);
       // Refresh context to sync with Sidebar and other components
       await refreshContext();
       return newShelf;

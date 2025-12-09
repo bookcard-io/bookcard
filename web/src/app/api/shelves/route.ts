@@ -13,86 +13,91 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { type NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedClient } from "@/services/http/routeHelpers";
+import { NextResponse } from "next/server";
+import { UnsupportedContentTypeError } from "@/libs/errors";
+import { withAuthentication } from "@/libs/middleware/withAuth";
+import {
+  parseShelfCreationFormData,
+  parseShelfCreationJson,
+} from "@/libs/request/parsers";
+import { err } from "@/libs/result";
+import { HttpShelfRepository } from "@/services/shelf/shelfRepository";
+import { ShelfService } from "@/services/shelf/shelfService";
 
 /**
  * GET /api/shelves
  *
  * Proxies request to list shelves from the active library.
  */
-export async function GET(request: NextRequest) {
-  try {
-    const { client, error } = getAuthenticatedClient(request);
+export const GET = withAuthentication(async (ctx, _request) => {
+  const repository = new HttpShelfRepository(ctx.client);
+  const service = new ShelfService(repository);
 
-    if (error) {
-      return error;
-    }
+  const result = await service.list();
 
-    const response = await client.request("/shelves", {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return NextResponse.json(
-        { detail: data.detail || "Failed to fetch shelves" },
-        { status: response.status },
-      );
-    }
-
-    return NextResponse.json(data);
-  } catch (error) {
-    console.error("Error in GET /api/shelves:", error);
-    return NextResponse.json(
-      { detail: "Internal server error" },
-      { status: 500 },
-    );
-  }
-}
+  return result.match({
+    ok: (shelves) => NextResponse.json(shelves),
+    err: (error) => error.toResponse(),
+  });
+});
 
 /**
  * POST /api/shelves
  *
  * Proxies request to create a new shelf.
+ *
+ * Supports two request types:
+ * - application/json: simple shelf creation
+ * - multipart/form-data: shelf creation with optional read list file
  */
-export async function POST(request: NextRequest) {
-  try {
-    const { client, error } = getAuthenticatedClient(request);
+export const POST = withAuthentication(async (ctx, request) => {
+  const contentType = request.headers.get("content-type") || "";
 
-    if (error) {
-      return error;
+  // JSON payload: simple shelf creation
+  if (contentType.startsWith("application/json")) {
+    const input = await parseShelfCreationJson(request);
+
+    if (input.isErr) {
+      return input.error.toResponse();
     }
 
-    const body = await request.json();
+    const repository = new HttpShelfRepository(ctx.client);
+    const service = new ShelfService(repository);
 
-    const response = await client.request("/shelves", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
+    const result = await service.create(input.value);
+
+    return result.match({
+      ok: (shelf) => NextResponse.json(shelf),
+      err: (error) => error.toResponse(),
     });
+  }
 
-    const data = await response.json();
+  // Multipart payload: shelf creation with optional read list file
+  if (contentType.startsWith("multipart/form-data")) {
+    const formData = await request.formData();
+    const input = parseShelfCreationFormData(formData);
 
-    if (!response.ok) {
-      return NextResponse.json(
-        { detail: data.detail || "Failed to create shelf" },
-        { status: response.status },
-      );
+    if (input.isErr) {
+      return input.error.toResponse();
     }
 
-    return NextResponse.json(data, { status: response.status });
-  } catch (error) {
-    console.error("Error in POST /api/shelves:", error);
-    return NextResponse.json(
-      { detail: "Internal server error" },
-      { status: 500 },
+    const repository = new HttpShelfRepository(ctx.client);
+    const service = new ShelfService(repository);
+
+    const result = await service.createWithImport(
+      input.value.shelf,
+      input.value.file,
+      input.value.importOptions,
     );
+
+    return result.match({
+      ok: (shelf) => NextResponse.json(shelf),
+      err: (error) => error.toResponse(),
+    });
   }
-}
+
+  // Unsupported content type
+  return err(
+    new UnsupportedContentTypeError("Unsupported content type"),
+  ).error.toResponse();
+});

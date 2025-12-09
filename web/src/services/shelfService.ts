@@ -21,6 +21,7 @@
  */
 
 import type {
+  ImportResult,
   Shelf,
   ShelfCreate,
   ShelfListResponse,
@@ -28,6 +29,15 @@ import type {
 } from "@/types/shelf";
 
 const API_BASE = "/api/shelves";
+
+export interface CreateShelfOptions {
+  /** Optional read list file (.cbl, etc.) to import when creating the shelf. */
+  readListFile?: File | null;
+  /** Optional importer name (e.g., "comicrack"). */
+  importer?: string;
+  /** Whether to automatically add matched books to the shelf. Defaults to true. */
+  autoAddMatched?: boolean;
+}
 
 /**
  * Create a new shelf.
@@ -42,15 +52,44 @@ const API_BASE = "/api/shelves";
  * Promise<Shelf>
  *     Created shelf data.
  */
-export async function createShelf(data: ShelfCreate): Promise<Shelf> {
-  const response = await fetch(API_BASE, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    credentials: "include",
-    body: JSON.stringify(data),
-  });
+export async function createShelf(
+  data: ShelfCreate,
+  options?: CreateShelfOptions,
+): Promise<Shelf> {
+  const hasReadListFile = options?.readListFile instanceof File;
+
+  const response = hasReadListFile
+    ? await fetch(API_BASE, {
+        method: "POST",
+        credentials: "include",
+        body: (() => {
+          const formData = new FormData();
+          formData.append("shelf", JSON.stringify(data));
+
+          if (options?.readListFile) {
+            formData.append("file", options.readListFile);
+          }
+
+          const importer = options?.importer || "comicrack";
+          formData.append("importer", importer);
+
+          const autoMatch =
+            options?.autoAddMatched !== undefined
+              ? options.autoAddMatched
+              : true;
+          formData.append("auto_match", String(autoMatch));
+
+          return formData;
+        })(),
+      })
+    : await fetch(API_BASE, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
 
   if (!response.ok) {
     const error = await response
@@ -293,6 +332,48 @@ export async function reorderShelfBooks(
  * Promise<number[]>
  *     List of book IDs in the shelf.
  */
+/**
+ * Import a read list from a file into a shelf.
+ *
+ * Parameters
+ * ----------
+ * shelfId : number
+ *     Shelf ID to import into.
+ * importerData : { importer?: string; auto_add_matched?: boolean }
+ *     Importer configuration (e.g., importer name, auto-add flag).
+ * file : File
+ *     Read list file to import (.cbl, etc.).
+ *
+ * Returns
+ * -------
+ * Promise<ImportResult>
+ *     Import result with matched and unmatched books.
+ */
+export async function importReadList(
+  shelfId: number,
+  importerData: { importer?: string; auto_add_matched?: boolean },
+  file: File,
+): Promise<ImportResult> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("importer", importerData.importer || "comicrack");
+  formData.append("auto_match", String(importerData.auto_add_matched || false));
+
+  const response = await fetch(`${API_BASE}/${shelfId}/import`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Import failed" }));
+    throw new Error(error.detail || "Import failed");
+  }
+
+  return response.json();
+}
+
 export async function getShelfBooks(
   shelfId: number,
   page: number = 1,
