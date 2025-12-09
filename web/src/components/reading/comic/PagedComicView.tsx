@@ -247,10 +247,7 @@ export function PagedComicView({
   return (
     <section
       ref={containerRef}
-      className={cn(
-        "flex h-screen w-full items-center justify-center overflow-auto",
-        className,
-      )}
+      className={cn("flex h-screen w-full overflow-auto", className)}
       onClick={handleContainerClick}
       onKeyDown={handleKeyDown}
       onTouchStart={handleTouchStart}
@@ -259,7 +256,7 @@ export function PagedComicView({
     >
       <div
         className={cn(
-          "flex items-center justify-center transition-[width,height] duration-200 ease-out",
+          "m-auto flex items-center justify-center transition-[width,height] duration-200 ease-out",
           spreadMode && pagesToDisplay.length === 2 && "gap-0",
         )}
         style={{
