@@ -27,6 +27,7 @@ import {
 } from "./components/HeaderActions";
 import { HeaderTitle } from "./components/HeaderTitle";
 import { HeaderTriggerZone } from "./components/HeaderTriggerZone";
+import { ThemeSettingsOverlay } from "./components/ThemeSettingsOverlay";
 import { useExclusivePanels } from "./hooks/useExclusivePanels";
 import { useFontPanel } from "./hooks/useFontPanel";
 import { usePanelCloseHandler } from "./hooks/usePanelCloseHandler";
@@ -122,6 +123,15 @@ export function ReadingHeader({
     openSearchPanel();
   }, [openSearchPanel]);
 
+  // Toggle series panel: if open, close it; if closed, open it
+  const handleSeries = useCallback(() => {
+    if (seriesPanel.isOpen) {
+      handleSeriesPanelClose();
+    } else {
+      openSeriesPanel();
+    }
+  }, [seriesPanel.isOpen, openSeriesPanel, handleSeriesPanelClose]);
+
   const handleNotebook = useCallback(() => {
     // No-op for now
   }, []);
@@ -138,7 +148,7 @@ export function ReadingHeader({
     () => ({
       onTocToggle,
       onSearch: handleSearch,
-      onSeries: book.seriesName ? openSeriesPanel : undefined,
+      onSeries: book.seriesName ? handleSeries : undefined,
       onFontSettings: openFontPanel,
       onNotebook: handleNotebook,
       onBookmark: handleBookmark,
@@ -149,7 +159,7 @@ export function ReadingHeader({
       onTocToggle,
       handleSearch,
       book.seriesName,
-      openSeriesPanel,
+      handleSeries,
       openFontPanel,
       handleNotebook,
       handleBookmark,
@@ -205,6 +215,10 @@ export function ReadingHeader({
         onSearchQueryChange={search?.onSearchQueryChange}
         searchResults={search?.searchResults}
         onResultClick={search?.onResultClick}
+      />
+      <ThemeSettingsOverlay
+        isVisible={seriesPanel.isOpen}
+        onClick={handleSeriesPanelClose}
       />
       <ReadingSeriesPanel
         isOpen={seriesPanel.isOpen}
