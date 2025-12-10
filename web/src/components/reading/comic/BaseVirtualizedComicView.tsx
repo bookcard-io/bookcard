@@ -16,7 +16,13 @@
 "use client";
 
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import { cn } from "@/libs/utils";
 import { ComicPage } from "./ComicPage";
 import { useVisiblePage } from "./hooks/useVisiblePage";
@@ -112,6 +118,25 @@ export const BaseVirtualizedComicView = forwardRef<
   ) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const hasJumpedToInitialPageRef = useRef(false);
+    const prevZoomRef = useRef(zoomLevel);
+
+    useLayoutEffect(() => {
+      if (
+        containerRef.current &&
+        Math.abs(prevZoomRef.current - zoomLevel) > 0.001
+      ) {
+        const ratio = zoomLevel / prevZoomRef.current;
+        const { scrollLeft, scrollTop, clientWidth, clientHeight } =
+          containerRef.current;
+
+        containerRef.current.scrollLeft =
+          (scrollLeft + clientWidth / 2) * ratio - clientWidth / 2;
+        containerRef.current.scrollTop =
+          (scrollTop + clientHeight / 2) * ratio - clientHeight / 2;
+
+        prevZoomRef.current = zoomLevel;
+      }
+    }, [zoomLevel]);
 
     // Virtualization setup
     const rowVirtualizer = useVirtualizer({
@@ -199,7 +224,7 @@ export const BaseVirtualizedComicView = forwardRef<
         )}
       >
         <div
-          className="relative mx-auto flex flex-col items-center transition-[width] duration-200 ease-out"
+          className="relative mx-auto flex flex-col items-center"
           style={{
             width: `${zoomLevel * 100}%`,
             height: `${rowVirtualizer.getTotalSize()}px`,

@@ -15,7 +15,14 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { cn } from "@/libs/utils";
 import { ComicPage } from "./ComicPage";
 import { usePagedNavigation } from "./hooks/usePagedNavigation";
@@ -104,6 +111,25 @@ export function PagedComicView({
   const [isLoading, setIsLoading] = useState(true);
   const loadedPagesRef = useRef<Set<number>>(new Set());
   const currentPagesRef = useRef<number[]>([]);
+  const prevZoomRef = useRef(zoomLevel);
+
+  useLayoutEffect(() => {
+    if (
+      containerRef.current &&
+      Math.abs(prevZoomRef.current - zoomLevel) > 0.001
+    ) {
+      const ratio = zoomLevel / prevZoomRef.current;
+      const { scrollLeft, scrollTop, clientWidth, clientHeight } =
+        containerRef.current;
+
+      containerRef.current.scrollLeft =
+        (scrollLeft + clientWidth / 2) * ratio - clientWidth / 2;
+      containerRef.current.scrollTop =
+        (scrollTop + clientHeight / 2) * ratio - clientHeight / 2;
+
+      prevZoomRef.current = zoomLevel;
+    }
+  }, [zoomLevel]);
 
   // Use extracted navigation hook (SRP improvement)
   const { handleContainerClick, handleTouchStart, handleTouchEnd } =
@@ -185,7 +211,7 @@ export function PagedComicView({
     >
       <div
         className={cn(
-          "m-auto flex shrink-0 items-center justify-center transition-[width,height] duration-200 ease-out",
+          "m-auto flex shrink-0 items-center justify-center",
           spreadMode && pagesToDisplay.length === 2 && "gap-0",
         )}
         style={{
