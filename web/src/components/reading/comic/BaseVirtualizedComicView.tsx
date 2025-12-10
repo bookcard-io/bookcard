@@ -118,7 +118,7 @@ export const BaseVirtualizedComicView = forwardRef<
   ) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const hasJumpedToInitialPageRef = useRef(false);
-    const prevZoomRef = useRef(zoomLevel);
+    const prevZoomRef = useRef(1.0);
 
     useLayoutEffect(() => {
       if (

@@ -111,7 +111,7 @@ export function PagedComicView({
   const [isLoading, setIsLoading] = useState(true);
   const loadedPagesRef = useRef<Set<number>>(new Set());
   const currentPagesRef = useRef<number[]>([]);
-  const prevZoomRef = useRef(zoomLevel);
+  const prevZoomRef = useRef(1.0);
 
   useLayoutEffect(() => {
     if (
