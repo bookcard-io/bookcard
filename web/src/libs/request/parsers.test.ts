@@ -146,20 +146,20 @@ describe("parseImportFormData", () => {
     { value: "0" as string | null, expected: false },
     { value: "" as string | null, expected: false },
     { value: null, expected: false },
-  ])(
-    "should parse auto_match value '$value' as $expected",
-    ({ value, expected }) => {
-      const file = createMockFile();
-      const formData = createImportFormData(file, "comicrack", value ?? false);
+  ])("should parse auto_match value '$value' as $expected", ({
+    value,
+    expected,
+  }) => {
+    const file = createMockFile();
+    const formData = createImportFormData(file, "comicrack", value ?? false);
 
-      const result = parseImportFormData(formData);
+    const result = parseImportFormData(formData);
 
-      expect(result.isOk).toBe(true);
-      if (result.isOk) {
-        expect(result.value.options.autoMatch).toBe(expected);
-      }
-    },
-  );
+    expect(result.isOk).toBe(true);
+    if (result.isOk) {
+      expect(result.value.options.autoMatch).toBe(expected);
+    }
+  });
 
   it("should use default importer when not provided", () => {
     const file = createMockFile();
@@ -257,24 +257,24 @@ describe("parseShelfCreationFormData", () => {
     { value: "0" as string | null, expected: false },
     { value: "" as string | null, expected: false },
     { value: null, expected: false },
-  ])(
-    "should parse auto_match value '$value' as $expected",
-    ({ value, expected }) => {
-      const formData = createShelfFormData(
-        validShelf,
-        null,
-        "comicrack",
-        value ?? false,
-      );
+  ])("should parse auto_match value '$value' as $expected", ({
+    value,
+    expected,
+  }) => {
+    const formData = createShelfFormData(
+      validShelf,
+      null,
+      "comicrack",
+      value ?? false,
+    );
 
-      const result = parseShelfCreationFormData(formData);
+    const result = parseShelfCreationFormData(formData);
 
-      expect(result.isOk).toBe(true);
-      if (result.isOk) {
-        expect(result.value.importOptions.autoMatch).toBe(expected);
-      }
-    },
-  );
+    expect(result.isOk).toBe(true);
+    if (result.isOk) {
+      expect(result.value.importOptions.autoMatch).toBe(expected);
+    }
+  });
 
   it("should use default importer when not provided", () => {
     const formData = new FormData();
@@ -409,22 +409,22 @@ describe("parseIdParam", () => {
     { value: "abc", paramName: "id" },
     { value: "not-a-number", paramName: "id" },
     { value: "abc", paramName: "shelfId" },
-  ])(
-    "should return error when $paramName is invalid: '$value'",
-    async ({ value, paramName }) => {
-      const params = Promise.resolve({ [paramName]: value });
+  ])("should return error when $paramName is invalid: '$value'", async ({
+    value,
+    paramName,
+  }) => {
+    const params = Promise.resolve({ [paramName]: value });
 
-      const result = await parseIdParam(params, paramName);
+    const result = await parseIdParam(params, paramName);
 
-      expect(result.isErr).toBe(true);
-      if (result.isErr) {
-        expect(result.error).toBeInstanceOf(ValidationError);
-        expect(result.error.message).toBe(
-          `Invalid ${paramName}: must be a number`,
-        );
-      }
-    },
-  );
+    expect(result.isErr).toBe(true);
+    if (result.isErr) {
+      expect(result.error).toBeInstanceOf(ValidationError);
+      expect(result.error.message).toBe(
+        `Invalid ${paramName}: must be a number`,
+      );
+    }
+  });
 
   it("should return error when ID contains decimal point", async () => {
     const params = Promise.resolve({ id: "12.5" });

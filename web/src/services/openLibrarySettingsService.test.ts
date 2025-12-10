@@ -146,20 +146,17 @@ describe("openLibrarySettingsService", () => {
         { detail: "" },
         "Failed to download files",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const urls = ["https://example.com/authors.txt.gz"];
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const urls = ["https://example.com/authors.txt.gz"];
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(downloadOpenLibraryDumps(urls)).rejects.toThrow(
-          expectedMessage,
-        );
-      },
-    );
+      await expect(downloadOpenLibraryDumps(urls)).rejects.toThrow(
+        expectedMessage,
+      );
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const urls = ["https://example.com/authors.txt.gz"];
@@ -309,22 +306,19 @@ describe("openLibrarySettingsService", () => {
         { detail: "" },
         "Failed to ingest files",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const options: IngestFilesRequest = {
-          process_authors: true,
-        };
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const options: IngestFilesRequest = {
+        process_authors: true,
+      };
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(ingestOpenLibraryDumps(options)).rejects.toThrow(
-          expectedMessage,
-        );
-      },
-    );
+      await expect(ingestOpenLibraryDumps(options)).rejects.toThrow(
+        expectedMessage,
+      );
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const options: IngestFilesRequest = {

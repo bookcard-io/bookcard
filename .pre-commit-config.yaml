@@ -42,26 +42,29 @@ repos:
           - --group=dev
         files: ^(pyproject\.toml|uv\.lock)$
   # linters
-  # this isn't working; remove for now
-  # - repo: https://github.com/biomejs/pre-commit
-  #   rev: v0.6.1
-  #   hooks:
-  #     - id: biome-check
-  #       additional_dependencies:
-  #         - '@biomejs/biome@2.3.4'
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.3
     hooks:
       - id: ruff-check
+        stages: [pre-commit]
       - id: ruff-format
+        stages: [pre-commit]
   - repo: local
     hooks:
+      - id: biome-check
+        name: biome check
+        entry: bash -c 'cd web && npm run lint:fix'
+        language: node
+        types: [text]
+        files: "\\.(jsx?|tsx?|c(js|ts)|m(js|ts)|d\\.(ts|cts|mts)|jsonc?|css|svelte|vue|astro|graphql|gql)$"
+        stages: [pre-commit]
       - id: ty
         name: run ty check
         entry: uv run --frozen ty check
         language: system
         types: [python]
         pass_filenames: true
+        stages: [pre-commit]
       - id: pytest
         name: run pytest with coverage
         entry: uv run --frozen pytest ./tests -q --cov=fundamental --cov-report= --cov-fail-under=90 -n auto

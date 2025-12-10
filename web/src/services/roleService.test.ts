@@ -112,24 +112,21 @@ describe("roleService", () => {
         { detail: "" },
         "Failed to fetch roles",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const mockResponse = {
-          ok: false,
-          json: vi.fn().mockResolvedValue(errorData),
-        };
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const mockResponse = {
+        ok: false,
+        json: vi.fn().mockResolvedValue(errorData),
+      };
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        vi.spyOn(fetchUtils, "deduplicateFetch").mockImplementation(
-          async (_url, fetcher) => fetcher(),
-        );
+      vi.spyOn(fetchUtils, "deduplicateFetch").mockImplementation(
+        async (_url, fetcher) => fetcher(),
+      );
 
-        await expect(fetchRoles()).rejects.toThrow(expectedMessage);
-      },
-    );
+      await expect(fetchRoles()).rejects.toThrow(expectedMessage);
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const mockResponse = {

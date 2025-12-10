@@ -222,39 +222,40 @@ describe("useFlyoutIntent", () => {
     { x: 165, y: 115, inside: false },
     { x: 60, y: 35, inside: false },
     { x: 60, y: 115, inside: false },
-  ])(
-    "should call onClose when pointer is outside padded union (x: $x, y: $y)",
-    ({ x, y, inside }) => {
-      const parentRect = new DOMRect(50, 50, 50, 50);
-      const menuRect = new DOMRect(100, 50, 50, 50);
-      const parentEl = createMockElement(parentRect);
-      const menuEl = createMockElement(menuRect);
-      const parentItemRef = { current: parentEl };
-      const menuRef = { current: menuEl };
-      const onClose = vi.fn();
+  ])("should call onClose when pointer is outside padded union (x: $x, y: $y)", ({
+    x,
+    y,
+    inside,
+  }) => {
+    const parentRect = new DOMRect(50, 50, 50, 50);
+    const menuRect = new DOMRect(100, 50, 50, 50);
+    const parentEl = createMockElement(parentRect);
+    const menuEl = createMockElement(menuRect);
+    const parentItemRef = { current: parentEl };
+    const menuRef = { current: menuEl };
+    const onClose = vi.fn();
 
-      renderHook(() =>
-        useFlyoutIntent({
-          isOpen: true,
-          parentItemRef,
-          menuRef,
-          onClose,
-          padding: 10,
-        }),
-      );
+    renderHook(() =>
+      useFlyoutIntent({
+        isOpen: true,
+        parentItemRef,
+        menuRef,
+        onClose,
+        padding: 10,
+      }),
+    );
 
-      const handlePointerMove = mockAddEventListener.mock.calls[0]?.[1];
-      if (!handlePointerMove) return;
-      const event = createPointerEvent(x, y);
-      handlePointerMove(event);
+    const handlePointerMove = mockAddEventListener.mock.calls[0]?.[1];
+    if (!handlePointerMove) return;
+    const event = createPointerEvent(x, y);
+    handlePointerMove(event);
 
-      if (inside) {
-        expect(onClose).not.toHaveBeenCalled();
-      } else {
-        expect(onClose).toHaveBeenCalled();
-      }
-    },
-  );
+    if (inside) {
+      expect(onClose).not.toHaveBeenCalled();
+    } else {
+      expect(onClose).toHaveBeenCalled();
+    }
+  });
 
   it("should use default padding of 10", () => {
     const parentRect = new DOMRect(50, 50, 50, 50);

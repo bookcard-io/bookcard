@@ -129,19 +129,14 @@ describe("openLibraryConfigService", () => {
         { detail: "" },
         "Failed to fetch configuration",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(getOpenLibraryDumpConfig()).rejects.toThrow(
-          expectedMessage,
-        );
-      },
-    );
+      await expect(getOpenLibraryDumpConfig()).rejects.toThrow(expectedMessage);
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const mockResponse = createMockResponse(
@@ -220,22 +215,19 @@ describe("openLibraryConfigService", () => {
         { detail: "" },
         "Failed to update configuration",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const updateData: OpenLibraryDumpConfigUpdate = {
-          enable_auto_download: false,
-        };
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const updateData: OpenLibraryDumpConfigUpdate = {
+        enable_auto_download: false,
+      };
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(updateOpenLibraryDumpConfig(updateData)).rejects.toThrow(
-          expectedMessage,
-        );
-      },
-    );
+      await expect(updateOpenLibraryDumpConfig(updateData)).rejects.toThrow(
+        expectedMessage,
+      );
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const updateData: OpenLibraryDumpConfigUpdate = {

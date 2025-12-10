@@ -97,21 +97,21 @@ describe("useAuthor", () => {
       { authorId: "/123", expected: "123" },
       { authorId: "123", expected: "123" },
       { authorId: "/authors/456/", expected: "456/" },
-    ])(
-      "should normalize authorId '$authorId' to '$expected'",
-      async ({ authorId, expected }) => {
-        const mockAuthor = createMockAuthor(expected);
-        vi.mocked(fetchAuthor).mockResolvedValue(mockAuthor);
+    ])("should normalize authorId '$authorId' to '$expected'", async ({
+      authorId,
+      expected,
+    }) => {
+      const mockAuthor = createMockAuthor(expected);
+      vi.mocked(fetchAuthor).mockResolvedValue(mockAuthor);
 
-        const { result } = renderHook(() => useAuthor({ authorId }));
+      const { result } = renderHook(() => useAuthor({ authorId }));
 
-        await waitFor(() => {
-          expect(result.current.isLoading).toBe(false);
-        });
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
 
-        expect(fetchAuthor).toHaveBeenCalledWith(expected);
-      },
-    );
+      expect(fetchAuthor).toHaveBeenCalledWith(expected);
+    });
 
     it("should handle fetch error", async () => {
       const errorMessage = "Author not found";

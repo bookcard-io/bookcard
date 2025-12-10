@@ -37,11 +37,11 @@ describe("deviceErrors utils", () => {
       { code: "other_error", expected: false },
       { code: "validation_failed", expected: false },
       { code: "", expected: false },
-    ])(
-      "should return $expected for error code '$code'",
-      ({ code, expected }) => {
-        expect(isEmailError(code)).toBe(expected);
-      },
-    );
+    ])("should return $expected for error code '$code'", ({
+      code,
+      expected,
+    }) => {
+      expect(isEmailError(code)).toBe(expected);
+    });
   });
 });

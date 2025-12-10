@@ -109,29 +109,30 @@ describe("epubRendering", () => {
         fontFamily: "OpenDyslexic" as FontFamily,
         fontSize: 20,
       },
-    ])(
-      "should apply theme for $pageColor, $fontFamily, fontSize $fontSize",
-      ({ pageColor, fontFamily, fontSize }) => {
-        const rendition = createMockRendition();
-        applyThemeToRendition(rendition, pageColor, fontFamily, fontSize);
+    ])("should apply theme for $pageColor, $fontFamily, fontSize $fontSize", ({
+      pageColor,
+      fontFamily,
+      fontSize,
+    }) => {
+      const rendition = createMockRendition();
+      applyThemeToRendition(rendition, pageColor, fontFamily, fontSize);
 
-        expect(rendition.themes.override).toHaveBeenCalledWith(
-          "color",
-          expect.any(String),
-        );
-        expect(rendition.themes.override).toHaveBeenCalledWith(
-          "background",
-          expect.any(String),
-        );
-        expect(rendition.themes.override).toHaveBeenCalledWith(
-          "font-family",
-          `"${fontFamily}"`,
-        );
-        expect(rendition.themes.fontSize).toHaveBeenCalledWith(
-          expect.stringContaining("%"),
-        );
-      },
-    );
+      expect(rendition.themes.override).toHaveBeenCalledWith(
+        "color",
+        expect.any(String),
+      );
+      expect(rendition.themes.override).toHaveBeenCalledWith(
+        "background",
+        expect.any(String),
+      );
+      expect(rendition.themes.override).toHaveBeenCalledWith(
+        "font-family",
+        `"${fontFamily}"`,
+      );
+      expect(rendition.themes.fontSize).toHaveBeenCalledWith(
+        expect.stringContaining("%"),
+      );
+    });
 
     it("should convert fontSize to percentage", () => {
       const rendition = createMockRendition();

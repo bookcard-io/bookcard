@@ -438,43 +438,44 @@ describe("useFlyoutPosition", () => {
       viewportWidth: 400,
       parentLeft: 250,
     },
-  ])(
-    "should choose direction based on available space",
-    ({ expectedDirection, viewportWidth, parentLeft }) => {
-      if (viewportWidth !== undefined && parentLeft !== undefined) {
-        Object.defineProperty(window, "innerWidth", {
-          writable: true,
-          configurable: true,
-          value: viewportWidth,
-        });
-      }
-
-      const parentRect = new DOMRect(parentLeft ?? 100, 100, 150, 50);
-      const menuRect = new DOMRect(0, 0, 200, 300);
-      const parentEl = createMockElement(parentRect);
-      const menuEl = createMockElement(menuRect);
-      const parentItemRef = { current: parentEl };
-
-      const { result } = renderHook(() =>
-        useFlyoutPosition({
-          isOpen: true,
-          parentItemRef,
-          mounted: true,
-        }),
-      );
-
-      result.current.menuRef.current = menuEl;
-
-      // Trigger position update manually
-      const updatePosition = mockAddEventListener.mock.calls[0]?.[1];
-      if (!updatePosition) {
-        throw new Error("updatePosition not found");
-      }
-      act(() => {
-        updatePosition();
+  ])("should choose direction based on available space", ({
+    expectedDirection,
+    viewportWidth,
+    parentLeft,
+  }) => {
+    if (viewportWidth !== undefined && parentLeft !== undefined) {
+      Object.defineProperty(window, "innerWidth", {
+        writable: true,
+        configurable: true,
+        value: viewportWidth,
       });
+    }
 
-      expect(result.current.direction).toBe(expectedDirection);
-    },
-  );
+    const parentRect = new DOMRect(parentLeft ?? 100, 100, 150, 50);
+    const menuRect = new DOMRect(0, 0, 200, 300);
+    const parentEl = createMockElement(parentRect);
+    const menuEl = createMockElement(menuRect);
+    const parentItemRef = { current: parentEl };
+
+    const { result } = renderHook(() =>
+      useFlyoutPosition({
+        isOpen: true,
+        parentItemRef,
+        mounted: true,
+      }),
+    );
+
+    result.current.menuRef.current = menuEl;
+
+    // Trigger position update manually
+    const updatePosition = mockAddEventListener.mock.calls[0]?.[1];
+    if (!updatePosition) {
+      throw new Error("updatePosition not found");
+    }
+    act(() => {
+      updatePosition();
+    });
+
+    expect(result.current.direction).toBe(expectedDirection);
+  });
 });

@@ -195,15 +195,15 @@ describe("useMainContent", () => {
       { tabParam: "library", expected: "library" },
       { tabParam: "shelves", expected: "shelves" },
       { tabParam: "invalid", expected: "library" },
-    ])(
-      "should initialize with tab from URL: tabParam=$tabParam",
-      ({ tabParam, expected }) => {
-        mockGet.mockReturnValue(tabParam);
-        const { result } = renderHook(() => useMainContent(), { wrapper });
+    ])("should initialize with tab from URL: tabParam=$tabParam", ({
+      tabParam,
+      expected,
+    }) => {
+      mockGet.mockReturnValue(tabParam);
+      const { result } = renderHook(() => useMainContent(), { wrapper });
 
-        expect(result.current.activeTab).toBe(expected);
-      },
-    );
+      expect(result.current.activeTab).toBe(expected);
+    });
 
     it("should return all hook results", () => {
       const { result } = renderHook(() => useMainContent(), { wrapper });

@@ -266,19 +266,16 @@ describe("scroll utils", () => {
       [100, "smooth"],
       [1000, "auto"],
       [-100, "smooth"],
-    ])(
-      "should scroll to position %d with behavior %s",
-      (position, behavior) => {
-        const scrollToSpy = vi.spyOn(window, "scrollTo");
+    ])("should scroll to position %d with behavior %s", (position, behavior) => {
+      const scrollToSpy = vi.spyOn(window, "scrollTo");
 
-        scrollWindowTo(position, behavior as ScrollBehavior);
+      scrollWindowTo(position, behavior as ScrollBehavior);
 
-        expect(scrollToSpy).toHaveBeenCalledWith({
-          top: position,
-          behavior,
-        });
-      },
-    );
+      expect(scrollToSpy).toHaveBeenCalledWith({
+        top: position,
+        behavior,
+      });
+    });
   });
 
   describe("scrollContainerTo", () => {
@@ -311,19 +308,16 @@ describe("scroll utils", () => {
       [100, "smooth"],
       [1000, "auto"],
       [-100, "smooth"],
-    ])(
-      "should scroll container to position %d with behavior %s",
-      (position, behavior) => {
-        const container = document.createElement("div");
-        const scrollToSpy = vi.spyOn(container, "scrollTo");
+    ])("should scroll container to position %d with behavior %s", (position, behavior) => {
+      const container = document.createElement("div");
+      const scrollToSpy = vi.spyOn(container, "scrollTo");
 
-        scrollContainerTo(container, position, behavior as ScrollBehavior);
+      scrollContainerTo(container, position, behavior as ScrollBehavior);
 
-        expect(scrollToSpy).toHaveBeenCalledWith({
-          top: position,
-          behavior,
-        });
-      },
-    );
+      expect(scrollToSpy).toHaveBeenCalledWith({
+        top: position,
+        behavior,
+      });
+    });
   });
 });

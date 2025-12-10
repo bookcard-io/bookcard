@@ -172,17 +172,17 @@ describe("createFilteredMetadataRecord", () => {
       field: "cover" as MetadataFieldKey,
       check: (r: MetadataRecord) => r.cover_url,
     },
-  ])(
-    "should include $field when selected and exclude when not",
-    ({ field, check }) => {
-      const record = createMockRecord();
-      const selectedFields = new Set<MetadataFieldKey>([field]);
+  ])("should include $field when selected and exclude when not", ({
+    field,
+    check,
+  }) => {
+    const record = createMockRecord();
+    const selectedFields = new Set<MetadataFieldKey>([field]);
 
-      const result = createFilteredMetadataRecord(record, selectedFields);
+    const result = createFilteredMetadataRecord(record, selectedFields);
 
-      expect(check(result)).toEqual(check(record));
-    },
-  );
+    expect(check(result)).toEqual(check(record));
+  });
 
   it("should handle series_index with series field", () => {
     const record = createMockRecord({ series: "Test Series", series_index: 5 });

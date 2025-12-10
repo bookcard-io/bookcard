@@ -331,32 +331,32 @@ describe("HttpShelfRepository", () => {
       { importer: "comicrack", autoMatch: false },
       { importer: "calibre", autoMatch: true },
       { importer: "calibre", autoMatch: false },
-    ])(
-      "should handle import with importer '$importer' and autoMatch $autoMatch",
-      async ({ importer, autoMatch }) => {
-        const importOptions = { importer, autoMatch };
-        const mockFormData = new FormData();
-        const mockResponse = createMockResponse(true, 200, mockImportResult);
+    ])("should handle import with importer '$importer' and autoMatch $autoMatch", async ({
+      importer,
+      autoMatch,
+    }) => {
+      const importOptions = { importer, autoMatch };
+      const mockFormData = new FormData();
+      const mockResponse = createMockResponse(true, 200, mockImportResult);
 
-        vi.mocked(buildImportFormData).mockReturnValue(mockFormData);
-        vi.mocked(mockClient.request).mockResolvedValue(mockResponse);
-        vi.mocked(parseJsonResponse).mockImplementation(
-          async () =>
-            ({
-              isOk: true,
-              value: mockImportResult,
-            }) as Result<ImportResult, ApiError>,
-        );
+      vi.mocked(buildImportFormData).mockReturnValue(mockFormData);
+      vi.mocked(mockClient.request).mockResolvedValue(mockResponse);
+      vi.mocked(parseJsonResponse).mockImplementation(
+        async () =>
+          ({
+            isOk: true,
+            value: mockImportResult,
+          }) as Result<ImportResult, ApiError>,
+      );
 
-        const result = await repository.importReadList(
-          shelfId,
-          file,
-          importOptions,
-        );
+      const result = await repository.importReadList(
+        shelfId,
+        file,
+        importOptions,
+      );
 
-        expect(buildImportFormData).toHaveBeenCalledWith(file, importOptions);
-        expect(result.isOk).toBe(true);
-      },
-    );
+      expect(buildImportFormData).toHaveBeenCalledWith(file, importOptions);
+      expect(result.isOk).toBe(true);
+    });
   });
 });

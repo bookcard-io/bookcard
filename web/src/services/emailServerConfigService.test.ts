@@ -134,17 +134,14 @@ describe("emailServerConfigService", () => {
         { detail: "" },
         "Failed to fetch email server config",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(fetchEmailServerConfig()).rejects.toThrow(expectedMessage);
-      },
-    );
+      await expect(fetchEmailServerConfig()).rejects.toThrow(expectedMessage);
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const mockResponse = createMockResponse(
@@ -202,20 +199,17 @@ describe("emailServerConfigService", () => {
         { detail: "" },
         "Failed to update email server config",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const updateData: EmailServerConfigUpdate = { enabled: false };
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const updateData: EmailServerConfigUpdate = { enabled: false };
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(updateEmailServerConfig(updateData)).rejects.toThrow(
-          expectedMessage,
-        );
-      },
-    );
+      await expect(updateEmailServerConfig(updateData)).rejects.toThrow(
+        expectedMessage,
+      );
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const updateData: EmailServerConfigUpdate = { enabled: true };

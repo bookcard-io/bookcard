@@ -169,16 +169,13 @@ describe("settingsApi", () => {
         { detail: "" },
         `Failed to save setting ${key}`,
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(saveSetting(key, value)).rejects.toThrow(expectedMessage);
-      },
-    );
+      await expect(saveSetting(key, value)).rejects.toThrow(expectedMessage);
+    });
   });
 });

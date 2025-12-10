@@ -175,18 +175,15 @@ describe("shelfService", () => {
         { detail: "" },
         "Failed to create shelf",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const shelfData: ShelfCreate = { name: "New Shelf", is_public: false };
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const shelfData: ShelfCreate = { name: "New Shelf", is_public: false };
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(createShelf(shelfData)).rejects.toThrow(expectedMessage);
-      },
-    );
+      await expect(createShelf(shelfData)).rejects.toThrow(expectedMessage);
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const shelfData: ShelfCreate = { name: "New Shelf", is_public: false };
@@ -235,17 +232,14 @@ describe("shelfService", () => {
         { detail: "" },
         "Failed to list shelves",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(listShelves()).rejects.toThrow(expectedMessage);
-      },
-    );
+      await expect(listShelves()).rejects.toThrow(expectedMessage);
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const mockResponse = createMockResponse(
@@ -293,17 +287,14 @@ describe("shelfService", () => {
         { detail: "" },
         "Failed to get shelf",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(getShelf(shelfId)).rejects.toThrow(expectedMessage);
-      },
-    );
+      await expect(getShelf(shelfId)).rejects.toThrow(expectedMessage);
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const mockResponse = createMockResponse(
@@ -360,20 +351,17 @@ describe("shelfService", () => {
         { detail: "" },
         "Failed to update shelf",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const shelfData: ShelfUpdate = { name: "Updated Shelf" };
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const shelfData: ShelfUpdate = { name: "Updated Shelf" };
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(updateShelf(shelfId, shelfData)).rejects.toThrow(
-          expectedMessage,
-        );
-      },
-    );
+      await expect(updateShelf(shelfId, shelfData)).rejects.toThrow(
+        expectedMessage,
+      );
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const shelfData: ShelfUpdate = { name: "Updated Shelf" };
@@ -422,17 +410,14 @@ describe("shelfService", () => {
         { detail: "" },
         "Failed to delete shelf",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(deleteShelf(shelfId)).rejects.toThrow(expectedMessage);
-      },
-    );
+      await expect(deleteShelf(shelfId)).rejects.toThrow(expectedMessage);
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const mockResponse = createMockResponse(
@@ -481,19 +466,16 @@ describe("shelfService", () => {
         { detail: "" },
         "Failed to add book to shelf",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(addBookToShelf(shelfId, bookId)).rejects.toThrow(
-          expectedMessage,
-        );
-      },
-    );
+      await expect(addBookToShelf(shelfId, bookId)).rejects.toThrow(
+        expectedMessage,
+      );
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const mockResponse = createMockResponse(
@@ -546,19 +528,16 @@ describe("shelfService", () => {
         { detail: "" },
         "Failed to remove book from shelf",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(removeBookFromShelf(shelfId, bookId)).rejects.toThrow(
-          expectedMessage,
-        );
-      },
-    );
+      await expect(removeBookFromShelf(shelfId, bookId)).rejects.toThrow(
+        expectedMessage,
+      );
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const mockResponse = createMockResponse(
@@ -609,19 +588,16 @@ describe("shelfService", () => {
         { detail: "" },
         "Failed to reorder shelf books",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(reorderShelfBooks(shelfId, bookOrders)).rejects.toThrow(
-          expectedMessage,
-        );
-      },
-    );
+      await expect(reorderShelfBooks(shelfId, bookOrders)).rejects.toThrow(
+        expectedMessage,
+      );
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const mockResponse = createMockResponse(
@@ -663,25 +639,22 @@ describe("shelfService", () => {
         "book_id",
         "page=1&sort_by=book_id&sort_order=asc",
       ],
-    ])(
-      "should get shelf books successfully %s",
-      async (_desc, page, sortBy, expectedParams) => {
-        const mockBookIds = [100, 101, 102];
-        const url = `${baseUrl}?${expectedParams}`;
-        const mockResponse = createMockResponse(true, mockBookIds);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should get shelf books successfully %s", async (_desc, page, sortBy, expectedParams) => {
+      const mockBookIds = [100, 101, 102];
+      const url = `${baseUrl}?${expectedParams}`;
+      const mockResponse = createMockResponse(true, mockBookIds);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        const result = await getShelfBooks(shelfId, page, sortBy);
+      const result = await getShelfBooks(shelfId, page, sortBy);
 
-        expect(globalThis.fetch).toHaveBeenCalledWith(url, {
-          method: "GET",
-          credentials: "include",
-        });
-        expect(result).toEqual(mockBookIds);
-      },
-    );
+      expect(globalThis.fetch).toHaveBeenCalledWith(url, {
+        method: "GET",
+        credentials: "include",
+      });
+      expect(result).toEqual(mockBookIds);
+    });
 
     it.each<[string, unknown, string]>([
       [
@@ -695,17 +668,14 @@ describe("shelfService", () => {
         { detail: "" },
         "Failed to get shelf books",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(getShelfBooks(shelfId)).rejects.toThrow(expectedMessage);
-      },
-    );
+      await expect(getShelfBooks(shelfId)).rejects.toThrow(expectedMessage);
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const mockResponse = createMockResponse(
@@ -766,20 +736,17 @@ describe("shelfService", () => {
         { detail: "" },
         "Failed to upload cover picture",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const file = new File(["test"], "cover.jpg", { type: "image/jpeg" });
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const file = new File(["test"], "cover.jpg", { type: "image/jpeg" });
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(uploadShelfCoverPicture(shelfId, file)).rejects.toThrow(
-          expectedMessage,
-        );
-      },
-    );
+      await expect(uploadShelfCoverPicture(shelfId, file)).rejects.toThrow(
+        expectedMessage,
+      );
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const file = new File(["test"], "cover.jpg", { type: "image/jpeg" });
@@ -845,19 +812,16 @@ describe("shelfService", () => {
         { detail: "" },
         "Failed to delete cover picture",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(deleteShelfCoverPicture(shelfId)).rejects.toThrow(
-          expectedMessage,
-        );
-      },
-    );
+      await expect(deleteShelfCoverPicture(shelfId)).rejects.toThrow(
+        expectedMessage,
+      );
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const mockResponse = createMockResponse(

@@ -135,25 +135,25 @@ describe("parseJsonResponse", () => {
     { status: 403, detail: "Forbidden" },
     { status: 404, detail: "Not found" },
     { status: 500, detail: "Internal server error" },
-  ])(
-    "should handle error response with status $status and detail '$detail'",
-    async ({ status, detail }) => {
-      const errorData = { detail };
-      const response = createMockResponse(
-        false,
-        status,
-        JSON.stringify(errorData),
-      );
+  ])("should handle error response with status $status and detail '$detail'", async ({
+    status,
+    detail,
+  }) => {
+    const errorData = { detail };
+    const response = createMockResponse(
+      false,
+      status,
+      JSON.stringify(errorData),
+    );
 
-      const result = await parseJsonResponse(response, "Default error");
+    const result = await parseJsonResponse(response, "Default error");
 
-      expect(result.isErr).toBe(true);
-      if (result.isErr) {
-        expect(result.error.statusCode).toBe(status);
-        expect(result.error.message).toBe(detail);
-      }
-    },
-  );
+    expect(result.isErr).toBe(true);
+    if (result.isErr) {
+      expect(result.error.statusCode).toBe(status);
+      expect(result.error.message).toBe(detail);
+    }
+  });
 
   it("should parse complex nested JSON objects", async () => {
     const data = {
@@ -244,17 +244,17 @@ describe("buildImportFormData", () => {
     { importer: "comicrack", autoMatch: false },
     { importer: "calibre", autoMatch: true },
     { importer: "calibre", autoMatch: false },
-  ])(
-    "should build FormData with importer '$importer' and autoMatch $autoMatch",
-    ({ importer, autoMatch }) => {
-      const file = createMockFile();
-      const options = { importer, autoMatch };
+  ])("should build FormData with importer '$importer' and autoMatch $autoMatch", ({
+    importer,
+    autoMatch,
+  }) => {
+    const file = createMockFile();
+    const options = { importer, autoMatch };
 
-      const formData = buildImportFormData(file, options);
+    const formData = buildImportFormData(file, options);
 
-      expect(formData.get("file")).toBe(file);
-      expect(formData.get("importer")).toBe(importer);
-      expect(formData.get("auto_match")).toBe(String(autoMatch));
-    },
-  );
+    expect(formData.get("file")).toBe(file);
+    expect(formData.get("importer")).toBe(importer);
+    expect(formData.get("auto_match")).toBe(String(autoMatch));
+  });
 });

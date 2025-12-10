@@ -131,22 +131,19 @@ describe("userService", () => {
         { detail: "" },
         "Failed to create user",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const userData: UserCreate = {
-          username: "testuser",
-          email: "test@example.com",
-          password: "password123",
-        };
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const userData: UserCreate = {
+        username: "testuser",
+        email: "test@example.com",
+        password: "password123",
+      };
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(createUser(userData)).rejects.toThrow(expectedMessage);
-      },
-    );
+      await expect(createUser(userData)).rejects.toThrow(expectedMessage);
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const userData: UserCreate = {
@@ -207,20 +204,17 @@ describe("userService", () => {
         { detail: "" },
         "Failed to update user",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const userData: UserUpdate = { email: "updated@example.com" };
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const userData: UserUpdate = { email: "updated@example.com" };
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(updateUser(userId, userData)).rejects.toThrow(
-          expectedMessage,
-        );
-      },
-    );
+      await expect(updateUser(userId, userData)).rejects.toThrow(
+        expectedMessage,
+      );
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const userData: UserUpdate = { email: "updated@example.com" };
@@ -269,17 +263,14 @@ describe("userService", () => {
         { detail: "" },
         "Failed to delete user",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(deleteUser(userId)).rejects.toThrow(expectedMessage);
-      },
-    );
+      await expect(deleteUser(userId)).rejects.toThrow(expectedMessage);
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const mockResponse = createMockResponse(

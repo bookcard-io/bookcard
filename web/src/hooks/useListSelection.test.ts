@@ -30,50 +30,55 @@ describe("useListSelection", () => {
       { itemCount: 5, initialIndex: 0, expected: 0 },
       { itemCount: 5, initialIndex: 2, expected: 2 },
       { itemCount: 5, initialIndex: 4, expected: 4 },
-    ])(
-      "should initialize with itemCount=$itemCount, initialIndex=$initialIndex",
-      ({ itemCount, initialIndex, expected }) => {
-        const { result } = renderHook(() =>
-          useListSelection({
-            itemCount,
-            ...(initialIndex !== undefined && { initialIndex }),
-          }),
-        );
+    ])("should initialize with itemCount=$itemCount, initialIndex=$initialIndex", ({
+      itemCount,
+      initialIndex,
+      expected,
+    }) => {
+      const { result } = renderHook(() =>
+        useListSelection({
+          itemCount,
+          ...(initialIndex !== undefined && { initialIndex }),
+        }),
+      );
 
-        expect(result.current.selectedIndex).toBe(expected);
-        expect(result.current.hoveredIndex).toBe(-1);
-      },
-    );
+      expect(result.current.selectedIndex).toBe(expected);
+      expect(result.current.hoveredIndex).toBe(-1);
+    });
   });
 
   describe("setSelectedIndex", () => {
-    it.each([{ index: -1 }, { index: 0 }, { index: 2 }, { index: 4 }])(
-      "should set selected index to $index",
-      ({ index }) => {
-        const { result } = renderHook(() => useListSelection({ itemCount: 5 }));
+    it.each([
+      { index: -1 },
+      { index: 0 },
+      { index: 2 },
+      { index: 4 },
+    ])("should set selected index to $index", ({ index }) => {
+      const { result } = renderHook(() => useListSelection({ itemCount: 5 }));
 
-        act(() => {
-          result.current.setSelectedIndex(index);
-        });
+      act(() => {
+        result.current.setSelectedIndex(index);
+      });
 
-        expect(result.current.selectedIndex).toBe(index);
-      },
-    );
+      expect(result.current.selectedIndex).toBe(index);
+    });
   });
 
   describe("setHoveredIndex", () => {
-    it.each([{ index: -1 }, { index: 0 }, { index: 2 }, { index: 4 }])(
-      "should set hovered index to $index",
-      ({ index }) => {
-        const { result } = renderHook(() => useListSelection({ itemCount: 5 }));
+    it.each([
+      { index: -1 },
+      { index: 0 },
+      { index: 2 },
+      { index: 4 },
+    ])("should set hovered index to $index", ({ index }) => {
+      const { result } = renderHook(() => useListSelection({ itemCount: 5 }));
 
-        act(() => {
-          result.current.setHoveredIndex(index);
-        });
+      act(() => {
+        result.current.setHoveredIndex(index);
+      });
 
-        expect(result.current.hoveredIndex).toBe(index);
-      },
-    );
+      expect(result.current.hoveredIndex).toBe(index);
+    });
   });
 
   describe("selectNext", () => {
@@ -83,24 +88,25 @@ describe("useListSelection", () => {
       { itemCount: 5, prevIndex: 0, expected: 1 },
       { itemCount: 5, prevIndex: 3, expected: 4 },
       { itemCount: 5, prevIndex: 4, expected: 0 }, // Wraps around
-    ])(
-      "should select next with itemCount=$itemCount, prevIndex=$prevIndex",
-      ({ itemCount, prevIndex, expected }) => {
-        const { result } = renderHook(() => useListSelection({ itemCount }));
+    ])("should select next with itemCount=$itemCount, prevIndex=$prevIndex", ({
+      itemCount,
+      prevIndex,
+      expected,
+    }) => {
+      const { result } = renderHook(() => useListSelection({ itemCount }));
 
-        if (prevIndex >= 0) {
-          act(() => {
-            result.current.setSelectedIndex(prevIndex);
-          });
-        }
-
+      if (prevIndex >= 0) {
         act(() => {
-          result.current.selectNext();
+          result.current.setSelectedIndex(prevIndex);
         });
+      }
 
-        expect(result.current.selectedIndex).toBe(expected);
-      },
-    );
+      act(() => {
+        result.current.selectNext();
+      });
+
+      expect(result.current.selectedIndex).toBe(expected);
+    });
 
     it("should not select next when disabled", () => {
       const { result } = renderHook(() =>
@@ -126,24 +132,25 @@ describe("useListSelection", () => {
       { itemCount: 5, prevIndex: 0, expected: 4 }, // Wraps around
       { itemCount: 5, prevIndex: 1, expected: 0 },
       { itemCount: 5, prevIndex: 4, expected: 3 },
-    ])(
-      "should select previous with itemCount=$itemCount, prevIndex=$prevIndex",
-      ({ itemCount, prevIndex, expected }) => {
-        const { result } = renderHook(() => useListSelection({ itemCount }));
+    ])("should select previous with itemCount=$itemCount, prevIndex=$prevIndex", ({
+      itemCount,
+      prevIndex,
+      expected,
+    }) => {
+      const { result } = renderHook(() => useListSelection({ itemCount }));
 
-        if (prevIndex >= 0) {
-          act(() => {
-            result.current.setSelectedIndex(prevIndex);
-          });
-        }
-
+      if (prevIndex >= 0) {
         act(() => {
-          result.current.selectPrevious();
+          result.current.setSelectedIndex(prevIndex);
         });
+      }
 
-        expect(result.current.selectedIndex).toBe(expected);
-      },
-    );
+      act(() => {
+        result.current.selectPrevious();
+      });
+
+      expect(result.current.selectedIndex).toBe(expected);
+    });
 
     it("should not select previous when disabled", () => {
       const { result } = renderHook(() =>

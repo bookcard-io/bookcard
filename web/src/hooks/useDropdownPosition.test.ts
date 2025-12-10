@@ -216,49 +216,48 @@ describe("useDropdownPosition", () => {
     it.each([
       { hasButton: true, desc: "with button ref" },
       { hasButton: false, desc: "with cursor fallback" },
-    ])(
-      "should auto-flip up when menu would overflow bottom $desc",
-      async ({ hasButton }) => {
-        const cursorPosition = { x: 250, y: hasButton ? 125 : 400 };
-        const menuRef = { current: document.createElement("div") };
-        const menuElement = menuRef.current as HTMLElement;
-        // Large height that would overflow
-        menuElement.getBoundingClientRect = vi.fn(() => ({
-          top: 0,
-          left: 0,
-          right: 100,
-          bottom: 1000,
-          width: 100,
-          height: 1000,
-          x: 0,
-          y: 0,
-          toJSON: vi.fn(),
-        }));
+    ])("should auto-flip up when menu would overflow bottom $desc", async ({
+      hasButton,
+    }) => {
+      const cursorPosition = { x: 250, y: hasButton ? 125 : 400 };
+      const menuRef = { current: document.createElement("div") };
+      const menuElement = menuRef.current as HTMLElement;
+      // Large height that would overflow
+      menuElement.getBoundingClientRect = vi.fn(() => ({
+        top: 0,
+        left: 0,
+        right: 100,
+        bottom: 1000,
+        width: 100,
+        height: 1000,
+        x: 0,
+        y: 0,
+        toJSON: vi.fn(),
+      }));
 
-        // Set window height to be smaller than menu would need
-        Object.defineProperty(window, "innerHeight", {
-          writable: true,
-          configurable: true,
-          value: 500,
-        });
+      // Set window height to be smaller than menu would need
+      Object.defineProperty(window, "innerHeight", {
+        writable: true,
+        configurable: true,
+        value: 500,
+      });
 
-        const buttonRefToUse = hasButton ? buttonRef : { current: null };
+      const buttonRefToUse = hasButton ? buttonRef : { current: null };
 
-        const { result } = renderHook(() =>
-          useDropdownPosition({
-            isOpen: true,
-            buttonRef: buttonRefToUse,
-            cursorPosition,
-            menuRef,
-          }),
-        );
+      const { result } = renderHook(() =>
+        useDropdownPosition({
+          isOpen: true,
+          buttonRef: buttonRefToUse,
+          cursorPosition,
+          menuRef,
+        }),
+      );
 
-        await waitFor(() => {
-          // Should flip up
-          expect(result.current.position.top).toBe(0);
-        });
-      },
-    );
+      await waitFor(() => {
+        // Should flip up
+        expect(result.current.position.top).toBe(0);
+      });
+    });
 
     it("should position down when menu would not overflow", async () => {
       const cursorPosition = { x: 250, y: 125 };
@@ -491,9 +490,23 @@ describe("useDropdownPosition", () => {
       },
     ];
 
-    it.each(scenarios)(
-      "$desc",
-      async ({
+    it.each(scenarios)("$desc", async ({
+      hasButton,
+      horizontalAlign,
+      autoFlipHorizontal,
+      alignLeftEdge,
+      menuWidth,
+      windowWidth,
+      cursorX,
+      expectedKey,
+      expectOffset,
+    }) => {
+      // For 'with button', buttonRect.left is 200.
+      // We want menuX to be cursorX.
+      // In implementation: menuX = buttonRect.left + (cursorPos.x - buttonRect.left) = cursorPos.x
+      // So passing cursorX is sufficient.
+
+      const { result } = setupHorizontalTest(
         hasButton,
         horizontalAlign,
         autoFlipHorizontal,
@@ -501,51 +514,34 @@ describe("useDropdownPosition", () => {
         menuWidth,
         windowWidth,
         cursorX,
-        expectedKey,
-        expectOffset,
-      }) => {
-        // For 'with button', buttonRect.left is 200.
-        // We want menuX to be cursorX.
-        // In implementation: menuX = buttonRect.left + (cursorPos.x - buttonRect.left) = cursorPos.x
-        // So passing cursorX is sufficient.
+      );
 
-        const { result } = setupHorizontalTest(
-          hasButton,
-          horizontalAlign,
-          autoFlipHorizontal,
-          alignLeftEdge,
-          menuWidth,
-          windowWidth,
-          cursorX,
-        );
+      await waitFor(() => {
+        if (expectedKey === "left") {
+          expect(result.current.position.left).toBeDefined();
+          expect(result.current.position.right).toBeUndefined();
+          expect(result.current.position.left).toBe(cursorX);
+        } else {
+          expect(result.current.position.right).toBeDefined();
+          expect(result.current.position.left).toBeUndefined();
+          // right = windowWidth - menuX - MENU_OFFSET_X (-2)
+          expect(result.current.position.right).toBe(
+            windowWidth - cursorX - -2,
+          );
+        }
 
-        await waitFor(() => {
-          if (expectedKey === "left") {
-            expect(result.current.position.left).toBeDefined();
-            expect(result.current.position.right).toBeUndefined();
-            expect(result.current.position.left).toBe(cursorX);
-          } else {
-            expect(result.current.position.right).toBeDefined();
-            expect(result.current.position.left).toBeUndefined();
-            // right = windowWidth - menuX - MENU_OFFSET_X (-2)
-            expect(result.current.position.right).toBe(
-              windowWidth - cursorX - -2,
-            );
-          }
-
-          if (expectOffset) {
-            // 100 (cursorY) + 2 (MENU_OFFSET_Y) + 8 (extra offset) = 110
-            // But careful, buttonRef case might have different Y calculation if button moved?
-            // No, buttonRect.top=100 in mock, cursorY=100.
-            // implementation: menuY = buttonRect.top + (cursorPos.y - buttonRect.top) = cursorPos.y = 100.
-            // top = 100 + 2 + 8 = 110.
-            expect(result.current.position.top).toBe(110);
-          } else {
-            // 100 + 2 = 102
-            expect(result.current.position.top).toBe(102);
-          }
-        });
-      },
-    );
+        if (expectOffset) {
+          // 100 (cursorY) + 2 (MENU_OFFSET_Y) + 8 (extra offset) = 110
+          // But careful, buttonRef case might have different Y calculation if button moved?
+          // No, buttonRect.top=100 in mock, cursorY=100.
+          // implementation: menuY = buttonRect.top + (cursorPos.y - buttonRect.top) = cursorPos.y = 100.
+          // top = 100 + 2 + 8 = 110.
+          expect(result.current.position.top).toBe(110);
+        } else {
+          // 100 + 2 = 102
+          expect(result.current.position.top).toBe(102);
+        }
+      });
+    });
   });
 });

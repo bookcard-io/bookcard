@@ -24,35 +24,35 @@ describe("epubReaderStyles", () => {
       { pageColor: "light" as PageColor, isDark: false },
       { pageColor: "sepia" as PageColor, isDark: false },
       { pageColor: "lightGreen" as PageColor, isDark: false },
-    ])(
-      "should create reader styles for $pageColor theme",
-      ({ pageColor, isDark }) => {
-        const styles = createReaderStyles(pageColor);
+    ])("should create reader styles for $pageColor theme", ({
+      pageColor,
+      isDark,
+    }) => {
+      const styles = createReaderStyles(pageColor);
 
-        expect(styles).toBeDefined();
-        expect(styles.readerArea).toBeDefined();
-        expect(styles.readerArea.backgroundColor).toBeDefined();
-        expect(styles.readerArea.transition).toBeUndefined();
-        expect(styles.titleArea).toBeDefined();
-        expect(styles.tocArea).toBeDefined();
-        expect(styles.tocAreaButton).toBeDefined();
-        expect(styles.tocBackground).toBeDefined();
-        expect(styles.tocButtonExpanded).toBeDefined();
-        expect(styles.tocButton).toBeDefined();
-        expect(styles.tocButton.display).toBe("none");
+      expect(styles).toBeDefined();
+      expect(styles.readerArea).toBeDefined();
+      expect(styles.readerArea.backgroundColor).toBeDefined();
+      expect(styles.readerArea.transition).toBeUndefined();
+      expect(styles.titleArea).toBeDefined();
+      expect(styles.tocArea).toBeDefined();
+      expect(styles.tocAreaButton).toBeDefined();
+      expect(styles.tocBackground).toBeDefined();
+      expect(styles.tocButtonExpanded).toBeDefined();
+      expect(styles.tocButton).toBeDefined();
+      expect(styles.tocButton.display).toBe("none");
 
-        if (isDark) {
-          expect(styles.arrow).toBeDefined();
-          expect(styles.arrow.color).toBe("#fff");
-          expect(styles.arrowHover).toBeDefined();
-          expect(styles.arrowHover.color).toBe("#ccc");
-          expect(styles.titleArea.color).toBe("#ccc");
-          expect(styles.tocButton.color).toBe("white");
-        } else {
-          expect(styles.titleArea.color).toBeDefined();
-        }
-      },
-    );
+      if (isDark) {
+        expect(styles.arrow).toBeDefined();
+        expect(styles.arrow.color).toBe("#fff");
+        expect(styles.arrowHover).toBeDefined();
+        expect(styles.arrowHover.color).toBe("#ccc");
+        expect(styles.titleArea.color).toBe("#ccc");
+        expect(styles.tocButton.color).toBe("white");
+      } else {
+        expect(styles.titleArea.color).toBeDefined();
+      }
+    });
 
     it("should include all ReactReaderStyle properties for dark theme", () => {
       const styles = createReaderStyles("dark");
@@ -121,25 +121,25 @@ describe("epubReaderStyles", () => {
       { pageColor: "light" as PageColor, isDark: false },
       { pageColor: "sepia" as PageColor, isDark: false },
       { pageColor: "lightGreen" as PageColor, isDark: false },
-    ])(
-      "should create TOC hover styles for $pageColor theme",
-      ({ pageColor, isDark }) => {
-        const css = createTocHoverStyles(pageColor);
+    ])("should create TOC hover styles for $pageColor theme", ({
+      pageColor,
+      isDark,
+    }) => {
+      const css = createTocHoverStyles(pageColor);
 
-        expect(css).toBeDefined();
-        expect(typeof css).toBe("string");
-        expect(css).toContain('div[style*="overflowY"] button:hover');
-        expect(css).toContain("background-color");
-        expect(css).toContain("color");
-        expect(css).toContain("transition");
+      expect(css).toBeDefined();
+      expect(typeof css).toBe("string");
+      expect(css).toContain('div[style*="overflowY"] button:hover');
+      expect(css).toContain("background-color");
+      expect(css).toContain("color");
+      expect(css).toContain("transition");
 
-        if (isDark) {
-          expect(css).toContain("rgba(255, 255, 255, 0.1)");
-        } else {
-          expect(css).toContain("rgba(0, 0, 0, 0.05)");
-        }
-      },
-    );
+      if (isDark) {
+        expect(css).toContain("rgba(255, 255, 255, 0.1)");
+      } else {
+        expect(css).toContain("rgba(0, 0, 0, 0.05)");
+      }
+    });
 
     it("should include correct hover background for dark theme", () => {
       const css = createTocHoverStyles("dark");

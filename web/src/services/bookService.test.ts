@@ -104,22 +104,19 @@ describe("bookService", () => {
         { toEmail: "test@example.com", fileFormat: "MOBI" },
         { to_email: "test@example.com", file_format: "MOBI" },
       ],
-    ])(
-      "should send book successfully %s",
-      async (_desc, options, expectedBody) => {
-        const mockResponse = createMockResponse(true);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should send book successfully %s", async (_desc, options, expectedBody) => {
+      const mockResponse = createMockResponse(true);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await sendBookToDevice(bookId, options);
+      await sendBookToDevice(bookId, options);
 
-        expect(globalThis.fetch).toHaveBeenCalledWith(baseUrl, {
-          ...baseOptions,
-          body: JSON.stringify(expectedBody),
-        });
-      },
-    );
+      expect(globalThis.fetch).toHaveBeenCalledWith(baseUrl, {
+        ...baseOptions,
+        body: JSON.stringify(expectedBody),
+      });
+    });
 
     it.each<[string, unknown, string]>([
       [
@@ -133,17 +130,14 @@ describe("bookService", () => {
         { detail: "" },
         "Failed to send book",
       ],
-    ])(
-      "should throw error when response is not ok %s",
-      async (_desc, errorData, expectedMessage) => {
-        const mockResponse = createMockResponse(false, errorData);
-        (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-          mockResponse,
-        );
+    ])("should throw error when response is not ok %s", async (_desc, errorData, expectedMessage) => {
+      const mockResponse = createMockResponse(false, errorData);
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
 
-        await expect(sendBookToDevice(bookId)).rejects.toThrow(expectedMessage);
-      },
-    );
+      await expect(sendBookToDevice(bookId)).rejects.toThrow(expectedMessage);
+    });
 
     it("should throw error when JSON parsing fails", async () => {
       const mockResponse = createMockResponse(

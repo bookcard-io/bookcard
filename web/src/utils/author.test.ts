@@ -118,32 +118,32 @@ describe("buildRematchAuthorId", () => {
     { calibre_id: 0, expected: "calibre-0" },
     { calibre_id: 999, expected: "calibre-999" },
     { calibre_id: -1, expected: "calibre--1" },
-  ])(
-    "should handle calibre_id $calibre_id and return '$expected'",
-    ({ calibre_id, expected }) => {
-      const author = createMockAuthor({ calibre_id });
+  ])("should handle calibre_id $calibre_id and return '$expected'", ({
+    calibre_id,
+    expected,
+  }) => {
+    const author = createMockAuthor({ calibre_id });
 
-      const result = buildRematchAuthorId(author);
+    const result = buildRematchAuthorId(author);
 
-      expect(result).toBe(expected);
-    },
-  );
+    expect(result).toBe(expected);
+  });
 
   it.each([
     { key: "calibre-123", expected: "calibre-123" },
     { key: "calibre-0", expected: "calibre-0" },
     { key: "calibre-abc", expected: "calibre-abc" },
-  ])(
-    "should return existing key '$key' when it starts with calibre-",
-    ({ key, expected }) => {
-      const author = createMockAuthor({
-        calibre_id: undefined,
-        key,
-      });
+  ])("should return existing key '$key' when it starts with calibre-", ({
+    key,
+    expected,
+  }) => {
+    const author = createMockAuthor({
+      calibre_id: undefined,
+      key,
+    });
 
-      const result = buildRematchAuthorId(author);
+    const result = buildRematchAuthorId(author);
 
-      expect(result).toBe(expected);
-    },
-  );
+    expect(result).toBe(expected);
+  });
 });
