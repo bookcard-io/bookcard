@@ -15,9 +15,10 @@
 
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/libs/utils";
 import { ComicPage } from "./ComicPage";
+import { usePagedNavigation } from "./hooks/usePagedNavigation";
 
 export interface PagedComicViewProps {
   bookId: number;
@@ -33,6 +34,38 @@ export interface PagedComicViewProps {
   readingDirection?: "ltr" | "rtl";
   zoomLevel?: number;
   className?: string;
+  /** Number of pages to preload before and after current page (default: 3) */
+  overscan?: number;
+}
+
+/**
+ * Calculate which pages to preload based on current page and overscan.
+ */
+function getPreloadPages(
+  currentPage: number,
+  totalPages: number,
+  overscan: number,
+  spreadMode: boolean,
+): number[] {
+  const pages = new Set<number>();
+
+  // Visible pages
+  pages.add(currentPage);
+  if (spreadMode && currentPage < totalPages) {
+    pages.add(currentPage + 1);
+  }
+
+  // Overscan pages (before and after)
+  const startPage = spreadMode ? currentPage : currentPage;
+  for (let i = 1; i <= overscan; i++) {
+    const before = startPage - i;
+    const after = spreadMode ? currentPage + 1 + i : currentPage + i;
+
+    if (before >= 1) pages.add(before);
+    if (after <= totalPages) pages.add(after);
+  }
+
+  return Array.from(pages).sort((a, b) => a - b);
 }
 
 /**
@@ -40,7 +73,11 @@ export interface PagedComicViewProps {
  *
  * Displays comic pages one at a time with navigation controls.
  * Supports spread mode for two-page displays.
- * Follows SRP by focusing solely on paged display logic.
+ *
+ * This refactored version follows:
+ * - SRP: Focuses only on rendering; navigation logic extracted to hooks
+ * - SOC: Input handling separated from display logic
+ * - DRY: Uses shared navigation hooks
  *
  * Parameters
  * ----------
@@ -61,202 +98,94 @@ export function PagedComicView({
   readingDirection = "ltr",
   zoomLevel = 1.0,
   className,
+  overscan = 3,
 }: PagedComicViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(
-    null,
-  );
-  const SWIPE_THRESHOLD = 50; // Minimum distance for swipe
-  const SWIPE_TIME_THRESHOLD = 300; // Maximum time for swipe (ms)
+  const loadedPagesRef = useRef<Set<number>>(new Set());
+  const currentPagesRef = useRef<number[]>([]);
 
-  // Handle keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      ) {
-        return;
-      }
-
-      switch (e.key) {
-        case "ArrowRight":
-        case " ": // Spacebar
-          if (readingDirection === "ltr" && canGoNext) {
-            e.preventDefault();
-            onNext();
-          } else if (readingDirection === "rtl" && canGoPrevious) {
-            e.preventDefault();
-            onPrevious();
-          }
-          break;
-        case "ArrowLeft":
-          if (readingDirection === "ltr" && canGoPrevious) {
-            e.preventDefault();
-            onPrevious();
-          } else if (readingDirection === "rtl" && canGoNext) {
-            e.preventDefault();
-            onNext();
-          }
-          break;
-        case "Home":
-          e.preventDefault();
-          onPageChange(1);
-          break;
-        case "End":
-          e.preventDefault();
-          onPageChange(totalPages);
-          break;
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [
-    canGoNext,
-    canGoPrevious,
-    onNext,
-    onPrevious,
-    onPageChange,
-    readingDirection,
-    totalPages,
-  ]);
-
-  // Handle touch gestures
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    if (!touch) {
-      return;
-    }
-    touchStartRef.current = {
-      x: touch.clientX,
-      y: touch.clientY,
-      time: Date.now(),
-    };
-  }, []);
-
-  const handleTouchEnd = useCallback(
-    (e: React.TouchEvent) => {
-      if (!touchStartRef.current) {
-        return;
-      }
-
-      const touch = e.changedTouches[0];
-      if (!touch) {
-        touchStartRef.current = null;
-        return;
-      }
-
-      const deltaX = touch.clientX - touchStartRef.current.x;
-      const deltaY = touch.clientY - touchStartRef.current.y;
-      const deltaTime = Date.now() - touchStartRef.current.time;
-
-      // Check if it's a quick swipe
-      if (deltaTime > SWIPE_TIME_THRESHOLD) {
-        touchStartRef.current = null;
-        return;
-      }
-
-      const absDeltaX = Math.abs(deltaX);
-      const absDeltaY = Math.abs(deltaY);
-
-      // Determine if horizontal or vertical swipe
-      if (absDeltaX > absDeltaY && absDeltaX > SWIPE_THRESHOLD) {
-        // Horizontal swipe
-        if (readingDirection === "ltr") {
-          if (deltaX > 0 && canGoPrevious) {
-            onPrevious();
-          } else if (deltaX < 0 && canGoNext) {
-            onNext();
-          }
-        } else if (readingDirection === "rtl") {
-          // RTL: reversed
-          if (deltaX > 0 && canGoNext) {
-            onNext();
-          } else if (deltaX < 0 && canGoPrevious) {
-            onPrevious();
-          }
-        }
-      } else if (absDeltaY > absDeltaX && absDeltaY > SWIPE_THRESHOLD) {
-        // Vertical swipe - not used in paged mode, but handle for consistency
-        // Vertical reading direction would use continuous/webtoon modes
-      }
-
-      touchStartRef.current = null;
-    },
-    [canGoNext, canGoPrevious, onNext, onPrevious, readingDirection],
-  );
-
-  // Handle click zones for navigation
-  const handleContainerClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!containerRef.current) {
-        return;
-      }
-
-      const rect = containerRef.current.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const width = rect.width;
-
-      // Left third: previous page
-      // Right third: next page
-      // Middle third: no action (or could toggle UI)
-      if (readingDirection === "ltr") {
-        if (clickX < width / 3 && canGoPrevious) {
-          onPrevious();
-        } else if (clickX > (width * 2) / 3 && canGoNext) {
-          onNext();
-        }
-      } else {
-        // RTL: reversed
-        if (clickX < width / 3 && canGoNext) {
-          onNext();
-        } else if (clickX > (width * 2) / 3 && canGoPrevious) {
-          onPrevious();
-        }
-      }
-    },
-    [canGoNext, canGoPrevious, onNext, onPrevious, readingDirection],
-  );
-
-  // Handle keyboard navigation
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        // Simulate click at center for keyboard navigation
-        if (canGoNext) {
-          onNext();
-        } else if (canGoPrevious) {
-          onPrevious();
-        }
-      }
-    },
-    [canGoNext, canGoPrevious, onNext, onPrevious],
-  );
+  // Use extracted navigation hook (SRP improvement)
+  const { handleContainerClick, handleTouchStart, handleTouchEnd } =
+    usePagedNavigation({
+      containerRef,
+      readingDirection,
+      totalPages,
+      canGoNext,
+      canGoPrevious,
+      onNext,
+      onPrevious,
+      onGoToPage: onPageChange,
+    });
 
   // Calculate pages to display (spread mode or single page)
-  const pagesToDisplay =
-    spreadMode && currentPage < totalPages
-      ? [currentPage, currentPage + 1]
-      : [currentPage];
+  const pagesToDisplay = useMemo(
+    () =>
+      spreadMode && currentPage < totalPages
+        ? [currentPage, currentPage + 1]
+        : [currentPage],
+    [currentPage, spreadMode, totalPages],
+  );
+
+  // Calculate pages to cache (3-page overscan: previous, current, next)
+  const pagesToCache = useMemo(
+    () => getPreloadPages(currentPage, totalPages, overscan, spreadMode),
+    [currentPage, totalPages, overscan, spreadMode],
+  );
+
+  // Reset loading state when visible pages change
+  useEffect(() => {
+    const pagesChanged =
+      currentPagesRef.current.length !== pagesToDisplay.length ||
+      !currentPagesRef.current.every((p, i) => p === pagesToDisplay[i]);
+
+    if (pagesChanged) {
+      currentPagesRef.current = [...pagesToDisplay];
+      loadedPagesRef.current = new Set();
+      setIsLoading(true);
+    }
+  }, [pagesToDisplay]);
+
+  // Track when pages load
+  const handlePageLoad = useCallback(
+    (pageNum: number) => {
+      // Track all cached pages loading, but only show loading for visible pages
+      loadedPagesRef.current.add(pageNum);
+
+      // Check if all visible pages are now loaded
+      const allLoaded = pagesToDisplay.every((p) =>
+        loadedPagesRef.current.has(p),
+      );
+
+      if (allLoaded && isLoading) {
+        setIsLoading(false);
+      }
+    },
+    [pagesToDisplay, isLoading],
+  );
 
   return (
     <section
       ref={containerRef}
       className={cn("flex h-screen w-full overflow-auto", className)}
       onClick={handleContainerClick}
-      onKeyDown={handleKeyDown}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          if (canGoNext) {
+            onNext();
+          } else if (canGoPrevious) {
+            onPrevious();
+          }
+        }
+      }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      aria-label="Comic page viewer"
+      aria-label={`Comic page viewer, page ${currentPage} of ${totalPages}`}
     >
       <div
         className={cn(
-          "m-auto flex items-center justify-center transition-[width,height] duration-200 ease-out",
+          "m-auto flex shrink-0 items-center justify-center transition-[width,height] duration-200 ease-out",
           spreadMode && pagesToDisplay.length === 2 && "gap-0",
         )}
         style={{
@@ -270,7 +199,7 @@ export function PagedComicView({
             bookId={bookId}
             format={format}
             pageNumber={pageNum}
-            onLoad={() => setIsLoading(false)}
+            onLoad={() => handlePageLoad(pageNum)}
             className={cn(
               "h-full w-full object-contain",
               spreadMode && "w-1/2",
@@ -278,8 +207,29 @@ export function PagedComicView({
           />
         ))}
       </div>
+
+      {/* Preload adjacent pages for seamless navigation (hidden) */}
+      <div className="sr-only" aria-hidden="true">
+        {pagesToCache
+          .filter((pageNum) => !pagesToDisplay.includes(pageNum))
+          .map((pageNum) => (
+            <ComicPage
+              key={pageNum}
+              bookId={bookId}
+              format={format}
+              pageNumber={pageNum}
+              onLoad={() => handlePageLoad(pageNum)}
+              className="h-full w-full object-contain"
+            />
+          ))}
+      </div>
+
+      {/* Loading overlay - only shows when pages are initially loading */}
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-surface-tonal-a0">
+        <div
+          className="absolute inset-0 flex items-center justify-center bg-surface-tonal-a0"
+          aria-live="polite"
+        >
           <span className="text-text-a40">Loading page...</span>
         </div>
       )}

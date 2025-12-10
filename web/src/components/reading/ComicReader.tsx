@@ -242,6 +242,7 @@ export function ComicReader({
             {...baseViewProps}
             onPageChange={handlePageChange}
             onRegisterJump={navigation.registerJumpHandler}
+            initialPage={progress?.page_number || null}
           />
         );
       }
@@ -251,6 +252,7 @@ export function ComicReader({
             {...baseViewProps}
             onPageChange={handlePageChange}
             onRegisterJump={navigation.registerJumpHandler}
+            initialPage={progress?.page_number || null}
           />
         );
       }

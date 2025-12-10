@@ -15,133 +15,62 @@
 
 "use client";
 
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { useEffect, useRef, useState } from "react";
-import { cn } from "@/libs/utils";
-import { ComicPage } from "./ComicPage";
+import { forwardRef } from "react";
+import {
+  BaseVirtualizedComicView,
+  type BaseVirtualizedComicViewProps,
+  type VirtualizedComicViewHandle,
+  type VirtualizedViewConfig,
+  WEBTOON_CONFIG,
+} from "./BaseVirtualizedComicView";
 
-export interface WebtoonComicViewProps {
-  bookId: number;
-  format: string;
-  totalPages: number;
-  onPageChange: (page: number, totalPages: number, progress: number) => void;
-  onRegisterJump?: (handler: (progress: number) => void) => void;
-  zoomLevel?: number;
-  className?: string;
+export interface WebtoonComicViewProps
+  extends Omit<BaseVirtualizedComicViewProps, "config"> {
+  config?: Partial<VirtualizedViewConfig>;
+  /** Initial page number to jump to on load (1-based) */
+  initialPage?: number | null;
 }
 
+export interface WebtoonComicViewHandle extends VirtualizedComicViewHandle {}
+
 /**
- * Webtoon-style comic view component.
+ * Webtoon-style comic view with smooth infinite scrolling.
  *
+ * Thin wrapper around BaseVirtualizedComicView with webtoon-specific defaults.
  * Displays comic pages in an infinite vertical scroll.
  * Pages are loaded as the user scrolls down.
- * Follows SRP by focusing solely on webtoon display logic.
+ *
+ * This refactored version follows:
+ * - DRY: Reuses BaseVirtualizedComicView instead of duplicating code
+ * - SRP: Focuses solely on configuration, delegates rendering to base component
+ * - OCP: Configurable via props, extensible without modification
+ * - Consistency: Uses useVisiblePage hook like ContinuousComicView
  *
  * Parameters
  * ----------
  * props : WebtoonComicViewProps
- *     Component props including page navigation and display options.
+ *     Component props including book data, callbacks, and optional config overrides.
+ * ref : WebtoonComicViewHandle
+ *     Imperative handle for programmatic navigation.
  */
-export function WebtoonComicView({
-  bookId,
-  format,
-  totalPages,
-  onPageChange,
-  onRegisterJump,
-  zoomLevel = 1.0,
-  className,
-}: WebtoonComicViewProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-
-  const rowVirtualizer = useVirtualizer({
-    count: totalPages,
-    getScrollElement: () => containerRef.current,
-    estimateSize: () => 800,
-    overscan: 5, // Higher overscan for smoother webtoon scrolling
-  });
-
-  // Handle jump registration
-  useEffect(() => {
-    if (onRegisterJump) {
-      onRegisterJump((progress) => {
-        const targetPage = Math.max(
-          1,
-          Math.min(Math.ceil(progress * totalPages), totalPages),
-        );
-        rowVirtualizer.scrollToIndex(targetPage - 1, { align: "start" });
-      });
-    }
-  }, [onRegisterJump, totalPages, rowVirtualizer]);
-
-  // Track which page is currently in view
-  const virtualItems = rowVirtualizer.getVirtualItems();
-
-  useEffect(() => {
-    if (!containerRef.current || virtualItems.length === 0) {
-      return;
-    }
-
-    const container = containerRef.current;
-    const containerHeight = container.clientHeight;
-    const scrollTop = container.scrollTop;
-    const viewportCenterOffset = scrollTop + containerHeight / 2;
-
-    let closestPage = currentPage;
-    let closestDistance = Infinity;
-
-    for (const item of virtualItems) {
-      const itemCenter = (item.start + item.end) / 2;
-      const distance = Math.abs(viewportCenterOffset - itemCenter);
-
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestPage = item.index + 1;
-      }
-    }
-
-    if (closestPage !== currentPage) {
-      setCurrentPage(closestPage);
-      const progress = closestPage / totalPages;
-      onPageChange(closestPage, totalPages, progress);
-    }
-  }, [virtualItems, currentPage, totalPages, onPageChange]);
+export const WebtoonComicView = forwardRef<
+  WebtoonComicViewHandle,
+  WebtoonComicViewProps
+>((props, ref) => {
+  const { config, initialPage, ...restProps } = props;
+  const mergedConfig: VirtualizedViewConfig = {
+    ...WEBTOON_CONFIG,
+    ...config,
+  };
 
   return (
-    <div
-      ref={containerRef}
-      className={cn(
-        "h-screen w-full overflow-x-auto overflow-y-auto",
-        className,
-      )}
-    >
-      <div
-        className="relative mx-auto flex flex-col items-center transition-[width] duration-200 ease-out"
-        style={{
-          width: "100%",
-          height: `${rowVirtualizer.getTotalSize()}px`,
-        }}
-      >
-        {virtualItems.map((virtualRow) => (
-          <div
-            key={virtualRow.key}
-            data-index={virtualRow.index}
-            ref={rowVirtualizer.measureElement}
-            className="absolute top-0 left-0 flex w-full"
-            style={{
-              transform: `translateY(${virtualRow.start}px)`,
-              height: `${zoomLevel * 100}vh`,
-            }}
-          >
-            <ComicPage
-              bookId={bookId}
-              format={format}
-              pageNumber={virtualRow.index + 1}
-              className="mx-auto h-full w-auto object-contain"
-            />
-          </div>
-        ))}
-      </div>
-    </div>
+    <BaseVirtualizedComicView
+      ref={ref}
+      {...restProps}
+      config={mergedConfig}
+      initialPage={initialPage}
+    />
   );
-}
+});
+
+WebtoonComicView.displayName = "WebtoonComicView";

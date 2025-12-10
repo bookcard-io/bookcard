@@ -33,7 +33,7 @@ export interface UseComicNavigationResult {
   goToFirst: () => void;
   goToLast: () => void;
   jumpToProgress: (progress: number) => void;
-  registerJumpHandler: (handler: (progress: number) => void) => void;
+  registerJumpHandler: (handler: ((progress: number) => void) | null) => void;
 }
 
 /**
@@ -59,6 +59,7 @@ export function useComicNavigation({
 }: UseComicNavigationOptions): UseComicNavigationResult {
   const [currentPage, setCurrentPage] = useState(initialPage || 1);
   const isInitialLoadRef = useRef(true);
+  const hasNavigatedToInitialPageRef = useRef(false);
   const jumpHandlerRef = useRef<((progress: number) => void) | null>(null);
 
   // Navigate to initial page when it becomes available
@@ -66,12 +67,13 @@ export function useComicNavigation({
     if (
       initialPage &&
       totalPages > 0 &&
-      isInitialLoadRef.current &&
+      !hasNavigatedToInitialPageRef.current &&
       initialPage >= 1 &&
-      initialPage <= totalPages
+      initialPage <= totalPages &&
+      currentPage !== initialPage
     ) {
       setCurrentPage(initialPage);
-      isInitialLoadRef.current = false;
+      hasNavigatedToInitialPageRef.current = true;
 
       // Calculate and report progress
       if (onPageChange) {
@@ -82,7 +84,7 @@ export function useComicNavigation({
       // If no initial page, start at page 1
       isInitialLoadRef.current = false;
     }
-  }, [initialPage, totalPages, onPageChange]);
+  }, [initialPage, totalPages, onPageChange, currentPage]);
 
   // Ensure current page is within bounds
   useEffect(() => {
@@ -143,7 +145,7 @@ export function useComicNavigation({
   );
 
   const registerJumpHandler = useCallback(
-    (handler: (progress: number) => void) => {
+    (handler: ((progress: number) => void) | null) => {
       jumpHandlerRef.current = handler;
     },
     [],

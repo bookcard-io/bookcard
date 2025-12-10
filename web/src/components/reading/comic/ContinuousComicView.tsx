@@ -15,150 +15,61 @@
 
 "use client";
 
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
-import { cn } from "@/libs/utils";
-import { ComicPage } from "./ComicPage";
-import { useVisiblePage } from "./hooks/useVisiblePage";
+import { forwardRef } from "react";
+import {
+  BaseVirtualizedComicView,
+  type BaseVirtualizedComicViewProps,
+  CONTINUOUS_CONFIG,
+  type VirtualizedComicViewHandle,
+  type VirtualizedViewConfig,
+} from "./BaseVirtualizedComicView";
 
-export interface ContinuousComicViewProps {
-  bookId: number;
-  format: string;
-  totalPages: number;
-  onPageChange: (page: number, totalPages: number, progress: number) => void;
-  onRegisterJump?: (handler: (progress: number) => void) => void;
-  zoomLevel?: number;
-  className?: string;
-  config?: {
-    estimatedPageHeight?: number;
-    overscan?: number;
-    baseWidthPercent?: number;
-  };
+export interface ContinuousComicViewProps
+  extends Omit<BaseVirtualizedComicViewProps, "config"> {
+  config?: Partial<VirtualizedViewConfig>;
+  /** Initial page number to jump to on load (1-based) */
+  initialPage?: number | null;
 }
 
-export interface ContinuousComicViewHandle {
-  jumpToPage: (page: number) => void;
-  jumpToProgress: (progress: number) => void;
-}
+export interface ContinuousComicViewHandle extends VirtualizedComicViewHandle {}
 
 /**
- * Continuous comic view component.
+ * Continuous comic view with page snapping.
  *
+ * Thin wrapper around BaseVirtualizedComicView with continuous-specific defaults.
  * Displays comic pages in a vertical scroll with page snapping.
  * Users can scroll continuously through all pages.
- * Follows SRP by focusing solely on continuous display logic.
+ *
+ * This refactored version follows:
+ * - DRY: Reuses BaseVirtualizedComicView instead of duplicating code
+ * - SRP: Focuses solely on configuration, delegates rendering to base component
+ * - OCP: Configurable via props, extensible without modification
  *
  * Parameters
  * ----------
  * props : ContinuousComicViewProps
- *     Component props including page navigation and display options.
+ *     Component props including book data, callbacks, and optional config overrides.
+ * ref : ContinuousComicViewHandle
+ *     Imperative handle for programmatic navigation.
  */
 export const ContinuousComicView = forwardRef<
   ContinuousComicViewHandle,
   ContinuousComicViewProps
->(
-  (
-    {
-      bookId,
-      format,
-      totalPages,
-      onPageChange,
-      onRegisterJump,
-      zoomLevel = 1.0,
-      className,
-      config,
-    },
-    ref,
-  ) => {
-    const containerRef = useRef<HTMLDivElement>(null);
+>((props, ref) => {
+  const { config, initialPage, ...restProps } = props;
+  const mergedConfig: VirtualizedViewConfig = {
+    ...CONTINUOUS_CONFIG,
+    ...config,
+  };
 
-    const rowVirtualizer = useVirtualizer({
-      count: totalPages,
-      getScrollElement: () => containerRef.current,
-      estimateSize: () => config?.estimatedPageHeight ?? 800,
-      overscan: config?.overscan ?? 3,
-    });
-
-    const virtualItems = rowVirtualizer.getVirtualItems();
-    const currentPage = useVisiblePage(containerRef, virtualItems);
-
-    // Notify parent of page changes
-    const lastReportedPageRef = useRef(currentPage);
-    useEffect(() => {
-      if (currentPage !== lastReportedPageRef.current) {
-        lastReportedPageRef.current = currentPage;
-        const progress = currentPage / totalPages;
-        onPageChange(currentPage, totalPages, progress);
-      }
-    }, [currentPage, totalPages, onPageChange]);
-
-    // Imperative handle for jumping
-    useImperativeHandle(
-      ref,
-      () => ({
-        jumpToPage: (page: number) => {
-          const clamped = Math.max(1, Math.min(page, totalPages));
-          rowVirtualizer.scrollToIndex(clamped - 1, { align: "start" });
-        },
-        jumpToProgress: (progress: number) => {
-          const page = Math.ceil(progress * totalPages);
-          const target = Math.max(1, Math.min(page, totalPages));
-          rowVirtualizer.scrollToIndex(target - 1, { align: "start" });
-        },
-      }),
-      [totalPages, rowVirtualizer],
-    );
-
-    // Backward compatibility for onRegisterJump
-    useEffect(() => {
-      if (onRegisterJump) {
-        onRegisterJump((progress) => {
-          const page = Math.ceil(progress * totalPages);
-          const target = Math.max(1, Math.min(page, totalPages));
-          rowVirtualizer.scrollToIndex(target - 1, { align: "start" });
-        });
-      }
-    }, [onRegisterJump, totalPages, rowVirtualizer]);
-
-    return (
-      <section
-        ref={containerRef}
-        aria-label={`Comic reader, page ${currentPage} of ${totalPages}`}
-        className={cn(
-          "h-screen w-full snap-y snap-mandatory overflow-x-auto overflow-y-auto",
-          className,
-        )}
-      >
-        <div
-          className="relative mx-auto flex flex-col items-center transition-[width] duration-200 ease-out"
-          style={{
-            width: "100%",
-            height: `${rowVirtualizer.getTotalSize()}px`,
-          }}
-        >
-          {virtualItems.map((virtualRow) => (
-            <div
-              key={virtualRow.key}
-              data-index={virtualRow.index}
-              ref={rowVirtualizer.measureElement}
-              className="absolute top-0 left-0 flex w-full snap-start"
-              style={{
-                transform: `translateY(${virtualRow.start}px)`,
-                height: `${zoomLevel * 100}vh`,
-              }}
-            >
-              <ComicPage
-                bookId={bookId}
-                format={format}
-                pageNumber={virtualRow.index + 1}
-                className="mx-auto h-full w-auto object-contain"
-              />
-            </div>
-          ))}
-        </div>
-      </section>
-    );
-  },
-);
+  return (
+    <BaseVirtualizedComicView
+      ref={ref}
+      {...restProps}
+      config={mergedConfig}
+      initialPage={initialPage}
+    />
+  );
+});
 
 ContinuousComicView.displayName = "ContinuousComicView";
