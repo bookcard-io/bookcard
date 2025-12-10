@@ -128,7 +128,6 @@ export function BookCard({
                   {!selected && (
                     <BookCardCenterActions
                       onReadClick={handleReadClick}
-                      onInfoClick={handleClick}
                       isReading={isNavigating}
                     />
                   )}
