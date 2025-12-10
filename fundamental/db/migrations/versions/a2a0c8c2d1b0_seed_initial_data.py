@@ -137,6 +137,10 @@ def upgrade() -> None:  # noqa: C901
         "auto_convert_target_format": "epub",
         "auto_convert_ignored_formats": ["epub", "pdf"],
         "auto_convert_backup_originals": True,
+        "comic_reading_mode": "paged",
+        "comic_reading_direction": "ltr",
+        "comic_spread_mode": True,
+        "comic_zoom_level": "1.0",
     }
 
     for key, value in default_settings.items():

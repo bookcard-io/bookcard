@@ -84,6 +84,10 @@ DEFAULT_USER_SETTINGS: dict[str, str | bool | list[str]] = {
     "auto_convert_target_format": "epub",
     "auto_convert_ignored_formats": ["epub", "pdf"],
     "auto_convert_backup_originals": True,
+    "comic_reading_mode": "paged",
+    "comic_reading_direction": "ltr",
+    "comic_spread_mode": True,
+    "comic_zoom_level": "1.0",
 }
 
 

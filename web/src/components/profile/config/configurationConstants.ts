@@ -124,6 +124,11 @@ export const READING_FONT_SIZE_SETTING_KEY = "reading_font_size";
 export const READING_PAGE_COLOR_SETTING_KEY = "reading_page_color";
 export const READING_PAGE_LAYOUT_SETTING_KEY = "reading_page_layout";
 
+export const COMIC_READING_MODE_SETTING_KEY = "comic_reading_mode";
+export const COMIC_READING_DIRECTION_SETTING_KEY = "comic_reading_direction";
+export const COMIC_SPREAD_MODE_SETTING_KEY = "comic_spread_mode";
+export const COMIC_ZOOM_LEVEL_SETTING_KEY = "comic_zoom_level";
+
 export const ENABLED_METADATA_PROVIDERS_SETTING_KEY =
   "enabled_metadata_providers";
 
