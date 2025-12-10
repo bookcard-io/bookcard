@@ -90,11 +90,13 @@ describe("useDropdownPosition", () => {
   it("should fallback to cursor position when button ref is null", () => {
     const nullButtonRef = { current: null };
     const cursorPosition = { x: 250, y: 125 };
+    const menuRef = { current: null };
     const { result } = renderHook(() =>
       useDropdownPosition({
         isOpen: true,
         buttonRef: nullButtonRef,
         cursorPosition,
+        menuRef,
       }),
     );
 
@@ -210,143 +212,340 @@ describe("useDropdownPosition", () => {
     expect(result.current.position.top - initialTop).toBe(100); // Button moved 100px down
   });
 
-  it("should auto-flip up when menu would overflow bottom with button ref", async () => {
-    const cursorPosition = { x: 250, y: 125 };
-    const menuRef = { current: document.createElement("div") };
-    const menuElement = menuRef.current as HTMLElement;
-    menuElement.getBoundingClientRect = vi.fn(() => ({
-      top: 0,
-      left: 0,
-      right: 100,
-      bottom: 1000, // Large height that would overflow
-      width: 100,
-      height: 1000,
-      x: 0,
-      y: 0,
-      toJSON: vi.fn(),
-    }));
+  describe("Vertical Flipping", () => {
+    it.each([
+      { hasButton: true, desc: "with button ref" },
+      { hasButton: false, desc: "with cursor fallback" },
+    ])(
+      "should auto-flip up when menu would overflow bottom $desc",
+      async ({ hasButton }) => {
+        const cursorPosition = { x: 250, y: hasButton ? 125 : 400 };
+        const menuRef = { current: document.createElement("div") };
+        const menuElement = menuRef.current as HTMLElement;
+        // Large height that would overflow
+        menuElement.getBoundingClientRect = vi.fn(() => ({
+          top: 0,
+          left: 0,
+          right: 100,
+          bottom: 1000,
+          width: 100,
+          height: 1000,
+          x: 0,
+          y: 0,
+          toJSON: vi.fn(),
+        }));
 
-    // Set window height to be smaller than menu would need
-    Object.defineProperty(window, "innerHeight", {
-      writable: true,
-      configurable: true,
-      value: 500,
-    });
+        // Set window height to be smaller than menu would need
+        Object.defineProperty(window, "innerHeight", {
+          writable: true,
+          configurable: true,
+          value: 500,
+        });
 
-    const { result } = renderHook(() =>
-      useDropdownPosition({
-        isOpen: true,
-        buttonRef,
-        cursorPosition,
-        menuRef,
-      }),
+        const buttonRefToUse = hasButton ? buttonRef : { current: null };
+
+        const { result } = renderHook(() =>
+          useDropdownPosition({
+            isOpen: true,
+            buttonRef: buttonRefToUse,
+            cursorPosition,
+            menuRef,
+          }),
+        );
+
+        await waitFor(() => {
+          // Should flip up
+          expect(result.current.position.top).toBe(0);
+        });
+      },
     );
 
-    await waitFor(() => {
-      // Should flip up: top = max(0, buttonRect.bottom - measuredHeight)
-      // buttonRect.bottom = 150, measuredHeight = 1000
-      // top = max(0, 150 - 1000) = max(0, -850) = 0
-      expect(result.current.position.top).toBe(0);
+    it("should position down when menu would not overflow", async () => {
+      const cursorPosition = { x: 250, y: 125 };
+      const menuRef = { current: document.createElement("div") };
+      const menuElement = menuRef.current as HTMLElement;
+      menuElement.getBoundingClientRect = vi.fn(() => ({
+        top: 0,
+        left: 0,
+        right: 100,
+        bottom: 100,
+        width: 100,
+        height: 100,
+        x: 0,
+        y: 0,
+        toJSON: vi.fn(),
+      }));
+
+      Object.defineProperty(window, "innerHeight", {
+        writable: true,
+        configurable: true,
+        value: 1000,
+      });
+
+      const { result } = renderHook(() =>
+        useDropdownPosition({
+          isOpen: true,
+          buttonRef,
+          cursorPosition,
+          menuRef,
+        }),
+      );
+
+      await waitFor(() => {
+        // Should not flip
+        expect(result.current.position.top).toBe(127);
+      });
+    });
+
+    it("should handle menu ref being null", async () => {
+      const cursorPosition = { x: 250, y: 125 };
+      const nullMenuRef = { current: null };
+
+      const { result } = renderHook(() =>
+        useDropdownPosition({
+          isOpen: true,
+          buttonRef,
+          cursorPosition,
+          menuRef: nullMenuRef,
+        }),
+      );
+
+      await waitFor(() => {
+        expect(result.current.position.top).toBe(127);
+      });
     });
   });
 
-  it("should auto-flip up when menu would overflow bottom with cursor fallback", async () => {
-    const nullButtonRef = { current: null };
-    const cursorPosition = { x: 250, y: 400 };
-    const menuRef = { current: document.createElement("div") };
-    const menuElement = menuRef.current as HTMLElement;
-    menuElement.getBoundingClientRect = vi.fn(() => ({
-      top: 0,
-      left: 0,
-      right: 100,
-      bottom: 500,
-      width: 100,
-      height: 500,
-      x: 0,
-      y: 0,
-      toJSON: vi.fn(),
-    }));
+  describe("Horizontal Alignment & Auto-Flip", () => {
+    // Shared setup for horizontal tests
+    const setupHorizontalTest = (
+      hasButton: boolean,
+      horizontalAlign: "left" | "right",
+      autoFlipHorizontal: boolean,
+      alignLeftEdge: boolean,
+      menuWidth: number,
+      windowWidth: number,
+      cursorX: number,
+    ) => {
+      const menuRef = { current: document.createElement("div") };
+      const menuElement = menuRef.current as HTMLElement;
+      menuElement.getBoundingClientRect = vi.fn(() => ({
+        top: 0,
+        left: 0,
+        right: menuWidth,
+        bottom: 100,
+        width: menuWidth,
+        height: 100,
+        x: 0,
+        y: 0,
+        toJSON: vi.fn(),
+      }));
 
-    // Set window height to be smaller than menu would need
-    Object.defineProperty(window, "innerHeight", {
-      writable: true,
-      configurable: true,
-      value: 600,
-    });
+      Object.defineProperty(window, "innerWidth", {
+        writable: true,
+        configurable: true,
+        value: windowWidth,
+      });
 
-    const { result } = renderHook(() =>
-      useDropdownPosition({
-        isOpen: true,
-        buttonRef: nullButtonRef,
-        cursorPosition,
-        menuRef,
-      }),
+      const buttonRefToUse = hasButton ? buttonRef : { current: null };
+      const cursorPosition = { x: cursorX, y: 100 };
+
+      return renderHook(() =>
+        useDropdownPosition({
+          isOpen: true,
+          buttonRef: buttonRefToUse,
+          cursorPosition,
+          menuRef,
+          horizontalAlign,
+          autoFlipHorizontal,
+          alignLeftEdge,
+        }),
+      );
+    };
+
+    const scenarios = [
+      // 1. Basic Right Align (no flip)
+      {
+        desc: "Basic right align, no overflow",
+        hasButton: true,
+        horizontalAlign: "right" as const,
+        autoFlipHorizontal: true,
+        alignLeftEdge: false,
+        menuWidth: 100,
+        windowWidth: 1000,
+        cursorX: 250, // menuX = 250
+        expectedKey: "right",
+      },
+      {
+        desc: "Basic right align, no overflow (fallback)",
+        hasButton: false,
+        horizontalAlign: "right" as const,
+        autoFlipHorizontal: true,
+        alignLeftEdge: false,
+        menuWidth: 100,
+        windowWidth: 1000,
+        cursorX: 250,
+        expectedKey: "right",
+      },
+      // 2. Basic Left Align (no flip)
+      {
+        desc: "Basic left align, no overflow",
+        hasButton: true,
+        horizontalAlign: "left" as const,
+        autoFlipHorizontal: true,
+        alignLeftEdge: false,
+        menuWidth: 100,
+        windowWidth: 1000,
+        cursorX: 250, // menuX = 250
+        expectedKey: "left",
+      },
+      {
+        desc: "Basic left align, no overflow (fallback)",
+        hasButton: false,
+        horizontalAlign: "left" as const,
+        autoFlipHorizontal: true,
+        alignLeftEdge: false,
+        menuWidth: 100,
+        windowWidth: 1000,
+        cursorX: 250,
+        expectedKey: "left",
+      },
+      // 3. Right Align -> Overflow Left -> Flip to Left
+      // menuX = 50. Right align implies extending left.
+      // If menuX < width (100), it overflows left.
+      {
+        desc: "Right align overflows left edge -> flip to left (with button)",
+        hasButton: true,
+        horizontalAlign: "right" as const,
+        autoFlipHorizontal: true,
+        alignLeftEdge: false,
+        menuWidth: 100,
+        windowWidth: 1000,
+        cursorX: 50, // Button rect left is 200. We need menuX to be 50.
+        // Wait, menuX = buttonRect.left + (cursorX - buttonRect.left) = cursorX.
+        // But in test setup, buttonRect.left is 200.
+        // To get menuX = 50, we need cursorX=50.
+        // 50 - 100 = -50 < 0. Flip to left.
+        expectedKey: "left",
+      },
+      {
+        desc: "Right align overflows left edge -> flip to left (fallback)",
+        hasButton: false,
+        horizontalAlign: "right" as const,
+        autoFlipHorizontal: true,
+        alignLeftEdge: false,
+        menuWidth: 100,
+        windowWidth: 1000,
+        cursorX: 50,
+        expectedKey: "left",
+      },
+      // 4. Left Align -> Overflow Right -> Flip to Right
+      // menuX = 950. Width = 100. windowWidth = 1000.
+      // 950 + 100 = 1050 > 1000. Flip to right.
+      {
+        desc: "Left align overflows right edge -> flip to right (with button)",
+        hasButton: true,
+        horizontalAlign: "left" as const,
+        autoFlipHorizontal: true,
+        alignLeftEdge: false,
+        menuWidth: 100,
+        windowWidth: 1000,
+        cursorX: 950,
+        expectedKey: "right",
+      },
+      {
+        desc: "Left align overflows right edge -> flip to right (fallback)",
+        hasButton: false,
+        horizontalAlign: "left" as const,
+        autoFlipHorizontal: true,
+        alignLeftEdge: false,
+        menuWidth: 100,
+        windowWidth: 1000,
+        cursorX: 950,
+        expectedKey: "right",
+      },
+      // 5. Align Left Edge Force
+      {
+        desc: "Align left edge forces left and adds offset (with button)",
+        hasButton: true,
+        horizontalAlign: "right" as const, // Should be ignored
+        autoFlipHorizontal: false,
+        alignLeftEdge: true,
+        menuWidth: 100,
+        windowWidth: 1000,
+        cursorX: 250,
+        expectedKey: "left",
+        expectOffset: true,
+      },
+      {
+        desc: "Align left edge forces left and adds offset (fallback)",
+        hasButton: false,
+        horizontalAlign: "right" as const, // Should be ignored
+        autoFlipHorizontal: false,
+        alignLeftEdge: true,
+        menuWidth: 100,
+        windowWidth: 1000,
+        cursorX: 250,
+        expectedKey: "left",
+        expectOffset: true,
+      },
+    ];
+
+    it.each(scenarios)(
+      "$desc",
+      async ({
+        hasButton,
+        horizontalAlign,
+        autoFlipHorizontal,
+        alignLeftEdge,
+        menuWidth,
+        windowWidth,
+        cursorX,
+        expectedKey,
+        expectOffset,
+      }) => {
+        // For 'with button', buttonRect.left is 200.
+        // We want menuX to be cursorX.
+        // In implementation: menuX = buttonRect.left + (cursorPos.x - buttonRect.left) = cursorPos.x
+        // So passing cursorX is sufficient.
+
+        const { result } = setupHorizontalTest(
+          hasButton,
+          horizontalAlign,
+          autoFlipHorizontal,
+          alignLeftEdge,
+          menuWidth,
+          windowWidth,
+          cursorX,
+        );
+
+        await waitFor(() => {
+          if (expectedKey === "left") {
+            expect(result.current.position.left).toBeDefined();
+            expect(result.current.position.right).toBeUndefined();
+            expect(result.current.position.left).toBe(cursorX);
+          } else {
+            expect(result.current.position.right).toBeDefined();
+            expect(result.current.position.left).toBeUndefined();
+            // right = windowWidth - menuX - MENU_OFFSET_X (-2)
+            expect(result.current.position.right).toBe(
+              windowWidth - cursorX - -2,
+            );
+          }
+
+          if (expectOffset) {
+            // 100 (cursorY) + 2 (MENU_OFFSET_Y) + 8 (extra offset) = 110
+            // But careful, buttonRef case might have different Y calculation if button moved?
+            // No, buttonRect.top=100 in mock, cursorY=100.
+            // implementation: menuY = buttonRect.top + (cursorPos.y - buttonRect.top) = cursorPos.y = 100.
+            // top = 100 + 2 + 8 = 110.
+            expect(result.current.position.top).toBe(110);
+          } else {
+            // 100 + 2 = 102
+            expect(result.current.position.top).toBe(102);
+          }
+        });
+      },
     );
-
-    await waitFor(() => {
-      // Should flip up: top = max(0, cursorPosition.y - measuredHeight)
-      // cursorPosition.y = 400, measuredHeight = 500
-      // downTop = 400 + 2 = 402, wouldOverflow = 402 + 500 > 600 = true
-      // top = max(0, 400 - 500) = max(0, -100) = 0
-      expect(result.current.position.top).toBe(0);
-    });
-  });
-
-  it("should position down when menu would not overflow", async () => {
-    const cursorPosition = { x: 250, y: 125 };
-    const menuRef = { current: document.createElement("div") };
-    const menuElement = menuRef.current as HTMLElement;
-    menuElement.getBoundingClientRect = vi.fn(() => ({
-      top: 0,
-      left: 0,
-      right: 100,
-      bottom: 100,
-      width: 100,
-      height: 100,
-      x: 0,
-      y: 0,
-      toJSON: vi.fn(),
-    }));
-
-    Object.defineProperty(window, "innerHeight", {
-      writable: true,
-      configurable: true,
-      value: 1000,
-    });
-
-    const { result } = renderHook(() =>
-      useDropdownPosition({
-        isOpen: true,
-        buttonRef,
-        cursorPosition,
-        menuRef,
-      }),
-    );
-
-    await waitFor(() => {
-      // Should not flip: downTop = 125 + 2 = 127, wouldOverflow = 127 + 100 > 1000 = false
-      // top = 127
-      expect(result.current.position.top).toBe(127);
-    });
-  });
-
-  it("should handle menu ref being null", async () => {
-    const cursorPosition = { x: 250, y: 125 };
-    const nullMenuRef = { current: null };
-
-    const { result } = renderHook(() =>
-      useDropdownPosition({
-        isOpen: true,
-        buttonRef,
-        cursorPosition,
-        menuRef: nullMenuRef,
-      }),
-    );
-
-    await waitFor(() => {
-      // Should use measuredHeight = 0 when menuRef is null
-      // downTop = 125 + 2 = 127, wouldOverflow = 127 + 0 > window.innerHeight = false
-      expect(result.current.position.top).toBe(127);
-    });
   });
 });

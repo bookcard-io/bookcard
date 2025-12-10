@@ -139,6 +139,8 @@ export function BookCardMenu({
         buttonRef={buttonRef}
         cursorPosition={cursorPosition}
         ariaLabel="Book actions"
+        horizontalAlign="right"
+        autoFlipHorizontal
       >
         <DropdownMenuItem
           icon="pi pi-info-circle"

@@ -32,6 +32,10 @@ export interface UseDropdownPositionOptions {
   menuRef?: React.RefObject<HTMLElement | null>;
   /** Whether to align left edge instead of cursor position. */
   alignLeftEdge?: boolean;
+  /** Preferred horizontal alignment. 'left' aligns left edge (fly right), 'right' aligns right edge (fly left). */
+  horizontalAlign?: "left" | "right";
+  /** Whether to flip horizontal alignment if menu would overflow. */
+  autoFlipHorizontal?: boolean;
 }
 
 export interface UseDropdownPositionResult {
@@ -63,6 +67,8 @@ export function useDropdownPosition({
   cursorPosition,
   menuRef,
   alignLeftEdge = false,
+  horizontalAlign = "right",
+  autoFlipHorizontal = false,
 }: UseDropdownPositionOptions): UseDropdownPositionResult {
   const [position, setPosition] = useState<{
     top: number;
@@ -95,20 +101,43 @@ export function useDropdownPosition({
         const buttonRect = buttonRef.current.getBoundingClientRect();
         const menuX = buttonRect.left + cursorOffsetRef.current.x;
         const menuY = buttonRect.top + cursorOffsetRef.current.y;
+
+        const menuRect = menuRef?.current?.getBoundingClientRect();
+        const measuredHeight = menuRect?.height || 0;
+        const measuredWidth = menuRect?.width || 0;
+
         // Auto-flip up if menu would overflow the bottom edge
-        const measuredHeight =
-          (menuRef?.current &&
-            (menuRef.current as HTMLElement).getBoundingClientRect().height) ||
-          0;
         const downTop = menuY + MENU_OFFSET_Y;
-        const wouldOverflow = downTop + measuredHeight > window.innerHeight;
-        let top = wouldOverflow
+        const wouldOverflowY = downTop + measuredHeight > window.innerHeight;
+        let top = wouldOverflowY
           ? Math.max(0, menuY - measuredHeight - MENU_OFFSET_Y)
           : downTop;
-        if (alignLeftEdge) {
-          // Align left edge of dropdown with the specified x position
+
+        // Determine horizontal alignment
+        // alignLeftEdge forces 'left' and implies specific offset logic (legacy)
+        let finalAlign = alignLeftEdge ? "left" : horizontalAlign;
+
+        if (autoFlipHorizontal && measuredWidth > 0) {
+          if (finalAlign === "left") {
+            // Check if it overflows right edge
+            if (menuX + measuredWidth > window.innerWidth) {
+              finalAlign = "right";
+            }
+          } else {
+            // Check if it overflows left edge (when right-aligned, it extends left from menuX)
+            if (menuX - measuredWidth < 0) {
+              finalAlign = "left";
+            }
+          }
+        }
+
+        if (alignLeftEdge && finalAlign === "left") {
           // Add 1rem (16px) vertical offset for left-edge aligned menus
+          // Legacy behavior for LibraryFilterBar
           top += 8;
+        }
+
+        if (finalAlign === "left") {
           setPosition({
             top,
             left: menuX,
@@ -119,21 +148,37 @@ export function useDropdownPosition({
             right: window.innerWidth - menuX - MENU_OFFSET_X,
           });
         }
-      } else if (cursorPosition) {
+      } else {
         // Fallback to cursor position if button ref is not available
-        const measuredHeight =
-          (menuRef?.current &&
-            (menuRef.current as HTMLElement).getBoundingClientRect().height) ||
-          0;
+        const menuRect = menuRef?.current?.getBoundingClientRect();
+        const measuredHeight = menuRect?.height || 0;
+        const measuredWidth = menuRect?.width || 0;
+
         const downTop = cursorPosition.y + MENU_OFFSET_Y;
-        const wouldOverflow = downTop + measuredHeight > window.innerHeight;
-        let top = wouldOverflow
+        const wouldOverflowY = downTop + measuredHeight > window.innerHeight;
+        let top = wouldOverflowY
           ? Math.max(0, cursorPosition.y - measuredHeight - MENU_OFFSET_Y)
           : downTop;
-        if (alignLeftEdge) {
-          // Align left edge of dropdown with the specified x position
-          // Add 1rem (16px) vertical offset for left-edge aligned menus
+
+        let finalAlign = alignLeftEdge ? "left" : horizontalAlign;
+
+        if (autoFlipHorizontal && measuredWidth > 0) {
+          if (finalAlign === "left") {
+            if (cursorPosition.x + measuredWidth > window.innerWidth) {
+              finalAlign = "right";
+            }
+          } else {
+            if (cursorPosition.x - measuredWidth < 0) {
+              finalAlign = "left";
+            }
+          }
+        }
+
+        if (alignLeftEdge && finalAlign === "left") {
           top += 8;
+        }
+
+        if (finalAlign === "left") {
           setPosition({
             top,
             left: cursorPosition.x,
@@ -155,7 +200,15 @@ export function useDropdownPosition({
       window.removeEventListener("scroll", updatePosition, true);
       window.removeEventListener("resize", updatePosition);
     };
-  }, [isOpen, buttonRef, cursorPosition, menuRef, alignLeftEdge]);
+  }, [
+    isOpen,
+    buttonRef,
+    cursorPosition,
+    menuRef,
+    alignLeftEdge,
+    horizontalAlign,
+    autoFlipHorizontal,
+  ]);
 
   return { position };
 }

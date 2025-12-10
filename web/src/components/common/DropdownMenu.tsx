@@ -38,6 +38,10 @@ export interface DropdownMenuProps {
   minWidth?: number;
   /** Whether to align left edge instead of cursor position. */
   alignLeftEdge?: boolean;
+  /** Preferred horizontal alignment. 'left' means left edge aligned (fly right), 'right' means right edge aligned (fly left). Default 'right'. */
+  horizontalAlign?: "left" | "right";
+  /** Whether to flip horizontal alignment if menu would overflow. */
+  autoFlipHorizontal?: boolean;
 }
 
 /**
@@ -62,6 +66,8 @@ export function DropdownMenu({
   ariaLabel,
   minWidth = 180,
   alignLeftEdge = false,
+  horizontalAlign = "right",
+  autoFlipHorizontal = false,
 }: DropdownMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
@@ -72,6 +78,8 @@ export function DropdownMenu({
     cursorPosition,
     menuRef,
     alignLeftEdge,
+    horizontalAlign,
+    autoFlipHorizontal,
   });
 
   useDropdownClickOutside({
