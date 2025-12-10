@@ -90,7 +90,7 @@ dev: setup-uv
 	PID1=$$!; \
 	cd web && npm run dev & \
 	PID2=$$!; \
-	trap "echo 'Stopping servers...'; kill $$PID1 $$PID2 2>/dev/null; exit" INT TERM; \
+	trap "echo 'Stopping servers...'; kill $$PID1 $$PID2 2>/dev/null; wait $$PID1 $$PID2" INT TERM; \
 	echo "Python API: http://localhost:8000 (PID: $$PID1)"; \
 	echo "Next.js: http://localhost:3000 (PID: $$PID2)"; \
 	echo "Press Ctrl+C to stop both servers."; \
