@@ -15,22 +15,24 @@
 
 "use client";
 
-import { useCallback, useState } from "react";
-import { DeleteBookConfirmationModal } from "@/components/books/DeleteBookConfirmationModal";
-import { AddToShelfModal } from "@/components/library/AddToShelfModal";
-import { BookCardCheckbox } from "@/components/library/BookCardCheckbox";
+import { useCallback } from "react";
+import { BookCardActions } from "@/components/library/BookCardActions";
+import { BookCardCenterActions } from "@/components/library/BookCardCenterActions";
 import { BookCardCover } from "@/components/library/BookCardCover";
-import { BookCardEditButton } from "@/components/library/BookCardEditButton";
+import {
+  BookCardCompactLayout,
+  BookCardDefaultLayout,
+} from "@/components/library/BookCardLayouts";
 import { BookCardMenu } from "@/components/library/BookCardMenu";
-import { BookCardMenuButton } from "@/components/library/BookCardMenuButton";
 import { BookCardMetadata } from "@/components/library/BookCardMetadata";
+import { BookCardModals } from "@/components/library/BookCardModals";
 import { BookCardOverlay } from "@/components/library/BookCardOverlay";
-import { ShelfEditModal } from "@/components/shelves/ShelfEditModal";
 import { useSelectedBooks } from "@/contexts/SelectedBooksContext";
 import { useBookCardMenu } from "@/hooks/useBookCardMenu";
 import { useBookCardMenuActions } from "@/hooks/useBookCardMenuActions";
+import { useBookCardModals } from "@/hooks/useBookCardModals";
+import { useBookNavigation } from "@/hooks/useBookNavigation";
 import { useCreateShelfWithBook } from "@/hooks/useCreateShelfWithBook";
-import { cn } from "@/libs/utils";
 import type { Book } from "@/types/book";
 import { getBookCardAriaLabel } from "@/utils/book";
 import { createEnterSpaceHandler } from "@/utils/keyboard";
@@ -75,144 +77,104 @@ export function BookCard({
 }: BookCardProps) {
   const { isSelected } = useSelectedBooks();
   const selected = isSelected(book.id);
+  const showActions = !hideActions;
+
+  // Hooks for logic and state
   const menu = useBookCardMenu();
   const menuActions = useBookCardMenuActions({
     book,
     onBookClick: _onClick,
     onBookDeleted: () => onBookDeleted?.(book.id),
   });
-
   const shelfCreation = useCreateShelfWithBook({
     bookId: book.id,
   });
-  const [showAddToShelfModal, setShowAddToShelfModal] = useState(false);
-  const showActions = !hideActions;
+  const modals = useBookCardModals();
+  const { isNavigating, navigateToReader } = useBookNavigation(book);
 
-  /**
-   * Handle book card click.
-   */
+  // Layout selection strategy
+  const layouts = {
+    default: BookCardDefaultLayout,
+    compact: BookCardCompactLayout,
+  };
+  const Layout = layouts[variant];
+
+  // Handlers
   const handleClick = useCallback(() => {
-    // Open book view modal via callback
-    // Special overlay buttons (checkbox, edit, menu) stop propagation
     if (_onClick) {
       _onClick(book);
     }
   }, [_onClick, book]);
 
   const handleKeyDown = createEnterSpaceHandler(handleClick);
+  const handleReadClick = isNavigating ? undefined : navigateToReader;
 
   return (
     <>
-      <button
-        type="button"
-        className={cn(
-          "group h-full cursor-pointer overflow-hidden rounded",
-          "w-full border-2 border-transparent bg-gradient-to-b from-surface-a0 to-surface-a10 p-0 text-left",
-          "transition-[transform,box-shadow,border-color] duration-200 ease-out",
-          "hover:-translate-y-0.5 hover:shadow-card-hover",
-          "focus-visible:outline-2 focus-visible:outline-primary-a0 focus-visible:outline-offset-2",
-          "focus:not-focus-visible:outline-none focus:outline-none",
-          selected && "border-primary-a0 shadow-primary-glow outline-none",
-          // Mobile: grid layout with 2 columns, 2 rows
-          // Row 1 (title/author) takes remaining space, row 2 (buttons) is auto
-          "grid grid-cols-[75px_1fr] grid-rows-[1fr_auto] gap-0",
-          // Desktop: vertical flex layout
-          variant === "default" && "md:flex md:flex-col",
-        )}
+      <Layout
+        selected={selected}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
-        aria-label={getBookCardAriaLabel(book, selected)}
-        data-book-card
-      >
-        {/* Mobile: Cover in col 1, spanning 2 rows */}
-        {/* Desktop: Cover at top */}
-        <div
-          className={cn(
-            "relative",
-            // Mobile: col 1, row-span-2
-            "col-start-1 row-span-2 row-start-1",
-            // Desktop: full width
-            variant === "default" && "md:col-span-1 md:row-span-1",
-          )}
-        >
-          <BookCardCover title={book.title} thumbnailUrl={book.thumbnail_url} />
-          {/* Desktop overlay (hidden on mobile) */}
-          {showActions && (
-            <div
-              className={cn("hidden", variant === "default" ? "md:block" : "")}
-            >
-              <BookCardOverlay selected={selected}>
-                {showSelection && (
-                  <BookCardCheckbox
+        ariaLabel={getBookCardAriaLabel(book, selected)}
+        cover={
+          <>
+            <BookCardCover
+              title={book.title}
+              thumbnailUrl={book.thumbnail_url}
+            />
+            {showActions && variant === "default" && (
+              <div className="hidden md:block">
+                <BookCardOverlay selected={selected}>
+                  {!selected && (
+                    <BookCardCenterActions
+                      onReadClick={handleReadClick}
+                      onInfoClick={handleClick}
+                      isReading={isNavigating}
+                    />
+                  )}
+                  <BookCardActions
                     book={book}
                     allBooks={allBooks}
                     selected={selected}
+                    showSelection={showSelection}
+                    onEdit={onEdit}
+                    menuProps={{
+                      buttonRef: menu.menuButtonRef,
+                      isMenuOpen: menu.isMenuOpen,
+                      onToggle: menu.handleMenuToggle,
+                      variant: "grid",
+                    }}
                   />
-                )}
-                {onEdit && (
-                  <BookCardEditButton
-                    bookTitle={book.title}
-                    onEdit={() => onEdit(book.id)}
-                  />
-                )}
-                <BookCardMenuButton
-                  buttonRef={menu.menuButtonRef}
-                  isMenuOpen={menu.isMenuOpen}
-                  onToggle={menu.handleMenuToggle}
-                />
-              </BookCardOverlay>
-            </div>
-          )}
-        </div>
-
-        {/* Mobile: Title/Author in row 1, col 2 */}
-        {/* Desktop: Title/Author below cover */}
-        <div
-          className={cn(
-            // Mobile: row 1, col 2, fill height
-            "col-start-2 row-start-1 h-full",
-            // Desktop: full width
-            variant === "default" && "md:col-span-1 md:h-auto",
-          )}
-        >
+                </BookCardOverlay>
+              </div>
+            )}
+          </>
+        }
+        metadata={
           <BookCardMetadata title={book.title} authors={book.authors} />
-        </div>
-
-        {/* Mobile: Action buttons in row 2, col 2 */}
-        {showActions && (
-          <div
-            className={cn(
-              "flex items-center justify-end gap-2 p-2",
-              // Mobile: row 2, col 2
-              "col-start-2 row-start-2",
-              // Desktop: hidden (overlay handles this)
-              variant === "default" && "md:hidden",
-            )}
-          >
-            {showSelection && (
-              <BookCardCheckbox
-                book={book}
-                allBooks={allBooks}
-                selected={selected}
-                variant="mobile"
-              />
-            )}
-            {onEdit && (
-              <BookCardEditButton
-                bookTitle={book.title}
-                onEdit={() => onEdit(book.id)}
-                variant="mobile"
-              />
-            )}
-            <BookCardMenuButton
-              buttonRef={menu.menuButtonRef}
-              isMenuOpen={menu.isMenuOpen}
-              onToggle={menu.handleMenuToggle}
+        }
+        actions={
+          showActions && (
+            <BookCardActions
+              book={book}
+              allBooks={allBooks}
+              selected={selected}
+              showSelection={showSelection}
+              onEdit={onEdit}
               variant="mobile"
+              menuProps={{
+                buttonRef: menu.menuButtonRef,
+                isMenuOpen: menu.isMenuOpen,
+                onToggle: menu.handleMenuToggle,
+                variant: "mobile",
+              }}
             />
-          </div>
-        )}
-        {showActions && (
+          )
+        }
+      />
+
+      {showActions && (
+        <>
           <BookCardMenu
             isOpen={menu.isMenuOpen}
             onClose={menu.handleMenuClose}
@@ -225,45 +187,18 @@ export function BookCard({
             onDelete={menuActions.handleDelete}
             onMore={menuActions.handleMore}
             isSendDisabled={menuActions.isSendDisabled}
-            onOpenAddToShelfModal={() => setShowAddToShelfModal(true)}
+            onOpenAddToShelfModal={modals.openAddToShelf}
           />
-        )}
-      </button>
-      {showActions && (
-        <>
-          <DeleteBookConfirmationModal
-            isOpen={menuActions.deleteConfirmation.isOpen}
-            dontShowAgain={menuActions.deleteConfirmation.dontShowAgain}
-            deleteFilesFromDrive={
-              menuActions.deleteConfirmation.deleteFilesFromDrive
-            }
-            onClose={menuActions.deleteConfirmation.close}
-            onToggleDontShowAgain={
-              menuActions.deleteConfirmation.toggleDontShowAgain
-            }
-            onToggleDeleteFilesFromDrive={
-              menuActions.deleteConfirmation.toggleDeleteFilesFromDrive
-            }
-            onConfirm={menuActions.deleteConfirmation.confirm}
-            bookTitle={book.title}
+          <BookCardModals
             book={book}
-            isDeleting={menuActions.deleteConfirmation.isDeleting}
-            error={menuActions.deleteConfirmation.error}
+            deleteState={menuActions.deleteConfirmation}
+            shelfState={shelfCreation}
+            addToShelfState={{
+              show: modals.showAddToShelfModal,
+              onClose: modals.closeAddToShelf,
+              onSuccess: menu.handleMenuClose,
+            }}
           />
-          {shelfCreation.showCreateModal && (
-            <ShelfEditModal
-              shelf={null}
-              onClose={shelfCreation.closeCreateModal}
-              onSave={shelfCreation.handleCreateShelf}
-            />
-          )}
-          {showAddToShelfModal && (
-            <AddToShelfModal
-              books={[book]}
-              onClose={() => setShowAddToShelfModal(false)}
-              onSuccess={menu.handleMenuClose}
-            />
-          )}
         </>
       )}
     </>

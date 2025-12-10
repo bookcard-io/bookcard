@@ -30,17 +30,19 @@ import { ShelfService } from "@/services/shelf/shelfService";
  *
  * Proxies request to list shelves from the active library.
  */
-export const GET = withAuthentication(async (ctx, _request) => {
-  const repository = new HttpShelfRepository(ctx.client);
-  const service = new ShelfService(repository);
+export const GET = withAuthentication<Record<string, never>>(
+  async (ctx, _request) => {
+    const repository = new HttpShelfRepository(ctx.client);
+    const service = new ShelfService(repository);
 
-  const result = await service.list();
+    const result = await service.list();
 
-  return result.match({
-    ok: (shelves) => NextResponse.json(shelves),
-    err: (error) => (error as ApiError).toResponse(),
-  });
-});
+    return result.match({
+      ok: (shelves) => NextResponse.json(shelves),
+      err: (error) => (error as ApiError).toResponse(),
+    });
+  },
+);
 
 /**
  * POST /api/shelves
@@ -51,54 +53,56 @@ export const GET = withAuthentication(async (ctx, _request) => {
  * - application/json: simple shelf creation
  * - multipart/form-data: shelf creation with optional read list file
  */
-export const POST = withAuthentication(async (ctx, request) => {
-  const contentType = request.headers.get("content-type") || "";
+export const POST = withAuthentication<Record<string, never>>(
+  async (ctx, request) => {
+    const contentType = request.headers.get("content-type") || "";
 
-  // JSON payload: simple shelf creation
-  if (contentType.startsWith("application/json")) {
-    const input = await parseShelfCreationJson(request);
+    // JSON payload: simple shelf creation
+    if (contentType.startsWith("application/json")) {
+      const input = await parseShelfCreationJson(request);
 
-    if (input.isErr) {
-      return input.error.toResponse();
+      if (input.isErr) {
+        return input.error.toResponse();
+      }
+
+      const repository = new HttpShelfRepository(ctx.client);
+      const service = new ShelfService(repository);
+
+      const result = await service.create(input.value);
+
+      return result.match({
+        ok: (shelf) => NextResponse.json(shelf),
+        err: (error) => (error as ApiError).toResponse(),
+      });
     }
 
-    const repository = new HttpShelfRepository(ctx.client);
-    const service = new ShelfService(repository);
+    // Multipart payload: shelf creation with optional read list file
+    if (contentType.startsWith("multipart/form-data")) {
+      const formData = await request.formData();
+      const input = parseShelfCreationFormData(formData);
 
-    const result = await service.create(input.value);
+      if (input.isErr) {
+        return input.error.toResponse();
+      }
 
-    return result.match({
-      ok: (shelf) => NextResponse.json(shelf),
-      err: (error) => (error as ApiError).toResponse(),
-    });
-  }
+      const repository = new HttpShelfRepository(ctx.client);
+      const service = new ShelfService(repository);
 
-  // Multipart payload: shelf creation with optional read list file
-  if (contentType.startsWith("multipart/form-data")) {
-    const formData = await request.formData();
-    const input = parseShelfCreationFormData(formData);
+      const result = await service.createWithImport(
+        input.value.shelf,
+        input.value.file,
+        input.value.importOptions,
+      );
 
-    if (input.isErr) {
-      return input.error.toResponse();
+      return result.match({
+        ok: (shelf) => NextResponse.json(shelf),
+        err: (error) => (error as ApiError).toResponse(),
+      });
     }
 
-    const repository = new HttpShelfRepository(ctx.client);
-    const service = new ShelfService(repository);
-
-    const result = await service.createWithImport(
-      input.value.shelf,
-      input.value.file,
-      input.value.importOptions,
-    );
-
-    return result.match({
-      ok: (shelf) => NextResponse.json(shelf),
-      err: (error) => (error as ApiError).toResponse(),
-    });
-  }
-
-  // Unsupported content type
-  return err(
-    new UnsupportedContentTypeError("Unsupported content type"),
-  ).error.toResponse();
-});
+    // Unsupported content type
+    return err(
+      new UnsupportedContentTypeError("Unsupported content type"),
+    ).error.toResponse();
+  },
+);

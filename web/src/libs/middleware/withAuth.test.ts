@@ -82,6 +82,7 @@ describe("withAuthentication", () => {
     const mockClient = createMockClient();
     const mockHandler = createMockHandler();
     const mockRequest = createMockRequest({ auth_token: "test-token" });
+    const mockContext = { params: Promise.resolve({}) };
 
     vi.mocked(getAuthenticatedClient).mockReturnValue({
       client: mockClient,
@@ -89,13 +90,13 @@ describe("withAuthentication", () => {
     } as ReturnType<typeof getAuthenticatedClient>);
 
     const wrappedHandler = withAuthentication(mockHandler);
-    const result = await wrappedHandler(mockRequest);
+    const result = await wrappedHandler(mockRequest, mockContext);
 
     expect(getAuthenticatedClient).toHaveBeenCalledWith(mockRequest);
     expect(mockHandler).toHaveBeenCalledWith(
       { client: mockClient },
       mockRequest,
-      undefined,
+      mockContext,
     );
     expect(result.status).toBe(200);
     const json = await result.json();
@@ -105,6 +106,7 @@ describe("withAuthentication", () => {
   it("should return error response when authentication fails", async () => {
     const mockHandler = createMockHandler();
     const mockRequest = createMockRequest();
+    const mockContext = { params: Promise.resolve({}) };
     const errorResponse = NextResponse.json(
       { error: "unauthorized" },
       { status: 401 },
@@ -116,7 +118,7 @@ describe("withAuthentication", () => {
     });
 
     const wrappedHandler = withAuthentication(mockHandler);
-    const result = await wrappedHandler(mockRequest);
+    const result = await wrappedHandler(mockRequest, mockContext);
 
     expect(getAuthenticatedClient).toHaveBeenCalledWith(mockRequest);
     expect(mockHandler).not.toHaveBeenCalled();
@@ -135,7 +137,7 @@ describe("withAuthentication", () => {
       error: null,
     } as ReturnType<typeof getAuthenticatedClient>);
 
-    const wrappedHandler = withAuthentication(mockHandler);
+    const wrappedHandler = withAuthentication<{ id: string }>(mockHandler);
     await wrappedHandler(mockRequest, mockContext);
 
     expect(mockHandler).toHaveBeenCalledWith(

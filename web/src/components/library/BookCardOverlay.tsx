@@ -46,9 +46,13 @@ export function BookCardOverlay({ selected, children }: BookCardOverlayProps) {
           "[&_.menu-button]:pointer-events-none [&_.menu-button]:opacity-0",
         // On hover: show overlay and all buttons (using parent button's group)
         "group-hover:bg-black/50 group-hover:opacity-100",
+        // Capture pointer events on overlay to allow cursor-default override,
+        // preventing the pointer cursor from the parent button.
+        "cursor-default group-hover:pointer-events-auto",
         "group-hover:[&_.edit-button]:pointer-events-auto group-hover:[&_.edit-button]:opacity-100",
         "group-hover:[&_.menu-button]:pointer-events-auto group-hover:[&_.menu-button]:opacity-100",
         "group-hover:[&_.checkbox]:pointer-events-auto",
+        "flex items-center justify-center",
       )}
     >
       {children}

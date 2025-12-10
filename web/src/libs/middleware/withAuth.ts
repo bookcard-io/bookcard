@@ -29,11 +29,14 @@ export interface RequestContext {
  * Handler function that receives authenticated context.
  */
 export type AuthenticatedHandler<
-  T extends { [key: string]: string } = { [key: string]: string },
+  T extends Record<string, string> | Record<string, never> = Record<
+    string,
+    never
+  >,
 > = (
   ctx: RequestContext,
   request: NextRequest,
-  context?: { params?: Promise<T> },
+  context: { params: Promise<T> },
 ) => Promise<NextResponse>;
 
 /**
@@ -46,18 +49,21 @@ export type AuthenticatedHandler<
  *
  * Returns
  * -------
- * (request: NextRequest, context?: { params?: Promise<T> }) => Promise<NextResponse>
+ * (request: NextRequest, context: { params: Promise<T> }) => Promise<NextResponse>
  *     Wrapped handler that checks authentication first.
  */
 export function withAuthentication<
-  T extends { [key: string]: string } = { [key: string]: string },
+  T extends Record<string, string> | Record<string, never> = Record<
+    string,
+    never
+  >,
 >(
   handler: AuthenticatedHandler<T>,
 ): (
   request: NextRequest,
-  context?: { params?: Promise<T> },
+  context: { params: Promise<T> },
 ) => Promise<NextResponse> {
-  return async (request: NextRequest, context?: { params?: Promise<T> }) => {
+  return async (request: NextRequest, context: { params: Promise<T> }) => {
     const { client, error } = getAuthenticatedClient(request);
 
     if (error) {

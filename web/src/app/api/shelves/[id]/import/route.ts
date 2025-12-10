@@ -27,16 +27,8 @@ import { ShelfService } from "@/services/shelf/shelfService";
  */
 export const POST = withAuthentication<{ id: string }>(
   async (ctx, request, context) => {
-    const params = context?.params;
-    if (!params) {
-      return NextResponse.json(
-        { detail: "Missing route parameters" },
-        { status: 400 },
-      );
-    }
-
     // Parse shelf ID from route params
-    const shelfIdResult = await parseIdParam(params, "id");
+    const shelfIdResult = await parseIdParam(context.params, "id");
 
     if (shelfIdResult.isErr) {
       return shelfIdResult.error.toResponse();
