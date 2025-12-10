@@ -58,6 +58,12 @@ repos:
         types: [text]
         files: "\\.(jsx?|tsx?|c(js|ts)|m(js|ts)|d\\.(ts|cts|mts)|jsonc?|css|svelte|vue|astro|graphql|gql)$"
         stages: [pre-commit]
+      - id: check-types
+        name: check types
+        entry: bash -c 'cd web && npm run check:types'
+        language: node
+        types_or: [javascript, ts, tsx, jsx]
+        stages: [pre-commit]
       - id: ty
         name: run ty check
         entry: uv run --frozen ty check
