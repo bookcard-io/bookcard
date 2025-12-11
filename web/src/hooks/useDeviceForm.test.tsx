@@ -243,6 +243,7 @@ describe("useDeviceForm", () => {
         device_type: "kobo",
         preferred_format: "pdf",
         is_default: true,
+        serial_number: null,
       });
     });
 
