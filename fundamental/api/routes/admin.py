@@ -1794,6 +1794,7 @@ def update_library(
             use_split_library=payload.use_split_library,
             split_library_dir=payload.split_library_dir,
             auto_reconnect=payload.auto_reconnect,
+            auto_metadata_enforcement=payload.auto_metadata_enforcement,
             auto_convert_on_ingest=payload.auto_convert_on_ingest,
             auto_convert_target_format=payload.auto_convert_target_format,
             auto_convert_ignored_formats=payload.auto_convert_ignored_formats,

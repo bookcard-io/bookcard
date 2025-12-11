@@ -59,6 +59,7 @@ export interface LibraryListItemProps {
     updates: {
       name?: string;
       auto_convert_on_ingest?: boolean;
+      auto_metadata_enforcement?: boolean;
       auto_convert_target_format?: string | null;
       auto_convert_ignored_formats?: string | null;
       auto_convert_backup_originals?: boolean;
@@ -109,6 +110,9 @@ export function LibraryListItem({
   const [epubFixerAutoFix, setEpubFixerAutoFix] = useState(
     library.epub_fixer_auto_fix_on_ingest ?? false,
   );
+  const [autoMetadataEnforcement, setAutoMetadataEnforcement] = useState(
+    library.auto_metadata_enforcement ?? true,
+  );
   const [duplicateHandling, setDuplicateHandling] = useState(
     library.duplicate_handling ?? "IGNORE",
   );
@@ -143,6 +147,7 @@ export function LibraryListItem({
     setTargetFormat(library.auto_convert_target_format ?? "epub");
     setBackupOriginals(library.auto_convert_backup_originals ?? true);
     setEpubFixerAutoFix(library.epub_fixer_auto_fix_on_ingest ?? false);
+    setAutoMetadataEnforcement(library.auto_metadata_enforcement ?? true);
     setDuplicateHandling(library.duplicate_handling ?? "IGNORE");
   }, [library]);
 
@@ -206,6 +211,16 @@ export function LibraryListItem({
     setEpubFixerAutoFix(value);
     try {
       await onUpdate(library.id, { epub_fixer_auto_fix_on_ingest: value });
+    } finally {
+      setBusyField(null);
+    }
+  };
+
+  const handleAutoMetadataEnforcementToggle = async (value: boolean) => {
+    setBusyField("auto_metadata_enforcement");
+    setAutoMetadataEnforcement(value);
+    try {
+      await onUpdate(library.id, { auto_metadata_enforcement: value });
     } finally {
       setBusyField(null);
     }
@@ -369,8 +384,8 @@ export function LibraryListItem({
             Auto-Convert on Ingest Settings
           </div>
           <div className="flex flex-col gap-4">
-            {/* Two-column layout for main toggles */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {/* Three-column layout for main toggles */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               {/* Auto-convert on ingest toggle */}
               <div className="flex flex-col gap-2">
                 <label className="flex cursor-pointer items-center gap-2">
@@ -389,6 +404,29 @@ export function LibraryListItem({
                   >
                     Automatically convert books to target format during
                     auto-ingest
+                  </span>
+                </label>
+              </div>
+
+              {/* Auto metadata enforcement */}
+              <div className="flex flex-col gap-2">
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={autoMetadataEnforcement}
+                    onChange={(e) =>
+                      handleAutoMetadataEnforcementToggle(e.target.checked)
+                    }
+                    disabled={busyField === "auto_metadata_enforcement"}
+                    className="h-4 w-4 cursor-pointer rounded border-[var(--color-surface-a20)] text-[var(--color-primary-a0)] accent-[var(--color-primary-a0)] focus:ring-2 focus:ring-[var(--color-primary-a0)] disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <span
+                    className={cn(
+                      "text-[var(--color-text-a0)] text-sm",
+                      busyField === "auto_metadata_enforcement" && "opacity-50",
+                    )}
+                  >
+                    Automatically enforce metadata and covers in ebook files
                   </span>
                 </label>
               </div>

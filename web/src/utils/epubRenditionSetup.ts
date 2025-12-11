@@ -105,6 +105,19 @@ export function setupRendition(options: RenditionSetupOptions): void {
   // Apply initial theme
   applyThemeToRendition(rendition, pageColor, fontFamily, fontSize);
 
+  // Monkey patch display to catch errors and prevent unhandled rejections
+  const originalDisplay = rendition.display;
+  // biome-ignore lint/suspicious/noExplicitAny: Monkey-patching Rendition.display requires any due to epubjs type limitations
+  (rendition as any).display = function (target?: string) {
+    // biome-ignore lint/suspicious/noExplicitAny: originalDisplay.call requires any due to epubjs type limitations
+    return (originalDisplay as any).call(this, target).catch((err: unknown) => {
+      console.warn("Rendition display error (recovered):", err);
+      // Swallow error to prevent unhandled rejection crashing the app
+      // This allows the UI to remain responsive (e.g. TOC navigation)
+      return Promise.resolve();
+    });
+  };
+
   // Register content hook to ensure styles are applied to all pages
   const contentHook = createContentHook(
     rendition,
@@ -168,22 +181,33 @@ function handleLocationGeneration(options: LocationGenerationOptions): void {
   };
 
   if (book?.locations && onLocationsReadyChange) {
-    book.locations.generate(200).then(() => {
-      onLocationsReadyChange(true);
+    book.locations
+      .generate(200)
+      .then(() => {
+        onLocationsReadyChange(true);
 
-      // If we have an initial CFI, calculate progress from it now that locations are ready
-      if (initialCfi && onLocationChange) {
-        try {
-          const calculatedProgress = calculateProgressFromCfi(book, initialCfi);
-          // Update with calculated progress, but skip backend update (initial load)
-          onLocationChange(initialCfi, calculatedProgress, true);
-        } catch (error) {
-          console.warn("Error calculating initial progress from CFI:", error);
+        // If we have an initial CFI, calculate progress from it now that locations are ready
+        if (initialCfi && onLocationChange) {
+          try {
+            const calculatedProgress = calculateProgressFromCfi(
+              book,
+              initialCfi,
+            );
+            // Update with calculated progress, but skip backend update (initial load)
+            onLocationChange(initialCfi, calculatedProgress, true);
+          } catch (error) {
+            console.warn("Error calculating initial progress from CFI:", error);
+          }
         }
-      }
 
-      markInitialLoadComplete();
-    });
+        markInitialLoadComplete();
+      })
+      .catch((error) => {
+        console.error("Error generating locations:", error);
+        // Mark ready anyway so UI doesn't stay locked
+        onLocationsReadyChange(true);
+        markInitialLoadComplete();
+      });
   } else if (onLocationsReadyChange) {
     onLocationsReadyChange(false);
     markInitialLoadComplete();

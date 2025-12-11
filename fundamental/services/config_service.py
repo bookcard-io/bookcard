@@ -113,6 +113,7 @@ class LibraryService:
         use_split_library: bool = False,
         split_library_dir: str | None = None,
         auto_reconnect: bool = True,
+        auto_metadata_enforcement: bool = True,
         is_active: bool = False,
     ) -> Library:
         """Create a new library.
@@ -202,6 +203,7 @@ class LibraryService:
             use_split_library=use_split_library,
             split_library_dir=split_library_dir,
             auto_reconnect=auto_reconnect,
+            auto_metadata_enforcement=auto_metadata_enforcement,
             is_active=is_active,
         )
         self._library_repo.add(library)
@@ -322,6 +324,7 @@ class LibraryService:
         use_split_library: bool | None = None,
         split_library_dir: str | None = None,
         auto_reconnect: bool | None = None,
+        auto_metadata_enforcement: bool | None = None,
         auto_convert_on_ingest: bool | None = None,
         auto_convert_target_format: str | None = None,
         auto_convert_ignored_formats: str | None = None,
@@ -389,6 +392,7 @@ class LibraryService:
             use_split_library=use_split_library,
             split_library_dir=split_library_dir,
             auto_reconnect=auto_reconnect,
+            auto_metadata_enforcement=auto_metadata_enforcement,
             auto_convert_on_ingest=auto_convert_on_ingest,
             auto_convert_target_format=auto_convert_target_format,
             auto_convert_ignored_formats=auto_convert_ignored_formats,
@@ -446,6 +450,7 @@ class LibraryService:
         use_split_library: bool | None = None,
         split_library_dir: str | None = None,
         auto_reconnect: bool | None = None,
+        auto_metadata_enforcement: bool | None = None,
         auto_convert_on_ingest: bool | None = None,
         auto_convert_target_format: str | None = None,
         auto_convert_ignored_formats: str | None = None,
@@ -492,6 +497,7 @@ class LibraryService:
             use_split_library=use_split_library,
             split_library_dir=split_library_dir,
             auto_reconnect=auto_reconnect,
+            auto_metadata_enforcement=auto_metadata_enforcement,
         )
         self._update_auto_convert_fields(
             library,
@@ -513,6 +519,7 @@ class LibraryService:
         use_split_library: bool | None = None,
         split_library_dir: str | None = None,
         auto_reconnect: bool | None = None,
+        auto_metadata_enforcement: bool | None = None,
     ) -> None:
         """Update basic library fields.
 
@@ -545,6 +552,10 @@ class LibraryService:
             library.split_library_dir = split_library_dir
         if auto_reconnect is not None:
             library.auto_reconnect = auto_reconnect
+        if auto_metadata_enforcement is not None:
+            library.auto_metadata_enforcement = auto_metadata_enforcement
+        if auto_metadata_enforcement is not None:
+            library.auto_metadata_enforcement = auto_metadata_enforcement
 
     def _update_auto_convert_fields(
         self,

@@ -37,6 +37,7 @@ class LibraryRead(BaseModel):
     use_split_library: bool
     split_library_dir: str | None = None
     auto_reconnect: bool
+    auto_metadata_enforcement: bool
     auto_convert_on_ingest: bool
     auto_convert_target_format: str | None = None
     auto_convert_ignored_formats: str | None = None
@@ -93,6 +94,10 @@ class LibraryUpdate(BaseModel):
     )
     auto_reconnect: bool | None = Field(
         default=None, description="Whether to automatically reconnect on errors"
+    )
+    auto_metadata_enforcement: bool | None = Field(
+        default=None,
+        description="Whether to automatically enforce metadata and cover changes to ebook files",
     )
     auto_convert_on_ingest: bool | None = Field(
         default=None,

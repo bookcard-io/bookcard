@@ -28,6 +28,7 @@ export interface Library {
   use_split_library: boolean;
   split_library_dir: string | null;
   auto_reconnect: boolean;
+  auto_metadata_enforcement: boolean;
   auto_convert_on_ingest: boolean;
   auto_convert_target_format: string | null;
   auto_convert_ignored_formats: string | null;

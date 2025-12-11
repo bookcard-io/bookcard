@@ -45,17 +45,21 @@ export function createEpubInitOptions(): Partial<BookOptions> {
     ) => {
       if (
         typeof url === "string" &&
-        (url.startsWith("http://") ||
-          url.startsWith("https://") ||
-          url.startsWith("/"))
+        (url.startsWith("http://") || url.startsWith("https://"))
       ) {
         return Promise.reject(
           new Error("Resource should be loaded from EPUB archive"),
         );
       }
-      return Promise.reject(
-        new Error("All EPUB resources must come from the archive"),
-      );
+      // Allow internal paths (starting with /) and other schemes
+      return fetch(url).then((response) => {
+        if (!response.ok) {
+          throw new Error(
+            `Failed to load resource: ${response.status} ${response.statusText}`,
+          );
+        }
+        return response.blob();
+      }) as Promise<Blob>;
     },
   };
 }
