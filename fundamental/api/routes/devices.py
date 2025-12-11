@@ -31,6 +31,7 @@ from fundamental.api.schemas.auth import (
 )
 from fundamental.models.auth import EBookFormat, User
 from fundamental.repositories.ereader_repository import EReaderRepository
+from fundamental.services.dedrm_service import DeDRMService
 from fundamental.services.ereader_service import EReaderService
 from fundamental.services.permission_service import PermissionService
 
@@ -74,7 +75,9 @@ def create_device(
         pass  # Allow through - ownership is primary check
 
     device_repo = EReaderRepository(session)
-    device_service = EReaderService(session, device_repo)
+    # Instantiate DeDRMService for auto-syncing
+    dedrm_service = DeDRMService()
+    device_service = EReaderService(session, device_repo, dedrm_service)
 
     preferred_format = None
     if payload.preferred_format:
@@ -90,6 +93,7 @@ def create_device(
             device_type=payload.device_type,
             preferred_format=preferred_format,
             is_default=payload.is_default,
+            serial_number=payload.serial_number,
         )
         session.commit()
         return EReaderDeviceRead.model_validate(device)
@@ -213,7 +217,8 @@ def update_device(
     if device.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="permission_denied")
 
-    device_service = EReaderService(session, device_repo)
+    dedrm_service = DeDRMService()
+    device_service = EReaderService(session, device_repo, dedrm_service)
 
     preferred_format = None
     if payload.preferred_format:
@@ -229,6 +234,7 @@ def update_device(
             device_type=payload.device_type,
             preferred_format=preferred_format,
             is_default=payload.is_default,
+            serial_number=payload.serial_number,
         )
         session.commit()
         return EReaderDeviceRead.model_validate(updated_device)

@@ -26,6 +26,15 @@ from typing import TypedDict
 
 logger = logging.getLogger(__name__)
 
+_CALIBRE_NOT_FOUND_MSG = (
+    "Calibre is not installed or not found in PATH. "
+    "Please install Calibre to use plugin management features."
+)
+
+
+class CalibreNotFoundError(Exception):
+    """Raised when Calibre is not installed or not found in PATH."""
+
 
 class PluginInfo(TypedDict):
     """Information about an installed plugin."""
@@ -69,6 +78,9 @@ class CalibrePluginService:
             )
 
             return self._parse_plugin_list(result.stdout)
+        except FileNotFoundError as e:
+            logger.exception("Calibre not found in PATH")
+            raise CalibreNotFoundError(_CALIBRE_NOT_FOUND_MSG) from e
         except subprocess.CalledProcessError as e:
             logger.exception("Failed to list plugins: %s", e.stderr)
             msg = f"Failed to list plugins: {e.stderr}"
@@ -100,6 +112,9 @@ class CalibrePluginService:
                 check=True,
             )
             logger.info("Successfully installed plugin")
+        except FileNotFoundError as e:
+            logger.exception("Calibre not found in PATH")
+            raise CalibreNotFoundError(_CALIBRE_NOT_FOUND_MSG) from e
         except subprocess.CalledProcessError as e:
             logger.exception("Failed to install plugin: %s", e.stderr)
             msg = f"Failed to install plugin: {e.stderr}"
@@ -127,6 +142,9 @@ class CalibrePluginService:
                 check=True,
             )
             logger.info("Successfully removed plugin")
+        except FileNotFoundError as e:
+            logger.exception("Calibre not found in PATH")
+            raise CalibreNotFoundError(_CALIBRE_NOT_FOUND_MSG) from e
         except subprocess.CalledProcessError as e:
             logger.exception("Failed to remove plugin: %s", e.stderr)
             msg = f"Failed to remove plugin: {e.stderr}"

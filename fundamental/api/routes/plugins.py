@@ -27,7 +27,10 @@ from sqlmodel import Session, select
 from fundamental.api.deps import get_admin_user, get_db_session
 from fundamental.api.schemas.plugins import PluginInfo, PluginInstallRequest
 from fundamental.models.auth import EReaderDevice
-from fundamental.services.calibre_plugin_service import CalibrePluginService
+from fundamental.services.calibre_plugin_service import (
+    CalibreNotFoundError,
+    CalibrePluginService,
+)
 from fundamental.services.dedrm_service import DeDRMService
 
 router = APIRouter(prefix="/plugins", tags=["plugins"])
@@ -58,6 +61,16 @@ def list_plugins(
     """
     try:
         return service.list_plugins()
+    except CalibreNotFoundError as e:
+        logger.warning("Calibre not found: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error_type": "calibre_not_found",
+                "message": str(e),
+                "message_type": "warning",
+            },
+        ) from e
     except Exception as e:
         logger.exception("Failed to list plugins")
         raise HTTPException(
@@ -93,6 +106,16 @@ def install_plugin_upload(
             temp_file.close()
 
             service.install_plugin(temp_path)
+        except CalibreNotFoundError as e:
+            logger.warning("Calibre not found: %s", e)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={
+                    "error_type": "calibre_not_found",
+                    "message": str(e),
+                    "message_type": "warning",
+                },
+            ) from e
         except Exception as e:
             logger.exception("Failed to install plugin from upload")
             raise HTTPException(
@@ -125,6 +148,16 @@ def install_plugin_git(
             plugin_path_in_repo=request.plugin_path,
             branch=request.branch,
         )
+    except CalibreNotFoundError as e:
+        logger.warning("Calibre not found: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error_type": "calibre_not_found",
+                "message": str(e),
+                "message_type": "warning",
+            },
+        ) from e
     except Exception as e:
         logger.exception("Failed to install plugin from Git")
         raise HTTPException(
@@ -150,6 +183,16 @@ def remove_plugin(
     """
     try:
         service.remove_plugin(plugin_name)
+    except CalibreNotFoundError as e:
+        logger.warning("Calibre not found: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error_type": "calibre_not_found",
+                "message": str(e),
+                "message_type": "warning",
+            },
+        ) from e
     except Exception as e:
         logger.exception("Failed to remove plugin")
         raise HTTPException(

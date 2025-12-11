@@ -404,6 +404,9 @@ class EReaderDeviceCreate(BaseModel):
         default=None, description="Preferred format (e.g., 'epub', 'mobi')"
     )
     is_default: bool = Field(default=False, description="Set as default device")
+    serial_number: str | None = Field(
+        default=None, description="Device serial number for DRM removal"
+    )
 
 
 class EReaderDeviceUpdate(BaseModel):
@@ -418,6 +421,9 @@ class EReaderDeviceUpdate(BaseModel):
         default=None, description="Preferred format (e.g., 'epub', 'mobi')"
     )
     is_default: bool | None = Field(default=None, description="Set as default device")
+    serial_number: str | None = Field(
+        default=None, description="Device serial number for DRM removal"
+    )
 
 
 class EReaderDeviceRead(BaseModel):
@@ -432,6 +438,7 @@ class EReaderDeviceRead(BaseModel):
     device_type: str
     is_default: bool
     preferred_format: str | None = None
+    serial_number: str | None = None
 
 
 class EmailServerConfigRead(BaseModel):

@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 
     from fundamental.models.auth import EBookFormat
     from fundamental.repositories.ereader_repository import EReaderRepository
+    from fundamental.services.dedrm_service import DeDRMService
 
 
 class EReaderService:
@@ -46,9 +47,11 @@ class EReaderService:
         self,
         session: Session,  # type: ignore[type-arg]
         devices: EReaderRepository,  # type: ignore[type-arg]
+        dedrm_service: DeDRMService | None = None,
     ) -> None:
         self._session = session
         self._devices = devices
+        self._dedrm_service = dedrm_service
 
     def create_device(
         self,
@@ -59,6 +62,7 @@ class EReaderService:
         device_type: str = "kindle",
         preferred_format: EBookFormat | None = None,
         is_default: bool = False,
+        serial_number: str | None = None,
     ) -> EReaderDevice:
         """Create a new e-reader device.
 
@@ -76,6 +80,8 @@ class EReaderService:
             Preferred format for this device.
         is_default : bool
             Whether this is the default device (default: False).
+        serial_number : str | None
+            Optional device serial number for DRM removal.
 
         Returns
         -------
@@ -103,9 +109,15 @@ class EReaderService:
             device_type=device_type,
             preferred_format=preferred_format,
             is_default=is_default,
+            serial_number=serial_number,
         )
         self._devices.add(device)
         self._session.flush()
+
+        # Sync serial numbers if provided and service is available
+        if serial_number and self._dedrm_service:
+            self._sync_dedrm_keys()
+
         return device
 
     def update_device(
@@ -117,6 +129,7 @@ class EReaderService:
         device_type: str | None = None,
         preferred_format: EBookFormat | None = None,
         is_default: bool | None = None,
+        serial_number: str | None = None,
     ) -> EReaderDevice:
         """Update an e-reader device.
 
@@ -134,6 +147,8 @@ class EReaderService:
             New preferred format (if provided).
         is_default : bool | None
             New default status (if provided).
+        serial_number : str | None
+            New serial number (if provided).
 
         Returns
         -------
@@ -150,6 +165,43 @@ class EReaderService:
             msg = "device_not_found"
             raise ValueError(msg)
 
+        self._update_email_if_provided(device, device_id, email)
+        self._update_device_fields(
+            device,
+            device_name=device_name,
+            device_type=device_type,
+            preferred_format=preferred_format,
+        )
+        self._update_default_status(device, device_id, is_default)
+        self._update_serial_number(device, serial_number)
+
+        self._session.flush()
+
+        # Sync serial numbers if updated and service is available
+        if serial_number is not None and self._dedrm_service:
+            self._sync_dedrm_keys()
+
+        return device
+
+    def _update_email_if_provided(
+        self, device: EReaderDevice, device_id: int, email: str | None
+    ) -> None:
+        """Update device email if provided and different.
+
+        Parameters
+        ----------
+        device : EReaderDevice
+            Device to update.
+        device_id : int
+            Device identifier for conflict checking.
+        email : str | None
+            New email address (if provided).
+
+        Raises
+        ------
+        ValueError
+            If email conflicts with another device.
+        """
         if email is not None and email != device.email:
             existing = self._devices.find_by_email(device.user_id, email)
             if existing is not None and existing.id != device_id:
@@ -157,6 +209,27 @@ class EReaderService:
                 raise ValueError(msg)
             device.email = email
 
+    def _update_device_fields(
+        self,
+        device: EReaderDevice,
+        *,
+        device_name: str | None = None,
+        device_type: str | None = None,
+        preferred_format: EBookFormat | None = None,
+    ) -> None:
+        """Update device fields if provided.
+
+        Parameters
+        ----------
+        device : EReaderDevice
+            Device to update.
+        device_name : str | None
+            New device name (if provided).
+        device_type : str | None
+            New device type (if provided).
+        preferred_format : EBookFormat | None
+            New preferred format (if provided).
+        """
         if device_name is not None:
             device.device_name = device_name
 
@@ -166,14 +239,67 @@ class EReaderService:
         if preferred_format is not None:
             device.preferred_format = preferred_format
 
+    def _update_default_status(
+        self, device: EReaderDevice, device_id: int, is_default: bool | None
+    ) -> None:
+        """Update device default status if provided.
+
+        Parameters
+        ----------
+        device : EReaderDevice
+            Device to update.
+        device_id : int
+            Device identifier for exclusion from unset operation.
+        is_default : bool | None
+            New default status (if provided).
+        """
         if is_default is not None:
             if is_default and not device.is_default:
                 # Unset other defaults before setting this one
                 self._unset_defaults(device.user_id, exclude_device_id=device_id)
             device.is_default = is_default
 
-        self._session.flush()
-        return device
+    def _update_serial_number(
+        self, device: EReaderDevice, serial_number: str | None
+    ) -> None:
+        """Update device serial number if provided.
+
+        Parameters
+        ----------
+        device : EReaderDevice
+            Device to update.
+        serial_number : str | None
+            New serial number (if provided).
+        """
+        if serial_number is not None:
+            device.serial_number = serial_number
+
+    def _sync_dedrm_keys(self) -> None:
+        """Sync all device serial numbers to DeDRM configuration."""
+        if not self._dedrm_service:
+            return
+
+        from sqlmodel import select
+
+        # We need to query all devices with serial numbers to ensure complete sync
+        # Since EReaderRepository might not have a "find all with serial" method handy,
+        # we can use the session directly or add a method to repo.
+        # Direct session usage is acceptable here for this specific cross-cutting concern.
+        stmt = select(EReaderDevice.serial_number).where(
+            EReaderDevice.serial_number != None  # noqa: E711
+        )
+        serial_numbers = list(self._session.exec(stmt).all())
+        valid_serials = [s for s in serial_numbers if s and s.strip()]
+
+        if valid_serials:
+            try:
+                self._dedrm_service.update_configuration(valid_serials)
+            except Exception:
+                # Log but don't fail the request
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.exception("Failed to auto-sync DeDRM keys")
 
     def set_default_device(self, device_id: int) -> EReaderDevice:
         """Set a device as the default for its user.

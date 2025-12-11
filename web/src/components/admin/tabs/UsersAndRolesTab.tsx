@@ -89,21 +89,32 @@ export function UsersAndRolesTab() {
 
   // Load permissions
   useEffect(() => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+
     const loadPermissions = async () => {
       setIsLoadingPermissions(true);
       try {
         const fetchedPermissions = await fetchPermissions();
+        if (signal.aborted) return;
         setPermissions(fetchedPermissions);
       } catch (err) {
+        if (signal.aborted) return;
         const errorMessage =
           err instanceof Error ? err.message : "Failed to fetch permissions";
         showDanger(errorMessage);
       } finally {
-        setIsLoadingPermissions(false);
+        if (!signal.aborted) {
+          setIsLoadingPermissions(false);
+        }
       }
     };
 
     void loadPermissions();
+
+    return () => {
+      controller.abort();
+    };
   }, [showDanger]);
 
   // Permission handlers (standalone mode)

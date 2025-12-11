@@ -24,6 +24,7 @@ export interface EReaderDevice {
   device_type: string;
   is_default: boolean;
   preferred_format: string | null;
+  serial_number?: string | null;
 }
 
 export interface UserProfile {

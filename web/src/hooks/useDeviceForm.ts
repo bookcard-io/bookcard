@@ -43,6 +43,8 @@ export interface UseDeviceFormReturn {
   preferredFormat: string;
   /** Current is default value. */
   isDefault: boolean;
+  /** Current serial number value. */
+  serialNumber: string;
   /** Whether form is being submitted. */
   isSubmitting: boolean;
   /** Form validation errors. */
@@ -59,6 +61,8 @@ export interface UseDeviceFormReturn {
   setPreferredFormat: (preferredFormat: string) => void;
   /** Update is default value. */
   setIsDefault: (isDefault: boolean) => void;
+  /** Update serial number value. */
+  setSerialNumber: (serialNumber: string) => void;
   /** Clear field errors when user starts typing. */
   clearErrors: () => void;
   /** Validate and submit the form. */
@@ -102,6 +106,9 @@ export function useDeviceForm(
   );
   const [isDefault, setIsDefault] = useState(
     initialDevice?.is_default || false,
+  );
+  const [serialNumber, setSerialNumber] = useState(
+    initialDevice?.serial_number || "",
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{
@@ -151,6 +158,7 @@ export function useDeviceForm(
         device_type: deviceType,
         preferred_format: preferredFormat.trim() || null,
         is_default: isDefault,
+        serial_number: serialNumber.trim() || null,
       };
 
       if (onSubmit) {
@@ -193,6 +201,7 @@ export function useDeviceForm(
     onError,
     initialDevice,
     existingDevices,
+    serialNumber.trim,
   ]);
 
   const reset = useCallback(() => {
@@ -212,6 +221,7 @@ export function useDeviceForm(
     deviceType,
     preferredFormat,
     isDefault,
+    serialNumber,
     isSubmitting,
     errors,
     generalError,
@@ -220,6 +230,7 @@ export function useDeviceForm(
     setDeviceType,
     setPreferredFormat,
     setIsDefault,
+    setSerialNumber,
     clearErrors,
     handleSubmit,
     reset,

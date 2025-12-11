@@ -32,6 +32,7 @@ export interface DeviceCreate {
   device_type?: string;
   preferred_format?: string | null;
   is_default?: boolean;
+  serial_number?: string | null;
 }
 
 export interface DeviceEditModalProps {
@@ -76,6 +77,7 @@ export function DeviceEditModal({
     deviceType,
     preferredFormat,
     isDefault,
+    serialNumber,
     isSubmitting,
     errors,
     generalError,
@@ -84,6 +86,7 @@ export function DeviceEditModal({
     setDeviceType,
     setPreferredFormat,
     setIsDefault,
+    setSerialNumber,
     clearErrors,
     handleSubmit,
   } = useDeviceForm({
@@ -133,7 +136,7 @@ export function DeviceEditModal({
     >
       <div
         className={cn(
-          "modal-container modal-container-shadow-default w-full max-w-md flex-col",
+          "modal-container modal-container-shadow-default w-full max-w-2xl flex-col",
         )}
         style={containerStyle}
         role="dialog"
@@ -162,7 +165,7 @@ export function DeviceEditModal({
           onSubmit={handleFormSubmit}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-y-auto p-6">
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-y-auto p-6 md:grid-cols-2">
             <TextInput
               label="Device name"
               value={deviceName}
@@ -186,6 +189,16 @@ export function DeviceEditModal({
               error={errors.email}
               required
               placeholder="device@example.com"
+              helperText="Required for send to device"
+            />
+
+            <TextInput
+              label="Serial Number"
+              value={serialNumber}
+              onChange={(e) => setSerialNumber(e.target.value)}
+              placeholder="e.g. B001..."
+              helperText="Required for certain plugins"
+              className="md:col-span-2"
             />
 
             <div className="flex flex-col gap-2">
@@ -229,7 +242,7 @@ export function DeviceEditModal({
               </select>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 md:col-span-2">
               <input
                 type="checkbox"
                 id="isDefault"

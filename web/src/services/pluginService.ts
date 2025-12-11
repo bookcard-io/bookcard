@@ -26,6 +26,13 @@ export interface PluginInstallRequest {
   branch?: string;
 }
 
+export interface PluginListResult {
+  plugins: PluginInfo[];
+  calibreNotFound: boolean;
+  statusMessage?: string;
+  statusType?: "warning" | "error" | "success" | "info" | "neutral";
+}
+
 const API_BASE = "/api/plugins";
 
 /**
@@ -33,23 +40,57 @@ const API_BASE = "/api/plugins";
  *
  * Returns
  * -------
- * Promise<PluginInfo[]>
- *     List of installed plugins.
+ * Promise<PluginListResult>
+ *     Result containing plugins list and calibre_not_found flag.
+ *
+ * Throws
+ * ------
+ * Error
+ *     If the request fails for reasons other than calibre_not_found.
  */
-export async function listPlugins(): Promise<PluginInfo[]> {
-  const response = await fetch(`${API_BASE}/`, {
+export async function listPlugins(
+  signal?: AbortSignal,
+): Promise<PluginListResult> {
+  const response = await fetch(`${API_BASE}`, {
     method: "GET",
     credentials: "include",
+    signal,
   });
 
   if (!response.ok) {
     const error = await response
       .json()
       .catch(() => ({ detail: "Failed to list plugins" }));
-    throw new Error(error.detail || "Failed to list plugins");
+
+    // Handle calibre_not_found gracefully without throwing
+    // This prevents Next.js from logging it as an unhandled error
+    if (error.detail?.error_type === "calibre_not_found") {
+      return {
+        plugins: [],
+        calibreNotFound: true,
+        statusMessage: error.detail?.message,
+        statusType:
+          (error.detail?.message_type as
+            | "warning"
+            | "error"
+            | "success"
+            | "info"
+            | "neutral"
+            | undefined) || "neutral",
+      };
+    }
+
+    const errorMessage =
+      typeof error.detail === "string"
+        ? error.detail
+        : error.detail?.message || "Failed to list plugins";
+    throw new Error(errorMessage);
   }
 
-  return response.json();
+  return {
+    plugins: await response.json(),
+    calibreNotFound: false,
+  };
 }
 
 /**
@@ -74,7 +115,20 @@ export async function installPluginUpload(file: File): Promise<void> {
     const error = await response
       .json()
       .catch(() => ({ detail: "Failed to install plugin" }));
-    throw new Error(error.detail || "Failed to install plugin");
+    const errorMessage =
+      typeof error.detail === "string"
+        ? error.detail
+        : error.detail?.message || "Failed to install plugin";
+    const errorObj = new Error(errorMessage);
+    if (error.detail?.error_type) {
+      (
+        errorObj as Error & { errorType?: string; messageType?: string }
+      ).errorType = error.detail.error_type;
+      (
+        errorObj as Error & { errorType?: string; messageType?: string }
+      ).messageType = error.detail.message_type;
+    }
+    throw errorObj;
   }
 }
 
@@ -102,7 +156,20 @@ export async function installPluginGit(
     const error = await response
       .json()
       .catch(() => ({ detail: "Failed to install plugin from Git" }));
-    throw new Error(error.detail || "Failed to install plugin from Git");
+    const errorMessage =
+      typeof error.detail === "string"
+        ? error.detail
+        : error.detail?.message || "Failed to install plugin from Git";
+    const errorObj = new Error(errorMessage);
+    if (error.detail?.error_type) {
+      (
+        errorObj as Error & { errorType?: string; messageType?: string }
+      ).errorType = error.detail.error_type;
+      (
+        errorObj as Error & { errorType?: string; messageType?: string }
+      ).messageType = error.detail.message_type;
+    }
+    throw errorObj;
   }
 }
 
