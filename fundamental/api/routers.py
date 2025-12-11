@@ -36,6 +36,7 @@ from fundamental.api.routes.kobo import router as kobo_router
 from fundamental.api.routes.library_scanning import router as library_scanning_router
 from fundamental.api.routes.metadata import router as metadata_router
 from fundamental.api.routes.opds import router as opds_router
+from fundamental.api.routes.plugins import router as plugins_router
 from fundamental.api.routes.reading import router as reading_router
 from fundamental.api.routes.shelves import router as shelves_router
 from fundamental.api.routes.tasks import router as tasks_router
@@ -56,6 +57,7 @@ ROUTERS: list[APIRouter] = [
     kobo_router,
     metadata_router,
     opds_router,
+    plugins_router,
     reading_router,
     shelves_router,
     tasks_router,

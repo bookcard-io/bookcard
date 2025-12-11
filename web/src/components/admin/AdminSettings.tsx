@@ -19,11 +19,17 @@ import { useState } from "react";
 import { BlurAfterClickProvider } from "@/components/profile/BlurAfterClickContext";
 import { cn } from "@/libs/utils";
 import { ConfigurationTab } from "./tabs/ConfigurationTab";
+import { PluginsTab } from "./tabs/PluginsTab";
 import { ScheduledTasksTab } from "./tabs/ScheduledTasksTab";
 import { SystemTab } from "./tabs/SystemTab";
 import { UsersAndRolesTab } from "./tabs/UsersAndRolesTab";
 
-type TabId = "users" | "configuration" | "system" | "scheduled-tasks";
+type TabId =
+  | "users"
+  | "configuration"
+  | "system"
+  | "scheduled-tasks"
+  | "plugins";
 
 export function AdminSettings() {
   const [activeTab, setActiveTab] = useState<TabId>("users");
@@ -33,6 +39,7 @@ export function AdminSettings() {
     { id: "configuration", label: "Configuration" },
     { id: "system", label: "System" },
     { id: "scheduled-tasks", label: "Scheduled Tasks" },
+    { id: "plugins", label: "Plugins" },
   ];
 
   return (
@@ -62,6 +69,7 @@ export function AdminSettings() {
             {activeTab === "configuration" && <ConfigurationTab />}
             {activeTab === "system" && <SystemTab />}
             {activeTab === "scheduled-tasks" && <ScheduledTasksTab />}
+            {activeTab === "plugins" && <PluginsTab />}
           </div>
         </BlurAfterClickProvider>
       </div>

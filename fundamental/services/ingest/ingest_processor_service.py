@@ -35,6 +35,7 @@ from fundamental.repositories.ingest_repository import (
 )
 from fundamental.services.author_exceptions import NoActiveLibraryError
 from fundamental.services.book_service import BookService
+from fundamental.services.dedrm_service import DeDRMService
 from fundamental.services.ingest.exceptions import (
     IngestHistoryCreationError,
     IngestHistoryNotFoundError,
@@ -73,6 +74,8 @@ class IngestProcessorService:
         Optional factory for creating BookService instances.
     metadata_fetch_service : MetadataFetchService | None
         Optional metadata fetch service (creates default if None).
+    dedrm_service : DeDRMService | None
+        Optional DeDRM service (creates default if None).
     """
 
     def __init__(
@@ -84,6 +87,7 @@ class IngestProcessorService:
         library_repo: LibraryRepository | None = None,
         book_service_factory: Callable[[Library], BookService] | None = None,
         metadata_fetch_service: MetadataFetchService | None = None,
+        dedrm_service: DeDRMService | None = None,
     ) -> None:
         """Initialize ingest processor service.
 
@@ -103,6 +107,8 @@ class IngestProcessorService:
             Optional factory for creating BookService instances.
         metadata_fetch_service : MetadataFetchService | None
             Optional metadata fetch service.
+        dedrm_service : DeDRMService | None
+            Optional DeDRM service.
         """
         self._session = session
         self._config_service = config_service or IngestConfigService(session)
@@ -113,6 +119,7 @@ class IngestProcessorService:
             lambda lib: BookService(lib, session=session)
         )
         self._metadata_fetch_service = metadata_fetch_service
+        self._dedrm_service = dedrm_service or DeDRMService()
 
     def process_file_group(
         self,
@@ -257,13 +264,40 @@ class IngestProcessorService:
 
         # Create book using factory
         book_service = self._book_service_factory(library)
-        book_id = book_service.add_book(
-            file_path=file_path,
-            file_format=file_format,
-            title=title,
-            author_name=author_name,
-            pubdate=pubdate,
-        )
+
+        # Attempt to strip DRM
+        processed_file_path = file_path
+        try:
+            processed_file_path = self._dedrm_service.strip_drm(file_path)
+            if processed_file_path != file_path:
+                logger.info(
+                    "DeDRM processed file: %s -> %s", file_path, processed_file_path
+                )
+        except (RuntimeError, FileNotFoundError, OSError) as e:
+            logger.warning(
+                "DeDRM failed for %s: %s. Proceeding with original file.", file_path, e
+            )
+            # Proceed with original file path
+            processed_file_path = file_path
+
+        try:
+            book_id = book_service.add_book(
+                file_path=processed_file_path,
+                file_format=file_format,
+                title=title,
+                author_name=author_name,
+                pubdate=pubdate,
+            )
+        finally:
+            # Clean up processed file if it's different from original and exists
+            # (DeDRMService returns a temp file that should be cleaned up)
+            if processed_file_path != file_path and processed_file_path.exists():
+                try:
+                    processed_file_path.unlink()
+                except OSError:
+                    logger.warning(
+                        "Failed to delete temp file: %s", processed_file_path
+                    )
 
         # Update history with book ID
         if history.book_id is None:

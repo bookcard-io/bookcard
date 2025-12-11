@@ -471,6 +471,7 @@ class EReaderDevice(SQLModel, table=True):
     user_id: int = Field(foreign_key="users.id", index=True)
     email: str = Field(max_length=255, index=True)
     device_name: str | None = Field(default=None, max_length=100)
+    serial_number: str | None = Field(default=None, max_length=255)
     device_type: str = Field(default="kindle", max_length=50)
     is_default: bool = Field(default=False)
     preferred_format: EBookFormat | None = Field(

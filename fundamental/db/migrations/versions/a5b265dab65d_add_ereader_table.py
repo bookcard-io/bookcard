@@ -43,6 +43,7 @@ def upgrade() -> None:
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("email", sqlmodel.AutoString(length=255), nullable=False),
         sa.Column("device_name", sqlmodel.AutoString(length=100), nullable=True),
+        sa.Column("serial_number", sqlmodel.AutoString(length=255), nullable=True),
         sa.Column("device_type", sqlmodel.AutoString(length=50), nullable=False),
         sa.Column("is_default", sa.Boolean(), nullable=False),
         sa.Column(
