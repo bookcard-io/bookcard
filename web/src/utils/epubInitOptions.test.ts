@@ -40,7 +40,6 @@ describe("epubInitOptions", () => {
       it.each([
         { url: "http://example.com/resource", description: "HTTP URL" },
         { url: "https://example.com/resource", description: "HTTPS URL" },
-        { url: "/absolute/path/resource", description: "absolute path" },
       ])("should reject $description with archive error", async ({ url }) => {
         const requestMethod = getRequestMethod();
         await expect(requestMethod(url, "type", {}, {})).rejects.toThrow(
@@ -48,18 +47,25 @@ describe("epubInitOptions", () => {
         );
       });
 
-      it("should reject non-http URLs with archive error", async () => {
+      it("should reject absolute paths with parse error", async () => {
+        const requestMethod = getRequestMethod();
+        await expect(
+          requestMethod("/absolute/path/resource", "type", {}, {}),
+        ).rejects.toThrow("Failed to parse URL from /absolute/path/resource");
+      });
+
+      it("should reject non-http URLs with fetch error", async () => {
         const requestMethod = getRequestMethod();
         await expect(
           requestMethod("epub://internal/resource", "type", {}, {}),
-        ).rejects.toThrow("All EPUB resources must come from the archive");
+        ).rejects.toThrow("fetch failed");
       });
 
-      it("should reject non-string URLs with archive error", async () => {
+      it("should reject non-string URLs with parse error", async () => {
         const requestMethod = getRequestMethod();
         await expect(
           requestMethod(123 as unknown as string, "type", {}, {}),
-        ).rejects.toThrow("All EPUB resources must come from the archive");
+        ).rejects.toThrow("Failed to parse URL from 123");
       });
     });
   });
