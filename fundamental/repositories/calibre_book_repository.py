@@ -1426,7 +1426,7 @@ class CalibreBookRepository(IBookRepository):
             # Return updated book with full relations
             return self.get_book_full(book_id)
 
-    def _get_library_path(self) -> Path:
+    def get_library_path(self) -> Path:
         """Get library root path from calibre_db_path.
 
         Returns
@@ -1437,6 +1437,16 @@ class CalibreBookRepository(IBookRepository):
         if self._calibre_db_path.is_dir():
             return self._calibre_db_path
         return self._calibre_db_path.parent
+
+    def _get_library_path(self) -> Path:
+        """Get library root path from calibre_db_path.
+
+        Returns
+        -------
+        Path
+            Library root path.
+        """
+        return self.get_library_path()
 
     def _normalize_title_and_author(
         self,
@@ -1711,6 +1721,262 @@ class CalibreBookRepository(IBookRepository):
 
             session.commit()
             return book_id
+
+    def add_format(
+        self,
+        book_id: int,
+        file_path: Path,
+        file_format: str,
+        replace: bool = False,
+    ) -> None:
+        """Add a format to an existing book.
+
+        Parameters
+        ----------
+        book_id : int
+            Book ID.
+        file_path : Path
+            Path to the file to add.
+        file_format : str
+            Format extension (e.g. 'epub').
+        replace : bool
+            Whether to replace existing format if it exists.
+
+        Raises
+        ------
+        ValueError
+            If book not found.
+        FileExistsError
+            If format exists and replace is False.
+        """
+        if not file_path.exists():
+            msg = f"File not found: {file_path}"
+            raise ValueError(msg)
+
+        file_format_upper = file_format.upper().lstrip(".")
+
+        with self.get_session() as session:
+            # Get book to ensure it exists and get path
+            book_stmt = select(Book).where(Book.id == book_id)
+            book = session.exec(book_stmt).first()
+            if book is None:
+                self._raise_book_not_found_error()
+
+            # Check existing formats
+            data_stmt = select(Data).where(Data.book == book_id)
+            existing_data = session.exec(data_stmt).all()
+
+            existing_format_record = next(
+                (d for d in existing_data if d.format == file_format_upper), None
+            )
+
+            if existing_format_record and not replace:
+                error_msg = (
+                    f"Format {file_format_upper} already exists for book {book_id}"
+                )
+                raise FileExistsError(error_msg)
+
+            # Determine title_dir (filename without extension)
+            # Use existing record's name if available, otherwise sanitize book title
+            title_dir = (
+                existing_data[0].name
+                if existing_data
+                else self._sanitize_filename(book.title)
+            )
+
+            # Determine paths
+            library_path = self._get_library_path()
+            book_path_str = book.path
+
+            # Save file
+            self._file_manager.save_book_file(
+                file_path,
+                library_path,
+                book_path_str,
+                title_dir,
+                file_format_upper,
+            )
+
+            # Update database
+            file_size = file_path.stat().st_size
+            if existing_format_record:
+                existing_format_record.uncompressed_size = file_size
+                existing_format_record.name = title_dir  # Ensure name is consistent
+                session.add(existing_format_record)
+            else:
+                new_data = Data(
+                    book=book_id,
+                    format=file_format_upper,
+                    uncompressed_size=file_size,
+                    name=title_dir,
+                )
+                session.add(new_data)
+
+            # Update book last_modified
+            book.last_modified = datetime.now(UTC)
+            session.add(book)
+
+            session.commit()
+
+    def delete_format(
+        self,
+        book_id: int,
+        file_format: str,
+        delete_file_from_drive: bool = True,
+    ) -> None:
+        """Delete a format from an existing book.
+
+        Parameters
+        ----------
+        book_id : int
+            Book ID.
+        file_format : str
+            Format extension (e.g. 'epub').
+        delete_file_from_drive : bool
+            Whether to delete the file from filesystem (default: True).
+
+        Raises
+        ------
+        ValueError
+            If book not found or format not found.
+        """
+        file_format_upper = file_format.upper().lstrip(".")
+
+        with self.get_session() as session:
+            # Get book to ensure it exists and get path
+            book_stmt = select(Book).where(Book.id == book_id)
+            book = session.exec(book_stmt).first()
+            if book is None:
+                self._raise_book_not_found_error()
+
+            # Find format record
+            format_record = self._find_format_record(
+                session, book_id, file_format_upper
+            )
+
+            # Delete file from filesystem if requested
+            if delete_file_from_drive:
+                self._delete_format_file(book, format_record, file_format_upper)
+
+            # Delete database record
+            session.delete(format_record)
+
+            # Update book last_modified
+            book.last_modified = datetime.now(UTC)
+            session.add(book)
+
+            session.commit()
+
+    def _find_format_record(
+        self, session: Session, book_id: int, file_format_upper: str
+    ) -> Data:
+        """Find format record in database.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_id : int
+            Book ID.
+        file_format_upper : str
+            Format in uppercase.
+
+        Returns
+        -------
+        Data
+            Format record.
+
+        Raises
+        ------
+        ValueError
+            If format not found.
+        """
+        data_stmt = select(Data).where(
+            Data.book == book_id, Data.format == file_format_upper
+        )
+        format_record = session.exec(data_stmt).first()
+        if format_record is None:
+            msg = f"Format {file_format_upper} not found for book {book_id}"
+            raise ValueError(msg)
+        return format_record
+
+    def _delete_format_file(
+        self, book: Book, format_record: Data, file_format_upper: str
+    ) -> None:
+        """Delete format file from filesystem.
+
+        Parameters
+        ----------
+        book : Book
+            Book record.
+        format_record : Data
+            Format record.
+        file_format_upper : str
+            Format in uppercase.
+        """
+        if book.id is None:
+            return
+
+        book_id = book.id  # Type narrowing for type checker
+        library_path = self._get_library_path()
+        book_dir = library_path / book.path
+        if not book_dir.exists():
+            return
+
+        file_path = self._find_format_file_path(
+            book_dir, format_record, book_id, file_format_upper
+        )
+
+        if file_path and file_path.exists():
+            try:
+                file_path.unlink()
+                logger.info("Deleted format file: %s", file_path)
+            except OSError as e:
+                logger.warning("Failed to delete format file %s: %s", file_path, e)
+
+    def _find_format_file_path(
+        self, book_dir: Path, format_record: Data, book_id: int, format_upper: str
+    ) -> Path | None:
+        """Find format file path using multiple patterns.
+
+        Parameters
+        ----------
+        book_dir : Path
+            Book directory path.
+        format_record : Data
+            Format record.
+        book_id : int
+            Book ID.
+        format_upper : str
+            Format in uppercase.
+
+        Returns
+        -------
+        Path | None
+            File path if found, None otherwise.
+        """
+        file_name = format_record.name or f"{book_id}"
+        format_lower = format_upper.lower()
+
+        # Pattern 1: {name}.{format}
+        file_path = book_dir / f"{file_name}.{format_lower}"
+        if file_path.exists():
+            return file_path
+
+        # Pattern 2: {book_id}.{format}
+        file_path = book_dir / f"{book_id}.{format_lower}"
+        if file_path.exists():
+            return file_path
+
+        # Pattern 3: Find by extension
+        for file_in_dir in book_dir.iterdir():
+            if (
+                file_in_dir.is_file()
+                and file_in_dir.suffix.lower() == f".{format_lower}"
+            ):
+                return file_in_dir
+
+        return None
 
     def _sanitize_filename(self, name: str, max_length: int = 96) -> str:
         """Sanitize filename by removing invalid characters."""

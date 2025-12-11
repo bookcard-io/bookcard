@@ -66,6 +66,7 @@ from fundamental.api.schemas import (
     CoverFromUrlRequest,
     CoverFromUrlResponse,
     FilterSuggestionsResponse,
+    FormatMetadataResponse,
     SearchSuggestionItem,
     SearchSuggestionsResponse,
     TagLookupItem,
@@ -84,6 +85,7 @@ from fundamental.services.config_service import (
     LibraryService,
 )
 from fundamental.services.email_config_service import EmailConfigService
+from fundamental.services.format_metadata_service import FormatMetadataService
 from fundamental.services.metadata_export_service import MetadataExportService
 from fundamental.services.metadata_import_service import MetadataImportService
 from fundamental.services.security import DataEncryptor
@@ -1851,6 +1853,259 @@ def upload_book(
     )
 
     return BookUploadResponse(task_id=task_id)
+
+
+@router.post(
+    "/{book_id}/formats",
+    response_model=BookRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_format(
+    book_id: int,
+    current_user: CurrentUserDep,
+    book_service: BookServiceDep,
+    permission_helper: PermissionHelperDep,
+    response_builder: ResponseBuilderDep,
+    file: Annotated[UploadFile, File(...)],
+    replace: bool = False,
+) -> BookRead:
+    """Add a new file format to an existing book.
+
+    Parameters
+    ----------
+    book_id : int
+        Book ID.
+    current_user : CurrentUserDep
+        Current authenticated user.
+    book_service : BookServiceDep
+        Book service instance.
+    permission_helper : PermissionHelperDep
+        Permission helper instance.
+    response_builder : ResponseBuilderDep
+        Response builder instance.
+    file : UploadFile
+        File to upload.
+    replace : bool
+        Whether to replace existing format.
+
+    Returns
+    -------
+    BookRead
+        Updated book data.
+
+    Raises
+    ------
+    HTTPException
+        If book not found (404), file exists (409), invalid file (400),
+        or permission denied (403).
+    """
+    # Verify book exists
+    existing_book = book_service.get_book_full(book_id)
+    if existing_book is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="book_not_found",
+        )
+
+    permission_helper.check_write_permission(current_user, existing_book)
+
+    try:
+        content = file.file.read()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"failed_to_read_file: {exc!s}",
+        ) from exc
+
+    try:
+        book_service.add_format_from_content(
+            book_id=book_id,
+            file_content=content,
+            filename=file.filename or "",
+            replace=replace,
+        )
+    except FileExistsError as exc:
+        # 409 Conflict for existing format
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+    except ValueError as exc:
+        if "book_not_found" in str(exc):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="book_not_found",
+            ) from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"failed_to_add_format: {exc!s}",
+        ) from exc
+
+    # Return updated book
+    updated_book = book_service.get_book_full(book_id)
+    if updated_book is None:
+        # Should not happen if add_format succeeded
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="book_not_found",
+        )
+
+    return response_builder.build_book_read(updated_book, full=True)
+
+
+@router.get(
+    "/{book_id}/formats/{file_format}/metadata",
+    response_model=FormatMetadataResponse,
+)
+def get_format_metadata(
+    book_id: int,
+    file_format: str,
+    current_user: CurrentUserDep,
+    permission_helper: PermissionHelperDep,
+    book_service: BookServiceDep,
+) -> FormatMetadataResponse:
+    """Get detailed metadata for a specific format.
+
+    Parameters
+    ----------
+    book_id : int
+        Book ID.
+    file_format : str
+        Format extension (e.g. 'epub').
+    current_user : CurrentUserDep
+        Current authenticated user.
+    session : SessionDep
+        Database session.
+    permission_helper : PermissionHelperDep
+        Permission helper instance.
+    book_service : BookServiceDep
+        Book service instance.
+
+    Returns
+    -------
+    FormatMetadataResponse
+        Detailed format metadata.
+
+    Raises
+    ------
+    HTTPException
+        If book not found, format not found, or permission denied.
+    """
+    # Verify book exists
+    existing_book = book_service.get_book_full(book_id)
+    if existing_book is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="book_not_found",
+        )
+
+    permission_helper.check_read_permission(current_user, existing_book)
+
+    # Use the repository from the book service to initialize the metadata service
+    # This accesses the private _book_repo, which is generally discouraged but necessary
+    # here as we are in the API layer wiring things up. Ideally BookService would expose this.
+    # Alternatively, we could inject CalibreBookRepository directly if we had a dependency for it.
+    # Given the current structure, accessing _book_repo is the most straightforward path.
+    # pylint: disable=protected-access
+    metadata_service = FormatMetadataService(book_service._book_repo)  # type: ignore[attr-defined]  # noqa: SLF001
+
+    try:
+        return metadata_service.get_format_metadata(book_id, file_format)
+    except ValueError as exc:
+        if "not found" in str(exc).lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(exc),
+            ) from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"failed_to_get_metadata: {exc!s}",
+        ) from exc
+
+
+@router.delete(
+    "/{book_id}/formats/{file_format}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_format(
+    book_id: int,
+    file_format: str,
+    current_user: CurrentUserDep,
+    book_service: BookServiceDep,
+    permission_helper: PermissionHelperDep,
+) -> None:
+    """Delete a format from an existing book.
+
+    Parameters
+    ----------
+    book_id : int
+        Book ID.
+    file_format : str
+        Format extension (e.g. 'epub').
+    current_user : CurrentUserDep
+        Current authenticated user.
+    book_service : BookServiceDep
+        Book service instance.
+    permission_helper : PermissionHelperDep
+        Permission helper instance.
+
+    Raises
+    ------
+    HTTPException
+        If book not found (404), format not found (404),
+        or permission denied (403).
+    """
+    # Verify book exists
+    existing_book = book_service.get_book_full(book_id)
+    if existing_book is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="book_not_found",
+        )
+
+    permission_helper.check_write_permission(current_user, existing_book)
+
+    try:
+        book_service.delete_format(
+            book_id=book_id,
+            file_format=file_format,
+            delete_file_from_drive=True,
+        )
+    except ValueError as exc:
+        if "book_not_found" in str(exc):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="book_not_found",
+            ) from exc
+        if "not found" in str(exc).lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(exc),
+            ) from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"failed_to_delete_format: {exc!s}",
+        ) from exc
 
 
 def _get_task_runner(request: Request) -> "TaskRunner":

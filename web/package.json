@@ -51,6 +51,7 @@
     "@tanstack/react-query": "^5.90.9",
     "@tanstack/react-virtual": "^3.13.12",
     "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
     "drizzle-orm": "^0.44.7",
     "jszip": "^3.10.1",
     "next": "^16.0.4",

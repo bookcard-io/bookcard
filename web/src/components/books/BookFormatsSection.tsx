@@ -15,36 +15,88 @@
 
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
+import { AddFormatButton } from "@/components/books/AddFormatButton";
 import { ConversionModal } from "@/components/books/ConversionModal";
+import { FormatInfoModal } from "@/components/books/FormatInfoModal";
+import { FormatList } from "@/components/books/FormatList";
+import { IconButton } from "@/components/books/IconButton";
+import { ReplaceFormatConfirmationModal } from "@/components/books/ReplaceFormatConfirmationModal";
 import { Button } from "@/components/forms/Button";
 import { useUser } from "@/contexts/UserContext";
+import { useFormatUpload } from "@/hooks/useFormatUpload";
 import type { Book } from "@/types/book";
-import { formatFileSize } from "@/utils/format";
+import { getFileExtension } from "@/utils/format";
 import { buildBookPermissionContext } from "@/utils/permissions";
 
 export interface BookFormatsSectionProps {
   /** Book data containing formats. */
   book: Book;
+  /** Optional callback when format is added (for IoC). */
+  onFormatAdded?: () => void;
 }
 
 /**
  * Book formats section component.
  *
  * Displays book file formats and format actions.
- * Follows SRP by focusing solely on formats presentation.
+ * Follows SRP by delegating to specialized components and hooks.
+ * Follows SOC by separating presentation from business logic.
+ * Follows IoC by accepting optional callbacks for extensibility.
  *
  * Parameters
  * ----------
  * props : BookFormatsSectionProps
- *     Component props including book data.
+ *     Component props including book data and optional callbacks.
  */
-export function BookFormatsSection({ book }: BookFormatsSectionProps) {
+export function BookFormatsSection({
+  book,
+  onFormatAdded,
+}: BookFormatsSectionProps) {
+  const router = useRouter();
   const { canPerformAction } = useUser();
   const bookContext = buildBookPermissionContext(book);
   const canWrite = canPerformAction("books", "write", bookContext);
   const canDelete = canPerformAction("books", "delete", bookContext);
   const [isConversionModalOpen, setIsConversionModalOpen] = useState(false);
+  const [selectedFormatForInfo, setSelectedFormatForInfo] = useState<{
+    format: string;
+    size: number;
+  } | null>(null);
+
+  const [localFormats, setLocalFormats] = useState(book.formats || []);
+
+  const handleFormatAdded = useCallback(() => {
+    router.refresh();
+    // Re-fetch logic or manual update would be better here, but for now relying on router.refresh()
+    // However, user reports UI not updating.
+    // Let's manually fetch the book to get updated formats
+    fetch(`/api/books/${book.id}?full=true`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.formats) {
+          setLocalFormats(data.formats);
+        }
+      })
+      .catch((err) => console.error("Failed to refresh book formats", err));
+
+    onFormatAdded?.();
+  }, [book.id, router, onFormatAdded]);
+
+  const {
+    isUploading,
+    showReplaceModal,
+    pendingFile,
+    upload,
+    confirmReplace,
+    cancelReplace,
+    error,
+  } = useFormatUpload({
+    bookId: book.id,
+    onSuccess: handleFormatAdded,
+  });
+
   const openConversionModal = useCallback(
     () => setIsConversionModalOpen(true),
     [],
@@ -54,75 +106,84 @@ export function BookFormatsSection({ book }: BookFormatsSectionProps) {
     [],
   );
 
+  const handleFileChange = useCallback(
+    (file: File) => {
+      void upload(file, false);
+    },
+    [upload],
+  );
+
+  const handleDeleteFormat = useCallback(
+    async (format: string) => {
+      try {
+        const response = await fetch(
+          `/api/books/${book.id}/formats/${format}`,
+          {
+            method: "DELETE",
+          },
+        );
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.detail || "Failed to delete format");
+        }
+
+        // Manually update local state to remove the deleted format immediately
+        setLocalFormats((prev) => prev.filter((f) => f.format !== format));
+
+        router.refresh();
+        onFormatAdded?.();
+      } catch (error) {
+        console.error("Failed to delete format", error);
+        // TODO: Show toast error
+      }
+    },
+    [book.id, router, onFormatAdded],
+  );
+
+  const isLastFormat = localFormats.length <= 1;
+
+  const renderFormatActions = useCallback(
+    (format: { format: string; size: number }) => (
+      <>
+        <IconButton
+          icon="pi-info-circle"
+          label={`Info for ${format.format.toUpperCase()}`}
+          onClick={() => setSelectedFormatForInfo(format)}
+        />
+        <IconButton
+          icon="pi-copy"
+          label={`Copy ${format.format.toUpperCase()}`}
+          disabled={!canWrite}
+        />
+        <IconButton
+          icon="pi-trash"
+          label={`Delete ${format.format.toUpperCase()}`}
+          disabled={!canDelete || isLastFormat}
+          onClick={() => {
+            void handleDeleteFormat(format.format);
+          }}
+        />
+      </>
+    ),
+    [canWrite, canDelete, isLastFormat, handleDeleteFormat],
+  );
+
   return (
     <div className="mt-6 flex flex-col gap-4">
       <h3 className="m-0 font-bold text-text-a0 text-xl">Formats</h3>
-      {book.formats && book.formats.length > 0 ? (
-        <div className="flex flex-col gap-2">
-          {book.formats.map((file) => (
-            <div
-              key={`${file.format}-${file.size}`}
-              className="flex items-center justify-between gap-3 rounded-md border border-primary-a20 bg-surface-tonal-a10 p-3"
-            >
-              <div className="flex h-10 w-10 min-w-10 items-center justify-center rounded-md border border-primary-a20 bg-surface-a20 font-semibold text-text-a0 text-xs">
-                {file.format.toUpperCase()}
-              </div>
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <span className="font-semibold text-sm text-text-a0">
-                  {file.format.toUpperCase()}
-                </span>
-                <span className="text-sm text-text-a30">
-                  {formatFileSize(file.size)}
-                </span>
-              </div>
-              <div className="flex gap-1">
-                <button
-                  type="button"
-                  className="flex flex-shrink-0 items-center justify-center rounded bg-transparent p-1.5 text-text-a30 transition-[transform,color,background-color] duration-200 hover:bg-surface-a20 hover:text-primary-a0 focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 active:scale-95"
-                  aria-label={`Info for ${file.format.toUpperCase()}`}
-                  title={`Info for ${file.format.toUpperCase()}`}
-                >
-                  <span className="pi pi-info-circle" aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  disabled={!canWrite}
-                  className="flex flex-shrink-0 items-center justify-center rounded bg-transparent p-1.5 text-text-a30 transition-[transform,color,background-color] duration-200 hover:bg-surface-a20 hover:text-primary-a0 focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-label={`Copy ${file.format.toUpperCase()}`}
-                  title={`Copy ${file.format.toUpperCase()}`}
-                >
-                  <span className="pi pi-copy" aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  disabled={!canDelete}
-                  className="flex flex-shrink-0 items-center justify-center rounded bg-transparent p-1.5 text-text-a30 transition-[transform,color,background-color] duration-200 hover:bg-surface-a20 hover:text-primary-a0 focus:outline focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-label={`Delete ${file.format.toUpperCase()}`}
-                  title={`Delete ${file.format.toUpperCase()}`}
-                >
-                  <span className="pi pi-trash" aria-hidden="true" />
-                </button>
-              </div>
-            </div>
-          ))}
+      {error && (
+        <div className="rounded-md border border-error-a20 bg-error-a10 p-3 text-error-a0 text-sm">
+          {error}
         </div>
-      ) : (
-        <div className="py-2 text-sm text-text-a30">No formats available</div>
       )}
+      <FormatList formats={localFormats} renderActions={renderFormatActions} />
       <div className="flex flex-col gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="small"
+        <AddFormatButton
           disabled={!canWrite}
-          className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 w-full justify-start rounded-md hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <span
-            className="pi pi-plus mr-2 text-primary-a20"
-            aria-hidden="true"
-          />
-          Add new format
-        </Button>
+          isUploading={isUploading}
+          onFileChange={handleFileChange}
+        />
         <Button
           type="button"
           variant="ghost"
@@ -142,6 +203,20 @@ export function BookFormatsSection({ book }: BookFormatsSectionProps) {
         book={book}
         isOpen={isConversionModalOpen}
         onClose={closeConversionModal}
+      />
+      <FormatInfoModal
+        isOpen={!!selectedFormatForInfo}
+        onClose={() => setSelectedFormatForInfo(null)}
+        format={selectedFormatForInfo || { format: "", size: 0 }}
+        bookId={book.id}
+        bookTitle={book.title}
+      />
+      <ReplaceFormatConfirmationModal
+        isOpen={showReplaceModal}
+        onClose={cancelReplace}
+        onConfirm={confirmReplace}
+        format={pendingFile ? getFileExtension(pendingFile.name) : ""}
+        isReplacing={isUploading}
       />
     </div>
   );

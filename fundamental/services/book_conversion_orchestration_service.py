@@ -19,6 +19,7 @@ Handles the business logic for initiating book format conversions.
 Follows SRP by focusing solely on conversion orchestration operations.
 """
 
+import logging
 import math
 from dataclasses import dataclass
 
@@ -29,7 +30,10 @@ from fundamental.models.conversion import BookConversion, ConversionStatus
 from fundamental.models.tasks import TaskType
 from fundamental.services.book_service import BookService
 from fundamental.services.conversion import create_conversion_service
+from fundamental.services.conversion.exceptions import ConverterNotAvailableError
 from fundamental.services.tasks.base import TaskRunner
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -118,7 +122,11 @@ class BookConversionOrchestrationService:
         self._book_service = book_service
         self._library = library
         self._task_runner = task_runner
-        self._conversion_service = create_conversion_service(session, library)
+        try:
+            self._conversion_service = create_conversion_service(session, library)
+        except ConverterNotAvailableError as e:
+            logger.warning("Conversion service not available: %s", e)
+            self._conversion_service = None
 
     def initiate_conversion(
         self,
@@ -155,6 +163,11 @@ class BookConversionOrchestrationService:
         RuntimeError
             If task runner is unavailable.
         """
+        # Check if conversion service is available
+        if self._conversion_service is None:
+            msg = "Conversion service is not available (Calibre converter not found)"
+            raise ValueError(msg)
+
         # Verify book exists
         existing_book = self._book_service.get_book_full(book_id)
         if existing_book is None:

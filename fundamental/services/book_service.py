@@ -21,6 +21,7 @@ Business logic for querying and serving book data from Calibre libraries.
 from __future__ import annotations
 
 import logging
+import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -51,7 +52,10 @@ from fundamental.repositories import (
     ereader_repository,
 )
 from fundamental.repositories.config_repository import LibraryRepository
-from fundamental.services.config_service import LibraryService
+from fundamental.services.config_service import (
+    FileHandlingConfigService,
+    LibraryService,
+)
 from fundamental.services.conversion import create_conversion_service
 from fundamental.services.conversion_utils import raise_conversion_error
 
@@ -567,6 +571,138 @@ class BookService:
             author_name=author_name,
             pubdate=pubdate,
             library_path=library_path,
+        )
+
+    def add_format(
+        self,
+        book_id: int,
+        file_path: Path,
+        file_format: str,
+        replace: bool = False,
+    ) -> None:
+        """Add a format to an existing book.
+
+        Parameters
+        ----------
+        book_id : int
+            Book ID.
+        file_path : Path
+            Path to the file to add (temporary location).
+        file_format : str
+            Format extension (e.g. 'epub').
+        replace : bool
+            Whether to replace existing format if it exists.
+
+        Raises
+        ------
+        ValueError
+            If book or file not found.
+        FileExistsError
+            If format exists and replace is False.
+        """
+        self._book_repo.add_format(
+            book_id=book_id,
+            file_path=file_path,
+            file_format=file_format,
+            replace=replace,
+        )
+
+    def add_format_from_content(
+        self,
+        book_id: int,
+        file_content: bytes,
+        filename: str,
+        replace: bool = False,
+    ) -> None:
+        """Add a format from raw content, handling validation and temp files.
+
+        Parameters
+        ----------
+        book_id : int
+            Book ID.
+        file_content : bytes
+            Raw content of the file.
+        filename : str
+            Original filename.
+        replace : bool
+            Whether to replace existing format.
+
+        Raises
+        ------
+        ValueError
+            If validation fails or file save fails.
+        FileExistsError
+            If format exists and replace is False.
+        RuntimeError
+            If temporary file creation fails.
+        """
+        # Validate file extension
+        file_ext = Path(filename).suffix.lower().lstrip(".")
+        if not file_ext:
+            msg = "file_extension_required"
+            raise ValueError(msg)
+
+        # Validate allowed format if session is available
+        if self._session:
+            file_handling_service = FileHandlingConfigService(self._session)
+            if not file_handling_service.is_format_allowed(file_ext):
+                allowed_formats = file_handling_service.get_allowed_upload_formats()
+                msg = f"File format '{file_ext}' is not allowed. Allowed formats: {', '.join(allowed_formats)}"
+                raise ValueError(msg)
+
+        # Save to temporary location
+        try:
+            with tempfile.NamedTemporaryFile(
+                delete=False,
+                suffix=f".{file_ext}",
+                prefix="calibre_format_upload_",
+            ) as temp_file:
+                temp_path = Path(temp_file.name)
+                temp_file.write(file_content)
+        except Exception as exc:
+            # If temp file was created but write failed, try to clean up
+            if "temp_path" in locals():
+                temp_path.unlink(missing_ok=True)
+            msg = f"failed_to_save_file: {exc!s}"
+            raise RuntimeError(msg) from exc
+
+        try:
+            self.add_format(
+                book_id=book_id,
+                file_path=temp_path,
+                file_format=file_ext,
+                replace=replace,
+            )
+        finally:
+            # Clean up temp file
+            temp_path.unlink(missing_ok=True)
+
+    def delete_format(
+        self,
+        book_id: int,
+        file_format: str,
+        delete_file_from_drive: bool = True,
+    ) -> None:
+        """Delete a format from an existing book.
+
+        Parameters
+        ----------
+        book_id : int
+            Book ID.
+        file_format : str
+            Format extension (e.g. 'epub').
+        delete_file_from_drive : bool
+            Whether to delete the file from filesystem (default: True).
+
+        Raises
+        ------
+        ValueError
+            If book not found or format not found.
+        """
+        self._book_repo.delete_format(
+            book_id=book_id,
+            file_format=file_format,
+            delete_file_from_drive=delete_file_from_drive,
         )
 
     def delete_book(

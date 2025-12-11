@@ -43,6 +43,26 @@ export function formatFileSize(bytes: number): string {
 }
 
 /**
+ * Extract file extension from filename.
+ *
+ * Handles edge cases like files without extensions or multiple dots.
+ *
+ * Parameters
+ * ----------
+ * filename : string
+ *     Filename to extract extension from.
+ *
+ * Returns
+ * -------
+ * string
+ *     Uppercase file extension (e.g., "EPUB") or empty string if none.
+ */
+export function getFileExtension(filename: string): string {
+  const match = filename.match(/\.([^.]+)$/);
+  return match?.[1] ? match[1].toUpperCase() : "";
+}
+
+/**
  * Format date string to human-readable format.
  *
  * Parameters

@@ -464,3 +464,45 @@ class BookConvertResponse(BaseModel):
     existing_conversion_id: int | None = Field(
         default=None, description="ID of existing conversion if one was found"
     )
+
+
+class FormatMetadataResponse(BaseModel):
+    """Detailed metadata for a specific book format.
+
+    Attributes
+    ----------
+    format : str
+        Format extension (e.g. 'epub').
+    size : int
+        File size in bytes.
+    path : str
+        Relative path to the file in the library.
+    created_at : datetime | None
+        File creation timestamp.
+    modified_at : datetime | None
+        File modification timestamp.
+    version : str | None
+        Format version (e.g. '2.0', '3.0').
+    page_count : int | None
+        Number of pages (if applicable).
+    encryption : str | None
+        Encryption/DRM status.
+    validation_status : str | None
+        Validation status (valid, invalid, unknown).
+    validation_issues : list[str]
+        List of validation issues or warnings.
+    mime_type : str | None
+        MIME type.
+    """
+
+    format: str
+    size: int
+    path: str
+    created_at: datetime | None = None
+    modified_at: datetime | None = None
+    version: str | None = None
+    page_count: int | None = None
+    encryption: str | None = None
+    validation_status: str | None = None
+    validation_issues: list[str] = Field(default_factory=list)
+    mime_type: str | None = None
