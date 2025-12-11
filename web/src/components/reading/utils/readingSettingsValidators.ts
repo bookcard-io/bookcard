@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import { FONT_SIZE_MAX, FONT_SIZE_MIN } from "../constants/themeSettings";
 import type {
   FontFamily,
   PageColor,
@@ -133,7 +134,7 @@ export function isValidPageLayout(value: string): value is PageLayout {
  * minSize : number
  *     Minimum valid font size (default: 12).
  * maxSize : number
- *     Maximum valid font size (default: 24).
+ *     Maximum valid font size (default: 48).
  *
  * Returns
  * -------
@@ -142,8 +143,8 @@ export function isValidPageLayout(value: string): value is PageLayout {
  */
 export function parseFontSize(
   value: string,
-  minSize = 12,
-  maxSize = 24,
+  minSize = FONT_SIZE_MIN,
+  maxSize = FONT_SIZE_MAX,
 ): number | null {
   const parsed = parseInt(value, 10);
   if (Number.isNaN(parsed) || parsed < minSize || parsed > maxSize) {

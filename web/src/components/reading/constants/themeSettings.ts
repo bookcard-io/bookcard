@@ -70,5 +70,5 @@ export const PAGE_COLOR_CONFIGS: Record<PageColor, PageColorConfig> = {
  * Font size constraints.
  */
 export const FONT_SIZE_MIN = 12;
-export const FONT_SIZE_MAX = 24;
+export const FONT_SIZE_MAX = 36;
 export const FONT_SIZE_STEP = 1;

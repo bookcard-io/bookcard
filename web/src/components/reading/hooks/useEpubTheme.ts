@@ -77,7 +77,7 @@ export function useEpubTheme({
       const colors = getThemeColors(pageColor);
       contents.forEach((content) => {
         if (content.document) {
-          applyDocumentTheme(content.document, colors, fontFamily);
+          applyDocumentTheme(content.document, colors, fontFamily, fontSize);
         }
       });
     } else if (contents) {
@@ -86,7 +86,7 @@ export function useEpubTheme({
       contentList.forEach((content) => {
         if (content.document) {
           const colors = getThemeColors(pageColor);
-          applyDocumentTheme(content.document, colors, fontFamily);
+          applyDocumentTheme(content.document, colors, fontFamily, fontSize);
         }
       });
     }

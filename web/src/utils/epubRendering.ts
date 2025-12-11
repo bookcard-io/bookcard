@@ -88,11 +88,16 @@ export function ensureFontFacesInjected(document: Document): void {
  *     The EPUB content document to style.
  * colors : ThemeColors
  *     Theme colors object returned by ``getThemeColors``.
+ * fontFamily : string, optional
+ *     Font family to apply to document elements.
+ * fontSize : number, optional
+ *     Font size in pixels to apply to document elements.
  */
 export function applyDocumentTheme(
   document: Document,
   colors: ThemeColors,
   fontFamily?: string,
+  fontSize?: number,
 ): void {
   if (document.body) {
     document.body.style.color = colors.textColor;
@@ -104,11 +109,18 @@ export function applyDocumentTheme(
         "important",
       );
     }
+    if (fontSize !== undefined) {
+      document.body.style.setProperty(
+        "font-size",
+        `${fontSize}px`,
+        "important",
+      );
+    }
   }
 
   // Inject global font override to handle specific element styles (e.g. p tags with serif)
   // This ensures user font preference overrides book-specific styles
-  if (fontFamily) {
+  if (fontFamily || fontSize !== undefined) {
     const styleId = "epub-font-override";
     let style = document.getElementById(styleId) as HTMLStyleElement;
     if (!style) {
@@ -118,9 +130,15 @@ export function applyDocumentTheme(
     }
     // Target common text elements to override specific class styles
     // Exclude pre and code to preserve monospace formatting
+    const fontFamilyRule = fontFamily
+      ? `font-family: "${fontFamily}" !important;`
+      : "";
+    const fontSizeRule =
+      fontSize !== undefined ? `font-size: ${fontSize}px !important;` : "";
     style.textContent = `
       p, span, div, h1, h2, h3, h4, h5, h6, a, li, blockquote, td, th, dt, dd {
-        font-family: "${fontFamily}" !important;
+        ${fontFamilyRule}
+        ${fontSizeRule}
       }
     `;
   }
@@ -133,6 +151,13 @@ export function applyDocumentTheme(
       iframe.contentDocument.body.style.setProperty(
         "font-family",
         `"${fontFamily}"`,
+        "important",
+      );
+    }
+    if (fontSize !== undefined) {
+      iframe.contentDocument.body.style.setProperty(
+        "font-size",
+        `${fontSize}px`,
         "important",
       );
     }
@@ -191,7 +216,12 @@ export function createContentHook(
       currentFontSize,
     );
 
-    applyDocumentTheme(document, currentColors, currentFontFamily);
+    applyDocumentTheme(
+      document,
+      currentColors,
+      currentFontFamily,
+      currentFontSize,
+    );
   };
 }
 
