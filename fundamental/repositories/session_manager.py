@@ -113,17 +113,13 @@ class CalibreSessionManager(ISessionManager):
         if self._engine is None:
             db_url = f"sqlite:///{self._db_path}"
 
-            def _register_calibre_functions(
+            def _configure_sqlite_connection(
                 dbapi_conn: sqlite3.Connection, connection_record: object
             ) -> None:
-                """Register SQLite functions required by Calibre database.
+                """Configure SQLite connection for Calibre database.
 
-                Registers functions needed by Calibre's database triggers.
-                SQLite's create_function is idempotent, so it's safe to call
-                multiple times - subsequent calls simply replace the function.
-
-                To add a new function, add it to the list returned by
-                _get_calibre_sqlite_functions().
+                This applies SQLite pragmas that improve concurrency and registers
+                Calibre-specific SQLite functions required by Calibre triggers.
 
                 Parameters
                 ----------
@@ -134,9 +130,17 @@ class CalibreSessionManager(ISessionManager):
                 """
                 # connection_record is required by event listener signature but unused
                 _ = connection_record
-                # Register each function
-                # Note: create_function is idempotent, so calling it multiple times
-                # is safe and has negligible overhead
+
+                cursor = dbapi_conn.cursor()
+                try:
+                    # Enable WAL mode (Write-Ahead Logging) for better concurrency
+                    cursor.execute("PRAGMA journal_mode=WAL")
+                    # Wait up to 30 seconds if the database is busy/locked
+                    cursor.execute("PRAGMA busy_timeout=30000")
+                finally:
+                    cursor.close()
+
+                # Register each function (create_function is idempotent)
                 for (
                     func_name,
                     num_args,
@@ -144,8 +148,17 @@ class CalibreSessionManager(ISessionManager):
                 ) in self._get_calibre_sqlite_functions():
                     dbapi_conn.create_function(func_name, num_args, func_impl)
 
-            self._engine = create_engine(db_url, echo=False, future=True)
-            event.listen(self._engine, "connect", _register_calibre_functions)
+            self._engine = create_engine(
+                db_url,
+                echo=False,
+                future=True,
+                connect_args={
+                    "timeout": 30.0,
+                    "check_same_thread": False,
+                },
+                pool_pre_ping=True,
+            )
+            event.listen(self._engine, "connect", _configure_sqlite_connection)
         return self._engine
 
     def dispose(self) -> None:
