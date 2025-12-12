@@ -13,11 +13,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Backward-compatible shim for the Calibre repository.
+"""Calibre repository implementation package.
 
-The Calibre book repository implementation has been refactored into a dedicated
-package (`fundamental.repositories.calibre`) and split into cohesive modules to
-reduce file size and improve SRP/SOC/DRY.
+This package contains the concrete implementation for interacting with a Calibre
+SQLite database. Modules are organized by responsibility (retry policy, query
+building, enrichment, pathing, etc.) to keep files small and cohesive.
 """
 
 from fundamental.repositories.calibre.repository import CalibreBookRepository

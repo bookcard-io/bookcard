@@ -25,7 +25,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from contextlib import AbstractContextManager
     from datetime import datetime
     from pathlib import Path
 
@@ -39,13 +39,13 @@ class ISessionManager(ABC):
     """Interface for database session management."""
 
     @abstractmethod
-    def get_session(self) -> Iterator[Session]:
-        """Get a database session.
+    def get_session(self) -> AbstractContextManager[Session]:
+        """Get a database session context manager.
 
-        Yields
-        ------
-        Session
-            SQLModel session.
+        Returns
+        -------
+        AbstractContextManager[Session]
+            Context manager that yields a SQLModel session.
         """
         ...
 
