@@ -1,0 +1,397 @@
+# Copyright (C) 2025 knguyen and others
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+"""Tests for reads module."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+from fundamental.models.core import Author, Book, BookAuthorLink
+
+if TYPE_CHECKING:
+    from sqlmodel import Session
+from fundamental.models.media import Data
+from fundamental.repositories.calibre.enrichment import BookEnrichmentService
+from fundamental.repositories.calibre.queries import BookQueryBuilder
+from fundamental.repositories.calibre.reads import BookReadOperations
+from fundamental.repositories.calibre.retry import SQLiteRetryPolicy
+from fundamental.repositories.calibre.unwrapping import ResultUnwrapper
+from tests.repositories.calibre.conftest import (
+    MockBookSearchService,
+    MockLibraryStatisticsService,
+    MockSessionManager,
+)
+
+
+class TestBookReadOperations:
+    """Test suite for BookReadOperations."""
+
+    def test_count_books_empty(self, in_memory_db: Session) -> None:
+        """Test count_books returns 0 for empty database."""
+        session_manager = MockSessionManager(in_memory_db)
+        retry = SQLiteRetryPolicy()
+        unwrapper = ResultUnwrapper()
+        queries = BookQueryBuilder()
+        enrichment = BookEnrichmentService()
+        search_service = MockBookSearchService()
+        statistics_service = MockLibraryStatisticsService()
+
+        operations = BookReadOperations(
+            session_manager=session_manager,
+            retry_policy=retry,
+            unwrapper=unwrapper,
+            queries=queries,
+            enrichment=enrichment,
+            search_service=search_service,
+            statistics_service=statistics_service,
+        )
+
+        count = operations.count_books()
+        assert count == 0
+
+    def test_count_books_with_books(
+        self, in_memory_db: Session, sample_book: Book
+    ) -> None:
+        """Test count_books returns correct count."""
+        session_manager = MockSessionManager(in_memory_db)
+        retry = SQLiteRetryPolicy()
+        unwrapper = ResultUnwrapper()
+        queries = BookQueryBuilder()
+        enrichment = BookEnrichmentService()
+        search_service = MockBookSearchService()
+        statistics_service = MockLibraryStatisticsService()
+
+        operations = BookReadOperations(
+            session_manager=session_manager,
+            retry_policy=retry,
+            unwrapper=unwrapper,
+            queries=queries,
+            enrichment=enrichment,
+            search_service=search_service,
+            statistics_service=statistics_service,
+        )
+
+        count = operations.count_books()
+        assert count == 1
+
+    def test_list_books_empty(self, in_memory_db: Session) -> None:
+        """Test list_books returns empty list for empty database."""
+        session_manager = MockSessionManager(in_memory_db)
+        retry = SQLiteRetryPolicy()
+        unwrapper = ResultUnwrapper()
+        queries = BookQueryBuilder()
+        enrichment = BookEnrichmentService()
+        search_service = MockBookSearchService()
+        statistics_service = MockLibraryStatisticsService()
+
+        operations = BookReadOperations(
+            session_manager=session_manager,
+            retry_policy=retry,
+            unwrapper=unwrapper,
+            queries=queries,
+            enrichment=enrichment,
+            search_service=search_service,
+            statistics_service=statistics_service,
+        )
+
+        books = operations.list_books()
+        assert books == []
+
+    def test_list_books_with_results(
+        self, in_memory_db: Session, sample_book: Book, sample_author: Author
+    ) -> None:
+        """Test list_books returns books."""
+        session_manager = MockSessionManager(in_memory_db)
+        retry = SQLiteRetryPolicy()
+        unwrapper = ResultUnwrapper()
+        queries = BookQueryBuilder()
+        enrichment = BookEnrichmentService()
+        search_service = MockBookSearchService()
+        statistics_service = MockLibraryStatisticsService()
+
+        # Create book-author link
+        in_memory_db.add(BookAuthorLink(book=sample_book.id, author=sample_author.id))
+        in_memory_db.add(
+            Data(
+                book=sample_book.id,
+                format="EPUB",
+                uncompressed_size=1000,
+                name="Test Book",
+            )
+        )
+        in_memory_db.commit()
+
+        operations = BookReadOperations(
+            session_manager=session_manager,
+            retry_policy=retry,
+            unwrapper=unwrapper,
+            queries=queries,
+            enrichment=enrichment,
+            search_service=search_service,
+            statistics_service=statistics_service,
+        )
+
+        books = operations.list_books(limit=10)
+        assert len(books) == 1
+        assert books[0].book.id == sample_book.id
+
+    def test_get_book_not_found(self, in_memory_db: Session) -> None:
+        """Test get_book returns None when book not found."""
+        session_manager = MockSessionManager(in_memory_db)
+        retry = SQLiteRetryPolicy()
+        unwrapper = ResultUnwrapper()
+        queries = BookQueryBuilder()
+        enrichment = BookEnrichmentService()
+        search_service = MockBookSearchService()
+        statistics_service = MockLibraryStatisticsService()
+
+        operations = BookReadOperations(
+            session_manager=session_manager,
+            retry_policy=retry,
+            unwrapper=unwrapper,
+            queries=queries,
+            enrichment=enrichment,
+            search_service=search_service,
+            statistics_service=statistics_service,
+        )
+
+        result = operations.get_book(book_id=999)
+        assert result is None
+
+    def test_get_book_found(
+        self, in_memory_db: Session, sample_book: Book, sample_author: Author
+    ) -> None:
+        """Test get_book returns book when found."""
+        session_manager = MockSessionManager(in_memory_db)
+        retry = SQLiteRetryPolicy()
+        unwrapper = ResultUnwrapper()
+        queries = BookQueryBuilder()
+        enrichment = BookEnrichmentService()
+        search_service = MockBookSearchService()
+        statistics_service = MockLibraryStatisticsService()
+
+        # Create book-author link
+        in_memory_db.add(BookAuthorLink(book=sample_book.id, author=sample_author.id))
+        in_memory_db.add(
+            Data(
+                book=sample_book.id,
+                format="EPUB",
+                uncompressed_size=1000,
+                name="Test Book",
+            )
+        )
+        in_memory_db.commit()
+
+        operations = BookReadOperations(
+            session_manager=session_manager,
+            retry_policy=retry,
+            unwrapper=unwrapper,
+            queries=queries,
+            enrichment=enrichment,
+            search_service=search_service,
+            statistics_service=statistics_service,
+        )
+
+        assert sample_book.id is not None
+        result = operations.get_book(book_id=sample_book.id)
+        assert result is not None
+        assert result.book.id == sample_book.id
+        assert sample_author.name in result.authors
+
+    def test_get_book_full_not_found(self, in_memory_db: Session) -> None:
+        """Test get_book_full returns None when book not found."""
+        session_manager = MockSessionManager(in_memory_db)
+        retry = SQLiteRetryPolicy()
+        unwrapper = ResultUnwrapper()
+        queries = BookQueryBuilder()
+        enrichment = BookEnrichmentService()
+        search_service = MockBookSearchService()
+        statistics_service = MockLibraryStatisticsService()
+
+        operations = BookReadOperations(
+            session_manager=session_manager,
+            retry_policy=retry,
+            unwrapper=unwrapper,
+            queries=queries,
+            enrichment=enrichment,
+            search_service=search_service,
+            statistics_service=statistics_service,
+        )
+
+        result = operations.get_book_full(book_id=999)
+        assert result is None
+
+    def test_search_suggestions_empty_query(self, in_memory_db: Session) -> None:
+        """Test search_suggestions returns empty for empty query."""
+        session_manager = MockSessionManager(in_memory_db)
+        retry = SQLiteRetryPolicy()
+        unwrapper = ResultUnwrapper()
+        queries = BookQueryBuilder()
+        enrichment = BookEnrichmentService()
+        search_service = MockBookSearchService()
+        statistics_service = MockLibraryStatisticsService()
+
+        operations = BookReadOperations(
+            session_manager=session_manager,
+            retry_policy=retry,
+            unwrapper=unwrapper,
+            queries=queries,
+            enrichment=enrichment,
+            search_service=search_service,
+            statistics_service=statistics_service,
+        )
+
+        result = operations.search_suggestions(query="")
+        assert result == {"books": [], "authors": [], "tags": [], "series": []}
+
+    def test_search_suggestions_with_query(self, in_memory_db: Session) -> None:
+        """Test search_suggestions returns results for query."""
+        session_manager = MockSessionManager(in_memory_db)
+        retry = SQLiteRetryPolicy()
+        unwrapper = ResultUnwrapper()
+        queries = BookQueryBuilder()
+        enrichment = BookEnrichmentService()
+        search_service = MockBookSearchService()
+        statistics_service = MockLibraryStatisticsService()
+
+        operations = BookReadOperations(
+            session_manager=session_manager,
+            retry_policy=retry,
+            unwrapper=unwrapper,
+            queries=queries,
+            enrichment=enrichment,
+            search_service=search_service,
+            statistics_service=statistics_service,
+        )
+
+        result = operations.search_suggestions(query="test")
+        assert "books" in result
+        assert "authors" in result
+        assert "tags" in result
+        assert "series" in result
+
+    def test_filter_suggestions_empty_query(self, in_memory_db: Session) -> None:
+        """Test filter_suggestions returns empty for empty query."""
+        session_manager = MockSessionManager(in_memory_db)
+        retry = SQLiteRetryPolicy()
+        unwrapper = ResultUnwrapper()
+        queries = BookQueryBuilder()
+        enrichment = BookEnrichmentService()
+        search_service = MockBookSearchService()
+        statistics_service = MockLibraryStatisticsService()
+
+        operations = BookReadOperations(
+            session_manager=session_manager,
+            retry_policy=retry,
+            unwrapper=unwrapper,
+            queries=queries,
+            enrichment=enrichment,
+            search_service=search_service,
+            statistics_service=statistics_service,
+        )
+
+        result = operations.filter_suggestions(query="", filter_type="author")
+        assert result == []
+
+    def test_get_library_stats(self, in_memory_db: Session) -> None:
+        """Test get_library_stats returns statistics."""
+        session_manager = MockSessionManager(in_memory_db)
+        retry = SQLiteRetryPolicy()
+        unwrapper = ResultUnwrapper()
+        queries = BookQueryBuilder()
+        enrichment = BookEnrichmentService()
+        search_service = MockBookSearchService()
+        statistics_service = MockLibraryStatisticsService()
+
+        operations = BookReadOperations(
+            session_manager=session_manager,
+            retry_policy=retry,
+            unwrapper=unwrapper,
+            queries=queries,
+            enrichment=enrichment,
+            search_service=search_service,
+            statistics_service=statistics_service,
+        )
+
+        stats = operations.get_library_stats()
+        assert "total_books" in stats
+        assert "total_series" in stats
+        assert "total_authors" in stats
+
+    def test_list_books_with_pagination(self, in_memory_db: Session) -> None:
+        """Test list_books respects pagination."""
+        session_manager = MockSessionManager(in_memory_db)
+        retry = SQLiteRetryPolicy()
+        unwrapper = ResultUnwrapper()
+        queries = BookQueryBuilder()
+        enrichment = BookEnrichmentService()
+        search_service = MockBookSearchService()
+        statistics_service = MockLibraryStatisticsService()
+
+        # Create multiple books
+        for i in range(5):
+            book = Book(
+                id=i + 1,
+                title=f"Book {i + 1}",
+                uuid=f"uuid-{i + 1}",
+                timestamp=datetime.now(UTC),
+                path=f"Author/Book {i + 1}",
+            )
+            in_memory_db.add(book)
+        in_memory_db.commit()
+
+        operations = BookReadOperations(
+            session_manager=session_manager,
+            retry_policy=retry,
+            unwrapper=unwrapper,
+            queries=queries,
+            enrichment=enrichment,
+            search_service=search_service,
+            statistics_service=statistics_service,
+        )
+
+        books = operations.list_books(limit=2, offset=0)
+        assert len(books) <= 2
+
+        books_page2 = operations.list_books(limit=2, offset=2)
+        assert len(books_page2) <= 2
+
+    def test_list_books_with_search(
+        self, in_memory_db: Session, sample_book: Book
+    ) -> None:
+        """Test list_books with search query."""
+        session_manager = MockSessionManager(in_memory_db)
+        retry = SQLiteRetryPolicy()
+        unwrapper = ResultUnwrapper()
+        queries = BookQueryBuilder()
+        enrichment = BookEnrichmentService()
+        search_service = MockBookSearchService()
+        statistics_service = MockLibraryStatisticsService()
+
+        operations = BookReadOperations(
+            session_manager=session_manager,
+            retry_policy=retry,
+            unwrapper=unwrapper,
+            queries=queries,
+            enrichment=enrichment,
+            search_service=search_service,
+            statistics_service=statistics_service,
+        )
+
+        books = operations.list_books(search_query="Test")
+        # Search may or may not return results depending on implementation
+        assert isinstance(books, list)
