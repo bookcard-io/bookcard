@@ -98,6 +98,7 @@ async function fetchBooksPage({
     page_size: pageSize.toString(),
     sort_by: sortBy,
     sort_order: sortOrder,
+    include: "reading_summary",
   });
 
   if (search.trim()) {

@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
     const full = searchParams.get("full") === "true";
     const pubdateMonth = searchParams.get("pubdate_month");
     const pubdateDay = searchParams.get("pubdate_day");
+    const include = searchParams.get("include");
 
     const queryParams: Record<string, string> = {
       page,
@@ -62,6 +63,9 @@ export async function GET(request: NextRequest) {
     }
     if (pubdateDay) {
       queryParams.pubdate_day = pubdateDay;
+    }
+    if (include) {
+      queryParams.include = include;
     }
 
     const response = await client.request("/books", {

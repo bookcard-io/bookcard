@@ -15,14 +15,23 @@
 
 "use client";
 
+import type { InfiniteData, QueryClient } from "@tanstack/react-query";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useActiveLibrary } from "@/contexts/ActiveLibraryContext";
 import {
   getReadStatus,
   updateReadStatus as updateReadStatusService,
 } from "@/services/readingService";
-import type { ReadStatus } from "@/types/reading";
+import type { BookListResponse, BookReadingSummary } from "@/types/book";
+import type { ReadStatus, ReadStatusValue } from "@/types/reading";
+import {
+  bookInfiniteQueryKeys,
+  bookListQueryKeys,
+  readStatusBaseQueryKey,
+  readStatusQueryKey,
+  recentReadsQueryKey,
+} from "@/utils/queryKeys";
 
 export interface UseReadStatusOptions {
   /** Book ID. */
@@ -50,6 +59,148 @@ export interface UseReadStatusResult {
   updateError: string | null;
 }
 
+interface OptimisticUpdateContext {
+  /** Previous per-book read-status query value (if any). */
+  previousReadStatus: ReadStatus | null | undefined;
+  /** Snapshots of list-like queries that embed `reading_summary` denormalized data. */
+  previousBooks: Array<[readonly unknown[], BookListResponse | undefined]>;
+  previousBooksInfinite: Array<
+    [readonly unknown[], InfiniteData<BookListResponse> | undefined]
+  >;
+  previousFilteredBooks: Array<
+    [readonly unknown[], BookListResponse | undefined]
+  >;
+  previousFilteredBooksInfinite: Array<
+    [readonly unknown[], InfiniteData<BookListResponse> | undefined]
+  >;
+}
+
+/**
+ * Create a patch function for updating reading summary in book objects.
+ *
+ * Parameters
+ * ----------
+ * newStatus : ReadStatusValue | null
+ *     New read status value to apply.
+ *
+ * Returns
+ * -------
+ * (summary: BookReadingSummary | null | undefined) => BookReadingSummary
+ *     Function that patches a reading summary with the new status.
+ */
+function createReadingSummaryPatch(
+  newStatus: ReadStatusValue | null,
+): (summary: BookReadingSummary | null | undefined) => BookReadingSummary {
+  return (summary: BookReadingSummary | null | undefined) => {
+    const base: BookReadingSummary = summary ?? {
+      read_status: null,
+      max_progress: null,
+    };
+    return {
+      ...base,
+      read_status: newStatus,
+    };
+  };
+}
+
+/**
+ * Patch a book list response with updated reading summary for a specific book.
+ *
+ * Parameters
+ * ----------
+ * prev : BookListResponse | undefined
+ *     Previous book list response.
+ * bookId : number
+ *     Book ID to update.
+ * patch : (summary: BookReadingSummary | null | undefined) => BookReadingSummary
+ *     Function to patch the reading summary.
+ *
+ * Returns
+ * -------
+ * BookListResponse | undefined
+ *     Updated book list response or undefined if prev was undefined.
+ */
+function patchBookList(
+  prev: BookListResponse | undefined,
+  bookId: number,
+  patch: (summary: BookReadingSummary | null | undefined) => BookReadingSummary,
+): BookListResponse | undefined {
+  if (!prev) return prev;
+  return {
+    ...prev,
+    items: prev.items.map((b) =>
+      b.id === bookId ? { ...b, reading_summary: patch(b.reading_summary) } : b,
+    ),
+  };
+}
+
+/**
+ * Patch an infinite book list response with updated reading summary for a specific book.
+ *
+ * Parameters
+ * ----------
+ * prev : InfiniteData<BookListResponse> | undefined
+ *     Previous infinite book list response.
+ * bookId : number
+ *     Book ID to update.
+ * patch : (summary: BookReadingSummary | null | undefined) => BookReadingSummary
+ *     Function to patch the reading summary.
+ *
+ * Returns
+ * -------
+ * InfiniteData<BookListResponse> | undefined
+ *     Updated infinite book list response or undefined if prev was undefined.
+ */
+function patchInfiniteBookList(
+  prev: InfiniteData<BookListResponse> | undefined,
+  bookId: number,
+  patch: (summary: BookReadingSummary | null | undefined) => BookReadingSummary,
+): InfiniteData<BookListResponse> | undefined {
+  if (!prev) return prev;
+  return {
+    ...prev,
+    pages: prev.pages.map(
+      (page) => patchBookList(page, bookId, patch) as BookListResponse,
+    ),
+  };
+}
+
+/**
+ * Snapshot book list caches for optimistic update rollback.
+ *
+ * Parameters
+ * ----------
+ * queryClient : QueryClient
+ *     React Query client instance.
+ *
+ * Returns
+ * -------
+ * Omit<OptimisticUpdateContext, 'previousReadStatus'>
+ *     Context containing snapshots of all book list caches.
+ */
+function snapshotBookCaches(
+  queryClient: QueryClient,
+): Omit<OptimisticUpdateContext, "previousReadStatus"> {
+  return {
+    previousBooks: queryClient.getQueriesData<BookListResponse>({
+      queryKey: [bookListQueryKeys[0]],
+    }),
+    previousBooksInfinite: queryClient.getQueriesData<
+      InfiniteData<BookListResponse>
+    >({
+      queryKey: [bookInfiniteQueryKeys[0]],
+    }),
+    previousFilteredBooks: queryClient.getQueriesData<BookListResponse>({
+      queryKey: [bookListQueryKeys[1]],
+    }),
+    previousFilteredBooksInfinite: queryClient.getQueriesData<
+      InfiniteData<BookListResponse>
+    >({
+      queryKey: [bookInfiniteQueryKeys[1]],
+    }),
+  };
+}
+
 /**
  * Custom hook for fetching and managing read status.
  *
@@ -74,7 +225,7 @@ export function useReadStatus(
     useActiveLibrary();
   const queryClient = useQueryClient();
 
-  const queryKey = useMemo(() => ["read-status", bookId] as const, [bookId]);
+  const queryKey = useMemo(() => readStatusQueryKey(bookId), [bookId]);
 
   const hasActiveLibrary = activeLibrary !== null && !isActiveLibraryLoading;
   const queryEnabled = enabled && hasActiveLibrary && bookId > 0;
@@ -95,14 +246,102 @@ export function useReadStatus(
     },
   });
 
-  const mutation = useMutation<ReadStatus, Error, "read" | "not_read">({
+  // Update book list caches with new read status
+  const updateCachedSummaries = useCallback(
+    (newStatus: ReadStatusValue | null) => {
+      const patch = createReadingSummaryPatch(newStatus);
+
+      // Update all list queries
+      bookListQueryKeys.forEach((key) => {
+        queryClient.setQueriesData<BookListResponse>(
+          { queryKey: [key] },
+          (prev) => patchBookList(prev, bookId, patch),
+        );
+      });
+
+      // Update all infinite list queries
+      bookInfiniteQueryKeys.forEach((key) => {
+        queryClient.setQueriesData<InfiniteData<BookListResponse>>(
+          { queryKey: [key] },
+          (prev) => patchInfiniteBookList(prev, bookId, patch),
+        );
+      });
+    },
+    [bookId, queryClient],
+  );
+
+  const mutation = useMutation<
+    ReadStatus,
+    Error,
+    "read" | "not_read",
+    OptimisticUpdateContext
+  >({
     mutationFn: (status) => updateReadStatusService(bookId, status),
+    onMutate: (status) => {
+      // Snapshot state for rollback
+      const cacheSnapshot = snapshotBookCaches(queryClient);
+      const ctx: OptimisticUpdateContext = {
+        previousReadStatus: queryClient.getQueryData(queryKey),
+        ...cacheSnapshot,
+      };
+
+      // Optimistic update: immediately update book list caches
+      const nextStatus: ReadStatusValue =
+        status === "read" ? "read" : "not_read";
+      updateCachedSummaries(nextStatus);
+
+      // Optimistically update the per-book read-status cache if it already exists.
+      // If the cache is empty, we rely on denormalized `reading_summary` updates.
+      queryClient.setQueryData<ReadStatus | null>(queryKey, (prev) => {
+        if (!prev) {
+          return prev ?? null;
+        }
+        return {
+          ...prev,
+          status: nextStatus,
+        };
+      });
+
+      return ctx;
+    },
     onSuccess: (data) => {
       // Update the query cache with the new status
       queryClient.setQueryData(queryKey, data);
-      // Also invalidate related queries
-      queryClient.invalidateQueries({ queryKey: ["read-status"] });
-      queryClient.invalidateQueries({ queryKey: ["recent-reads"] });
+      // Invalidate related queries to ensure eventual consistency
+      // Note: We skip manual cache updates here since onSettled will invalidate
+      // book list queries, avoiding redundant work and race conditions.
+      queryClient.invalidateQueries({ queryKey: readStatusBaseQueryKey });
+      queryClient.invalidateQueries({ queryKey: recentReadsQueryKey });
+    },
+    onError: (_error, _variables, context) => {
+      // Roll back optimistic updates.
+      if (!context) {
+        return;
+      }
+
+      queryClient.setQueryData(queryKey, context.previousReadStatus ?? null);
+
+      for (const [key, data] of context.previousBooks) {
+        queryClient.setQueryData(key, data);
+      }
+      for (const [key, data] of context.previousBooksInfinite) {
+        queryClient.setQueryData(key, data);
+      }
+      for (const [key, data] of context.previousFilteredBooks) {
+        queryClient.setQueryData(key, data);
+      }
+      for (const [key, data] of context.previousFilteredBooksInfinite) {
+        queryClient.setQueryData(key, data);
+      }
+    },
+    onSettled: () => {
+      // Invalidate book list queries to ensure eventual consistency
+      bookListQueryKeys.forEach((key) => {
+        queryClient.invalidateQueries({ queryKey: [key] });
+      });
+      bookInfiniteQueryKeys.forEach((key) => {
+        queryClient.invalidateQueries({ queryKey: [key] });
+      });
     },
   });
 

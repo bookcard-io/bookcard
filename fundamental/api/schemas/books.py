@@ -24,6 +24,39 @@ from datetime import (
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class BookReadingSummary(BaseModel):
+    """Denormalized reading summary for book list UIs.
+
+    Attributes
+    ----------
+    read_status : str | None
+        Current read status: 'not_read', 'reading', 'read', or None when no status exists.
+    max_progress : float | None
+        Highest progress recorded for the book (0.0 to 1.0) across formats/devices.
+    status_updated_at : datetime | None
+        Timestamp when read status was last updated.
+    progress_updated_at : datetime | None
+        Timestamp of the most recently updated progress record for the book.
+    """
+
+    read_status: str | None = Field(
+        default=None,
+        description="Read status: 'not_read', 'reading', 'read', or null when missing",
+    )
+    max_progress: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Highest progress recorded for the book (0.0 to 1.0)",
+    )
+    status_updated_at: datetime | None = Field(
+        default=None, description="Timestamp when read status was last updated"
+    )
+    progress_updated_at: datetime | None = Field(
+        default=None, description="Timestamp when reading progress was last updated"
+    )
+
+
 class BookRead(BaseModel):
     """Book representation for API responses.
 
@@ -77,6 +110,8 @@ class BookRead(BaseModel):
         Rating ID.
     formats : list[dict[str, str | int]]
         List of file formats, each with 'format' and 'size' keys.
+    reading_summary : BookReadingSummary | None
+        Optional denormalized reading summary (status + max progress) for list UIs.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -105,6 +140,7 @@ class BookRead(BaseModel):
     rating: int | None = None
     rating_id: int | None = None
     formats: list[dict[str, str | int]] = Field(default_factory=list)
+    reading_summary: BookReadingSummary | None = None
 
 
 class BookUpdate(BaseModel):

@@ -22,8 +22,10 @@ export const BookCardDefaultLayout: React.FC<BookCardLayoutProps> = ({
   ariaLabel,
   selected,
 }) => (
-  <button
-    type="button"
+  /* biome-ignore lint/a11y/useSemanticElements: Cannot use <button> here because BookCardReadingCorner contains a button, and nested buttons are invalid HTML. */
+  <div
+    role="button"
+    tabIndex={0}
     className={cn(
       "group h-full cursor-pointer overflow-hidden rounded",
       "w-full border-2 border-transparent bg-gradient-to-b from-surface-a0 to-surface-a10 p-0 text-left",
@@ -57,7 +59,7 @@ export const BookCardDefaultLayout: React.FC<BookCardLayoutProps> = ({
     <div className="col-start-2 row-start-2 flex items-center justify-end gap-2 p-2 md:hidden">
       {actions}
     </div>
-  </button>
+  </div>
 );
 
 export const BookCardCompactLayout: React.FC<BookCardLayoutProps> = ({
@@ -70,8 +72,10 @@ export const BookCardCompactLayout: React.FC<BookCardLayoutProps> = ({
   ariaLabel,
   selected,
 }) => (
-  <button
-    type="button"
+  /* biome-ignore lint/a11y/useSemanticElements: Cannot use <button> here because BookCardReadingCorner contains a button, and nested buttons are invalid HTML. */
+  <div
+    role="button"
+    tabIndex={0}
     className={cn(
       "group h-full cursor-pointer overflow-hidden rounded",
       "w-full border-2 border-transparent bg-gradient-to-b from-surface-a0 to-surface-a10 p-0 text-left",
@@ -94,5 +98,5 @@ export const BookCardCompactLayout: React.FC<BookCardLayoutProps> = ({
     <div className="col-start-2 row-start-2 flex items-center justify-end gap-2 p-2">
       {actions}
     </div>
-  </button>
+  </div>
 );

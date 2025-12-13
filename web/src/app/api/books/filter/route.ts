@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
     const sortBy = searchParams.get("sort_by") || "timestamp";
     const sortOrder = searchParams.get("sort_order") || "desc";
     const full = searchParams.get("full") === "true";
+    const include = searchParams.get("include");
 
     const queryParams: Record<string, string> = {
       page,
@@ -47,6 +48,9 @@ export async function POST(request: NextRequest) {
 
     if (full) {
       queryParams.full = "true";
+    }
+    if (include) {
+      queryParams.include = include;
     }
 
     const response = await client.request("/books/filter", {

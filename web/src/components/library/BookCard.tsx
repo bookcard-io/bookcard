@@ -27,6 +27,7 @@ import { BookCardMenu } from "@/components/library/BookCardMenu";
 import { BookCardMetadata } from "@/components/library/BookCardMetadata";
 import { BookCardModals } from "@/components/library/BookCardModals";
 import { BookCardOverlay } from "@/components/library/BookCardOverlay";
+import { BookCardReadingCorner } from "@/components/library/BookCardReadingCorner";
 import { useSelectedBooks } from "@/contexts/SelectedBooksContext";
 import { useBookCardMenu } from "@/hooks/useBookCardMenu";
 import { useBookCardMenuActions } from "@/hooks/useBookCardMenuActions";
@@ -121,6 +122,10 @@ export function BookCard({
             <BookCardCover
               title={book.title}
               thumbnailUrl={book.thumbnail_url}
+            />
+            <BookCardReadingCorner
+              bookId={book.id}
+              readingSummary={book.reading_summary ?? null}
             />
             {showActions && variant === "default" && (
               <div className="hidden md:block">

@@ -442,6 +442,8 @@ def test_list_books_success(monkeypatch: pytest.MonkeyPatch) -> None:
         book_service=mock_service,
         permission_helper=mock_permission_helper,
         response_builder=mock_response_builder,
+        session=session,
+        library_id=1,
         page=1,
         page_size=20,
     )
@@ -475,6 +477,8 @@ def test_list_books_pagination_adjustments(monkeypatch: pytest.MonkeyPatch) -> N
         book_service=mock_service,
         permission_helper=mock_permission_helper,
         response_builder=mock_response_builder,
+        session=session,
+        library_id=1,
         page=0,
         page_size=20,
     )
@@ -486,6 +490,8 @@ def test_list_books_pagination_adjustments(monkeypatch: pytest.MonkeyPatch) -> N
         book_service=mock_service,
         permission_helper=mock_permission_helper,
         response_builder=mock_response_builder,
+        session=session,
+        library_id=1,
         page=1,
         page_size=0,
     )
@@ -497,6 +503,8 @@ def test_list_books_pagination_adjustments(monkeypatch: pytest.MonkeyPatch) -> N
         book_service=mock_service,
         permission_helper=mock_permission_helper,
         response_builder=mock_response_builder,
+        session=session,
+        library_id=1,
         page=1,
         page_size=200,
     )
@@ -561,6 +569,8 @@ def test_list_books_skips_books_without_id(monkeypatch: pytest.MonkeyPatch) -> N
         book_service=mock_service,
         permission_helper=mock_permission_helper,
         response_builder=mock_response_builder,
+        session=session,
+        library_id=1,
         page=1,
         page_size=20,
     )
@@ -625,6 +635,8 @@ def test_list_books_with_full_true(monkeypatch: pytest.MonkeyPatch) -> None:
         book_service=mock_service,
         permission_helper=mock_permission_helper,
         response_builder=mock_response_builder,
+        session=session,
+        library_id=1,
         page=1,
         page_size=20,
         full=True,
@@ -694,6 +706,8 @@ def test_get_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
         book_service=mock_service,
         permission_helper=mock_permission_helper,
         response_builder=mock_response_builder,
+        session=session,
+        library_id=1,
     )
     assert result.id == 1
     assert result.title == "Test Book"
@@ -726,6 +740,8 @@ def test_get_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
             book_service=mock_service,
             permission_helper=mock_permission_helper,
             response_builder=mock_response_builder,
+            session=session,
+            library_id=1,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
@@ -773,6 +789,8 @@ def test_get_book_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
             book_service=mock_service,
             permission_helper=mock_permission_helper,
             response_builder=mock_response_builder,
+            session=session,
+            library_id=1,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 500
@@ -1143,6 +1161,8 @@ def test_filter_books_success(monkeypatch: pytest.MonkeyPatch) -> None:
         book_service=mock_service,
         permission_helper=mock_permission_helper,
         response_builder=mock_response_builder,
+        session=session,
+        library_id=1,
         page=1,
         page_size=20,
         sort_by="timestamp",
@@ -1191,6 +1211,8 @@ def test_filter_books_pagination_adjustments(monkeypatch: pytest.MonkeyPatch) ->
         book_service=mock_service,
         permission_helper=mock_permission_helper,
         response_builder=mock_response_builder,
+        session=session,
+        library_id=1,
         page=0,
         page_size=20,
     )
@@ -1203,6 +1225,8 @@ def test_filter_books_pagination_adjustments(monkeypatch: pytest.MonkeyPatch) ->
         book_service=mock_service,
         permission_helper=mock_permission_helper,
         response_builder=mock_response_builder,
+        session=session,
+        library_id=1,
         page=1,
         page_size=0,
     )
@@ -1215,6 +1239,8 @@ def test_filter_books_pagination_adjustments(monkeypatch: pytest.MonkeyPatch) ->
         book_service=mock_service,
         permission_helper=mock_permission_helper,
         response_builder=mock_response_builder,
+        session=session,
+        library_id=1,
         page=1,
         page_size=200,
     )
@@ -1288,6 +1314,8 @@ def test_filter_books_skips_books_without_id(monkeypatch: pytest.MonkeyPatch) ->
         book_service=mock_service,
         permission_helper=mock_permission_helper,
         response_builder=mock_response_builder,
+        session=session,
+        library_id=1,
         page=1,
         page_size=20,
     )
@@ -1361,6 +1389,8 @@ def test_filter_books_with_full_true(monkeypatch: pytest.MonkeyPatch) -> None:
         book_service=mock_service,
         permission_helper=mock_permission_helper,
         response_builder=mock_response_builder,
+        session=session,
+        library_id=1,
         page=1,
         page_size=20,
         sort_by="timestamp",
@@ -1443,6 +1473,8 @@ def test_get_book_with_full_true(monkeypatch: pytest.MonkeyPatch) -> None:
         book_service=mock_service,
         permission_helper=mock_permission_helper,
         response_builder=mock_response_builder,
+        session=session,
+        library_id=1,
         full=True,
     )
     assert result.id == 1
@@ -1507,6 +1539,8 @@ def test_get_book_with_full_false(monkeypatch: pytest.MonkeyPatch) -> None:
         book_service=mock_service,
         permission_helper=mock_permission_helper,
         response_builder=mock_response_builder,
+        session=session,
+        library_id=1,
         full=False,
     )
     assert result.id == 1

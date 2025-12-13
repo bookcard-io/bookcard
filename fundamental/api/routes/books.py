@@ -48,7 +48,7 @@ from fastapi import (
 from fastapi.responses import FileResponse
 from sqlmodel import Session
 
-from fundamental.api.deps import get_current_user, get_db_session
+from fundamental.api.deps import get_active_library_id, get_current_user, get_db_session
 from fundamental.api.schemas import (
     BookBatchUploadResponse,
     BookBulkSendRequest,
@@ -78,6 +78,7 @@ from fundamental.repositories.config_repository import LibraryRepository
 from fundamental.services.book_cover_service import BookCoverService
 from fundamental.services.book_exception_mapper import BookExceptionMapper
 from fundamental.services.book_permission_helper import BookPermissionHelper
+from fundamental.services.book_read_model_service import BookReadModelService
 from fundamental.services.book_response_builder import BookResponseBuilder
 from fundamental.services.book_service import BookService
 from fundamental.services.config_service import (
@@ -97,6 +98,7 @@ router = APIRouter(prefix="/books", tags=["books"])
 
 SessionDep = Annotated[Session, Depends(get_db_session)]
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
+ActiveLibraryIdDep = Annotated[int, Depends(get_active_library_id)]
 
 # Temporary cover storage (in-memory for now, could be moved to disk/DB)
 _temp_cover_storage: dict[str, Path] = {}
@@ -376,6 +378,8 @@ def list_books(
     book_service: BookServiceDep,
     permission_helper: PermissionHelperDep,
     response_builder: ResponseBuilderDep,
+    session: SessionDep,
+    library_id: ActiveLibraryIdDep,
     page: int = 1,
     page_size: int = 20,
     search: str | None = None,
@@ -385,6 +389,12 @@ def list_books(
     full: bool = False,
     pubdate_month: int | None = None,
     pubdate_day: int | None = None,
+    include: Annotated[
+        str | None,
+        Query(
+            description="Comma-separated list of optional includes (e.g., 'reading_summary')"
+        ),
+    ] = None,
 ) -> BookListResponse:
     """List books with pagination and optional search.
 
@@ -452,6 +462,13 @@ def list_books(
     )
 
     book_reads = response_builder.build_book_read_list(books, full=full)
+    read_model_service = BookReadModelService(session)
+    read_model_service.apply_includes(
+        book_reads=book_reads,
+        include=include,
+        user_id=current_user.id,
+        library_id=library_id,
+    )
     total_pages = math.ceil(total / page_size) if page_size > 0 else 0
 
     return BookListResponse(
@@ -470,7 +487,15 @@ def get_book(
     book_service: BookServiceDep,
     permission_helper: PermissionHelperDep,
     response_builder: ResponseBuilderDep,
+    session: SessionDep,
+    library_id: ActiveLibraryIdDep,
     full: bool = False,
+    include: Annotated[
+        str | None,
+        Query(
+            description="Comma-separated list of optional includes (e.g., 'reading_summary')"
+        ),
+    ] = None,
 ) -> BookRead:
     """Get a book by ID.
 
@@ -515,9 +540,18 @@ def get_book(
     permission_helper.check_read_permission(current_user, book_with_rels)
 
     try:
-        return response_builder.build_book_read(book_with_rels, full=full)
+        book_read = response_builder.build_book_read(book_with_rels, full=full)
+        read_model_service = BookReadModelService(session)
+        read_model_service.apply_includes_to_one(
+            book_read=book_read,
+            include=include,
+            user_id=current_user.id,
+            library_id=library_id,
+        )
     except ValueError as exc:
         raise BookExceptionMapper.map_value_error_to_http_exception(exc) from exc
+    else:
+        return book_read
 
 
 @router.put("/{book_id}", response_model=BookRead)
@@ -1665,11 +1699,19 @@ def filter_books(
     book_service: BookServiceDep,
     permission_helper: PermissionHelperDep,
     response_builder: ResponseBuilderDep,
+    session: SessionDep,
+    library_id: ActiveLibraryIdDep,
     page: int = 1,
     page_size: int = 20,
     sort_by: str = "timestamp",
     sort_order: str = "desc",
     full: bool = False,
+    include: Annotated[
+        str | None,
+        Query(
+            description="Comma-separated list of optional includes (e.g., 'reading_summary')"
+        ),
+    ] = None,
 ) -> BookListResponse:
     """Filter books with multiple criteria using OR conditions.
 
@@ -1731,6 +1773,13 @@ def filter_books(
     )
 
     book_reads = response_builder.build_book_read_list(books, full=full)
+    read_model_service = BookReadModelService(session)
+    read_model_service.apply_includes(
+        book_reads=book_reads,
+        include=include,
+        user_id=current_user.id,
+        library_id=library_id,
+    )
     total_pages = math.ceil(total / page_size) if page_size > 0 else 0
 
     return BookListResponse(
@@ -2155,6 +2204,9 @@ def _validate_files(files: list[UploadFile]) -> None:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No files provided",
         )
+
+
+### End of File
 
 
 def _save_file_to_temp(

@@ -23,7 +23,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import desc
 from sqlmodel import Session, select
 
-from fundamental.api.deps import get_current_user, get_db_session
+from fundamental.api.deps import get_active_library_id, get_current_user, get_db_session
 from fundamental.api.schemas.reading import (
     ReadingHistoryResponse,
     ReadingProgressCreate,
@@ -38,14 +38,12 @@ from fundamental.api.schemas.reading import (
 )
 from fundamental.models.auth import User
 from fundamental.models.reading import ReadingSession
-from fundamental.repositories.config_repository import LibraryRepository
 from fundamental.repositories.reading_repository import (
     AnnotationRepository,
     ReadingProgressRepository,
     ReadingSessionRepository,
     ReadStatusRepository,
 )
-from fundamental.services.config_service import LibraryService
 from fundamental.services.permission_service import PermissionService
 from fundamental.services.reading_service import ReadingService
 
@@ -60,46 +58,7 @@ SessionDep = Annotated[Session, Depends(get_db_session)]
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
 
 
-def _get_active_library_id(
-    session: SessionDep,
-) -> int:
-    """Get the active library ID.
-
-    Parameters
-    ----------
-    session : SessionDep
-        Database session dependency.
-
-    Returns
-    -------
-    int
-        Active library ID.
-
-    Raises
-    ------
-    HTTPException
-        If no active library is configured (404).
-    """
-    library_repo = LibraryRepository(session)
-    library_service = LibraryService(session, library_repo)
-    library = library_service.get_active_library()
-
-    if library is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="no_active_library",
-        )
-
-    if library.id is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="no_active_library",
-        )
-
-    return library.id
-
-
-ActiveLibraryIdDep = Annotated[int, Depends(_get_active_library_id)]
+ActiveLibraryIdDep = Annotated[int, Depends(get_active_library_id)]
 
 
 def _reading_service(session: SessionDep) -> ReadingService:

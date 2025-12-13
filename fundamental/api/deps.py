@@ -28,6 +28,7 @@ from sqlmodel import Session  # noqa: TC002
 
 from fundamental.database import get_session
 from fundamental.models.auth import User  # noqa: TC001
+from fundamental.repositories.config_repository import LibraryRepository
 from fundamental.repositories.kobo_repository import (
     KoboAuthTokenRepository,
 )
@@ -35,6 +36,7 @@ from fundamental.repositories.user_repository import (
     TokenBlacklistRepository,
     UserRepository,
 )
+from fundamental.services.config_service import LibraryService
 from fundamental.services.kobo.auth_service import KoboAuthService
 from fundamental.services.oidc_auth_service import OIDCAuthError, OIDCAuthService
 from fundamental.services.opds.auth_service import OpdsAuthService
@@ -212,6 +214,39 @@ def get_admin_user(
             status_code=status.HTTP_403_FORBIDDEN, detail="admin_required"
         )
     return current_user
+
+
+def get_active_library_id(
+    session: Annotated[Session, Depends(get_db_session)],
+) -> int:
+    """Get the active library ID.
+
+    Parameters
+    ----------
+    session : Session
+        Database session.
+
+    Returns
+    -------
+    int
+        Active library ID.
+
+    Raises
+    ------
+    HTTPException
+        If no active library is configured.
+    """
+    library_repo = LibraryRepository(session)
+    library_service = LibraryService(session, library_repo)
+    library = library_service.get_active_library()
+
+    if library is None or library.id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="no_active_library",
+        )
+
+    return library.id
 
 
 def require_permission(

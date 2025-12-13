@@ -24,6 +24,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException, Request, status
 
+import fundamental.api.deps as api_deps
 import fundamental.api.routes.reading as reading_routes
 from fundamental.models.auth import User
 from fundamental.models.reading import (
@@ -68,21 +69,24 @@ def _mock_permission_service(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _mock_library_service(monkeypatch: pytest.MonkeyPatch, library_id: int = 1) -> None:
-    """Mock LibraryService to return active library."""
-    mock_library = MagicMock()
-    mock_library.id = library_id
+    """Mock active library ID resolution.
 
-    mock_library_service = MagicMock()
-    mock_library_service.get_active_library.return_value = mock_library
+    The reading routes now depend on `fundamental.api.deps.get_active_library_id`
+    (rather than constructing `LibraryRepository`/`LibraryService` in the module).
+    For route unit tests that still call the helper, patch the dependency to
+    return a stable library ID.
+    """
 
-    mock_library_repo = MagicMock()
     monkeypatch.setattr(
-        "fundamental.api.routes.reading.LibraryRepository",
-        lambda session: mock_library_repo,
+        "fundamental.api.deps.get_active_library_id",
+        lambda session: library_id,
     )
+
+    # Also patch the re-exported import used by the reading routes module (for
+    # any future direct calls).
     monkeypatch.setattr(
-        "fundamental.api.routes.reading.LibraryService",
-        lambda session, repo: mock_library_service,
+        "fundamental.api.routes.reading.get_active_library_id",
+        lambda session: library_id,
     )
 
 
@@ -662,7 +666,7 @@ class TestGetReadStatus:
 def _mock_library_service_with_none(
     monkeypatch: pytest.MonkeyPatch, library: object | None = None
 ) -> None:
-    """Mock LibraryService to return library or None.
+    """Mock active library resolution to return `library` or None.
 
     Parameters
     ----------
@@ -676,26 +680,26 @@ def _mock_library_service_with_none(
 
     mock_library_repo = MagicMock()
     monkeypatch.setattr(
-        "fundamental.api.routes.reading.LibraryRepository",
+        "fundamental.api.deps.LibraryRepository",
         lambda session: mock_library_repo,
     )
     monkeypatch.setattr(
-        "fundamental.api.routes.reading.LibraryService",
+        "fundamental.api.deps.LibraryService",
         lambda session, repo: mock_library_service,
     )
 
 
 class TestGetActiveLibraryId:
-    """Test _get_active_library_id helper."""
+    """Test get_active_library_id helper."""
 
     def test_get_active_library_id_no_library(
         self, monkeypatch: pytest.MonkeyPatch, session: DummySession
     ) -> None:
-        """Test _get_active_library_id raises 404 when no library."""
+        """Test get_active_library_id raises 404 when no library."""
         _mock_library_service_with_none(monkeypatch, library=None)
 
         with pytest.raises(HTTPException) as exc_info:
-            reading_routes._get_active_library_id(session)  # type: ignore[arg-type]
+            api_deps.get_active_library_id(session)  # type: ignore[arg-type]
 
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
@@ -703,13 +707,13 @@ class TestGetActiveLibraryId:
     def test_get_active_library_id_library_no_id(
         self, monkeypatch: pytest.MonkeyPatch, session: DummySession
     ) -> None:
-        """Test _get_active_library_id raises 404 when library.id is None."""
+        """Test get_active_library_id raises 404 when library.id is None."""
         mock_library = MagicMock()
         mock_library.id = None
         _mock_library_service_with_none(monkeypatch, library=mock_library)
 
         with pytest.raises(HTTPException) as exc_info:
-            reading_routes._get_active_library_id(session)  # type: ignore[arg-type]
+            api_deps.get_active_library_id(session)  # type: ignore[arg-type]
 
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
@@ -717,12 +721,12 @@ class TestGetActiveLibraryId:
     def test_get_active_library_id_success(
         self, monkeypatch: pytest.MonkeyPatch, session: DummySession
     ) -> None:
-        """Test _get_active_library_id returns library ID."""
+        """Test get_active_library_id returns library ID."""
         mock_library = MagicMock()
         mock_library.id = 1
         _mock_library_service_with_none(monkeypatch, library=mock_library)
 
-        library_id = reading_routes._get_active_library_id(session)  # type: ignore[arg-type]
+        library_id = api_deps.get_active_library_id(session)  # type: ignore[arg-type]
         assert library_id == 1
 
 

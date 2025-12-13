@@ -19,6 +19,19 @@
  * These types match the backend API schemas defined in fundamental/api/schemas.py
  */
 
+import type { ReadStatusValue } from "@/types/reading";
+
+export interface BookReadingSummary {
+  /** Current read status (not_read, reading, read), or null when no status exists. */
+  read_status: ReadStatusValue | null;
+  /** Highest progress recorded for the book (0.0 to 1.0), across formats/devices. */
+  max_progress: number | null;
+  /** Timestamp when read status was last updated. */
+  status_updated_at?: string | null;
+  /** Timestamp when reading progress was last updated. */
+  progress_updated_at?: string | null;
+}
+
 export interface Book {
   /** Calibre book ID. */
   id: number;
@@ -68,6 +81,8 @@ export interface Book {
   rating_id?: number | null;
   /** List of file formats, each with 'format' and 'size' keys. */
   formats?: Array<{ format: string; size: number }>;
+  /** Optional denormalized reading summary (status + max progress). */
+  reading_summary?: BookReadingSummary | null;
 }
 
 export interface BookUpdate {
