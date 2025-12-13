@@ -160,6 +160,50 @@ def test_get_current_user_success() -> None:
             assert result.username == "testuser"
 
 
+def test_get_current_user_keycloak_fallback_by_sub() -> None:
+    """When local JWT fails and Keycloak is enabled, use Keycloak token validation."""
+    request = MagicMock(spec=Request)
+    request.headers = {"Authorization": "Bearer any_token"}
+    request.app.state.config = AppConfig(
+        jwt_secret="test-secret",
+        jwt_algorithm="HS256",
+        jwt_expires_minutes=15,
+        encryption_key=TEST_ENCRYPTION_KEY,
+        keycloak_enabled=True,
+    )
+    session = DummySession()
+
+    user = User(
+        id=1,
+        username="kc-user",
+        email="kc@example.com",
+        password_hash="hash",
+        keycloak_sub="kc-sub",
+    )
+
+    with (
+        patch("fundamental.api.deps.JWTManager") as mock_jwt_class,
+        patch("fundamental.api.deps.KeycloakAuthService") as mock_kc_class,
+        patch("fundamental.api.deps.UserRepository") as mock_repo_class,
+    ):
+        mock_jwt = MagicMock()
+        mock_jwt.decode_token.side_effect = SecurityTokenError()
+        mock_jwt_class.return_value = mock_jwt
+
+        mock_kc = MagicMock()
+        mock_kc.validate_access_token.return_value = {"sub": "kc-sub"}
+        mock_kc_class.return_value = mock_kc
+
+        mock_repo = MagicMock()
+        mock_repo.find_by_keycloak_sub.return_value = user
+        mock_repo.find_by_email.return_value = None
+        mock_repo.find_by_username.return_value = None
+        mock_repo_class.return_value = mock_repo
+
+        result = get_current_user(request, session)  # type: ignore[arg-type]
+        assert result == user
+
+
 def test_get_admin_user_success() -> None:
     """Test successful get_admin_user with admin user."""
     from fundamental.api.deps import get_admin_user

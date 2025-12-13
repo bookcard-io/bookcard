@@ -26,6 +26,12 @@ interface LoginFormData {
   password: string;
 }
 
+interface AuthConfig {
+  keycloak_enabled: boolean;
+  keycloak_url: string;
+  local_login_enabled: boolean;
+}
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -36,6 +42,7 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null);
   const [randomQuote, setRandomQuote] = useState<
     (typeof INSPIRING_QUOTES)[number] | null
   >(null);
@@ -49,6 +56,26 @@ function LoginForm() {
     if (quote) {
       setRandomQuote(quote);
     }
+  }, []);
+
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const resp = await fetch("/api/auth/config", { cache: "no-store" });
+        const data = await resp.json();
+        if (resp.ok) {
+          setAuthConfig(data as AuthConfig);
+        }
+      } catch {
+        // If config fetch fails, fall back to local login UI.
+        setAuthConfig({
+          keycloak_enabled: false,
+          keycloak_url: "",
+          local_login_enabled: true,
+        });
+      }
+    };
+    loadConfig();
   }, []);
 
   // Determine font size classes based on quote length
@@ -80,6 +107,10 @@ function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (authConfig?.keycloak_enabled && !authConfig.local_login_enabled) {
+      setError("Local login is disabled. Please use Keycloak.");
+      return;
+    }
     setIsLoading(true);
     setError(null);
 
@@ -162,84 +193,108 @@ function LoginForm() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-          {showPasswordChangeSuccess && (
-            <output className="rounded-md border border-[var(--color-success-a0)] bg-[var(--color-success-a20)] px-4 py-3 text-[var(--color-success-a0)] text-sm leading-normal">
-              Password changed successfully! Please sign in again to continue
-              using the app.
-            </output>
-          )}
-          {error && (
-            <div
-              className="rounded-md border border-[var(--color-danger-a0)] bg-[rgba(156,33,33,0.2)] px-4 py-3 text-[var(--color-danger-a20)] text-sm leading-normal"
-              role="alert"
+        <div className="flex flex-col gap-6">
+          {authConfig?.keycloak_enabled && (
+            <a
+              href={`/api/auth/keycloak/login?next=${encodeURIComponent(
+                searchParams.get("next") || "/",
+              )}`}
+              className="inline-flex w-full items-center justify-center rounded-md border border-[var(--color-surface-a20)] bg-[var(--color-surface-a0)] px-4 py-3 font-medium text-[var(--color-text-a0)] text-base leading-normal transition-[border-color,box-shadow,background-color] duration-200 hover:bg-[var(--color-surface-a10)] focus:shadow-[0_0_0_3px_rgba(144,170,249,0.2)] focus:outline-none"
             >
-              {error}
-            </div>
+              Sign in with Keycloak
+            </a>
           )}
 
-          <div className="flex flex-col gap-2">
-            <label
-              htmlFor="identifier"
-              className="font-medium text-[var(--color-text-a10)] text-sm leading-normal"
-            >
-              Username or Email
-            </label>
-            <input
-              id="identifier"
-              name="identifier"
-              type="text"
-              autoComplete="username"
-              className="w-full rounded-md border border-[var(--color-surface-a20)] bg-[var(--color-surface-a0)] px-4 py-3 text-[var(--color-text-a0)] text-base leading-normal transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--color-text-a40)] focus:border-[var(--color-primary-a0)] focus:shadow-[0_0_0_3px_rgba(144,170,249,0.1)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-              placeholder="Enter your username or email"
-              value={formData.identifier}
-              onChange={handleChange}
-              required
-            />
-          </div>
+          {authConfig?.keycloak_enabled && !authConfig.local_login_enabled && (
+            <p className="text-[var(--color-text-a30)] text-sm leading-normal">
+              Local login is disabled because Keycloak authentication is
+              enabled.
+            </p>
+          )}
 
-          <div className="flex flex-col gap-2">
-            <label
-              htmlFor="password"
-              className="font-medium text-[var(--color-text-a10)] text-sm leading-normal"
-            >
-              Password
-            </label>
-            <div className="relative flex items-center">
-              <input
-                id="password"
-                name="password"
-                type={showPassword ? "text" : "password"}
-                autoComplete="current-password"
-                className="w-full rounded-md border border-[var(--color-surface-a20)] bg-[var(--color-surface-a0)] px-4 py-3 pr-12 text-[var(--color-text-a0)] text-base leading-normal transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--color-text-a40)] focus:border-[var(--color-primary-a0)] focus:shadow-[0_0_0_3px_rgba(144,170,249,0.1)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                placeholder="Enter your password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-              />
+          {(!authConfig || authConfig.local_login_enabled) && (
+            <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+              {showPasswordChangeSuccess && (
+                <output className="rounded-md border border-[var(--color-success-a0)] bg-[var(--color-success-a20)] px-4 py-3 text-[var(--color-success-a0)] text-sm leading-normal">
+                  Password changed successfully! Please sign in again to
+                  continue using the app.
+                </output>
+              )}
+              {error && (
+                <div
+                  className="rounded-md border border-[var(--color-danger-a0)] bg-[rgba(156,33,33,0.2)] px-4 py-3 text-[var(--color-danger-a20)] text-sm leading-normal"
+                  role="alert"
+                >
+                  {error}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2">
+                <label
+                  htmlFor="identifier"
+                  className="font-medium text-[var(--color-text-a10)] text-sm leading-normal"
+                >
+                  Username or Email
+                </label>
+                <input
+                  id="identifier"
+                  name="identifier"
+                  type="text"
+                  autoComplete="username"
+                  className="w-full rounded-md border border-[var(--color-surface-a20)] bg-[var(--color-surface-a0)] px-4 py-3 text-[var(--color-text-a0)] text-base leading-normal transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--color-text-a40)] focus:border-[var(--color-primary-a0)] focus:shadow-[0_0_0_3px_rgba(144,170,249,0.1)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder="Enter your username or email"
+                  value={formData.identifier}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label
+                  htmlFor="password"
+                  className="font-medium text-[var(--color-text-a10)] text-sm leading-normal"
+                >
+                  Password
+                </label>
+                <div className="relative flex items-center">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    className="w-full rounded-md border border-[var(--color-surface-a20)] bg-[var(--color-surface-a0)] px-4 py-3 pr-12 text-[var(--color-text-a0)] text-base leading-normal transition-[border-color,box-shadow] duration-200 placeholder:text-[var(--color-text-a40)] focus:border-[var(--color-primary-a0)] focus:shadow-[0_0_0_3px_rgba(144,170,249,0.1)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                    placeholder="Enter your password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 flex cursor-pointer items-center justify-center border-none bg-transparent p-1 text-[var(--color-text-a30)] transition-colors duration-200 hover:text-[var(--color-text-a10)] focus:text-[var(--color-primary-a0)] focus:outline-none"
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showPassword ? (
+                      <EyeSlash className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
               <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 flex cursor-pointer items-center justify-center border-none bg-transparent p-1 text-[var(--color-text-a30)] transition-colors duration-200 hover:text-[var(--color-text-a10)] focus:text-[var(--color-primary-a0)] focus:outline-none"
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                type="submit"
+                disabled={isLoading}
+                className="w-full cursor-pointer rounded-md border-none bg-[var(--color-primary-a0)] px-4 py-3 font-medium text-[var(--color-surface-a20)] text-base leading-normal transition-[background-color,opacity] duration-200 hover:bg-[var(--color-primary-a10)] focus:shadow-[0_0_0_3px_rgba(144,170,249,0.3)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 hover:disabled:bg-[var(--color-primary-a0)]"
               >
-                {showPassword ? (
-                  <EyeSlash className="h-5 w-5" />
-                ) : (
-                  <Eye className="h-5 w-5" />
-                )}
+                {isLoading ? "Signing in..." : "Sign in"}
               </button>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full cursor-pointer rounded-md border-none bg-[var(--color-primary-a0)] px-4 py-3 font-medium text-[var(--color-surface-a20)] text-base leading-normal transition-[background-color,opacity] duration-200 hover:bg-[var(--color-primary-a10)] focus:shadow-[0_0_0_3px_rgba(144,170,249,0.3)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 hover:disabled:bg-[var(--color-primary-a0)]"
-          >
-            {isLoading ? "Signing in..." : "Sign in"}
-          </button>
-        </form>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );

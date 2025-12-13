@@ -27,6 +27,19 @@ import {
  */
 export async function POST(request: NextRequest) {
   try {
+    const authConfigResp = await fetch(`${BACKEND_URL}/auth/config`, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    const authConfig = await authConfigResp.json();
+    if (authConfig?.keycloak_enabled) {
+      return NextResponse.json(
+        { detail: "local_auth_disabled" },
+        { status: 400 },
+      );
+    }
+
     const body = await request.json();
 
     const response = await fetch(`${BACKEND_URL}/auth/login`, {

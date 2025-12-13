@@ -49,6 +49,22 @@ class AppConfig:
     task_runner : str
         Task runner type to use. Supported values: 'thread', 'dramatiq', 'celery'.
         Defaults to 'thread'. Can be overridden with ``TASK_RUNNER`` environment variable.
+    keycloak_enabled : bool
+        Whether to enable Keycloak OIDC authentication. When enabled, local
+        username/password login and registration are disabled by default.
+    keycloak_url : str
+        Base URL for Keycloak (e.g., ``http://keycloak:8080``).
+    keycloak_realm : str
+        Keycloak realm name.
+    keycloak_client_id : str
+        OIDC client ID configured in Keycloak.
+    keycloak_client_secret : str
+        OIDC client secret configured in Keycloak (required for confidential clients).
+    keycloak_issuer : str
+        Expected issuer for Keycloak tokens. If not explicitly set, this is derived
+        as ``{keycloak_url}/realms/{keycloak_realm}`` when Keycloak is enabled.
+    keycloak_scopes : str
+        OAuth2 scopes requested during the OIDC flow.
     """
 
     jwt_secret: str
@@ -62,6 +78,13 @@ class AppConfig:
     task_runner: str = "thread"
     redis_url: str = "redis://localhost:6379/0"
     redis_enabled: bool = True
+    keycloak_enabled: bool = False
+    keycloak_url: str = ""
+    keycloak_realm: str = "fundamental"
+    keycloak_client_id: str = ""
+    keycloak_client_secret: str = ""
+    keycloak_issuer: str = ""
+    keycloak_scopes: str = "openid profile email"
 
     @staticmethod
     def _normalize_env_value(value: str | None) -> str | None:
@@ -202,6 +225,24 @@ class AppConfig:
         return value.lower() == "true"
 
     @staticmethod
+    def _keycloak_issuer_from_url_and_realm(*, url: str, realm: str) -> str:
+        """Build a Keycloak issuer from base URL and realm.
+
+        Parameters
+        ----------
+        url : str
+            Base Keycloak URL (e.g., ``http://keycloak:8080``).
+        realm : str
+            Keycloak realm name.
+
+        Returns
+        -------
+        str
+            Issuer URL in the form ``{url}/realms/{realm}``.
+        """
+        return f"{url.rstrip('/')}/realms/{realm}"
+
+    @staticmethod
     def from_env() -> AppConfig:
         """Create configuration from environment variables.
 
@@ -213,6 +254,38 @@ class AppConfig:
         jwt_expires_min = AppConfig._normalize_env_value(
             os.getenv("FUNDAMENTAL_JWT_EXPIRES_MIN", "131400")
         )
+        keycloak_enabled = AppConfig._parse_bool_env("KEYCLOAK_ENABLED", "false")
+        keycloak_url = AppConfig._normalize_env_value_with_default(
+            os.getenv("KEYCLOAK_URL"), ""
+        )
+        keycloak_realm = AppConfig._normalize_env_value_with_default(
+            os.getenv("KEYCLOAK_REALM"), "fundamental"
+        )
+        keycloak_client_id = AppConfig._normalize_env_value_with_default(
+            os.getenv("KEYCLOAK_CLIENT_ID"), ""
+        )
+        keycloak_client_secret = AppConfig._normalize_env_value_with_default(
+            os.getenv("KEYCLOAK_CLIENT_SECRET"), ""
+        )
+        keycloak_issuer = AppConfig._normalize_env_value_with_default(
+            os.getenv("KEYCLOAK_ISSUER"), ""
+        )
+        keycloak_scopes = AppConfig._normalize_env_value_with_default(
+            os.getenv("KEYCLOAK_SCOPES"), "openid profile email"
+        )
+
+        if keycloak_enabled:
+            if not keycloak_url:
+                msg = "KEYCLOAK_URL must be set when KEYCLOAK_ENABLED=true"
+                raise ValueError(msg)
+            if not keycloak_client_id:
+                msg = "KEYCLOAK_CLIENT_ID must be set when KEYCLOAK_ENABLED=true"
+                raise ValueError(msg)
+            if not keycloak_issuer:
+                keycloak_issuer = AppConfig._keycloak_issuer_from_url_and_realm(
+                    url=keycloak_url, realm=keycloak_realm
+                )
+
         return AppConfig(
             jwt_secret=AppConfig._get_jwt_secret(),
             jwt_algorithm=AppConfig._get_jwt_algorithm(),
@@ -239,4 +312,11 @@ class AppConfig:
             ).lower(),
             redis_url=AppConfig._get_redis_url(),
             redis_enabled=AppConfig._parse_bool_env("ENABLE_REDIS", "true"),
+            keycloak_enabled=keycloak_enabled,
+            keycloak_url=keycloak_url,
+            keycloak_realm=keycloak_realm,
+            keycloak_client_id=keycloak_client_id,
+            keycloak_client_secret=keycloak_client_secret,
+            keycloak_issuer=keycloak_issuer,
+            keycloak_scopes=keycloak_scopes,
         )

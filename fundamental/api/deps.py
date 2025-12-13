@@ -20,8 +20,10 @@ Provides request-scoped database sessions and repository factories.
 
 from __future__ import annotations
 
+from contextlib import suppress
 from typing import TYPE_CHECKING, Annotated
 
+import jwt
 from fastapi import Depends, HTTPException, Request, status
 from sqlmodel import Session  # noqa: TC002
 
@@ -33,6 +35,10 @@ from fundamental.repositories.kobo_repository import (
 from fundamental.repositories.user_repository import (
     TokenBlacklistRepository,
     UserRepository,
+)
+from fundamental.services.keycloak_auth_service import (
+    KeycloakAuthError,
+    KeycloakAuthService,
 )
 from fundamental.services.kobo.auth_service import KoboAuthService
 from fundamental.services.opds.auth_service import OpdsAuthService
@@ -78,21 +84,50 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="missing_token"
         )
     token = auth_header.removeprefix("Bearer ")
+
+    # Prefer local JWT (existing behavior). When Keycloak is enabled, we can
+    # optionally fall back to validating a Keycloak-issued token.
+    with suppress(SecurityTokenError):
+        return _get_user_from_local_jwt(request, session, token)
+
+    if request.app.state.config.keycloak_enabled:
+        return _get_user_from_keycloak_token(request, session, token)
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_token"
+    )
+
+
+def _get_user_from_local_jwt(request: Request, session: Session, token: str) -> User:
+    """Validate a locally-issued JWT and return the corresponding user.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+    session : Session
+        Database session.
+    token : str
+        Bearer token to validate.
+
+    Returns
+    -------
+    User
+        Authenticated user.
+
+    Raises
+    ------
+    SecurityTokenError
+        If the token is invalid/expired/blacklisted.
+    HTTPException
+        If the user does not exist.
+    """
     jwt_mgr = JWTManager(request.app.state.config)
-
-    # Create blacklist repository for checking
     blacklist_repo = TokenBlacklistRepository(session)
-
-    try:
-        # Check blacklist during decode
-        claims = jwt_mgr.decode_token(
-            token,
-            is_blacklisted=lambda jti: blacklist_repo.is_blacklisted(jti),
-        )
-    except SecurityTokenError as err:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_token"
-        ) from err
+    claims = jwt_mgr.decode_token(
+        token,
+        is_blacklisted=lambda jti: blacklist_repo.is_blacklisted(jti),
+    )
     user_id = int(claims.get("sub", 0))
     repo = UserRepository(session)
     user = repo.get(user_id)
@@ -101,6 +136,65 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="user_not_found"
         )
     return user
+
+
+def _get_user_from_keycloak_token(
+    request: Request, session: Session, token: str
+) -> User:
+    """Validate a Keycloak-issued JWT and return the corresponding local user.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+    session : Session
+        Database session.
+    token : str
+        Bearer token to validate.
+
+    Returns
+    -------
+    User
+        Authenticated local user linked to the Keycloak identity.
+
+    Raises
+    ------
+    HTTPException
+        If the token is invalid or user cannot be resolved.
+    """
+    service = KeycloakAuthService(request.app.state.config)
+    try:
+        claims = service.validate_access_token(token=token)
+    except KeycloakAuthError as err:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_token"
+        ) from err
+    except jwt.InvalidTokenError as err:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_token"
+        ) from err
+
+    sub = claims.get("sub")
+    email = claims.get("email")
+    preferred_username = claims.get("preferred_username")
+
+    repo = UserRepository(session)
+    if isinstance(sub, str) and sub:
+        user = repo.find_by_keycloak_sub(sub)
+        if user is not None:
+            return user
+    if isinstance(email, str) and email:
+        user = repo.find_by_email(email)
+        if user is not None:
+            return user
+    if isinstance(preferred_username, str) and preferred_username:
+        user = repo.find_by_username(preferred_username)
+        if user is not None:
+            return user
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, detail="user_not_found"
+    )
 
 
 def get_admin_user(

@@ -141,6 +141,42 @@ class LoginResponse(BaseModel):
     user: UserRead
 
 
+class AuthConfigResponse(BaseModel):
+    """Authentication configuration exposed to clients.
+
+    Attributes
+    ----------
+    keycloak_enabled : bool
+        Whether Keycloak OIDC is enabled.
+    keycloak_url : str
+        Configured Keycloak base URL (may be empty if disabled).
+    local_login_enabled : bool
+        Whether local username/password login should be offered to users.
+    """
+
+    keycloak_enabled: bool
+    keycloak_url: str
+    local_login_enabled: bool
+
+
+class KeycloakCallbackRequest(BaseModel):
+    """OIDC callback payload forwarded by frontend/API client.
+
+    Parameters
+    ----------
+    code : str
+        Authorization code from Keycloak.
+    state : str
+        Signed state token returned from the authorization request.
+    redirect_uri : str
+        Redirect URI used for the authorization request (must match the state).
+    """
+
+    code: str = Field(min_length=1)
+    state: str = Field(min_length=1)
+    redirect_uri: str = Field(min_length=1, max_length=2048)
+
+
 class PasswordChangeRequest(BaseModel):
     """Request to change user password."""
 

@@ -48,6 +48,22 @@ class UserRepository(Repository[User]):
         stmt = select(User).where(User.username == username)
         return self._session.exec(stmt).first()
 
+    def find_by_keycloak_sub(self, keycloak_sub: str) -> User | None:
+        """Return a user by Keycloak subject identifier if it exists.
+
+        Parameters
+        ----------
+        keycloak_sub : str
+            Keycloak OIDC subject identifier (``sub`` claim).
+
+        Returns
+        -------
+        User | None
+            Matching user if found, otherwise None.
+        """
+        stmt = select(User).where(User.keycloak_sub == keycloak_sub)
+        return self._session.exec(stmt).first()
+
     def list_admins(self) -> Iterable[User]:
         """Return all users with administrative privileges."""
         stmt = select(User).where(User.is_admin == True)  # noqa: E712

@@ -92,6 +92,9 @@ class User(SQLModel, table=True):
         Last update timestamp.
     last_login : datetime | None
         Last login timestamp.
+    keycloak_sub : str | None
+        Keycloak subject identifier (OIDC ``sub`` claim) used for linking an
+        externally-authenticated identity to a local user record.
     """
 
     __tablename__ = "users"
@@ -99,6 +102,12 @@ class User(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     username: str = Field(unique=True, index=True, max_length=64)
     email: str = Field(unique=True, index=True, max_length=255)
+    keycloak_sub: str | None = Field(
+        default=None,
+        unique=True,
+        index=True,
+        max_length=255,
+    )
     password_hash: str = Field(max_length=255)
     profile_picture: str | None = Field(default=None, max_length=500)
     full_name: str | None = Field(default=None, max_length=255)

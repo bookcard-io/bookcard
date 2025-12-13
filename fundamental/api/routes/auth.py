@@ -23,15 +23,17 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from fundamental.api.deps import get_current_user, get_db_session
 from fundamental.api.schemas import (
+    AuthConfigResponse,
     EmailServerConfigRead,
     EmailServerConfigUpdate,
     InviteValidationResponse,
+    KeycloakCallbackRequest,
     LoginRequest,
     LoginResponse,
     PasswordChangeRequest,
@@ -52,12 +54,17 @@ from fundamental.repositories.user_repository import (
     UserRepository,
 )
 from fundamental.services.auth_service import AuthError, AuthService
+from fundamental.services.keycloak_auth_service import (
+    KeycloakAuthError,
+    KeycloakAuthService,
+)
 from fundamental.services.security import (
     DataEncryptor,
     JWTManager,
     PasswordHasher,
     SecurityTokenError,
 )
+from fundamental.services.user_linking_service import UserLinkingService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -83,6 +90,170 @@ def _auth_service(request: Request, session: Session) -> AuthService:
     )
 
 
+def _load_user_with_permissions(session: Session, *, user_id: int) -> User:
+    stmt = (
+        select(User)
+        .where(User.id == user_id)
+        .options(
+            selectinload(User.ereader_devices),
+            selectinload(User.roles)
+            .selectinload(UserRole.role)
+            .selectinload(Role.permissions)
+            .selectinload(RolePermission.permission),
+        )
+    )
+    user_with_rels = session.exec(stmt).first()
+    if user_with_rels is None:
+        raise HTTPException(status_code=500, detail="user_not_found")
+    return user_with_rels
+
+
+def _keycloak_service(request: Request) -> KeycloakAuthService:
+    return KeycloakAuthService(request.app.state.config)
+
+
+def _user_linking_service(session: Session) -> UserLinkingService:
+    return UserLinkingService(UserRepository(session), PasswordHasher())
+
+
+def _is_keycloak_enabled(request: Request) -> bool:
+    """Return True if Keycloak authentication is enabled for the app.
+
+    Uses a defensive attribute lookup to support lightweight test stubs that
+    may not provide the full `AppConfig` surface area.
+    """
+    return bool(getattr(request.app.state.config, "keycloak_enabled", False))
+
+
+@router.get("/config", response_model=AuthConfigResponse)
+def auth_config(request: Request) -> AuthConfigResponse:
+    """Return authentication configuration for clients."""
+    cfg = request.app.state.config
+    return AuthConfigResponse(
+        keycloak_enabled=_is_keycloak_enabled(request),
+        keycloak_url=getattr(cfg, "keycloak_url", ""),
+        local_login_enabled=not _is_keycloak_enabled(request),
+    )
+
+
+@router.get("/keycloak/login")
+def keycloak_login(
+    request: Request,
+    redirect_uri: str | None = None,
+    next: str | None = None,  # noqa: A002
+) -> RedirectResponse:
+    """Redirect the user to Keycloak for OIDC login."""
+    if not _is_keycloak_enabled(request):
+        raise HTTPException(status_code=404, detail="keycloak_disabled")
+
+    resolved_redirect_uri = redirect_uri or str(
+        request.url_for("keycloak_callback_get")
+    )
+    service = _keycloak_service(request)
+    auth_url = service.build_authorization_url(
+        redirect_uri=resolved_redirect_uri,
+        next_path=next,
+    )
+    return RedirectResponse(url=auth_url, status_code=status.HTTP_302_FOUND)
+
+
+@router.get(
+    "/keycloak/callback", name="keycloak_callback_get", response_model=LoginResponse
+)
+def keycloak_callback_get(
+    request: Request,
+    session: SessionDep,
+    code: str,
+    state: str,
+) -> LoginResponse:
+    """Handle Keycloak callback (GET) and return a local session token."""
+    if not _is_keycloak_enabled(request):
+        raise HTTPException(status_code=404, detail="keycloak_disabled")
+
+    service = _keycloak_service(request)
+    try:
+        state_payload = service.decode_state(state=state)
+    except KeycloakAuthError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+
+    redirect_uri = state_payload.get("redirect_uri")
+    if not isinstance(redirect_uri, str) or not redirect_uri:
+        raise HTTPException(
+            status_code=400, detail="keycloak_state_missing_redirect_uri"
+        )
+
+    return _handle_keycloak_callback(
+        request=request,
+        session=session,
+        code=code,
+        state=state,
+        redirect_uri=redirect_uri,
+    )
+
+
+@router.post("/keycloak/callback", response_model=LoginResponse)
+def keycloak_callback_post(
+    request: Request,
+    session: SessionDep,
+    payload: KeycloakCallbackRequest,
+) -> LoginResponse:
+    """Handle Keycloak callback (POST) and return a local session token."""
+    if not _is_keycloak_enabled(request):
+        raise HTTPException(status_code=404, detail="keycloak_disabled")
+
+    return _handle_keycloak_callback(
+        request=request,
+        session=session,
+        code=payload.code,
+        state=payload.state,
+        redirect_uri=payload.redirect_uri,
+    )
+
+
+def _handle_keycloak_callback(
+    *,
+    request: Request,
+    session: Session,
+    code: str,
+    state: str,
+    redirect_uri: str,
+) -> LoginResponse:
+    service = _keycloak_service(request)
+    try:
+        state_payload = service.decode_state(state=state)
+    except KeycloakAuthError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+
+    expected_redirect_uri = state_payload.get("redirect_uri")
+    if expected_redirect_uri != redirect_uri:
+        raise HTTPException(status_code=400, detail="keycloak_redirect_uri_mismatch")
+
+    try:
+        token_set = service.exchange_code_for_token(
+            code=code, redirect_uri=redirect_uri
+        )
+        userinfo = service.fetch_userinfo(access_token=token_set.access_token)
+    except KeycloakAuthError as err:
+        raise HTTPException(status_code=401, detail=str(err)) from err
+
+    linker = _user_linking_service(session)
+    try:
+        user = linker.find_or_create_keycloak_user(userinfo=userinfo, session=session)
+        session.commit()
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+
+    jwt_mgr = JWTManager(request.app.state.config)
+    access_token = jwt_mgr.create_access_token(
+        str(user.id), {"username": user.username, "is_admin": user.is_admin}
+    )
+
+    user_with_rels = _load_user_with_permissions(session, user_id=int(user.id))  # type: ignore[arg-type]
+    return LoginResponse(
+        access_token=access_token, user=UserRead.from_user(user_with_rels)
+    )
+
+
 @router.post(
     "/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED
 )
@@ -90,6 +261,8 @@ def register(
     request: Request, session: SessionDep, payload: UserCreate
 ) -> TokenResponse:
     """Register a new user and return an access token."""
+    if _is_keycloak_enabled(request):
+        raise HTTPException(status_code=400, detail="local_auth_disabled")
     service = _auth_service(request, session)
     try:
         _user, token = service.register_user(
@@ -114,6 +287,8 @@ def login(
     request: Request, session: SessionDep, payload: LoginRequest
 ) -> LoginResponse:
     """Login by username or email and return an access token with user data."""
+    if _is_keycloak_enabled(request):
+        raise HTTPException(status_code=400, detail="local_auth_disabled")
     service = _auth_service(request, session)
     try:
         user, token = service.login_user(payload.identifier, payload.password)
@@ -131,22 +306,7 @@ def login(
             ) from exc
         raise
 
-    # Load relationships for user with permissions
-    stmt = (
-        select(User)
-        .where(User.id == user.id)
-        .options(
-            selectinload(User.ereader_devices),
-            selectinload(User.roles)
-            .selectinload(UserRole.role)
-            .selectinload(Role.permissions)
-            .selectinload(RolePermission.permission),
-        )
-    )
-    user_with_rels = session.exec(stmt).first()
-    if user_with_rels is None:
-        raise HTTPException(status_code=500, detail="user_not_found")
-
+    user_with_rels = _load_user_with_permissions(session, user_id=int(user.id))  # type: ignore[arg-type]
     return LoginResponse(
         access_token=token,
         user=UserRead.from_user(user_with_rels),
@@ -160,23 +320,10 @@ def me(
 ) -> UserRead:
     """Return the current authenticated user."""
     current_user = get_current_user(request, session)
-
-    # Load relationships for current user with permissions
-    stmt = (
-        select(User)
-        .where(User.id == current_user.id)
-        .options(
-            selectinload(User.ereader_devices),
-            selectinload(User.roles)
-            .selectinload(UserRole.role)
-            .selectinload(Role.permissions)
-            .selectinload(RolePermission.permission),
-        )
+    user_with_rels = _load_user_with_permissions(
+        session,
+        user_id=int(current_user.id),  # type: ignore[arg-type]
     )
-    user_with_rels = session.exec(stmt).first()
-    if user_with_rels is None:
-        raise HTTPException(status_code=500, detail="user_not_found")
-
     return UserRead.from_user(user_with_rels)
 
 
