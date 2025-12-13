@@ -186,6 +186,39 @@ export function getDefaultFontSize(): number {
  *     Default page color value.
  */
 export function getDefaultPageColor(): PageColor {
+  // Keep reading defaults aligned with the app theme when the user has not set
+  // a dedicated reading page color yet. This avoids a "light" flash in the reader
+  // footer/progress UI for first-time users when the app theme is dark.
+  //
+  // We intentionally avoid importing `useTheme` here to keep this module free of
+  // React dependencies and to prevent circular imports.
+  if (typeof document !== "undefined") {
+    const themeAttr = document.documentElement.getAttribute("data-theme");
+    if (themeAttr === "dark" || themeAttr === "light") {
+      return themeAttr;
+    }
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      // This key is also used by `web/src/hooks/useTheme.ts`.
+      const storedTheme = localStorage.getItem("theme-preference");
+      if (storedTheme === "dark" || storedTheme === "light") {
+        return storedTheme;
+      }
+    } catch {
+      // localStorage might not be available (privacy mode, SSR, etc.)
+    }
+
+    // Fallback to system preference if no explicit theme was stored.
+    if (
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches
+    ) {
+      return "dark";
+    }
+  }
+
   return "light";
 }
 

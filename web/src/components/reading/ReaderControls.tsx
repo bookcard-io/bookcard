@@ -20,6 +20,7 @@ import { getControlBackgroundColor } from "@/utils/readingTheme";
 import { PagingInfoDisplay } from "./components/PagingInfoDisplay";
 import { ProgressBar } from "./components/ProgressBar";
 import type { PageColor } from "./ReadingThemeSettings";
+import { getDefaultPageColor } from "./utils/readingSettingsValidators";
 
 export interface PagingInfo {
   /** Current page number. */
@@ -69,7 +70,7 @@ export function ReaderControls({
   onProgressChange,
   isProgressDisabled = false,
   isLoadingEpubData = false,
-  pageColor = "light",
+  pageColor = getDefaultPageColor(),
   pagingInfo,
   className,
 }: ReaderControlsProps) {
