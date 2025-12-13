@@ -214,6 +214,7 @@ export function WithSelectedDropdown({
               onMouseEnter={handleSecondMouseEnter}
               onMouseLeave={sendFlyoutMenu.handleParentMouseLeave}
               onClick={handleSendToClick}
+              books={selectedBooks}
               disabled={isSendDisabled}
             />
           </div>

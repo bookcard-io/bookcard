@@ -15,7 +15,11 @@
 
 "use client";
 
+import { useMemo } from "react";
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
+import { useUser } from "@/contexts/UserContext";
+import type { Book } from "@/types/book";
+import { buildBookPermissionContext } from "@/utils/permissions";
 
 export interface SendToDeviceMenuItemProps {
   /** Reference to the menu item element. */
@@ -26,7 +30,9 @@ export interface SendToDeviceMenuItemProps {
   onMouseLeave: () => void;
   /** Callback when item is clicked. */
   onClick?: () => void;
-  /** Whether the item is disabled. */
+  /** Books to check permissions for. */
+  books?: Book[];
+  /** Whether the item is disabled (in addition to permission check). */
   disabled?: boolean;
 }
 
@@ -34,21 +40,41 @@ export interface SendToDeviceMenuItemProps {
  * "Send to..." menu item component with flyout support.
  *
  * Displays a menu item that triggers a flyout menu on hover.
- * Follows SRP by handling only menu item display and hover interactions.
+ * Handles permission checking internally to ensure consistency.
+ * Follows SRP by handling menu item display, hover interactions, and permission checks.
  * Uses IOC via callback props for interactions.
  *
  * Parameters
  * ----------
  * props : SendToDeviceMenuItemProps
- *     Component props including refs and callbacks.
+ *     Component props including refs, callbacks, and books for permission checking.
  */
 export function SendToDeviceMenuItem({
   itemRef,
   onMouseEnter,
   onMouseLeave,
   onClick,
+  books,
   disabled = false,
 }: SendToDeviceMenuItemProps) {
+  const { canPerformAction } = useUser();
+
+  // Check permission - require ALL books to have permission
+  // Errs on the side of disallowing if even one book lacks permission
+  const canSend = useMemo(() => {
+    if (!books || books.length === 0) {
+      return false;
+    }
+    return books.every((book) =>
+      canPerformAction("books", "send", buildBookPermissionContext(book)),
+    );
+  }, [books, canPerformAction]);
+
+  // Item is disabled if user lacks permission OR explicitly disabled
+  const isDisabled = !canSend || disabled;
+  // Only allow click if user has permission
+  const handleClick = canSend ? onClick : undefined;
+
   return (
     /* biome-ignore lint/a11y/noStaticElementInteractions: hover wrapper for flyout menu */
     <div
@@ -61,8 +87,8 @@ export function SendToDeviceMenuItem({
         ref={itemRef}
         icon="pi pi-send"
         label="Send to..."
-        onClick={onClick}
-        disabled={disabled}
+        onClick={handleClick}
+        disabled={isDisabled}
         rightContent={
           <i
             className="pi pi-chevron-right flex-shrink-0 text-xs"

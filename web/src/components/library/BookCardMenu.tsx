@@ -83,7 +83,6 @@ export function BookCardMenu({
   const bookContext = buildBookPermissionContext(book);
   const canWrite = canPerformAction("books", "write", bookContext);
   const canDelete = canPerformAction("books", "delete", bookContext);
-  const canSend = canPerformAction("books", "send", bookContext);
   const isAdmin = user?.is_admin ?? false;
 
   const flyoutMenu = useFlyoutMenu({ parentMenuOpen: isOpen });
@@ -151,8 +150,9 @@ export function BookCardMenu({
           itemRef={sendFlyoutMenu.parentItemRef}
           onMouseEnter={handleSecondMouseEnter}
           onMouseLeave={sendFlyoutMenu.handleParentMouseLeave}
-          onClick={canSend ? handleSendToClick : undefined}
-          disabled={!canSend || isSendDisabled}
+          onClick={handleSendToClick}
+          books={[book]}
+          disabled={isSendDisabled}
         />
         <DropdownMenuItem
           icon={<LibraryBuilding className="h-4 w-4" />}
