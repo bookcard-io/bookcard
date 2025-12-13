@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Tests for KeycloakAuthService."""
+"""Tests for OIDCAuthService."""
 
 from __future__ import annotations
 
@@ -22,9 +22,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from fundamental.config import AppConfig
-from fundamental.services.keycloak_auth_service import (
-    KeycloakAuthService,
-    KeycloakTokenValidationError,
+from fundamental.services.oidc_auth_service import (
+    OIDCAuthService,
+    OIDCTokenValidationError,
 )
 from tests.conftest import TEST_ENCRYPTION_KEY
 
@@ -35,28 +35,28 @@ def _cfg() -> AppConfig:
         jwt_algorithm="HS256",
         jwt_expires_minutes=15,
         encryption_key=TEST_ENCRYPTION_KEY,
-        keycloak_enabled=True,
-        keycloak_client_id="fundamental-client",
-        keycloak_issuer="http://keycloak:8080/realms/fundamental",
+        oidc_enabled=True,
+        oidc_client_id="fundamental-client",
+        oidc_issuer="http://issuer.example/realms/fundamental",
     )
 
 
 def test_validate_access_token_happy_path() -> None:
     """Valid token should return claims when aud/azp matches client."""
-    service = KeycloakAuthService(_cfg(), http_client=MagicMock())
+    service = OIDCAuthService(_cfg(), http_client=MagicMock())
 
     with (
         patch.object(service, "_get_jwks", return_value={"keys": [{"kid": "k1"}]}),
         patch(
-            "fundamental.services.keycloak_auth_service.jwt.get_unverified_header",
+            "fundamental.services.oidc_auth_service.jwt.get_unverified_header",
             return_value={"kid": "k1"},
         ),
         patch(
-            "fundamental.services.keycloak_auth_service.RSAAlgorithm.from_jwk",
+            "fundamental.services.oidc_auth_service.RSAAlgorithm.from_jwk",
             return_value="pub",
         ),
         patch(
-            "fundamental.services.keycloak_auth_service.jwt.decode",
+            "fundamental.services.oidc_auth_service.jwt.decode",
             return_value={"sub": "s", "aud": "fundamental-client"},
         ),
     ):
@@ -65,23 +65,23 @@ def test_validate_access_token_happy_path() -> None:
 
 
 def test_validate_access_token_audience_mismatch_raises() -> None:
-    """Mismatched aud/azp should raise KeycloakTokenValidationError."""
-    service = KeycloakAuthService(_cfg(), http_client=MagicMock())
+    """Mismatched aud/azp should raise OIDCTokenValidationError."""
+    service = OIDCAuthService(_cfg(), http_client=MagicMock())
 
     with (
         patch.object(service, "_get_jwks", return_value={"keys": [{"kid": "k1"}]}),
         patch(
-            "fundamental.services.keycloak_auth_service.jwt.get_unverified_header",
+            "fundamental.services.oidc_auth_service.jwt.get_unverified_header",
             return_value={"kid": "k1"},
         ),
         patch(
-            "fundamental.services.keycloak_auth_service.RSAAlgorithm.from_jwk",
+            "fundamental.services.oidc_auth_service.RSAAlgorithm.from_jwk",
             return_value="pub",
         ),
         patch(
-            "fundamental.services.keycloak_auth_service.jwt.decode",
+            "fundamental.services.oidc_auth_service.jwt.decode",
             return_value={"sub": "s", "aud": "some-other-client"},
         ),
-        pytest.raises(KeycloakTokenValidationError),
+        pytest.raises(OIDCTokenValidationError),
     ):
         service.validate_access_token(token="t")

@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       cache: "no-store",
     });
     const authConfig = await authConfigResp.json();
-    if (authConfig?.keycloak_enabled) {
+    if (authConfig?.oidc_enabled) {
       return NextResponse.json(
         { detail: "local_auth_disabled" },
         { status: 400 },

@@ -27,8 +27,8 @@ interface LoginFormData {
 }
 
 interface AuthConfig {
-  keycloak_enabled: boolean;
-  keycloak_url: string;
+  oidc_enabled: boolean;
+  oidc_issuer: string;
   local_login_enabled: boolean;
 }
 
@@ -69,8 +69,8 @@ function LoginForm() {
       } catch {
         // If config fetch fails, fall back to local login UI.
         setAuthConfig({
-          keycloak_enabled: false,
-          keycloak_url: "",
+          oidc_enabled: false,
+          oidc_issuer: "",
           local_login_enabled: true,
         });
       }
@@ -107,8 +107,8 @@ function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (authConfig?.keycloak_enabled && !authConfig.local_login_enabled) {
-      setError("Local login is disabled. Please use Keycloak.");
+    if (authConfig?.oidc_enabled && !authConfig.local_login_enabled) {
+      setError("Local login is disabled. Please use SSO.");
       return;
     }
     setIsLoading(true);
@@ -194,21 +194,20 @@ function LoginForm() {
         </div>
 
         <div className="flex flex-col gap-6">
-          {authConfig?.keycloak_enabled && (
+          {authConfig?.oidc_enabled && (
             <a
-              href={`/api/auth/keycloak/login?next=${encodeURIComponent(
+              href={`/api/auth/oidc/login?next=${encodeURIComponent(
                 searchParams.get("next") || "/",
               )}`}
               className="inline-flex w-full items-center justify-center rounded-md border border-[var(--color-surface-a20)] bg-[var(--color-surface-a0)] px-4 py-3 font-medium text-[var(--color-text-a0)] text-base leading-normal transition-[border-color,box-shadow,background-color] duration-200 hover:bg-[var(--color-surface-a10)] focus:shadow-[0_0_0_3px_rgba(144,170,249,0.2)] focus:outline-none"
             >
-              Sign in with Keycloak
+              Sign in with SSO
             </a>
           )}
 
-          {authConfig?.keycloak_enabled && !authConfig.local_login_enabled && (
+          {authConfig?.oidc_enabled && !authConfig.local_login_enabled && (
             <p className="text-[var(--color-text-a30)] text-sm leading-normal">
-              Local login is disabled because Keycloak authentication is
-              enabled.
+              Local login is disabled because SSO authentication is enabled.
             </p>
           )}
 

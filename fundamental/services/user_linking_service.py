@@ -16,7 +16,7 @@
 """User linking service for external identity providers.
 
 This service contains the domain logic for mapping an external identity
-(Keycloak userinfo) to a local `User` row while preserving local RBAC state.
+(OIDC userinfo) to a local `User` row while preserving local RBAC state.
 """
 
 from __future__ import annotations
@@ -42,8 +42,8 @@ if TYPE_CHECKING:
 
 
 class _UserLookup(Protocol):
-    def find_by_keycloak_sub(self, keycloak_sub: str) -> User | None:
-        """Find a user by Keycloak subject identifier."""
+    def find_by_oidc_sub(self, oidc_sub: str) -> User | None:
+        """Find a user by OIDC subject identifier."""
 
     def find_by_email(self, email: str) -> User | None:
         """Find a user by email address."""
@@ -58,7 +58,7 @@ class _PasswordHasher(Protocol):
 
 
 class UserLinkingService:
-    """Link external (Keycloak) identities to local users.
+    """Link external (OIDC) identities to local users.
 
     Parameters
     ----------
@@ -75,13 +75,13 @@ class UserLinkingService:
         self._users = user_repo
         self._hasher = password_hasher
 
-    def find_or_create_keycloak_user(
+    def find_or_create_oidc_user(
         self, *, userinfo: dict[str, object], session: Session
     ) -> User:
-        """Find or create a local user record for a Keycloak-authenticated identity.
+        """Find or create a local user record for an OIDC-authenticated identity.
 
         Lookup strategy (in order):
-        1) `keycloak_sub` (userinfo ``sub``)
+        1) `oidc_sub` (userinfo ``sub``)
         2) email (userinfo ``email``)
         3) username (userinfo ``preferred_username``)
 
@@ -91,7 +91,7 @@ class UserLinkingService:
         Parameters
         ----------
         userinfo : dict[str, object]
-            OIDC userinfo payload from Keycloak.
+            OIDC userinfo payload from the provider.
         session : Session
             Active database session for persistence.
 
@@ -107,7 +107,7 @@ class UserLinkingService:
         """
         sub = userinfo.get("sub")
         if not isinstance(sub, str) or not sub:
-            msg = "keycloak_userinfo_missing_sub"
+            msg = "oidc_userinfo_missing_sub"
             raise ValueError(msg)
 
         email = userinfo.get("email")
@@ -120,15 +120,15 @@ class UserLinkingService:
             else None
         )
 
-        user = self._users.find_by_keycloak_sub(sub)
+        user = self._users.find_by_oidc_sub(sub)
         if user is None and email_str:
             user = self._users.find_by_email(email_str)
         if user is None and username_str:
             user = self._users.find_by_username(username_str)
 
         if user is not None:
-            if user.keycloak_sub is None:
-                user.keycloak_sub = sub
+            if user.oidc_sub is None:
+                user.oidc_sub = sub
             user.last_login = datetime.now(UTC)
             session.flush()
             return user
@@ -142,9 +142,9 @@ class UserLinkingService:
         password = secrets.token_urlsafe(48)
         user = User(
             username=username,
-            email=email_str or f"{sub}@keycloak.local",
+            email=email_str or f"{sub}@oidc.local",
             password_hash=self._hasher.hash(password),
-            keycloak_sub=sub,
+            oidc_sub=sub,
             full_name=userinfo.get("name")
             if isinstance(userinfo.get("name"), str)
             else None,

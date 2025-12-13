@@ -13,14 +13,16 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Keycloak OIDC client and token validator.
+"""Generic OIDC client and token validator.
 
-This module encapsulates all Keycloak/OpenID Connect interactions:
+This module encapsulates all OpenID Connect interactions:
 - Discovery document resolution
 - Authorization URL construction
 - Authorization-code token exchange
 - UserInfo retrieval
-- JWT validation using Keycloak JWKS
+- JWT validation using JWKS
+
+Supports any OIDC-compliant provider.
 
 The web/API layer should treat this as a pure integration component (SRP),
 keeping HTTP endpoints thin and policy decisions elsewhere (SOC).
@@ -43,25 +45,25 @@ from jwt.algorithms import RSAAlgorithm  # type: ignore[attr-defined]
 from fundamental.config import AppConfig  # noqa: TC001
 
 
-class KeycloakAuthError(Exception):
-    """Raised when Keycloak authentication operations fail."""
+class OIDCAuthError(Exception):
+    """Raised when OIDC authentication operations fail."""
 
 
-class KeycloakConfigurationError(KeycloakAuthError):
-    """Raised when Keycloak configuration is incomplete or invalid."""
+class OIDCConfigurationError(OIDCAuthError):
+    """Raised when OIDC configuration is incomplete or invalid."""
 
 
-class KeycloakOIDCError(KeycloakAuthError):
-    """Raised when Keycloak returns an OAuth/OIDC error response."""
+class OIDCError(OIDCAuthError):
+    """Raised when the OIDC provider returns an OAuth/OIDC error response."""
 
 
-class KeycloakTokenValidationError(KeycloakAuthError):
-    """Raised when a Keycloak JWT cannot be validated."""
+class OIDCTokenValidationError(OIDCAuthError):
+    """Raised when an OIDC JWT cannot be validated."""
 
 
 @dataclass(frozen=True, slots=True)
-class KeycloakTokenSet:
-    """Token response from Keycloak token endpoint."""
+class OIDCTokenSet:
+    """Token response from OIDC token endpoint."""
 
     access_token: str
     expires_in: int | None = None
@@ -72,20 +74,22 @@ class KeycloakTokenSet:
     scope: str | None = None
 
 
-class KeycloakAuthService:
-    """Keycloak OIDC integration service.
+class OIDCAuthService:
+    """Generic OIDC integration service.
+
+    Supports any OIDC-compliant provider.
 
     Parameters
     ----------
     config : AppConfig
-        Application configuration containing Keycloak settings.
+        Application configuration containing OIDC settings.
     http_client : httpx.Client | None
         Optional injected HTTP client. If not provided, an internal client is used.
         This supports IOC/testing without coupling call sites to httpx.
     """
 
     _DISCOVERY_PATH: Final[str] = ".well-known/openid-configuration"
-    _STATE_AUD: Final[str] = "fundamental:keycloak_state"
+    _STATE_AUD: Final[str] = "fundamental:oidc_state"
 
     def __init__(
         self, config: AppConfig, http_client: httpx.Client | None = None
@@ -106,12 +110,12 @@ class KeycloakAuthService:
         next_path: str | None = None,
         state_ttl_seconds: int = 600,
     ) -> str:
-        """Build a Keycloak authorization URL for the OIDC code flow.
+        """Build an OIDC authorization URL for the code flow.
 
         Parameters
         ----------
         redirect_uri : str
-            Redirect URI registered in Keycloak for the client.
+            Redirect URI registered in the OIDC provider for the client.
         next_path : str | None
             Optional post-login navigation hint preserved in the signed state.
         state_ttl_seconds : int
@@ -125,8 +129,8 @@ class KeycloakAuthService:
         discovery = self._get_discovery()
         authorization_endpoint = discovery.get("authorization_endpoint")
         if not isinstance(authorization_endpoint, str) or not authorization_endpoint:
-            msg = "Keycloak discovery missing authorization_endpoint"
-            raise KeycloakConfigurationError(msg)
+            msg = "OIDC discovery missing authorization_endpoint"
+            raise OIDCConfigurationError(msg)
 
         state = self._encode_state(
             redirect_uri=redirect_uri,
@@ -135,47 +139,45 @@ class KeycloakAuthService:
         )
         nonce = secrets.token_urlsafe(24)
         params = {
-            "client_id": self._cfg.keycloak_client_id,
+            "client_id": self._cfg.oidc_client_id,
             "response_type": "code",
-            "scope": self._cfg.keycloak_scopes,
+            "scope": self._cfg.oidc_scopes,
             "redirect_uri": redirect_uri,
             "state": state,
             "nonce": nonce,
         }
         return f"{authorization_endpoint}?{urlencode(params)}"
 
-    def exchange_code_for_token(
-        self, *, code: str, redirect_uri: str
-    ) -> KeycloakTokenSet:
+    def exchange_code_for_token(self, *, code: str, redirect_uri: str) -> OIDCTokenSet:
         """Exchange authorization code for tokens at the token endpoint.
 
         Parameters
         ----------
         code : str
-            Authorization code from Keycloak callback.
+            Authorization code from OIDC provider callback.
         redirect_uri : str
             Redirect URI used in the initial authorization request.
 
         Returns
         -------
-        KeycloakTokenSet
+        OIDCTokenSet
             Parsed token set.
         """
         discovery = self._get_discovery()
         token_endpoint = discovery.get("token_endpoint")
         if not isinstance(token_endpoint, str) or not token_endpoint:
-            msg = "Keycloak discovery missing token_endpoint"
-            raise KeycloakConfigurationError(msg)
+            msg = "OIDC discovery missing token_endpoint"
+            raise OIDCConfigurationError(msg)
 
         data: dict[str, str] = {
             "grant_type": "authorization_code",
             "code": code,
             "redirect_uri": redirect_uri,
-            "client_id": self._cfg.keycloak_client_id,
+            "client_id": self._cfg.oidc_client_id,
         }
         # Confidential clients must present a secret; public clients may omit.
-        if self._cfg.keycloak_client_secret:
-            data["client_secret"] = self._cfg.keycloak_client_secret
+        if self._cfg.oidc_client_secret:
+            data["client_secret"] = self._cfg.oidc_client_secret
 
         try:
             resp = self._http.post(
@@ -184,29 +186,29 @@ class KeycloakAuthService:
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
         except httpx.TimeoutException as err:
-            msg = "keycloak_token_timeout"
-            raise KeycloakOIDCError(msg) from err
+            msg = "oidc_token_timeout"
+            raise OIDCError(msg) from err
         except httpx.HTTPError as err:
-            msg = "keycloak_token_http_error"
-            raise KeycloakOIDCError(msg) from err
+            msg = "oidc_token_http_error"
+            raise OIDCError(msg) from err
 
-        payload = self._parse_json_response(resp, error_prefix="keycloak_token")
+        payload = self._parse_json_response(resp, error_prefix="oidc_token")
         if resp.status_code >= 400:
-            # Keycloak usually returns error + error_description for OAuth failures.
+            # OIDC providers usually return error + error_description for OAuth failures.
             error = None
             if isinstance(payload, dict):
                 payload_dict = {str(k): v for k, v in payload.items()}
                 error = payload_dict.get("error")
             msg = (
-                f"keycloak_token_exchange_failed:{error}"
+                f"oidc_token_exchange_failed:{error}"
                 if isinstance(error, str) and error
-                else "keycloak_token_exchange_failed"
+                else "oidc_token_exchange_failed"
             )
-            raise KeycloakOIDCError(msg)
+            raise OIDCError(msg)
 
         if not isinstance(payload, dict) or "access_token" not in payload:
-            msg = "keycloak_token_response_invalid"
-            raise KeycloakOIDCError(msg)
+            msg = "oidc_token_response_invalid"
+            raise OIDCError(msg)
 
         payload_dict: dict[str, object] = {str(k): v for k, v in payload.items()}
 
@@ -217,7 +219,7 @@ class KeycloakAuthService:
         id_token_val = payload_dict.get("id_token")
         scope_val = payload_dict.get("scope")
 
-        return KeycloakTokenSet(
+        return OIDCTokenSet(
             access_token=str(payload_dict["access_token"]),
             expires_in=int(expires_in_val) if isinstance(expires_in_val, int) else None,
             refresh_token=(
@@ -243,14 +245,14 @@ class KeycloakAuthService:
 
         Returns
         -------
-        dict[str, Any]
-            Userinfo payload from Keycloak.
+        dict[str, object]
+            Userinfo payload from the OIDC provider.
         """
         discovery = self._get_discovery()
         userinfo_endpoint = discovery.get("userinfo_endpoint")
         if not isinstance(userinfo_endpoint, str) or not userinfo_endpoint:
-            msg = "Keycloak discovery missing userinfo_endpoint"
-            raise KeycloakConfigurationError(msg)
+            msg = "OIDC discovery missing userinfo_endpoint"
+            raise OIDCConfigurationError(msg)
 
         try:
             resp = self._http.get(
@@ -258,28 +260,28 @@ class KeycloakAuthService:
                 headers={"Authorization": f"Bearer {access_token}"},
             )
         except httpx.TimeoutException as err:
-            msg = "keycloak_userinfo_timeout"
-            raise KeycloakOIDCError(msg) from err
+            msg = "oidc_userinfo_timeout"
+            raise OIDCError(msg) from err
         except httpx.HTTPError as err:
-            msg = "keycloak_userinfo_http_error"
-            raise KeycloakOIDCError(msg) from err
+            msg = "oidc_userinfo_http_error"
+            raise OIDCError(msg) from err
 
-        payload = self._parse_json_response(resp, error_prefix="keycloak_userinfo")
+        payload = self._parse_json_response(resp, error_prefix="oidc_userinfo")
         if resp.status_code >= 400:
-            msg = "keycloak_userinfo_failed"
-            raise KeycloakOIDCError(msg)
+            msg = "oidc_userinfo_failed"
+            raise OIDCError(msg)
         if not isinstance(payload, dict):
-            msg = "keycloak_userinfo_invalid"
-            raise KeycloakOIDCError(msg)
+            msg = "oidc_userinfo_invalid"
+            raise OIDCError(msg)
         return {str(k): v for k, v in payload.items()}
 
     def validate_access_token(self, *, token: str) -> dict[str, object]:
-        """Validate a Keycloak JWT access token using JWKS.
+        """Validate an OIDC JWT access token using JWKS.
 
         Parameters
         ----------
         token : str
-            JWT access token from Keycloak.
+            JWT access token from the OIDC provider.
 
         Returns
         -------
@@ -289,27 +291,27 @@ class KeycloakAuthService:
         jwks = self._get_jwks()
         keys_raw = jwks.get("keys") if isinstance(jwks, dict) else None
         if not isinstance(keys_raw, list) or not keys_raw:
-            msg = "keycloak_jwks_invalid"
-            raise KeycloakTokenValidationError(msg)
+            msg = "oidc_jwks_invalid"
+            raise OIDCTokenValidationError(msg)
         keys: list[object] = list(keys_raw)
 
         kid = self._extract_kid_from_jwt_header(token)
         if not isinstance(kid, str) or not kid:
-            msg = "keycloak_token_missing_kid"
-            raise KeycloakTokenValidationError(msg)
+            msg = "oidc_token_missing_kid"
+            raise OIDCTokenValidationError(msg)
 
         jwk = self._select_jwk_for_kid(keys, kid)
         if jwk is None:
-            msg = "keycloak_token_unknown_kid"
-            raise KeycloakTokenValidationError(msg)
+            msg = "oidc_token_unknown_kid"
+            raise OIDCTokenValidationError(msg)
 
         try:
             public_key = RSAAlgorithm.from_jwk(json.dumps(jwk))
         except (ValueError, TypeError) as err:
-            msg = "keycloak_jwk_parse_failed"
-            raise KeycloakTokenValidationError(msg) from err
+            msg = "oidc_jwk_parse_failed"
+            raise OIDCTokenValidationError(msg) from err
 
-        issuer = self._cfg.keycloak_issuer
+        issuer = self._cfg.oidc_issuer
         options = {"verify_aud": False}
         try:
             claims = jwt.decode(
@@ -320,18 +322,18 @@ class KeycloakAuthService:
                 options=options,
             )
         except jwt.ExpiredSignatureError as err:
-            msg = "keycloak_token_expired"
-            raise KeycloakTokenValidationError(msg) from err
+            msg = "oidc_token_expired"
+            raise OIDCTokenValidationError(msg) from err
         except jwt.InvalidIssuerError as err:
-            msg = "keycloak_token_invalid_issuer"
-            raise KeycloakTokenValidationError(msg) from err
+            msg = "oidc_token_invalid_issuer"
+            raise OIDCTokenValidationError(msg) from err
         except jwt.InvalidTokenError as err:
-            msg = "keycloak_token_invalid"
-            raise KeycloakTokenValidationError(msg) from err
+            msg = "oidc_token_invalid"
+            raise OIDCTokenValidationError(msg) from err
 
         if not isinstance(claims, dict):
-            msg = "keycloak_token_invalid"
-            raise KeycloakTokenValidationError(msg)
+            msg = "oidc_token_invalid"
+            raise OIDCTokenValidationError(msg)
 
         claims_dict: dict[str, object] = {str(k): v for k, v in claims.items()}
         self._enforce_client_audience_or_azp(claims_dict)
@@ -371,7 +373,7 @@ class KeycloakAuthService:
 
         Returns
         -------
-        dict[str, Any]
+        dict[str, object]
             Decoded state payload.
         """
         try:
@@ -382,15 +384,15 @@ class KeycloakAuthService:
                 audience=self._STATE_AUD,
             )
         except jwt.ExpiredSignatureError as err:
-            msg = "keycloak_state_expired"
-            raise KeycloakOIDCError(msg) from err
+            msg = "oidc_state_expired"
+            raise OIDCError(msg) from err
         except jwt.InvalidTokenError as err:
-            msg = "keycloak_state_invalid"
-            raise KeycloakOIDCError(msg) from err
+            msg = "oidc_state_invalid"
+            raise OIDCError(msg) from err
 
         if not isinstance(payload, dict):
-            msg = "keycloak_state_invalid"
-            raise KeycloakOIDCError(msg)
+            msg = "oidc_state_invalid"
+            raise OIDCError(msg)
         return {str(k): v for k, v in payload.items()}
 
     def _encode_state(
@@ -410,12 +412,12 @@ class KeycloakAuthService:
         )
 
     def _get_discovery(self) -> dict[str, object]:
-        if not self._cfg.keycloak_enabled:
-            msg = "keycloak_disabled"
-            raise KeycloakConfigurationError(msg)
-        if not self._cfg.keycloak_issuer:
-            msg = "keycloak_issuer_missing"
-            raise KeycloakConfigurationError(msg)
+        if not self._cfg.oidc_enabled:
+            msg = "oidc_disabled"
+            raise OIDCConfigurationError(msg)
+        if not self._cfg.oidc_issuer:
+            msg = "oidc_issuer_missing"
+            raise OIDCConfigurationError(msg)
 
         now = time.time()
         with self._lock:
@@ -425,23 +427,23 @@ class KeycloakAuthService:
             ):
                 return self._discovery_cache
 
-        url = f"{self._cfg.keycloak_issuer.rstrip('/')}/{self._DISCOVERY_PATH}"
+        url = f"{self._cfg.oidc_issuer.rstrip('/')}/{self._DISCOVERY_PATH}"
         try:
             resp = self._http.get(url)
         except httpx.TimeoutException as err:
-            msg = "keycloak_discovery_timeout"
-            raise KeycloakOIDCError(msg) from err
+            msg = "oidc_discovery_timeout"
+            raise OIDCError(msg) from err
         except httpx.HTTPError as err:
-            msg = "keycloak_discovery_http_error"
-            raise KeycloakOIDCError(msg) from err
+            msg = "oidc_discovery_http_error"
+            raise OIDCError(msg) from err
 
-        payload = self._parse_json_response(resp, error_prefix="keycloak_discovery")
+        payload = self._parse_json_response(resp, error_prefix="oidc_discovery")
         if resp.status_code >= 400:
-            msg = "keycloak_discovery_failed"
-            raise KeycloakOIDCError(msg)
+            msg = "oidc_discovery_failed"
+            raise OIDCError(msg)
         if not isinstance(payload, dict):
-            msg = "keycloak_discovery_invalid"
-            raise KeycloakOIDCError(msg)
+            msg = "oidc_discovery_invalid"
+            raise OIDCError(msg)
 
         payload_dict: dict[str, object] = {str(k): v for k, v in payload.items()}
         with self._lock:
@@ -453,8 +455,8 @@ class KeycloakAuthService:
         discovery = self._get_discovery()
         jwks_uri = discovery.get("jwks_uri")
         if not isinstance(jwks_uri, str) or not jwks_uri:
-            msg = "keycloak_discovery_missing_jwks_uri"
-            raise KeycloakConfigurationError(msg)
+            msg = "OIDC discovery missing jwks_uri"
+            raise OIDCConfigurationError(msg)
 
         now = time.time()
         with self._lock:
@@ -464,19 +466,19 @@ class KeycloakAuthService:
         try:
             resp = self._http.get(jwks_uri)
         except httpx.TimeoutException as err:
-            msg = "keycloak_jwks_timeout"
-            raise KeycloakOIDCError(msg) from err
+            msg = "oidc_jwks_timeout"
+            raise OIDCError(msg) from err
         except httpx.HTTPError as err:
-            msg = "keycloak_jwks_http_error"
-            raise KeycloakOIDCError(msg) from err
+            msg = "oidc_jwks_http_error"
+            raise OIDCError(msg) from err
 
-        payload = self._parse_json_response(resp, error_prefix="keycloak_jwks")
+        payload = self._parse_json_response(resp, error_prefix="oidc_jwks")
         if resp.status_code >= 400:
-            msg = "keycloak_jwks_failed"
-            raise KeycloakOIDCError(msg)
+            msg = "oidc_jwks_failed"
+            raise OIDCError(msg)
         if not isinstance(payload, dict):
-            msg = "keycloak_jwks_invalid"
-            raise KeycloakOIDCError(msg)
+            msg = "oidc_jwks_invalid"
+            raise OIDCError(msg)
 
         payload_dict: dict[str, object] = {str(k): v for k, v in payload.items()}
         with self._lock:
@@ -490,12 +492,12 @@ class KeycloakAuthService:
             return resp.json()
         except json.JSONDecodeError as err:
             msg = f"{error_prefix}_non_json"
-            raise KeycloakOIDCError(msg) from err
+            raise OIDCError(msg) from err
 
     def _enforce_client_audience_or_azp(self, claims: dict[str, object]) -> None:
-        client_id = self._cfg.keycloak_client_id
+        client_id = self._cfg.oidc_client_id
         if not client_id:
-            # Shouldn't happen when Keycloak is enabled, but keep validator robust.
+            # Shouldn't happen when OIDC is enabled, but keep validator robust.
             return
 
         aud = claims.get("aud")
@@ -510,5 +512,5 @@ class KeycloakAuthService:
         azp_ok = isinstance(azp, str) and azp == client_id
 
         if not (aud_ok or azp_ok):
-            msg = "keycloak_token_audience_mismatch"
-            raise KeycloakTokenValidationError(msg)
+            msg = "oidc_token_audience_mismatch"
+            raise OIDCTokenValidationError(msg)

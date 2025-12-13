@@ -23,7 +23,6 @@ from __future__ import annotations
 from contextlib import suppress
 from typing import TYPE_CHECKING, Annotated
 
-import jwt
 from fastapi import Depends, HTTPException, Request, status
 from sqlmodel import Session  # noqa: TC002
 
@@ -36,11 +35,8 @@ from fundamental.repositories.user_repository import (
     TokenBlacklistRepository,
     UserRepository,
 )
-from fundamental.services.keycloak_auth_service import (
-    KeycloakAuthError,
-    KeycloakAuthService,
-)
 from fundamental.services.kobo.auth_service import KoboAuthService
+from fundamental.services.oidc_auth_service import OIDCAuthError, OIDCAuthService
 from fundamental.services.opds.auth_service import OpdsAuthService
 from fundamental.services.permission_service import PermissionService
 from fundamental.services.security import JWTManager, PasswordHasher, SecurityTokenError
@@ -85,13 +81,13 @@ def get_current_user(
         )
     token = auth_header.removeprefix("Bearer ")
 
-    # Prefer local JWT (existing behavior). When Keycloak is enabled, we can
-    # optionally fall back to validating a Keycloak-issued token.
+    # Prefer local JWT (existing behavior). When OIDC is enabled, we can
+    # optionally fall back to validating a provider-issued token.
     with suppress(SecurityTokenError):
         return _get_user_from_local_jwt(request, session, token)
 
-    if request.app.state.config.keycloak_enabled:
-        return _get_user_from_keycloak_token(request, session, token)
+    if request.app.state.config.oidc_enabled:
+        return _get_user_from_oidc_token(request, session, token)
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_token"
@@ -138,10 +134,8 @@ def _get_user_from_local_jwt(request: Request, session: Session, token: str) -> 
     return user
 
 
-def _get_user_from_keycloak_token(
-    request: Request, session: Session, token: str
-) -> User:
-    """Validate a Keycloak-issued JWT and return the corresponding local user.
+def _get_user_from_oidc_token(request: Request, session: Session, token: str) -> User:
+    """Validate an OIDC-issued JWT and return the corresponding local user.
 
     Parameters
     ----------
@@ -155,21 +149,17 @@ def _get_user_from_keycloak_token(
     Returns
     -------
     User
-        Authenticated local user linked to the Keycloak identity.
+        Authenticated local user linked to the OIDC identity.
 
     Raises
     ------
     HTTPException
         If the token is invalid or user cannot be resolved.
     """
-    service = KeycloakAuthService(request.app.state.config)
+    service = OIDCAuthService(request.app.state.config)
     try:
         claims = service.validate_access_token(token=token)
-    except KeycloakAuthError as err:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_token"
-        ) from err
-    except jwt.InvalidTokenError as err:
+    except OIDCAuthError as err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_token"
         ) from err
@@ -180,7 +170,7 @@ def _get_user_from_keycloak_token(
 
     repo = UserRepository(session)
     if isinstance(sub, str) and sub:
-        user = repo.find_by_keycloak_sub(sub)
+        user = repo.find_by_oidc_sub(sub)
         if user is not None:
             return user
     if isinstance(email, str) and email:

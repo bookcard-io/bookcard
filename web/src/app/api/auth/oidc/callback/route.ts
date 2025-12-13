@@ -8,9 +8,9 @@ import {
 const POST_LOGIN_NEXT_COOKIE = "fundamental_post_login_next";
 
 /**
- * GET /api/auth/keycloak/callback
+ * GET /api/auth/oidc/callback
  *
- * Handles Keycloak redirect, exchanges code via backend, and sets auth cookie.
+ * Handles OIDC redirect, exchanges code via backend, and sets auth cookie.
  */
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
@@ -22,10 +22,10 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const redirectUri = `${request.nextUrl.origin}/api/auth/keycloak/callback`;
+  const redirectUri = `${request.nextUrl.origin}/api/auth/oidc/callback`;
   const nextPath = request.cookies.get(POST_LOGIN_NEXT_COOKIE)?.value || "/";
 
-  const response = await fetch(`${BACKEND_URL}/auth/keycloak/callback`, {
+  const response = await fetch(`${BACKEND_URL}/auth/oidc/callback`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
   const data = await response.json();
   if (!response.ok) {
     return NextResponse.json(
-      { detail: data.detail || "keycloak_callback_failed" },
+      { detail: data.detail || "oidc_callback_failed" },
       { status: response.status },
     );
   }

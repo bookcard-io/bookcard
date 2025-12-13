@@ -33,9 +33,9 @@ from fundamental.api.schemas import (
     EmailServerConfigRead,
     EmailServerConfigUpdate,
     InviteValidationResponse,
-    KeycloakCallbackRequest,
     LoginRequest,
     LoginResponse,
+    OIDCCallbackRequest,
     PasswordChangeRequest,
     ProfilePictureUpdateRequest,
     ProfileRead,
@@ -54,10 +54,7 @@ from fundamental.repositories.user_repository import (
     UserRepository,
 )
 from fundamental.services.auth_service import AuthError, AuthService
-from fundamental.services.keycloak_auth_service import (
-    KeycloakAuthError,
-    KeycloakAuthService,
-)
+from fundamental.services.oidc_auth_service import OIDCAuthError, OIDCAuthService
 from fundamental.services.security import (
     DataEncryptor,
     JWTManager,
@@ -108,21 +105,21 @@ def _load_user_with_permissions(session: Session, *, user_id: int) -> User:
     return user_with_rels
 
 
-def _keycloak_service(request: Request) -> KeycloakAuthService:
-    return KeycloakAuthService(request.app.state.config)
+def _oidc_service(request: Request) -> OIDCAuthService:
+    return OIDCAuthService(request.app.state.config)
 
 
 def _user_linking_service(session: Session) -> UserLinkingService:
     return UserLinkingService(UserRepository(session), PasswordHasher())
 
 
-def _is_keycloak_enabled(request: Request) -> bool:
-    """Return True if Keycloak authentication is enabled for the app.
+def _is_oidc_enabled(request: Request) -> bool:
+    """Return True if OIDC authentication is enabled for the app.
 
     Uses a defensive attribute lookup to support lightweight test stubs that
     may not provide the full `AppConfig` surface area.
     """
-    return bool(getattr(request.app.state.config, "keycloak_enabled", False))
+    return bool(getattr(request.app.state.config, "oidc_enabled", False))
 
 
 @router.get("/config", response_model=AuthConfigResponse)
@@ -130,26 +127,24 @@ def auth_config(request: Request) -> AuthConfigResponse:
     """Return authentication configuration for clients."""
     cfg = request.app.state.config
     return AuthConfigResponse(
-        keycloak_enabled=_is_keycloak_enabled(request),
-        keycloak_url=getattr(cfg, "keycloak_url", ""),
-        local_login_enabled=not _is_keycloak_enabled(request),
+        oidc_enabled=_is_oidc_enabled(request),
+        oidc_issuer=getattr(cfg, "oidc_issuer", ""),
+        local_login_enabled=not _is_oidc_enabled(request),
     )
 
 
-@router.get("/keycloak/login")
-def keycloak_login(
+@router.get("/oidc/login")
+def oidc_login(
     request: Request,
     redirect_uri: str | None = None,
     next: str | None = None,  # noqa: A002
 ) -> RedirectResponse:
-    """Redirect the user to Keycloak for OIDC login."""
-    if not _is_keycloak_enabled(request):
-        raise HTTPException(status_code=404, detail="keycloak_disabled")
+    """Redirect the user to an OIDC provider for login."""
+    if not _is_oidc_enabled(request):
+        raise HTTPException(status_code=404, detail="oidc_disabled")
 
-    resolved_redirect_uri = redirect_uri or str(
-        request.url_for("keycloak_callback_get")
-    )
-    service = _keycloak_service(request)
+    resolved_redirect_uri = redirect_uri or str(request.url_for("oidc_callback_get"))
+    service = _oidc_service(request)
     auth_url = service.build_authorization_url(
         redirect_uri=resolved_redirect_uri,
         next_path=next,
@@ -157,32 +152,28 @@ def keycloak_login(
     return RedirectResponse(url=auth_url, status_code=status.HTTP_302_FOUND)
 
 
-@router.get(
-    "/keycloak/callback", name="keycloak_callback_get", response_model=LoginResponse
-)
-def keycloak_callback_get(
+@router.get("/oidc/callback", name="oidc_callback_get", response_model=LoginResponse)
+def oidc_callback_get(
     request: Request,
     session: SessionDep,
     code: str,
     state: str,
 ) -> LoginResponse:
-    """Handle Keycloak callback (GET) and return a local session token."""
-    if not _is_keycloak_enabled(request):
-        raise HTTPException(status_code=404, detail="keycloak_disabled")
+    """Handle OIDC callback (GET) and return a local session token."""
+    if not _is_oidc_enabled(request):
+        raise HTTPException(status_code=404, detail="oidc_disabled")
 
-    service = _keycloak_service(request)
+    service = _oidc_service(request)
     try:
         state_payload = service.decode_state(state=state)
-    except KeycloakAuthError as err:
+    except OIDCAuthError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
 
     redirect_uri = state_payload.get("redirect_uri")
     if not isinstance(redirect_uri, str) or not redirect_uri:
-        raise HTTPException(
-            status_code=400, detail="keycloak_state_missing_redirect_uri"
-        )
+        raise HTTPException(status_code=400, detail="oidc_state_missing_redirect_uri")
 
-    return _handle_keycloak_callback(
+    return _handle_oidc_callback(
         request=request,
         session=session,
         code=code,
@@ -191,17 +182,17 @@ def keycloak_callback_get(
     )
 
 
-@router.post("/keycloak/callback", response_model=LoginResponse)
-def keycloak_callback_post(
+@router.post("/oidc/callback", response_model=LoginResponse)
+def oidc_callback_post(
     request: Request,
     session: SessionDep,
-    payload: KeycloakCallbackRequest,
+    payload: OIDCCallbackRequest,
 ) -> LoginResponse:
-    """Handle Keycloak callback (POST) and return a local session token."""
-    if not _is_keycloak_enabled(request):
-        raise HTTPException(status_code=404, detail="keycloak_disabled")
+    """Handle OIDC callback (POST) and return a local session token."""
+    if not _is_oidc_enabled(request):
+        raise HTTPException(status_code=404, detail="oidc_disabled")
 
-    return _handle_keycloak_callback(
+    return _handle_oidc_callback(
         request=request,
         session=session,
         code=payload.code,
@@ -210,7 +201,7 @@ def keycloak_callback_post(
     )
 
 
-def _handle_keycloak_callback(
+def _handle_oidc_callback(
     *,
     request: Request,
     session: Session,
@@ -218,27 +209,27 @@ def _handle_keycloak_callback(
     state: str,
     redirect_uri: str,
 ) -> LoginResponse:
-    service = _keycloak_service(request)
+    service = _oidc_service(request)
     try:
         state_payload = service.decode_state(state=state)
-    except KeycloakAuthError as err:
+    except OIDCAuthError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
 
     expected_redirect_uri = state_payload.get("redirect_uri")
     if expected_redirect_uri != redirect_uri:
-        raise HTTPException(status_code=400, detail="keycloak_redirect_uri_mismatch")
+        raise HTTPException(status_code=400, detail="oidc_redirect_uri_mismatch")
 
     try:
         token_set = service.exchange_code_for_token(
             code=code, redirect_uri=redirect_uri
         )
         userinfo = service.fetch_userinfo(access_token=token_set.access_token)
-    except KeycloakAuthError as err:
+    except OIDCAuthError as err:
         raise HTTPException(status_code=401, detail=str(err)) from err
 
     linker = _user_linking_service(session)
     try:
-        user = linker.find_or_create_keycloak_user(userinfo=userinfo, session=session)
+        user = linker.find_or_create_oidc_user(userinfo=userinfo, session=session)
         session.commit()
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
@@ -261,7 +252,7 @@ def register(
     request: Request, session: SessionDep, payload: UserCreate
 ) -> TokenResponse:
     """Register a new user and return an access token."""
-    if _is_keycloak_enabled(request):
+    if _is_oidc_enabled(request):
         raise HTTPException(status_code=400, detail="local_auth_disabled")
     service = _auth_service(request, session)
     try:
@@ -287,7 +278,7 @@ def login(
     request: Request, session: SessionDep, payload: LoginRequest
 ) -> LoginResponse:
     """Login by username or email and return an access token with user data."""
-    if _is_keycloak_enabled(request):
+    if _is_oidc_enabled(request):
         raise HTTPException(status_code=400, detail="local_auth_disabled")
     service = _auth_service(request, session)
     try:

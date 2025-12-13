@@ -47,14 +47,12 @@ services:
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
 
-      # Optional Keycloak OIDC integration
-      KEYCLOAK_ENABLED: ${KEYCLOAK_ENABLED:-false}
-      KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8080}
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-fundamental}
-      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-}
-      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
-      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-}
-      KEYCLOAK_SCOPES: ${KEYCLOAK_SCOPES:-openid profile email}
+      # Optional OIDC integration
+      OIDC_ENABLED: ${OIDC_ENABLED:-false}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_SCOPES: ${OIDC_SCOPES:-openid profile email}
 
       # Frontend configuration
       NODE_ENV: production
@@ -115,54 +113,9 @@ services:
     networks:
       - fundamental-network
 
-  keycloak:
-    image: quay.io/keycloak/keycloak:26.0.0
-    container_name: fundamental-keycloak
-    restart: unless-stopped
-    command: start-dev
-    environment:
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin123}
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
-      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
-      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak123}
-      KC_HOSTNAME_STRICT: "false"
-      KC_HTTP_ENABLED: "true"
-    ports:
-      - "${KEYCLOAK_PORT:-8080}:8080"
-    depends_on:
-      keycloak-db:
-        condition: service_healthy
-    profiles:
-      - keycloak
-    networks:
-      - fundamental-network
-
-  keycloak-db:
-    image: postgres:18.1-alpine3.22
-    container_name: fundamental-keycloak-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${KEYCLOAK_DB_USER:-keycloak}
-      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak123}
-      POSTGRES_DB: keycloak
-    volumes:
-      - keycloak_db_data:/var/lib/postgresql/data
-    profiles:
-      - keycloak
-    networks:
-      - fundamental-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${KEYCLOAK_DB_USER:-keycloak} -d keycloak"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
 networks:
   fundamental-network:
     driver: bridge
 
 volumes:
   postgres_data:
-  keycloak_db_data:

@@ -4,16 +4,16 @@ import { BACKEND_URL } from "@/constants/config";
 const POST_LOGIN_NEXT_COOKIE = "fundamental_post_login_next";
 
 /**
- * GET /api/auth/keycloak/login
+ * GET /api/auth/oidc/login
  *
- * Starts Keycloak login by redirecting to backend /auth/keycloak/login.
+ * Starts OIDC login by redirecting to backend /auth/oidc/login.
  * Stores the desired post-login path in a short-lived, httpOnly cookie.
  */
 export async function GET(request: NextRequest) {
   const next = request.nextUrl.searchParams.get("next") || "/";
-  const redirectUri = `${request.nextUrl.origin}/api/auth/keycloak/callback`;
+  const redirectUri = `${request.nextUrl.origin}/api/auth/oidc/callback`;
 
-  const backendLoginUrl = new URL(`${BACKEND_URL}/auth/keycloak/login`);
+  const backendLoginUrl = new URL(`${BACKEND_URL}/auth/oidc/login`);
   backendLoginUrl.searchParams.set("redirect_uri", redirectUri);
   backendLoginUrl.searchParams.set("next", next);
 

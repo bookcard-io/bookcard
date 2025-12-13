@@ -32,8 +32,8 @@ class _StubUserRepo:
         self.by_email: dict[str, User] = {}
         self.by_username: dict[str, User] = {}
 
-    def find_by_keycloak_sub(self, keycloak_sub: str) -> User | None:
-        return self.by_sub.get(keycloak_sub)
+    def find_by_oidc_sub(self, oidc_sub: str) -> User | None:
+        return self.by_sub.get(oidc_sub)
 
     def find_by_email(self, email: str) -> User | None:
         return self.by_email.get(email)
@@ -42,19 +42,19 @@ class _StubUserRepo:
         return self.by_username.get(username)
 
 
-def test_find_or_create_keycloak_user_missing_sub_raises() -> None:
+def test_find_or_create_oidc_user_missing_sub_raises() -> None:
     """Missing `sub` should raise a ValueError."""
     repo = _StubUserRepo()
     hasher = MagicMock()
     service = UserLinkingService(repo, hasher)  # type: ignore[arg-type]
     session = DummySession()
 
-    with pytest.raises(ValueError, match="keycloak_userinfo_missing_sub"):
-        service.find_or_create_keycloak_user(userinfo={}, session=session)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="oidc_userinfo_missing_sub"):
+        service.find_or_create_oidc_user(userinfo={}, session=session)  # type: ignore[arg-type]
 
 
-def test_find_or_create_keycloak_user_links_existing_user_by_email() -> None:
-    """Existing user found by email should be linked with keycloak_sub."""
+def test_find_or_create_oidc_user_links_existing_user_by_email() -> None:
+    """Existing user found by email should be linked with oidc_sub."""
     repo = _StubUserRepo()
     hasher = MagicMock()
     service = UserLinkingService(repo, hasher)  # type: ignore[arg-type]
@@ -65,22 +65,22 @@ def test_find_or_create_keycloak_user_links_existing_user_by_email() -> None:
         username="alice",
         email="alice@example.com",
         password_hash="hash",
-        keycloak_sub=None,
+        oidc_sub=None,
     )
     repo.by_email[user.email] = user
 
-    linked = service.find_or_create_keycloak_user(
-        userinfo={"sub": "kc-sub-1", "email": "alice@example.com"},
+    linked = service.find_or_create_oidc_user(
+        userinfo={"sub": "oidc-sub-1", "email": "alice@example.com"},
         session=session,  # type: ignore[arg-type]
     )
 
     assert linked is user
-    assert linked.keycloak_sub == "kc-sub-1"
+    assert linked.oidc_sub == "oidc-sub-1"
     assert session.flush_count > 0
 
 
-def test_find_or_create_keycloak_user_creates_new_user() -> None:
-    """New Keycloak user should create a local user with keycloak_sub."""
+def test_find_or_create_oidc_user_creates_new_user() -> None:
+    """New OIDC user should create a local user with oidc_sub."""
     repo = _StubUserRepo()
 
     hasher = MagicMock()
@@ -91,9 +91,9 @@ def test_find_or_create_keycloak_user_creates_new_user() -> None:
     # SQLAlchemy count queries return tuples, e.g., (0,)
     session.set_exec_result([(0,)])
 
-    created = service.find_or_create_keycloak_user(
+    created = service.find_or_create_oidc_user(
         userinfo={
-            "sub": "kc-sub-2",
+            "sub": "oidc-sub-2",
             "email": "bob@example.com",
             "preferred_username": "bob",
             "name": "Bob Builder",
@@ -101,7 +101,7 @@ def test_find_or_create_keycloak_user_creates_new_user() -> None:
         session=session,  # type: ignore[arg-type]
     )
 
-    assert created.keycloak_sub == "kc-sub-2"
+    assert created.oidc_sub == "oidc-sub-2"
     assert created.email == "bob@example.com"
     assert created.username.startswith("bob")
     assert created.password_hash == "hashed"
@@ -110,7 +110,7 @@ def test_find_or_create_keycloak_user_creates_new_user() -> None:
     assert session.flush_count > 0
 
 
-def test_find_or_create_keycloak_user_username_collision_adds_suffix() -> None:
+def test_find_or_create_oidc_user_username_collision_adds_suffix() -> None:
     """Username collision should append a numeric suffix."""
     repo = _StubUserRepo()
     repo.by_username["chris"] = User(
@@ -125,12 +125,12 @@ def test_find_or_create_keycloak_user_username_collision_adds_suffix() -> None:
     # SQLAlchemy count queries return tuples, e.g., (0,)
     session.set_exec_result([(0,)])
 
-    created = service.find_or_create_keycloak_user(
+    created = service.find_or_create_oidc_user(
         # Avoid linking by username by omitting preferred_username, while still
         # forcing a collision via the email local-part.
-        userinfo={"sub": "kc-sub-3", "email": "chris@example.com"},
+        userinfo={"sub": "oidc-sub-3", "email": "chris@example.com"},
         session=session,  # type: ignore[arg-type]
     )
 
     assert created.username.startswith("chris-")
-    assert created.keycloak_sub == "kc-sub-3"
+    assert created.oidc_sub == "oidc-sub-3"

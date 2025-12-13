@@ -146,26 +146,26 @@ class AuthConfigResponse(BaseModel):
 
     Attributes
     ----------
-    keycloak_enabled : bool
-        Whether Keycloak OIDC is enabled.
-    keycloak_url : str
-        Configured Keycloak base URL (may be empty if disabled).
+    oidc_enabled : bool
+        Whether OIDC authentication is enabled.
+    oidc_issuer : str
+        Configured OIDC issuer URL (may be empty if disabled).
     local_login_enabled : bool
         Whether local username/password login should be offered to users.
     """
 
-    keycloak_enabled: bool
-    keycloak_url: str
+    oidc_enabled: bool
+    oidc_issuer: str
     local_login_enabled: bool
 
 
-class KeycloakCallbackRequest(BaseModel):
+class OIDCCallbackRequest(BaseModel):
     """OIDC callback payload forwarded by frontend/API client.
 
     Parameters
     ----------
     code : str
-        Authorization code from Keycloak.
+        Authorization code from the OIDC provider.
     state : str
         Signed state token returned from the authorization request.
     redirect_uri : str

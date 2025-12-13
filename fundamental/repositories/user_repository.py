@@ -48,20 +48,20 @@ class UserRepository(Repository[User]):
         stmt = select(User).where(User.username == username)
         return self._session.exec(stmt).first()
 
-    def find_by_keycloak_sub(self, keycloak_sub: str) -> User | None:
-        """Return a user by Keycloak subject identifier if it exists.
+    def find_by_oidc_sub(self, oidc_sub: str) -> User | None:
+        """Return a user by OIDC subject identifier if it exists.
 
         Parameters
         ----------
-        keycloak_sub : str
-            Keycloak OIDC subject identifier (``sub`` claim).
+        oidc_sub : str
+            OIDC subject identifier (``sub`` claim).
 
         Returns
         -------
         User | None
             Matching user if found, otherwise None.
         """
-        stmt = select(User).where(User.keycloak_sub == keycloak_sub)
+        stmt = select(User).where(User.oidc_sub == oidc_sub)
         return self._session.exec(stmt).first()
 
     def list_admins(self) -> Iterable[User]:
