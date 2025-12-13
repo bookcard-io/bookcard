@@ -87,6 +87,9 @@ def test_find_or_create_keycloak_user_creates_new_user() -> None:
     hasher.hash.return_value = "hashed"
     service = UserLinkingService(repo, hasher)  # type: ignore[arg-type]
     session = DummySession()
+    # Configure count query result: 0 users in system
+    # SQLAlchemy count queries return tuples, e.g., (0,)
+    session.set_exec_result([(0,)])
 
     created = service.find_or_create_keycloak_user(
         userinfo={
@@ -118,6 +121,9 @@ def test_find_or_create_keycloak_user_username_collision_adds_suffix() -> None:
     hasher.hash.return_value = "hashed"
     service = UserLinkingService(repo, hasher)  # type: ignore[arg-type]
     session = DummySession()
+    # Configure count query result: 0 users in system (repo user doesn't count)
+    # SQLAlchemy count queries return tuples, e.g., (0,)
+    session.set_exec_result([(0,)])
 
     created = service.find_or_create_keycloak_user(
         # Avoid linking by username by omitting preferred_username, while still
