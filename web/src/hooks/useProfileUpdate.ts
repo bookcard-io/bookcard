@@ -89,14 +89,22 @@ export function useProfileUpdate(options: UseProfileUpdateOptions = {}): {
         // Optimistically update user state without full refresh
         // This prevents remounts and jitters in other components
         // Only update fields that were potentially changed
-        updateUser({
+        // Preserve ereader_devices if not present in response (ProfileRead doesn't include it)
+        const updateData: Partial<User> = {
           username: updatedUser.username,
           email: updatedUser.email,
           full_name: updatedUser.full_name,
           profile_picture: updatedUser.profile_picture,
           is_admin: updatedUser.is_admin,
-          ereader_devices: updatedUser.ereader_devices || [],
-        });
+        };
+
+        // Only update ereader_devices if it's present in the response
+        // Otherwise preserve the existing devices from current user state
+        if (updatedUser.ereader_devices !== undefined) {
+          updateData.ereader_devices = updatedUser.ereader_devices || [];
+        }
+
+        updateUser(updateData);
 
         onUpdateSuccess?.();
       } catch (err) {
