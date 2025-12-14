@@ -315,7 +315,8 @@ export function PluginsTab() {
                     label="Branch/Tag (Optional)"
                     value={branch}
                     onChange={(e) => setBranch(e.target.value)}
-                    placeholder="main"
+                    placeholder="e.g., master"
+                    helperText="The branch or tag to install the plugin from. If not provided, the default branch will be used."
                   />
                 </div>
                 <div className="flex-1">
@@ -323,7 +324,8 @@ export function PluginsTab() {
                     label="Subpath (Optional)"
                     value={subpath}
                     onChange={(e) => setSubpath(e.target.value)}
-                    placeholder="DeDRM_plugin"
+                    placeholder="e.g., DeDRM_plugin"
+                    helperText="The folder on the repository containing the plugin. Omit to install from repository root."
                   />
                 </div>
               </div>
