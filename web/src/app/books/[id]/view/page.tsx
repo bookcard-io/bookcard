@@ -43,7 +43,7 @@ interface BookViewPageProps {
 export default function BookViewPage({ params }: BookViewPageProps) {
   const router = useRouter();
   const [bookId, setBookId] = useState<number | null>(null);
-  const { book, isLoading, error } = useBook({
+  const { book, isLoading, error, refetch } = useBook({
     bookId: bookId || 0,
     enabled: bookId !== null,
     full: true,
@@ -185,7 +185,7 @@ export default function BookViewPage({ params }: BookViewPageProps) {
             </button>
 
             <div className={styles.content}>
-              <BookViewHeader book={book} />
+              <BookViewHeader book={book} onBookRefreshRequested={refetch} />
 
               <div className={styles.mainContent}>
                 {book.description && (

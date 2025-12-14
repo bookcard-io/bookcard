@@ -17,12 +17,14 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
+import { FaBookReader } from "react-icons/fa";
 import { ConversionModal } from "@/components/books/ConversionModal";
 import { FullscreenImageModal } from "@/components/common/FullscreenImageModal";
 import { ImageWithLoading } from "@/components/common/ImageWithLoading";
 import { RatingDisplay } from "@/components/forms/RatingDisplay";
 import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { useUser } from "@/contexts/UserContext";
+import { useTaskTerminalPolling } from "@/hooks/useTaskTerminalPolling";
 import { sendBookToDevice } from "@/services/bookService";
 import type { Book } from "@/types/book";
 import { buildBookPermissionContext } from "@/utils/permissions";
@@ -34,6 +36,12 @@ export interface BookViewHeaderProps {
   showDescription?: boolean;
   /** Callback when edit icon is clicked. */
   onEdit?: () => void;
+  /**
+   * Callback to refresh book data.
+   *
+   * Used to refresh the formats list after background conversions complete.
+   */
+  onBookRefreshRequested?: () => void | Promise<void>;
 }
 
 /**
@@ -46,10 +54,11 @@ export function BookViewHeader({
   book,
   showDescription = false,
   onEdit,
+  onBookRefreshRequested,
 }: BookViewHeaderProps) {
   const router = useRouter();
   const { canPerformAction } = useUser();
-  const { showDanger } = useGlobalMessages();
+  const { showDanger, showSuccess, showWarning } = useGlobalMessages();
   const [isCoverOpen, setIsCoverOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isConversionModalOpen, setIsConversionModalOpen] = useState(false);
@@ -111,6 +120,54 @@ export function BookViewHeader({
     }
   }, [book.id, showDanger]);
 
+  const taskTerminalPolling = useTaskTerminalPolling();
+
+  const handleConversionStarted = useCallback(
+    (taskId: number, sourceFormat: string, targetFormat: string) => {
+      void taskTerminalPolling.pollToTerminal(taskId).then((task) => {
+        if (!task) {
+          showDanger(
+            `Conversion from ${sourceFormat} to ${targetFormat} is taking longer than expected. Check the tasks panel for updates.`,
+          );
+          return;
+        }
+
+        if (task.status === "completed") {
+          showSuccess(
+            `Conversion completed: ${sourceFormat} → ${targetFormat}`,
+          );
+          void onBookRefreshRequested?.();
+          // Retry once more shortly after completion to avoid race conditions
+          // where the task is marked completed before the updated formats are visible.
+          setTimeout(() => {
+            void onBookRefreshRequested?.();
+          }, 2000);
+          return;
+        }
+
+        if (task.status === "cancelled") {
+          showWarning(
+            `Conversion cancelled: ${sourceFormat} → ${targetFormat}`,
+          );
+          return;
+        }
+
+        // failed
+        const errorMessage =
+          task.error_message ||
+          `Conversion failed: ${sourceFormat} → ${targetFormat}`;
+        showDanger(errorMessage);
+      });
+    },
+    [
+      onBookRefreshRequested,
+      showDanger,
+      showSuccess,
+      showWarning,
+      taskTerminalPolling,
+    ],
+  );
+
   return (
     <div className="flex flex-col items-center gap-4 border-[var(--color-surface-a20)] border-b pb-4 text-center md:flex-row md:items-start md:gap-4 md:pb-6 md:text-left">
       {book.thumbnail_url && (
@@ -151,8 +208,8 @@ export function BookViewHeader({
                   : "No readable format available"
               }
             >
-              <i
-                className="pi pi-book text-[1.25rem] text-[var(--color-text-a30)] transition-colors group-hover:text-[var(--color-text-a0)]"
+              <FaBookReader
+                className="text-[1.25rem] text-[var(--color-text-a30)] transition-colors group-hover:text-[var(--color-text-a0)]"
                 aria-hidden="true"
               />
             </button>
@@ -210,6 +267,7 @@ export function BookViewHeader({
         book={book}
         isOpen={isConversionModalOpen}
         onClose={closeConversionModal}
+        onConversionStarted={handleConversionStarted}
       />
       <div className="flex min-w-0 flex-1 flex-col gap-3">
         <h1 className="font-bold text-2xl text-[var(--color-text-a0)] leading-snug md:text-3xl">

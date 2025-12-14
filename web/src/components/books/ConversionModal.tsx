@@ -36,7 +36,11 @@ export interface ConversionModalProps {
   /** Callback when modal should be closed. */
   onClose: () => void;
   /** Callback when conversion is started. */
-  onConversionStarted?: (taskId: number) => void;
+  onConversionStarted?: (
+    taskId: number,
+    sourceFormat: string,
+    targetFormat: string,
+  ) => void;
 }
 
 /**
@@ -125,7 +129,7 @@ export function ConversionModal({
           showSuccess(
             `Conversion from ${sourceFormat} to ${targetFormat} has been queued. You can track progress in the tasks panel.`,
           );
-          onConversionStarted?.(response.task_id);
+          onConversionStarted?.(response.task_id, sourceFormat, targetFormat);
         }
         // Refresh history in background
         refetchHistory().catch(() => {

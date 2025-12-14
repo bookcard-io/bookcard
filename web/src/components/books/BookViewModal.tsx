@@ -61,7 +61,7 @@ export function BookViewModal({
   onBookDeleted,
 }: BookViewModalProps) {
   const { showDanger } = useGlobalMessages();
-  const { book, isLoading, error } = useBook({
+  const { book, isLoading, error, refetch } = useBook({
     bookId: bookId || 0,
     enabled: bookId !== null,
     full: true,
@@ -213,6 +213,7 @@ export function BookViewModal({
               book={book}
               showDescription={true}
               onEdit={handleEdit}
+              onBookRefreshRequested={refetch}
             />
 
             <div className="flex flex-col gap-5 md:gap-4">
