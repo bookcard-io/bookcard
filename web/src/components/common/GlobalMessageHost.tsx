@@ -74,7 +74,8 @@ export function GlobalMessageHost() {
   return (
     <div
       className={cn(
-        "fixed z-[60]",
+        // Must sit above modal overlays (e.g. modal-overlay-z-1000)
+        "fixed z-[2000]",
         "right-4 bottom-4",
         "flex justify-end",
         "pointer-events-none",
