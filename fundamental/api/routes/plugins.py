@@ -29,8 +29,16 @@ from fundamental.api.http_error_handler import HTTPErrorHandler
 from fundamental.api.schemas.plugins import PluginInfo, PluginInstallRequest
 from fundamental.models.auth import EReaderDevice
 from fundamental.services.calibre_plugin_service import (
+    CalibreCommandError,
     CalibreNotFoundError,
     CalibrePluginService,
+    PluginSourceError,
+    create_default_calibre_plugin_service,
+)
+from fundamental.services.calibre_plugin_service.sources import (
+    DefaultTempDirectoryFactory,
+    GitRepositoryZipSource,
+    LocalZipSource,
 )
 from fundamental.services.dedrm_service import DeDRMService
 
@@ -40,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 def get_plugin_service() -> CalibrePluginService:
     """Dependency for CalibrePluginService."""
-    return CalibrePluginService()
+    return create_default_calibre_plugin_service()
 
 
 def get_dedrm_service() -> DeDRMService:
@@ -61,16 +69,18 @@ def list_plugins(
     Requires superuser privileges.
     """
     try:
-        return service.list_plugins()
+        plugins = service.list_plugins()
     except CalibreNotFoundError as e:
         logger.warning("Calibre not found: %s", e)
         HTTPErrorHandler.raise_for_exception(e)
-    except Exception as e:
+    except CalibreCommandError as e:
         logger.exception("Failed to list plugins")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         ) from e
+    else:
+        return plugins
 
 
 @router.post(
@@ -99,11 +109,11 @@ def install_plugin_upload(
             shutil.copyfileobj(file.file, temp_file)
             temp_file.close()
 
-            service.install_plugin(temp_path)
+            service.install(LocalZipSource(temp_path))
         except CalibreNotFoundError as e:
             logger.warning("Calibre not found: %s", e)
             HTTPErrorHandler.raise_for_exception(e)
-        except Exception as e:
+        except (CalibreCommandError, PluginSourceError, OSError, ValueError) as e:
             logger.exception("Failed to install plugin from upload")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -130,15 +140,24 @@ def install_plugin_git(
     Requires superuser privileges.
     """
     try:
-        service.install_plugin_from_git(
+        source = GitRepositoryZipSource(
             repo_url=request.repo_url,
             plugin_path_in_repo=request.plugin_path,
             branch=request.branch,
+            executor=service.command_runner.executor,
+            tempdirs=DefaultTempDirectoryFactory(),
         )
+        service.install(source)
     except CalibreNotFoundError as e:
         logger.warning("Calibre not found: %s", e)
         HTTPErrorHandler.raise_for_exception(e)
-    except Exception as e:
+    except PluginSourceError as e:
+        logger.exception("Failed to fetch plugin from Git")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+    except (CalibreCommandError, OSError, ValueError) as e:
         logger.exception("Failed to install plugin from Git")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -162,11 +181,11 @@ def remove_plugin(
     Requires superuser privileges.
     """
     try:
-        service.remove_plugin(plugin_name)
+        service.remove(plugin_name)
     except CalibreNotFoundError as e:
         logger.warning("Calibre not found: %s", e)
         HTTPErrorHandler.raise_for_exception(e)
-    except Exception as e:
+    except CalibreCommandError as e:
         logger.exception("Failed to remove plugin")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
