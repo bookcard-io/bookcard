@@ -23,6 +23,7 @@ Refactored to follow SOLID principles with clear separation of concerns:
 
 import logging
 import shutil
+from contextlib import suppress
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING
@@ -42,7 +43,9 @@ if TYPE_CHECKING:
     from fundamental.models.kcc_config import KCCConversionProfile
 from fundamental.services.conversion.backup import FileBackupService
 from fundamental.services.conversion.book_repository import BookRepository
-from fundamental.services.conversion.exceptions import FormatNotFoundError
+from fundamental.services.conversion.exceptions import (
+    FormatNotFoundError,
+)
 from fundamental.services.conversion.repository import ConversionRepository
 from fundamental.services.conversion.strategies.protocol import (
     ConversionStrategy,
@@ -447,13 +450,6 @@ class ConversionService:
             conversion.completed_at = self._now()
             conversion = self._conversion_repository.save(conversion)
             self._session.commit()
-
-            logger.exception(
-                "Conversion failed: book_id=%d, %s -> %s",
-                request.book_id,
-                request.original_format,
-                request.target_format,
-            )
             raise
 
         return conversion
@@ -566,8 +562,6 @@ class ConversionService:
             logger.debug("Converted file saved to: %s", final_path)
         except Exception:
             # Clean up temp file on error
-            from contextlib import suppress
-
             with suppress(OSError):
                 if temp_output_path.exists():
                     temp_output_path.unlink()

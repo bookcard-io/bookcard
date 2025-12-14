@@ -323,9 +323,3 @@ class BookConvertTask(BaseTask):
         except TaskCancelledError:
             logger.info("Conversion task %d was cancelled", self.task_id)
             raise
-        except Exception:
-            logger.exception(
-                "Conversion task %d failed",
-                self.task_id,
-            )
-            raise
