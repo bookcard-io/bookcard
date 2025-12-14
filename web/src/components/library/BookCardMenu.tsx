@@ -27,6 +27,7 @@ import type { Book } from "@/types/book";
 import { buildBookPermissionContext } from "@/utils/permissions";
 import { AddToShelfFlyoutMenu } from "./AddToShelfFlyoutMenu";
 import { AddToShelfMenuItem } from "./AddToShelfMenuItem";
+import { MoreActionsFlyoutMenu } from "./MoreActionsFlyoutMenu";
 import { SendToDeviceFlyoutMenu } from "./SendToDeviceFlyoutMenu";
 import { SendToDeviceMenuItem } from "./SendToDeviceMenuItem";
 
@@ -87,10 +88,35 @@ export function BookCardMenu({
 
   const flyoutMenu = useFlyoutMenu({ parentMenuOpen: isOpen });
   const sendFlyoutMenu = useFlyoutMenu({ parentMenuOpen: isOpen });
+  const moreFlyoutMenu = useFlyoutMenu({ parentMenuOpen: isOpen });
 
   // Ensure only one flyout menu is open at a time
   const { handleFirstMouseEnter, handleSecondMouseEnter } =
     useExclusiveFlyoutMenus(flyoutMenu, sendFlyoutMenu);
+
+  const handleAddToShelfMouseEnter = useCallback(() => {
+    if (moreFlyoutMenu.isFlyoutOpen) {
+      moreFlyoutMenu.handleFlyoutClose();
+    }
+    handleFirstMouseEnter();
+  }, [handleFirstMouseEnter, moreFlyoutMenu]);
+
+  const handleSendToDeviceMouseEnter = useCallback(() => {
+    if (moreFlyoutMenu.isFlyoutOpen) {
+      moreFlyoutMenu.handleFlyoutClose();
+    }
+    handleSecondMouseEnter();
+  }, [handleSecondMouseEnter, moreFlyoutMenu]);
+
+  const handleMoreMouseEnter = useCallback(() => {
+    if (flyoutMenu.isFlyoutOpen) {
+      flyoutMenu.handleFlyoutClose();
+    }
+    if (sendFlyoutMenu.isFlyoutOpen) {
+      sendFlyoutMenu.handleFlyoutClose();
+    }
+    moreFlyoutMenu.handleParentMouseEnter();
+  }, [flyoutMenu, moreFlyoutMenu, sendFlyoutMenu]);
 
   /**
    * Handle menu item click.
@@ -130,6 +156,16 @@ export function BookCardMenu({
     // No-op: flyout opens on hover, functionality is in flyout menu
   }, []);
 
+  /**
+   * Handle "More..." menu item click.
+   *
+   * Note: The flyout menu opens on hover, so clicking the parent item
+   * doesn't need to do anything. The actual functionality is in the flyout.
+   */
+  const handleMoreClick = useCallback(() => {
+    // No-op: flyout opens on hover, functionality is in flyout menu
+  }, []);
+
   return (
     <>
       <DropdownMenu
@@ -148,7 +184,7 @@ export function BookCardMenu({
         />
         <SendToDeviceMenuItem
           itemRef={sendFlyoutMenu.parentItemRef}
-          onMouseEnter={handleSecondMouseEnter}
+          onMouseEnter={handleSendToDeviceMouseEnter}
           onMouseLeave={sendFlyoutMenu.handleParentMouseLeave}
           onClick={handleSendToClick}
           books={[book]}
@@ -162,7 +198,7 @@ export function BookCardMenu({
         />
         <AddToShelfMenuItem
           itemRef={flyoutMenu.parentItemRef}
-          onMouseEnter={handleFirstMouseEnter}
+          onMouseEnter={handleAddToShelfMouseEnter}
           onMouseLeave={flyoutMenu.handleParentMouseLeave}
           onClick={handleAddToClick}
         />
@@ -179,17 +215,26 @@ export function BookCardMenu({
           disabled={!canDelete}
         />
         <hr className={cn("my-1 h-px border-0 bg-surface-tonal-a20")} />
-        <DropdownMenuItem
-          label="More..."
-          onClick={() => handleItemClick(onMore)}
-          rightContent={
-            <i
-              className="pi pi-chevron-right flex-shrink-0 text-xs"
-              aria-hidden="true"
-            />
-          }
-          justifyBetween
-        />
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: hover wrapper for flyout menu */}
+        <div
+          onMouseEnter={handleMoreMouseEnter}
+          onMouseLeave={moreFlyoutMenu.handleParentMouseLeave}
+          className="relative"
+          role="presentation"
+        >
+          <DropdownMenuItem
+            ref={moreFlyoutMenu.parentItemRef}
+            label="More..."
+            onClick={onMore ? () => handleItemClick(onMore) : handleMoreClick}
+            rightContent={
+              <i
+                className="pi pi-chevron-right flex-shrink-0 text-xs"
+                aria-hidden="true"
+              />
+            }
+            justifyBetween
+          />
+        </div>
       </DropdownMenu>
       {isOpen && (
         <>
@@ -212,6 +257,15 @@ export function BookCardMenu({
             books={[book]}
             onClose={sendFlyoutMenu.handleFlyoutClose}
             onMouseEnter={sendFlyoutMenu.handleFlyoutMouseEnter}
+            onSuccess={onClose}
+            onCloseParent={onClose}
+          />
+          <MoreActionsFlyoutMenu
+            isOpen={moreFlyoutMenu.isFlyoutOpen}
+            parentItemRef={moreFlyoutMenu.parentItemRef}
+            book={book}
+            onClose={moreFlyoutMenu.handleFlyoutClose}
+            onMouseEnter={moreFlyoutMenu.handleFlyoutMouseEnter}
             onSuccess={onClose}
             onCloseParent={onClose}
           />

@@ -30,6 +30,7 @@ export enum TaskType {
   BOOK_UPLOAD = "book_upload",
   MULTI_BOOK_UPLOAD = "multi_book_upload",
   BOOK_CONVERT = "book_convert",
+  BOOK_STRIP_DRM = "book_strip_drm",
   EMAIL_SEND = "email_send",
   METADATA_BACKUP = "metadata_backup",
   THUMBNAIL_GENERATE = "thumbnail_generate",

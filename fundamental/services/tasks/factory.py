@@ -28,6 +28,7 @@ from fundamental.services.tasks.author_metadata_fetch_task import (
 )
 from fundamental.services.tasks.base import BaseTask
 from fundamental.services.tasks.book_convert_task import BookConvertTask
+from fundamental.services.tasks.book_strip_drm_task import BookStripDrmTask
 from fundamental.services.tasks.book_upload_task import BookUploadTask
 from fundamental.services.tasks.email_send_task import EmailSendTask
 from fundamental.services.tasks.epub_fix_daily_scan_task import (
@@ -237,6 +238,7 @@ def create_task(
 _registry.register(TaskType.BOOK_UPLOAD, BookUploadTask)
 _registry.register(TaskType.MULTI_BOOK_UPLOAD, MultiBookUploadTask)
 _registry.register(TaskType.BOOK_CONVERT, BookConvertTask)
+_registry.register(TaskType.BOOK_STRIP_DRM, BookStripDrmTask)
 _registry.register(TaskType.LIBRARY_SCAN, LibraryScanTask)
 _registry.register(TaskType.AUTHOR_METADATA_FETCH, AuthorMetadataFetchTask)
 _registry.register(TaskType.OPENLIBRARY_DUMP_DOWNLOAD, OpenLibraryDumpDownloadTask)

@@ -24,16 +24,6 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
-from fundamental.services.book_conversion_orchestration_service import (
-    BookConversionOrchestrationService,
-)
-from fundamental.services.metadata_enforcement_trigger_service import (
-    MetadataEnforcementTriggerService,
-)
-
-if TYPE_CHECKING:
-    from fundamental.services.tasks.base import TaskRunner
-
 from fastapi import (
     APIRouter,
     Depends,
@@ -61,6 +51,7 @@ from fundamental.api.schemas import (
     BookListResponse,
     BookRead,
     BookSendRequest,
+    BookStripDrmResponse,
     BookUpdate,
     BookUploadResponse,
     CoverFromUrlRequest,
@@ -75,7 +66,13 @@ from fundamental.api.schemas import (
 from fundamental.models.auth import User
 from fundamental.models.tasks import TaskType
 from fundamental.repositories.config_repository import LibraryRepository
+from fundamental.services.book_conversion_orchestration_service import (
+    BookConversionOrchestrationService,
+)
 from fundamental.services.book_cover_service import BookCoverService
+from fundamental.services.book_dedrm_orchestration_service import (
+    BookDeDRMOrchestrationService,
+)
 from fundamental.services.book_exception_mapper import BookExceptionMapper
 from fundamental.services.book_permission_helper import BookPermissionHelper
 from fundamental.services.book_read_model_service import BookReadModelService
@@ -87,6 +84,9 @@ from fundamental.services.config_service import (
 )
 from fundamental.services.email_config_service import EmailConfigService
 from fundamental.services.format_metadata_service import FormatMetadataService
+from fundamental.services.metadata_enforcement_trigger_service import (
+    MetadataEnforcementTriggerService,
+)
 from fundamental.services.metadata_export_service import MetadataExportService
 from fundamental.services.metadata_import_service import MetadataImportService
 from fundamental.services.security import DataEncryptor
@@ -361,6 +361,44 @@ def _get_conversion_orchestration_service(
 ConversionOrchestrationServiceDep = Annotated[
     BookConversionOrchestrationService,
     Depends(_get_conversion_orchestration_service),
+]
+
+
+def _get_dedrm_orchestration_service(
+    request: Request,
+    session: SessionDep,
+    book_service: BookServiceDep,
+) -> BookDeDRMOrchestrationService:
+    """Get book DeDRM orchestration service instance.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object for accessing app state.
+    session : SessionDep
+        Database session dependency.
+    book_service : BookServiceDep
+        Book service dependency.
+
+    Returns
+    -------
+    BookDeDRMOrchestrationService
+        DeDRM orchestration service instance.
+    """
+    task_runner: TaskRunner | None = None
+    if hasattr(request.app.state, "task_runner"):
+        task_runner = request.app.state.task_runner
+
+    return BookDeDRMOrchestrationService(
+        session=session,
+        book_service=book_service,
+        task_runner=task_runner,
+    )
+
+
+DeDRMOrchestrationServiceDep = Annotated[
+    BookDeDRMOrchestrationService,
+    Depends(_get_dedrm_orchestration_service),
 ]
 ResponseBuilderDep = Annotated[
     BookResponseBuilder,
@@ -1309,6 +1347,82 @@ def convert_book_format(
         if result.existing_conversion
         else None,
     )
+
+
+@router.post(
+    "/{book_id}/strip-drm",
+    response_model=BookStripDrmResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def strip_book_drm(
+    book_id: int,
+    current_user: CurrentUserDep,
+    book_service: BookServiceDep,
+    permission_helper: PermissionHelperDep,
+    orchestration_service: DeDRMOrchestrationServiceDep,
+) -> BookStripDrmResponse:
+    """Strip DRM from a book format if present.
+
+    Enqueues a background task that runs DeDRM for a selected source format.
+    If DRM is removed (content changes), the DRM-free file is added as an
+    additional format on the same Calibre book.
+
+    Parameters
+    ----------
+    book_id : int
+        Calibre book ID.
+    current_user : CurrentUserDep
+        Current authenticated user.
+    book_service : BookServiceDep
+        Book service dependency.
+    permission_helper : PermissionHelperDep
+        Permission helper dependency.
+    orchestration_service : DeDRMOrchestrationServiceDep
+        DeDRM orchestration service dependency.
+
+    Returns
+    -------
+    BookStripDrmResponse
+        Response containing task ID and optional message.
+    """
+    existing_book = book_service.get_book_full(book_id)
+    if existing_book is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="book_not_found",
+        )
+
+    permission_helper.check_write_permission(current_user, existing_book)
+
+    if current_user.id is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="user_missing_id",
+        )
+
+    try:
+        result = orchestration_service.initiate_strip_drm(
+            book_id=book_id,
+            user_id=current_user.id,
+        )
+    except ValueError as e:
+        msg = str(e)
+        if "book_not_found" in msg:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="book_not_found",
+            ) from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg,
+        ) from e
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e),
+        ) from e
+
+    return BookStripDrmResponse(task_id=result.task_id, message=result.message)
 
 
 @router.get(

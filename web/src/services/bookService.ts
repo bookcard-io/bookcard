@@ -223,6 +223,52 @@ export async function convertBookFormat(
 }
 
 /**
+ * Strip DRM from a book format if present.
+ *
+ * Fire-and-forget: creates a background task and returns a task ID for polling.
+ *
+ * Parameters
+ * ----------
+ * bookId : number
+ *     Book ID to attempt DRM stripping for.
+ *
+ * Returns
+ * -------
+ * Promise<BookStripDrmResponse>
+ *     Response containing task ID and optional message.
+ *
+ * Raises
+ * ------
+ * Error
+ *     If the API request fails.
+ */
+export interface BookStripDrmResponse {
+  task_id: number;
+  message?: string | null;
+}
+
+export async function stripBookDrm(
+  bookId: number,
+): Promise<BookStripDrmResponse> {
+  const response = await fetch(`/api/books/${bookId}/strip-drm`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to strip DRM" }));
+    throw new Error(error.detail || "Failed to strip DRM");
+  }
+
+  return response.json();
+}
+
+/**
  * Get conversion history for a book.
  *
  * Parameters

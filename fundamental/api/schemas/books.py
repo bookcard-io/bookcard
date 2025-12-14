@@ -502,6 +502,24 @@ class BookConvertResponse(BaseModel):
     )
 
 
+class BookStripDrmResponse(BaseModel):
+    """Response for book DRM stripping request.
+
+    Attributes
+    ----------
+    task_id : int
+        Task ID for tracking the DRM stripping operation.
+    message : str | None
+        Optional message (e.g., if no suitable format was found).
+    """
+
+    task_id: int = Field(description="Task ID for tracking the DRM stripping operation")
+    message: str | None = Field(
+        default=None,
+        description="Optional message about the result (e.g., if request is a no-op)",
+    )
+
+
 class FormatMetadataResponse(BaseModel):
     """Detailed metadata for a specific book format.
 

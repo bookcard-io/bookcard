@@ -677,6 +677,51 @@ class BookService:
             # Clean up temp file
             temp_path.unlink(missing_ok=True)
 
+    def get_format_file_path(self, book_id: int, file_format: str) -> Path:
+        """Get the on-disk path for a specific book format.
+
+        Parameters
+        ----------
+        book_id : int
+            Book ID.
+        file_format : str
+            Format name/extension (e.g. 'EPUB', 'AZW3').
+
+        Returns
+        -------
+        Path
+            Path to the book file on disk.
+
+        Raises
+        ------
+        ValueError
+            If book not found, format not found, or file not found.
+        """
+        book_with_rels = self.get_book_full(book_id)
+        if book_with_rels is None:
+            msg = "book_not_found"
+            raise ValueError(msg)
+
+        book = book_with_rels.book
+        if book.id is None:
+            msg = "book_missing_id"
+            raise ValueError(msg)
+
+        format_upper = file_format.upper()
+        if not book_with_rels.formats:
+            msg = "no_formats_available"
+            raise ValueError(msg)
+
+        format_data = self._find_format_in_book(book_with_rels.formats, format_upper)
+        if format_data is None:
+            available = [str(f.get("format", "")) for f in book_with_rels.formats]
+            msg = (
+                f"format_not_found: requested '{format_upper}', available: {available}"
+            )
+            raise ValueError(msg)
+
+        return self._get_book_file_path(book, book_id, format_data, format_upper)
+
     def delete_format(
         self,
         book_id: int,
