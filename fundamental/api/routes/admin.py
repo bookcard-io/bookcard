@@ -1661,10 +1661,10 @@ def list_libraries(
 @router.get(
     "/libraries/active",
     response_model=LibraryRead | None,
+    dependencies=[Depends(get_current_user)],
 )
 def get_active_library(
     session: SessionDep,
-    _current_user: Annotated[User, Depends(get_current_user)],
 ) -> LibraryRead | None:
     """Get the currently active library.
 
