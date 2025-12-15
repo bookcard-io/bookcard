@@ -196,12 +196,12 @@ export function useDeviceForm(
     deviceType,
     preferredFormat,
     isDefault,
+    serialNumber,
     validate,
     onSubmit,
     onError,
     initialDevice,
     existingDevices,
-    serialNumber.trim,
   ]);
 
   const reset = useCallback(() => {
@@ -210,6 +210,7 @@ export function useDeviceForm(
     setDeviceType(initialDevice?.device_type || "kindle");
     setPreferredFormat(initialDevice?.preferred_format || "");
     setIsDefault(initialDevice?.is_default || false);
+    setSerialNumber(initialDevice?.serial_number || "");
     setErrors({});
     setGeneralError(null);
     setIsSubmitting(false);

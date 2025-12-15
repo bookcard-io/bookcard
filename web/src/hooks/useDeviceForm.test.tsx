@@ -247,6 +247,32 @@ describe("useDeviceForm", () => {
       });
     });
 
+    it("should include serial_number even when it is the last field edited", async () => {
+      const { result } = renderHook(() =>
+        useDeviceForm({ onSubmit: mockOnSubmit }),
+      );
+
+      act(() => {
+        result.current.setEmail("test@example.com");
+      });
+
+      // Serial number is edited after email, and no other fields change before submit.
+      // This guards against stale-closure bugs in handleSubmit dependencies.
+      act(() => {
+        result.current.setSerialNumber("  B001234  ");
+      });
+
+      await act(async () => {
+        await result.current.handleSubmit();
+      });
+
+      expect(mockOnSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          serial_number: "B001234",
+        }),
+      );
+    });
+
     it("should trim email and preferredFormat", async () => {
       const { result } = renderHook(() =>
         useDeviceForm({ onSubmit: mockOnSubmit }),
