@@ -26,6 +26,10 @@ export interface PluginInstallRequest {
   branch?: string;
 }
 
+export interface PluginUrlInstallRequest {
+  url: string;
+}
+
 export interface PluginListResult {
   plugins: PluginInfo[];
   calibreNotFound: boolean;
@@ -160,6 +164,45 @@ export async function installPluginGit(
       typeof error.detail === "string"
         ? error.detail
         : error.detail?.message || "Failed to install plugin from Git";
+    const errorObj = new Error(errorMessage);
+    if (error.detail?.error_type) {
+      (
+        errorObj as Error & { errorType?: string; messageType?: string }
+      ).errorType = error.detail.error_type;
+      (
+        errorObj as Error & { errorType?: string; messageType?: string }
+      ).messageType = error.detail.message_type;
+    }
+    throw errorObj;
+  }
+}
+
+/**
+ * Install a plugin from a URL (downloads ZIP).
+ *
+ * Parameters
+ * ----------
+ * url : string
+ *     URL to download the plugin ZIP from.
+ */
+export async function installPluginUrl(url: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/url`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify({ url }),
+  });
+
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to install plugin from URL" }));
+    const errorMessage =
+      typeof error.detail === "string"
+        ? error.detail
+        : error.detail?.message || "Failed to install plugin from URL";
     const errorObj = new Error(errorMessage);
     if (error.detail?.error_type) {
       (

@@ -34,3 +34,9 @@ class PluginInstallRequest(BaseModel):
     # Optional fields for Git install
     plugin_path: str | None = None  # Subdirectory in repo
     branch: str | None = None
+
+
+class PluginUrlInstallRequest(BaseModel):
+    """Schema for plugin installation request (from URL)."""
+
+    url: str

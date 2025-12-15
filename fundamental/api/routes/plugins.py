@@ -26,7 +26,11 @@ from sqlmodel import Session, select
 
 from fundamental.api.deps import get_admin_user, get_db_session
 from fundamental.api.http_error_handler import HTTPErrorHandler
-from fundamental.api.schemas.plugins import PluginInfo, PluginInstallRequest
+from fundamental.api.schemas.plugins import (
+    PluginInfo,
+    PluginInstallRequest,
+    PluginUrlInstallRequest,
+)
 from fundamental.models.auth import EReaderDevice
 from fundamental.services.calibre_plugin_service import (
     CalibreCommandError,
@@ -39,6 +43,7 @@ from fundamental.services.calibre_plugin_service.sources import (
     DefaultTempDirectoryFactory,
     GitRepositoryZipSource,
     LocalZipSource,
+    UrlZipSource,
 )
 from fundamental.services.dedrm_service import DeDRMService
 
@@ -165,6 +170,44 @@ def install_plugin_git(
         ) from e
     else:
         return {"message": "Plugin installed successfully from Git"}
+
+
+@router.post(
+    "/url",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(get_admin_user)],
+)
+def install_plugin_url(
+    request: PluginUrlInstallRequest,
+    service: Annotated[CalibrePluginService, Depends(get_plugin_service)],
+) -> dict[str, str]:
+    """Install a plugin from a URL (downloads ZIP).
+
+    Requires superuser privileges.
+    """
+    try:
+        source = UrlZipSource(
+            url=request.url,
+            tempdirs=DefaultTempDirectoryFactory(),
+        )
+        service.install(source)
+    except CalibreNotFoundError as e:
+        logger.warning("Calibre not found: %s", e)
+        HTTPErrorHandler.raise_for_exception(e)
+    except PluginSourceError as e:
+        logger.exception("Failed to download plugin from URL")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+    except (CalibreCommandError, OSError, ValueError) as e:
+        logger.exception("Failed to install plugin from URL")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
+    else:
+        return {"message": "Plugin installed successfully from URL"}
 
 
 @router.delete(

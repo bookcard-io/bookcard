@@ -1,3 +1,18 @@
+// Copyright (C) 2025 knguyen and others
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   PluginInfo,
@@ -7,6 +22,7 @@ import type {
 import {
   installPluginGit,
   installPluginUpload,
+  installPluginUrl,
   listPlugins,
   removePlugin,
   syncDeDRM,
@@ -22,6 +38,7 @@ export interface PluginService {
   listPlugins: (signal?: AbortSignal) => Promise<PluginListResult>;
   installPluginUpload: (file: File) => Promise<void>;
   installPluginGit: (request: PluginInstallRequest) => Promise<void>;
+  installPluginUrl: (url: string) => Promise<void>;
   removePlugin: (pluginName: string) => Promise<void>;
   syncDeDRM: () => Promise<{ message: string }>;
 }
@@ -30,6 +47,7 @@ const defaultPluginService: PluginService = {
   listPlugins,
   installPluginUpload,
   installPluginGit,
+  installPluginUrl,
   removePlugin,
   syncDeDRM,
 };
@@ -55,6 +73,7 @@ export interface UsePluginsResult {
   refresh: (signal?: AbortSignal) => Promise<void>;
   installFromUpload: (file: File) => Promise<boolean>;
   installFromGit: (request: PluginInstallRequest) => Promise<boolean>;
+  installFromUrl: (url: string) => Promise<boolean>;
   removeInstalledPlugin: (pluginName: string) => Promise<boolean>;
   syncDeDRMKeys: () => Promise<string>;
 }
@@ -171,6 +190,27 @@ export function usePlugins(options: UsePluginsOptions = {}): UsePluginsResult {
     [applyStatus, refresh, service],
   );
 
+  const installFromUrl = useCallback(
+    async (url: string) => {
+      try {
+        setInstalling(true);
+        await service.installPluginUrl(url);
+        await refresh();
+        return true;
+      } catch (error) {
+        const status = getPluginStatusFromError(error);
+        if (status) {
+          applyStatus(status);
+          return false;
+        }
+        throw error;
+      } finally {
+        setInstalling(false);
+      }
+    },
+    [applyStatus, refresh, service],
+  );
+
   const removeInstalledPlugin = useCallback(
     async (pluginName: string) => {
       try {
@@ -213,6 +253,7 @@ export function usePlugins(options: UsePluginsOptions = {}): UsePluginsResult {
     refresh,
     installFromUpload,
     installFromGit,
+    installFromUrl,
     removeInstalledPlugin,
     syncDeDRMKeys,
   };

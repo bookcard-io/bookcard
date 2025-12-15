@@ -24,6 +24,7 @@ from fundamental.services.calibre_plugin_service.sources.git import (
     GitRepositoryZipSource,
 )
 from fundamental.services.calibre_plugin_service.sources.local import LocalZipSource
+from fundamental.services.calibre_plugin_service.sources.url import UrlZipSource
 
 __all__ = [
     "DefaultTempDirectoryFactory",
@@ -31,4 +32,5 @@ __all__ = [
     "LocalZipSource",
     "PluginSource",
     "TempDirectoryFactory",
+    "UrlZipSource",
 ]

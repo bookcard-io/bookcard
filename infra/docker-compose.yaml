@@ -7,13 +7,18 @@ services:
     restart: unless-stopped
     volumes:
       # Your books directory, typically where calibre's `metadata.db` is located
-      - /path/to/books:/books:ro
+      - /path/to/books:/books
 
       # Fundamental's data/configs directory; mount this to persist data and configs
       - ~/.fundamental:/data
 
       # Path to automatically ingest books from.  Files here will be automatically ingested and deleted.
       - /path/to/books/ingest:/data/books_ingest
+
+      # Optional: Calibre configuration directory - persists plugins, plugin settings (e.g., DeDRM serial numbers),
+      # and plugin enable/disable state (customize.py.json). Without this mount, plugins and their
+      # configurations (like device serial numbers) will be lost on container restart.
+      - /path/to/calibre-config:/home/appuser/.config/calibre
     environment:
       PGID: ${PGID:-1000}
       PUID: ${PUID:-1000}
