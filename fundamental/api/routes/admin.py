@@ -1675,8 +1675,6 @@ def get_active_library(
     ----------
     session : SessionDep
         Database session dependency.
-    _current_user : User
-        Current authenticated user (for authentication only, unused).
 
     Returns
     -------
