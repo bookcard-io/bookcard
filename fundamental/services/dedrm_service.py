@@ -68,17 +68,16 @@ class DeDRMService:
         Returns
         -------
         Path
-            Path to DeDRM.json.
+            Path to ``dedrm.json``.
         """
-        # Calibre config directory is usually ~/.config/calibre
-        # We can override it with CALIBRE_CONFIG_DIRECTORY env var if needed.
+        # DeDRM stores its preferences via Calibre's JSONConfig. The upstream plugin
+        # derives the filename from the plugin name lowercased, so "DeDRM" becomes
+        # "dedrm.json" under the calibre plugins directory.
         config_dir = os.environ.get("CALIBRE_CONFIG_DIRECTORY")
-        if config_dir:
-            base_dir = Path(config_dir)
-        else:
-            base_dir = Path.home() / ".config" / "calibre"
-
-        return base_dir / "plugins" / "DeDRM.json"
+        base_dir = (
+            Path(config_dir) if config_dir else (Path.home() / ".config" / "calibre")
+        )
+        return base_dir / "plugins" / "dedrm.json"
 
     def update_configuration(self, serial_numbers: list[str]) -> None:
         """Update DeDRM configuration with serial numbers.
@@ -89,45 +88,51 @@ class DeDRMService:
             List of E-Ink Kindle serial numbers.
         """
         config_path = self.get_config_path()
-
-        # Load existing config if it exists
-        config = {}
+        config: dict[str, object] = {}
         if config_path.exists():
             try:
-                with Path(config_path).open() as f:
-                    config = json.load(f)
+                with config_path.open() as f:
+                    loaded = json.load(f)
+                if isinstance(loaded, dict):
+                    config = loaded
+                else:
+                    logger.warning(
+                        "Unexpected DeDRM config format in %s (expected object), ignoring",
+                        config_path,
+                    )
             except (json.JSONDecodeError, OSError) as e:
-                logger.warning("Failed to load existing DeDRM config: %s", e)
+                logger.warning(
+                    "Failed to load existing DeDRM config from %s: %s", config_path, e
+                )
 
-        # Update kindle keys
-        # The structure for DeDRM 7.x/10.x JSON usually has "kindlekeys"
-        # "kindlekeys": [{"val": "SERIAL", "name": "Name"}]
-        # We'll just overwrite or append?
-        # Safe bet is to ensure our keys are present.
+        # For Kindle eInk devices, DeDRM expects device serials in the "serials" list.
+        serials_obj = config.get("serials", [])
+        if not isinstance(serials_obj, list):
+            serials_obj = []
+        serials: list[str] = [s for s in serials_obj if isinstance(s, str)]
 
-        if "kindlekeys" not in config:
-            config["kindlekeys"] = []
-
-        existing_keys = {k.get("val") for k in config["kindlekeys"]}
-
+        existing_serials = set(serials)
         for serial in serial_numbers:
-            if serial and serial not in existing_keys:
-                config["kindlekeys"].append({
-                    "val": serial,
-                    "name": f"Imported {serial[:6]}...",
-                })
+            cleaned = serial.strip()
+            if cleaned and cleaned not in existing_serials:
+                serials.append(cleaned)
+                existing_serials.add(cleaned)
+
+        config["serials"] = serials
+
+        # Mark as configured to align with DeDRM's preference semantics.
+        config["configured"] = True
 
         # Ensure directory exists
         config_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Write back
         try:
-            with Path(config_path).open("w") as f:
-                json.dump(config, f, indent=4)
+            with config_path.open("w") as f:
+                json.dump(config, f, indent=2, sort_keys=True)
             logger.info("Updated DeDRM configuration at %s", config_path)
         except OSError as e:
-            logger.exception("Failed to write DeDRM config")
-            msg = f"Failed to write DeDRM config: {e}"
+            logger.exception("Failed to write DeDRM config at %s", config_path)
+            msg = f"Failed to write DeDRM config at {config_path}: {e}"
             raise RuntimeError(msg) from e
 
     def strip_drm(self, file_path: Path) -> Path:
