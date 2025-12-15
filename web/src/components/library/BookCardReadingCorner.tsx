@@ -159,14 +159,14 @@ export function BookCardReadingCorner({
       type="button"
       className={cn(
         "absolute top-2 right-2 z-20 inline-flex h-9 w-9 items-center justify-center rounded-md",
-        "border border-surface-a20 bg-surface-a0/80 text-text-a40 shadow-sm backdrop-blur",
+        "text-text-a0 shadow-sm",
         "transition-all duration-150",
         // Default: hidden unless there's progress
         displayState.shouldShow ? "opacity-100" : "opacity-0",
         // Show on card hover
         "group-hover:opacity-100",
         displayState.isUnread &&
-          "hover:border-success-a0 hover:bg-success-a0 hover:text-[var(--color-white)]",
+          "hover:bg-primary-a0 hover:text-[var(--color-white)]",
         isUpdating && "cursor-wait opacity-80",
         className,
       )}
