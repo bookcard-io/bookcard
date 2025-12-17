@@ -1,16 +1,16 @@
 services:
-  fundamental:
+  bookcard:
     build:
       context: ..
       dockerfile: infra/Dockerfile
-    container_name: fundamental
+    container_name: bookcard
     restart: unless-stopped
     volumes:
       # Your books directory, typically where calibre's `metadata.db` is located
       - /path/to/books:/books
 
-      # Fundamental's data/configs directory; mount this to persist data and configs
-      - ~/.fundamental:/data
+      # Bookcard's data/configs directory; mount this to persist data and configs
+      - ~/.bookcard:/data
 
       # Path to automatically ingest books from.  Files here will be automatically ingested and deleted.
       - /path/to/books/ingest:/data/books_ingest
@@ -24,13 +24,13 @@ services:
       PUID: ${PUID:-1000}
 
       # backend authentication settings
-      FUNDAMENTAL_JWT_SECRET: ${FUNDAMENTAL_JWT_SECRET:-youShouldChangeThis}
-      FUNDAMENTAL_JWT_ALG: ${FUNDAMENTAL_JWT_ALG:-HS256}
-      FUNDAMENTAL_JWT_EXPIRES_MIN: ${FUNDAMENTAL_JWT_EXPIRES_MIN:-131400} # 3 months
-      FUNDAMENTAL_ALEMBIC_ENABLED: ${FUNDAMENTAL_ALEMBIC_ENABLED:-true}
+      BOOKCARD_JWT_SECRET: ${BOOKCARD_JWT_SECRET:-youShouldChangeThis}
+      BOOKCARD_JWT_ALG: ${BOOKCARD_JWT_ALG:-HS256}
+      BOOKCARD_JWT_EXPIRES_MIN: ${BOOKCARD_JWT_EXPIRES_MIN:-131400} # 3 months
+      BOOKCARD_ALEMBIC_ENABLED: ${BOOKCARD_ALEMBIC_ENABLED:-true}
       # Database URL - defaults to SQLite if postgres service is not available
-      # Set FUNDAMENTAL_DATABASE_URL to use PostgreSQL, or leave unset for SQLite
-      FUNDAMENTAL_DATABASE_URL: ${FUNDAMENTAL_DATABASE_URL:-}
+      # Set BOOKCARD_DATABASE_URL to use PostgreSQL, or leave unset for SQLite
+      BOOKCARD_DATABASE_URL: ${BOOKCARD_DATABASE_URL:-}
 
       # library administration settings
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
@@ -41,7 +41,7 @@ services:
       # You should change this.  DO NOT use this key in production.
       # Get a key from: https://fernet.utils.com/
       # Or generate a key with: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
-      FUNDAMENTAL_FERNET_KEY: ${FUNDAMENTAL_FERNET_KEY:-EifxhGYj-u0JolSrDhBLqyIZSnoZCVKOAFQbuv70T08=}
+      BOOKCARD_FERNET_KEY: ${BOOKCARD_FERNET_KEY:-EifxhGYj-u0JolSrDhBLqyIZSnoZCVKOAFQbuv70T08=}
       # !!! One more time: DO NOT USE THIS KEY IN PRODUCTION. !!!
 
       # Redis configuration for distributed workers (optional)
@@ -77,13 +77,13 @@ services:
       timeout: 10s
       retries: 5
     networks:
-      - fundamental-network
+      - bookcard-network
 
   # Optional Redis service - only needed if ENABLE_REDIS=true
   # The application will work without Redis (library scanning features will be disabled)
   redis:
     image: redis:8.4.0
-    container_name: fundamental-redis
+    container_name: bookcard-redis
     restart: unless-stopped
     command: redis-server ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
     # ports:
@@ -91,35 +91,35 @@ services:
     env_file:
       - .env
     networks:
-      - fundamental-network
+      - bookcard-network
 
   # Optional PostgreSQL service - only needed if you want to use PostgreSQL instead of SQLite
-  # The application defaults to SQLite if FUNDAMENTAL_DATABASE_URL is not set
-  # To use PostgreSQL, set FUNDAMENTAL_DATABASE_URL=postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  # The application defaults to SQLite if BOOKCARD_DATABASE_URL is not set
+  # To use PostgreSQL, set BOOKCARD_DATABASE_URL=postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
   postgres:
     image: postgres:18.1-alpine3.22
-    container_name: fundamental-postgres
+    container_name: bookcard-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin123}
-      POSTGRES_DB: ${POSTGRES_DB:-fundamental}
+      POSTGRES_DB: ${POSTGRES_DB:-bookcard}
     # Port not exposed to host - only accessible within Docker network
     # Uncomment if you'd like to access the database from outside the container
     # ports:
     #   - "5432:5432"
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-fundamental}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-bookcard}" ]
       interval: 30s
       timeout: 10s
       retries: 5
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - fundamental-network
+      - bookcard-network
 
 networks:
-  fundamental-network:
+  bookcard-network:
     driver: bridge
 
 volumes:

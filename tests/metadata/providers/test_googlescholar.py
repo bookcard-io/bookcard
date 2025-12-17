@@ -22,12 +22,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.metadata.base import (
+from bookcard.metadata.base import (
     MetadataProviderError,
     MetadataProviderNetworkError,
     MetadataProviderParseError,
 )
-from fundamental.metadata.providers.googlescholar import GoogleScholarProvider
+from bookcard.metadata.providers.googlescholar import GoogleScholarProvider
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -49,7 +49,7 @@ def test_googlescholar_provider_init() -> None:
 
 def test_googlescholar_provider_init_scholarly_unavailable() -> None:
     """Test GoogleScholarProvider initialization when scholarly unavailable."""
-    with patch("fundamental.metadata.providers.googlescholar.scholarly", None):
+    with patch("bookcard.metadata.providers.googlescholar.scholarly", None):
         provider = GoogleScholarProvider(enabled=True)
         assert provider.enabled is False
 
@@ -76,7 +76,7 @@ def test_googlescholar_provider_is_enabled(
 
 def test_googlescholar_provider_is_enabled_scholarly_unavailable() -> None:
     """Test is_enabled returns False when scholarly unavailable."""
-    with patch("fundamental.metadata.providers.googlescholar.scholarly", None):
+    with patch("bookcard.metadata.providers.googlescholar.scholarly", None):
         provider = GoogleScholarProvider(enabled=True)
         assert provider.is_enabled() is False
 
@@ -112,7 +112,7 @@ def test_googlescholar_provider_search_scholarly_unavailable(
     googlescholar_provider.enabled = True
     # Patch scholarly to be None at search time
     with (
-        patch("fundamental.metadata.providers.googlescholar.scholarly", None),
+        patch("bookcard.metadata.providers.googlescholar.scholarly", None),
         patch.object(googlescholar_provider, "is_enabled", return_value=True),
         pytest.raises(MetadataProviderError),
     ):
@@ -141,9 +141,7 @@ def test_googlescholar_provider_search_success(
     mock_scholarly.set_timeout = MagicMock()
     mock_scholarly.set_retries = MagicMock()
 
-    with patch(
-        "fundamental.metadata.providers.googlescholar.scholarly", mock_scholarly
-    ):
+    with patch("bookcard.metadata.providers.googlescholar.scholarly", mock_scholarly):
         results = googlescholar_provider.search("test query", max_results=1)
         assert len(results) == 1
         assert results[0].title == "Test Paper"
@@ -160,7 +158,7 @@ def test_googlescholar_provider_search_timeout(
     mock_scholarly.set_retries = MagicMock()
 
     with (
-        patch("fundamental.metadata.providers.googlescholar.scholarly", mock_scholarly),
+        patch("bookcard.metadata.providers.googlescholar.scholarly", mock_scholarly),
         pytest.raises(MetadataProviderNetworkError),
     ):
         googlescholar_provider.search("test query")
@@ -176,7 +174,7 @@ def test_googlescholar_provider_search_connection_error(
     mock_scholarly.set_retries = MagicMock()
 
     with (
-        patch("fundamental.metadata.providers.googlescholar.scholarly", mock_scholarly),
+        patch("bookcard.metadata.providers.googlescholar.scholarly", mock_scholarly),
         pytest.raises(MetadataProviderNetworkError),
     ):
         googlescholar_provider.search("test query")
@@ -192,7 +190,7 @@ def test_googlescholar_provider_search_parse_error(
     mock_scholarly.set_retries = MagicMock()
 
     with (
-        patch("fundamental.metadata.providers.googlescholar.scholarly", mock_scholarly),
+        patch("bookcard.metadata.providers.googlescholar.scholarly", mock_scholarly),
         pytest.raises(MetadataProviderParseError),
     ):
         googlescholar_provider.search("test query")
@@ -444,9 +442,7 @@ def test_googlescholar_provider_search_parse_error_in_result(
     mock_scholarly.set_timeout = MagicMock()
     mock_scholarly.set_retries = MagicMock()
 
-    with patch(
-        "fundamental.metadata.providers.googlescholar.scholarly", mock_scholarly
-    ):
+    with patch("bookcard.metadata.providers.googlescholar.scholarly", mock_scholarly):
         results = googlescholar_provider.search("test query", max_results=10)
         # Should return only valid results
         assert len(results) == 1
@@ -473,9 +469,7 @@ def test_googlescholar_provider_search_max_results(
     mock_scholarly.set_timeout = MagicMock()
     mock_scholarly.set_retries = MagicMock()
 
-    with patch(
-        "fundamental.metadata.providers.googlescholar.scholarly", mock_scholarly
-    ):
+    with patch("bookcard.metadata.providers.googlescholar.scholarly", mock_scholarly):
         results = googlescholar_provider.search("test query", max_results=5)
         assert len(results) == 5
 
@@ -494,7 +488,7 @@ def test_googlescholar_provider_import_error_handling() -> None:
     import sys
 
     # Store original module if it exists
-    module_name = "fundamental.metadata.providers.googlescholar"
+    module_name = "bookcard.metadata.providers.googlescholar"
     original_module = sys.modules.get(module_name)
 
     # Remove from sys.modules to allow reimport
@@ -523,7 +517,7 @@ def test_googlescholar_provider_import_error_handling() -> None:
             # Reimport the module - this will trigger the ImportError handling
             importlib.import_module(module_name)
             # Import the class after the module is loaded
-            from fundamental.metadata.providers.googlescholar import (
+            from bookcard.metadata.providers.googlescholar import (
                 GoogleScholarProvider,
             )
 
@@ -548,9 +542,7 @@ def test_googlescholar_provider_perform_search_empty_query(
     mock_scholarly.set_timeout = MagicMock()
     mock_scholarly.set_retries = MagicMock()
 
-    with patch(
-        "fundamental.metadata.providers.googlescholar.scholarly", mock_scholarly
-    ):
+    with patch("bookcard.metadata.providers.googlescholar.scholarly", mock_scholarly):
         results = googlescholar_provider._perform_search("a", max_results=10)
         assert results == []
 
@@ -574,7 +566,7 @@ def test_googlescholar_provider_perform_search_parse_exception(
 
     # Make _parse_search_result raise an exception
     with (
-        patch("fundamental.metadata.providers.googlescholar.scholarly", mock_scholarly),
+        patch("bookcard.metadata.providers.googlescholar.scholarly", mock_scholarly),
         patch.object(
             googlescholar_provider,
             "_parse_search_result",

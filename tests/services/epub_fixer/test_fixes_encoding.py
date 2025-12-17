@@ -15,9 +15,9 @@
 
 """Tests for encoding fix implementation."""
 
-from fundamental.models.epub_fixer import EPUBFixType
-from fundamental.services.epub_fixer.core.epub import EPUBContents
-from fundamental.services.epub_fixer.core.fixes.encoding import EncodingFix
+from bookcard.models.epub_fixer import EPUBFixType
+from bookcard.services.epub_fixer.core.epub import EPUBContents
+from bookcard.services.epub_fixer.core.fixes.encoding import EncodingFix
 
 
 def test_encoding_fix_type() -> None:

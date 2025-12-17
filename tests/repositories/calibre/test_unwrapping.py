@@ -21,8 +21,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.core import Book
-from fundamental.repositories.calibre.unwrapping import ResultUnwrapper
+from bookcard.models.core import Book
+from bookcard.repositories.calibre.unwrapping import ResultUnwrapper
 
 
 class TestResultUnwrapper:

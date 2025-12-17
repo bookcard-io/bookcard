@@ -165,7 +165,7 @@ COPY --from=frontend-builder /app/web/tsconfig.json ./web/tsconfig.json
 # ============================================================================
 COPY pyproject.toml ./
 COPY scripts/ ./scripts/
-COPY fundamental/ ./fundamental/
+COPY bookcard/ ./bookcard/
 
 # ============================================================================
 # Container configuration

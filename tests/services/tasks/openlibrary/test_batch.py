@@ -21,11 +21,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.openlibrary import (
+from bookcard.models.openlibrary import (
     OpenLibraryAuthorWork,
     OpenLibraryEditionIsbn,
 )
-from fundamental.services.tasks.openlibrary.batch import (
+from bookcard.services.tasks.openlibrary.batch import (
     AuthorWorkBatchProcessor,
     BatchProcessor,
     IsbnBatchProcessor,

@@ -17,8 +17,8 @@
 
 from __future__ import annotations
 
-from fundamental.models.auth import EReaderDevice
-from fundamental.repositories.ereader_repository import EReaderRepository
+from bookcard.models.auth import EReaderDevice
+from bookcard.repositories.ereader_repository import EReaderRepository
 from tests.conftest import DummySession
 
 

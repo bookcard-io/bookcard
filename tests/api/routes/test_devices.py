@@ -23,8 +23,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-import fundamental.api.routes.devices as devices
-from fundamental.models.auth import EBookFormat, EReaderDevice, User
+import bookcard.api.routes.devices as devices
+from bookcard.models.auth import EBookFormat, EReaderDevice, User
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession
@@ -43,7 +43,7 @@ def current_user() -> User:
 
 def test_create_device_success(session: DummySession, current_user: User) -> None:
     """Test create_device succeeds (covers lines 69-93)."""
-    from fundamental.api.schemas.auth import EReaderDeviceCreate
+    from bookcard.api.schemas.auth import EReaderDeviceCreate
 
     payload = EReaderDeviceCreate(
         email="device@example.com",
@@ -64,8 +64,8 @@ def test_create_device_success(session: DummySession, current_user: User) -> Non
     )
 
     with (
-        patch("fundamental.api.routes.devices.EReaderRepository") as mock_repo_class,
-        patch("fundamental.api.routes.devices.EReaderService") as mock_service_class,
+        patch("bookcard.api.routes.devices.EReaderRepository") as mock_repo_class,
+        patch("bookcard.api.routes.devices.EReaderService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -85,7 +85,7 @@ def test_create_device_invalid_format_suppressed(
     session: DummySession, current_user: User
 ) -> None:
     """Test create_device suppresses invalid format (covers lines 72-76)."""
-    from fundamental.api.schemas.auth import EReaderDeviceCreate
+    from bookcard.api.schemas.auth import EReaderDeviceCreate
 
     payload = EReaderDeviceCreate(
         email="device@example.com",
@@ -101,8 +101,8 @@ def test_create_device_invalid_format_suppressed(
     )
 
     with (
-        patch("fundamental.api.routes.devices.EReaderRepository") as mock_repo_class,
-        patch("fundamental.api.routes.devices.EReaderService") as mock_service_class,
+        patch("bookcard.api.routes.devices.EReaderRepository") as mock_repo_class,
+        patch("bookcard.api.routes.devices.EReaderService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -120,13 +120,13 @@ def test_create_device_invalid_format_suppressed(
 
 def test_create_device_email_exists(session: DummySession, current_user: User) -> None:
     """Test create_device raises 409 when email exists (covers lines 89-93)."""
-    from fundamental.api.schemas.auth import EReaderDeviceCreate
+    from bookcard.api.schemas.auth import EReaderDeviceCreate
 
     payload = EReaderDeviceCreate(email="existing@example.com")
 
     with (
-        patch("fundamental.api.routes.devices.EReaderRepository") as mock_repo_class,
-        patch("fundamental.api.routes.devices.EReaderService") as mock_service_class,
+        patch("bookcard.api.routes.devices.EReaderRepository") as mock_repo_class,
+        patch("bookcard.api.routes.devices.EReaderService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -148,13 +148,13 @@ def test_create_device_other_value_error(
     session: DummySession, current_user: User
 ) -> None:
     """Test create_device re-raises ValueError with other messages (covers line 93)."""
-    from fundamental.api.schemas.auth import EReaderDeviceCreate
+    from bookcard.api.schemas.auth import EReaderDeviceCreate
 
     payload = EReaderDeviceCreate(email="device@example.com")
 
     with (
-        patch("fundamental.api.routes.devices.EReaderRepository") as mock_repo_class,
-        patch("fundamental.api.routes.devices.EReaderService") as mock_service_class,
+        patch("bookcard.api.routes.devices.EReaderRepository") as mock_repo_class,
+        patch("bookcard.api.routes.devices.EReaderService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -182,7 +182,7 @@ def test_list_devices_success(session: DummySession, current_user: User) -> None
         device_type="kobo",
     )
 
-    with patch("fundamental.api.routes.devices.EReaderRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.devices.EReaderRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.find_by_user.return_value = [device1, device2]
         mock_repo_class.return_value = mock_repo
@@ -202,7 +202,7 @@ def test_get_device_success(session: DummySession, current_user: User) -> None:
         device_type="kindle",
     )
 
-    with patch("fundamental.api.routes.devices.EReaderRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.devices.EReaderRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = device
         mock_repo_class.return_value = mock_repo
@@ -214,7 +214,7 @@ def test_get_device_success(session: DummySession, current_user: User) -> None:
 
 def test_get_device_not_found(session: DummySession, current_user: User) -> None:
     """Test get_device raises 404 when device not found (covers lines 149-150)."""
-    with patch("fundamental.api.routes.devices.EReaderRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.devices.EReaderRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = None
         mock_repo_class.return_value = mock_repo
@@ -237,7 +237,7 @@ def test_get_device_permission_denied(
         device_type="kindle",
     )
 
-    with patch("fundamental.api.routes.devices.EReaderRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.devices.EReaderRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = device
         mock_repo_class.return_value = mock_repo
@@ -251,7 +251,7 @@ def test_get_device_permission_denied(
 
 def test_update_device_success(session: DummySession, current_user: User) -> None:
     """Test update_device succeeds (covers lines 189-223)."""
-    from fundamental.api.schemas.auth import EReaderDeviceUpdate
+    from bookcard.api.schemas.auth import EReaderDeviceUpdate
 
     device = EReaderDevice(
         id=1,
@@ -273,8 +273,8 @@ def test_update_device_success(session: DummySession, current_user: User) -> Non
     )
 
     with (
-        patch("fundamental.api.routes.devices.EReaderRepository") as mock_repo_class,
-        patch("fundamental.api.routes.devices.EReaderService") as mock_service_class,
+        patch("bookcard.api.routes.devices.EReaderRepository") as mock_repo_class,
+        patch("bookcard.api.routes.devices.EReaderService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = device
@@ -292,11 +292,11 @@ def test_update_device_success(session: DummySession, current_user: User) -> Non
 
 def test_update_device_not_found(session: DummySession, current_user: User) -> None:
     """Test update_device raises 404 when device not found (covers lines 191-192)."""
-    from fundamental.api.schemas.auth import EReaderDeviceUpdate
+    from bookcard.api.schemas.auth import EReaderDeviceUpdate
 
     payload = EReaderDeviceUpdate(email="newdevice@example.com")
 
-    with patch("fundamental.api.routes.devices.EReaderRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.devices.EReaderRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = None
         mock_repo_class.return_value = mock_repo
@@ -312,7 +312,7 @@ def test_update_device_service_not_found(
     session: DummySession, current_user: User
 ) -> None:
     """Test update_device raises 404 when service raises device_not_found (covers line 220)."""
-    from fundamental.api.schemas.auth import EReaderDeviceUpdate
+    from bookcard.api.schemas.auth import EReaderDeviceUpdate
 
     device = EReaderDevice(
         id=1,
@@ -323,8 +323,8 @@ def test_update_device_service_not_found(
     payload = EReaderDeviceUpdate(email="newdevice@example.com")
 
     with (
-        patch("fundamental.api.routes.devices.EReaderRepository") as mock_repo_class,
-        patch("fundamental.api.routes.devices.EReaderService") as mock_service_class,
+        patch("bookcard.api.routes.devices.EReaderRepository") as mock_repo_class,
+        patch("bookcard.api.routes.devices.EReaderService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = device
@@ -345,7 +345,7 @@ def test_update_device_permission_denied(
     session: DummySession, current_user: User
 ) -> None:
     """Test update_device raises 403 when device belongs to different user (covers lines 195-196)."""
-    from fundamental.api.schemas.auth import EReaderDeviceUpdate
+    from bookcard.api.schemas.auth import EReaderDeviceUpdate
 
     device = EReaderDevice(
         id=1,
@@ -355,7 +355,7 @@ def test_update_device_permission_denied(
     )
     payload = EReaderDeviceUpdate(email="newdevice@example.com")
 
-    with patch("fundamental.api.routes.devices.EReaderRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.devices.EReaderRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = device
         mock_repo_class.return_value = mock_repo
@@ -371,7 +371,7 @@ def test_update_device_invalid_format_suppressed(
     session: DummySession, current_user: User
 ) -> None:
     """Test update_device suppresses invalid format (covers lines 200-204)."""
-    from fundamental.api.schemas.auth import EReaderDeviceUpdate
+    from bookcard.api.schemas.auth import EReaderDeviceUpdate
 
     device = EReaderDevice(
         id=1,
@@ -389,8 +389,8 @@ def test_update_device_invalid_format_suppressed(
     payload = EReaderDeviceUpdate(preferred_format="invalid_format")
 
     with (
-        patch("fundamental.api.routes.devices.EReaderRepository") as mock_repo_class,
-        patch("fundamental.api.routes.devices.EReaderService") as mock_service_class,
+        patch("bookcard.api.routes.devices.EReaderRepository") as mock_repo_class,
+        patch("bookcard.api.routes.devices.EReaderService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = device
@@ -409,7 +409,7 @@ def test_update_device_invalid_format_suppressed(
 
 def test_update_device_email_exists(session: DummySession, current_user: User) -> None:
     """Test update_device raises 409 when email exists (covers lines 221-222)."""
-    from fundamental.api.schemas.auth import EReaderDeviceUpdate
+    from bookcard.api.schemas.auth import EReaderDeviceUpdate
 
     device = EReaderDevice(
         id=1,
@@ -420,8 +420,8 @@ def test_update_device_email_exists(session: DummySession, current_user: User) -
     payload = EReaderDeviceUpdate(email="existing@example.com")
 
     with (
-        patch("fundamental.api.routes.devices.EReaderRepository") as mock_repo_class,
-        patch("fundamental.api.routes.devices.EReaderService") as mock_service_class,
+        patch("bookcard.api.routes.devices.EReaderRepository") as mock_repo_class,
+        patch("bookcard.api.routes.devices.EReaderService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = device
@@ -444,7 +444,7 @@ def test_update_device_other_value_error(
     session: DummySession, current_user: User
 ) -> None:
     """Test update_device re-raises ValueError with other messages (covers lines 220, 223)."""
-    from fundamental.api.schemas.auth import EReaderDeviceUpdate
+    from bookcard.api.schemas.auth import EReaderDeviceUpdate
 
     device = EReaderDevice(
         id=1,
@@ -455,8 +455,8 @@ def test_update_device_other_value_error(
     payload = EReaderDeviceUpdate(email="newdevice@example.com")
 
     with (
-        patch("fundamental.api.routes.devices.EReaderRepository") as mock_repo_class,
-        patch("fundamental.api.routes.devices.EReaderService") as mock_service_class,
+        patch("bookcard.api.routes.devices.EReaderRepository") as mock_repo_class,
+        patch("bookcard.api.routes.devices.EReaderService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = device
@@ -480,8 +480,8 @@ def test_delete_device_success(session: DummySession, current_user: User) -> Non
     )
 
     with (
-        patch("fundamental.api.routes.devices.EReaderRepository") as mock_repo_class,
-        patch("fundamental.api.routes.devices.EReaderService") as mock_service_class,
+        patch("bookcard.api.routes.devices.EReaderRepository") as mock_repo_class,
+        patch("bookcard.api.routes.devices.EReaderService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = device
@@ -498,7 +498,7 @@ def test_delete_device_success(session: DummySession, current_user: User) -> Non
 
 def test_delete_device_not_found(session: DummySession, current_user: User) -> None:
     """Test delete_device raises 404 when device not found (covers lines 250-251)."""
-    with patch("fundamental.api.routes.devices.EReaderRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.devices.EReaderRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = None
         mock_repo_class.return_value = mock_repo
@@ -521,7 +521,7 @@ def test_delete_device_permission_denied(
         device_type="kindle",
     )
 
-    with patch("fundamental.api.routes.devices.EReaderRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.devices.EReaderRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = device
         mock_repo_class.return_value = mock_repo
@@ -543,8 +543,8 @@ def test_delete_device_service_error(session: DummySession, current_user: User) 
     )
 
     with (
-        patch("fundamental.api.routes.devices.EReaderRepository") as mock_repo_class,
-        patch("fundamental.api.routes.devices.EReaderService") as mock_service_class,
+        patch("bookcard.api.routes.devices.EReaderRepository") as mock_repo_class,
+        patch("bookcard.api.routes.devices.EReaderService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = device

@@ -23,8 +23,8 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from fundamental.services.tasks.openlibrary.config import IngestionConfig
-from fundamental.services.tasks.openlibrary.orchestrator import (
+from bookcard.services.tasks.openlibrary.config import IngestionConfig
+from bookcard.services.tasks.openlibrary.orchestrator import (
     OpenLibraryDumpIngestOrchestrator,
 )
 
@@ -213,8 +213,8 @@ class TestOpenLibraryDumpIngestOrchestratorRun:
             process_editions=True,
         )
 
-    @patch("fundamental.services.tasks.openlibrary.orchestrator.FileProcessor")
-    @patch("fundamental.services.tasks.openlibrary.orchestrator.OpenLibraryDumpParser")
+    @patch("bookcard.services.tasks.openlibrary.orchestrator.FileProcessor")
+    @patch("bookcard.services.tasks.openlibrary.orchestrator.OpenLibraryDumpParser")
     def test_run_success_all_files(
         self,
         mock_parser_class: Mock,
@@ -281,8 +281,8 @@ class TestOpenLibraryDumpIngestOrchestratorRun:
         assert final_call[0][0] == 1.0
         assert "stats" in final_call[0][1]
 
-    @patch("fundamental.services.tasks.openlibrary.orchestrator.FileProcessor")
-    @patch("fundamental.services.tasks.openlibrary.orchestrator.OpenLibraryDumpParser")
+    @patch("bookcard.services.tasks.openlibrary.orchestrator.FileProcessor")
+    @patch("bookcard.services.tasks.openlibrary.orchestrator.OpenLibraryDumpParser")
     def test_run_authors_only(
         self,
         mock_parser_class: Mock,
@@ -337,8 +337,8 @@ class TestOpenLibraryDumpIngestOrchestratorRun:
 
         assert mock_file_processor.process_file.call_count == 1
 
-    @patch("fundamental.services.tasks.openlibrary.orchestrator.FileProcessor")
-    @patch("fundamental.services.tasks.openlibrary.orchestrator.OpenLibraryDumpParser")
+    @patch("bookcard.services.tasks.openlibrary.orchestrator.FileProcessor")
+    @patch("bookcard.services.tasks.openlibrary.orchestrator.OpenLibraryDumpParser")
     def test_run_editions_file_missing(
         self,
         mock_parser_class: Mock,

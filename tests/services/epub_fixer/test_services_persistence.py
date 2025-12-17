@@ -17,10 +17,10 @@
 
 from unittest.mock import MagicMock
 
-from fundamental.models.epub_fixer import EPUBFix, EPUBFixType
-from fundamental.services.epub_fixer.core.epub import FixResult
-from fundamental.services.epub_fixer.services.persistence import FixResultRecorder
-from fundamental.services.epub_fixer_service import EPUBFixerService
+from bookcard.models.epub_fixer import EPUBFix, EPUBFixType
+from bookcard.services.epub_fixer.core.epub import FixResult
+from bookcard.services.epub_fixer.services.persistence import FixResultRecorder
+from bookcard.services.epub_fixer_service import EPUBFixerService
 from tests.conftest import DummySession
 
 

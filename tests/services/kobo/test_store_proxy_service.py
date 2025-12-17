@@ -22,9 +22,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from fundamental.models.config import IntegrationConfig
-from fundamental.services.kobo.store_proxy_service import KoboStoreProxyService
-from fundamental.services.kobo.sync_token_service import SyncToken
+from bookcard.models.config import IntegrationConfig
+from bookcard.services.kobo.store_proxy_service import KoboStoreProxyService
+from bookcard.services.kobo.sync_token_service import SyncToken
 
 # ============================================================================
 # Fixtures

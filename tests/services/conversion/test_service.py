@@ -24,23 +24,23 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.api.schemas.conversion import ConversionRequest
-from fundamental.models.config import Library
-from fundamental.models.conversion import (
+from bookcard.api.schemas.conversion import ConversionRequest
+from bookcard.models.config import Library
+from bookcard.models.conversion import (
     BookConversion,
     ConversionMethod,
     ConversionStatus,
 )
-from fundamental.models.core import Book
-from fundamental.models.media import Data
-from fundamental.services.conversion.backup import FileBackupService
-from fundamental.services.conversion.book_repository import BookRepository
-from fundamental.services.conversion.exceptions import (
+from bookcard.models.core import Book
+from bookcard.models.media import Data
+from bookcard.services.conversion.backup import FileBackupService
+from bookcard.services.conversion.book_repository import BookRepository
+from bookcard.services.conversion.exceptions import (
     BookNotFoundError,
     FormatNotFoundError,
 )
-from fundamental.services.conversion.repository import ConversionRepository
-from fundamental.services.conversion.service import ConversionService
+from bookcard.services.conversion.repository import ConversionRepository
+from bookcard.services.conversion.service import ConversionService
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession

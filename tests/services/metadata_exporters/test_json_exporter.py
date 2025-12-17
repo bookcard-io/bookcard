@@ -21,9 +21,9 @@ from datetime import UTC, datetime
 
 import pytest
 
-from fundamental.models.core import Book
-from fundamental.repositories.models import BookWithFullRelations
-from fundamental.services.metadata_exporters.json_exporter import JsonExporter
+from bookcard.models.core import Book
+from bookcard.repositories.models import BookWithFullRelations
+from bookcard.services.metadata_exporters.json_exporter import JsonExporter
 
 
 @pytest.fixture

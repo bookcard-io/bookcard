@@ -1,6 +1,6 @@
 # Authentication
 
-Fundamental supports two authentication modes:
+Bookcard supports two authentication modes:
 
 1. **Local JWT** (default): Username/password managed by the application
 2. **OIDC (SSO)** (optional): Enterprise authentication via any OpenID Connect provider
@@ -25,7 +25,7 @@ Your OIDC provider handles identity (authentication, user management). The appli
 ### Quick Setup
 
 1. **Create an OIDC client/application in your provider**:
-   - Client ID: `fundamental-client` (example)
+   - Client ID: `bookcard-client` (example)
    - Client type: confidential (if you want to use a client secret)
    - Valid Redirect URI: `http://localhost:3000/api/auth/oidc/callback`
    - Web Origin: `http://localhost:3000`
@@ -34,14 +34,14 @@ Your OIDC provider handles identity (authentication, user management). The appli
    ```bash
    OIDC_ENABLED=true
    OIDC_ISSUER=https://your-issuer.example.com/
-   OIDC_CLIENT_ID=fundamental-client
+   OIDC_CLIENT_ID=bookcard-client
    OIDC_CLIENT_SECRET=<client-secret>
    OIDC_SCOPES="openid profile email"
    ```
 
 3. **Create users in your provider**, or connect your provider to LDAP/AD as needed.
 
-4. **Restart Application**: `docker-compose restart fundamental`
+4. **Restart Application**: `docker-compose restart bookcard`
 
 **First User**: The first SSO user to log in automatically receives admin privileges.
 

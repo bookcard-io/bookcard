@@ -24,10 +24,10 @@ import pytest
 from fastapi import HTTPException, Request, status
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
-import fundamental.api.routes.kobo as kobo_routes
-from fundamental.models.auth import User
-from fundamental.models.config import IntegrationConfig, Library
-from fundamental.models.core import Book
+import bookcard.api.routes.kobo as kobo_routes
+from bookcard.models.auth import User
+from bookcard.models.config import IntegrationConfig, Library
+from bookcard.models.core import Book
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession
@@ -104,8 +104,8 @@ def test_get_active_library_success(
         Mock library.
     """
     with (
-        patch("fundamental.api.routes.kobo.LibraryRepository") as mock_repo_class,
-        patch("fundamental.api.routes.kobo.LibraryService") as mock_service_class,
+        patch("bookcard.api.routes.kobo.LibraryRepository") as mock_repo_class,
+        patch("bookcard.api.routes.kobo.LibraryService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -127,8 +127,8 @@ def test_get_active_library_not_found(session: DummySession) -> None:
         Dummy session.
     """
     with (
-        patch("fundamental.api.routes.kobo.LibraryRepository") as mock_repo_class,
-        patch("fundamental.api.routes.kobo.LibraryService") as mock_service_class,
+        patch("bookcard.api.routes.kobo.LibraryRepository") as mock_repo_class,
+        patch("bookcard.api.routes.kobo.LibraryService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -156,8 +156,8 @@ def test_get_active_library_no_id(session: DummySession) -> None:
     library_no_id = Library(name="Test Library", path="/path/to/library")
 
     with (
-        patch("fundamental.api.routes.kobo.LibraryRepository") as mock_repo_class,
-        patch("fundamental.api.routes.kobo.LibraryService") as mock_service_class,
+        patch("bookcard.api.routes.kobo.LibraryRepository") as mock_repo_class,
+        patch("bookcard.api.routes.kobo.LibraryService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -284,9 +284,9 @@ def test_get_book_service(session: DummySession, mock_library: Library) -> None:
     """
     with (
         patch(
-            "fundamental.api.routes.kobo._get_active_library", return_value=mock_library
+            "bookcard.api.routes.kobo._get_active_library", return_value=mock_library
         ),
-        patch("fundamental.api.routes.kobo.BookService") as mock_service_class,
+        patch("bookcard.api.routes.kobo.BookService") as mock_service_class,
     ):
         result = kobo_routes._get_book_service(session)  # type: ignore[arg-type]
 
@@ -377,7 +377,7 @@ def test_get_kobo_metadata_service(mock_request: MagicMock, auth_token: str) -> 
     auth_token : str
         Auth token.
     """
-    with patch("fundamental.api.routes.kobo.KoboMetadataService") as mock_service_class:
+    with patch("bookcard.api.routes.kobo.KoboMetadataService") as mock_service_class:
         result = kobo_routes._get_kobo_metadata_service(mock_request, auth_token)
 
         assert result is not None
@@ -398,7 +398,7 @@ def test_get_kobo_metadata_service_dep(
     auth_token : str
         Auth token.
     """
-    with patch("fundamental.api.routes.kobo.KoboMetadataService") as mock_service_class:
+    with patch("bookcard.api.routes.kobo.KoboMetadataService") as mock_service_class:
         result = kobo_routes._get_kobo_metadata_service_dep(mock_request, auth_token)
 
         assert result is not None
@@ -420,7 +420,7 @@ def test_get_kobo_sync_service(session: DummySession) -> None:
     mock_metadata_service = MagicMock()
     mock_shelf_service = MagicMock()
 
-    with patch("fundamental.api.routes.kobo.KoboSyncService") as mock_service_class:
+    with patch("bookcard.api.routes.kobo.KoboSyncService") as mock_service_class:
         mock_service_instance = MagicMock()
         mock_service_class.return_value = mock_service_instance
 
@@ -447,7 +447,7 @@ def test_get_kobo_sync_service_no_shelf_service(session: DummySession) -> None:
     mock_book_service = MagicMock()
     mock_metadata_service = MagicMock()
 
-    with patch("fundamental.api.routes.kobo.KoboSyncService") as mock_service_class:
+    with patch("bookcard.api.routes.kobo.KoboSyncService") as mock_service_class:
         mock_service_instance = MagicMock()
         mock_service_class.return_value = mock_service_instance
 
@@ -477,7 +477,7 @@ def test_get_kobo_reading_state_service(session: DummySession) -> None:
         Dummy session.
     """
     with patch(
-        "fundamental.api.routes.kobo.KoboReadingStateService"
+        "bookcard.api.routes.kobo.KoboReadingStateService"
     ) as mock_service_class:
         mock_service_instance = MagicMock()
         mock_service_class.return_value = mock_service_instance
@@ -507,7 +507,7 @@ def test_get_kobo_shelf_service(session: DummySession) -> None:
     with (
         patch("pathlib.Path.mkdir"),
         patch(
-            "fundamental.services.shelf_service.ShelfService.__init__",
+            "bookcard.services.shelf_service.ShelfService.__init__",
             return_value=None,
         ),
     ):
@@ -515,7 +515,7 @@ def test_get_kobo_shelf_service(session: DummySession) -> None:
 
         assert result is not None
         # Verify it's a KoboShelfService instance
-        from fundamental.services.kobo.shelf_service import KoboShelfService
+        from bookcard.services.kobo.shelf_service import KoboShelfService
 
         assert isinstance(result, KoboShelfService)
 
@@ -537,10 +537,10 @@ def test_get_kobo_download_service(
     """
     with (
         patch(
-            "fundamental.api.routes.kobo._get_active_library", return_value=mock_library
+            "bookcard.api.routes.kobo._get_active_library", return_value=mock_library
         ),
-        patch("fundamental.api.routes.kobo.BookService") as mock_book_service_class,
-        patch("fundamental.api.routes.kobo.KoboDownloadService") as mock_service_class,
+        patch("bookcard.api.routes.kobo.BookService") as mock_book_service_class,
+        patch("bookcard.api.routes.kobo.KoboDownloadService") as mock_service_class,
     ):
         mock_book_service = MagicMock()
         mock_book_service_class.return_value = mock_book_service
@@ -564,9 +564,7 @@ def test_get_kobo_book_lookup_service(session: DummySession) -> None:
     """
     mock_book_service = MagicMock()
 
-    with patch(
-        "fundamental.api.routes.kobo.KoboBookLookupService"
-    ) as mock_service_class:
+    with patch("bookcard.api.routes.kobo.KoboBookLookupService") as mock_service_class:
         mock_service_instance = MagicMock()
         mock_service_class.return_value = mock_service_instance
 
@@ -587,11 +585,9 @@ def test_get_kobo_device_auth_service(session: DummySession) -> None:
     """
     with (
         patch(
-            "fundamental.api.routes.kobo._get_kobo_store_proxy_service"
+            "bookcard.api.routes.kobo._get_kobo_store_proxy_service"
         ) as mock_proxy_service_func,
-        patch(
-            "fundamental.api.routes.kobo.KoboDeviceAuthService"
-        ) as mock_service_class,
+        patch("bookcard.api.routes.kobo.KoboDeviceAuthService") as mock_service_class,
     ):
         mock_proxy_service = MagicMock()
         mock_proxy_service_func.return_value = mock_proxy_service
@@ -617,10 +613,10 @@ def test_get_kobo_initialization_service(session: DummySession) -> None:
     """
     with (
         patch(
-            "fundamental.api.routes.kobo._get_kobo_store_proxy_service"
+            "bookcard.api.routes.kobo._get_kobo_store_proxy_service"
         ) as mock_proxy_service_func,
         patch(
-            "fundamental.api.routes.kobo.KoboInitializationService"
+            "bookcard.api.routes.kobo.KoboInitializationService"
         ) as mock_service_class,
     ):
         mock_proxy_service = MagicMock()
@@ -658,20 +654,20 @@ def test_get_kobo_library_service(
 
     with (
         patch(
-            "fundamental.api.routes.kobo._get_active_library", return_value=mock_library
+            "bookcard.api.routes.kobo._get_active_library", return_value=mock_library
         ),
         patch(
-            "fundamental.api.routes.kobo._get_kobo_metadata_service"
+            "bookcard.api.routes.kobo._get_kobo_metadata_service"
         ) as mock_metadata_func,
-        patch("fundamental.api.routes.kobo._get_kobo_sync_service") as mock_sync_func,
-        patch("fundamental.api.routes.kobo._get_kobo_shelf_service") as mock_shelf_func,
+        patch("bookcard.api.routes.kobo._get_kobo_sync_service") as mock_sync_func,
+        patch("bookcard.api.routes.kobo._get_kobo_shelf_service") as mock_shelf_func,
         patch(
-            "fundamental.api.routes.kobo._get_kobo_store_proxy_service"
+            "bookcard.api.routes.kobo._get_kobo_store_proxy_service"
         ) as mock_proxy_func,
         patch(
-            "fundamental.api.routes.kobo._get_kobo_book_lookup_service"
+            "bookcard.api.routes.kobo._get_kobo_book_lookup_service"
         ) as mock_lookup_func,
-        patch("fundamental.api.routes.kobo.KoboLibraryService") as mock_service_class,
+        patch("bookcard.api.routes.kobo.KoboLibraryService") as mock_service_class,
     ):
         mock_metadata_service = MagicMock()
         mock_metadata_func.return_value = mock_metadata_service
@@ -712,12 +708,12 @@ def test_get_kobo_cover_service(session: DummySession, mock_library: Library) ->
 
     with (
         patch(
-            "fundamental.api.routes.kobo._get_kobo_book_lookup_service"
+            "bookcard.api.routes.kobo._get_kobo_book_lookup_service"
         ) as mock_lookup_func,
         patch(
-            "fundamental.api.routes.kobo._get_kobo_store_proxy_service"
+            "bookcard.api.routes.kobo._get_kobo_store_proxy_service"
         ) as mock_proxy_func,
-        patch("fundamental.api.routes.kobo.KoboCoverService") as mock_service_class,
+        patch("bookcard.api.routes.kobo.KoboCoverService") as mock_service_class,
     ):
         mock_lookup_service = MagicMock()
         mock_lookup_func.return_value = mock_lookup_service
@@ -744,8 +740,8 @@ def test_get_kobo_shelf_item_service(session: DummySession) -> None:
     mock_book_service = MagicMock()
 
     with (
-        patch("fundamental.api.routes.kobo._get_kobo_shelf_service") as mock_shelf_func,
-        patch("fundamental.api.routes.kobo.KoboShelfItemService") as mock_service_class,
+        patch("bookcard.api.routes.kobo._get_kobo_shelf_service") as mock_shelf_func,
+        patch("bookcard.api.routes.kobo.KoboShelfItemService") as mock_service_class,
     ):
         mock_shelf_service = MagicMock()
         mock_shelf_func.return_value = mock_shelf_service
@@ -773,9 +769,7 @@ def test_get_kobo_store_proxy_service(session: DummySession) -> None:
     mock_config = IntegrationConfig(kobo_sync_enabled=True)
     session.set_exec_result([mock_config])
 
-    with patch(
-        "fundamental.api.routes.kobo.KoboStoreProxyService"
-    ) as mock_service_class:
+    with patch("bookcard.api.routes.kobo.KoboStoreProxyService") as mock_service_class:
         mock_service_instance = MagicMock()
         mock_service_class.return_value = mock_service_instance
 
@@ -812,7 +806,7 @@ async def test_handle_auth_device_success(
     mock_request.json = AsyncMock(return_value={"UserKey": "test_key"})
 
     with patch(
-        "fundamental.api.routes.kobo._get_kobo_device_auth_service",
+        "bookcard.api.routes.kobo._get_kobo_device_auth_service",
         return_value=mock_device_auth_service,
     ):
         result = await kobo_routes.handle_auth_device(
@@ -849,7 +843,7 @@ def test_handle_initialization_success(
     )
 
     with patch(
-        "fundamental.api.routes.kobo._get_kobo_initialization_service",
+        "bookcard.api.routes.kobo._get_kobo_initialization_service",
         return_value=mock_init_service,
     ):
         result = kobo_routes.handle_initialization(
@@ -895,13 +889,13 @@ async def test_handle_library_sync_success(
 
     with (
         patch(
-            "fundamental.api.routes.kobo._get_active_library", return_value=mock_library
+            "bookcard.api.routes.kobo._get_active_library", return_value=mock_library
         ),
         patch(
-            "fundamental.api.routes.kobo._get_kobo_library_service",
+            "bookcard.api.routes.kobo._get_kobo_library_service",
             return_value=mock_library_service,
         ),
-        patch("fundamental.api.routes.kobo.SyncToken") as mock_sync_token_class,
+        patch("bookcard.api.routes.kobo.SyncToken") as mock_sync_token_class,
     ):
         mock_sync_token = MagicMock()
         mock_sync_token_class.from_headers.return_value = mock_sync_token
@@ -943,14 +937,14 @@ async def test_handle_library_sync_library_no_id(
 
     with (
         patch(
-            "fundamental.api.routes.kobo._get_active_library",
+            "bookcard.api.routes.kobo._get_active_library",
             return_value=library_no_id,
         ),
         patch(
-            "fundamental.api.routes.kobo._get_kobo_library_service",
+            "bookcard.api.routes.kobo._get_kobo_library_service",
             return_value=mock_library_service,
         ),
-        patch("fundamental.api.routes.kobo.SyncToken"),
+        patch("bookcard.api.routes.kobo.SyncToken"),
         pytest.raises(HTTPException) as exc_info,
     ):
         await kobo_routes.handle_library_sync(
@@ -993,10 +987,10 @@ async def test_handle_library_sync_user_no_id(
 
     with (
         patch(
-            "fundamental.api.routes.kobo._get_active_library", return_value=mock_library
+            "bookcard.api.routes.kobo._get_active_library", return_value=mock_library
         ),
         patch(
-            "fundamental.api.routes.kobo._get_kobo_library_service",
+            "bookcard.api.routes.kobo._get_kobo_library_service",
             return_value=mock_library_service,
         ),
         pytest.raises(HTTPException) as exc_info,
@@ -1035,7 +1029,7 @@ def test_handle_library_metadata_success(
     mock_library_service.get_book_metadata = MagicMock(return_value=mock_metadata)
 
     with patch(
-        "fundamental.api.routes.kobo._get_kobo_library_service",
+        "bookcard.api.routes.kobo._get_kobo_library_service",
         return_value=mock_library_service,
     ):
         result = kobo_routes.handle_library_metadata(
@@ -1073,11 +1067,11 @@ def test_handle_library_metadata_proxy_redirect(
 
     with (
         patch(
-            "fundamental.api.routes.kobo._get_kobo_library_service",
+            "bookcard.api.routes.kobo._get_kobo_library_service",
             return_value=mock_library_service,
         ),
         patch(
-            "fundamental.api.routes.kobo._get_kobo_store_proxy_service"
+            "bookcard.api.routes.kobo._get_kobo_store_proxy_service"
         ) as mock_proxy_func,
     ):
         mock_proxy_service = MagicMock()
@@ -1119,11 +1113,11 @@ def test_handle_library_metadata_no_proxy_raises(
 
     with (
         patch(
-            "fundamental.api.routes.kobo._get_kobo_library_service",
+            "bookcard.api.routes.kobo._get_kobo_library_service",
             return_value=mock_library_service,
         ),
         patch(
-            "fundamental.api.routes.kobo._get_kobo_store_proxy_service"
+            "bookcard.api.routes.kobo._get_kobo_store_proxy_service"
         ) as mock_proxy_func,
     ):
         mock_proxy_service = MagicMock()
@@ -1165,7 +1159,7 @@ def test_handle_library_delete_success(
 
     with (
         patch(
-            "fundamental.api.routes.kobo._get_kobo_library_service",
+            "bookcard.api.routes.kobo._get_kobo_library_service",
             return_value=mock_library_service,
         ),
     ):
@@ -1205,7 +1199,7 @@ def test_handle_library_delete_user_no_id(
 
     with (
         patch(
-            "fundamental.api.routes.kobo._get_kobo_library_service",
+            "bookcard.api.routes.kobo._get_kobo_library_service",
             return_value=mock_library_service,
         ),
         pytest.raises(HTTPException) as exc_info,
@@ -1248,11 +1242,11 @@ def test_handle_library_delete_proxy_redirect(
 
     with (
         patch(
-            "fundamental.api.routes.kobo._get_kobo_library_service",
+            "bookcard.api.routes.kobo._get_kobo_library_service",
             return_value=mock_library_service,
         ),
         patch(
-            "fundamental.api.routes.kobo._get_kobo_store_proxy_service"
+            "bookcard.api.routes.kobo._get_kobo_store_proxy_service"
         ) as mock_proxy_func,
     ):
         mock_proxy_service = MagicMock()
@@ -1295,11 +1289,11 @@ def test_handle_library_delete_no_proxy_raises(
 
     with (
         patch(
-            "fundamental.api.routes.kobo._get_kobo_library_service",
+            "bookcard.api.routes.kobo._get_kobo_library_service",
             return_value=mock_library_service,
         ),
         patch(
-            "fundamental.api.routes.kobo._get_kobo_store_proxy_service"
+            "bookcard.api.routes.kobo._get_kobo_store_proxy_service"
         ) as mock_proxy_func,
     ):
         mock_proxy_service = MagicMock()
@@ -1367,14 +1361,14 @@ def test_handle_reading_state_get_success(
 
     with (
         patch(
-            "fundamental.api.routes.kobo._get_active_library", return_value=mock_library
+            "bookcard.api.routes.kobo._get_active_library", return_value=mock_library
         ),
         patch(
-            "fundamental.api.routes.kobo._get_kobo_reading_state_service"
+            "bookcard.api.routes.kobo._get_kobo_reading_state_service"
         ) as mock_reading_func,
-        patch("fundamental.api.routes.kobo.ReadStatusRepository") as mock_repo_class,
+        patch("bookcard.api.routes.kobo.ReadStatusRepository") as mock_repo_class,
         patch(
-            "fundamental.api.routes.kobo._get_kobo_metadata_service"
+            "bookcard.api.routes.kobo._get_kobo_metadata_service"
         ) as mock_metadata_func,
     ):
         mock_reading_func.return_value = mock_reading_state_service
@@ -1466,11 +1460,11 @@ def test_handle_reading_state_get_library_no_id(
 
     with (
         patch(
-            "fundamental.api.routes.kobo._get_active_library",
+            "bookcard.api.routes.kobo._get_active_library",
             return_value=library_no_id,
         ),
-        patch("fundamental.api.routes.kobo._get_kobo_reading_state_service"),
-        patch("fundamental.api.routes.kobo.ReadStatusRepository"),
+        patch("bookcard.api.routes.kobo._get_kobo_reading_state_service"),
+        patch("bookcard.api.routes.kobo.ReadStatusRepository"),
         pytest.raises(HTTPException) as exc_info,
     ):
         kobo_routes.handle_reading_state_get(
@@ -1518,7 +1512,7 @@ def test_handle_reading_state_get_proxy_redirect(
 
     with (
         patch(
-            "fundamental.api.routes.kobo._get_kobo_store_proxy_service"
+            "bookcard.api.routes.kobo._get_kobo_store_proxy_service"
         ) as mock_proxy_func,
     ):
         mock_proxy_service = MagicMock()
@@ -1567,7 +1561,7 @@ def test_handle_reading_state_get_no_proxy_raises(
     mock_book_lookup_service.find_book_by_uuid = MagicMock(return_value=None)
 
     with patch(
-        "fundamental.api.routes.kobo._get_kobo_store_proxy_service"
+        "bookcard.api.routes.kobo._get_kobo_store_proxy_service"
     ) as mock_proxy_func:
         mock_proxy_service = MagicMock()
         mock_proxy_service.should_proxy.return_value = False
@@ -1606,7 +1600,7 @@ async def test_handle_reading_state_put_success(
     mock_library : Library
         Mock library.
     """
-    from fundamental.api.schemas.kobo import KoboReadingStateRequest
+    from bookcard.api.schemas.kobo import KoboReadingStateRequest
 
     mock_config = IntegrationConfig(kobo_sync_enabled=True)
     session.set_exec_result([mock_config])
@@ -1628,10 +1622,10 @@ async def test_handle_reading_state_put_success(
 
     with (
         patch(
-            "fundamental.api.routes.kobo._get_active_library", return_value=mock_library
+            "bookcard.api.routes.kobo._get_active_library", return_value=mock_library
         ),
         patch(
-            "fundamental.api.routes.kobo._get_kobo_reading_state_service"
+            "bookcard.api.routes.kobo._get_kobo_reading_state_service"
         ) as mock_reading_func,
     ):
         mock_reading_func.return_value = mock_reading_state_service
@@ -1662,7 +1656,7 @@ async def test_handle_reading_state_put_user_no_id(
     mock_library : Library
         Mock library.
     """
-    from fundamental.api.schemas.kobo import KoboReadingStateRequest
+    from bookcard.api.schemas.kobo import KoboReadingStateRequest
 
     mock_config = IntegrationConfig(kobo_sync_enabled=True)
     session.set_exec_result([mock_config])
@@ -1706,7 +1700,7 @@ async def test_handle_reading_state_put_book_not_found(
     mock_library : Library
         Mock library.
     """
-    from fundamental.api.schemas.kobo import KoboReadingStateRequest
+    from bookcard.api.schemas.kobo import KoboReadingStateRequest
 
     mock_config = IntegrationConfig(kobo_sync_enabled=True)
     session.set_exec_result([mock_config])
@@ -1720,7 +1714,7 @@ async def test_handle_reading_state_put_book_not_found(
 
     with (
         patch(
-            "fundamental.api.routes.kobo._get_active_library", return_value=mock_library
+            "bookcard.api.routes.kobo._get_active_library", return_value=mock_library
         ),
         pytest.raises(HTTPException) as exc_info,
     ):
@@ -1751,7 +1745,7 @@ async def test_handle_reading_state_put_library_no_id(
     kobo_user : User
         Kobo user.
     """
-    from fundamental.api.schemas.kobo import KoboReadingStateRequest
+    from bookcard.api.schemas.kobo import KoboReadingStateRequest
 
     mock_config = IntegrationConfig(kobo_sync_enabled=True)
     session.set_exec_result([mock_config])
@@ -1768,10 +1762,10 @@ async def test_handle_reading_state_put_library_no_id(
 
     with (
         patch(
-            "fundamental.api.routes.kobo._get_active_library",
+            "bookcard.api.routes.kobo._get_active_library",
             return_value=library_no_id,
         ),
-        patch("fundamental.api.routes.kobo._get_kobo_reading_state_service"),
+        patch("bookcard.api.routes.kobo._get_kobo_reading_state_service"),
         pytest.raises(HTTPException) as exc_info,
     ):
         await kobo_routes.handle_reading_state_put(
@@ -1803,7 +1797,7 @@ async def test_handle_reading_state_put_no_states(
     mock_library : Library
         Mock library.
     """
-    from fundamental.api.schemas.kobo import KoboReadingStateRequest
+    from bookcard.api.schemas.kobo import KoboReadingStateRequest
 
     mock_config = IntegrationConfig(kobo_sync_enabled=True)
     session.set_exec_result([mock_config])
@@ -1817,9 +1811,9 @@ async def test_handle_reading_state_put_no_states(
 
     with (
         patch(
-            "fundamental.api.routes.kobo._get_active_library", return_value=mock_library
+            "bookcard.api.routes.kobo._get_active_library", return_value=mock_library
         ),
-        patch("fundamental.api.routes.kobo._get_kobo_reading_state_service"),
+        patch("bookcard.api.routes.kobo._get_kobo_reading_state_service"),
         pytest.raises(HTTPException) as exc_info,
     ):
         await kobo_routes.handle_reading_state_put(
@@ -1846,7 +1840,7 @@ def test_handle_tags_create_success(session: DummySession, kobo_user: User) -> N
     kobo_user : User
         Kobo user.
     """
-    from fundamental.api.schemas.kobo import KoboTagRequest
+    from bookcard.api.schemas.kobo import KoboTagRequest
 
     mock_config = IntegrationConfig(kobo_sync_enabled=True)
     session.set_exec_result([mock_config])
@@ -1855,16 +1849,16 @@ def test_handle_tags_create_success(session: DummySession, kobo_user: User) -> N
     mock_library = Library(id=1, name="Test Library", path="/path/to/library")
 
     mock_shelf_service = MagicMock()
-    from fundamental.models.shelves import Shelf
+    from bookcard.models.shelves import Shelf
 
     mock_shelf = Shelf(id=1, uuid="test-uuid", name="Test Shelf", user_id=kobo_user.id)
     mock_shelf_service.create_shelf_from_kobo = MagicMock(return_value=mock_shelf)
 
     with (
         patch(
-            "fundamental.api.routes.kobo._get_active_library", return_value=mock_library
+            "bookcard.api.routes.kobo._get_active_library", return_value=mock_library
         ),
-        patch("fundamental.api.routes.kobo._get_kobo_shelf_service") as mock_shelf_func,
+        patch("bookcard.api.routes.kobo._get_kobo_shelf_service") as mock_shelf_func,
     ):
         mock_shelf_func.return_value = mock_shelf_service
 
@@ -1886,7 +1880,7 @@ def test_handle_tags_create_user_no_id(session: DummySession) -> None:
     session : DummySession
         Dummy session.
     """
-    from fundamental.api.schemas.kobo import KoboTagRequest
+    from bookcard.api.schemas.kobo import KoboTagRequest
 
     mock_config = IntegrationConfig(kobo_sync_enabled=True)
     session.set_exec_result([mock_config])
@@ -1921,7 +1915,7 @@ def test_handle_tags_create_library_no_id(
     kobo_user : User
         Kobo user.
     """
-    from fundamental.api.schemas.kobo import KoboTagRequest
+    from bookcard.api.schemas.kobo import KoboTagRequest
 
     mock_config = IntegrationConfig(kobo_sync_enabled=True)
     session.set_exec_result([mock_config])
@@ -1931,7 +1925,7 @@ def test_handle_tags_create_library_no_id(
 
     with (
         patch(
-            "fundamental.api.routes.kobo._get_active_library",
+            "bookcard.api.routes.kobo._get_active_library",
             return_value=library_no_id,
         ),
         pytest.raises(HTTPException) as exc_info,
@@ -1980,7 +1974,7 @@ def test_handle_download_success(session: DummySession) -> None:
         )
 
         with patch(
-            "fundamental.api.routes.kobo._get_kobo_download_service",
+            "bookcard.api.routes.kobo._get_kobo_download_service",
             return_value=mock_download_service,
         ):
             result = kobo_routes.handle_download(
@@ -2017,7 +2011,7 @@ def test_handle_cover_image_success(session: DummySession) -> None:
     mock_cover_service.get_cover_image = MagicMock(return_value=mock_file_response)
 
     with patch(
-        "fundamental.api.routes.kobo._get_kobo_cover_service",
+        "bookcard.api.routes.kobo._get_kobo_cover_service",
         return_value=mock_cover_service,
     ):
         result = kobo_routes.handle_cover_image(
@@ -2070,8 +2064,8 @@ def test_handle_tags_update_put_success(
     auth_token : str
         Auth token.
     """
-    from fundamental.api.schemas.kobo import KoboTagRequest
-    from fundamental.models.shelves import Shelf
+    from bookcard.api.schemas.kobo import KoboTagRequest
+    from bookcard.models.shelves import Shelf
 
     mock_config = IntegrationConfig(kobo_sync_enabled=True)
     session.set_exec_result([mock_config])
@@ -2087,9 +2081,9 @@ def test_handle_tags_update_put_success(
 
     with (
         patch(
-            "fundamental.repositories.shelf_repository.ShelfRepository"
+            "bookcard.repositories.shelf_repository.ShelfRepository"
         ) as mock_repo_class,
-        patch("fundamental.api.routes.kobo._get_kobo_shelf_service") as mock_shelf_func,
+        patch("bookcard.api.routes.kobo._get_kobo_shelf_service") as mock_shelf_func,
     ):
         mock_repo = MagicMock()
         mock_repo.find_by_uuid.return_value = mock_shelf
@@ -2169,7 +2163,7 @@ def test_handle_tags_update_delete_success(
     auth_token : str
         Auth token.
     """
-    from fundamental.models.shelves import Shelf
+    from bookcard.models.shelves import Shelf
 
     mock_config = IntegrationConfig(kobo_sync_enabled=True)
     session.set_exec_result([mock_config])
@@ -2184,13 +2178,13 @@ def test_handle_tags_update_delete_success(
 
     with (
         patch(
-            "fundamental.repositories.shelf_repository.ShelfRepository"
+            "bookcard.repositories.shelf_repository.ShelfRepository"
         ) as mock_repo_class,
         patch(
-            "fundamental.repositories.shelf_repository.BookShelfLinkRepository"
+            "bookcard.repositories.shelf_repository.BookShelfLinkRepository"
         ) as mock_link_repo_class,
         patch(
-            "fundamental.services.shelf_service.ShelfService"
+            "bookcard.services.shelf_service.ShelfService"
         ) as mock_shelf_service_class,
     ):
         mock_repo = MagicMock()
@@ -2243,10 +2237,10 @@ def test_handle_tags_update_proxy_redirect(
 
     with (
         patch(
-            "fundamental.repositories.shelf_repository.ShelfRepository"
+            "bookcard.repositories.shelf_repository.ShelfRepository"
         ) as mock_repo_class,
         patch(
-            "fundamental.api.routes.kobo._get_kobo_store_proxy_service"
+            "bookcard.api.routes.kobo._get_kobo_store_proxy_service"
         ) as mock_proxy_func,
     ):
         mock_repo = MagicMock()
@@ -2299,10 +2293,10 @@ def test_handle_tags_update_no_proxy_raises(
 
     with (
         patch(
-            "fundamental.repositories.shelf_repository.ShelfRepository"
+            "bookcard.repositories.shelf_repository.ShelfRepository"
         ) as mock_repo_class,
         patch(
-            "fundamental.api.routes.kobo._get_kobo_store_proxy_service"
+            "bookcard.api.routes.kobo._get_kobo_store_proxy_service"
         ) as mock_proxy_func,
     ):
         mock_repo = MagicMock()
@@ -2338,8 +2332,8 @@ def test_handle_tags_add_items_success(session: DummySession, kobo_user: User) -
     kobo_user : User
         Kobo user.
     """
-    from fundamental.api.schemas.kobo import KoboTagItemRequest
-    from fundamental.models.shelves import Shelf
+    from bookcard.api.schemas.kobo import KoboTagItemRequest
+    from bookcard.models.shelves import Shelf
 
     mock_config = IntegrationConfig(kobo_sync_enabled=True)
     session.set_exec_result([mock_config])
@@ -2352,7 +2346,7 @@ def test_handle_tags_add_items_success(session: DummySession, kobo_user: User) -
     mock_shelf_item_service.add_items_to_shelf = MagicMock(return_value=None)
 
     with patch(
-        "fundamental.repositories.shelf_repository.ShelfRepository"
+        "bookcard.repositories.shelf_repository.ShelfRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.find_by_uuid.return_value = mock_shelf
@@ -2380,7 +2374,7 @@ def test_handle_tags_add_items_user_no_id(session: DummySession) -> None:
     session : DummySession
         Dummy session.
     """
-    from fundamental.api.schemas.kobo import KoboTagItemRequest
+    from bookcard.api.schemas.kobo import KoboTagItemRequest
 
     mock_config = IntegrationConfig(kobo_sync_enabled=True)
     session.set_exec_result([mock_config])
@@ -2419,7 +2413,7 @@ def test_handle_tags_add_items_shelf_not_found(
     kobo_user : User
         Kobo user.
     """
-    from fundamental.api.schemas.kobo import KoboTagItemRequest
+    from bookcard.api.schemas.kobo import KoboTagItemRequest
 
     mock_config = IntegrationConfig(kobo_sync_enabled=True)
     session.set_exec_result([mock_config])
@@ -2430,7 +2424,7 @@ def test_handle_tags_add_items_shelf_not_found(
     mock_shelf_item_service = MagicMock()
 
     with patch(
-        "fundamental.repositories.shelf_repository.ShelfRepository"
+        "bookcard.repositories.shelf_repository.ShelfRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.find_by_uuid.return_value = None
@@ -2463,8 +2457,8 @@ def test_handle_tags_add_items_shelf_no_id(
     kobo_user : User
         Kobo user.
     """
-    from fundamental.api.schemas.kobo import KoboTagItemRequest
-    from fundamental.models.shelves import Shelf
+    from bookcard.api.schemas.kobo import KoboTagItemRequest
+    from bookcard.models.shelves import Shelf
 
     mock_config = IntegrationConfig(kobo_sync_enabled=True)
     session.set_exec_result([mock_config])
@@ -2476,7 +2470,7 @@ def test_handle_tags_add_items_shelf_no_id(
     mock_shelf_item_service = MagicMock()
 
     with patch(
-        "fundamental.repositories.shelf_repository.ShelfRepository"
+        "bookcard.repositories.shelf_repository.ShelfRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.find_by_uuid.return_value = mock_shelf
@@ -2509,8 +2503,8 @@ def test_handle_tags_remove_items_success(
     kobo_user : User
         Kobo user.
     """
-    from fundamental.api.schemas.kobo import KoboTagItemRequest
-    from fundamental.models.shelves import Shelf
+    from bookcard.api.schemas.kobo import KoboTagItemRequest
+    from bookcard.models.shelves import Shelf
 
     mock_config = IntegrationConfig(kobo_sync_enabled=True)
     session.set_exec_result([mock_config])
@@ -2523,7 +2517,7 @@ def test_handle_tags_remove_items_success(
     mock_shelf_item_service.remove_items_from_shelf = MagicMock(return_value=None)
 
     with patch(
-        "fundamental.repositories.shelf_repository.ShelfRepository"
+        "bookcard.repositories.shelf_repository.ShelfRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.find_by_uuid.return_value = mock_shelf
@@ -2551,7 +2545,7 @@ def test_handle_tags_remove_items_user_no_id(session: DummySession) -> None:
     session : DummySession
         Dummy session.
     """
-    from fundamental.api.schemas.kobo import KoboTagItemRequest
+    from bookcard.api.schemas.kobo import KoboTagItemRequest
 
     mock_config = IntegrationConfig(kobo_sync_enabled=True)
     session.set_exec_result([mock_config])
@@ -2590,7 +2584,7 @@ def test_handle_tags_remove_items_shelf_not_found(
     kobo_user : User
         Kobo user.
     """
-    from fundamental.api.schemas.kobo import KoboTagItemRequest
+    from bookcard.api.schemas.kobo import KoboTagItemRequest
 
     mock_config = IntegrationConfig(kobo_sync_enabled=True)
     session.set_exec_result([mock_config])
@@ -2601,7 +2595,7 @@ def test_handle_tags_remove_items_shelf_not_found(
     mock_shelf_item_service = MagicMock()
 
     with patch(
-        "fundamental.repositories.shelf_repository.ShelfRepository"
+        "bookcard.repositories.shelf_repository.ShelfRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.find_by_uuid.return_value = None
@@ -2634,8 +2628,8 @@ def test_handle_tags_remove_items_shelf_no_id(
     kobo_user : User
         Kobo user.
     """
-    from fundamental.api.schemas.kobo import KoboTagItemRequest
-    from fundamental.models.shelves import Shelf
+    from bookcard.api.schemas.kobo import KoboTagItemRequest
+    from bookcard.models.shelves import Shelf
 
     mock_config = IntegrationConfig(kobo_sync_enabled=True)
     session.set_exec_result([mock_config])
@@ -2647,7 +2641,7 @@ def test_handle_tags_remove_items_shelf_no_id(
     mock_shelf_item_service = MagicMock()
 
     with patch(
-        "fundamental.repositories.shelf_repository.ShelfRepository"
+        "bookcard.repositories.shelf_repository.ShelfRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.find_by_uuid.return_value = mock_shelf

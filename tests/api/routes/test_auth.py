@@ -20,9 +20,9 @@ from dataclasses import dataclass
 import pytest
 from fastapi import HTTPException
 
-import fundamental.api.routes.auth as auth
-from fundamental.api.schemas import ProfilePictureUpdateRequest
-from fundamental.models.auth import User
+import bookcard.api.routes.auth as auth
+from bookcard.api.schemas import ProfilePictureUpdateRequest
+from bookcard.models.auth import User
 from tests.conftest import TEST_ENCRYPTION_KEY, DummySession
 
 
@@ -358,7 +358,7 @@ def test_auth_service_constructs_service(monkeypatch: pytest.MonkeyPatch) -> Non
 
     # Test that _auth_service constructs the service correctly
     service = auth._auth_service(request, session)  # type: ignore[arg-type]
-    from fundamental.services.auth_service import AuthService
+    from bookcard.services.auth_service import AuthService
 
     assert isinstance(service, AuthService)
 
@@ -510,9 +510,9 @@ def test_logout_with_token_blacklists(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_blacklist_repo = MagicMock()
 
     with (
-        patch("fundamental.api.routes.auth.JWTManager", return_value=mock_jwt_mgr),
+        patch("bookcard.api.routes.auth.JWTManager", return_value=mock_jwt_mgr),
         patch(
-            "fundamental.api.routes.auth.TokenBlacklistRepository",
+            "bookcard.api.routes.auth.TokenBlacklistRepository",
             return_value=mock_blacklist_repo,
         ),
     ):
@@ -528,7 +528,7 @@ def test_logout_with_invalid_token(monkeypatch: pytest.MonkeyPatch) -> None:
     from unittest.mock import MagicMock, patch
 
     # Import SecurityTokenError from the same place auth.py imports it
-    from fundamental.services.security import SecurityTokenError
+    from bookcard.services.security import SecurityTokenError
 
     request = DummyRequest()
     request.headers = {"Authorization": "Bearer invalid-token"}
@@ -538,7 +538,7 @@ def test_logout_with_invalid_token(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_jwt_mgr.decode_token.side_effect = SecurityTokenError("Invalid token")
 
     # Patch JWTManager to return our mock when instantiated
-    with patch("fundamental.api.routes.auth.JWTManager", return_value=mock_jwt_mgr):
+    with patch("bookcard.api.routes.auth.JWTManager", return_value=mock_jwt_mgr):
         session = DummySession()
         # This should execute lines 220-225: try to decode, catch SecurityTokenError, return None
         # Line 218: JWTManager is instantiated
@@ -561,7 +561,7 @@ def test_logout_without_jti_or_exp(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_jwt_mgr = MagicMock()
     mock_jwt_mgr.decode_token.return_value = {}  # No jti or exp
 
-    with patch("fundamental.api.routes.auth.JWTManager", return_value=mock_jwt_mgr):
+    with patch("bookcard.api.routes.auth.JWTManager", return_value=mock_jwt_mgr):
         session = DummySession()
         result = auth.logout(request, session)
         assert result is None
@@ -1380,7 +1380,7 @@ def test_get_profile_picture_success_relative(monkeypatch: pytest.MonkeyPatch) -
 
 def test_get_settings_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test get_settings returns settings (covers lines 585-592)."""
-    from fundamental.models.auth import UserSetting
+    from bookcard.models.auth import UserSetting
 
     user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
 
@@ -1415,7 +1415,7 @@ def test_get_settings_success(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_upsert_setting_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test upsert_setting succeeds (covers lines 625-634)."""
-    from fundamental.models.auth import UserSetting
+    from bookcard.models.auth import UserSetting
 
     user = User(id=1, username="alice", email="a@example.com", password_hash="hash")
 
@@ -1536,7 +1536,7 @@ def test_get_email_server_config_returns_defaults(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test get_email_server_config returns defaults when config is None (covers lines 662-681)."""
-    from fundamental.models.config import EmailServerType
+    from bookcard.models.config import EmailServerType
 
     user = User(
         id=1,
@@ -1577,7 +1577,7 @@ def test_get_email_server_config_returns_existing(
     """Test get_email_server_config returns existing config (covers line 682)."""
     from datetime import UTC, datetime
 
-    from fundamental.models.config import EmailServerConfig, EmailServerType
+    from bookcard.models.config import EmailServerConfig, EmailServerType
 
     user = User(
         id=1,
@@ -1620,7 +1620,7 @@ def test_get_email_server_config_returns_existing(
 
 def test_upsert_email_server_config_not_admin(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test upsert_email_server_config raises 403 when user is not admin (covers line 701-702)."""
-    from fundamental.api.schemas import EmailServerConfigUpdate
+    from bookcard.api.schemas import EmailServerConfigUpdate
 
     user = User(
         id=1,
@@ -1657,8 +1657,8 @@ def test_upsert_email_server_config_success(monkeypatch: pytest.MonkeyPatch) -> 
     """Test upsert_email_server_config succeeds (covers lines 704-721)."""
     from datetime import UTC, datetime
 
-    from fundamental.api.schemas import EmailServerConfigUpdate
-    from fundamental.models.config import EmailServerConfig, EmailServerType
+    from bookcard.api.schemas import EmailServerConfigUpdate
+    from bookcard.models.config import EmailServerConfig, EmailServerType
 
     user = User(
         id=1,
@@ -1709,8 +1709,8 @@ def test_upsert_email_server_config_retrieval_fails(
     """Test upsert_email_server_config raises 500 when retrieval fails (covers lines 710-714)."""
     from datetime import UTC, datetime
 
-    from fundamental.api.schemas import EmailServerConfigUpdate
-    from fundamental.models.config import EmailServerConfig, EmailServerType
+    from bookcard.api.schemas import EmailServerConfigUpdate
+    from bookcard.models.config import EmailServerConfig, EmailServerType
 
     user = User(
         id=1,
@@ -1758,7 +1758,7 @@ def test_upsert_email_server_config_invalid_smtp_encryption(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test upsert_email_server_config raises 400 for invalid_smtp_encryption (covers lines 715-719)."""
-    from fundamental.api.schemas import EmailServerConfigUpdate
+    from bookcard.api.schemas import EmailServerConfigUpdate
 
     user = User(
         id=1,
@@ -1795,7 +1795,7 @@ def test_upsert_email_server_config_other_value_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test upsert_email_server_config re-raises ValueError with other messages (covers line 719)."""
-    from fundamental.api.schemas import EmailServerConfigUpdate
+    from bookcard.api.schemas import EmailServerConfigUpdate
 
     user = User(
         id=1,

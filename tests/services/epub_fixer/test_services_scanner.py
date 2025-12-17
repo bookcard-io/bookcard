@@ -22,11 +22,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.config import Library
-from fundamental.models.core import Book
-from fundamental.models.media import Data
-from fundamental.repositories.calibre_book_repository import CalibreBookRepository
-from fundamental.services.epub_fixer.services.scanner import EPUBFileInfo, EPUBScanner
+from bookcard.models.config import Library
+from bookcard.models.core import Book
+from bookcard.models.media import Data
+from bookcard.repositories.calibre_book_repository import CalibreBookRepository
+from bookcard.services.epub_fixer.services.scanner import EPUBFileInfo, EPUBScanner
 
 
 @pytest.fixture

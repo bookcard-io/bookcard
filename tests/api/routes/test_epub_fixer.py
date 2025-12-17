@@ -23,13 +23,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException, Request, status
 
-import fundamental.api.routes.epub_fixer as epub_fixer_routes
-from fundamental.api.schemas.epub_fixer import (
+import bookcard.api.routes.epub_fixer as epub_fixer_routes
+from bookcard.api.schemas.epub_fixer import (
     EPUBFixBatchRequest,
     EPUBFixSingleRequest,
 )
-from fundamental.models.auth import User
-from fundamental.models.epub_fixer import EPUBFix, EPUBFixRun, EPUBFixType
+from bookcard.models.auth import User
+from bookcard.models.epub_fixer import EPUBFix, EPUBFixRun, EPUBFixType
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession
@@ -157,7 +157,7 @@ def test_fix_single_epub_success(
     mock_task_runner.enqueue.return_value = 123
 
     with patch(
-        "fundamental.api.routes.epub_fixer.PermissionService"
+        "bookcard.api.routes.epub_fixer.PermissionService"
     ) as mock_permission_class:
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission
@@ -201,7 +201,7 @@ def test_fix_single_epub_with_optional_fields(
     mock_task_runner.enqueue.return_value = 123
 
     with patch(
-        "fundamental.api.routes.epub_fixer.PermissionService"
+        "bookcard.api.routes.epub_fixer.PermissionService"
     ) as mock_permission_class:
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission
@@ -237,7 +237,7 @@ def test_fix_single_epub_no_task_runner(
     request_body = EPUBFixSingleRequest(file_path="/path/to/book.epub")
 
     with patch(
-        "fundamental.api.routes.epub_fixer.PermissionService"
+        "bookcard.api.routes.epub_fixer.PermissionService"
     ) as mock_permission_class:
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission
@@ -275,7 +275,7 @@ def test_fix_single_epub_enqueue_exception(
     mock_task_runner.enqueue.side_effect = Exception("Queue full")
 
     with patch(
-        "fundamental.api.routes.epub_fixer.PermissionService"
+        "bookcard.api.routes.epub_fixer.PermissionService"
     ) as mock_permission_class:
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission
@@ -316,7 +316,7 @@ def test_fix_batch_epub_success(
     mock_task_runner.enqueue.return_value = 456
 
     with patch(
-        "fundamental.api.routes.epub_fixer.PermissionService"
+        "bookcard.api.routes.epub_fixer.PermissionService"
     ) as mock_permission_class:
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission
@@ -355,7 +355,7 @@ def test_fix_batch_epub_with_library_id(
     mock_task_runner.enqueue.return_value = 456
 
     with patch(
-        "fundamental.api.routes.epub_fixer.PermissionService"
+        "bookcard.api.routes.epub_fixer.PermissionService"
     ) as mock_permission_class:
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission
@@ -388,7 +388,7 @@ def test_fix_batch_epub_no_task_runner(
     request_body = EPUBFixBatchRequest()
 
     with patch(
-        "fundamental.api.routes.epub_fixer.PermissionService"
+        "bookcard.api.routes.epub_fixer.PermissionService"
     ) as mock_permission_class:
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission
@@ -425,7 +425,7 @@ def test_fix_batch_epub_enqueue_exception(
     mock_task_runner.enqueue.side_effect = Exception("Queue full")
 
     with patch(
-        "fundamental.api.routes.epub_fixer.PermissionService"
+        "bookcard.api.routes.epub_fixer.PermissionService"
     ) as mock_permission_class:
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission
@@ -492,11 +492,9 @@ def test_list_fix_runs(
 
     with (
         patch(
-            "fundamental.api.routes.epub_fixer.PermissionService"
+            "bookcard.api.routes.epub_fixer.PermissionService"
         ) as mock_permission_class,
-        patch(
-            "fundamental.api.routes.epub_fixer.EPUBFixerService"
-        ) as mock_service_class,
+        patch("bookcard.api.routes.epub_fixer.EPUBFixerService") as mock_service_class,
     ):
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission
@@ -538,11 +536,9 @@ def test_list_fix_runs_pagination_estimation(
 
     with (
         patch(
-            "fundamental.api.routes.epub_fixer.PermissionService"
+            "bookcard.api.routes.epub_fixer.PermissionService"
         ) as mock_permission_class,
-        patch(
-            "fundamental.api.routes.epub_fixer.EPUBFixerService"
-        ) as mock_service_class,
+        patch("bookcard.api.routes.epub_fixer.EPUBFixerService") as mock_service_class,
     ):
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission
@@ -584,11 +580,9 @@ def test_get_fix_run_success(mock_user: User, session: DummySession) -> None:
 
     with (
         patch(
-            "fundamental.api.routes.epub_fixer.PermissionService"
+            "bookcard.api.routes.epub_fixer.PermissionService"
         ) as mock_permission_class,
-        patch(
-            "fundamental.api.routes.epub_fixer.EPUBFixerService"
-        ) as mock_service_class,
+        patch("bookcard.api.routes.epub_fixer.EPUBFixerService") as mock_service_class,
     ):
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission
@@ -620,11 +614,9 @@ def test_get_fix_run_not_found(mock_user: User, session: DummySession) -> None:
 
     with (
         patch(
-            "fundamental.api.routes.epub_fixer.PermissionService"
+            "bookcard.api.routes.epub_fixer.PermissionService"
         ) as mock_permission_class,
-        patch(
-            "fundamental.api.routes.epub_fixer.EPUBFixerService"
-        ) as mock_service_class,
+        patch("bookcard.api.routes.epub_fixer.EPUBFixerService") as mock_service_class,
     ):
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission
@@ -663,11 +655,9 @@ def test_get_fix_run_access_denied(
 
     with (
         patch(
-            "fundamental.api.routes.epub_fixer.PermissionService"
+            "bookcard.api.routes.epub_fixer.PermissionService"
         ) as mock_permission_class,
-        patch(
-            "fundamental.api.routes.epub_fixer.EPUBFixerService"
-        ) as mock_service_class,
+        patch("bookcard.api.routes.epub_fixer.EPUBFixerService") as mock_service_class,
     ):
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission
@@ -716,11 +706,9 @@ def test_get_fixes_for_run_success(mock_user: User, session: DummySession) -> No
 
     with (
         patch(
-            "fundamental.api.routes.epub_fixer.PermissionService"
+            "bookcard.api.routes.epub_fixer.PermissionService"
         ) as mock_permission_class,
-        patch(
-            "fundamental.api.routes.epub_fixer.EPUBFixerService"
-        ) as mock_service_class,
+        patch("bookcard.api.routes.epub_fixer.EPUBFixerService") as mock_service_class,
     ):
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission
@@ -754,11 +742,9 @@ def test_get_fixes_for_run_not_found(mock_user: User, session: DummySession) -> 
 
     with (
         patch(
-            "fundamental.api.routes.epub_fixer.PermissionService"
+            "bookcard.api.routes.epub_fixer.PermissionService"
         ) as mock_permission_class,
-        patch(
-            "fundamental.api.routes.epub_fixer.EPUBFixerService"
-        ) as mock_service_class,
+        patch("bookcard.api.routes.epub_fixer.EPUBFixerService") as mock_service_class,
     ):
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission
@@ -797,11 +783,9 @@ def test_get_fixes_for_run_access_denied(
 
     with (
         patch(
-            "fundamental.api.routes.epub_fixer.PermissionService"
+            "bookcard.api.routes.epub_fixer.PermissionService"
         ) as mock_permission_class,
-        patch(
-            "fundamental.api.routes.epub_fixer.EPUBFixerService"
-        ) as mock_service_class,
+        patch("bookcard.api.routes.epub_fixer.EPUBFixerService") as mock_service_class,
     ):
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission
@@ -852,11 +836,9 @@ def test_rollback_fix_run_success(mock_user: User, session: DummySession) -> Non
 
     with (
         patch(
-            "fundamental.api.routes.epub_fixer.PermissionService"
+            "bookcard.api.routes.epub_fixer.PermissionService"
         ) as mock_permission_class,
-        patch(
-            "fundamental.api.routes.epub_fixer.EPUBFixerService"
-        ) as mock_service_class,
+        patch("bookcard.api.routes.epub_fixer.EPUBFixerService") as mock_service_class,
     ):
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission
@@ -890,11 +872,9 @@ def test_rollback_fix_run_not_found(mock_user: User, session: DummySession) -> N
 
     with (
         patch(
-            "fundamental.api.routes.epub_fixer.PermissionService"
+            "bookcard.api.routes.epub_fixer.PermissionService"
         ) as mock_permission_class,
-        patch(
-            "fundamental.api.routes.epub_fixer.EPUBFixerService"
-        ) as mock_service_class,
+        patch("bookcard.api.routes.epub_fixer.EPUBFixerService") as mock_service_class,
     ):
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission
@@ -933,11 +913,9 @@ def test_rollback_fix_run_access_denied(
 
     with (
         patch(
-            "fundamental.api.routes.epub_fixer.PermissionService"
+            "bookcard.api.routes.epub_fixer.PermissionService"
         ) as mock_permission_class,
-        patch(
-            "fundamental.api.routes.epub_fixer.EPUBFixerService"
-        ) as mock_service_class,
+        patch("bookcard.api.routes.epub_fixer.EPUBFixerService") as mock_service_class,
     ):
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission
@@ -972,11 +950,9 @@ def test_rollback_fix_run_value_error(mock_user: User, session: DummySession) ->
 
     with (
         patch(
-            "fundamental.api.routes.epub_fixer.PermissionService"
+            "bookcard.api.routes.epub_fixer.PermissionService"
         ) as mock_permission_class,
-        patch(
-            "fundamental.api.routes.epub_fixer.EPUBFixerService"
-        ) as mock_service_class,
+        patch("bookcard.api.routes.epub_fixer.EPUBFixerService") as mock_service_class,
     ):
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission
@@ -1014,11 +990,9 @@ def test_rollback_fix_run_generic_exception(
 
     with (
         patch(
-            "fundamental.api.routes.epub_fixer.PermissionService"
+            "bookcard.api.routes.epub_fixer.PermissionService"
         ) as mock_permission_class,
-        patch(
-            "fundamental.api.routes.epub_fixer.EPUBFixerService"
-        ) as mock_service_class,
+        patch("bookcard.api.routes.epub_fixer.EPUBFixerService") as mock_service_class,
     ):
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission
@@ -1078,11 +1052,9 @@ def test_get_fix_statistics(
 
     with (
         patch(
-            "fundamental.api.routes.epub_fixer.PermissionService"
+            "bookcard.api.routes.epub_fixer.PermissionService"
         ) as mock_permission_class,
-        patch(
-            "fundamental.api.routes.epub_fixer.EPUBFixerService"
-        ) as mock_service_class,
+        patch("bookcard.api.routes.epub_fixer.EPUBFixerService") as mock_service_class,
     ):
         mock_permission = MagicMock()
         mock_permission_class.return_value = mock_permission

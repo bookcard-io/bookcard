@@ -24,7 +24,7 @@ import pytest
 if TYPE_CHECKING:
     from pathlib import Path
 
-from fundamental.services.ingest.file_discovery_service import (
+from bookcard.services.ingest.file_discovery_service import (
     FileDiscoveryService,
     FileGroup,
 )

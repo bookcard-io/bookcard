@@ -25,13 +25,13 @@ import pytest
 TEST_ENCRYPTION_KEY = "EifxhGYj-u0JolSrDhBLqyIZSnoZCVKOAFQbuv70T08="
 
 # Ensure required application environment variables are available during test import
-os.environ.setdefault("FUNDAMENTAL_JWT_SECRET", "test-secret")
-os.environ.setdefault("FUNDAMENTAL_JWT_ALG", "HS256")
-os.environ.setdefault("FUNDAMENTAL_JWT_EXPIRES_MIN", "15")
-os.environ.setdefault("FUNDAMENTAL_DATABASE_URL", "sqlite:///fundamental.db")
-os.environ.setdefault("FUNDAMENTAL_ALEMBIC_ENABLED", "false")
-os.environ.setdefault("FUNDAMENTAL_ECHO_SQL", "false")
-os.environ.setdefault("FUNDAMENTAL_FERNET_KEY", TEST_ENCRYPTION_KEY)
+os.environ.setdefault("BOOKCARD_JWT_SECRET", "test-secret")
+os.environ.setdefault("BOOKCARD_JWT_ALG", "HS256")
+os.environ.setdefault("BOOKCARD_JWT_EXPIRES_MIN", "15")
+os.environ.setdefault("BOOKCARD_DATABASE_URL", "sqlite:///bookcard.db")
+os.environ.setdefault("BOOKCARD_ALEMBIC_ENABLED", "false")
+os.environ.setdefault("BOOKCARD_ECHO_SQL", "false")
+os.environ.setdefault("BOOKCARD_FERNET_KEY", TEST_ENCRYPTION_KEY)
 
 
 class MockResult:

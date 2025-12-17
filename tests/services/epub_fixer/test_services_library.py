@@ -17,8 +17,8 @@
 
 from pathlib import Path
 
-from fundamental.models.config import Library
-from fundamental.services.epub_fixer.services.library import LibraryLocator
+from bookcard.models.config import Library
+from bookcard.services.epub_fixer.services.library import LibraryLocator
 
 
 def test_library_locator_library_root() -> None:

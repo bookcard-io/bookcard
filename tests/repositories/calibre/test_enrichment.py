@@ -20,7 +20,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from fundamental.models.core import (
+from bookcard.models.core import (
     Author,
     Book,
     BookAuthorLink,
@@ -37,9 +37,9 @@ from fundamental.models.core import (
     Series,
     Tag,
 )
-from fundamental.models.media import Data
-from fundamental.repositories.calibre.enrichment import BookEnrichmentService
-from fundamental.repositories.models import BookWithRelations
+from bookcard.models.media import Data
+from bookcard.repositories.calibre.enrichment import BookEnrichmentService
+from bookcard.repositories.models import BookWithRelations
 
 if TYPE_CHECKING:
     from sqlmodel import Session

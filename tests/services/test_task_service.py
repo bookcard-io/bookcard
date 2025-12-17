@@ -22,8 +22,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from fundamental.models.tasks import Task, TaskStatistics, TaskStatus, TaskType
-from fundamental.services.task_service import TaskService
+from bookcard.models.tasks import Task, TaskStatistics, TaskStatus, TaskType
+from bookcard.services.task_service import TaskService
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession

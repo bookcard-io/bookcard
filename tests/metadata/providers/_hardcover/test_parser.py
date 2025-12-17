@@ -21,7 +21,7 @@ import json
 
 import pytest
 
-from fundamental.metadata.providers._hardcover.parser import (
+from bookcard.metadata.providers._hardcover.parser import (
     HardcoverResponseParser,
 )
 

@@ -25,11 +25,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from fundamental.api.deps import get_current_user, get_db_session
-from fundamental.api.routes.shelves import router as shelves_router
-from fundamental.models.auth import User
-from fundamental.models.shelves import Shelf, ShelfTypeEnum
-from fundamental.services.shelf_service import ShelfService
+from bookcard.api.deps import get_current_user, get_db_session
+from bookcard.api.routes.shelves import router as shelves_router
+from bookcard.models.auth import User
+from bookcard.models.shelves import Shelf, ShelfTypeEnum
+from bookcard.services.shelf_service import ShelfService
 from tests.conftest import TEST_ENCRYPTION_KEY, DummySession
 
 
@@ -74,7 +74,7 @@ def mock_shelf_service(test_shelf: Shelf) -> MagicMock:
     """Create a mock shelf service."""
     service = MagicMock(spec=ShelfService)
     # Mock import_read_list to return a successful result
-    from fundamental.services.readlist.import_service import ImportResult
+    from bookcard.services.readlist.import_service import ImportResult
 
     result = ImportResult()
     result.total_books = 1
@@ -95,7 +95,7 @@ def app(
 ) -> FastAPI:
     """Create a FastAPI app with shelves router and mocked dependencies."""
     # Mock all the dependencies before creating the app
-    from fundamental.models.config import Library
+    from bookcard.models.config import Library
 
     mock_library = Library(
         id=1,
@@ -113,7 +113,7 @@ def app(
         return mock_repo
 
     monkeypatch.setattr(
-        "fundamental.api.routes.shelves.ShelfRepository", mock_shelf_repo_init
+        "bookcard.api.routes.shelves.ShelfRepository", mock_shelf_repo_init
     )
 
     # Mock BookShelfLinkRepository
@@ -124,7 +124,7 @@ def app(
         return mock_link_repo
 
     monkeypatch.setattr(
-        "fundamental.api.routes.shelves.BookShelfLinkRepository", mock_link_repo_init
+        "bookcard.api.routes.shelves.BookShelfLinkRepository", mock_link_repo_init
     )
 
     # Mock LibraryService
@@ -136,7 +136,7 @@ def app(
         return mock_lib_service
 
     monkeypatch.setattr(
-        "fundamental.api.routes.shelves.LibraryService", mock_lib_service_init
+        "bookcard.api.routes.shelves.LibraryService", mock_lib_service_init
     )
 
     # Mock PermissionService
@@ -147,7 +147,7 @@ def app(
         return mock_perm_service
 
     monkeypatch.setattr(
-        "fundamental.api.routes.shelves.PermissionService", mock_perm_service_init
+        "bookcard.api.routes.shelves.PermissionService", mock_perm_service_init
     )
 
     # Mock ShelfService
@@ -155,7 +155,7 @@ def app(
         return mock_shelf_service
 
     monkeypatch.setattr(
-        "fundamental.api.routes.shelves.ShelfService", mock_shelf_service_init
+        "bookcard.api.routes.shelves.ShelfService", mock_shelf_service_init
     )
 
     # Mock _shelf_service dependency function to avoid creating real ShelfService
@@ -163,11 +163,11 @@ def app(
         return mock_shelf_service
 
     monkeypatch.setattr(
-        "fundamental.api.routes.shelves._shelf_service", mock_shelf_service_dep
+        "bookcard.api.routes.shelves._shelf_service", mock_shelf_service_dep
     )
 
     # Mock ReadListImportService
-    from fundamental.services.readlist.import_service import ImportResult
+    from bookcard.services.readlist.import_service import ImportResult
 
     mock_import_service = MagicMock()
     import_result = ImportResult()
@@ -181,7 +181,7 @@ def app(
         return mock_import_service
 
     monkeypatch.setattr(
-        "fundamental.services.shelf_service.ReadListImportService",
+        "bookcard.services.shelf_service.ReadListImportService",
         mock_import_service_init,
     )
 
@@ -200,7 +200,7 @@ def app(
     app.dependency_overrides[get_db_session] = get_db_session_override
 
     # Set app state for config with temporary data directory
-    from fundamental.config import AppConfig
+    from bookcard.config import AppConfig
 
     # Use a temporary directory for data_directory to avoid permission issues
     temp_data_dir = tempfile.mkdtemp()
@@ -281,7 +281,7 @@ def test_import_read_list_permission_denied(
     from fastapi import FastAPI, HTTPException, status
 
     # Create a separate app with permission denied
-    from fundamental.models.config import Library
+    from bookcard.models.config import Library
 
     mock_library = Library(
         id=1,
@@ -299,7 +299,7 @@ def test_import_read_list_permission_denied(
         return mock_repo
 
     monkeypatch.setattr(
-        "fundamental.api.routes.shelves.ShelfRepository", mock_shelf_repo_init
+        "bookcard.api.routes.shelves.ShelfRepository", mock_shelf_repo_init
     )
 
     # Mock BookShelfLinkRepository
@@ -310,7 +310,7 @@ def test_import_read_list_permission_denied(
         return mock_link_repo
 
     monkeypatch.setattr(
-        "fundamental.api.routes.shelves.BookShelfLinkRepository", mock_link_repo_init
+        "bookcard.api.routes.shelves.BookShelfLinkRepository", mock_link_repo_init
     )
 
     # Mock LibraryService
@@ -322,7 +322,7 @@ def test_import_read_list_permission_denied(
         return mock_lib_service
 
     monkeypatch.setattr(
-        "fundamental.api.routes.shelves.LibraryService", mock_lib_service_init
+        "bookcard.api.routes.shelves.LibraryService", mock_lib_service_init
     )
 
     # Mock ShelfService
@@ -330,7 +330,7 @@ def test_import_read_list_permission_denied(
         return mock_shelf_service
 
     monkeypatch.setattr(
-        "fundamental.api.routes.shelves.ShelfService", mock_shelf_service_init_denied
+        "bookcard.api.routes.shelves.ShelfService", mock_shelf_service_init_denied
     )
 
     # Mock _shelf_service dependency function to avoid creating real ShelfService
@@ -338,7 +338,7 @@ def test_import_read_list_permission_denied(
         return mock_shelf_service
 
     monkeypatch.setattr(
-        "fundamental.api.routes.shelves._shelf_service", mock_shelf_service_dep_denied
+        "bookcard.api.routes.shelves._shelf_service", mock_shelf_service_dep_denied
     )
 
     # Mock PermissionService to DENY permission
@@ -355,7 +355,7 @@ def test_import_read_list_permission_denied(
         return mock_perm_service
 
     monkeypatch.setattr(
-        "fundamental.api.routes.shelves.PermissionService", mock_perm_service_init
+        "bookcard.api.routes.shelves.PermissionService", mock_perm_service_init
     )
 
     # Create app
@@ -371,7 +371,7 @@ def test_import_read_list_permission_denied(
     app.dependency_overrides[get_current_user] = get_current_user_override
     app.dependency_overrides[get_db_session] = get_db_session_override
 
-    from fundamental.config import AppConfig
+    from bookcard.config import AppConfig
 
     # Use a temporary directory for data_directory to avoid permission issues
     temp_data_dir = tempfile.mkdtemp()

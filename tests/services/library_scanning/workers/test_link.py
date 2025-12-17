@@ -19,9 +19,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.services.library_scanning.workers.link import LinkWorker
-from fundamental.services.messaging.base import MessageBroker
-from fundamental.services.messaging.redis_broker import RedisBroker
+from bookcard.services.library_scanning.workers.link import LinkWorker
+from bookcard.services.messaging.base import MessageBroker
+from bookcard.services.messaging.redis_broker import RedisBroker
 
 
 @pytest.fixture
@@ -67,9 +67,7 @@ class TestLinkWorkerCheckCompletion:
         LinkWorker
             Worker instance.
         """
-        with patch(
-            "fundamental.services.library_scanning.workers.link.create_db_engine"
-        ):
+        with patch("bookcard.services.library_scanning.workers.link.create_db_engine"):
             return LinkWorker(mock_broker)
 
     def test_check_completion_with_task_id(self, mock_redis_broker: MagicMock) -> None:
@@ -81,14 +79,12 @@ class TestLinkWorkerCheckCompletion:
             Mock Redis broker.
         """
         with (
+            patch("bookcard.services.library_scanning.workers.link.create_db_engine"),
             patch(
-                "fundamental.services.library_scanning.workers.link.create_db_engine"
-            ),
-            patch(
-                "fundamental.services.library_scanning.workers.link.JobProgressTracker"
+                "bookcard.services.library_scanning.workers.link.JobProgressTracker"
             ) as mock_tracker_class,
             patch(
-                "fundamental.services.library_scanning.workers.link.ScanTaskTracker"
+                "bookcard.services.library_scanning.workers.link.ScanTaskTracker"
             ) as mock_task_tracker_class,
         ):
             worker = LinkWorker(mock_redis_broker)
@@ -110,13 +106,11 @@ class TestLinkWorkerCheckCompletion:
             Mock Redis broker.
         """
         with (
+            patch("bookcard.services.library_scanning.workers.link.create_db_engine"),
             patch(
-                "fundamental.services.library_scanning.workers.link.create_db_engine"
-            ),
-            patch(
-                "fundamental.services.library_scanning.workers.link.JobProgressTracker"
+                "bookcard.services.library_scanning.workers.link.JobProgressTracker"
             ) as mock_tracker_class,
-            patch("fundamental.services.library_scanning.workers.link.ScanTaskTracker"),
+            patch("bookcard.services.library_scanning.workers.link.ScanTaskTracker"),
         ):
             worker = LinkWorker(mock_redis_broker)
             mock_tracker = mock_tracker_class.return_value
@@ -143,9 +137,7 @@ class TestLinkWorkerProcess:
         LinkWorker
             Worker instance.
         """
-        with patch(
-            "fundamental.services.library_scanning.workers.link.create_db_engine"
-        ):
+        with patch("bookcard.services.library_scanning.workers.link.create_db_engine"):
             return LinkWorker(mock_broker)
 
     def test_process_invalid_payload(self, worker: LinkWorker) -> None:
@@ -205,22 +197,20 @@ class TestLinkWorkerProcess:
             Whether mapping raises error.
         """
         with (
+            patch("bookcard.services.library_scanning.workers.link.create_db_engine"),
             patch(
-                "fundamental.services.library_scanning.workers.link.create_db_engine"
-            ),
-            patch(
-                "fundamental.services.library_scanning.workers.link.get_session"
+                "bookcard.services.library_scanning.workers.link.get_session"
             ) as mock_get_session,
             patch(
-                "fundamental.services.library_scanning.workers.link.JobProgressTracker"
+                "bookcard.services.library_scanning.workers.link.JobProgressTracker"
             ) as mock_progress_class,
             patch(
-                "fundamental.services.library_scanning.workers.link.deserialize_match_result"
+                "bookcard.services.library_scanning.workers.link.deserialize_match_result"
             ) as mock_deserialize,
             patch(
-                "fundamental.services.library_scanning.workers.link.LinkStageFactory"
+                "bookcard.services.library_scanning.workers.link.LinkStageFactory"
             ) as mock_factory,
-            patch("fundamental.services.library_scanning.workers.link.ScanTaskTracker"),
+            patch("bookcard.services.library_scanning.workers.link.ScanTaskTracker"),
         ):
             worker = LinkWorker(mock_redis_broker, output_topic=output_topic)
 

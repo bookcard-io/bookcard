@@ -23,11 +23,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.ingest import IngestConfig
-from fundamental.models.tasks import TaskType
-from fundamental.services.ingest.file_discovery_service import FileGroup
-from fundamental.services.tasks.context import WorkerContext
-from fundamental.services.tasks.ingest_discovery_task import IngestDiscoveryTask
+from bookcard.models.ingest import IngestConfig
+from bookcard.models.tasks import TaskType
+from bookcard.services.ingest.file_discovery_service import FileGroup
+from bookcard.services.tasks.context import WorkerContext
+from bookcard.services.tasks.ingest_discovery_task import IngestDiscoveryTask
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession
@@ -134,17 +134,15 @@ def test_run_with_dict_context(
     """Test run method with dict context."""
     with (
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.IngestConfigService"
+            "bookcard.services.tasks.ingest_discovery_task.IngestConfigService"
         ) as mock_config_service,
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.FileDiscoveryService"
+            "bookcard.services.tasks.ingest_discovery_task.FileDiscoveryService"
         ) as mock_discovery_service,
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.MetadataExtractionService"
+            "bookcard.services.tasks.ingest_discovery_task.MetadataExtractionService"
         ),
-        patch(
-            "fundamental.services.tasks.ingest_discovery_task.IngestProcessorService"
-        ),
+        patch("bookcard.services.tasks.ingest_discovery_task.IngestProcessorService"),
     ):
         # Setup mocks
         config_service_instance = MagicMock()
@@ -174,10 +172,10 @@ def test_run_with_worker_context(
     """Test run method with WorkerContext object."""
     with (
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.IngestConfigService"
+            "bookcard.services.tasks.ingest_discovery_task.IngestConfigService"
         ) as mock_config_service,
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.FileDiscoveryService"
+            "bookcard.services.tasks.ingest_discovery_task.FileDiscoveryService"
         ) as mock_discovery_service,
     ):
         # Setup mocks
@@ -208,7 +206,7 @@ def test_run_ingest_disabled(
     mock_ingest_config.enabled = False
 
     with patch(
-        "fundamental.services.tasks.ingest_discovery_task.IngestConfigService"
+        "bookcard.services.tasks.ingest_discovery_task.IngestConfigService"
     ) as mock_config_service:
         config_service_instance = MagicMock()
         config_service_instance.get_config.return_value = mock_ingest_config
@@ -231,7 +229,7 @@ def test_run_ingest_dir_not_exists(
     non_existent_dir = Path("/nonexistent/ingest")
 
     with patch(
-        "fundamental.services.tasks.ingest_discovery_task.IngestConfigService"
+        "bookcard.services.tasks.ingest_discovery_task.IngestConfigService"
     ) as mock_config_service:
         config_service_instance = MagicMock()
         config_service_instance.get_config.return_value = mock_ingest_config
@@ -255,10 +253,10 @@ def test_run_no_files_found(
     """Test run method when no files are found."""
     with (
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.IngestConfigService"
+            "bookcard.services.tasks.ingest_discovery_task.IngestConfigService"
         ) as mock_config_service,
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.FileDiscoveryService"
+            "bookcard.services.tasks.ingest_discovery_task.FileDiscoveryService"
         ) as mock_discovery_service,
     ):
         config_service_instance = MagicMock()
@@ -293,16 +291,16 @@ def test_run_successful_discovery(
 
     with (
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.IngestConfigService"
+            "bookcard.services.tasks.ingest_discovery_task.IngestConfigService"
         ) as mock_config_service,
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.FileDiscoveryService"
+            "bookcard.services.tasks.ingest_discovery_task.FileDiscoveryService"
         ) as mock_discovery_service,
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.MetadataExtractionService"
+            "bookcard.services.tasks.ingest_discovery_task.MetadataExtractionService"
         ) as mock_metadata_service,
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.IngestProcessorService"
+            "bookcard.services.tasks.ingest_discovery_task.IngestProcessorService"
         ) as mock_processor_service,
     ):
         # Setup config service
@@ -367,16 +365,16 @@ def test_run_without_enqueue_task(
 
     with (
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.IngestConfigService"
+            "bookcard.services.tasks.ingest_discovery_task.IngestConfigService"
         ) as mock_config_service,
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.FileDiscoveryService"
+            "bookcard.services.tasks.ingest_discovery_task.FileDiscoveryService"
         ) as mock_discovery_service,
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.MetadataExtractionService"
+            "bookcard.services.tasks.ingest_discovery_task.MetadataExtractionService"
         ) as mock_metadata_service,
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.IngestProcessorService"
+            "bookcard.services.tasks.ingest_discovery_task.IngestProcessorService"
         ) as mock_processor_service,
     ):
         # Setup mocks
@@ -421,16 +419,16 @@ def test_run_file_group_processing_exception(
 
     with (
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.IngestConfigService"
+            "bookcard.services.tasks.ingest_discovery_task.IngestConfigService"
         ) as mock_config_service,
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.FileDiscoveryService"
+            "bookcard.services.tasks.ingest_discovery_task.FileDiscoveryService"
         ) as mock_discovery_service,
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.MetadataExtractionService"
+            "bookcard.services.tasks.ingest_discovery_task.MetadataExtractionService"
         ) as mock_metadata_service,
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.IngestProcessorService"
+            "bookcard.services.tasks.ingest_discovery_task.IngestProcessorService"
         ) as mock_processor_service,
     ):
         # Setup mocks
@@ -467,7 +465,7 @@ def test_run_general_exception(
 ) -> None:
     """Test run method raises exception on general failure."""
     with patch(
-        "fundamental.services.tasks.ingest_discovery_task.IngestConfigService"
+        "bookcard.services.tasks.ingest_discovery_task.IngestConfigService"
     ) as mock_config_service:
         # Make config service raise exception
         mock_config_service.side_effect = RuntimeError("Config error")
@@ -502,16 +500,16 @@ def test_run_multiple_file_groups(
 
     with (
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.IngestConfigService"
+            "bookcard.services.tasks.ingest_discovery_task.IngestConfigService"
         ) as mock_config_service,
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.FileDiscoveryService"
+            "bookcard.services.tasks.ingest_discovery_task.FileDiscoveryService"
         ) as mock_discovery_service,
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.MetadataExtractionService"
+            "bookcard.services.tasks.ingest_discovery_task.MetadataExtractionService"
         ) as mock_metadata_service,
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.IngestProcessorService"
+            "bookcard.services.tasks.ingest_discovery_task.IngestProcessorService"
         ) as mock_processor_service,
     ):
         # Setup mocks
@@ -562,16 +560,16 @@ def test_run_progress_updates(
 
     with (
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.IngestConfigService"
+            "bookcard.services.tasks.ingest_discovery_task.IngestConfigService"
         ) as mock_config_service,
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.FileDiscoveryService"
+            "bookcard.services.tasks.ingest_discovery_task.FileDiscoveryService"
         ) as mock_discovery_service,
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.MetadataExtractionService"
+            "bookcard.services.tasks.ingest_discovery_task.MetadataExtractionService"
         ) as mock_metadata_service,
         patch(
-            "fundamental.services.tasks.ingest_discovery_task.IngestProcessorService"
+            "bookcard.services.tasks.ingest_discovery_task.IngestProcessorService"
         ) as mock_processor_service,
     ):
         # Setup mocks

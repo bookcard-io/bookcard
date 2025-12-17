@@ -24,11 +24,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException, Response
 
-import fundamental.api.routes.books as books
-from fundamental.models.auth import User
-from fundamental.models.config import Library
-from fundamental.models.core import Book
-from fundamental.repositories import BookWithFullRelations, BookWithRelations
+import bookcard.api.routes.books as books
+from bookcard.models.auth import User
+from bookcard.models.config import Library
+from bookcard.models.core import Book
+from bookcard.repositories import BookWithFullRelations, BookWithRelations
 from tests.conftest import DummySession
 
 
@@ -69,7 +69,7 @@ def _mock_permission_service(monkeypatch: pytest.MonkeyPatch) -> None:
 
     # Patch PermissionService in the permission_service module where it's actually used
     monkeypatch.setattr(
-        "fundamental.services.permission_service.PermissionService",
+        "bookcard.services.permission_service.PermissionService",
         MockPermissionService,
     )
 
@@ -975,8 +975,8 @@ def test_download_cover_from_url_success(
 
     from sqlmodel import Session
 
-    from fundamental.api.schemas import CoverFromUrlRequest
-    from fundamental.models.core import Book
+    from bookcard.api.schemas import CoverFromUrlRequest
+    from bookcard.models.core import Book
 
     session = DummySession()
 
@@ -1063,11 +1063,11 @@ def test_download_cover_from_url_success(
         _mock_permission_service(monkeypatch)
 
         with patch(
-            "fundamental.services.book_cover_service.httpx.Client",
+            "bookcard.services.book_cover_service.httpx.Client",
             return_value=mock_client,
         ):
             request = CoverFromUrlRequest(url="https://example.com/cover.jpg")
-            from fundamental.services.book_cover_service import BookCoverService
+            from bookcard.services.book_cover_service import BookCoverService
 
             mock_permission_helper, _ = _setup_route_mocks(
                 monkeypatch, session, mock_service
@@ -1099,8 +1099,8 @@ def test_download_cover_from_url_with_library_root(
 
     from sqlmodel import Session
 
-    from fundamental.api.schemas import CoverFromUrlRequest
-    from fundamental.models.core import Book
+    from bookcard.api.schemas import CoverFromUrlRequest
+    from bookcard.models.core import Book
 
     session = DummySession()
 
@@ -1188,11 +1188,11 @@ def test_download_cover_from_url_with_library_root(
         _mock_permission_service(monkeypatch)
 
         with patch(
-            "fundamental.services.book_cover_service.httpx.Client",
+            "bookcard.services.book_cover_service.httpx.Client",
             return_value=mock_client,
         ):
             request = CoverFromUrlRequest(url="https://example.com/cover.jpg")
-            from fundamental.services.book_cover_service import BookCoverService
+            from bookcard.services.book_cover_service import BookCoverService
 
             mock_permission_helper, _ = _setup_route_mocks(
                 monkeypatch, session, mock_service
@@ -1221,8 +1221,8 @@ def test_download_cover_from_url_db_path_is_file(
 
     from sqlmodel import Session
 
-    from fundamental.api.schemas import CoverFromUrlRequest
-    from fundamental.models.core import Book
+    from bookcard.api.schemas import CoverFromUrlRequest
+    from bookcard.models.core import Book
 
     session = DummySession()
 
@@ -1312,11 +1312,11 @@ def test_download_cover_from_url_db_path_is_file(
         _mock_permission_service(monkeypatch)
 
         with patch(
-            "fundamental.services.book_cover_service.httpx.Client",
+            "bookcard.services.book_cover_service.httpx.Client",
             return_value=mock_client,
         ):
             request = CoverFromUrlRequest(url="https://example.com/cover.jpg")
-            from fundamental.services.book_cover_service import BookCoverService
+            from bookcard.services.book_cover_service import BookCoverService
 
             mock_permission_helper, _ = _setup_route_mocks(
                 monkeypatch, session, mock_service
@@ -1439,7 +1439,7 @@ def test_download_cover_from_url_book_not_found(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test download_cover_from_url raises 404 when book not found (covers line 783)."""
-    from fundamental.api.schemas import CoverFromUrlRequest
+    from bookcard.api.schemas import CoverFromUrlRequest
 
     session = DummySession()
 
@@ -1466,7 +1466,7 @@ def test_download_cover_from_url_book_not_found(
 
     request = CoverFromUrlRequest(url="https://example.com/cover.jpg")
 
-    from fundamental.services.book_cover_service import BookCoverService
+    from bookcard.services.book_cover_service import BookCoverService
 
     mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
     cover_service = BookCoverService(mock_service)  # type: ignore[arg-type]
@@ -1491,7 +1491,7 @@ def test_download_cover_from_url_empty_url(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test download_cover_from_url raises 400 when URL is empty (covers line 789)."""
-    from fundamental.api.schemas import CoverFromUrlRequest
+    from bookcard.api.schemas import CoverFromUrlRequest
 
     session = DummySession()
 
@@ -1545,7 +1545,7 @@ def test_download_cover_from_url_empty_url(
         url="   "
     )  # Whitespace only, will be stripped to empty
 
-    from fundamental.services.book_cover_service import BookCoverService
+    from bookcard.services.book_cover_service import BookCoverService
 
     mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
     cover_service = BookCoverService(mock_service)  # type: ignore[arg-type]
@@ -1570,7 +1570,7 @@ def test_download_cover_from_url_invalid_url_format(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test download_cover_from_url raises 400 when URL format is invalid (covers line 795)."""
-    from fundamental.api.schemas import CoverFromUrlRequest
+    from bookcard.api.schemas import CoverFromUrlRequest
 
     session = DummySession()
 
@@ -1622,7 +1622,7 @@ def test_download_cover_from_url_invalid_url_format(
 
     request = CoverFromUrlRequest(url="ftp://example.com/cover.jpg")
 
-    from fundamental.services.book_cover_service import BookCoverService
+    from bookcard.services.book_cover_service import BookCoverService
 
     mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
     cover_service = BookCoverService(mock_service)  # type: ignore[arg-type]
@@ -1647,7 +1647,7 @@ def test_get_permission_helper(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test _get_permission_helper creates BookPermissionHelper (covers line 262)."""
     session = DummySession()
 
-    with patch("fundamental.api.routes.books.BookPermissionHelper") as mock_class:
+    with patch("bookcard.api.routes.books.BookPermissionHelper") as mock_class:
         mock_helper = MagicMock()
         mock_class.return_value = mock_helper
 
@@ -1661,7 +1661,7 @@ def test_get_response_builder(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test _get_response_builder creates BookResponseBuilder (covers line 280)."""
     mock_service = MockBookService()
 
-    with patch("fundamental.api.routes.books.BookResponseBuilder") as mock_class:
+    with patch("bookcard.api.routes.books.BookResponseBuilder") as mock_class:
         mock_builder = MagicMock()
         mock_class.return_value = mock_builder
 
@@ -1675,7 +1675,7 @@ def test_get_cover_service(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test _get_cover_service creates BookCoverService (covers line 298)."""
     mock_service = MockBookService()
 
-    with patch("fundamental.api.routes.books.BookCoverService") as mock_class:
+    with patch("bookcard.api.routes.books.BookCoverService") as mock_class:
         mock_cover_service = MagicMock()
         mock_class.return_value = mock_cover_service
 
@@ -1699,8 +1699,8 @@ def test_get_conversion_orchestration_service_no_library(
     mock_service = MockBookService()
 
     with (
-        patch("fundamental.api.routes.books.LibraryRepository") as mock_repo_class,
-        patch("fundamental.api.routes.books.LibraryService") as mock_service_class,
+        patch("bookcard.api.routes.books.LibraryRepository") as mock_repo_class,
+        patch("bookcard.api.routes.books.LibraryService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -1749,10 +1749,10 @@ def test_get_conversion_orchestration_service_success(
     )
 
     with (
-        patch("fundamental.api.routes.books.LibraryRepository") as mock_repo_class,
-        patch("fundamental.api.routes.books.LibraryService") as mock_lib_service_class,
+        patch("bookcard.api.routes.books.LibraryRepository") as mock_repo_class,
+        patch("bookcard.api.routes.books.LibraryService") as mock_lib_service_class,
         patch(
-            "fundamental.api.routes.books.BookConversionOrchestrationService"
+            "bookcard.api.routes.books.BookConversionOrchestrationService"
         ) as mock_orch_class,
     ):
         mock_repo = MagicMock()
@@ -1838,9 +1838,7 @@ def test_download_book_metadata_success(monkeypatch: pytest.MonkeyPatch) -> None
 
     mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
 
-    with patch(
-        "fundamental.api.routes.books.MetadataExportService"
-    ) as mock_export_class:
+    with patch("bookcard.api.routes.books.MetadataExportService") as mock_export_class:
         mock_export = MagicMock()
         mock_export_result = MagicMock()
         mock_export_result.content = b"<xml>test</xml>"
@@ -1867,9 +1865,7 @@ def test_import_book_metadata_success() -> None:
     mock_file.filename = "book.opf"
     mock_file.file.read.return_value = b'<?xml version="1.0"?><package>...</package>'
 
-    with patch(
-        "fundamental.api.routes.books.MetadataImportService"
-    ) as mock_import_class:
+    with patch("bookcard.api.routes.books.MetadataImportService") as mock_import_class:
         mock_import = MagicMock()
         mock_book_update = books.BookUpdate(title="Test Book")
         mock_import.import_metadata.return_value = mock_book_update
@@ -1997,9 +1993,7 @@ def test_send_books_to_device_batch_success(monkeypatch: pytest.MonkeyPatch) -> 
 
     mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
 
-    with patch(
-        "fundamental.api.routes.books._email_config_service"
-    ) as mock_email_config:
+    with patch("bookcard.api.routes.books._email_config_service") as mock_email_config:
         mock_email_service = MagicMock()
         mock_config = MagicMock()
         mock_config.enabled = True
@@ -2142,7 +2136,7 @@ def test_get_book_conversions_success(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
 
     mock_orchestration_service = MagicMock()
-    from fundamental.models.conversion import (
+    from bookcard.models.conversion import (
         BookConversion,
         ConversionMethod,
         ConversionStatus,
@@ -2313,7 +2307,7 @@ def test_upload_book_format_not_allowed(monkeypatch: pytest.MonkeyPatch) -> None
     )
 
     with patch(
-        "fundamental.api.routes.books.FileHandlingConfigService"
+        "bookcard.api.routes.books.FileHandlingConfigService"
     ) as mock_file_service_class:
         mock_file_service = MagicMock()
         mock_file_service.is_format_allowed.return_value = False
@@ -2381,7 +2375,7 @@ def test_save_file_to_temp_format_not_allowed() -> None:
 
     with (
         patch(
-            "fundamental.api.routes.books.FileHandlingConfigService"
+            "bookcard.api.routes.books.FileHandlingConfigService"
         ) as mock_file_service_class,
     ):
         mock_file_service = MagicMock()
@@ -2406,7 +2400,7 @@ def test_save_file_to_temp_save_error() -> None:
 
     with (
         patch(
-            "fundamental.api.routes.books.FileHandlingConfigService"
+            "bookcard.api.routes.books.FileHandlingConfigService"
         ) as mock_file_service_class,
         patch("tempfile.NamedTemporaryFile") as mock_temp_file,
     ):
@@ -2437,7 +2431,7 @@ def test_save_files_to_temp_cleanup_on_error() -> None:
 
     with (
         patch(
-            "fundamental.api.routes.books.FileHandlingConfigService"
+            "bookcard.api.routes.books.FileHandlingConfigService"
         ) as mock_file_service_class,
         patch("tempfile.NamedTemporaryFile") as mock_temp_file,
     ):
@@ -2531,7 +2525,7 @@ def test_upload_books_batch_success(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with (
         patch(
-            "fundamental.api.routes.books.FileHandlingConfigService"
+            "bookcard.api.routes.books.FileHandlingConfigService"
         ) as mock_file_service_class,
         patch("tempfile.NamedTemporaryFile") as mock_temp_file,
     ):
@@ -2596,7 +2590,7 @@ def test_upload_books_batch_unexpected_error(monkeypatch: pytest.MonkeyPatch) ->
 
     with (
         patch(
-            "fundamental.api.routes.books.FileHandlingConfigService"
+            "bookcard.api.routes.books.FileHandlingConfigService"
         ) as mock_file_service_class,
         patch("tempfile.NamedTemporaryFile") as mock_temp_file,
     ):
@@ -2647,7 +2641,7 @@ def test_send_books_to_device_batch_email_not_configured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test send_books_to_device_batch when email not configured (covers line 1121)."""
-    from fundamental.api.schemas import BookBulkSendRequest
+    from bookcard.api.schemas import BookBulkSendRequest
 
     class DummyRequest:
         def __init__(self) -> None:
@@ -2684,9 +2678,7 @@ def test_send_books_to_device_batch_email_not_configured(
     mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
 
     with (
-        patch(
-            "fundamental.api.routes.books._email_config_service"
-        ) as mock_email_service,
+        patch("bookcard.api.routes.books._email_config_service") as mock_email_service,
     ):
         mock_email_config = MagicMock()
         mock_email_config.enabled = False
@@ -2713,7 +2705,7 @@ def test_send_books_to_device_batch_user_missing_id(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test send_books_to_device_batch when user missing ID (covers line 1128)."""
-    from fundamental.api.schemas import BookBulkSendRequest
+    from bookcard.api.schemas import BookBulkSendRequest
 
     class DummyRequest:
         def __init__(self) -> None:
@@ -2787,9 +2779,7 @@ def test_send_books_to_device_batch_user_missing_id(
     mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
 
     with (
-        patch(
-            "fundamental.api.routes.books._email_config_service"
-        ) as mock_email_service,
+        patch("bookcard.api.routes.books._email_config_service") as mock_email_service,
     ):
         mock_email_config = MagicMock()
         mock_email_config.enabled = True
@@ -2816,7 +2806,7 @@ def test_send_books_to_device_batch_task_runner_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test send_books_to_device_batch when task runner unavailable (covers line 1138)."""
-    from fundamental.api.schemas import BookBulkSendRequest
+    from bookcard.api.schemas import BookBulkSendRequest
 
     class DummyRequest:
         def __init__(self) -> None:
@@ -2846,9 +2836,7 @@ def test_send_books_to_device_batch_task_runner_unavailable(
     mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
 
     with (
-        patch(
-            "fundamental.api.routes.books._email_config_service"
-        ) as mock_email_service,
+        patch("bookcard.api.routes.books._email_config_service") as mock_email_service,
     ):
         mock_email_config = MagicMock()
         mock_email_config.enabled = True
@@ -2875,7 +2863,7 @@ def test_send_books_to_device_batch_book_not_found(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test send_books_to_device_batch when book not found (covers line 1152)."""
-    from fundamental.api.schemas import BookBulkSendRequest
+    from bookcard.api.schemas import BookBulkSendRequest
 
     class DummyRequest:
         def __init__(self) -> None:
@@ -2916,9 +2904,7 @@ def test_send_books_to_device_batch_book_not_found(
     mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
 
     with (
-        patch(
-            "fundamental.api.routes.books._email_config_service"
-        ) as mock_email_service,
+        patch("bookcard.api.routes.books._email_config_service") as mock_email_service,
     ):
         mock_email_config = MagicMock()
         mock_email_config.enabled = True
@@ -2943,7 +2929,7 @@ def test_send_books_to_device_batch_book_not_found(
 
 def test_convert_book_format_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test convert_book_format when book not found (covers line 1229)."""
-    from fundamental.api.schemas import BookConvertRequest
+    from bookcard.api.schemas import BookConvertRequest
 
     session = DummySession()
     current_user = _create_mock_user()
@@ -2971,7 +2957,7 @@ def test_convert_book_format_book_not_found(monkeypatch: pytest.MonkeyPatch) -> 
 
 def test_convert_book_format_user_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test convert_book_format when user missing ID (covers line 1239)."""
-    from fundamental.api.schemas import BookConvertRequest
+    from bookcard.api.schemas import BookConvertRequest
 
     session = DummySession()
     current_user = User(
@@ -3032,7 +3018,7 @@ def test_convert_book_format_user_missing_id(monkeypatch: pytest.MonkeyPatch) ->
 
 def test_convert_book_format_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test convert_book_format handles ValueError (covers line 1254)."""
-    from fundamental.api.schemas import BookConvertRequest
+    from bookcard.api.schemas import BookConvertRequest
 
     session = DummySession()
     current_user = _create_mock_user()
@@ -3076,7 +3062,7 @@ def test_convert_book_format_value_error(monkeypatch: pytest.MonkeyPatch) -> Non
 
     convert_request = BookConvertRequest(source_format="EPUB", target_format="MOBI")
     with (
-        patch("fundamental.api.routes.books.BookExceptionMapper") as mock_mapper_class,
+        patch("bookcard.api.routes.books.BookExceptionMapper") as mock_mapper_class,
     ):
         mock_mapper = MagicMock()
         mock_mapper.map_value_error_to_http_exception.return_value = HTTPException(
@@ -3103,7 +3089,7 @@ def test_convert_book_format_runtime_error_other(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test convert_book_format handles other RuntimeError (covers line 1263)."""
-    from fundamental.api.schemas import BookConvertRequest
+    from bookcard.api.schemas import BookConvertRequest
 
     session = DummySession()
     current_user = _create_mock_user()
@@ -3226,7 +3212,7 @@ def test_get_book_conversions_value_error(monkeypatch: pytest.MonkeyPatch) -> No
     mock_orchestration_service.get_conversions.side_effect = ValueError("invalid_book")
 
     with (
-        patch("fundamental.api.routes.books.BookExceptionMapper") as mock_mapper_class,
+        patch("bookcard.api.routes.books.BookExceptionMapper") as mock_mapper_class,
     ):
         mock_mapper = MagicMock()
         mock_mapper.map_value_error_to_http_exception.return_value = HTTPException(
@@ -3337,9 +3323,9 @@ def test_upload_books_batch_http_exception(monkeypatch: pytest.MonkeyPatch) -> N
 
     with (
         patch(
-            "fundamental.api.routes.books.FileHandlingConfigService"
+            "bookcard.api.routes.books.FileHandlingConfigService"
         ) as mock_file_service_class,
-        patch("fundamental.api.routes.books._save_files_to_temp") as mock_save_files,
+        patch("bookcard.api.routes.books._save_files_to_temp") as mock_save_files,
     ):
         mock_file_service = MagicMock()
         mock_file_service.is_format_allowed.return_value = True

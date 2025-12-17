@@ -22,18 +22,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.author_metadata import AuthorMapping
-from fundamental.models.core import Author
-from fundamental.services.library_scanning.data_sources.types import AuthorData
-from fundamental.services.library_scanning.matching.orchestrator import (
+from bookcard.models.author_metadata import AuthorMapping
+from bookcard.models.core import Author
+from bookcard.services.library_scanning.data_sources.types import AuthorData
+from bookcard.services.library_scanning.matching.orchestrator import (
     MatchingOrchestrator,
 )
-from fundamental.services.library_scanning.matching.types import MatchResult
-from fundamental.services.library_scanning.pipeline.context import PipelineContext
-from fundamental.services.library_scanning.pipeline.link_components import (
+from bookcard.services.library_scanning.matching.types import MatchResult
+from bookcard.services.library_scanning.pipeline.context import PipelineContext
+from bookcard.services.library_scanning.pipeline.link_components import (
     AuthorMappingRepository,
 )
-from fundamental.services.library_scanning.pipeline.match import MatchStage
+from bookcard.services.library_scanning.pipeline.match import MatchStage
 
 
 @pytest.fixture
@@ -191,7 +191,7 @@ def test_should_skip_match_no_existing_mapping(
     mock_mapping_repo.find_by_calibre_author_id_and_library.return_value = None
 
     with patch(
-        "fundamental.services.library_scanning.pipeline.match.AuthorMappingRepository",
+        "bookcard.services.library_scanning.pipeline.match.AuthorMappingRepository",
         return_value=mock_mapping_repo,
     ):
         assert (
@@ -215,7 +215,7 @@ def test_should_skip_match_fresh_mapping(
     mock_mapping_repo.find_by_calibre_author_id_and_library.return_value = fresh_mapping
 
     with patch(
-        "fundamental.services.library_scanning.pipeline.match.AuthorMappingRepository",
+        "bookcard.services.library_scanning.pipeline.match.AuthorMappingRepository",
         return_value=mock_mapping_repo,
     ):
         assert (
@@ -239,7 +239,7 @@ def test_should_skip_match_stale_mapping(
     mock_mapping_repo.find_by_calibre_author_id_and_library.return_value = stale_mapping
 
     with patch(
-        "fundamental.services.library_scanning.pipeline.match.AuthorMappingRepository",
+        "bookcard.services.library_scanning.pipeline.match.AuthorMappingRepository",
         return_value=mock_mapping_repo,
     ):
         assert (
@@ -264,7 +264,7 @@ def test_should_skip_match_uses_created_at_when_no_updated_at(
     mock_mapping_repo.find_by_calibre_author_id_and_library.return_value = mapping
 
     with patch(
-        "fundamental.services.library_scanning.pipeline.match.AuthorMappingRepository",
+        "bookcard.services.library_scanning.pipeline.match.AuthorMappingRepository",
         return_value=mock_mapping_repo,
     ):
         assert (
@@ -291,7 +291,7 @@ def test_should_skip_match_naive_datetime(
     mock_mapping_repo.find_by_calibre_author_id_and_library.return_value = mapping
 
     with patch(
-        "fundamental.services.library_scanning.pipeline.match.AuthorMappingRepository",
+        "bookcard.services.library_scanning.pipeline.match.AuthorMappingRepository",
         return_value=mock_mapping_repo,
     ):
         assert (
@@ -359,7 +359,7 @@ def test_process_author_match_skipped(
     mock_mapping_repo.find_by_calibre_author_id_and_library.return_value = fresh_mapping
 
     with patch(
-        "fundamental.services.library_scanning.pipeline.match.AuthorMappingRepository",
+        "bookcard.services.library_scanning.pipeline.match.AuthorMappingRepository",
         return_value=mock_mapping_repo,
     ):
         matched, unmatched, skipped = match_stage_with_staleness._process_author_match(

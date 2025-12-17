@@ -27,12 +27,12 @@ if TYPE_CHECKING:
 
     from tests.conftest import DummySession
 
-from fundamental.models.auth import UserSetting
-from fundamental.models.config import EPUBFixerConfig, Library, ScheduledTasksConfig
-from fundamental.models.conversion import ConversionMethod
-from fundamental.models.core import Book
-from fundamental.models.media import Data
-from fundamental.services.tasks.post_processors import (
+from bookcard.models.auth import UserSetting
+from bookcard.models.config import EPUBFixerConfig, Library, ScheduledTasksConfig
+from bookcard.models.conversion import ConversionMethod
+from bookcard.models.core import Book
+from bookcard.models.media import Data
+from bookcard.services.tasks.post_processors import (
     ConversionAutoConvertPolicy,
     ConversionPostIngestProcessor,
     EPUBAutoFixPolicy,
@@ -230,7 +230,7 @@ class TestLibraryPathResolver:
         resolver = LibraryPathResolver(library)
 
         with patch(
-            "fundamental.services.epub_fixer.services.library.LibraryLocator"
+            "bookcard.services.epub_fixer.services.library.LibraryLocator"
         ) as mock_locator_class:
             mock_locator = MagicMock()
             mock_locator.get_location.return_value = tmp_path
@@ -486,7 +486,7 @@ class TestEPUBPostIngestProcessor:
 
         # Mock path resolver to return None
         with patch(
-            "fundamental.services.tasks.post_processors.LibraryPathResolver"
+            "bookcard.services.tasks.post_processors.LibraryPathResolver"
         ) as mock_resolver_class:
             mock_resolver = MagicMock()
             mock_resolver.get_book_file_path.return_value = None
@@ -540,7 +540,7 @@ class TestEPUBPostIngestProcessor:
 
         # Mock path resolver
         with patch(
-            "fundamental.services.tasks.post_processors.LibraryPathResolver"
+            "bookcard.services.tasks.post_processors.LibraryPathResolver"
         ) as mock_resolver_class:
             mock_resolver = MagicMock()
             mock_resolver.get_book_file_path.return_value = file_path
@@ -548,7 +548,7 @@ class TestEPUBPostIngestProcessor:
 
             # Mock EPUB fixer service
             with patch(
-                "fundamental.services.epub_fixer_service.EPUBFixerService"
+                "bookcard.services.epub_fixer_service.EPUBFixerService"
             ) as mock_fixer_class:
                 mock_fixer = MagicMock()
                 fix_run = MagicMock()
@@ -617,7 +617,7 @@ class TestEPUBPostIngestProcessor:
 
         # Mock path resolver
         with patch(
-            "fundamental.services.tasks.post_processors.LibraryPathResolver"
+            "bookcard.services.tasks.post_processors.LibraryPathResolver"
         ) as mock_resolver_class:
             mock_resolver = MagicMock()
             mock_resolver.get_book_file_path.return_value = file_path
@@ -625,7 +625,7 @@ class TestEPUBPostIngestProcessor:
 
             # Mock EPUB fixer service
             with patch(
-                "fundamental.services.epub_fixer_service.EPUBFixerService"
+                "bookcard.services.epub_fixer_service.EPUBFixerService"
             ) as mock_fixer_class:
                 mock_fixer = MagicMock()
                 fix_run = MagicMock()
@@ -682,7 +682,7 @@ class TestEPUBPostIngestProcessor:
 
         # Mock path resolver
         with patch(
-            "fundamental.services.tasks.post_processors.LibraryPathResolver"
+            "bookcard.services.tasks.post_processors.LibraryPathResolver"
         ) as mock_resolver_class:
             mock_resolver = MagicMock()
             mock_resolver.get_book_file_path.return_value = file_path
@@ -690,7 +690,7 @@ class TestEPUBPostIngestProcessor:
 
             # Mock EPUB fixer service
             with patch(
-                "fundamental.services.epub_fixer_service.EPUBFixerService"
+                "bookcard.services.epub_fixer_service.EPUBFixerService"
             ) as mock_fixer_class:
                 mock_fixer = MagicMock()
                 fix_run = MagicMock()
@@ -1249,7 +1249,7 @@ class TestConversionPostIngestProcessor:
         # Defensively patch create_conversion_service to prevent it from being called
         # (it shouldn't be called since original_format will be None, but patch it anyway)
         with patch(
-            "fundamental.services.conversion.create_conversion_service"
+            "bookcard.services.conversion.create_conversion_service"
         ) as mock_create_conversion:
             assert book.id is not None
             processor.process(
@@ -1406,7 +1406,7 @@ class TestConversionPostIngestProcessor:
 
         # Mock conversion service
         with patch(
-            "fundamental.services.conversion.create_conversion_service"
+            "bookcard.services.conversion.create_conversion_service"
         ) as mock_create_conversion:
             mock_conversion = MagicMock()
             mock_create_conversion.return_value = mock_conversion
@@ -1476,7 +1476,7 @@ class TestConversionPostIngestProcessor:
 
         # Mock conversion service to raise error
         with patch(
-            "fundamental.services.conversion.create_conversion_service"
+            "bookcard.services.conversion.create_conversion_service"
         ) as mock_create_conversion:
             mock_conversion = MagicMock()
             mock_conversion.convert_book.side_effect = exception_type("Test error")

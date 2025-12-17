@@ -21,8 +21,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.auth import User
-from fundamental.services.user_linking_service import UserLinkingService
+from bookcard.models.auth import User
+from bookcard.services.user_linking_service import UserLinkingService
 from tests.conftest import DummySession
 
 

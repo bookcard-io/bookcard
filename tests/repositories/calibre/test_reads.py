@@ -20,16 +20,16 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from fundamental.models.core import Author, Book, BookAuthorLink
+from bookcard.models.core import Author, Book, BookAuthorLink
 
 if TYPE_CHECKING:
     from sqlmodel import Session
-from fundamental.models.media import Data
-from fundamental.repositories.calibre.enrichment import BookEnrichmentService
-from fundamental.repositories.calibre.queries import BookQueryBuilder
-from fundamental.repositories.calibre.reads import BookReadOperations
-from fundamental.repositories.calibre.retry import SQLiteRetryPolicy
-from fundamental.repositories.calibre.unwrapping import ResultUnwrapper
+from bookcard.models.media import Data
+from bookcard.repositories.calibre.enrichment import BookEnrichmentService
+from bookcard.repositories.calibre.queries import BookQueryBuilder
+from bookcard.repositories.calibre.reads import BookReadOperations
+from bookcard.repositories.calibre.retry import SQLiteRetryPolicy
+from bookcard.repositories.calibre.unwrapping import ResultUnwrapper
 from tests.repositories.calibre.conftest import (
     MockBookSearchService,
     MockLibraryStatisticsService,

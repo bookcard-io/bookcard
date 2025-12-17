@@ -23,9 +23,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.kcc_config import KCCConversionProfile
-from fundamental.services.conversion.exceptions import ConversionError
-from fundamental.services.conversion.strategies.kcc import KCCConversionStrategy
+from bookcard.models.kcc_config import KCCConversionProfile
+from bookcard.services.conversion.exceptions import ConversionError
+from bookcard.services.conversion.strategies.kcc import KCCConversionStrategy
 
 if TYPE_CHECKING:
     from pathlib import Path

@@ -21,8 +21,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.metadata.providers._hardcover.mapper import HardcoverBookMapper
-from fundamental.models.metadata import MetadataRecord
+from bookcard.metadata.providers._hardcover.mapper import HardcoverBookMapper
+from bookcard.models.metadata import MetadataRecord
 
 
 @pytest.fixture

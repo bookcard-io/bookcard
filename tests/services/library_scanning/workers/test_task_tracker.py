@@ -21,7 +21,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy.exc import OperationalError
 
-from fundamental.services.library_scanning.workers.task_tracker import ScanTaskTracker
+from bookcard.services.library_scanning.workers.task_tracker import ScanTaskTracker
 
 
 @pytest.fixture
@@ -34,7 +34,7 @@ def tracker() -> ScanTaskTracker:
         Tracker instance.
     """
     with patch(
-        "fundamental.services.library_scanning.workers.task_tracker.create_db_engine"
+        "bookcard.services.library_scanning.workers.task_tracker.create_db_engine"
     ):
         return ScanTaskTracker()
 
@@ -45,7 +45,7 @@ class TestScanTaskTrackerInit:
     def test_init_creates_engine(self) -> None:
         """Test __init__ creates engine (covers line 50)."""
         with patch(
-            "fundamental.services.library_scanning.workers.task_tracker.create_db_engine"
+            "bookcard.services.library_scanning.workers.task_tracker.create_db_engine"
         ) as mock_create:
             tracker = ScanTaskTracker()
             assert tracker.engine is not None
@@ -227,7 +227,7 @@ class TestScanTaskTrackerWithRetry:
         """
         mock_operation = MagicMock()
         with patch(
-            "fundamental.services.library_scanning.workers.task_tracker.get_session"
+            "bookcard.services.library_scanning.workers.task_tracker.get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -251,13 +251,13 @@ class TestScanTaskTrackerWithRetry:
 
         with (
             patch(
-                "fundamental.services.library_scanning.workers.task_tracker.get_session"
+                "bookcard.services.library_scanning.workers.task_tracker.get_session"
             ) as mock_get_session,
             patch(
-                "fundamental.services.library_scanning.workers.task_tracker.time.sleep"
+                "bookcard.services.library_scanning.workers.task_tracker.time.sleep"
             ) as mock_sleep,
             patch(
-                "fundamental.services.library_scanning.workers.task_tracker.random.uniform"
+                "bookcard.services.library_scanning.workers.task_tracker.random.uniform"
             ) as mock_uniform,
         ):
             mock_session = MagicMock()
@@ -298,11 +298,9 @@ class TestScanTaskTrackerWithRetry:
 
         with (
             patch(
-                "fundamental.services.library_scanning.workers.task_tracker.get_session"
+                "bookcard.services.library_scanning.workers.task_tracker.get_session"
             ) as mock_get_session,
-            patch(
-                "fundamental.services.library_scanning.workers.task_tracker.time.sleep"
-            ),
+            patch("bookcard.services.library_scanning.workers.task_tracker.time.sleep"),
         ):
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -325,7 +323,7 @@ class TestScanTaskTrackerWithRetry:
         other_error = ValueError("Other error")
 
         with patch(
-            "fundamental.services.library_scanning.workers.task_tracker.get_session"
+            "bookcard.services.library_scanning.workers.task_tracker.get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -351,7 +349,7 @@ class TestScanTaskTrackerWithRetry:
         )
 
         with patch(
-            "fundamental.services.library_scanning.workers.task_tracker.get_session"
+            "bookcard.services.library_scanning.workers.task_tracker.get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session

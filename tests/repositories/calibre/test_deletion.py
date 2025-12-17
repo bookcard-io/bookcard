@@ -24,12 +24,12 @@ import pytest
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
-from fundamental.models.core import Book
-from fundamental.repositories.calibre.deletion import BookDeletionOperations
+from bookcard.models.core import Book
+from bookcard.repositories.calibre.deletion import BookDeletionOperations
 from tests.repositories.calibre.conftest import MockFileManager, MockSessionManager
 
 if TYPE_CHECKING:
-    from fundamental.repositories.calibre.retry import SQLiteRetryPolicy
+    from bookcard.repositories.calibre.retry import SQLiteRetryPolicy
 
 
 class TestBookDeletionOperations:

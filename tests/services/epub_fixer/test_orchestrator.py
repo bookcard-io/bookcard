@@ -15,12 +15,12 @@
 
 """Tests for EPUB fixer orchestrator."""
 
-from fundamental.services.epub_fixer.core.epub import EPUBContents
-from fundamental.services.epub_fixer.core.fixes.body_id_link import BodyIdLinkFix
-from fundamental.services.epub_fixer.core.fixes.encoding import EncodingFix
-from fundamental.services.epub_fixer.core.fixes.language import LanguageFix
-from fundamental.services.epub_fixer.core.fixes.stray_img import StrayImageFix
-from fundamental.services.epub_fixer.orchestrator import EPUBFixerOrchestrator
+from bookcard.services.epub_fixer.core.epub import EPUBContents
+from bookcard.services.epub_fixer.core.fixes.body_id_link import BodyIdLinkFix
+from bookcard.services.epub_fixer.core.fixes.encoding import EncodingFix
+from bookcard.services.epub_fixer.core.fixes.language import LanguageFix
+from bookcard.services.epub_fixer.core.fixes.stray_img import StrayImageFix
+from bookcard.services.epub_fixer.orchestrator import EPUBFixerOrchestrator
 
 
 def test_orchestrator_init() -> None:

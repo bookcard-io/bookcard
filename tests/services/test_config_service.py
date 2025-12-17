@@ -21,9 +21,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.config import EPUBFixerConfig, Library, ScheduledTasksConfig
-from fundamental.repositories.config_repository import LibraryRepository
-from fundamental.services.config_service import (
+from bookcard.models.config import EPUBFixerConfig, Library, ScheduledTasksConfig
+from bookcard.repositories.config_repository import LibraryRepository
+from bookcard.services.config_service import (
     EPUBFixerConfigService,
     LibraryService,
     ScheduledTasksConfigService,
@@ -144,7 +144,7 @@ def test_create_library_set_as_active() -> None:
     # Mock the database initializer to prevent actual file system operations
     with (
         patch(
-            "fundamental.services.config_service.CalibreDatabaseInitializer"
+            "bookcard.services.config_service.CalibreDatabaseInitializer"
         ) as mock_initializer_class,
         patch("pathlib.Path.exists") as mock_exists,
     ):
@@ -555,7 +555,7 @@ def test_get_library_stats_success() -> None:
     }
 
     with patch(
-        "fundamental.services.config_service.CalibreBookRepository"
+        "bookcard.services.config_service.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get_library_stats.return_value = mock_stats
@@ -622,14 +622,14 @@ def test_create_library_with_auto_generated_path(
 
     with (
         patch(
-            "fundamental.services.config_service.CalibreDatabaseInitializer"
+            "bookcard.services.config_service.CalibreDatabaseInitializer"
         ) as mock_initializer_class,
         patch("pathlib.Path.exists") as mock_exists,
         patch(
-            "fundamental.services.config_service.LibraryService._get_default_library_directory"
+            "bookcard.services.config_service.LibraryService._get_default_library_directory"
         ) as mock_get_dir,
         patch(
-            "fundamental.services.config_service.LibraryService._sync_shelves_for_library"
+            "bookcard.services.config_service.LibraryService._sync_shelves_for_library"
         ),
     ):
         mock_exists.return_value = False
@@ -659,7 +659,7 @@ def test_create_library_existing_database_invalid(
 
     with (
         patch(
-            "fundamental.services.config_service.CalibreDatabaseInitializer.validate_existing_database"
+            "bookcard.services.config_service.CalibreDatabaseInitializer.validate_existing_database"
         ) as mock_validate,
         patch("pathlib.Path.exists") as mock_exists,
     ):
@@ -689,11 +689,11 @@ def test_create_library_existing_database_valid(
 
     with (
         patch(
-            "fundamental.services.config_service.CalibreDatabaseInitializer.validate_existing_database"
+            "bookcard.services.config_service.CalibreDatabaseInitializer.validate_existing_database"
         ) as mock_validate,
         patch("pathlib.Path.exists") as mock_exists,
         patch(
-            "fundamental.services.config_service.LibraryService._sync_shelves_for_library"
+            "bookcard.services.config_service.LibraryService._sync_shelves_for_library"
         ),
     ):
         mock_exists.return_value = True
@@ -725,14 +725,14 @@ def test_create_library_file_exists_error(
 
     with (
         patch(
-            "fundamental.services.config_service.CalibreDatabaseInitializer"
+            "bookcard.services.config_service.CalibreDatabaseInitializer"
         ) as mock_initializer_class,
         patch(
-            "fundamental.services.config_service.CalibreDatabaseInitializer.validate_existing_database"
+            "bookcard.services.config_service.CalibreDatabaseInitializer.validate_existing_database"
         ) as mock_validate,
         patch("pathlib.Path.exists") as mock_exists,
         patch(
-            "fundamental.services.config_service.LibraryService._sync_shelves_for_library"
+            "bookcard.services.config_service.LibraryService._sync_shelves_for_library"
         ),
     ):
         mock_exists.return_value = False
@@ -765,10 +765,10 @@ def test_create_library_file_exists_error_invalid_db(
 
     with (
         patch(
-            "fundamental.services.config_service.CalibreDatabaseInitializer"
+            "bookcard.services.config_service.CalibreDatabaseInitializer"
         ) as mock_initializer_class,
         patch(
-            "fundamental.services.config_service.CalibreDatabaseInitializer.validate_existing_database"
+            "bookcard.services.config_service.CalibreDatabaseInitializer.validate_existing_database"
         ) as mock_validate,
         patch("pathlib.Path.exists") as mock_exists,
     ):
@@ -813,7 +813,7 @@ def test_create_library_initialization_errors(
 
     with (
         patch(
-            "fundamental.services.config_service.CalibreDatabaseInitializer"
+            "bookcard.services.config_service.CalibreDatabaseInitializer"
         ) as mock_initializer_class,
         patch("pathlib.Path.exists") as mock_exists,
     ):
@@ -881,7 +881,7 @@ def test_generate_library_path(
 
     with (
         patch(
-            "fundamental.services.config_service.LibraryService._get_default_library_directory"
+            "bookcard.services.config_service.LibraryService._get_default_library_directory"
         ) as mock_get_dir,
     ):
         mock_get_dir.return_value = "/default/lib/dir"
@@ -1011,12 +1011,12 @@ def test_get_default_library_directory_with_env_var() -> None:
     None
     """
     with patch(
-        "fundamental.services.config_service.os.getenv",
+        "bookcard.services.config_service.os.getenv",
         return_value="/custom/lib/dir",
     ) as mock_getenv:
         result = LibraryService._get_default_library_directory()
         assert result == "/custom/lib/dir"
-        mock_getenv.assert_called_once_with("FUNDAMENTAL_DEFAULT_LIBRARY_DIR")
+        mock_getenv.assert_called_once_with("BOOKCARD_DEFAULT_LIBRARY_DIR")
 
 
 def test_get_default_library_directory_without_env_var() -> None:
@@ -1028,9 +1028,9 @@ def test_get_default_library_directory_without_env_var() -> None:
     """
     with (
         patch(
-            "fundamental.services.config_service.os.getenv", return_value=None
+            "bookcard.services.config_service.os.getenv", return_value=None
         ) as mock_getenv,
-        patch("fundamental.services.config_service.AppConfig.from_env") as mock_config,
+        patch("bookcard.services.config_service.AppConfig.from_env") as mock_config,
     ):
         mock_config_instance = MagicMock()
         mock_config_instance.data_directory = "/default/data/dir"
@@ -1040,7 +1040,7 @@ def test_get_default_library_directory_without_env_var() -> None:
 
         assert result == "/default/data/dir"
         mock_config.assert_called_once()
-        mock_getenv.assert_called_once_with("FUNDAMENTAL_DEFAULT_LIBRARY_DIR")
+        mock_getenv.assert_called_once_with("BOOKCARD_DEFAULT_LIBRARY_DIR")
 
 
 # ============================================================================
@@ -1237,7 +1237,7 @@ def test_is_auto_fix_on_ingest_enabled_with_config(
     # Create a library with auto-fix enabled
     from datetime import UTC, datetime
 
-    from fundamental.models.config import Library
+    from bookcard.models.config import Library
 
     library = Library(
         id=1,

@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from fundamental.services.cover_extractors.fb2 import Fb2CoverExtractor
+from bookcard.services.cover_extractors.fb2 import Fb2CoverExtractor
 
 
 @pytest.fixture

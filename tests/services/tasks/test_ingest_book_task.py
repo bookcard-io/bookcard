@@ -23,10 +23,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.ingest import IngestHistory, IngestStatus
-from fundamental.services.tasks.context import WorkerContext
-from fundamental.services.tasks.exceptions import TaskCancelledError
-from fundamental.services.tasks.ingest_book_task import IngestBookTask
+from bookcard.models.ingest import IngestHistory, IngestStatus
+from bookcard.services.tasks.context import WorkerContext
+from bookcard.services.tasks.exceptions import TaskCancelledError
+from bookcard.services.tasks.ingest_book_task import IngestBookTask
 
 
 @pytest.fixture
@@ -286,7 +286,7 @@ class TestExtractFileInfo:
 class TestFetchMetadata:
     """Test _fetch_metadata method."""
 
-    @patch("fundamental.services.tasks.ingest_book_task.IngestProcessorService")
+    @patch("bookcard.services.tasks.ingest_book_task.IngestProcessorService")
     def test_fetch_metadata_success(
         self,
         mock_processor_service_class: MagicMock,
@@ -316,7 +316,7 @@ class TestFetchMetadata:
         )
         worker_context.update_progress.assert_called_once_with(0.2, None)
 
-    @patch("fundamental.services.tasks.ingest_book_task.IngestProcessorService")
+    @patch("bookcard.services.tasks.ingest_book_task.IngestProcessorService")
     def test_fetch_metadata_none(
         self,
         mock_processor_service_class: MagicMock,
@@ -341,7 +341,7 @@ class TestProcessFiles:
     """Test _process_files method."""
 
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._process_single_file"
+        "bookcard.services.tasks.ingest_book_task.IngestBookTask._process_single_file"
     )
     def test_process_files_success(
         self,
@@ -374,7 +374,7 @@ class TestProcessFiles:
         assert worker_context.update_progress.call_count == 3  # Initial + 2 files
 
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._process_single_file"
+        "bookcard.services.tasks.ingest_book_task.IngestBookTask._process_single_file"
     )
     def test_process_files_missing_file(
         self,
@@ -407,7 +407,7 @@ class TestProcessFiles:
         assert mock_process_single.call_count == 1
 
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._process_single_file"
+        "bookcard.services.tasks.ingest_book_task.IngestBookTask._process_single_file"
     )
     def test_process_files_exception(
         self,
@@ -439,7 +439,7 @@ class TestProcessFiles:
         assert mock_process_single.call_count == 2
 
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._process_single_file"
+        "bookcard.services.tasks.ingest_book_task.IngestBookTask._process_single_file"
     )
     def test_process_files_cancelled(
         self,
@@ -505,13 +505,13 @@ class TestProcessSingleFile:
         assert not author_dir.exists()
 
     @patch(
-        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+        "bookcard.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
     )
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
+        "bookcard.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._run_post_processors"
+        "bookcard.services.tasks.ingest_book_task.IngestBookTask._run_post_processors"
     )
     def test_process_single_file_with_auto_delete(
         self,
@@ -555,13 +555,13 @@ class TestProcessSingleFile:
         mock_run_post_processors.assert_called_once()
 
     @patch(
-        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+        "bookcard.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
     )
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
+        "bookcard.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._run_post_processors"
+        "bookcard.services.tasks.ingest_book_task.IngestBookTask._run_post_processors"
     )
     def test_process_single_file_without_auto_delete(
         self,
@@ -605,13 +605,13 @@ class TestProcessSingleFile:
         mock_run_post_processors.assert_called_once()
 
     @patch(
-        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+        "bookcard.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
     )
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
+        "bookcard.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._run_post_processors"
+        "bookcard.services.tasks.ingest_book_task.IngestBookTask._run_post_processors"
     )
     def test_process_single_file_with_cover_url_in_fetched_metadata(
         self,
@@ -658,13 +658,13 @@ class TestProcessSingleFile:
         mock_run_post_processors.assert_called_once()
 
     @patch(
-        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+        "bookcard.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
     )
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
+        "bookcard.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._run_post_processors"
+        "bookcard.services.tasks.ingest_book_task.IngestBookTask._run_post_processors"
     )
     def test_process_single_file_with_cover_url_in_metadata_hint(
         self,
@@ -711,13 +711,13 @@ class TestProcessSingleFile:
         mock_run_post_processors.assert_called_once()
 
     @patch(
-        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+        "bookcard.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
     )
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
+        "bookcard.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._run_post_processors"
+        "bookcard.services.tasks.ingest_book_task.IngestBookTask._run_post_processors"
     )
     def test_process_single_file_cover_url_priority(
         self,
@@ -765,13 +765,13 @@ class TestProcessSingleFile:
         mock_run_post_processors.assert_called_once()
 
     @patch(
-        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+        "bookcard.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
     )
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
+        "bookcard.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._run_post_processors"
+        "bookcard.services.tasks.ingest_book_task.IngestBookTask._run_post_processors"
     )
     def test_process_single_file_extracts_file_format(
         self,
@@ -815,13 +815,13 @@ class TestProcessSingleFile:
         mock_run_post_processors.assert_called_once()
 
     @patch(
-        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+        "bookcard.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
     )
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
+        "bookcard.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
     )
     @patch(
-        "fundamental.services.tasks.ingest_book_task.IngestBookTask._run_post_processors"
+        "bookcard.services.tasks.ingest_book_task.IngestBookTask._run_post_processors"
     )
     def test_process_single_file_no_extension(
         self,
@@ -1116,10 +1116,10 @@ class TestRun:
     """Test run method."""
 
     @patch(
-        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+        "bookcard.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
     )
-    @patch("fundamental.services.tasks.ingest_book_task.IngestConfigService")
-    @patch("fundamental.services.tasks.ingest_book_task.IngestProcessorService")
+    @patch("bookcard.services.tasks.ingest_book_task.IngestConfigService")
+    @patch("bookcard.services.tasks.ingest_book_task.IngestProcessorService")
     def test_run_success(
         self,
         mock_processor_service_class: MagicMock,
@@ -1175,10 +1175,10 @@ class TestRun:
         worker_context.update_progress.assert_called()
 
     @patch(
-        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+        "bookcard.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
     )
-    @patch("fundamental.services.tasks.ingest_book_task.IngestConfigService")
-    @patch("fundamental.services.tasks.ingest_book_task.IngestProcessorService")
+    @patch("bookcard.services.tasks.ingest_book_task.IngestConfigService")
+    @patch("bookcard.services.tasks.ingest_book_task.IngestProcessorService")
     def test_run_with_dict_context(
         self,
         mock_processor_service_class: MagicMock,
@@ -1225,8 +1225,8 @@ class TestRun:
 
         mock_processor_service.finalize_history.assert_called_once()
 
-    @patch("fundamental.services.tasks.ingest_book_task.IngestConfigService")
-    @patch("fundamental.services.tasks.ingest_book_task.IngestProcessorService")
+    @patch("bookcard.services.tasks.ingest_book_task.IngestConfigService")
+    @patch("bookcard.services.tasks.ingest_book_task.IngestProcessorService")
     def test_run_cancelled(
         self,
         mock_processor_service_class: MagicMock,
@@ -1251,8 +1251,8 @@ class TestRun:
             123, IngestStatus.FAILED, "Task cancelled"
         )
 
-    @patch("fundamental.services.tasks.ingest_book_task.IngestConfigService")
-    @patch("fundamental.services.tasks.ingest_book_task.IngestProcessorService")
+    @patch("bookcard.services.tasks.ingest_book_task.IngestConfigService")
+    @patch("bookcard.services.tasks.ingest_book_task.IngestProcessorService")
     def test_run_error(
         self,
         mock_processor_service_class: MagicMock,
@@ -1297,14 +1297,14 @@ class TestIngestBookTaskAdditional:
         mock_ingest_config: MagicMock,
     ) -> None:
         """Test run when no books processed (covers lines 105-106)."""
-        from fundamental.models.ingest import IngestHistory, IngestStatus
+        from bookcard.models.ingest import IngestHistory, IngestStatus
 
         with (
             patch(
-                "fundamental.services.tasks.ingest_book_task.IngestProcessorService"
+                "bookcard.services.tasks.ingest_book_task.IngestProcessorService"
             ) as mock_processor_service_class,
             patch(
-                "fundamental.services.tasks.ingest_book_task.IngestConfigService"
+                "bookcard.services.tasks.ingest_book_task.IngestConfigService"
             ) as mock_config_service_class,
         ):
             mock_processor_service = MagicMock()
@@ -1342,14 +1342,14 @@ class TestIngestBookTaskAdditional:
         mock_ingest_config: MagicMock,
     ) -> None:
         """Test run when all files skipped as duplicates (covers lines 107-109)."""
-        from fundamental.models.ingest import IngestHistory, IngestStatus
+        from bookcard.models.ingest import IngestHistory, IngestStatus
 
         with (
             patch(
-                "fundamental.services.tasks.ingest_book_task.IngestProcessorService"
+                "bookcard.services.tasks.ingest_book_task.IngestProcessorService"
             ) as mock_processor_service_class,
             patch(
-                "fundamental.services.tasks.ingest_book_task.IngestConfigService"
+                "bookcard.services.tasks.ingest_book_task.IngestConfigService"
             ) as mock_config_service_class,
         ):
             mock_processor_service = MagicMock()
@@ -1359,7 +1359,7 @@ class TestIngestBookTaskAdditional:
                 status=IngestStatus.PENDING,
                 ingest_metadata={"files": ["/test/file1.epub"]},
             )
-            from fundamental.models.config import DuplicateHandling, Library
+            from bookcard.models.config import DuplicateHandling, Library
 
             mock_processor_service.get_history.return_value = history
             mock_library = Library(
@@ -1400,7 +1400,7 @@ class TestIngestBookTaskAdditional:
         worker_context: WorkerContext,
     ) -> None:
         """Test _fetch_metadata when disabled (covers lines 245-250)."""
-        from fundamental.models.ingest import IngestConfig
+        from bookcard.models.ingest import IngestConfig
 
         mock_processor_service = MagicMock()
         config = IngestConfig(metadata_fetch_enabled=False)
@@ -1424,10 +1424,10 @@ class TestIngestBookTaskAdditional:
         """Test _process_files handles duplicate skip (covers lines 317-321)."""
         from pathlib import Path
 
-        from fundamental.models.config import DuplicateHandling, Library
+        from bookcard.models.config import DuplicateHandling, Library
 
         with patch(
-            "fundamental.services.tasks.ingest_book_task.IngestProcessorService"
+            "bookcard.services.tasks.ingest_book_task.IngestProcessorService"
         ) as mock_processor_service_class:
             mock_processor_service = MagicMock()
             mock_library = Library(
@@ -1446,7 +1446,7 @@ class TestIngestBookTaskAdditional:
             with (
                 patch("pathlib.Path.exists", return_value=True),
                 patch(
-                    "fundamental.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
+                    "bookcard.services.tasks.ingest_book_task.IngestBookTask._delete_source_files_and_dirs"
                 ) as mock_delete,
             ):
                 book_ids, skipped = task._process_files(
@@ -1473,7 +1473,7 @@ class TestIngestBookTaskAdditional:
         from pathlib import Path
 
         with patch(
-            "fundamental.services.tasks.ingest_book_task.IngestProcessorService"
+            "bookcard.services.tasks.ingest_book_task.IngestProcessorService"
         ) as mock_processor_service_class:
             mock_processor_service = MagicMock()
             mock_processor_service.get_active_library.return_value = MagicMock()
@@ -1485,9 +1485,7 @@ class TestIngestBookTaskAdditional:
             file_paths = [Path("/test/file1.epub")]
             with (
                 patch("pathlib.Path.exists", return_value=True),
-                patch(
-                    "fundamental.services.tasks.ingest_book_task.logger"
-                ) as mock_logger,
+                patch("bookcard.services.tasks.ingest_book_task.logger") as mock_logger,
             ):
                 book_ids, skipped = task._process_files(
                     mock_processor_service,
@@ -1508,12 +1506,12 @@ class TestIngestBookTaskAdditional:
         task: IngestBookTask,
     ) -> None:
         """Test _check_and_handle_duplicate overwrite mode (covers lines 390-407)."""
-        from fundamental.services.duplicate_detection.book_duplicate_handler import (
+        from bookcard.services.duplicate_detection.book_duplicate_handler import (
             DuplicateCheckResult,
         )
 
         with patch(
-            "fundamental.services.tasks.ingest_book_task.BookDuplicateHandler"
+            "bookcard.services.tasks.ingest_book_task.BookDuplicateHandler"
         ) as mock_handler_class:
             mock_handler = MagicMock()
             duplicate_result = DuplicateCheckResult(
@@ -1549,12 +1547,12 @@ class TestIngestBookTaskAdditional:
         task: IngestBookTask,
     ) -> None:
         """Test _check_and_handle_duplicate overwrite mode without factory (covers lines 398-407)."""
-        from fundamental.services.duplicate_detection.book_duplicate_handler import (
+        from bookcard.services.duplicate_detection.book_duplicate_handler import (
             DuplicateCheckResult,
         )
 
         with patch(
-            "fundamental.services.tasks.ingest_book_task.BookDuplicateHandler"
+            "bookcard.services.tasks.ingest_book_task.BookDuplicateHandler"
         ) as mock_handler_class:
             mock_handler = MagicMock()
             duplicate_result = DuplicateCheckResult(
@@ -1588,13 +1586,13 @@ class TestIngestBookTaskAdditional:
         mock_ingest_config: MagicMock,
     ) -> None:
         """Test _process_single_file duplicate check skip (covers lines 473-484)."""
-        from fundamental.models.config import DuplicateHandling, Library
-        from fundamental.services.duplicate_detection.book_duplicate_handler import (
+        from bookcard.models.config import DuplicateHandling, Library
+        from bookcard.services.duplicate_detection.book_duplicate_handler import (
             DuplicateCheckResult,
         )
 
         with patch(
-            "fundamental.services.tasks.ingest_book_task.BookDuplicateHandler"
+            "bookcard.services.tasks.ingest_book_task.BookDuplicateHandler"
         ) as mock_handler_class:
             mock_handler = MagicMock()
             duplicate_result = DuplicateCheckResult(
@@ -1608,7 +1606,7 @@ class TestIngestBookTaskAdditional:
 
             mock_processor_service = MagicMock()
             mock_processor_service.add_book_to_library.return_value = 456
-            from fundamental.models.config import DuplicateHandling, Library
+            from bookcard.models.config import DuplicateHandling, Library
 
             mock_library = Library(
                 id=1,
@@ -1711,7 +1709,7 @@ class TestIngestBookTaskAdditional:
         other_file = book_dir / "other.txt"
         other_file.write_text("content")
 
-        with patch("fundamental.services.tasks.ingest_book_task.logger"):
+        with patch("bookcard.services.tasks.ingest_book_task.logger"):
             task._delete_companion_files(main_file, book_dir)
 
             # Should delete matching stem, cover, and metadata
@@ -1737,7 +1735,7 @@ class TestIngestBookTaskAdditional:
 
         with (
             patch("pathlib.Path.unlink", side_effect=OSError("Permission denied")),
-            patch("fundamental.services.tasks.ingest_book_task.logger") as mock_logger,
+            patch("bookcard.services.tasks.ingest_book_task.logger") as mock_logger,
         ):
             task._delete_companion_files(main_file, book_dir)
 
@@ -1780,7 +1778,7 @@ class TestIngestBookTaskAdditional:
 
         with (
             patch("pathlib.Path.rmdir", side_effect=OSError("Permission denied")),
-            patch("fundamental.services.tasks.ingest_book_task.logger") as mock_logger,
+            patch("bookcard.services.tasks.ingest_book_task.logger") as mock_logger,
         ):
             task._try_delete_empty_directory(test_dir, "test")
 

@@ -22,9 +22,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-import fundamental.api.routes.admin as admin
-from fundamental.models.auth import EBookFormat, EReaderDevice, Role, User
-from fundamental.models.config import Library
+import bookcard.api.routes.admin as admin
+from bookcard.models.auth import EBookFormat, EReaderDevice, Role, User
+from bookcard.models.config import Library
 from tests.conftest import DummySession
 
 
@@ -51,9 +51,9 @@ def test_create_user_success(monkeypatch: pytest.MonkeyPatch) -> None:
     user.roles = []  # type: ignore[attr-defined]
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.PasswordHasher") as mock_hasher_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.PasswordHasher") as mock_hasher_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -81,9 +81,9 @@ def test_create_user_username_exists() -> None:
     )
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.PasswordHasher") as mock_hasher_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.PasswordHasher") as mock_hasher_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -114,9 +114,9 @@ def test_create_user_email_exists() -> None:
     )
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.PasswordHasher") as mock_hasher_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.PasswordHasher") as mock_hasher_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -155,10 +155,10 @@ def test_create_user_with_roles(monkeypatch: pytest.MonkeyPatch) -> None:
     user.roles = []  # type: ignore[attr-defined]
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.PasswordHasher") as mock_hasher_class,
-        patch("fundamental.api.routes.admin.RoleService") as mock_role_service_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.PasswordHasher") as mock_hasher_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_role_service_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -205,12 +205,10 @@ def test_create_user_with_device(monkeypatch: pytest.MonkeyPatch) -> None:
     user.roles = []  # type: ignore[attr-defined]
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.PasswordHasher") as mock_hasher_class,
-        patch(
-            "fundamental.api.routes.admin.EReaderService"
-        ) as mock_device_service_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.PasswordHasher") as mock_hasher_class,
+        patch("bookcard.api.routes.admin.EReaderService") as mock_device_service_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -256,10 +254,10 @@ def test_create_user_with_roles_suppresses_value_error(
     user.roles = []  # type: ignore[attr-defined]
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_user_repo_class,
-        patch("fundamental.api.routes.admin.PasswordHasher") as mock_hasher_class,
-        patch("fundamental.api.routes.admin.RoleService") as mock_role_service_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_user_repo_class,
+        patch("bookcard.api.routes.admin.PasswordHasher") as mock_hasher_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_role_service_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_user_repo = MagicMock()
         mock_user_repo_class.return_value = mock_user_repo
@@ -308,12 +306,10 @@ def test_create_user_with_device_suppresses_value_error(
     user.roles = []  # type: ignore[attr-defined]
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_user_repo_class,
-        patch("fundamental.api.routes.admin.PasswordHasher") as mock_hasher_class,
-        patch(
-            "fundamental.api.routes.admin.EReaderService"
-        ) as mock_device_service_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_user_repo_class,
+        patch("bookcard.api.routes.admin.PasswordHasher") as mock_hasher_class,
+        patch("bookcard.api.routes.admin.EReaderService") as mock_device_service_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_user_repo = MagicMock()
         mock_user_repo_class.return_value = mock_user_repo
@@ -350,9 +346,9 @@ def test_create_user_user_not_found_after_create(
     )
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.PasswordHasher") as mock_hasher_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.PasswordHasher") as mock_hasher_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -392,7 +388,7 @@ def test_list_users(monkeypatch: pytest.MonkeyPatch) -> None:
     user2.ereader_devices = []  # type: ignore[attr-defined]
     user2.roles = []  # type: ignore[attr-defined]
 
-    with patch("fundamental.api.routes.admin.UserService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.UserService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.list_users_with_relationships.return_value = [user1, user2]
         mock_service_class.return_value = mock_service
@@ -415,7 +411,7 @@ def test_get_user_success(monkeypatch: pytest.MonkeyPatch) -> None:
     user.ereader_devices = []  # type: ignore[attr-defined]
     user.roles = []  # type: ignore[attr-defined]
 
-    with patch("fundamental.api.routes.admin.UserService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.UserService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.get_with_relationships.return_value = user
         mock_service_class.return_value = mock_service
@@ -429,7 +425,7 @@ def test_get_user_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test get_user raises 404 when user not found."""
     session = DummySession()
 
-    with patch("fundamental.api.routes.admin.UserService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.UserService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.get_with_relationships.return_value = None
         mock_service_class.return_value = mock_service
@@ -456,8 +452,8 @@ def test_update_user_success(monkeypatch: pytest.MonkeyPatch) -> None:
     user.roles = []  # type: ignore[attr-defined]
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = user
@@ -478,7 +474,7 @@ def test_update_user_not_found() -> None:
     session = DummySession()
     payload = admin.AdminUserUpdate(username="newname")
 
-    with patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = None
         mock_repo_class.return_value = mock_repo
@@ -505,8 +501,8 @@ def test_update_user_username_conflict(monkeypatch: pytest.MonkeyPatch) -> None:
     user.roles = []  # type: ignore[attr-defined]
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = user
@@ -539,8 +535,8 @@ def test_update_user_admin_status(monkeypatch: pytest.MonkeyPatch) -> None:
     user.roles = []  # type: ignore[attr-defined]
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = user
@@ -576,8 +572,8 @@ def test_update_user_active_status(monkeypatch: pytest.MonkeyPatch) -> None:
     user.roles = []  # type: ignore[attr-defined]
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = user
@@ -612,8 +608,8 @@ def test_update_user_not_found_after_update(monkeypatch: pytest.MonkeyPatch) -> 
     user.roles = []  # type: ignore[attr-defined]
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = user
@@ -646,8 +642,8 @@ def test_update_user_profile_unexpected_error(monkeypatch: pytest.MonkeyPatch) -
     user.roles = []  # type: ignore[attr-defined]
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = user
@@ -688,8 +684,8 @@ def test_update_user_status_value_error(
     user.roles = []  # type: ignore[attr-defined]
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = user
@@ -722,8 +718,8 @@ def test_assign_role_to_user_success(monkeypatch: pytest.MonkeyPatch) -> None:
     user.roles = []  # type: ignore[attr-defined]
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_role_service_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_role_service_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_role_service = MagicMock()
         mock_role_service.assign_role_to_user.return_value = None
@@ -743,7 +739,7 @@ def test_assign_role_to_user_already_has_role(monkeypatch: pytest.MonkeyPatch) -
     session = DummySession()
     payload = admin.UserRoleAssign(role_id=1)
 
-    with patch("fundamental.api.routes.admin.RoleService") as mock_role_service_class:
+    with patch("bookcard.api.routes.admin.RoleService") as mock_role_service_class:
         mock_role_service = MagicMock()
         mock_role_service.assign_role_to_user.side_effect = ValueError(
             "user_already_has_role"
@@ -762,7 +758,7 @@ def test_assign_role_to_user_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     session = DummySession()
     payload = admin.UserRoleAssign(role_id=1)
 
-    with patch("fundamental.api.routes.admin.RoleService") as mock_role_service_class:
+    with patch("bookcard.api.routes.admin.RoleService") as mock_role_service_class:
         mock_role_service = MagicMock()
         mock_role_service.assign_role_to_user.side_effect = ValueError("user_not_found")
         mock_role_service_class.return_value = mock_role_service
@@ -782,8 +778,8 @@ def test_assign_role_to_user_not_found_after_assign(
     payload = admin.UserRoleAssign(role_id=1)
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_role_service_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_role_service_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_role_service = MagicMock()
         mock_role_service.assign_role_to_user.return_value = None
@@ -813,8 +809,8 @@ def test_remove_role_from_user_success(monkeypatch: pytest.MonkeyPatch) -> None:
     user.roles = []  # type: ignore[attr-defined]
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_role_service_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_role_service_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_role_service = MagicMock()
         mock_role_service.remove_role_from_user.return_value = None
@@ -832,7 +828,7 @@ def test_remove_role_from_user_not_found(monkeypatch: pytest.MonkeyPatch) -> Non
     """Test remove_role_from_user raises 404 when user or role not found."""
     session = DummySession()
 
-    with patch("fundamental.api.routes.admin.RoleService") as mock_role_service_class:
+    with patch("bookcard.api.routes.admin.RoleService") as mock_role_service_class:
         mock_role_service = MagicMock()
         mock_role_service.remove_role_from_user.side_effect = ValueError(
             "user_role_not_found"
@@ -853,8 +849,8 @@ def test_remove_role_from_user_not_found_after_remove(
     session = DummySession()
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_role_service_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_role_service_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_role_service = MagicMock()
         mock_role_service.remove_role_from_user.return_value = None
@@ -879,7 +875,7 @@ def test_create_role_success(monkeypatch: pytest.MonkeyPatch) -> None:
     role = Role(id=1, name="viewer", description="Viewer role")
     role.permissions = []  # type: ignore[attr-defined]
 
-    with patch("fundamental.api.routes.admin.RoleService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.RoleService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.create_role_from_schema.return_value = role
         mock_service_class.return_value = mock_service
@@ -894,7 +890,7 @@ def test_create_role_already_exists(monkeypatch: pytest.MonkeyPatch) -> None:
     session = DummySession()
     payload = admin.RoleCreate(name="existing", description="Existing role")
 
-    with patch("fundamental.api.routes.admin.RoleService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.RoleService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.create_role_from_schema.side_effect = ValueError(
             "role_already_exists"
@@ -921,7 +917,7 @@ def test_create_role_already_exists(monkeypatch: pytest.MonkeyPatch) -> None:
         (
             admin.create_role,
             admin.RoleCreate(name="testrole", description="Test role"),
-            "fundamental.api.routes.admin.RoleService",
+            "bookcard.api.routes.admin.RoleService",
             "create_role_from_schema",
             "488",
             {"payload": admin.RoleCreate(name="testrole", description="Test role")},
@@ -929,7 +925,7 @@ def test_create_role_already_exists(monkeypatch: pytest.MonkeyPatch) -> None:
         (
             admin.create_device,
             admin.EReaderDeviceCreate(email="device@example.com"),
-            "fundamental.api.routes.admin.EReaderService",
+            "bookcard.api.routes.admin.EReaderService",
             "create_device",
             "768",
             {
@@ -940,7 +936,7 @@ def test_create_role_already_exists(monkeypatch: pytest.MonkeyPatch) -> None:
         (
             admin.update_device,
             admin.EReaderDeviceUpdate(email="device@example.com"),
-            "fundamental.api.routes.admin.EReaderService",
+            "bookcard.api.routes.admin.EReaderService",
             "update_device",
             "860",
             {
@@ -955,7 +951,7 @@ def test_create_role_already_exists(monkeypatch: pytest.MonkeyPatch) -> None:
                 calibre_db_path="/path/to/library",
                 calibre_db_file="metadata.db",
             ),
-            "fundamental.api.routes.admin.LibraryService",
+            "bookcard.api.routes.admin.LibraryService",
             "create_library",
             "1003",
             {
@@ -969,7 +965,7 @@ def test_create_role_already_exists(monkeypatch: pytest.MonkeyPatch) -> None:
         (
             admin.update_library,
             admin.LibraryUpdate(name="Updated Library"),
-            "fundamental.api.routes.admin.LibraryService",
+            "bookcard.api.routes.admin.LibraryService",
             "update_library",
             "1060",
             {"library_id": 1, "payload": admin.LibraryUpdate(name="Updated Library")},
@@ -977,7 +973,7 @@ def test_create_role_already_exists(monkeypatch: pytest.MonkeyPatch) -> None:
         (
             admin.delete_library,
             None,
-            "fundamental.api.routes.admin.LibraryService",
+            "bookcard.api.routes.admin.LibraryService",
             "delete_library",
             "1096",
             {"library_id": 1},
@@ -985,7 +981,7 @@ def test_create_role_already_exists(monkeypatch: pytest.MonkeyPatch) -> None:
         (
             admin.activate_library,
             None,
-            "fundamental.api.routes.admin.LibraryService",
+            "bookcard.api.routes.admin.LibraryService",
             "set_active_library",
             "1138",
             {"library_id": 1},
@@ -1013,9 +1009,7 @@ def test_unexpected_value_error_re_raised(
             password_hash="hash",
         )
         with (
-            patch(
-                "fundamental.api.routes.admin.UserRepository"
-            ) as mock_user_repo_class,
+            patch("bookcard.api.routes.admin.UserRepository") as mock_user_repo_class,
             patch(service_class_path) as mock_service_class,
         ):
             mock_user_repo = MagicMock()
@@ -1059,7 +1053,7 @@ def test_list_roles(monkeypatch: pytest.MonkeyPatch) -> None:
     role1 = Role(id=1, name="viewer", description="Viewer role")
     role2 = Role(id=2, name="editor", description="Editor role")
 
-    with patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.list_all.return_value = [role1, role2]
         mock_repo_class.return_value = mock_repo
@@ -1075,7 +1069,7 @@ def test_delete_role_success(monkeypatch: pytest.MonkeyPatch) -> None:
     session = DummySession()
     role = Role(id=2, name="viewer", description="Viewer role")
 
-    with patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = role
         mock_repo_class.return_value = mock_repo
@@ -1089,7 +1083,7 @@ def test_delete_role_not_found() -> None:
     """Test delete_role raises 404 when role not found."""
     session = DummySession()
 
-    with patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = None
         mock_repo_class.return_value = mock_repo
@@ -1109,8 +1103,8 @@ def test_grant_permission_to_role_success(monkeypatch: pytest.MonkeyPatch) -> No
     role = Role(id=1, name="viewer", description="Viewer role")
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
-        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class,
     ):
         mock_service = MagicMock()
         mock_service.grant_permission_to_role.return_value = None
@@ -1132,7 +1126,7 @@ def test_grant_permission_to_role_already_has_permission(
     session = DummySession()
     payload = admin.RolePermissionGrant(permission_id=1, condition=None)
 
-    with patch("fundamental.api.routes.admin.RoleService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.RoleService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.grant_permission_to_role.side_effect = ValueError(
             "role_already_has_permission"
@@ -1151,7 +1145,7 @@ def test_grant_permission_to_role_not_found(monkeypatch: pytest.MonkeyPatch) -> 
     session = DummySession()
     payload = admin.RolePermissionGrant(permission_id=1, condition=None)
 
-    with patch("fundamental.api.routes.admin.RoleService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.RoleService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.grant_permission_to_role.side_effect = ValueError("role_not_found")
         mock_service_class.return_value = mock_service
@@ -1171,8 +1165,8 @@ def test_grant_permission_to_role_not_found_after_grant(
     payload = admin.RolePermissionGrant(permission_id=1, condition=None)
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
-        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class,
     ):
         mock_service = MagicMock()
         mock_service.grant_permission_to_role.return_value = None
@@ -1195,8 +1189,8 @@ def test_revoke_permission_from_role_success(monkeypatch: pytest.MonkeyPatch) ->
     role = Role(id=1, name="viewer", description="Viewer role")
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
-        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class,
     ):
         mock_service = MagicMock()
         mock_service.revoke_permission_from_role.return_value = None
@@ -1214,7 +1208,7 @@ def test_revoke_permission_from_role_not_found(monkeypatch: pytest.MonkeyPatch) 
     """Test revoke_permission_from_role raises 404 when role permission not found."""
     session = DummySession()
 
-    with patch("fundamental.api.routes.admin.RoleService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.RoleService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.revoke_permission_from_role.side_effect = ValueError(
             "role_permission_not_found"
@@ -1235,8 +1229,8 @@ def test_revoke_permission_from_role_not_found_after_revoke(
     session = DummySession()
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
-        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class,
     ):
         mock_service = MagicMock()
         mock_service.revoke_permission_from_role.return_value = None
@@ -1255,13 +1249,13 @@ def test_revoke_permission_from_role_not_found_after_revoke(
 
 def test_list_permissions_with_resource(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test list_permissions filters by resource when provided."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     perm1 = Permission(id=1, name="read", resource="books", action="read")
     perm2 = Permission(id=2, name="write", resource="books", action="write")
 
-    with patch("fundamental.api.routes.admin.PermissionRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.admin.PermissionRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.list_by_resource.return_value = [perm1, perm2]
         mock_repo_class.return_value = mock_repo
@@ -1276,14 +1270,12 @@ def test_delete_permission_success(monkeypatch: pytest.MonkeyPatch) -> None:
     session = DummySession()
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
-        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.PermissionRepository") as mock_perm_repo_class,
+        patch("bookcard.api.routes.admin.UserRoleRepository"),
         patch(
-            "fundamental.api.routes.admin.PermissionRepository"
-        ) as mock_perm_repo_class,
-        patch("fundamental.api.routes.admin.UserRoleRepository"),
-        patch(
-            "fundamental.api.routes.admin.RolePermissionRepository"
+            "bookcard.api.routes.admin.RolePermissionRepository"
         ) as mock_rp_repo_class,
     ):
         mock_service = MagicMock()
@@ -1310,14 +1302,12 @@ def test_delete_permission_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     session = DummySession()
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
-        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.PermissionRepository") as mock_perm_repo_class,
+        patch("bookcard.api.routes.admin.UserRoleRepository"),
         patch(
-            "fundamental.api.routes.admin.PermissionRepository"
-        ) as mock_perm_repo_class,
-        patch("fundamental.api.routes.admin.UserRoleRepository"),
-        patch(
-            "fundamental.api.routes.admin.RolePermissionRepository"
+            "bookcard.api.routes.admin.RolePermissionRepository"
         ) as mock_rp_repo_class,
     ):
         mock_service = MagicMock()
@@ -1344,14 +1334,12 @@ def test_delete_permission_assigned_to_roles(monkeypatch: pytest.MonkeyPatch) ->
     session = DummySession()
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
-        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.PermissionRepository") as mock_perm_repo_class,
+        patch("bookcard.api.routes.admin.UserRoleRepository"),
         patch(
-            "fundamental.api.routes.admin.PermissionRepository"
-        ) as mock_perm_repo_class,
-        patch("fundamental.api.routes.admin.UserRoleRepository"),
-        patch(
-            "fundamental.api.routes.admin.RolePermissionRepository"
+            "bookcard.api.routes.admin.RolePermissionRepository"
         ) as mock_rp_repo_class,
     ):
         mock_service = MagicMock()
@@ -1377,13 +1365,13 @@ def test_delete_permission_assigned_to_roles(monkeypatch: pytest.MonkeyPatch) ->
 
 def test_list_permissions_without_resource(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test list_permissions returns all permissions when resource not provided."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     perm1 = Permission(id=1, name="read", resource="books", action="read")
     perm2 = Permission(id=2, name="write", resource="authors", action="write")
 
-    with patch("fundamental.api.routes.admin.PermissionRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.admin.PermissionRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.list.return_value = [perm1, perm2]
         mock_repo_class.return_value = mock_repo
@@ -1422,8 +1410,8 @@ def test_create_device_success(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_user_repo_class,
-        patch("fundamental.api.routes.admin.EReaderService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_user_repo_class,
+        patch("bookcard.api.routes.admin.EReaderService") as mock_service_class,
     ):
         mock_user_repo = MagicMock()
         mock_user_repo.get.return_value = user
@@ -1443,7 +1431,7 @@ def test_create_device_user_not_found() -> None:
     session = DummySession()
     payload = admin.EReaderDeviceCreate(email="device@example.com")
 
-    with patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = None
         mock_repo_class.return_value = mock_repo
@@ -1468,8 +1456,8 @@ def test_create_device_email_exists(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_user_repo_class,
-        patch("fundamental.api.routes.admin.EReaderService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_user_repo_class,
+        patch("bookcard.api.routes.admin.EReaderService") as mock_service_class,
     ):
         mock_user_repo = MagicMock()
         mock_user_repo.get.return_value = user
@@ -1514,8 +1502,8 @@ def test_create_device_invalid_format_suppressed(
     )
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_user_repo_class,
-        patch("fundamental.api.routes.admin.EReaderService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_user_repo_class,
+        patch("bookcard.api.routes.admin.EReaderService") as mock_service_class,
     ):
         mock_user_repo = MagicMock()
         mock_user_repo.get.return_value = user
@@ -1549,7 +1537,7 @@ def test_list_user_devices(monkeypatch: pytest.MonkeyPatch) -> None:
         is_default=False,
     )
 
-    with patch("fundamental.api.routes.admin.EReaderRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.admin.EReaderRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.find_by_user.return_value = [device1, device2]
         mock_repo_class.return_value = mock_repo
@@ -1579,7 +1567,7 @@ def test_update_device_success(monkeypatch: pytest.MonkeyPatch) -> None:
         is_default=True,
     )
 
-    with patch("fundamental.api.routes.admin.EReaderService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.EReaderService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.update_device.return_value = device
         mock_service_class.return_value = mock_service
@@ -1594,7 +1582,7 @@ def test_update_device_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     session = DummySession()
     payload = admin.EReaderDeviceUpdate(email="newemail@example.com")
 
-    with patch("fundamental.api.routes.admin.EReaderService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.EReaderService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.update_device.side_effect = ValueError("device_not_found")
         mock_service_class.return_value = mock_service
@@ -1611,7 +1599,7 @@ def test_update_device_email_exists(monkeypatch: pytest.MonkeyPatch) -> None:
     session = DummySession()
     payload = admin.EReaderDeviceUpdate(email="existing@example.com")
 
-    with patch("fundamental.api.routes.admin.EReaderService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.EReaderService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.update_device.side_effect = ValueError(
             "device_email_already_exists"
@@ -1642,7 +1630,7 @@ def test_update_device_invalid_format_suppressed(
         preferred_format=None,  # Should be None when format is invalid
     )
 
-    with patch("fundamental.api.routes.admin.EReaderService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.EReaderService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.update_device.return_value = device
         mock_service_class.return_value = mock_service
@@ -1657,7 +1645,7 @@ def test_delete_device_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test delete_device succeeds."""
     session = DummySession()
 
-    with patch("fundamental.api.routes.admin.EReaderService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.EReaderService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.delete_device.return_value = None
         mock_service_class.return_value = mock_service
@@ -1671,7 +1659,7 @@ def test_delete_device_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test delete_device raises 404 when device not found."""
     session = DummySession()
 
-    with patch("fundamental.api.routes.admin.EReaderService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.EReaderService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.delete_device.side_effect = ValueError("device_not_found")
         mock_service_class.return_value = mock_service
@@ -1701,7 +1689,7 @@ def test_list_libraries(monkeypatch: pytest.MonkeyPatch) -> None:
         is_active=False,
     )
 
-    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.list_libraries.return_value = [library1, library2]
         mock_service_class.return_value = mock_service
@@ -1723,7 +1711,7 @@ def test_get_active_library_success(monkeypatch: pytest.MonkeyPatch) -> None:
         is_active=True,
     )
 
-    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.get_active_library.return_value = library
         mock_service_class.return_value = mock_service
@@ -1737,7 +1725,7 @@ def test_get_active_library_none(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test get_active_library returns None when no active library."""
     session = DummySession()
 
-    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.get_active_library.return_value = None
         mock_service_class.return_value = mock_service
@@ -1770,7 +1758,7 @@ def test_create_library_success(monkeypatch: pytest.MonkeyPatch) -> None:
         is_active=False,
     )
 
-    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.create_library.return_value = library
         mock_service_class.return_value = mock_service
@@ -1789,7 +1777,7 @@ def test_create_library_path_exists(monkeypatch: pytest.MonkeyPatch) -> None:
         calibre_db_file="metadata.db",
     )
 
-    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.create_library.side_effect = ValueError(
             "library_path_already_exists"
@@ -1819,7 +1807,7 @@ def test_update_library_success(monkeypatch: pytest.MonkeyPatch) -> None:
         is_active=True,
     )
 
-    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.update_library.return_value = library
         mock_service_class.return_value = mock_service
@@ -1834,7 +1822,7 @@ def test_update_library_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     session = DummySession()
     payload = admin.LibraryUpdate(name="Updated Library")
 
-    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.update_library.side_effect = ValueError("library_not_found")
         mock_service_class.return_value = mock_service
@@ -1851,7 +1839,7 @@ def test_update_library_path_exists(monkeypatch: pytest.MonkeyPatch) -> None:
     session = DummySession()
     payload = admin.LibraryUpdate(calibre_db_path="/existing/path")
 
-    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.update_library.side_effect = ValueError(
             "library_path_already_exists"
@@ -1869,7 +1857,7 @@ def test_delete_library_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test delete_library succeeds."""
     session = DummySession()
 
-    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.delete_library.return_value = None
         mock_service_class.return_value = mock_service
@@ -1883,7 +1871,7 @@ def test_delete_library_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test delete_library raises 404 when library not found."""
     session = DummySession()
 
-    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.delete_library.side_effect = ValueError("library_not_found")
         mock_service_class.return_value = mock_service
@@ -1906,7 +1894,7 @@ def test_activate_library_success(monkeypatch: pytest.MonkeyPatch) -> None:
         is_active=True,
     )
 
-    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.set_active_library.return_value = library
         mock_service_class.return_value = mock_service
@@ -1920,7 +1908,7 @@ def test_activate_library_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test activate_library raises 404 when library not found."""
     session = DummySession()
 
-    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.set_active_library.side_effect = ValueError("library_not_found")
         mock_service_class.return_value = mock_service
@@ -1945,7 +1933,7 @@ def test_get_library_stats_success(monkeypatch: pytest.MonkeyPatch) -> None:
         "total_content_size": 1024000,
     }
 
-    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.get_library_stats.return_value = mock_stats
         mock_service_class.return_value = mock_service
@@ -1959,7 +1947,7 @@ def test_get_library_stats_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test get_library_stats raises 404 when library not found (covers lines 1134-1138)."""
     session = DummySession()
 
-    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.get_library_stats.side_effect = ValueError("library_not_found")
         mock_service_class.return_value = mock_service
@@ -1975,7 +1963,7 @@ def test_get_library_stats_other_value_error(monkeypatch: pytest.MonkeyPatch) ->
     """Test get_library_stats re-raises other ValueError (covers line 1138)."""
     session = DummySession()
 
-    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.get_library_stats.side_effect = ValueError("other_error")
         mock_service_class.return_value = mock_service
@@ -1988,7 +1976,7 @@ def test_get_library_stats_file_not_found(monkeypatch: pytest.MonkeyPatch) -> No
     """Test get_library_stats raises 404 when database file not found (covers lines 1139-1142)."""
     session = DummySession()
 
-    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.get_library_stats.side_effect = FileNotFoundError(
             "Database not found"
@@ -2023,7 +2011,7 @@ def test_get_user_profile_picture_user_not_found(
     session = DummySession()
     request = DummyRequest()
 
-    with patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = None
         mock_repo_class.return_value = mock_repo
@@ -2062,7 +2050,7 @@ def test_get_user_profile_picture_no_picture(monkeypatch: pytest.MonkeyPatch) ->
         profile_picture=None,
     )
 
-    with patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = user
         mock_repo_class.return_value = mock_repo
@@ -2104,7 +2092,7 @@ def test_get_user_profile_picture_absolute_path(
             profile_picture=str(pic_file),
         )
 
-        with patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class:
+        with patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class:
             mock_repo = MagicMock()
             mock_repo.get.return_value = user
             mock_repo_class.return_value = mock_repo
@@ -2148,7 +2136,7 @@ def test_get_user_profile_picture_relative_path(
             profile_picture="pictures/pic.png",
         )
 
-        with patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class:
+        with patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class:
             mock_repo = MagicMock()
             mock_repo.get.return_value = user
             mock_repo_class.return_value = mock_repo
@@ -2188,7 +2176,7 @@ def test_get_user_profile_picture_file_not_exists(
         profile_picture="nonexistent.jpg",
     )
 
-    with patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = user
         mock_repo_class.return_value = mock_repo
@@ -2242,7 +2230,7 @@ def test_get_user_profile_picture_media_types(
             profile_picture=str(pic_file),
         )
 
-        with patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class:
+        with patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class:
             mock_repo = MagicMock()
             mock_repo.get.return_value = user
             mock_repo_class.return_value = mock_repo
@@ -2267,15 +2255,15 @@ def test_update_user_with_role_ids(monkeypatch: pytest.MonkeyPatch) -> None:
     user.roles = []  # type: ignore[attr-defined]
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
-        patch("fundamental.api.routes.admin.RoleRepository") as mock_role_repo_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository") as mock_role_repo_class,
         patch(
-            "fundamental.api.routes.admin.UserRoleRepository"
+            "bookcard.api.routes.admin.UserRoleRepository"
         ) as mock_user_role_repo_class,
-        patch("fundamental.api.routes.admin.PermissionRepository"),
-        patch("fundamental.api.routes.admin.RolePermissionRepository"),
-        patch("fundamental.api.routes.admin.RoleService") as mock_role_service_class,
+        patch("bookcard.api.routes.admin.PermissionRepository"),
+        patch("bookcard.api.routes.admin.RolePermissionRepository"),
+        patch("bookcard.api.routes.admin.RoleService") as mock_role_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = user
@@ -2309,9 +2297,9 @@ def test_update_user_with_password(monkeypatch: pytest.MonkeyPatch) -> None:
     user.roles = []  # type: ignore[attr-defined]
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
-        patch("fundamental.api.routes.admin.PasswordHasher") as mock_hasher_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.PasswordHasher") as mock_hasher_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = user
@@ -2343,14 +2331,10 @@ def test_update_user_with_device_email(monkeypatch: pytest.MonkeyPatch) -> None:
     user.roles = []  # type: ignore[attr-defined]
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
-        patch(
-            "fundamental.api.routes.admin.EReaderRepository"
-        ) as mock_device_repo_class,
-        patch(
-            "fundamental.api.routes.admin.EReaderService"
-        ) as mock_device_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.EReaderRepository") as mock_device_repo_class,
+        patch("bookcard.api.routes.admin.EReaderService") as mock_device_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = user
@@ -2381,8 +2365,8 @@ def test_update_user_password_hasher_required(monkeypatch: pytest.MonkeyPatch) -
     )
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = user
@@ -2425,7 +2409,7 @@ def test_delete_user_cannot_delete_self(monkeypatch: pytest.MonkeyPatch) -> None
         is_admin=True,
     )
 
-    with patch("fundamental.api.routes.admin.get_admin_user") as mock_get_admin:
+    with patch("bookcard.api.routes.admin.get_admin_user") as mock_get_admin:
         mock_get_admin.return_value = admin_user
 
         with pytest.raises(HTTPException) as exc_info:
@@ -2468,10 +2452,10 @@ def test_delete_user_success(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.EReaderRepository"),
-        patch("fundamental.api.routes.admin.UserRoleRepository"),
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.EReaderRepository"),
+        patch("bookcard.api.routes.admin.UserRoleRepository"),
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_user_repo = MagicMock()
         mock_user_repo.get.return_value = target_user
@@ -2513,10 +2497,10 @@ def test_delete_user_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.EReaderRepository"),
-        patch("fundamental.api.routes.admin.UserRoleRepository"),
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.EReaderRepository"),
+        patch("bookcard.api.routes.admin.UserRoleRepository"),
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_user_repo = MagicMock()
         mock_user_repo.get.return_value = None
@@ -2561,10 +2545,10 @@ def test_delete_user_other_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.EReaderRepository"),
-        patch("fundamental.api.routes.admin.UserRoleRepository"),
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.EReaderRepository"),
+        patch("bookcard.api.routes.admin.UserRoleRepository"),
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -2573,7 +2557,7 @@ def test_delete_user_other_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
         mock_service.delete_user.side_effect = ValueError("other_error")
         mock_service_class.return_value = mock_service
 
-        from fundamental.api.routes import admin
+        from bookcard.api.routes import admin
 
         with pytest.raises(ValueError, match="other_error"):
             admin.delete_user(request, session, admin_user, user_id=999)  # type: ignore[arg-type]
@@ -2589,9 +2573,9 @@ def test_create_user_generic_value_error() -> None:
     )
 
     with (
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.PasswordHasher") as mock_hasher_class,
-        patch("fundamental.api.routes.admin.UserService") as mock_service_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.PasswordHasher") as mock_hasher_class,
+        patch("bookcard.api.routes.admin.UserService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -2628,11 +2612,11 @@ def test_auth_service_function(monkeypatch: pytest.MonkeyPatch) -> None:
     request = DummyRequest()
 
     with (
-        patch("fundamental.api.routes.admin.JWTManager") as mock_jwt_class,
-        patch("fundamental.api.routes.admin.PasswordHasher") as mock_hasher_class,
-        patch("fundamental.api.routes.admin.DataEncryptor") as mock_encryptor_class,
-        patch("fundamental.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.AuthService") as mock_auth_service_class,
+        patch("bookcard.api.routes.admin.JWTManager") as mock_jwt_class,
+        patch("bookcard.api.routes.admin.PasswordHasher") as mock_hasher_class,
+        patch("bookcard.api.routes.admin.DataEncryptor") as mock_encryptor_class,
+        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.AuthService") as mock_auth_service_class,
     ):
         mock_jwt = MagicMock()
         mock_jwt_class.return_value = mock_jwt
@@ -2661,7 +2645,7 @@ def test_auth_service_function(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_ensure_role_exists_role_not_found() -> None:
     """Test _ensure_role_exists raises 404 when role not found (covers lines 715-717)."""
-    with patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = None
         mock_repo_class.return_value = mock_repo
@@ -2696,7 +2680,7 @@ def test_create_role_id_is_none() -> None:
     role = Role(id=None, name="testrole", description="Test role")  # type: ignore[call-arg]
     role.permissions = []  # type: ignore[attr-defined]
 
-    with patch("fundamental.api.routes.admin.RoleService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.RoleService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.create_role_from_schema.return_value = role
         mock_service_class.return_value = mock_service
@@ -2720,7 +2704,7 @@ def test_create_role_reload_fails() -> None:
     mock_result.first.return_value = None  # Simulate reload failure
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
         patch.object(session, "exec", return_value=mock_result),
     ):
         mock_service = MagicMock()
@@ -2737,7 +2721,7 @@ def test_create_role_generic_value_error() -> None:
     session = DummySession()
     payload = admin.RoleCreate(name="testrole", description="Test role")
 
-    with patch("fundamental.api.routes.admin.RoleService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.RoleService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.create_role_from_schema.side_effect = ValueError(
             "unexpected_error"
@@ -2754,8 +2738,8 @@ def test_update_role_ensure_role_not_found() -> None:
     payload = admin.RoleUpdate(name="updated")
 
     with (
-        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = None  # Role not found
@@ -2803,8 +2787,8 @@ def test_update_role_value_error_handlers(error_msg: str, expected_status: int) 
     mock_result.first.return_value = role
 
     with (
-        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
         patch.object(session, "exec", return_value=mock_result),
     ):
         mock_repo = MagicMock()
@@ -2834,8 +2818,8 @@ def test_update_role_unexpected_value_error() -> None:
     mock_result.first.return_value = role
 
     with (
-        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
         patch.object(session, "exec", return_value=mock_result),
     ):
         mock_repo = MagicMock()
@@ -2855,8 +2839,8 @@ def test_delete_role_assigned_to_users() -> None:
     session = DummySession()
 
     with (
-        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = Role(id=2, name="test", description="test")
@@ -2878,8 +2862,8 @@ def test_delete_role_generic_value_error() -> None:
     session = DummySession()
 
     with (
-        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = Role(id=2, name="test", description="test")
@@ -2908,8 +2892,8 @@ def test_grant_permission_to_role_reload_fails() -> None:
     mock_result.first.return_value = None  # Simulate reload failure
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
-        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class,
         patch.object(session, "exec", return_value=mock_result),
     ):
         mock_service = MagicMock()
@@ -2934,8 +2918,8 @@ def test_revoke_permission_from_role_reload_fails() -> None:
     mock_result.first.return_value = None  # Simulate reload failure
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
-        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class,
         patch.object(session, "exec", return_value=mock_result),
     ):
         mock_service = MagicMock()
@@ -2952,7 +2936,7 @@ def test_revoke_permission_from_role_reload_fails() -> None:
 
 def test_update_permission_id_is_none() -> None:
     """Test update_permission raises 500 when permission.id is None (covers lines 1188-1190)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     payload = admin.PermissionUpdate(name="updated")
@@ -2965,11 +2949,11 @@ def test_update_permission_id_is_none() -> None:
     )
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
-        patch("fundamental.api.routes.admin.RoleRepository"),
-        patch("fundamental.api.routes.admin.PermissionRepository"),
-        patch("fundamental.api.routes.admin.UserRoleRepository"),
-        patch("fundamental.api.routes.admin.RolePermissionRepository"),
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository"),
+        patch("bookcard.api.routes.admin.PermissionRepository"),
+        patch("bookcard.api.routes.admin.UserRoleRepository"),
+        patch("bookcard.api.routes.admin.RolePermissionRepository"),
     ):
         mock_service = MagicMock()
         mock_service.update_permission_from_schema.return_value = permission
@@ -2988,11 +2972,11 @@ def test_update_permission_already_exists() -> None:
     payload = admin.PermissionUpdate(name="existing")
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
-        patch("fundamental.api.routes.admin.RoleRepository"),
-        patch("fundamental.api.routes.admin.PermissionRepository"),
-        patch("fundamental.api.routes.admin.UserRoleRepository"),
-        patch("fundamental.api.routes.admin.RolePermissionRepository"),
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository"),
+        patch("bookcard.api.routes.admin.PermissionRepository"),
+        patch("bookcard.api.routes.admin.UserRoleRepository"),
+        patch("bookcard.api.routes.admin.RolePermissionRepository"),
     ):
         mock_service = MagicMock()
         mock_service.update_permission_from_schema.side_effect = ValueError(
@@ -3013,11 +2997,11 @@ def test_update_permission_generic_value_error() -> None:
     payload = admin.PermissionUpdate(name="updated")
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
-        patch("fundamental.api.routes.admin.RoleRepository"),
-        patch("fundamental.api.routes.admin.PermissionRepository"),
-        patch("fundamental.api.routes.admin.UserRoleRepository"),
-        patch("fundamental.api.routes.admin.RolePermissionRepository"),
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository"),
+        patch("bookcard.api.routes.admin.PermissionRepository"),
+        patch("bookcard.api.routes.admin.UserRoleRepository"),
+        patch("bookcard.api.routes.admin.RolePermissionRepository"),
     ):
         mock_service = MagicMock()
         mock_service.update_permission_from_schema.side_effect = ValueError("generic")
@@ -3035,11 +3019,11 @@ def test_delete_permission_cannot_delete() -> None:
     session = DummySession()
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
-        patch("fundamental.api.routes.admin.RoleRepository"),
-        patch("fundamental.api.routes.admin.PermissionRepository"),
-        patch("fundamental.api.routes.admin.UserRoleRepository"),
-        patch("fundamental.api.routes.admin.RolePermissionRepository"),
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository"),
+        patch("bookcard.api.routes.admin.PermissionRepository"),
+        patch("bookcard.api.routes.admin.UserRoleRepository"),
+        patch("bookcard.api.routes.admin.RolePermissionRepository"),
     ):
         mock_service = MagicMock()
         mock_service.delete_permission.side_effect = ValueError(
@@ -3059,11 +3043,11 @@ def test_delete_permission_generic_value_error() -> None:
     session = DummySession()
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
-        patch("fundamental.api.routes.admin.RoleRepository"),
-        patch("fundamental.api.routes.admin.PermissionRepository"),
-        patch("fundamental.api.routes.admin.UserRoleRepository"),
-        patch("fundamental.api.routes.admin.RolePermissionRepository"),
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository"),
+        patch("bookcard.api.routes.admin.PermissionRepository"),
+        patch("bookcard.api.routes.admin.UserRoleRepository"),
+        patch("bookcard.api.routes.admin.RolePermissionRepository"),
     ):
         mock_service = MagicMock()
         mock_service.delete_permission.side_effect = ValueError("generic")
@@ -3088,11 +3072,11 @@ def test_update_role_permission_generic_value_error() -> None:
     mock_result.first.return_value = role
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
-        patch("fundamental.api.routes.admin.RoleRepository"),
-        patch("fundamental.api.routes.admin.PermissionRepository"),
-        patch("fundamental.api.routes.admin.UserRoleRepository"),
-        patch("fundamental.api.routes.admin.RolePermissionRepository"),
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository"),
+        patch("bookcard.api.routes.admin.PermissionRepository"),
+        patch("bookcard.api.routes.admin.UserRoleRepository"),
+        patch("bookcard.api.routes.admin.RolePermissionRepository"),
         patch.object(session, "exec", return_value=mock_result),
     ):
         mock_service = MagicMock()
@@ -3112,7 +3096,7 @@ def test_update_role_permission_generic_value_error() -> None:
 
 def test_create_permission_id_is_none() -> None:
     """Test create_permission raises 500 when permission.id is None (covers lines 1374-1376)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     payload = admin.PermissionCreate(name="new", resource="books", action="read")
@@ -3125,11 +3109,11 @@ def test_create_permission_id_is_none() -> None:
     )
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
-        patch("fundamental.api.routes.admin.RoleRepository"),
-        patch("fundamental.api.routes.admin.PermissionRepository"),
-        patch("fundamental.api.routes.admin.UserRoleRepository"),
-        patch("fundamental.api.routes.admin.RolePermissionRepository"),
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository"),
+        patch("bookcard.api.routes.admin.PermissionRepository"),
+        patch("bookcard.api.routes.admin.UserRoleRepository"),
+        patch("bookcard.api.routes.admin.RolePermissionRepository"),
     ):
         mock_service = MagicMock()
         mock_service.create_permission.return_value = permission
@@ -3159,11 +3143,11 @@ def test_create_permission_value_error_handlers(
     payload = admin.PermissionCreate(name="new", resource="books", action="read")
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
-        patch("fundamental.api.routes.admin.RoleRepository"),
-        patch("fundamental.api.routes.admin.PermissionRepository"),
-        patch("fundamental.api.routes.admin.UserRoleRepository"),
-        patch("fundamental.api.routes.admin.RolePermissionRepository"),
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository"),
+        patch("bookcard.api.routes.admin.PermissionRepository"),
+        patch("bookcard.api.routes.admin.UserRoleRepository"),
+        patch("bookcard.api.routes.admin.RolePermissionRepository"),
     ):
         mock_service = MagicMock()
         mock_service.create_permission.side_effect = ValueError(error_msg)
@@ -3182,11 +3166,11 @@ def test_create_permission_generic_value_error() -> None:
     payload = admin.PermissionCreate(name="new", resource="books", action="read")
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
-        patch("fundamental.api.routes.admin.RoleRepository"),
-        patch("fundamental.api.routes.admin.PermissionRepository"),
-        patch("fundamental.api.routes.admin.UserRoleRepository"),
-        patch("fundamental.api.routes.admin.RolePermissionRepository"),
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository"),
+        patch("bookcard.api.routes.admin.PermissionRepository"),
+        patch("bookcard.api.routes.admin.UserRoleRepository"),
+        patch("bookcard.api.routes.admin.RolePermissionRepository"),
     ):
         mock_service = MagicMock()
         mock_service.create_permission.side_effect = ValueError("generic")
@@ -3208,7 +3192,7 @@ def test_create_library_invalid_database() -> None:
         calibre_db_file="metadata.db",
     )
 
-    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.create_library.side_effect = ValueError("invalid_calibre_database")
         mock_service_class.return_value = mock_service
@@ -3229,7 +3213,7 @@ def test_create_library_permission_error() -> None:
         calibre_db_file="metadata.db",
     )
 
-    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.create_library.side_effect = PermissionError("Access denied")
         mock_service_class.return_value = mock_service
@@ -3250,7 +3234,7 @@ def test_create_library_file_not_found() -> None:
         calibre_db_file="metadata.db",
     )
 
-    with patch("fundamental.api.routes.admin.LibraryService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.create_library.side_effect = FileNotFoundError("File not found")
         mock_service_class.return_value = mock_service
@@ -3324,7 +3308,7 @@ def test_download_openlibrary_dumps_value_error() -> None:
     payload = admin.DownloadFilesRequest(urls=[])
 
     with (
-        patch("fundamental.api.routes.admin.OpenLibraryService") as mock_service_class,
+        patch("bookcard.api.routes.admin.OpenLibraryService") as mock_service_class,
     ):
         mock_service = MagicMock()
         mock_service.create_download_task.side_effect = ValueError("No URLs provided")
@@ -3425,8 +3409,8 @@ def test_get_openlibrary_dump_config_none() -> None:
     request = DummyRequest()
 
     with (
-        patch("fundamental.api.routes.admin._auth_service") as mock_auth_service,
-        patch("fundamental.api.routes.admin.get_current_user"),
+        patch("bookcard.api.routes.admin._auth_service") as mock_auth_service,
+        patch("bookcard.api.routes.admin.get_current_user"),
     ):
         mock_service = MagicMock()
         mock_service.get_openlibrary_dump_config.return_value = None
@@ -3470,9 +3454,9 @@ def test_upsert_openlibrary_dump_config_not_admin() -> None:
     )
 
     with (
-        patch("fundamental.api.routes.admin._auth_service") as mock_auth_service,
+        patch("bookcard.api.routes.admin._auth_service") as mock_auth_service,
         patch(
-            "fundamental.api.routes.admin.get_current_user", return_value=non_admin_user
+            "bookcard.api.routes.admin.get_current_user", return_value=non_admin_user
         ),
     ):
         mock_service = MagicMock()
@@ -3511,8 +3495,8 @@ def test_upsert_openlibrary_dump_config_value_error() -> None:
     )
 
     with (
-        patch("fundamental.api.routes.admin._auth_service") as mock_auth_service,
-        patch("fundamental.api.routes.admin.get_current_user", return_value=admin_user),
+        patch("bookcard.api.routes.admin._auth_service") as mock_auth_service,
+        patch("bookcard.api.routes.admin.get_current_user", return_value=admin_user),
     ):
         mock_service = MagicMock()
         mock_service.upsert_openlibrary_dump_config.side_effect = ValueError(
@@ -3531,7 +3515,7 @@ def test_get_scheduled_tasks_config() -> None:
     """Test get_scheduled_tasks_config returns config (covers lines 2225-2227)."""
     from datetime import UTC, datetime
 
-    from fundamental.models.config import ScheduledTasksConfig
+    from bookcard.models.config import ScheduledTasksConfig
 
     session = DummySession()
     config = ScheduledTasksConfig(
@@ -3548,7 +3532,7 @@ def test_get_scheduled_tasks_config() -> None:
     )
 
     with patch(
-        "fundamental.api.routes.admin.ScheduledTasksConfigService"
+        "bookcard.api.routes.admin.ScheduledTasksConfigService"
     ) as mock_service_class:
         mock_service = MagicMock()
         mock_service.get_scheduled_tasks_config.return_value = config
@@ -3581,7 +3565,7 @@ def test_upsert_scheduled_tasks_config_not_admin() -> None:
     )
 
     with patch(
-        "fundamental.api.routes.admin.get_current_user", return_value=non_admin_user
+        "bookcard.api.routes.admin.get_current_user", return_value=non_admin_user
     ):
         with pytest.raises(HTTPException) as exc_info:
             admin.upsert_scheduled_tasks_config(request, session, payload)  # type: ignore[arg-type]
@@ -3610,9 +3594,9 @@ def test_upsert_scheduled_tasks_config_value_error() -> None:
     )
 
     with (
-        patch("fundamental.api.routes.admin.get_current_user", return_value=admin_user),
+        patch("bookcard.api.routes.admin.get_current_user", return_value=admin_user),
         patch(
-            "fundamental.api.routes.admin.ScheduledTasksConfigService"
+            "bookcard.api.routes.admin.ScheduledTasksConfigService"
         ) as mock_service_class,
     ):
         mock_service = MagicMock()
@@ -3637,8 +3621,8 @@ def test_update_role_locked_role(monkeypatch: pytest.MonkeyPatch) -> None:
     role.permissions = []  # type: ignore[attr-defined]
 
     with (
-        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = role
@@ -3649,7 +3633,7 @@ def test_update_role_locked_role(monkeypatch: pytest.MonkeyPatch) -> None:
 
         # Mock _get_role_with_permissions
         with patch(
-            "fundamental.api.routes.admin._get_role_with_permissions"
+            "bookcard.api.routes.admin._get_role_with_permissions"
         ) as mock_get_role:
             mock_get_role.return_value = role
 
@@ -3670,8 +3654,8 @@ def test_update_role_already_exists(monkeypatch: pytest.MonkeyPatch) -> None:
     role = Role(id=1, name="test", description="Test role")
 
     with (
-        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = role
@@ -3696,8 +3680,8 @@ def test_update_role_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     payload = admin.RoleUpdate(name="updated")
 
     with (
-        patch("fundamental.api.routes.admin.RoleRepository") as mock_repo_class,
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class,
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = None  # Role not found
@@ -3718,7 +3702,7 @@ def test_delete_role_cannot_delete_locked(monkeypatch: pytest.MonkeyPatch) -> No
     """Test delete_role raises 403 when trying to delete locked role (covers line 998)."""
     session = DummySession()
 
-    with patch("fundamental.api.routes.admin.RoleService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.RoleService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.delete_role.side_effect = ValueError("cannot_delete_locked_role")
         mock_service_class.return_value = mock_service
@@ -3735,7 +3719,7 @@ def test_update_permission_not_found() -> None:
     session = DummySession()
     payload = admin.PermissionUpdate(name="updated")
 
-    with patch("fundamental.api.routes.admin.RoleService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.RoleService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.update_permission_from_schema.side_effect = ValueError(
             "permission_not_found"
@@ -3758,10 +3742,8 @@ def test_update_role_permission_http_exception() -> None:
     role.permissions = []  # type: ignore[attr-defined]
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
-        patch(
-            "fundamental.api.routes.admin._get_role_with_permissions"
-        ) as mock_get_role,
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin._get_role_with_permissions") as mock_get_role,
     ):
         mock_service = MagicMock()
         mock_service_class.return_value = mock_service
@@ -3785,10 +3767,8 @@ def test_update_role_permission_not_found() -> None:
     role.permissions = []  # type: ignore[attr-defined]
 
     with (
-        patch("fundamental.api.routes.admin.RoleService") as mock_service_class,
-        patch(
-            "fundamental.api.routes.admin._get_role_with_permissions"
-        ) as mock_get_role,
+        patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
+        patch("bookcard.api.routes.admin._get_role_with_permissions") as mock_get_role,
     ):
         mock_service = MagicMock()
         mock_service.update_role_permission_condition.side_effect = ValueError(
@@ -3814,7 +3794,7 @@ def test_create_permission_already_exists() -> None:
         name="test", resource="books", action="read", description="Test permission"
     )
 
-    with patch("fundamental.api.routes.admin.RoleService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.RoleService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.create_permission.side_effect = ValueError(
             "permission_already_exists"
@@ -3830,7 +3810,7 @@ def test_create_permission_already_exists() -> None:
 
 def test_download_openlibrary_dumps_success() -> None:
     """Test download_openlibrary_dumps succeeds (covers line 1999)."""
-    from fundamental.api.routes.admin import DownloadFilesRequest
+    from bookcard.api.routes.admin import DownloadFilesRequest
 
     class DummyRequest:
         def __init__(self) -> None:
@@ -3873,7 +3853,7 @@ def test_download_openlibrary_dumps_success() -> None:
 
     payload = DownloadFilesRequest(urls=["https://example.com/file.txt"])
 
-    with patch("fundamental.api.routes.admin.OpenLibraryService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.OpenLibraryService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.create_download_task.return_value = 1
         mock_service_class.return_value = mock_service
@@ -3889,7 +3869,7 @@ def test_download_openlibrary_dumps_success() -> None:
 
 def test_ingest_openlibrary_dumps_success() -> None:
     """Test ingest_openlibrary_dumps succeeds (covers lines 2094-2106)."""
-    from fundamental.api.routes.admin import IngestFilesRequest
+    from bookcard.api.routes.admin import IngestFilesRequest
 
     class DummyRequest:
         def __init__(self) -> None:
@@ -3934,7 +3914,7 @@ def test_ingest_openlibrary_dumps_success() -> None:
         process_authors=True, process_works=True, process_editions=True
     )
 
-    with patch("fundamental.api.routes.admin.OpenLibraryService") as mock_service_class:
+    with patch("bookcard.api.routes.admin.OpenLibraryService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.create_ingest_task.return_value = 1
         mock_service_class.return_value = mock_service
@@ -3974,7 +3954,7 @@ def test_get_openlibrary_dump_config_returns_defaults() -> None:
     session = DummySession()
     request = DummyRequest()
 
-    with patch("fundamental.api.routes.admin._auth_service") as mock_auth_service:
+    with patch("bookcard.api.routes.admin._auth_service") as mock_auth_service:
         mock_service = MagicMock()
         mock_service.get_openlibrary_dump_config.return_value = None
         mock_auth_service.return_value = mock_service
@@ -4017,7 +3997,7 @@ def test_upsert_scheduled_tasks_config_success() -> None:
         is_admin=True,
     )
 
-    from fundamental.models.config import ScheduledTasksConfig
+    from bookcard.models.config import ScheduledTasksConfig
 
     config = ScheduledTasksConfig(
         id=1,
@@ -4026,9 +4006,9 @@ def test_upsert_scheduled_tasks_config_success() -> None:
     )
 
     with (
-        patch("fundamental.api.routes.admin.get_current_user", return_value=admin_user),
+        patch("bookcard.api.routes.admin.get_current_user", return_value=admin_user),
         patch(
-            "fundamental.api.routes.admin.ScheduledTasksConfigService"
+            "bookcard.api.routes.admin.ScheduledTasksConfigService"
         ) as mock_service_class,
     ):
         mock_service = MagicMock()

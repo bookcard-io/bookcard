@@ -23,13 +23,13 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from fundamental.models.core import Book
-from fundamental.models.shelves import BookShelfLink, Shelf
-from fundamental.services.kobo.shelf_service import (
+from bookcard.models.core import Book
+from bookcard.models.shelves import BookShelfLink, Shelf
+from bookcard.services.kobo.shelf_service import (
     KoboShelfService,
     convert_to_kobo_timestamp_string,
 )
-from fundamental.services.kobo.sync_token_service import SyncToken
+from bookcard.services.kobo.sync_token_service import SyncToken
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession

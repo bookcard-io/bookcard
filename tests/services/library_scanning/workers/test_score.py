@@ -19,12 +19,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.services.library_scanning.workers.score import (
+from bookcard.services.library_scanning.workers.score import (
     NoOpDataSource,
     ScoreWorker,
 )
-from fundamental.services.messaging.base import MessageBroker
-from fundamental.services.messaging.redis_broker import RedisBroker
+from bookcard.services.messaging.base import MessageBroker
+from bookcard.services.messaging.redis_broker import RedisBroker
 
 
 @pytest.fixture
@@ -113,9 +113,7 @@ class TestScoreWorkerProcess:
         ScoreWorker
             Worker instance.
         """
-        with patch(
-            "fundamental.services.library_scanning.workers.score.create_db_engine"
-        ):
+        with patch("bookcard.services.library_scanning.workers.score.create_db_engine"):
             return ScoreWorker(mock_broker)
 
     def test_process_invalid_payload(self, worker: ScoreWorker) -> None:
@@ -168,24 +166,20 @@ class TestScoreWorkerProcess:
             Output topic.
         """
         with (
+            patch("bookcard.services.library_scanning.workers.score.create_db_engine"),
             patch(
-                "fundamental.services.library_scanning.workers.score.create_db_engine"
-            ),
-            patch(
-                "fundamental.services.library_scanning.workers.score.get_session"
+                "bookcard.services.library_scanning.workers.score.get_session"
             ) as mock_get_session,
             patch(
-                "fundamental.services.library_scanning.workers.score.LibraryRepository"
+                "bookcard.services.library_scanning.workers.score.LibraryRepository"
             ) as mock_repo_class,
             patch(
-                "fundamental.services.library_scanning.workers.score.JobProgressTracker"
+                "bookcard.services.library_scanning.workers.score.JobProgressTracker"
             ) as mock_progress_class,
             patch(
-                "fundamental.services.library_scanning.workers.score.ScoreStage"
+                "bookcard.services.library_scanning.workers.score.ScoreStage"
             ) as mock_stage_class,
-            patch(
-                "fundamental.services.library_scanning.workers.score.ScanTaskTracker"
-            ),
+            patch("bookcard.services.library_scanning.workers.score.ScanTaskTracker"),
         ):
             worker = ScoreWorker(
                 mock_redis_broker,

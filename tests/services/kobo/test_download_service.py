@@ -24,10 +24,10 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException, status
 
-from fundamental.models.config import Library
-from fundamental.models.core import Book
-from fundamental.repositories.models import BookWithFullRelations
-from fundamental.services.kobo.download_service import (
+from bookcard.models.config import Library
+from bookcard.models.core import Book
+from bookcard.repositories.models import BookWithFullRelations
+from bookcard.services.kobo.download_service import (
     MEDIA_TYPES,
     KoboDownloadService,
 )

@@ -20,8 +20,8 @@ from __future__ import annotations
 import pytest
 from sqlmodel import Session, select
 
-from fundamental.models.core import Book
-from fundamental.repositories.calibre.queries import BookQueryBuilder
+from bookcard.models.core import Book
+from bookcard.repositories.calibre.queries import BookQueryBuilder
 
 
 class TestBookQueryBuilder:

@@ -23,9 +23,9 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-from fundamental.api.schemas.kobo import KoboAuthTokenResponse
-from fundamental.services.kobo.device_auth_service import KoboDeviceAuthService
-from fundamental.services.kobo.store_proxy_service import KoboStoreProxyService
+from bookcard.api.schemas.kobo import KoboAuthTokenResponse
+from bookcard.services.kobo.device_auth_service import KoboDeviceAuthService
+from bookcard.services.kobo.store_proxy_service import KoboStoreProxyService
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession

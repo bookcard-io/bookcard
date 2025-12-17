@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from fundamental.models.tasks import Task, TaskStatus, TaskType
+from bookcard.models.tasks import Task, TaskStatus, TaskType
 
 
 @pytest.fixture

@@ -24,9 +24,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException, Request, status
 
-import fundamental.api.routes.library_scanning as library_scanning
-from fundamental.models.auth import User
-from fundamental.models.library_scanning import LibraryScanState
+import bookcard.api.routes.library_scanning as library_scanning
+from bookcard.models.auth import User
+from bookcard.models.library_scanning import LibraryScanState
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession
@@ -66,7 +66,7 @@ class TestScanLibrary:
         mock_request.app.state.scan_worker_broker = mock_broker
 
         with patch(
-            "fundamental.api.routes.library_scanning.LibraryScanningService"
+            "bookcard.api.routes.library_scanning.LibraryScanningService"
         ) as mock_service_class:
             mock_service = MagicMock()
             mock_service.scan_library.return_value = 123
@@ -103,7 +103,7 @@ class TestScanLibrary:
         mock_request.app.state.scan_worker_broker = mock_broker
 
         with patch(
-            "fundamental.api.routes.library_scanning.LibraryScanningService"
+            "bookcard.api.routes.library_scanning.LibraryScanningService"
         ) as mock_service_class:
             mock_service = MagicMock()
             mock_service.scan_library.return_value = 123
@@ -162,7 +162,7 @@ class TestScanLibrary:
         mock_request.app.state.scan_worker_broker = mock_broker
 
         with patch(
-            "fundamental.api.routes.library_scanning.LibraryScanningService"
+            "bookcard.api.routes.library_scanning.LibraryScanningService"
         ) as mock_service_class:
             mock_service = MagicMock()
             mock_service.scan_library.side_effect = ValueError("Library not found")
@@ -194,7 +194,7 @@ class TestScanLibrary:
         mock_request.app.state.scan_worker_broker = mock_broker
 
         with patch(
-            "fundamental.api.routes.library_scanning.LibraryScanningService"
+            "bookcard.api.routes.library_scanning.LibraryScanningService"
         ) as mock_service_class:
             mock_service = MagicMock()
             mock_service.scan_library.side_effect = RuntimeError("Unexpected error")
@@ -234,7 +234,7 @@ class TestGetScanState:
         )
 
         with patch(
-            "fundamental.api.routes.library_scanning.LibraryScanningService"
+            "bookcard.api.routes.library_scanning.LibraryScanningService"
         ) as mock_service_class:
             mock_service = MagicMock()
             mock_service.get_scan_state.return_value = scan_state
@@ -260,7 +260,7 @@ class TestGetScanState:
     ) -> None:
         """Test get_scan_state returns None when not found."""
         with patch(
-            "fundamental.api.routes.library_scanning.LibraryScanningService"
+            "bookcard.api.routes.library_scanning.LibraryScanningService"
         ) as mock_service_class:
             mock_service = MagicMock()
             mock_service.get_scan_state.return_value = None
@@ -289,7 +289,7 @@ class TestGetScanState:
         )
 
         with patch(
-            "fundamental.api.routes.library_scanning.LibraryScanningService"
+            "bookcard.api.routes.library_scanning.LibraryScanningService"
         ) as mock_service_class:
             mock_service = MagicMock()
             mock_service.get_scan_state.return_value = scan_state

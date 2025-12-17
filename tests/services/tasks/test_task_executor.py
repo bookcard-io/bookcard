@@ -21,10 +21,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.tasks import Task, TaskStatus
-from fundamental.services.task_service import TaskService
-from fundamental.services.tasks.base import BaseTask
-from fundamental.services.tasks.task_executor import TaskExecutor
+from bookcard.models.tasks import Task, TaskStatus
+from bookcard.services.task_service import TaskService
+from bookcard.services.tasks.base import BaseTask
+from bookcard.services.tasks.task_executor import TaskExecutor
 
 
 @pytest.fixture

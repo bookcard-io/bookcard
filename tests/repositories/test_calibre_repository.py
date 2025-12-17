@@ -15,7 +15,7 @@
 
 """Tests for the refactored Calibre repository modules.
 
-These tests intentionally target the refactored `fundamental.repositories.calibre`
+These tests intentionally target the refactored `bookcard.repositories.calibre`
 package (facade + focused helpers) rather than legacy private helpers that were
 removed during the split.
 """
@@ -26,11 +26,11 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
-from fundamental.models.core import Book
-from fundamental.repositories.calibre.queries import BookQueryBuilder
-from fundamental.repositories.calibre.repository import CalibreBookRepository
-from fundamental.repositories.calibre.unwrapping import ResultUnwrapper
-from fundamental.repositories.interfaces import ISessionManager
+from bookcard.models.core import Book
+from bookcard.repositories.calibre.queries import BookQueryBuilder
+from bookcard.repositories.calibre.repository import CalibreBookRepository
+from bookcard.repositories.calibre.unwrapping import ResultUnwrapper
+from bookcard.repositories.interfaces import ISessionManager
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

@@ -21,7 +21,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.services.tasks.library_scan_task import LibraryScanTask
+from bookcard.services.tasks.library_scan_task import LibraryScanTask
 
 
 @pytest.fixture
@@ -134,7 +134,7 @@ class TestLibraryScanTaskRun:
         # Verify orchestrator was called
         mock_orchestrator.scan_library.assert_called_once()
 
-    @patch("fundamental.services.tasks.library_scan_task.LibraryRepository")
+    @patch("bookcard.services.tasks.library_scan_task.LibraryRepository")
     def test_run_library_not_found(
         self,
         mock_repo_class: MagicMock,
@@ -155,7 +155,7 @@ class TestLibraryScanTaskRun:
         with pytest.raises(ValueError, match=r"Library .* not found"):
             task.run(worker_context)
 
-    @patch("fundamental.services.tasks.library_scan_task.LibraryRepository")
+    @patch("bookcard.services.tasks.library_scan_task.LibraryRepository")
     def test_run_library_id_none(
         self,
         mock_repo_class: MagicMock,
@@ -262,22 +262,22 @@ class TestLibraryScanTaskRun:
 
         with (
             patch(
-                "fundamental.services.tasks.library_scan_task.LibraryRepository"
+                "bookcard.services.tasks.library_scan_task.LibraryRepository"
             ) as mock_repo_class,
             patch(
-                "fundamental.services.tasks.library_scan_task.DatabaseScanConfigurationProvider"
+                "bookcard.services.tasks.library_scan_task.DatabaseScanConfigurationProvider"
             ) as mock_config_class,
             patch(
-                "fundamental.services.tasks.library_scan_task.RegistryDataSourceFactory"
+                "bookcard.services.tasks.library_scan_task.RegistryDataSourceFactory"
             ) as mock_ds_factory_class,
             patch(
-                "fundamental.services.tasks.library_scan_task.StandardPipelineFactory"
+                "bookcard.services.tasks.library_scan_task.StandardPipelineFactory"
             ) as mock_pipeline_factory_class,
             patch(
-                "fundamental.services.tasks.library_scan_task.PipelineContextFactory"
+                "bookcard.services.tasks.library_scan_task.PipelineContextFactory"
             ) as mock_context_factory_class,
             patch(
-                "fundamental.services.tasks.library_scan_task.LibraryScanOrchestrator"
+                "bookcard.services.tasks.library_scan_task.LibraryScanOrchestrator"
             ) as mock_orchestrator_class,
         ):
             # Setup mocks
@@ -323,22 +323,22 @@ class TestLibraryScanTaskRun:
 
         with (
             patch(
-                "fundamental.services.tasks.library_scan_task.LibraryRepository"
+                "bookcard.services.tasks.library_scan_task.LibraryRepository"
             ) as mock_repo_class,
             patch(
-                "fundamental.services.tasks.library_scan_task.DatabaseScanConfigurationProvider"
+                "bookcard.services.tasks.library_scan_task.DatabaseScanConfigurationProvider"
             ) as mock_config_class,
             patch(
-                "fundamental.services.tasks.library_scan_task.RegistryDataSourceFactory"
+                "bookcard.services.tasks.library_scan_task.RegistryDataSourceFactory"
             ) as mock_ds_factory_class,
             patch(
-                "fundamental.services.tasks.library_scan_task.StandardPipelineFactory"
+                "bookcard.services.tasks.library_scan_task.StandardPipelineFactory"
             ) as mock_pipeline_factory_class,
             patch(
-                "fundamental.services.tasks.library_scan_task.PipelineContextFactory"
+                "bookcard.services.tasks.library_scan_task.PipelineContextFactory"
             ) as mock_context_factory_class,
             patch(
-                "fundamental.services.tasks.library_scan_task.LibraryScanOrchestrator"
+                "bookcard.services.tasks.library_scan_task.LibraryScanOrchestrator"
             ) as mock_orchestrator_class,
         ):
             # Setup mocks
@@ -390,22 +390,22 @@ class TestLibraryScanTaskCreateOrchestrator:
 
         with (
             patch(
-                "fundamental.services.tasks.library_scan_task.LibraryRepository"
+                "bookcard.services.tasks.library_scan_task.LibraryRepository"
             ) as mock_repo_class,
             patch(
-                "fundamental.services.tasks.library_scan_task.DatabaseScanConfigurationProvider"
+                "bookcard.services.tasks.library_scan_task.DatabaseScanConfigurationProvider"
             ) as mock_config_class,
             patch(
-                "fundamental.services.tasks.library_scan_task.RegistryDataSourceFactory"
+                "bookcard.services.tasks.library_scan_task.RegistryDataSourceFactory"
             ) as mock_ds_factory_class,
             patch(
-                "fundamental.services.tasks.library_scan_task.StandardPipelineFactory"
+                "bookcard.services.tasks.library_scan_task.StandardPipelineFactory"
             ) as mock_pipeline_factory_class,
             patch(
-                "fundamental.services.tasks.library_scan_task.PipelineContextFactory"
+                "bookcard.services.tasks.library_scan_task.PipelineContextFactory"
             ) as mock_context_factory_class,
             patch(
-                "fundamental.services.tasks.library_scan_task.LibraryScanOrchestrator"
+                "bookcard.services.tasks.library_scan_task.LibraryScanOrchestrator"
             ) as mock_orchestrator_class,
         ):
             # Setup mocks

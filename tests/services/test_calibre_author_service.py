@@ -22,9 +22,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.core import Author, BookAuthorLink
-from fundamental.repositories.calibre_book_repository import CalibreBookRepository
-from fundamental.services.author_merge.calibre_author_service import (
+from bookcard.models.core import Author, BookAuthorLink
+from bookcard.repositories.calibre_book_repository import CalibreBookRepository
+from bookcard.services.author_merge.calibre_author_service import (
     CalibreAuthorService,
 )
 

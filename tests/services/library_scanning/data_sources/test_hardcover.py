@@ -24,17 +24,17 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from fundamental.metadata.base import (
+from bookcard.metadata.base import (
     MetadataProviderNetworkError,
     MetadataProviderParseError,
 )
-from fundamental.services.library_scanning.data_sources.base import (
+from bookcard.services.library_scanning.data_sources.base import (
     DataSourceNetworkError,
 )
-from fundamental.services.library_scanning.data_sources.hardcover import (
+from bookcard.services.library_scanning.data_sources.hardcover import (
     HardcoverDataSource,
 )
-from fundamental.services.library_scanning.data_sources.types import (
+from bookcard.services.library_scanning.data_sources.types import (
     AuthorData,
     BookData,
     IdentifierDict,
@@ -105,39 +105,39 @@ def data_source_with_token(
     """Create HardcoverDataSource with bearer token."""
     with (
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.HardcoverGraphQLClient",
+            "bookcard.services.library_scanning.data_sources.hardcover.HardcoverGraphQLClient",
             return_value=mock_graphql_client,
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.HardcoverResponseParser",
+            "bookcard.services.library_scanning.data_sources.hardcover.HardcoverResponseParser",
             return_value=mock_parser,
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.HardcoverEnrichment",
+            "bookcard.services.library_scanning.data_sources.hardcover.HardcoverEnrichment",
             return_value=mock_enrichment,
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.AuthorsExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.AuthorsExtractor",
             return_value=mock_extractors["authors"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.CoverExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.CoverExtractor",
             return_value=mock_extractors["cover"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.IdentifiersExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.IdentifiersExtractor",
             return_value=mock_extractors["identifiers"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.PublishedDateExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.PublishedDateExtractor",
             return_value=mock_extractors["published_date"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.PublisherExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.PublisherExtractor",
             return_value=mock_extractors["publisher"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.TagsExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.TagsExtractor",
             return_value=mock_extractors["tags"],
         ),
     ):
@@ -160,39 +160,39 @@ def data_source_without_token(
     """Create HardcoverDataSource without bearer token."""
     with (
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.HardcoverGraphQLClient",
+            "bookcard.services.library_scanning.data_sources.hardcover.HardcoverGraphQLClient",
             return_value=mock_graphql_client,
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.HardcoverResponseParser",
+            "bookcard.services.library_scanning.data_sources.hardcover.HardcoverResponseParser",
             return_value=mock_parser,
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.HardcoverEnrichment",
+            "bookcard.services.library_scanning.data_sources.hardcover.HardcoverEnrichment",
             return_value=mock_enrichment,
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.AuthorsExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.AuthorsExtractor",
             return_value=mock_extractors["authors"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.CoverExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.CoverExtractor",
             return_value=mock_extractors["cover"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.IdentifiersExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.IdentifiersExtractor",
             return_value=mock_extractors["identifiers"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.PublishedDateExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.PublishedDateExtractor",
             return_value=mock_extractors["published_date"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.PublisherExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.PublisherExtractor",
             return_value=mock_extractors["publisher"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.TagsExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.TagsExtractor",
             return_value=mock_extractors["tags"],
         ),
     ):
@@ -308,39 +308,39 @@ def test_init_with_env_token(
     """Test initialization with token from environment."""
     with (
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.HardcoverGraphQLClient",
+            "bookcard.services.library_scanning.data_sources.hardcover.HardcoverGraphQLClient",
             return_value=mock_graphql_client,
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.HardcoverResponseParser",
+            "bookcard.services.library_scanning.data_sources.hardcover.HardcoverResponseParser",
             return_value=mock_parser,
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.HardcoverEnrichment",
+            "bookcard.services.library_scanning.data_sources.hardcover.HardcoverEnrichment",
             return_value=mock_enrichment,
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.AuthorsExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.AuthorsExtractor",
             return_value=mock_extractors["authors"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.CoverExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.CoverExtractor",
             return_value=mock_extractors["cover"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.IdentifiersExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.IdentifiersExtractor",
             return_value=mock_extractors["identifiers"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.PublishedDateExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.PublishedDateExtractor",
             return_value=mock_extractors["published_date"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.PublisherExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.PublisherExtractor",
             return_value=mock_extractors["publisher"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.TagsExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.TagsExtractor",
             return_value=mock_extractors["tags"],
         ),
     ):
@@ -358,43 +358,43 @@ def test_init_without_token_warning(
     """Test initialization without token logs warning."""
     with (
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.HardcoverGraphQLClient",
+            "bookcard.services.library_scanning.data_sources.hardcover.HardcoverGraphQLClient",
             return_value=mock_graphql_client,
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.HardcoverResponseParser",
+            "bookcard.services.library_scanning.data_sources.hardcover.HardcoverResponseParser",
             return_value=mock_parser,
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.HardcoverEnrichment",
+            "bookcard.services.library_scanning.data_sources.hardcover.HardcoverEnrichment",
             return_value=mock_enrichment,
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.AuthorsExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.AuthorsExtractor",
             return_value=mock_extractors["authors"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.CoverExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.CoverExtractor",
             return_value=mock_extractors["cover"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.IdentifiersExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.IdentifiersExtractor",
             return_value=mock_extractors["identifiers"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.PublishedDateExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.PublishedDateExtractor",
             return_value=mock_extractors["published_date"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.PublisherExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.PublisherExtractor",
             return_value=mock_extractors["publisher"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.TagsExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.TagsExtractor",
             return_value=mock_extractors["tags"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.logger"
+            "bookcard.services.library_scanning.data_sources.hardcover.logger"
         ) as mock_logger,
     ):
         HardcoverDataSource()
@@ -411,39 +411,39 @@ def test_init_with_custom_params(
     """Test initialization with custom parameters."""
     with (
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.HardcoverGraphQLClient",
+            "bookcard.services.library_scanning.data_sources.hardcover.HardcoverGraphQLClient",
             return_value=mock_graphql_client,
         ) as mock_client_class,
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.HardcoverResponseParser",
+            "bookcard.services.library_scanning.data_sources.hardcover.HardcoverResponseParser",
             return_value=mock_parser,
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.HardcoverEnrichment",
+            "bookcard.services.library_scanning.data_sources.hardcover.HardcoverEnrichment",
             return_value=mock_enrichment,
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.AuthorsExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.AuthorsExtractor",
             return_value=mock_extractors["authors"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.CoverExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.CoverExtractor",
             return_value=mock_extractors["cover"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.IdentifiersExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.IdentifiersExtractor",
             return_value=mock_extractors["identifiers"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.PublishedDateExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.PublishedDateExtractor",
             return_value=mock_extractors["published_date"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.PublisherExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.PublisherExtractor",
             return_value=mock_extractors["publisher"],
         ),
         patch(
-            "fundamental.services.library_scanning.data_sources.hardcover.TagsExtractor",
+            "bookcard.services.library_scanning.data_sources.hardcover.TagsExtractor",
             return_value=mock_extractors["tags"],
         ),
     ):

@@ -22,12 +22,12 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from fundamental.metadata.base import (
+from bookcard.metadata.base import (
     MetadataProviderNetworkError,
     MetadataProviderParseError,
     MetadataProviderTimeoutError,
 )
-from fundamental.metadata.providers.comicvine import ComicVineProvider
+from bookcard.metadata.providers.comicvine import ComicVineProvider
 
 
 @pytest.fixture

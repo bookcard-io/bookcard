@@ -22,12 +22,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.author_metadata import AuthorMetadata, AuthorUserMetadata
-from fundamental.models.config import Library
-from fundamental.repositories.author_repository import AuthorRepository
-from fundamental.services.author.core_service import AuthorCoreService
-from fundamental.services.author_exceptions import NoActiveLibraryError
-from fundamental.services.config_service import LibraryService
+from bookcard.models.author_metadata import AuthorMetadata, AuthorUserMetadata
+from bookcard.models.config import Library
+from bookcard.repositories.author_repository import AuthorRepository
+from bookcard.services.author.core_service import AuthorCoreService
+from bookcard.services.author_exceptions import NoActiveLibraryError
+from bookcard.services.config_service import LibraryService
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession
@@ -178,7 +178,7 @@ class TestListAuthors:
         # to test the specific check in list_authors
         with (
             patch(
-                "fundamental.services.author.core_service.ensure_active_library",
+                "bookcard.services.author.core_service.ensure_active_library",
                 return_value=Library(id=None, name="Test", is_active=True),
             ),
             pytest.raises(NoActiveLibraryError, match="Active library ID is None"),
@@ -202,7 +202,7 @@ class TestGetAuthor:
     ) -> None:
         """Test get_author with successful response."""
         with patch(
-            "fundamental.services.author.core_service.AuthorLookupStrategyChain"
+            "bookcard.services.author.core_service.AuthorLookupStrategyChain"
         ) as mock_chain_class:
             mock_chain = MagicMock()
             mock_chain.lookup.return_value = author_metadata
@@ -236,7 +236,7 @@ class TestGetAuthor:
         # to test the specific check in get_author
         with (
             patch(
-                "fundamental.services.author.core_service.ensure_active_library",
+                "bookcard.services.author.core_service.ensure_active_library",
                 return_value=Library(id=None, name="Test", is_active=True),
             ),
             pytest.raises(NoActiveLibraryError, match="Active library ID is None"),

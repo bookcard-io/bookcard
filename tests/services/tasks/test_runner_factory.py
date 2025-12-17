@@ -21,8 +21,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.config import AppConfig
-from fundamental.services.tasks.runner_factory import create_task_runner
+from bookcard.config import AppConfig
+from bookcard.services.tasks.runner_factory import create_task_runner
 
 
 @pytest.fixture
@@ -60,18 +60,12 @@ def test_create_task_runner_valid_types(
     )
 
     with (
+        patch("bookcard.services.tasks.runner_factory.ThreadTaskRunner") as mock_thread,
         patch(
-            "fundamental.services.tasks.runner_factory.ThreadTaskRunner"
-        ) as mock_thread,
-        patch(
-            "fundamental.services.tasks.runner_factory.DramatiqTaskRunner"
+            "bookcard.services.tasks.runner_factory.DramatiqTaskRunner"
         ) as mock_dramatiq,
-        patch(
-            "fundamental.services.tasks.runner_factory.CeleryTaskRunner"
-        ) as mock_celery,
-        patch(
-            "fundamental.services.tasks.runner_factory.create_task"
-        ) as mock_create_task,
+        patch("bookcard.services.tasks.runner_factory.CeleryTaskRunner") as mock_celery,
+        patch("bookcard.services.tasks.runner_factory.create_task") as mock_create_task,
     ):
         mock_thread_instance = MagicMock()
         mock_thread.return_value = mock_thread_instance
@@ -118,12 +112,8 @@ def test_create_task_runner_default_thread(mock_engine: MagicMock) -> None:
     )
 
     with (
-        patch(
-            "fundamental.services.tasks.runner_factory.ThreadTaskRunner"
-        ) as mock_thread,
-        patch(
-            "fundamental.services.tasks.runner_factory.create_task"
-        ) as mock_create_task,
+        patch("bookcard.services.tasks.runner_factory.ThreadTaskRunner") as mock_thread,
+        patch("bookcard.services.tasks.runner_factory.create_task") as mock_create_task,
     ):
         mock_thread_instance = MagicMock()
         mock_thread.return_value = mock_thread_instance

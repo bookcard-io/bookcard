@@ -21,7 +21,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.services.tasks.openlibrary.adapters import (
+from bookcard.services.tasks.openlibrary.adapters import (
     CancellationCheckerAdapter,
     DatabaseRepositoryAdapter,
 )

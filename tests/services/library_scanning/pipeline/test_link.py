@@ -21,14 +21,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.services.library_scanning.data_sources.types import AuthorData
-from fundamental.services.library_scanning.matching.types import MatchResult
-from fundamental.services.library_scanning.pipeline.context import PipelineContext
-from fundamental.services.library_scanning.pipeline.link import (
+from bookcard.services.library_scanning.data_sources.types import AuthorData
+from bookcard.services.library_scanning.matching.types import MatchResult
+from bookcard.services.library_scanning.pipeline.context import PipelineContext
+from bookcard.services.library_scanning.pipeline.link import (
     LinkStage,
     LinkStageFactory,
 )
-from fundamental.services.library_scanning.pipeline.link_components import (
+from bookcard.services.library_scanning.pipeline.link_components import (
     MappingService,
 )
 
@@ -165,7 +165,7 @@ def test_initialize_from_context(
     stage = LinkStage()
 
     with patch(
-        "fundamental.services.library_scanning.pipeline.link.LinkStageFactory.create_components"
+        "bookcard.services.library_scanning.pipeline.link.LinkStageFactory.create_components"
     ) as mock_create:
         mock_create.return_value = {"mapping_service": MagicMock()}
         stage._initialize_from_context(pipeline_context)
@@ -228,7 +228,7 @@ def test_process_mappings(
 ) -> None:
     """Test _process_mappings."""
     with patch(
-        "fundamental.services.library_scanning.pipeline.link.MappingBatchProcessor"
+        "bookcard.services.library_scanning.pipeline.link.MappingBatchProcessor"
     ) as mock_processor_class:
         mock_processor = MagicMock()
         mock_processor_class.return_value = mock_processor
@@ -251,7 +251,7 @@ def test_create_empty_result(link_stage: LinkStage) -> None:
 
 def test_create_success_result(link_stage: LinkStage) -> None:
     """Test _create_success_result."""
-    from fundamental.services.library_scanning.pipeline.link_components import (
+    from bookcard.services.library_scanning.pipeline.link_components import (
         LinkingStatistics,
     )
 
@@ -300,7 +300,7 @@ def test_execute_success(
 ) -> None:
     """Test execute successfully."""
     with patch(
-        "fundamental.services.library_scanning.pipeline.link.MappingBatchProcessor"
+        "bookcard.services.library_scanning.pipeline.link.MappingBatchProcessor"
     ) as mock_processor_class:
         mock_processor = MagicMock()
         mock_processor_class.return_value = mock_processor
@@ -318,7 +318,7 @@ def test_execute_exception(
 ) -> None:
     """Test execute with exception."""
     with patch(
-        "fundamental.services.library_scanning.pipeline.link.MappingBatchProcessor",
+        "bookcard.services.library_scanning.pipeline.link.MappingBatchProcessor",
         side_effect=Exception("Processing error"),
     ):
         result = link_stage.execute(pipeline_context)
@@ -337,10 +337,10 @@ def test_execute_initializes_from_context(
 
     with (
         patch(
-            "fundamental.services.library_scanning.pipeline.link.LinkStageFactory.create_components"
+            "bookcard.services.library_scanning.pipeline.link.LinkStageFactory.create_components"
         ) as mock_create,
         patch(
-            "fundamental.services.library_scanning.pipeline.link.MappingBatchProcessor"
+            "bookcard.services.library_scanning.pipeline.link.MappingBatchProcessor"
         ) as mock_processor_class,
     ):
         mock_create.return_value = {"mapping_service": MagicMock()}
@@ -390,10 +390,10 @@ def test_execute_with_author_limit(
 
     with (
         patch(
-            "fundamental.services.library_scanning.pipeline.link.LinkStageFactory.create_components"
+            "bookcard.services.library_scanning.pipeline.link.LinkStageFactory.create_components"
         ) as mock_create,
         patch(
-            "fundamental.services.library_scanning.pipeline.link.MappingBatchProcessor"
+            "bookcard.services.library_scanning.pipeline.link.MappingBatchProcessor"
         ) as mock_processor_class,
     ):
         mock_create.return_value = {"mapping_service": MagicMock()}

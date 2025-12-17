@@ -30,7 +30,7 @@ Examples
     python scripts/recover_admin.py admin123
 
     # Docker deployment
-    docker exec -it fundamental-backend python -m scripts.recover_admin <password>
+    docker exec -it bookcard-backend python -m scripts.recover_admin <password>
 
 Notes
 -----
@@ -46,8 +46,8 @@ import sys
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
-from fundamental.config import AppConfig
-from fundamental.services.security import PasswordHasher
+from bookcard.config import AppConfig
+from bookcard.services.security import PasswordHasher
 
 
 def main() -> None:

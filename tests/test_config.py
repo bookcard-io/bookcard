@@ -20,7 +20,7 @@ from unittest.mock import patch
 
 import pytest
 
-from fundamental.config import AppConfig
+from bookcard.config import AppConfig
 
 
 @pytest.mark.parametrize(
@@ -51,7 +51,7 @@ def test_parse_bool_env_missing_key() -> None:
 
 def test_get_jwt_secret_success() -> None:
     """Test successful JWT secret retrieval."""
-    with patch.dict(os.environ, {"FUNDAMENTAL_JWT_SECRET": "test-secret-123"}):
+    with patch.dict(os.environ, {"BOOKCARD_JWT_SECRET": "test-secret-123"}):
         result = AppConfig._get_jwt_secret()
         assert result == "test-secret-123"
 
@@ -60,14 +60,14 @@ def test_get_jwt_secret_missing() -> None:
     """Test JWT secret retrieval when environment variable is missing."""
     with (
         patch.dict(os.environ, {}, clear=True),
-        pytest.raises(ValueError, match="FUNDAMENTAL_JWT_SECRET is not set"),
+        pytest.raises(ValueError, match="BOOKCARD_JWT_SECRET is not set"),
     ):
         AppConfig._get_jwt_secret()
 
 
 def test_get_jwt_algorithm_success() -> None:
     """Test successful JWT algorithm retrieval."""
-    with patch.dict(os.environ, {"FUNDAMENTAL_JWT_ALG": "HS256"}):
+    with patch.dict(os.environ, {"BOOKCARD_JWT_ALG": "HS256"}):
         result = AppConfig._get_jwt_algorithm()
         assert result == "HS256"
 
@@ -76,7 +76,7 @@ def test_get_jwt_algorithm_missing() -> None:
     """Test JWT algorithm retrieval when environment variable is missing."""
     with (
         patch.dict(os.environ, {}, clear=True),
-        pytest.raises(ValueError, match="FUNDAMENTAL_JWT_ALG is not set"),
+        pytest.raises(ValueError, match="BOOKCARD_JWT_ALG is not set"),
     ):
         AppConfig._get_jwt_algorithm()
 
@@ -99,11 +99,11 @@ def test_from_env(
 ) -> None:
     """Test configuration creation from environment variables."""
     env_vars = {
-        "FUNDAMENTAL_JWT_SECRET": jwt_secret,
-        "FUNDAMENTAL_JWT_ALG": jwt_alg,
-        "FUNDAMENTAL_JWT_EXPIRES_MIN": jwt_expires,
-        "FUNDAMENTAL_DATABASE_URL": db_url,
-        "FUNDAMENTAL_ECHO_SQL": echo_sql,
+        "BOOKCARD_JWT_SECRET": jwt_secret,
+        "BOOKCARD_JWT_ALG": jwt_alg,
+        "BOOKCARD_JWT_EXPIRES_MIN": jwt_expires,
+        "BOOKCARD_DATABASE_URL": db_url,
+        "BOOKCARD_ECHO_SQL": echo_sql,
     }
     with patch.dict(os.environ, env_vars):
         config = AppConfig.from_env()
@@ -117,18 +117,18 @@ def test_from_env(
 def test_from_env_default_database_url() -> None:
     """Test that default database URL is used when not set."""
     env_vars = {
-        "FUNDAMENTAL_JWT_SECRET": "secret",
-        "FUNDAMENTAL_JWT_ALG": "HS256",
-        "FUNDAMENTAL_JWT_EXPIRES_MIN": "15",
+        "BOOKCARD_JWT_SECRET": "secret",
+        "BOOKCARD_JWT_ALG": "HS256",
+        "BOOKCARD_JWT_EXPIRES_MIN": "15",
     }
     with patch.dict(os.environ, env_vars):
         config = AppConfig.from_env()
-        assert config.database_url == "sqlite:///fundamental.db"
+        assert config.database_url == "sqlite:///bookcard.db"
 
 
 def test_get_encryption_key_success() -> None:
     """Test successful encryption key retrieval."""
-    with patch.dict(os.environ, {"FUNDAMENTAL_FERNET_KEY": "test-key-123"}):
+    with patch.dict(os.environ, {"BOOKCARD_FERNET_KEY": "test-key-123"}):
         result = AppConfig._get_encryption_key()
         assert result == "test-key-123"
 
@@ -137,7 +137,7 @@ def test_get_encryption_key_missing() -> None:
     """Test encryption key retrieval when environment variable is missing (covers lines 116-117)."""
     with (
         patch.dict(os.environ, {}, clear=True),
-        pytest.raises(ValueError, match="FUNDAMENTAL_FERNET_KEY is not set"),
+        pytest.raises(ValueError, match="BOOKCARD_FERNET_KEY is not set"),
     ):
         AppConfig._get_encryption_key()
 

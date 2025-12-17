@@ -17,7 +17,7 @@
  * Centralized configuration for the web frontend.
  */
 
-export const AUTH_COOKIE_NAME = "fundamental_token";
+export const AUTH_COOKIE_NAME = "bookcard_token";
 
 /**
  * Resolve the backend base URL.
@@ -29,7 +29,7 @@ export const AUTH_COOKIE_NAME = "fundamental_token";
  * - BACKEND_URL (server-only env var, set in docker-compose or .env)
  * - NEXT_PUBLIC_BACKEND_URL (can be used in client code, but not needed here)
  * - Default based on NODE_ENV:
- *   - production: http://fundamental-backend:8000 (Docker service name)
+ *   - production: http://bookcard-backend:8000 (Docker service name)
  *   - development: http://localhost:8000 (local dev)
  *
  * Note: For local development, ensures HTTP protocol is used (not HTTPS)
@@ -59,7 +59,7 @@ function getBackendUrl(): string {
   }
   // Default based on environment
   return process.env.NODE_ENV === "production"
-    ? "http://fundamental-backend:8000"
+    ? "http://bookcard-backend:8000"
     : "http://localhost:8000";
 }
 

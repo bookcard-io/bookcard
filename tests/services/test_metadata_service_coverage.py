@@ -23,17 +23,17 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.api.schemas import (
+from bookcard.api.schemas import (
     MetadataProviderCompletedEvent,
     MetadataProviderFailedEvent,
     MetadataProviderStartedEvent,
     MetadataSearchEvent,
     MetadataSearchProgressEvent,
 )
-from fundamental.metadata.base import MetadataProvider, MetadataProviderError
-from fundamental.metadata.registry import MetadataProviderRegistry
-from fundamental.models.metadata import MetadataRecord, MetadataSourceInfo
-from fundamental.services.metadata_service import MetadataService
+from bookcard.metadata.base import MetadataProvider, MetadataProviderError
+from bookcard.metadata.registry import MetadataProviderRegistry
+from bookcard.models.metadata import MetadataRecord, MetadataSourceInfo
+from bookcard.services.metadata_service import MetadataService
 
 
 class MockProvider(MetadataProvider):

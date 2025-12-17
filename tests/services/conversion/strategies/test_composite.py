@@ -22,9 +22,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.kcc_config import KCCConversionProfile
-from fundamental.services.conversion.exceptions import ConversionError
-from fundamental.services.conversion.strategies.composite import (
+from bookcard.models.kcc_config import KCCConversionProfile
+from bookcard.services.conversion.exceptions import ConversionError
+from bookcard.services.conversion.strategies.composite import (
     CompositeConversionStrategy,
     is_comic_format,
 )
@@ -382,7 +382,7 @@ class TestConvert:
             return kcc_profile
 
         with patch(
-            "fundamental.services.conversion.strategies.kcc.KCCConversionStrategy"
+            "bookcard.services.conversion.strategies.kcc.KCCConversionStrategy"
         ) as mock_kcc_class:
             mock_new_strategy = MagicMock()
             mock_new_strategy.convert.return_value = output_path

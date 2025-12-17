@@ -23,12 +23,12 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from fundamental.services.library_scanning.data_sources.base import (
+from bookcard.services.library_scanning.data_sources.base import (
     DataSourceNetworkError,
     DataSourceNotFoundError,
     DataSourceRateLimitError,
 )
-from fundamental.services.library_scanning.data_sources.openlibrary import (
+from bookcard.services.library_scanning.data_sources.openlibrary import (
     OPENLIBRARY_API_BASE,
     OPENLIBRARY_COVERS_BASE,
     OPENLIBRARY_MAX_PAGE_SIZE,
@@ -39,7 +39,7 @@ from fundamental.services.library_scanning.data_sources.openlibrary import (
     SearchRequestBuilder,
     WorkKeyExtractor,
 )
-from fundamental.services.library_scanning.data_sources.types import (
+from bookcard.services.library_scanning.data_sources.types import (
     IdentifierDict,
 )
 

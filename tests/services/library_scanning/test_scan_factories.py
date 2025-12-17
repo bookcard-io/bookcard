@@ -19,13 +19,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.config import Library
-from fundamental.repositories.library_repository import LibraryRepository
-from fundamental.services.library_scanning.data_sources.base import BaseDataSource
-from fundamental.services.library_scanning.pipeline.context import PipelineContext
-from fundamental.services.library_scanning.pipeline.executor import PipelineExecutor
-from fundamental.services.library_scanning.scan_configuration import ScanConfiguration
-from fundamental.services.library_scanning.scan_factories import (
+from bookcard.models.config import Library
+from bookcard.repositories.library_repository import LibraryRepository
+from bookcard.services.library_scanning.data_sources.base import BaseDataSource
+from bookcard.services.library_scanning.pipeline.context import PipelineContext
+from bookcard.services.library_scanning.pipeline.executor import PipelineExecutor
+from bookcard.services.library_scanning.scan_configuration import ScanConfiguration
+from bookcard.services.library_scanning.scan_factories import (
     PipelineContextFactory,
     RegistryDataSourceFactory,
     StandardPipelineFactory,
@@ -35,7 +35,7 @@ from fundamental.services.library_scanning.scan_factories import (
 class TestRegistryDataSourceFactory:
     """Test RegistryDataSourceFactory."""
 
-    @patch("fundamental.services.library_scanning.scan_factories.DataSourceRegistry")
+    @patch("bookcard.services.library_scanning.scan_factories.DataSourceRegistry")
     def test_create_data_source_with_rate_limit(self, mock_registry: MagicMock) -> None:
         """Test create_data_source with rate_limit_delay."""
         mock_source = MagicMock(spec=BaseDataSource)
@@ -55,7 +55,7 @@ class TestRegistryDataSourceFactory:
             "openlibrary", rate_limit_delay=1.5
         )
 
-    @patch("fundamental.services.library_scanning.scan_factories.DataSourceRegistry")
+    @patch("bookcard.services.library_scanning.scan_factories.DataSourceRegistry")
     def test_create_data_source_without_rate_limit(
         self, mock_registry: MagicMock
     ) -> None:

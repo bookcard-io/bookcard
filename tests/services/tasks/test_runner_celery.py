@@ -19,8 +19,8 @@ from __future__ import annotations
 
 import pytest
 
-from fundamental.models.tasks import TaskType
-from fundamental.services.tasks.runner_celery import CeleryTaskRunner
+from bookcard.models.tasks import TaskType
+from bookcard.services.tasks.runner_celery import CeleryTaskRunner
 
 
 @pytest.fixture

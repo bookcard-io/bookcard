@@ -1,0 +1,168 @@
+# Copyright (C) 2025 knguyen and others
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+"""Worker manager for starting and managing distributed scan workers."""
+
+import logging
+import os
+
+from sqlalchemy import func
+from sqlalchemy.exc import OperationalError, ProgrammingError, SQLAlchemyError
+from sqlmodel import Session, select
+
+from bookcard.database import create_db_engine
+from bookcard.models.openlibrary import OpenLibraryAuthor
+from bookcard.services.library_scanning.workers.completion import CompletionWorker
+from bookcard.services.library_scanning.workers.crawl import CrawlWorker
+from bookcard.services.library_scanning.workers.ingest import IngestWorker
+from bookcard.services.library_scanning.workers.link import LinkWorker
+from bookcard.services.library_scanning.workers.match import MatchWorker
+from bookcard.services.library_scanning.workers.score import ScoreWorker
+from bookcard.services.messaging.redis_broker import RedisBroker
+
+logger = logging.getLogger(__name__)
+
+
+class ScanWorkerManager:
+    """Manages lifecycle of distributed scan workers."""
+
+    def __init__(self, redis_url: str, threads_per_worker: int = 1) -> None:
+        """Initialize worker manager.
+
+        Parameters
+        ----------
+        redis_url : str
+            Redis connection URL.
+        threads_per_worker : int
+            Number of threads to start per worker type.
+        """
+        self.broker = RedisBroker(redis_url)
+        self.threads_per_worker = threads_per_worker
+        self.workers: list[
+            CrawlWorker
+            | MatchWorker
+            | IngestWorker
+            | LinkWorker
+            | ScoreWorker
+            | CompletionWorker
+        ] = []
+        self._started = False
+
+    def start_workers(self) -> None:
+        """Start all scan workers."""
+        if self._started:
+            logger.warning("Workers already started")
+            return
+
+        logger.info(
+            "Starting distributed scan workers (%d threads per worker)...",
+            self.threads_per_worker,
+        )
+
+        # Detect best available data source
+        ingest_source = self._detect_ingest_source()
+
+        # Create workers (multiple instances for parallelism)
+        # MatchWorker uses HTTP data source for better performance
+        # IngestWorker uses PostgreSQL dump for fast data retrieval
+        self.workers = []
+        for _ in range(self.threads_per_worker):
+            self.workers.extend([
+                CrawlWorker(self.broker),
+                MatchWorker(self.broker, data_source_name="openlibrary"),
+                IngestWorker(self.broker, data_source_name=ingest_source),
+                LinkWorker(self.broker),
+                ScoreWorker(self.broker),
+                CompletionWorker(self.broker),
+            ])
+
+        # Start workers
+        for worker in self.workers:
+            worker.start()
+
+        # Start broker (starts all worker threads)
+        self.broker.start()
+
+        self._started = True
+        logger.info("All scan workers started and listening for jobs")
+
+    def _detect_ingest_source(self) -> str:
+        """Detect the best available data source for ingestion.
+
+        Checks if the local OpenLibrary dump database has at least 1000 authors.
+        If so, returns 'openlibrary_dump', otherwise 'openlibrary'.
+
+        Returns
+        -------
+        str
+            Data source name ('openlibrary_dump' or 'openlibrary').
+        """
+        ingest_source_override = os.getenv("INGEST_SOURCE")
+        if ingest_source_override:
+            return ingest_source_override
+
+        try:
+            engine = create_db_engine()
+            with Session(engine) as session:
+                # Check if we have at least 1000 author records
+                stmt = select(func.count(OpenLibraryAuthor.key))
+                count = session.exec(stmt).one() or 0
+
+                if count >= 1000:
+                    logger.info(
+                        "OpenLibrary dump data detected (%d authors). Using local dump source.",
+                        count,
+                    )
+                    return "openlibrary_dump"
+        except (OperationalError, ProgrammingError):
+            # Table doesn't exist or DB connection failed
+            pass
+        except SQLAlchemyError as e:
+            logger.warning("Failed to check OpenLibrary dump availability: %s", e)
+
+        logger.info("OpenLibrary dump data not available. Using HTTP API source.")
+        return "openlibrary"
+
+    def stop_workers(self) -> None:
+        """Stop all workers gracefully."""
+        if not self._started:
+            return
+
+        logger.info("Stopping scan workers...")
+        self.broker.stop()
+        self._started = False
+        logger.info("All scan workers stopped")
+
+    @staticmethod
+    def get_redis_url() -> str:
+        """Get Redis URL from environment.
+
+        Returns
+        -------
+        str
+            Redis connection URL.
+
+        Raises
+        ------
+        ValueError
+            If Redis URL cannot be determined.
+        """
+        redis_password = os.getenv("REDIS_PASSWORD")
+        redis_host = os.getenv("REDIS_HOST", "localhost")
+        redis_port = os.getenv("REDIS_PORT", "6379")
+
+        if redis_password:
+            return f"redis://:{redis_password}@{redis_host}:{redis_port}/0"
+        return f"redis://{redis_host}:{redis_port}/0"

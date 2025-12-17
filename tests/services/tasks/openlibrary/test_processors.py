@@ -23,16 +23,16 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.openlibrary import (
+from bookcard.models.openlibrary import (
     OpenLibraryAuthor,
     OpenLibraryAuthorWork,
     OpenLibraryEdition,
     OpenLibraryEditionIsbn,
     OpenLibraryWork,
 )
-from fundamental.services.tasks.openlibrary.batch import BatchProcessor
-from fundamental.services.tasks.openlibrary.models import DumpRecord
-from fundamental.services.tasks.openlibrary.processors import (
+from bookcard.services.tasks.openlibrary.batch import BatchProcessor
+from bookcard.services.tasks.openlibrary.models import DumpRecord
+from bookcard.services.tasks.openlibrary.processors import (
     AuthorRecordProcessor,
     EditionRecordProcessor,
     WorkRecordProcessor,

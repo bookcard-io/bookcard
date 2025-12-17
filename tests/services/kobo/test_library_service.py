@@ -25,16 +25,16 @@ import pytest
 from fastapi import HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
-from fundamental.models.core import Book
-from fundamental.models.kobo import KoboArchivedBook
-from fundamental.repositories.models import BookWithFullRelations
-from fundamental.services.kobo.book_lookup_service import KoboBookLookupService
-from fundamental.services.kobo.library_service import KoboLibraryService
-from fundamental.services.kobo.metadata_service import KoboMetadataService
-from fundamental.services.kobo.shelf_service import KoboShelfService
-from fundamental.services.kobo.store_proxy_service import KoboStoreProxyService
-from fundamental.services.kobo.sync_service import KoboSyncService
-from fundamental.services.kobo.sync_token_service import SyncToken
+from bookcard.models.core import Book
+from bookcard.models.kobo import KoboArchivedBook
+from bookcard.repositories.models import BookWithFullRelations
+from bookcard.services.kobo.book_lookup_service import KoboBookLookupService
+from bookcard.services.kobo.library_service import KoboLibraryService
+from bookcard.services.kobo.metadata_service import KoboMetadataService
+from bookcard.services.kobo.shelf_service import KoboShelfService
+from bookcard.services.kobo.store_proxy_service import KoboStoreProxyService
+from bookcard.services.kobo.sync_service import KoboSyncService
+from bookcard.services.kobo.sync_token_service import SyncToken
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession
@@ -391,10 +391,10 @@ def test_archive_book_new(
 
     with (
         patch(
-            "fundamental.services.kobo.library_service.KoboArchivedBookRepository"
+            "bookcard.services.kobo.library_service.KoboArchivedBookRepository"
         ) as mock_archived_repo_class,
         patch(
-            "fundamental.services.kobo.library_service.KoboSyncedBookRepository"
+            "bookcard.services.kobo.library_service.KoboSyncedBookRepository"
         ) as mock_synced_repo_class,
     ):
         mock_archived_repo = MagicMock()
@@ -434,10 +434,10 @@ def test_archive_book_existing(
 
     with (
         patch(
-            "fundamental.services.kobo.library_service.KoboArchivedBookRepository"
+            "bookcard.services.kobo.library_service.KoboArchivedBookRepository"
         ) as mock_archived_repo_class,
         patch(
-            "fundamental.services.kobo.library_service.KoboSyncedBookRepository"
+            "bookcard.services.kobo.library_service.KoboSyncedBookRepository"
         ) as mock_synced_repo_class,
     ):
         mock_archived_repo = MagicMock()

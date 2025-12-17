@@ -20,10 +20,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.author_metadata import AuthorMetadata
-from fundamental.services.library_scanning.workers.ingest import IngestWorker
-from fundamental.services.messaging.base import MessageBroker
-from fundamental.services.messaging.redis_broker import RedisBroker
+from bookcard.models.author_metadata import AuthorMetadata
+from bookcard.services.library_scanning.workers.ingest import IngestWorker
+from bookcard.services.messaging.base import MessageBroker
+from bookcard.services.messaging.redis_broker import RedisBroker
 
 
 @pytest.fixture
@@ -70,7 +70,7 @@ class TestIngestWorkerCheckCompletion:
             Worker instance.
         """
         with patch(
-            "fundamental.services.library_scanning.workers.ingest.create_db_engine"
+            "bookcard.services.library_scanning.workers.ingest.create_db_engine"
         ):
             return IngestWorker(mock_broker)
 
@@ -83,11 +83,9 @@ class TestIngestWorkerCheckCompletion:
             Mock Redis broker.
         """
         with (
+            patch("bookcard.services.library_scanning.workers.ingest.create_db_engine"),
             patch(
-                "fundamental.services.library_scanning.workers.ingest.create_db_engine"
-            ),
-            patch(
-                "fundamental.services.library_scanning.workers.ingest.JobProgressTracker"
+                "bookcard.services.library_scanning.workers.ingest.JobProgressTracker"
             ) as mock_tracker_class,
         ):
             worker = IngestWorker(mock_redis_broker)
@@ -107,11 +105,9 @@ class TestIngestWorkerCheckCompletion:
             Mock Redis broker.
         """
         with (
+            patch("bookcard.services.library_scanning.workers.ingest.create_db_engine"),
             patch(
-                "fundamental.services.library_scanning.workers.ingest.create_db_engine"
-            ),
-            patch(
-                "fundamental.services.library_scanning.workers.ingest.JobProgressTracker"
+                "bookcard.services.library_scanning.workers.ingest.JobProgressTracker"
             ) as mock_tracker_class,
         ):
             worker = IngestWorker(mock_redis_broker)
@@ -140,7 +136,7 @@ class TestIngestWorkerProcess:
             Worker instance.
         """
         with patch(
-            "fundamental.services.library_scanning.workers.ingest.create_db_engine"
+            "bookcard.services.library_scanning.workers.ingest.create_db_engine"
         ):
             return IngestWorker(mock_broker)
 
@@ -193,23 +189,21 @@ class TestIngestWorkerProcess:
             Whether fetch raises error.
         """
         with (
+            patch("bookcard.services.library_scanning.workers.ingest.create_db_engine"),
             patch(
-                "fundamental.services.library_scanning.workers.ingest.create_db_engine"
-            ),
-            patch(
-                "fundamental.services.library_scanning.workers.ingest.get_session"
+                "bookcard.services.library_scanning.workers.ingest.get_session"
             ) as mock_get_session,
             patch(
-                "fundamental.services.library_scanning.workers.ingest.JobProgressTracker"
+                "bookcard.services.library_scanning.workers.ingest.JobProgressTracker"
             ) as mock_progress_class,
             patch(
-                "fundamental.services.library_scanning.workers.ingest.deserialize_match_result"
+                "bookcard.services.library_scanning.workers.ingest.deserialize_match_result"
             ) as mock_deserialize,
             patch(
-                "fundamental.services.library_scanning.workers.ingest.DataSourceRegistry"
+                "bookcard.services.library_scanning.workers.ingest.DataSourceRegistry"
             ) as mock_registry,
             patch(
-                "fundamental.services.library_scanning.workers.ingest.IngestStageFactory"
+                "bookcard.services.library_scanning.workers.ingest.IngestStageFactory"
             ) as mock_factory,
         ):
             worker = IngestWorker(mock_redis_broker)
@@ -298,7 +292,7 @@ class TestIngestWorkerLoadProviderConfig:
             Worker instance.
         """
         with patch(
-            "fundamental.services.library_scanning.workers.ingest.create_db_engine"
+            "bookcard.services.library_scanning.workers.ingest.create_db_engine"
         ):
             return IngestWorker(mock_broker)
 
@@ -348,7 +342,7 @@ class TestIngestWorkerShouldSkipFetch:
             Worker instance.
         """
         with patch(
-            "fundamental.services.library_scanning.workers.ingest.create_db_engine"
+            "bookcard.services.library_scanning.workers.ingest.create_db_engine"
         ):
             return IngestWorker(mock_broker)
 

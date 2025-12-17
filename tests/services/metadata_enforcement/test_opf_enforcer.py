@@ -22,13 +22,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.config import Library
-from fundamental.models.core import Book
-from fundamental.repositories.models import BookWithFullRelations
-from fundamental.services.metadata_enforcement.opf_enforcer import (
+from bookcard.models.config import Library
+from bookcard.models.core import Book
+from bookcard.repositories.models import BookWithFullRelations
+from bookcard.services.metadata_enforcement.opf_enforcer import (
     OpfEnforcementService,
 )
-from fundamental.services.opf_service import OpfMetadataResult, OpfService
+from bookcard.services.opf_service import OpfMetadataResult, OpfService
 
 
 @pytest.fixture
@@ -118,7 +118,7 @@ def test_enforce_opf_success(
     book_dir.mkdir(parents=True)
 
     with patch(
-        "fundamental.services.metadata_enforcement.opf_enforcer.LibraryPathResolver"
+        "bookcard.services.metadata_enforcement.opf_enforcer.LibraryPathResolver"
     ) as mock_resolver_class:
         mock_resolver = MagicMock()
         mock_resolver.get_library_root.return_value = library_root
@@ -143,7 +143,7 @@ def test_enforce_opf_oserror(
 ) -> None:
     """Test OPF enforcement with OSError."""
     with patch(
-        "fundamental.services.metadata_enforcement.opf_enforcer.LibraryPathResolver"
+        "bookcard.services.metadata_enforcement.opf_enforcer.LibraryPathResolver"
     ) as mock_resolver_class:
         mock_resolver = MagicMock()
         mock_resolver.get_library_root.side_effect = OSError("Permission denied")
@@ -164,7 +164,7 @@ def test_enforce_opf_valueerror(
     opf_service.generate_opf.side_effect = ValueError("Invalid metadata")
 
     with patch(
-        "fundamental.services.metadata_enforcement.opf_enforcer.LibraryPathResolver"
+        "bookcard.services.metadata_enforcement.opf_enforcer.LibraryPathResolver"
     ) as mock_resolver_class:
         mock_resolver = MagicMock()
         mock_resolver.get_library_root.return_value = Path("/test/library")
@@ -185,7 +185,7 @@ def test_enforce_opf_typeerror(
     opf_service.generate_opf.side_effect = TypeError("Type error")
 
     with patch(
-        "fundamental.services.metadata_enforcement.opf_enforcer.LibraryPathResolver"
+        "bookcard.services.metadata_enforcement.opf_enforcer.LibraryPathResolver"
     ) as mock_resolver_class:
         mock_resolver = MagicMock()
         mock_resolver.get_library_root.return_value = Path("/test/library")
@@ -208,7 +208,7 @@ def test_enforce_opf_creates_directory(
     library_root.mkdir()
 
     with patch(
-        "fundamental.services.metadata_enforcement.opf_enforcer.LibraryPathResolver"
+        "bookcard.services.metadata_enforcement.opf_enforcer.LibraryPathResolver"
     ) as mock_resolver_class:
         mock_resolver = MagicMock()
         mock_resolver.get_library_root.return_value = library_root

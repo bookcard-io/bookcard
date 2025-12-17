@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from fundamental.services.ingest.metadata_query import MetadataQuery
+from bookcard.services.ingest.metadata_query import MetadataQuery
 
 
 @pytest.mark.parametrize(

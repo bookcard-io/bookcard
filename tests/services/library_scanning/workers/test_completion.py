@@ -20,8 +20,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.services.library_scanning.workers.completion import CompletionWorker
-from fundamental.services.messaging.base import MessageBroker
+from bookcard.services.library_scanning.workers.completion import CompletionWorker
+from bookcard.services.messaging.base import MessageBroker
 
 
 @pytest.fixture
@@ -127,7 +127,7 @@ class TestCompletionWorkerProcess:
             Expected task ID.
         """
         with patch(
-            "fundamental.services.library_scanning.workers.completion.ScanTaskTracker"
+            "bookcard.services.library_scanning.workers.completion.ScanTaskTracker"
         ) as mock_tracker_class:
             mock_tracker = mock_tracker_class.return_value
             result = completion_worker.process(payload)

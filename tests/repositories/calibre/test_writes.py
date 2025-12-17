@@ -26,11 +26,11 @@ from unittest.mock import MagicMock
 import pytest
 from sqlmodel import Session, select
 
-from fundamental.models.core import Author, Book
-from fundamental.repositories.calibre.writes import BookWriteOperations
+from bookcard.models.core import Author, Book
+from bookcard.repositories.calibre.writes import BookWriteOperations
 
 if TYPE_CHECKING:
-    from fundamental.repositories.calibre.retry import SQLiteRetryPolicy
+    from bookcard.repositories.calibre.retry import SQLiteRetryPolicy
 from tests.repositories.calibre.conftest import (
     MockBookMetadataService,
     MockBookRelationshipManager,

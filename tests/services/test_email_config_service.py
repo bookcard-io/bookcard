@@ -22,8 +22,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.config import EmailServerConfig, EmailServerType
-from fundamental.services.email_config_service import EmailConfigService
+from bookcard.models.config import EmailServerConfig, EmailServerType
+from bookcard.services.email_config_service import EmailConfigService
 
 
 @pytest.fixture

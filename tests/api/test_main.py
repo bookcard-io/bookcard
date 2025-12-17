@@ -27,21 +27,21 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from fundamental.api.logging_config import setup_logging
-from fundamental.api.main import configure_app, create_app
-from fundamental.api.routers import register_routers
-from fundamental.api.routes.admin import router as admin_router
-from fundamental.api.routes.auth import router as auth_router
-from fundamental.api.services.bootstrap import (
+from bookcard.api.logging_config import setup_logging
+from bookcard.api.main import configure_app, create_app
+from bookcard.api.routers import register_routers
+from bookcard.api.routes.admin import router as admin_router
+from bookcard.api.routes.auth import router as auth_router
+from bookcard.api.services.bootstrap import (
     initialize_services,
     start_background_services,
     stop_background_services,
 )
-from fundamental.api.services.container import ServiceContainer
-from fundamental.config import AppConfig
-from fundamental.database import create_db_engine
-from fundamental.services.author_exceptions import NoActiveLibraryError
-from fundamental.services.ingest.exceptions import (
+from bookcard.api.services.container import ServiceContainer
+from bookcard.config import AppConfig
+from bookcard.database import create_db_engine
+from bookcard.services.author_exceptions import NoActiveLibraryError
+from bookcard.services.ingest.exceptions import (
     IngestHistoryCreationError,
     IngestHistoryNotFoundError,
 )
@@ -69,7 +69,7 @@ def test_setup_logging_with_level(log_level: str, expected_level: int) -> None:
         logging.root.setLevel(logging.NOTSET)
         setup_logging()
         assert logging.root.level == expected_level
-        app_logger = logging.getLogger("fundamental")
+        app_logger = logging.getLogger("bookcard")
         assert app_logger.level == expected_level
 
 
@@ -81,7 +81,7 @@ def test_setup_logging_default_level() -> None:
         logging.root.setLevel(logging.NOTSET)
         setup_logging()
         assert logging.root.level == logging.INFO
-        app_logger = logging.getLogger("fundamental")
+        app_logger = logging.getLogger("bookcard")
         assert app_logger.level == logging.INFO
 
 
@@ -93,7 +93,7 @@ def test_setup_logging_invalid_level() -> None:
         logging.root.setLevel(logging.NOTSET)
         setup_logging()
         assert logging.root.level == logging.INFO
-        app_logger = logging.getLogger("fundamental")
+        app_logger = logging.getLogger("bookcard")
         assert app_logger.level == logging.INFO
 
 
@@ -119,7 +119,7 @@ def test_setup_logging_app_logger_propagates() -> None:
         # Clear existing handlers to avoid interference
         logging.root.handlers.clear()
         setup_logging()
-        app_logger = logging.getLogger("fundamental")
+        app_logger = logging.getLogger("bookcard")
         assert app_logger.propagate is True
 
 
@@ -139,16 +139,16 @@ def test_create_app_lifespan_with_alembic_enabled() -> None:
     )
 
     with (
-        patch("fundamental.api.lifespan._AlembicConfig") as mock_config_class,
-        patch("fundamental.api.lifespan._alembic_command") as mock_command,
+        patch("bookcard.api.lifespan._AlembicConfig") as mock_config_class,
+        patch("bookcard.api.lifespan._alembic_command") as mock_command,
         patch("asyncio.to_thread") as mock_to_thread,
-        patch("fundamental.api.lifespan.initialize_services"),
-        patch("fundamental.api.lifespan.start_background_services"),
-        patch("fundamental.api.lifespan.stop_background_services"),
+        patch("bookcard.api.lifespan.initialize_services"),
+        patch("bookcard.api.lifespan.start_background_services"),
+        patch("bookcard.api.lifespan.stop_background_services"),
         patch(
-            "fundamental.api.services.container.ServiceContainer"
+            "bookcard.api.services.container.ServiceContainer"
         ) as mock_container_class,
-        patch("fundamental.database.get_session"),
+        patch("bookcard.database.get_session"),
     ):
         # Mock the container to avoid database access
         mock_container = MagicMock()
@@ -185,7 +185,7 @@ def test_create_app_lifespan_with_alembic_enabled() -> None:
 
         mock_config_class.assert_called_once()
         mock_config.set_main_option.assert_called_once_with(
-            "script_location", "fundamental/db/migrations"
+            "script_location", "bookcard/db/migrations"
         )
         # Verify upgrade was called via asyncio.to_thread
         mock_to_thread.assert_called_once()
@@ -208,13 +208,13 @@ def test_create_app_lifespan_without_alembic() -> None:
     )
 
     with (
-        patch("fundamental.api.lifespan.initialize_services"),
-        patch("fundamental.api.lifespan.start_background_services"),
-        patch("fundamental.api.lifespan.stop_background_services"),
+        patch("bookcard.api.lifespan.initialize_services"),
+        patch("bookcard.api.lifespan.start_background_services"),
+        patch("bookcard.api.lifespan.stop_background_services"),
         patch(
-            "fundamental.api.services.container.ServiceContainer"
+            "bookcard.api.services.container.ServiceContainer"
         ) as mock_container_class,
-        patch("fundamental.database.get_session"),
+        patch("bookcard.database.get_session"),
     ):
         # Mock the container to avoid database access
         mock_container = MagicMock()
@@ -337,7 +337,7 @@ def test_create_app_with_config(config_provided: bool, use_env: bool) -> None:
         )
         app = create_app(config)
     else:
-        with patch("fundamental.api.main.AppConfig.from_env") as mock_from_env:
+        with patch("bookcard.api.main.AppConfig.from_env") as mock_from_env:
             config = AppConfig(
                 jwt_secret="env-secret",
                 jwt_algorithm="HS256",
@@ -349,7 +349,7 @@ def test_create_app_with_config(config_provided: bool, use_env: bool) -> None:
             mock_from_env.return_value = config
             app = create_app()
     assert isinstance(app, FastAPI)
-    assert app.title == "Fundamental"
+    assert app.title == "Bookcard"
     assert app.version == "0.1.0"
     assert app.summary == "Self-hosted ebook management and reading API"
 
@@ -403,7 +403,7 @@ def test_create_app_adds_middleware() -> None:
     app = create_app(config)
     # Check that middleware is present
     middleware_classes = [middleware.cls for middleware in app.user_middleware]
-    from fundamental.api.middleware.auth_middleware import AuthMiddleware
+    from bookcard.api.middleware.auth_middleware import AuthMiddleware
 
     assert AuthMiddleware in middleware_classes
 
@@ -418,7 +418,7 @@ def test_create_app_calls_setup_logging() -> None:
         database_url="sqlite:///:memory:",
         echo_sql=False,
     )
-    with patch("fundamental.api.main.setup_logging") as mock_setup:
+    with patch("bookcard.api.main.setup_logging") as mock_setup:
         create_app(config)
         mock_setup.assert_called_once()
 
@@ -433,7 +433,7 @@ def test_create_app_creates_engine() -> None:
         database_url="sqlite:///:memory:",
         echo_sql=False,
     )
-    with patch("fundamental.api.main.create_db_engine") as mock_create_engine:
+    with patch("bookcard.api.main.create_db_engine") as mock_create_engine:
         mock_engine = MagicMock()
         mock_create_engine.return_value = mock_engine
         app = create_app(config)
@@ -444,7 +444,7 @@ def test_create_app_creates_engine() -> None:
 def test_app_instance_created() -> None:
     """Test that module-level app instance is created."""
     # Import the module to trigger app creation
-    import fundamental.api.main as main_module
+    import bookcard.api.main as main_module
 
     assert hasattr(main_module, "app")
     assert isinstance(main_module.app, FastAPI)
@@ -551,7 +551,7 @@ def test_initialize_task_runner_exception_handling(
     # Patch the function where it's imported in the container module
     # The container imports create_task_runner from runner_factory, so we patch
     # it in the container module's namespace
-    with patch("fundamental.api.services.container.create_task_runner") as mock_create:
+    with patch("bookcard.api.services.container.create_task_runner") as mock_create:
         mock_create.side_effect = exception_type("Test error")
         container = ServiceContainer(test_config, mock_engine)
         # Test that exception is handled gracefully (returns None)
@@ -586,7 +586,7 @@ def test_initialize_scan_workers_redis_disabled(
         redis_url=test_config.redis_url,
     )
     container = ServiceContainer(config_no_redis, mock_engine)
-    with patch("fundamental.database.get_session"):
+    with patch("bookcard.database.get_session"):
         initialize_services(fastapi_app, container)
     assert fastapi_app.state.scan_worker_broker is None
     assert fastapi_app.state.scan_worker_manager is None
@@ -637,7 +637,7 @@ def test_initialize_scan_workers_exception_handling(
     with (
         patch.object(container, "create_redis_broker", return_value=None),
         patch.object(container, "create_scan_worker_manager", return_value=None),
-        patch("fundamental.database.get_session"),
+        patch("bookcard.database.get_session"),
     ):
         # When exceptions occur, the container methods return None
         # So we patch them to return None directly to simulate exception handling
@@ -671,7 +671,7 @@ def test_initialize_scheduler_redis_disabled(
         redis_url=test_config.redis_url,
     )
     container = ServiceContainer(config_no_redis, mock_engine)
-    with patch("fundamental.database.get_session"):
+    with patch("bookcard.database.get_session"):
         initialize_services(fastapi_app, container)
     assert fastapi_app.state.scheduler is None
 
@@ -702,7 +702,7 @@ def test_initialize_scheduler_task_runner_none(
     )
     container = ServiceContainer(config_with_redis, mock_engine)
     with (
-        patch("fundamental.database.get_session"),
+        patch("bookcard.database.get_session"),
         patch.object(container, "create_task_runner", return_value=None),
     ):
         # Patch create_task_runner to return None so scheduler won't be created
@@ -755,7 +755,7 @@ def test_initialize_scheduler_exception_handling(
     fastapi_app.state.task_runner = MagicMock()
     with (
         patch.object(container, "create_scheduler", return_value=None),
-        patch("fundamental.database.get_session"),
+        patch("bookcard.database.get_session"),
     ):
         # When exceptions occur, the container method returns None
         # So we patch it to return None directly to simulate exception handling
@@ -1003,9 +1003,9 @@ def test_initialize_ingest_watcher_redis_disabled(
     )
     container = ServiceContainer(config_no_redis, mock_engine)
     with (
-        patch("fundamental.database.get_session") as mock_get_session,
+        patch("bookcard.database.get_session") as mock_get_session,
         patch(
-            "fundamental.services.ingest.ingest_config_service.IngestConfigService"
+            "bookcard.services.ingest.ingest_config_service.IngestConfigService"
         ) as mock_config_service_class,
     ):
         # Mock ingest config to be enabled
@@ -1021,7 +1021,7 @@ def test_initialize_ingest_watcher_redis_disabled(
         initialize_services(fastapi_app, container)
 
         # When Redis is disabled, thread-based runner is created, so watcher should be initialized
-        from fundamental.services.ingest.ingest_watcher_service import (
+        from bookcard.services.ingest.ingest_watcher_service import (
             IngestWatcherService,
         )
 
@@ -1055,7 +1055,7 @@ def test_initialize_ingest_watcher_task_runner_none(
     )
     container = ServiceContainer(config_with_redis, mock_engine)
     with (
-        patch("fundamental.database.get_session"),
+        patch("bookcard.database.get_session"),
         patch.object(container, "create_task_runner", return_value=None),
     ):
         # Patch create_task_runner to return None so ingest watcher won't be created
@@ -1091,7 +1091,7 @@ def test_initialize_ingest_watcher_ingest_disabled(
     fastapi_app.state.task_runner = MagicMock()
     with (
         patch.object(container, "create_ingest_watcher", return_value=None),
-        patch("fundamental.database.get_session"),
+        patch("bookcard.database.get_session"),
     ):
         # Patch create_ingest_watcher to return None when ingest is disabled
         initialize_services(fastapi_app, container)
@@ -1143,7 +1143,7 @@ def test_initialize_ingest_watcher_exception_handling(
     fastapi_app.state.task_runner = MagicMock()
     with (
         patch.object(container, "create_ingest_watcher", return_value=None),
-        patch("fundamental.database.get_session"),
+        patch("bookcard.database.get_session"),
     ):
         # When exceptions occur, the container method returns None
         # So we patch it to return None directly to simulate exception handling
@@ -1180,7 +1180,7 @@ def test_initialize_ingest_watcher_success(
     with (
         patch.object(container, "create_task_runner", return_value=mock_task_runner),
         patch.object(container, "create_ingest_watcher") as mock_watcher_method,
-        patch("fundamental.database.get_session"),
+        patch("bookcard.database.get_session"),
     ):
         mock_watcher = MagicMock()
         mock_watcher_method.return_value = mock_watcher
@@ -1255,13 +1255,13 @@ def test_lifespan_cancelled_error() -> None:
     )
 
     with (
-        patch("fundamental.api.lifespan.initialize_services"),
-        patch("fundamental.api.lifespan.start_background_services"),
-        patch("fundamental.api.lifespan.stop_background_services"),
+        patch("bookcard.api.lifespan.initialize_services"),
+        patch("bookcard.api.lifespan.start_background_services"),
+        patch("bookcard.api.lifespan.stop_background_services"),
         patch(
-            "fundamental.api.services.container.ServiceContainer"
+            "bookcard.api.services.container.ServiceContainer"
         ) as mock_container_class,
-        patch("fundamental.database.get_session"),
+        patch("bookcard.database.get_session"),
     ):
         # Mock the container to avoid database access
         mock_container = MagicMock()

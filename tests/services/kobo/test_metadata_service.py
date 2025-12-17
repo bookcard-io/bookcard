@@ -21,11 +21,11 @@ from datetime import UTC, datetime
 
 import pytest
 
-from fundamental.models.core import Book
-from fundamental.models.kobo import KoboBookmark, KoboReadingState, KoboStatistics
-from fundamental.models.reading import ReadStatus, ReadStatusEnum
-from fundamental.repositories.models import BookWithFullRelations, BookWithRelations
-from fundamental.services.kobo.metadata_service import (
+from bookcard.models.core import Book
+from bookcard.models.kobo import KoboBookmark, KoboReadingState, KoboStatistics
+from bookcard.models.reading import ReadStatus, ReadStatusEnum
+from bookcard.repositories.models import BookWithFullRelations, BookWithRelations
+from bookcard.services.kobo.metadata_service import (
     KoboMetadataService,
     convert_to_kobo_timestamp_string,
 )

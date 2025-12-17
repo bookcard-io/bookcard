@@ -24,10 +24,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException, Request, status
 
-import fundamental.api.deps as api_deps
-import fundamental.api.routes.reading as reading_routes
-from fundamental.models.auth import User
-from fundamental.models.reading import (
+import bookcard.api.deps as api_deps
+import bookcard.api.routes.reading as reading_routes
+from bookcard.models.auth import User
+from bookcard.models.reading import (
     ReadingProgress,
     ReadingSession,
     ReadStatus,
@@ -63,7 +63,7 @@ def _mock_permission_service(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_permission_service = MagicMock()
     mock_permission_service.check_permission = MagicMock()
     monkeypatch.setattr(
-        "fundamental.api.routes.reading.PermissionService",
+        "bookcard.api.routes.reading.PermissionService",
         lambda session: mock_permission_service,
     )
 
@@ -71,21 +71,21 @@ def _mock_permission_service(monkeypatch: pytest.MonkeyPatch) -> None:
 def _mock_library_service(monkeypatch: pytest.MonkeyPatch, library_id: int = 1) -> None:
     """Mock active library ID resolution.
 
-    The reading routes now depend on `fundamental.api.deps.get_active_library_id`
+    The reading routes now depend on `bookcard.api.deps.get_active_library_id`
     (rather than constructing `LibraryRepository`/`LibraryService` in the module).
     For route unit tests that still call the helper, patch the dependency to
     return a stable library ID.
     """
 
     monkeypatch.setattr(
-        "fundamental.api.deps.get_active_library_id",
+        "bookcard.api.deps.get_active_library_id",
         lambda session: library_id,
     )
 
     # Also patch the re-exported import used by the reading routes module (for
     # any future direct calls).
     monkeypatch.setattr(
-        "fundamental.api.routes.reading.get_active_library_id",
+        "bookcard.api.routes.reading.get_active_library_id",
         lambda session: library_id,
     )
 
@@ -118,11 +118,11 @@ class TestUpdateProgress:
         mock_reading_service.update_progress.return_value = progress
 
         with patch(
-            "fundamental.api.routes.reading._reading_service"
+            "bookcard.api.routes.reading._reading_service"
         ) as mock_service_factory:
             mock_service_factory.return_value = mock_reading_service
 
-            from fundamental.api.schemas.reading import ReadingProgressCreate
+            from bookcard.api.schemas.reading import ReadingProgressCreate
 
             payload = ReadingProgressCreate(
                 book_id=1,
@@ -158,13 +158,13 @@ class TestUpdateProgress:
         )
 
         with patch(
-            "fundamental.api.routes.reading._reading_service"
+            "bookcard.api.routes.reading._reading_service"
         ) as mock_service_factory:
             mock_service_factory.return_value = mock_reading_service
 
             from pydantic import ValidationError
 
-            from fundamental.api.schemas.reading import ReadingProgressCreate
+            from bookcard.api.schemas.reading import ReadingProgressCreate
 
             # Pydantic validates at model creation, so catch the validation error
             with pytest.raises(ValidationError) as exc_info:
@@ -270,7 +270,7 @@ class TestStartSession:
         mock_reading_service = MagicMock()
         mock_reading_service.start_session.return_value = reading_session
 
-        from fundamental.api.schemas.reading import ReadingSessionCreate
+        from bookcard.api.schemas.reading import ReadingSessionCreate
 
         payload = ReadingSessionCreate(book_id=1, format="EPUB")
 
@@ -318,11 +318,11 @@ class TestEndSession:
         mock_reading_service.end_session.return_value = reading_session
 
         with patch(
-            "fundamental.api.routes.reading.ReadingSessionRepository"
+            "bookcard.api.routes.reading.ReadingSessionRepository"
         ) as mock_repo_class:
             mock_repo_class.return_value = mock_session_repo
 
-            from fundamental.api.schemas.reading import ReadingSessionEnd
+            from bookcard.api.schemas.reading import ReadingSessionEnd
 
             payload = ReadingSessionEnd(progress_end=0.7)
 
@@ -350,11 +350,11 @@ class TestEndSession:
         mock_session_repo.get.return_value = None
 
         with patch(
-            "fundamental.api.routes.reading.ReadingSessionRepository"
+            "bookcard.api.routes.reading.ReadingSessionRepository"
         ) as mock_repo_class:
             mock_repo_class.return_value = mock_session_repo
 
-            from fundamental.api.schemas.reading import ReadingSessionEnd
+            from bookcard.api.schemas.reading import ReadingSessionEnd
 
             payload = ReadingSessionEnd(progress_end=0.7)
 
@@ -391,11 +391,11 @@ class TestEndSession:
         mock_session_repo.get.return_value = reading_session
 
         with patch(
-            "fundamental.api.routes.reading.ReadingSessionRepository"
+            "bookcard.api.routes.reading.ReadingSessionRepository"
         ) as mock_repo_class:
             mock_repo_class.return_value = mock_session_repo
 
-            from fundamental.api.schemas.reading import ReadingSessionEnd
+            from bookcard.api.schemas.reading import ReadingSessionEnd
 
             payload = ReadingSessionEnd(progress_end=0.7)
 
@@ -523,7 +523,7 @@ class TestUpdateReadStatus:
         mock_reading_service = MagicMock()
         mock_reading_service.mark_as_read.return_value = read_status
 
-        from fundamental.api.schemas.reading import ReadStatusUpdate
+        from bookcard.api.schemas.reading import ReadStatusUpdate
 
         payload = ReadStatusUpdate(status="read")
 
@@ -562,7 +562,7 @@ class TestUpdateReadStatus:
         mock_reading_service = MagicMock()
         mock_reading_service.mark_as_unread.return_value = read_status
 
-        from fundamental.api.schemas.reading import ReadStatusUpdate
+        from bookcard.api.schemas.reading import ReadStatusUpdate
 
         payload = ReadStatusUpdate(status="not_read")
 
@@ -590,7 +590,7 @@ class TestUpdateReadStatus:
 
         from pydantic import ValidationError
 
-        from fundamental.api.schemas.reading import ReadStatusUpdate
+        from bookcard.api.schemas.reading import ReadStatusUpdate
 
         # Pydantic validates at model creation, so catch the validation error
         with pytest.raises(ValidationError) as exc_info:
@@ -680,11 +680,11 @@ def _mock_library_service_with_none(
 
     mock_library_repo = MagicMock()
     monkeypatch.setattr(
-        "fundamental.api.deps.LibraryRepository",
+        "bookcard.api.deps.LibraryRepository",
         lambda session: mock_library_repo,
     )
     monkeypatch.setattr(
-        "fundamental.api.deps.LibraryService",
+        "bookcard.api.deps.LibraryService",
         lambda session, repo: mock_library_service,
     )
 
@@ -738,13 +738,11 @@ class TestReadingService:
     ) -> None:
         """Test _reading_service creates service."""
         with (
-            patch("fundamental.api.routes.reading.ReadingProgressRepository"),
-            patch("fundamental.api.routes.reading.ReadingSessionRepository"),
-            patch("fundamental.api.routes.reading.ReadStatusRepository"),
-            patch("fundamental.api.routes.reading.AnnotationRepository"),
-            patch(
-                "fundamental.api.routes.reading.ReadingService"
-            ) as mock_service_class,
+            patch("bookcard.api.routes.reading.ReadingProgressRepository"),
+            patch("bookcard.api.routes.reading.ReadingSessionRepository"),
+            patch("bookcard.api.routes.reading.ReadStatusRepository"),
+            patch("bookcard.api.routes.reading.AnnotationRepository"),
+            patch("bookcard.api.routes.reading.ReadingService") as mock_service_class,
         ):
             reading_routes._reading_service(session)  # type: ignore[arg-type]
             mock_service_class.assert_called_once()
@@ -777,11 +775,11 @@ class TestUpdateProgressEdgeCases:
         mock_reading_service.update_progress.return_value = progress
 
         with patch(
-            "fundamental.api.routes.reading._reading_service"
+            "bookcard.api.routes.reading._reading_service"
         ) as mock_service_factory:
             mock_service_factory.return_value = mock_reading_service
 
-            from fundamental.api.schemas.reading import ReadingProgressCreate
+            from bookcard.api.schemas.reading import ReadingProgressCreate
 
             payload = ReadingProgressCreate(
                 book_id=1,
@@ -817,11 +815,11 @@ class TestUpdateProgressEdgeCases:
         )
 
         with patch(
-            "fundamental.api.routes.reading._reading_service"
+            "bookcard.api.routes.reading._reading_service"
         ) as mock_service_factory:
             mock_service_factory.return_value = mock_reading_service
 
-            from fundamental.api.schemas.reading import ReadingProgressCreate
+            from bookcard.api.schemas.reading import ReadingProgressCreate
 
             payload = ReadingProgressCreate(
                 book_id=1,
@@ -909,7 +907,7 @@ class TestStartSessionEdgeCases:
         mock_reading_service = MagicMock()
         mock_reading_service.start_session.return_value = reading_session
 
-        from fundamental.api.schemas.reading import ReadingSessionCreate
+        from bookcard.api.schemas.reading import ReadingSessionCreate
 
         payload = ReadingSessionCreate(book_id=1, format="EPUB")
 
@@ -954,11 +952,11 @@ class TestEndSessionEdgeCases:
         mock_reading_service.end_session.side_effect = ValueError("Invalid progress")
 
         with patch(
-            "fundamental.api.routes.reading.ReadingSessionRepository"
+            "bookcard.api.routes.reading.ReadingSessionRepository"
         ) as mock_repo_class:
             mock_repo_class.return_value = mock_session_repo
 
-            from fundamental.api.schemas.reading import ReadingSessionEnd
+            from bookcard.api.schemas.reading import ReadingSessionEnd
 
             payload = ReadingSessionEnd(progress_end=0.7)
 
@@ -1013,11 +1011,11 @@ class TestEndSessionEdgeCases:
         mock_reading_service.end_session.return_value = reading_session_no_id
 
         with patch(
-            "fundamental.api.routes.reading.ReadingSessionRepository"
+            "bookcard.api.routes.reading.ReadingSessionRepository"
         ) as mock_repo_class:
             mock_repo_class.return_value = mock_session_repo
 
-            from fundamental.api.schemas.reading import ReadingSessionEnd
+            from bookcard.api.schemas.reading import ReadingSessionEnd
 
             payload = ReadingSessionEnd(progress_end=0.7)
 
@@ -1065,7 +1063,7 @@ class TestListSessions:
         mock_session_repo.get_sessions_by_book.return_value = sessions
 
         with patch(
-            "fundamental.api.routes.reading.ReadingSessionRepository"
+            "bookcard.api.routes.reading.ReadingSessionRepository"
         ) as mock_repo_class:
             mock_repo_class.return_value = mock_session_repo
 
@@ -1231,7 +1229,7 @@ class TestUpdateReadStatusEdgeCases:
         mock_reading_service = MagicMock()
         mock_reading_service.mark_as_read.return_value = read_status
 
-        from fundamental.api.schemas.reading import ReadStatusUpdate
+        from bookcard.api.schemas.reading import ReadStatusUpdate
 
         payload = ReadStatusUpdate(status="read")
 

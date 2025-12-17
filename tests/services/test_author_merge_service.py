@@ -22,30 +22,30 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.author_metadata import (
+from bookcard.models.author_metadata import (
     AuthorMapping,
     AuthorMetadata,
     AuthorUserPhoto,
 )
-from fundamental.models.config import Library
-from fundamental.repositories.author_repository import AuthorRepository
-from fundamental.repositories.config_repository import LibraryRepository
-from fundamental.services.author_merge.author_recommendation_service import (
+from bookcard.models.config import Library
+from bookcard.repositories.author_repository import AuthorRepository
+from bookcard.repositories.config_repository import LibraryRepository
+from bookcard.services.author_merge.author_recommendation_service import (
     AuthorRecommendationService,
 )
-from fundamental.services.author_merge.author_relationship_repository import (
+from bookcard.services.author_merge.author_relationship_repository import (
     AuthorRelationshipRepository,
 )
-from fundamental.services.author_merge.calibre_author_service import (
+from bookcard.services.author_merge.calibre_author_service import (
     CalibreAuthorService,
 )
-from fundamental.services.author_merge.calibre_repository_factory import (
+from bookcard.services.author_merge.calibre_repository_factory import (
     CalibreRepositoryFactory,
 )
-from fundamental.services.author_merge.merge_strategies import MergeStrategyFactory
-from fundamental.services.author_merge.value_objects import RelationshipCounts
-from fundamental.services.author_merge_service import AuthorMergeService
-from fundamental.services.config_service import LibraryService
+from bookcard.services.author_merge.merge_strategies import MergeStrategyFactory
+from bookcard.services.author_merge.value_objects import RelationshipCounts
+from bookcard.services.author_merge_service import AuthorMergeService
+from bookcard.services.config_service import LibraryService
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession
@@ -292,7 +292,7 @@ class TestRecommendKeepAuthor:
         session.add_exec_result([])  # type: ignore[attr-defined]  # type: ignore[attr-defined]  # For get_photo_url (no user photos)
 
         with patch(
-            "fundamental.services.author_merge_service.CalibreRepositoryFactory"
+            "bookcard.services.author_merge_service.CalibreRepositoryFactory"
         ) as mock_factory_class:
             mock_factory = MagicMock(spec=CalibreRepositoryFactory)
             mock_calibre_repo = MagicMock()
@@ -302,12 +302,12 @@ class TestRecommendKeepAuthor:
             mock_factory_class.return_value = mock_factory
 
             with patch(
-                "fundamental.services.author_merge_service.CalibreAuthorService"
+                "bookcard.services.author_merge_service.CalibreAuthorService"
             ) as mock_service_class:
                 mock_service_class.return_value = mock_calibre_author_service
 
                 with patch(
-                    "fundamental.services.author_merge_service.AuthorRecommendationService"
+                    "bookcard.services.author_merge_service.AuthorRecommendationService"
                 ) as mock_rec_class:
                     mock_rec_service = MagicMock(spec=AuthorRecommendationService)
                     mock_rec_service.determine_best_author.return_value = (
@@ -519,7 +519,7 @@ class TestRecommendKeepAuthor:
         session.add_exec_result([])  # type: ignore[attr-defined]
 
         with patch(
-            "fundamental.services.author_merge_service.CalibreRepositoryFactory"
+            "bookcard.services.author_merge_service.CalibreRepositoryFactory"
         ) as mock_factory_class:
             mock_factory = MagicMock(spec=CalibreRepositoryFactory)
             mock_calibre_repo = MagicMock()
@@ -529,12 +529,12 @@ class TestRecommendKeepAuthor:
             mock_factory_class.return_value = mock_factory
 
             with patch(
-                "fundamental.services.author_merge_service.CalibreAuthorService"
+                "bookcard.services.author_merge_service.CalibreAuthorService"
             ) as mock_service_class:
                 mock_service_class.return_value = mock_calibre_author_service
 
                 with patch(
-                    "fundamental.services.author_merge_service.AuthorRecommendationService"
+                    "bookcard.services.author_merge_service.AuthorRecommendationService"
                 ) as mock_rec_class:
                     mock_rec_service = MagicMock(spec=AuthorRecommendationService)
                     mock_rec_service.determine_best_author.return_value = (
@@ -597,7 +597,7 @@ class TestRecommendKeepAuthor:
         session.add_exec_result([])  # type: ignore[attr-defined]  # For get_photo_url (second author)
 
         with patch(
-            "fundamental.services.author_merge_service.CalibreRepositoryFactory"
+            "bookcard.services.author_merge_service.CalibreRepositoryFactory"
         ) as mock_factory_class:
             mock_factory = MagicMock(spec=CalibreRepositoryFactory)
             mock_calibre_repo = MagicMock()
@@ -607,12 +607,12 @@ class TestRecommendKeepAuthor:
             mock_factory_class.return_value = mock_factory
 
             with patch(
-                "fundamental.services.author_merge_service.CalibreAuthorService"
+                "bookcard.services.author_merge_service.CalibreAuthorService"
             ) as mock_service_class:
                 mock_service_class.return_value = mock_calibre_author_service
 
                 with patch(
-                    "fundamental.services.author_merge_service.AuthorRecommendationService"
+                    "bookcard.services.author_merge_service.AuthorRecommendationService"
                 ) as mock_rec_class:
                     mock_rec_service = MagicMock(spec=AuthorRecommendationService)
                     mock_rec_service.determine_best_author.return_value = (
@@ -683,7 +683,7 @@ class TestMergeAuthors:
         session.add_exec_result([author_mapping2])  # type: ignore[attr-defined]  # For get_mapping (merge)
 
         with patch(
-            "fundamental.services.author_merge_service.CalibreRepositoryFactory"
+            "bookcard.services.author_merge_service.CalibreRepositoryFactory"
         ) as mock_factory_class:
             mock_factory = MagicMock(spec=CalibreRepositoryFactory)
             mock_calibre_repo = MagicMock()
@@ -693,12 +693,12 @@ class TestMergeAuthors:
             mock_factory_class.return_value = mock_factory
 
             with patch(
-                "fundamental.services.author_merge_service.CalibreAuthorService"
+                "bookcard.services.author_merge_service.CalibreAuthorService"
             ) as mock_service_class:
                 mock_service_class.return_value = mock_calibre_author_service
 
                 with patch(
-                    "fundamental.services.author_merge_service.MergeStrategyFactory"
+                    "bookcard.services.author_merge_service.MergeStrategyFactory"
                 ) as mock_strategy_factory_class:
                     mock_strategy_factory = MagicMock(spec=MergeStrategyFactory)
                     mock_strategy = MagicMock()
@@ -886,7 +886,7 @@ class TestMergeAuthors:
         session.add_exec_result([])  # type: ignore[attr-defined]  # For get_mapping (merge) - not found
 
         with patch(
-            "fundamental.services.author_merge_service.CalibreRepositoryFactory"
+            "bookcard.services.author_merge_service.CalibreRepositoryFactory"
         ) as mock_factory_class:
             mock_factory = MagicMock(spec=CalibreRepositoryFactory)
             mock_calibre_repo = MagicMock()
@@ -895,7 +895,7 @@ class TestMergeAuthors:
             mock_factory_class.return_value = mock_factory
 
             with patch(
-                "fundamental.services.author_merge_service.CalibreAuthorService"
+                "bookcard.services.author_merge_service.CalibreAuthorService"
             ) as mock_service_class:
                 mock_service_class.return_value = mock_calibre_author_service
 
@@ -933,7 +933,7 @@ class TestMergeAuthors:
         session.set_exec_result([author_mapping])  # type: ignore[attr-defined]  # For validate_same_library
 
         with patch(
-            "fundamental.services.author_merge_service.CalibreRepositoryFactory"
+            "bookcard.services.author_merge_service.CalibreRepositoryFactory"
         ) as mock_factory_class:
             mock_factory = MagicMock(spec=CalibreRepositoryFactory)
             mock_calibre_repo = MagicMock()
@@ -942,7 +942,7 @@ class TestMergeAuthors:
             mock_factory_class.return_value = mock_factory
 
             with patch(
-                "fundamental.services.author_merge_service.CalibreAuthorService"
+                "bookcard.services.author_merge_service.CalibreAuthorService"
             ) as mock_service_class:
                 mock_service_class.return_value = mock_calibre_author_service
 
@@ -1627,7 +1627,7 @@ class TestGetBookCountForAuthor:
         mock_library_service.get_active_library.return_value = active_library
 
         with patch(
-            "fundamental.services.author_merge_service.CalibreRepositoryFactory"
+            "bookcard.services.author_merge_service.CalibreRepositoryFactory"
         ) as mock_factory_class:
             mock_factory = MagicMock(spec=CalibreRepositoryFactory)
             mock_calibre_repo = MagicMock()
@@ -1637,7 +1637,7 @@ class TestGetBookCountForAuthor:
             mock_factory_class.return_value = mock_factory
 
             with patch(
-                "fundamental.services.author_merge_service.CalibreAuthorService"
+                "bookcard.services.author_merge_service.CalibreAuthorService"
             ) as mock_service_class:
                 mock_service_class.return_value = mock_calibre_author_service
 

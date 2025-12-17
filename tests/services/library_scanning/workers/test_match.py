@@ -20,11 +20,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.services.library_scanning.data_sources.types import AuthorData
-from fundamental.services.library_scanning.matching.types import MatchResult
-from fundamental.services.library_scanning.workers.match import MatchWorker
-from fundamental.services.messaging.base import MessageBroker
-from fundamental.services.messaging.redis_broker import RedisBroker
+from bookcard.services.library_scanning.data_sources.types import AuthorData
+from bookcard.services.library_scanning.matching.types import MatchResult
+from bookcard.services.library_scanning.workers.match import MatchWorker
+from bookcard.services.messaging.base import MessageBroker
+from bookcard.services.messaging.redis_broker import RedisBroker
 
 
 @pytest.fixture
@@ -71,11 +71,9 @@ class TestMatchWorkerProcess:
             Worker instance.
         """
         with (
+            patch("bookcard.services.library_scanning.workers.match.create_db_engine"),
             patch(
-                "fundamental.services.library_scanning.workers.match.create_db_engine"
-            ),
-            patch(
-                "fundamental.services.library_scanning.workers.match.DataSourceRegistry"
+                "bookcard.services.library_scanning.workers.match.DataSourceRegistry"
             ) as mock_registry,
         ):
             mock_data_source = MagicMock()
@@ -144,20 +142,18 @@ class TestMatchWorkerProcess:
             Match result indicator ("has_match" for a match, None for no match).
         """
         with (
+            patch("bookcard.services.library_scanning.workers.match.create_db_engine"),
             patch(
-                "fundamental.services.library_scanning.workers.match.create_db_engine"
-            ),
-            patch(
-                "fundamental.services.library_scanning.workers.match.DataSourceRegistry"
+                "bookcard.services.library_scanning.workers.match.DataSourceRegistry"
             ) as mock_registry,
             patch(
-                "fundamental.services.library_scanning.workers.match.JobProgressTracker"
+                "bookcard.services.library_scanning.workers.match.JobProgressTracker"
             ) as mock_progress_class,
             patch(
-                "fundamental.services.library_scanning.workers.match.get_session"
+                "bookcard.services.library_scanning.workers.match.get_session"
             ) as mock_get_session,
             patch(
-                "fundamental.services.library_scanning.pipeline.link_components.AuthorMappingRepository"
+                "bookcard.services.library_scanning.pipeline.link_components.AuthorMappingRepository"
             ) as mock_mapping_repo_class,
         ):
             mock_data_source = MagicMock()
@@ -210,7 +206,7 @@ class TestMatchWorkerProcess:
             # Mock session for _handle_unmatched_author when needed (when no match and author_id is not None)
             # This needs to be done for all cases where _handle_unmatched_author might be called
             with patch(
-                "fundamental.models.author_metadata.AuthorMetadata"
+                "bookcard.models.author_metadata.AuthorMetadata"
             ) as mock_metadata_class:
                 mock_metadata_instance = MagicMock()
                 mock_metadata_instance.id = None
@@ -261,14 +257,12 @@ class TestMatchWorkerProcess:
             Mock Redis broker.
         """
         with (
+            patch("bookcard.services.library_scanning.workers.match.create_db_engine"),
             patch(
-                "fundamental.services.library_scanning.workers.match.create_db_engine"
-            ),
-            patch(
-                "fundamental.services.library_scanning.workers.match.DataSourceRegistry"
+                "bookcard.services.library_scanning.workers.match.DataSourceRegistry"
             ) as mock_registry,
             patch(
-                "fundamental.services.library_scanning.workers.match.JobProgressTracker"
+                "bookcard.services.library_scanning.workers.match.JobProgressTracker"
             ) as mock_progress_class,
         ):
             mock_data_source = MagicMock()
@@ -313,14 +307,12 @@ class TestMatchWorkerCheckCompletion:
             Mock Redis broker.
         """
         with (
+            patch("bookcard.services.library_scanning.workers.match.create_db_engine"),
             patch(
-                "fundamental.services.library_scanning.workers.match.create_db_engine"
-            ),
-            patch(
-                "fundamental.services.library_scanning.workers.match.DataSourceRegistry"
+                "bookcard.services.library_scanning.workers.match.DataSourceRegistry"
             ) as mock_registry,
             patch(
-                "fundamental.services.library_scanning.workers.match.JobProgressTracker"
+                "bookcard.services.library_scanning.workers.match.JobProgressTracker"
             ) as mock_progress_class,
         ):
             mock_data_source = MagicMock()
@@ -349,14 +341,12 @@ class TestMatchWorkerCheckCompletion:
             Mock Redis broker.
         """
         with (
+            patch("bookcard.services.library_scanning.workers.match.create_db_engine"),
             patch(
-                "fundamental.services.library_scanning.workers.match.create_db_engine"
-            ),
-            patch(
-                "fundamental.services.library_scanning.workers.match.DataSourceRegistry"
+                "bookcard.services.library_scanning.workers.match.DataSourceRegistry"
             ) as mock_registry,
             patch(
-                "fundamental.services.library_scanning.workers.match.JobProgressTracker"
+                "bookcard.services.library_scanning.workers.match.JobProgressTracker"
             ) as mock_progress_class,
         ):
             mock_data_source = MagicMock()
@@ -387,11 +377,9 @@ class TestMatchWorkerCheckCompletion:
             Mock broker (not RedisBroker).
         """
         with (
+            patch("bookcard.services.library_scanning.workers.match.create_db_engine"),
             patch(
-                "fundamental.services.library_scanning.workers.match.create_db_engine"
-            ),
-            patch(
-                "fundamental.services.library_scanning.workers.match.DataSourceRegistry"
+                "bookcard.services.library_scanning.workers.match.DataSourceRegistry"
             ) as mock_registry,
         ):
             mock_data_source = MagicMock()
@@ -420,20 +408,18 @@ class TestMatchWorkerProcessSkipMatch:
         from datetime import datetime, timedelta
 
         with (
+            patch("bookcard.services.library_scanning.workers.match.create_db_engine"),
             patch(
-                "fundamental.services.library_scanning.workers.match.create_db_engine"
-            ),
-            patch(
-                "fundamental.services.library_scanning.workers.match.DataSourceRegistry"
+                "bookcard.services.library_scanning.workers.match.DataSourceRegistry"
             ) as mock_registry,
             patch(
-                "fundamental.services.library_scanning.workers.match.JobProgressTracker"
+                "bookcard.services.library_scanning.workers.match.JobProgressTracker"
             ) as mock_progress_class,
             patch(
-                "fundamental.services.library_scanning.workers.match.get_session"
+                "bookcard.services.library_scanning.workers.match.get_session"
             ) as mock_get_session,
             patch(
-                "fundamental.services.library_scanning.pipeline.link_components.AuthorMappingRepository"
+                "bookcard.services.library_scanning.pipeline.link_components.AuthorMappingRepository"
             ) as mock_mapping_repo_class,
         ):
             mock_data_source = MagicMock()

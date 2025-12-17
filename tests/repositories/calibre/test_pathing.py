@@ -23,8 +23,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.core import Book
-from fundamental.repositories.calibre.pathing import BookPathService
+from bookcard.models.core import Book
+from bookcard.repositories.calibre.pathing import BookPathService
 
 if TYPE_CHECKING:
     from sqlmodel import Session

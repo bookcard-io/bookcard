@@ -25,12 +25,12 @@ import pytest
 from fastapi import HTTPException, Request, status
 from fastapi.responses import FileResponse, Response
 
-import fundamental.api.routes.opds as opds_routes
-from fundamental.api.schemas.opds import OpdsFeedResponse
-from fundamental.models.auth import User
-from fundamental.models.config import Library
-from fundamental.models.core import Book
-from fundamental.repositories.models import BookWithRelations
+import bookcard.api.routes.opds as opds_routes
+from bookcard.api.schemas.opds import OpdsFeedResponse
+from bookcard.models.auth import User
+from bookcard.models.config import Library
+from bookcard.models.core import Book
+from bookcard.repositories.models import BookWithRelations
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -118,7 +118,7 @@ def _mock_permission_service(
     mock_permission_service = MagicMock()
     mock_permission_service.has_permission.return_value = has_permission
     monkeypatch.setattr(
-        "fundamental.api.routes.opds.PermissionService",
+        "bookcard.api.routes.opds.PermissionService",
         lambda session: mock_permission_service,
     )
 
@@ -140,11 +140,11 @@ def _mock_library_service(
 
     mock_library_repo = MagicMock()
     monkeypatch.setattr(
-        "fundamental.api.routes.opds.LibraryRepository",
+        "bookcard.api.routes.opds.LibraryRepository",
         lambda session: mock_library_repo,
     )
     monkeypatch.setattr(
-        "fundamental.api.routes.opds.LibraryService",
+        "bookcard.api.routes.opds.LibraryService",
         lambda session, repo: mock_library_service,
     )
 
@@ -204,7 +204,7 @@ def _mock_feed_service(
         return mock_feed_service
 
     monkeypatch.setattr(
-        "fundamental.api.routes.opds._get_opds_feed_service",
+        "bookcard.api.routes.opds._get_opds_feed_service",
         _get_opds_feed_service,
     )
     return mock_feed_service
@@ -563,9 +563,7 @@ class TestOpdsDownload:
         mock_book_service = MagicMock()
         mock_book_service.get_book_full.return_value = mock_book_with_rels
 
-        with patch(
-            "fundamental.api.routes.opds.BookService"
-        ) as mock_book_service_class:
+        with patch("bookcard.api.routes.opds.BookService") as mock_book_service_class:
             mock_book_service_class.return_value = mock_book_service
 
             response = opds_routes.opds_download(
@@ -612,9 +610,7 @@ class TestOpdsDownload:
         mock_book_service = MagicMock()
         mock_book_service.get_book_full.return_value = None
 
-        with patch(
-            "fundamental.api.routes.opds.BookService"
-        ) as mock_book_service_class:
+        with patch("bookcard.api.routes.opds.BookService") as mock_book_service_class:
             mock_book_service_class.return_value = mock_book_service
 
             with pytest.raises(HTTPException) as exc_info:
@@ -647,9 +643,7 @@ class TestOpdsDownload:
         mock_book_service = MagicMock()
         mock_book_service.get_book_full.return_value = mock_book_with_rels
 
-        with patch(
-            "fundamental.api.routes.opds.BookService"
-        ) as mock_book_service_class:
+        with patch("bookcard.api.routes.opds.BookService") as mock_book_service_class:
             mock_book_service_class.return_value = mock_book_service
 
             with pytest.raises(HTTPException) as exc_info:
@@ -692,9 +686,7 @@ class TestOpdsCover:
         mock_book_service.get_book.return_value = mock_book_with_rels
         mock_book_service.get_thumbnail_path.return_value = cover_path
 
-        with patch(
-            "fundamental.api.routes.opds.BookService"
-        ) as mock_book_service_class:
+        with patch("bookcard.api.routes.opds.BookService") as mock_book_service_class:
             mock_book_service_class.return_value = mock_book_service
 
             response = opds_routes.opds_cover(
@@ -739,9 +731,7 @@ class TestOpdsCover:
         mock_book_service = MagicMock()
         mock_book_service.get_book.return_value = None
 
-        with patch(
-            "fundamental.api.routes.opds.BookService"
-        ) as mock_book_service_class:
+        with patch("bookcard.api.routes.opds.BookService") as mock_book_service_class:
             mock_book_service_class.return_value = mock_book_service
 
             response = opds_routes.opds_cover(
@@ -772,9 +762,7 @@ class TestOpdsCover:
         mock_book_service.get_book.return_value = mock_book_with_rels
         mock_book_service.get_thumbnail_path.return_value = None
 
-        with patch(
-            "fundamental.api.routes.opds.BookService"
-        ) as mock_book_service_class:
+        with patch("bookcard.api.routes.opds.BookService") as mock_book_service_class:
             mock_book_service_class.return_value = mock_book_service
 
             response = opds_routes.opds_cover(

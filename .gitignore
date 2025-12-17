@@ -417,5 +417,5 @@ misc/
 docker-compose.local.yaml
 
 # database files
-fundamental.db
-fundamental.db-*
+bookcard.db
+bookcard.db-*

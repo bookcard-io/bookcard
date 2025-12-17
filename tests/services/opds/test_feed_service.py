@@ -22,13 +22,13 @@ import pytest
 from fastapi import Request
 from sqlmodel import Session
 
-from fundamental.api.schemas.opds import OpdsFeedRequest, OpdsFeedResponse
-from fundamental.models.config import Library
-from fundamental.models.core import Author
-from fundamental.repositories.models import BookWithRelations
-from fundamental.services.opds.book_query_service import OpdsBookQueryService
-from fundamental.services.opds.feed_service import OpdsFeedService
-from fundamental.services.opds.xml_builder import OpdsXmlBuilder
+from bookcard.api.schemas.opds import OpdsFeedRequest, OpdsFeedResponse
+from bookcard.models.config import Library
+from bookcard.models.core import Author
+from bookcard.repositories.models import BookWithRelations
+from bookcard.services.opds.book_query_service import OpdsBookQueryService
+from bookcard.services.opds.feed_service import OpdsFeedService
+from bookcard.services.opds.xml_builder import OpdsXmlBuilder
 
 
 @pytest.fixture
@@ -67,7 +67,7 @@ def feed_service(
     mock_xml_builder: Mock,
     mock_book_query_service: Mock,
 ) -> OpdsFeedService:
-    with patch("fundamental.services.opds.feed_service.BookService"):
+    with patch("bookcard.services.opds.feed_service.BookService"):
         return OpdsFeedService(
             session=mock_session,
             library=mock_library,
@@ -101,9 +101,9 @@ class TestOpdsFeedService:
     def test_init_defaults(self, mock_session: Mock, mock_library: Mock) -> None:
         """Test initialization with defaults."""
         with (
-            patch("fundamental.services.opds.feed_service.BookService"),
-            patch("fundamental.services.opds.feed_service.OpdsXmlBuilder"),
-            patch("fundamental.services.opds.feed_service.OpdsBookQueryService"),
+            patch("bookcard.services.opds.feed_service.BookService"),
+            patch("bookcard.services.opds.feed_service.OpdsXmlBuilder"),
+            patch("bookcard.services.opds.feed_service.OpdsBookQueryService"),
         ):
             service = OpdsFeedService(mock_session, mock_library)
             assert service._xml_builder is not None
@@ -569,7 +569,7 @@ class TestOpdsFeedService:
         mock_xml_builder: Mock,
     ) -> None:
         """Test _build_pagination_links with various offset scenarios."""
-        from fundamental.services.opds.url_builder import OpdsUrlBuilder
+        from bookcard.services.opds.url_builder import OpdsUrlBuilder
 
         url_builder = OpdsUrlBuilder(mock_request)
 

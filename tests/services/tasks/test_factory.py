@@ -21,19 +21,19 @@ import re
 
 import pytest
 
-from fundamental.models.tasks import TaskType
-from fundamental.services.tasks.author_metadata_fetch_task import (
+from bookcard.models.tasks import TaskType
+from bookcard.services.tasks.author_metadata_fetch_task import (
     AuthorMetadataFetchTask,
 )
-from fundamental.services.tasks.base import BaseTask
-from fundamental.services.tasks.book_upload_task import BookUploadTask
-from fundamental.services.tasks.factory import (
+from bookcard.services.tasks.base import BaseTask
+from bookcard.services.tasks.book_upload_task import BookUploadTask
+from bookcard.services.tasks.factory import (
     TaskRegistry,
     create_task,
     register_task,
 )
-from fundamental.services.tasks.library_scan_task import LibraryScanTask
-from fundamental.services.tasks.multi_upload_task import MultiBookUploadTask
+from bookcard.services.tasks.library_scan_task import LibraryScanTask
+from bookcard.services.tasks.multi_upload_task import MultiBookUploadTask
 
 
 class TestCreateTask:
@@ -193,7 +193,7 @@ class TestRegisterTaskDecorator:
         # Use the decorator with a task type that's not yet registered
         # We'll use THUMBNAIL_GENERATE which should not be registered
         # First, check if it's already registered and skip if so
-        from fundamental.services.tasks.factory import _registry
+        from bookcard.services.tasks.factory import _registry
 
         # Use a task type that's not registered in the global registry
         # We need to find one that's not registered - let's use THUMBNAIL_GENERATE

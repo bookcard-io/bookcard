@@ -21,7 +21,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.services.metadata_import_service import MetadataImportService
+from bookcard.services.metadata_import_service import MetadataImportService
 
 
 def test_init_default_importers() -> None:

@@ -18,8 +18,8 @@ from __future__ import annotations
 import pytest
 from lxml import etree  # type: ignore[attr-defined]
 
-from fundamental.api.schemas.opds import OpdsEntry, OpdsLink
-from fundamental.services.opds.xml_builder import (
+from bookcard.api.schemas.opds import OpdsEntry, OpdsLink
+from bookcard.services.opds.xml_builder import (
     NS_ATOM,
     NS_DC,
     NS_OPDS,

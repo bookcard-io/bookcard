@@ -19,12 +19,12 @@ from typing import Any
 
 import pytest
 
-from fundamental.services.library_scanning.data_sources.types import (
+from bookcard.services.library_scanning.data_sources.types import (
     AuthorData,
     IdentifierDict,
 )
-from fundamental.services.library_scanning.matching.types import MatchResult
-from fundamental.services.library_scanning.workers.serialization import (
+from bookcard.services.library_scanning.matching.types import MatchResult
+from bookcard.services.library_scanning.workers.serialization import (
     deserialize_match_result,
 )
 

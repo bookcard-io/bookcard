@@ -17,7 +17,7 @@
  * Type definitions for reading-related API responses and requests.
  *
  * These types correspond to the Pydantic schemas defined in
- * fundamental/api/schemas/reading.py.
+ * bookcard/api/schemas/reading.py.
  */
 
 /**

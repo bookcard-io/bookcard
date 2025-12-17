@@ -22,8 +22,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.repositories.models import BookWithFullRelations
-from fundamental.services.metadata_enforcement.ebook_enforcer import (
+from bookcard.repositories.models import BookWithFullRelations
+from bookcard.services.metadata_enforcement.ebook_enforcer import (
     EbookMetadataEnforcer,
 )
 

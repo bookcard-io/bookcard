@@ -23,12 +23,12 @@ from typing import TYPE_CHECKING
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from fundamental.models.conversion import BookConversion, ConversionStatus
+from bookcard.models.conversion import BookConversion, ConversionStatus
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession
 
-from fundamental.services.conversion.repository import ConversionRepository
+from bookcard.services.conversion.repository import ConversionRepository
 
 
 @pytest.fixture

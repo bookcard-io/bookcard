@@ -17,7 +17,7 @@
  * Supported book file formats.
  *
  * Single source of truth for all supported book formats in the frontend.
- * Matches DEFAULT_SUPPORTED_FORMATS from backend (fundamental/repositories/ingest_repository.py).
+ * Matches DEFAULT_SUPPORTED_FORMATS from backend (bookcard/repositories/ingest_repository.py).
  *
  * Follows DRY principle by centralizing format definitions.
  * Follows SOC by separating format data from components.

@@ -23,12 +23,12 @@ import httpx
 import pytest
 from bs4 import BeautifulSoup
 
-from fundamental.metadata.base import (
+from bookcard.metadata.base import (
     MetadataProviderNetworkError,
     MetadataProviderParseError,
     MetadataProviderTimeoutError,
 )
-from fundamental.metadata.providers.amazon import AmazonProvider
+from bookcard.metadata.providers.amazon import AmazonProvider
 
 
 @pytest.fixture

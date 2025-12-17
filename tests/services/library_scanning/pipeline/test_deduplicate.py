@@ -21,13 +21,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.author_metadata import AuthorMetadata
-from fundamental.services.library_scanning.pipeline.context import PipelineContext
-from fundamental.services.library_scanning.pipeline.deduplicate import DeduplicateStage
-from fundamental.services.library_scanning.pipeline.duplicate_detector import (
+from bookcard.models.author_metadata import AuthorMetadata
+from bookcard.services.library_scanning.pipeline.context import PipelineContext
+from bookcard.services.library_scanning.pipeline.deduplicate import DeduplicateStage
+from bookcard.services.library_scanning.pipeline.duplicate_detector import (
     DuplicateDetector,
 )
-from fundamental.services.library_scanning.pipeline.merge_commands import AuthorMerger
+from bookcard.services.library_scanning.pipeline.merge_commands import AuthorMerger
 
 
 @pytest.fixture

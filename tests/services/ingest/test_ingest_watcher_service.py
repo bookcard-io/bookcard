@@ -27,10 +27,10 @@ import pytest
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-from fundamental.models.ingest import IngestConfig
-from fundamental.models.tasks import TaskType
-from fundamental.services.ingest.ingest_config_service import IngestConfigService
-from fundamental.services.ingest.ingest_watcher_service import IngestWatcherService
+from bookcard.models.ingest import IngestConfig
+from bookcard.models.tasks import TaskType
+from bookcard.services.ingest.ingest_config_service import IngestConfigService
+from bookcard.services.ingest.ingest_watcher_service import IngestWatcherService
 
 
 @pytest.fixture
@@ -146,10 +146,10 @@ class TestStartWatching:
 
         with (
             patch(
-                "fundamental.services.ingest.ingest_watcher_service.get_session"
+                "bookcard.services.ingest.ingest_watcher_service.get_session"
             ) as mock_get_session,
             patch(
-                "fundamental.services.ingest.ingest_watcher_service.IngestConfigService"
+                "bookcard.services.ingest.ingest_watcher_service.IngestConfigService"
             ) as mock_config_class,
         ):
             mock_session = MagicMock()
@@ -181,10 +181,10 @@ class TestStartWatching:
 
         with (
             patch(
-                "fundamental.services.ingest.ingest_watcher_service.get_session"
+                "bookcard.services.ingest.ingest_watcher_service.get_session"
             ) as mock_get_session,
             patch(
-                "fundamental.services.ingest.ingest_watcher_service.IngestConfigService"
+                "bookcard.services.ingest.ingest_watcher_service.IngestConfigService"
             ) as mock_config_class,
         ):
             mock_session = MagicMock()
@@ -221,10 +221,10 @@ class TestStartWatching:
 
         with (
             patch(
-                "fundamental.services.ingest.ingest_watcher_service.get_session"
+                "bookcard.services.ingest.ingest_watcher_service.get_session"
             ) as mock_get_session,
             patch(
-                "fundamental.services.ingest.ingest_watcher_service.IngestConfigService"
+                "bookcard.services.ingest.ingest_watcher_service.IngestConfigService"
             ) as mock_config_class,
         ):
             mock_session = MagicMock()
@@ -250,10 +250,10 @@ class TestStartWatching:
 
         with (
             patch(
-                "fundamental.services.ingest.ingest_watcher_service.get_session"
+                "bookcard.services.ingest.ingest_watcher_service.get_session"
             ) as mock_get_session,
             patch(
-                "fundamental.services.ingest.ingest_watcher_service.IngestConfigService"
+                "bookcard.services.ingest.ingest_watcher_service.IngestConfigService"
             ) as mock_config_class,
         ):
             mock_session = MagicMock()
@@ -284,10 +284,10 @@ class TestStopWatching:
 
         with (
             patch(
-                "fundamental.services.ingest.ingest_watcher_service.get_session"
+                "bookcard.services.ingest.ingest_watcher_service.get_session"
             ) as mock_get_session,
             patch(
-                "fundamental.services.ingest.ingest_watcher_service.IngestConfigService"
+                "bookcard.services.ingest.ingest_watcher_service.IngestConfigService"
             ) as mock_config_class,
         ):
             mock_session = MagicMock()
@@ -342,10 +342,10 @@ class TestRestartWatching:
 
         with (
             patch(
-                "fundamental.services.ingest.ingest_watcher_service.get_session"
+                "bookcard.services.ingest.ingest_watcher_service.get_session"
             ) as mock_get_session,
             patch(
-                "fundamental.services.ingest.ingest_watcher_service.IngestConfigService"
+                "bookcard.services.ingest.ingest_watcher_service.IngestConfigService"
             ) as mock_config_class,
             patch("time.sleep") as mock_sleep,
         ):
@@ -374,10 +374,10 @@ class TestRestartWatching:
 
         with (
             patch(
-                "fundamental.services.ingest.ingest_watcher_service.get_session"
+                "bookcard.services.ingest.ingest_watcher_service.get_session"
             ) as mock_get_session,
             patch(
-                "fundamental.services.ingest.ingest_watcher_service.IngestConfigService"
+                "bookcard.services.ingest.ingest_watcher_service.IngestConfigService"
             ) as mock_config_class,
             patch("time.sleep"),
         ):
@@ -408,7 +408,7 @@ class TestWatchLoop:
         service._stop_event.set()
 
         with patch(
-            "fundamental.services.ingest.ingest_watcher_service.watch"
+            "bookcard.services.ingest.ingest_watcher_service.watch"
         ) as mock_watch:
             mock_watch.return_value = iter([])
             service._watch_loop(temp_ingest_dir)
@@ -436,7 +436,7 @@ class TestWatchLoop:
 
         with (
             patch(
-                "fundamental.services.ingest.ingest_watcher_service.watch"
+                "bookcard.services.ingest.ingest_watcher_service.watch"
             ) as mock_watch,
             patch.object(service, "_trigger_discovery") as mock_trigger,
         ):
@@ -464,7 +464,7 @@ class TestWatchLoop:
 
         with (
             patch(
-                "fundamental.services.ingest.ingest_watcher_service.watch"
+                "bookcard.services.ingest.ingest_watcher_service.watch"
             ) as mock_watch,
             patch.object(service, "_trigger_discovery") as mock_trigger,
         ):
@@ -480,7 +480,7 @@ class TestWatchLoop:
     ) -> None:
         """Test watch loop handles exceptions."""
         with patch(
-            "fundamental.services.ingest.ingest_watcher_service.watch"
+            "bookcard.services.ingest.ingest_watcher_service.watch"
         ) as mock_watch:
             mock_watch.side_effect = Exception("Watch error")
             # Should not raise
@@ -614,7 +614,7 @@ class TestTriggerDiscovery:
         mock_task_runner: MagicMock,
     ) -> None:
         """Test successful discovery trigger."""
-        from fundamental.models.auth import User
+        from bookcard.models.auth import User
 
         service._last_trigger_time = 0.0  # Reset to allow trigger
 
@@ -628,7 +628,7 @@ class TestTriggerDiscovery:
         mock_session.__exit__ = MagicMock(return_value=False)
 
         with patch(
-            "fundamental.services.ingest.ingest_watcher_service.get_session"
+            "bookcard.services.ingest.ingest_watcher_service.get_session"
         ) as mock_get_session:
             mock_get_session.return_value = mock_session
 

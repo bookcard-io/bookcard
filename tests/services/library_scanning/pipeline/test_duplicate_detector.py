@@ -21,11 +21,11 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from fundamental.models.author_metadata import (
+from bookcard.models.author_metadata import (
     AuthorAlternateName,
     AuthorMetadata,
 )
-from fundamental.services.library_scanning.pipeline.duplicate_detector import (
+from bookcard.services.library_scanning.pipeline.duplicate_detector import (
     DuplicateDetector,
     DuplicatePair,
     QualityScorer,

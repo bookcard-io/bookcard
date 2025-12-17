@@ -23,8 +23,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.config import EmailServerConfig, EmailServerType
-from fundamental.services.email_service import (
+from bookcard.models.config import EmailServerConfig, EmailServerType
+from bookcard.services.email_service import (
     EmailSenderStrategyFactory,
     EmailService,
     EmailServiceError,
@@ -111,7 +111,7 @@ def test_smtp_send_with_username_and_password(
     """Test SmtpEmailSenderStrategy.send with username and password (covers lines 160-162)."""
     strategy = SmtpEmailSenderStrategy(smtp_config)
 
-    with patch("fundamental.services.email_service.EzSender") as mock_ez_sender:
+    with patch("bookcard.services.email_service.EzSender") as mock_ez_sender:
         mock_ez = MagicMock()
         mock_ez_sender.return_value.__enter__.return_value = mock_ez
 
@@ -145,7 +145,7 @@ def test_smtp_send_with_password_only(
     smtp_config.smtp_username = None
     strategy = SmtpEmailSenderStrategy(smtp_config)
 
-    with patch("fundamental.services.email_service.EzSender") as mock_ez_sender:
+    with patch("bookcard.services.email_service.EzSender") as mock_ez_sender:
         mock_ez = MagicMock()
         mock_ez_sender.return_value.__enter__.return_value = mock_ez
 
@@ -170,7 +170,7 @@ def test_smtp_send_without_credentials(
     smtp_config.smtp_password = None
     strategy = SmtpEmailSenderStrategy(smtp_config)
 
-    with patch("fundamental.services.email_service.EzSender") as mock_ez_sender:
+    with patch("bookcard.services.email_service.EzSender") as mock_ez_sender:
         mock_ez = MagicMock()
         mock_ez_sender.return_value.__enter__.return_value = mock_ez
 
@@ -193,7 +193,7 @@ def test_smtp_send_default_port(
     smtp_config.smtp_port = None
     strategy = SmtpEmailSenderStrategy(smtp_config)
 
-    with patch("fundamental.services.email_service.EzSender") as mock_ez_sender:
+    with patch("bookcard.services.email_service.EzSender") as mock_ez_sender:
         mock_ez = MagicMock()
         mock_ez_sender.return_value.__enter__.return_value = mock_ez
 
@@ -215,7 +215,7 @@ def test_smtp_send_exception_handling(
     """Test SmtpEmailSenderStrategy.send handles exceptions (covers lines 173-175)."""
     strategy = SmtpEmailSenderStrategy(smtp_config)
 
-    with patch("fundamental.services.email_service.EzSender") as mock_ez_sender:
+    with patch("bookcard.services.email_service.EzSender") as mock_ez_sender:
         mock_ez_sender.side_effect = Exception("Connection failed")
 
         with pytest.raises(EmailServiceError, match="failed_to_send_email"):
@@ -303,7 +303,7 @@ def test_gmail_send_uses_user_email_fallback(
     }
     strategy = GmailEmailSenderStrategy(gmail_config)
 
-    with patch("fundamental.services.email_service.EzSender") as mock_ez_sender:
+    with patch("bookcard.services.email_service.EzSender") as mock_ez_sender:
         mock_ez = MagicMock()
         mock_ez_sender.return_value.__enter__.return_value = mock_ez
 
@@ -339,7 +339,7 @@ def test_gmail_send_success(gmail_config: EmailServerConfig, test_file: Path) ->
     """Test GmailEmailSenderStrategy.send successfully sends email (covers lines 245-263)."""
     strategy = GmailEmailSenderStrategy(gmail_config)
 
-    with patch("fundamental.services.email_service.EzSender") as mock_ez_sender:
+    with patch("bookcard.services.email_service.EzSender") as mock_ez_sender:
         mock_ez = MagicMock()
         mock_ez_sender.return_value.__enter__.return_value = mock_ez
 
@@ -371,7 +371,7 @@ def test_gmail_send_exception_handling(
     """Test GmailEmailSenderStrategy.send handles exceptions (covers lines 264-266)."""
     strategy = GmailEmailSenderStrategy(gmail_config)
 
-    with patch("fundamental.services.email_service.EzSender") as mock_ez_sender:
+    with patch("bookcard.services.email_service.EzSender") as mock_ez_sender:
         mock_ez_sender.side_effect = Exception("Gmail API error")
 
         with pytest.raises(EmailServiceError, match="failed_to_send_email_via_gmail"):
@@ -566,7 +566,7 @@ def test_build_attachment_filename(
     expected_start: str,
 ) -> None:
     """Test build_attachment_filename utility function."""
-    from fundamental.services.email_utils import build_attachment_filename
+    from bookcard.services.email_utils import build_attachment_filename
 
     result = build_attachment_filename(
         author=author,
@@ -581,7 +581,7 @@ def test_build_attachment_filename(
 
 def test_build_attachment_filename_sanitizes_unicode() -> None:
     """Test build_attachment_filename sanitizes unicode."""
-    from fundamental.services.email_utils import build_attachment_filename
+    from bookcard.services.email_utils import build_attachment_filename
 
     result = build_attachment_filename(
         author="José",
@@ -595,7 +595,7 @@ def test_build_attachment_filename_sanitizes_unicode() -> None:
 
 def test_build_attachment_filename_removes_invalid_chars() -> None:
     """Test build_attachment_filename removes invalid characters."""
-    from fundamental.services.email_utils import build_attachment_filename
+    from bookcard.services.email_utils import build_attachment_filename
 
     result = build_attachment_filename(
         author="Author/With\\Invalid:Chars",
@@ -611,7 +611,7 @@ def test_build_attachment_filename_removes_invalid_chars() -> None:
 
 def test_build_attachment_filename_truncates_long_names() -> None:
     """Test build_attachment_filename truncates long names."""
-    from fundamental.services.email_utils import build_attachment_filename
+    from bookcard.services.email_utils import build_attachment_filename
 
     long_title = "A" * 200
     result = build_attachment_filename(
@@ -626,7 +626,7 @@ def test_build_attachment_filename_truncates_long_names() -> None:
 
 def test_build_attachment_filename_handles_empty_after_sanitization() -> None:
     """Test build_attachment_filename handles empty after sanitization."""
-    from fundamental.services.email_utils import build_attachment_filename
+    from bookcard.services.email_utils import build_attachment_filename
 
     # Use only characters that will be completely removed by sanitization
     # Allowed chars are: space, -, _, ., (, ), &, ,, ', +
@@ -647,7 +647,7 @@ def test_build_attachment_filename_handles_empty_after_sanitization() -> None:
 
 def test_build_attachment_filename_empty_after_sanitization_triggers_fallback() -> None:
     """Test build_attachment_filename falls back to default when sanitized is empty."""
-    from fundamental.services.email_utils import build_attachment_filename
+    from bookcard.services.email_utils import build_attachment_filename
 
     # To trigger fallback, we need sanitized to be empty after all processing
     # If we provide only title (no author), base = title_part
@@ -668,7 +668,7 @@ def test_build_attachment_filename_empty_after_sanitization_triggers_fallback() 
 
 def test_build_attachment_filename_strips_extension_dot() -> None:
     """Test build_attachment_filename strips leading dot from extension."""
-    from fundamental.services.email_utils import build_attachment_filename
+    from bookcard.services.email_utils import build_attachment_filename
 
     result = build_attachment_filename(
         author="Author",

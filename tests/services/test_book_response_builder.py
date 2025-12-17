@@ -22,11 +22,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.api.schemas import BookRead
-from fundamental.models.core import Book
-from fundamental.repositories.models import BookWithFullRelations, BookWithRelations
-from fundamental.services.book_response_builder import BookResponseBuilder
-from fundamental.services.book_service import BookService
+from bookcard.api.schemas import BookRead
+from bookcard.models.core import Book
+from bookcard.repositories.models import BookWithFullRelations, BookWithRelations
+from bookcard.services.book_response_builder import BookResponseBuilder
+from bookcard.services.book_service import BookService
 
 # ============================================================================
 # Fixtures

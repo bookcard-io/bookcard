@@ -17,8 +17,8 @@
 
 from pathlib import Path
 
-from fundamental.services.book_cover_extractor import BookCoverExtractor
-from fundamental.services.cover_extractors import CoverExtractionStrategy
+from bookcard.services.book_cover_extractor import BookCoverExtractor
+from bookcard.services.cover_extractors import CoverExtractionStrategy
 
 
 class MockStrategy(CoverExtractionStrategy):

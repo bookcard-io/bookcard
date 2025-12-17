@@ -25,7 +25,7 @@ from pathlib import Path
 import pytest
 from PIL import Image  # type: ignore[import-untyped]
 
-from fundamental.services.cover_extractors.html import HtmlCoverExtractor
+from bookcard.services.cover_extractors.html import HtmlCoverExtractor
 
 
 @pytest.fixture

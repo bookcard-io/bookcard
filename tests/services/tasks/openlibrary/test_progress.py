@@ -22,7 +22,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.services.tasks.openlibrary.progress import ProgressReporterAdapter
+from bookcard.services.tasks.openlibrary.progress import ProgressReporterAdapter
 
 
 @pytest.fixture

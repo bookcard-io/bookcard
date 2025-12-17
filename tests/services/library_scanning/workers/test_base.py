@@ -20,8 +20,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.services.library_scanning.workers.base import BaseWorker
-from fundamental.services.messaging.base import Message, MessageBroker
+from bookcard.services.library_scanning.workers.base import BaseWorker
+from bookcard.services.messaging.base import Message, MessageBroker
 
 
 class ConcreteWorker(BaseWorker):

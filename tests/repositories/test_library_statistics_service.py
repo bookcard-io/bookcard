@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from fundamental.repositories.library_statistics_service import (
+from bookcard.repositories.library_statistics_service import (
     LibraryStatisticsService,
 )
 

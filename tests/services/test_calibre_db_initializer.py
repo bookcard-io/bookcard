@@ -24,8 +24,8 @@ import pytest
 from sqlalchemy import inspect
 from sqlmodel import Session, create_engine, select
 
-from fundamental.models.system import LibraryId, Preference
-from fundamental.services.calibre_db_initializer import (
+from bookcard.models.system import LibraryId, Preference
+from bookcard.services.calibre_db_initializer import (
     REQUIRED_TABLES,
     CalibreDatabaseInitializer,
 )
@@ -228,7 +228,7 @@ class TestCalibreDatabaseInitializerInitialize:
 
         with (
             patch(
-                "fundamental.services.calibre_db_initializer.SQLModel.metadata.create_all",
+                "bookcard.services.calibre_db_initializer.SQLModel.metadata.create_all",
                 side_effect=RuntimeError("Table creation failed"),
             ),
             pytest.raises(ValueError, match="Failed to initialize database"),
@@ -252,9 +252,7 @@ class TestCalibreDatabaseInitializerInitialize:
         initializer = CalibreDatabaseInitializer(str(tmp_db_path), db_file)
         tmp_db_path.mkdir(parents=True)
 
-        with patch(
-            "fundamental.services.calibre_db_initializer.inspect"
-        ) as mock_inspect:
+        with patch("bookcard.services.calibre_db_initializer.inspect") as mock_inspect:
             mock_inspector = MagicMock()
             mock_inspector.get_table_names.return_value = []  # No tables
             mock_inspect.return_value = mock_inspector
@@ -285,7 +283,7 @@ class TestCalibreDatabaseInitializerInitialize:
         # Initialize and let it create the file, then simulate failure
         with (
             patch(
-                "fundamental.services.calibre_db_initializer.SQLModel.metadata.create_all",
+                "bookcard.services.calibre_db_initializer.SQLModel.metadata.create_all",
                 side_effect=ValueError("Database error"),
             ),
             pytest.raises(ValueError, match="Failed to initialize database"),
@@ -516,7 +514,7 @@ class TestCalibreDatabaseInitializerValidateExistingDatabase:
             Database filename.
         """
         with patch(
-            "fundamental.services.calibre_db_initializer.create_engine",
+            "bookcard.services.calibre_db_initializer.create_engine",
             side_effect=OSError("Cannot open"),
         ):
             result = CalibreDatabaseInitializer.validate_existing_database(
@@ -541,7 +539,7 @@ class TestCalibreDatabaseInitializerValidateExistingDatabase:
         db_path.touch()
 
         with patch(
-            "fundamental.services.calibre_db_initializer.inspect",
+            "bookcard.services.calibre_db_initializer.inspect",
             side_effect=ValueError("Invalid database"),
         ):
             result = CalibreDatabaseInitializer.validate_existing_database(
@@ -566,7 +564,7 @@ class TestCalibreDatabaseInitializerValidateExistingDatabase:
         db_path.touch()
 
         with patch(
-            "fundamental.services.calibre_db_initializer.create_engine",
+            "bookcard.services.calibre_db_initializer.create_engine",
             side_effect=RuntimeError("Engine error"),
         ):
             result = CalibreDatabaseInitializer.validate_existing_database(

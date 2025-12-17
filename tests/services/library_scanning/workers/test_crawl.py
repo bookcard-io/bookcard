@@ -19,10 +19,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.core import Author
-from fundamental.services.library_scanning.workers.crawl import CrawlWorker
-from fundamental.services.messaging.base import MessageBroker
-from fundamental.services.messaging.redis_broker import RedisBroker
+from bookcard.models.core import Author
+from bookcard.services.library_scanning.workers.crawl import CrawlWorker
+from bookcard.services.messaging.base import MessageBroker
+from bookcard.services.messaging.redis_broker import RedisBroker
 
 
 @pytest.fixture
@@ -83,7 +83,7 @@ class TestCrawlWorkerCheckTaskCancelled:
         """
         worker = CrawlWorker(mock_redis_broker)
         with patch(
-            "fundamental.services.library_scanning.workers.crawl.JobProgressTracker"
+            "bookcard.services.library_scanning.workers.crawl.JobProgressTracker"
         ) as mock_tracker_class:
             mock_tracker = mock_tracker_class.return_value
             mock_tracker.is_cancelled.return_value = True
@@ -102,7 +102,7 @@ class TestCrawlWorkerCheckTaskCancelled:
         """
         worker = CrawlWorker(mock_redis_broker)
         with patch(
-            "fundamental.services.library_scanning.workers.crawl.JobProgressTracker"
+            "bookcard.services.library_scanning.workers.crawl.JobProgressTracker"
         ) as mock_tracker_class:
             mock_tracker = mock_tracker_class.return_value
             mock_tracker.is_cancelled.return_value = False
@@ -204,13 +204,11 @@ class TestCrawlWorkerProcess:
 
         with (
             patch(
-                "fundamental.services.library_scanning.workers.crawl.CalibreBookRepository"
+                "bookcard.services.library_scanning.workers.crawl.CalibreBookRepository"
             ) as mock_repo_class,
+            patch("bookcard.services.library_scanning.workers.crawl.ScanTaskTracker"),
             patch(
-                "fundamental.services.library_scanning.workers.crawl.ScanTaskTracker"
-            ),
-            patch(
-                "fundamental.services.library_scanning.workers.crawl.JobProgressTracker"
+                "bookcard.services.library_scanning.workers.crawl.JobProgressTracker"
             ) as mock_progress_class,
         ):
             mock_repo = mock_repo_class.return_value
@@ -258,7 +256,7 @@ class TestCrawlWorkerProcess:
         }
 
         with patch(
-            "fundamental.services.library_scanning.workers.crawl.CalibreBookRepository"
+            "bookcard.services.library_scanning.workers.crawl.CalibreBookRepository"
         ) as mock_repo_class:
             mock_repo_class.side_effect = ValueError("Database error")
 

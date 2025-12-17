@@ -23,7 +23,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.services.tasks.multi_upload_task import MultiBookUploadTask
+from bookcard.services.tasks.multi_upload_task import MultiBookUploadTask
 
 
 @pytest.fixture
@@ -122,7 +122,7 @@ class TestRun:
             )
 
             with patch(
-                "fundamental.services.tasks.multi_upload_task.BookUploadTask"
+                "bookcard.services.tasks.multi_upload_task.BookUploadTask"
             ) as mock_book_upload:
                 mock_upload_task = MagicMock()
                 mock_upload_task.metadata = {"book_ids": [1, 2]}
@@ -154,7 +154,7 @@ class TestRun:
             )
 
             with patch(
-                "fundamental.services.tasks.multi_upload_task.BookUploadTask"
+                "bookcard.services.tasks.multi_upload_task.BookUploadTask"
             ) as mock_book_upload:
                 # First file succeeds, second file fails
                 mock_upload_task1 = MagicMock()
@@ -196,7 +196,7 @@ class TestRun:
             task.mark_cancelled()
 
             with patch(
-                "fundamental.services.tasks.multi_upload_task.BookUploadTask"
+                "bookcard.services.tasks.multi_upload_task.BookUploadTask"
             ) as mock_book_upload:
                 task.run(worker_context)
 
@@ -221,7 +221,7 @@ class TestRun:
             )
 
             with patch(
-                "fundamental.services.tasks.multi_upload_task.BookUploadTask"
+                "bookcard.services.tasks.multi_upload_task.BookUploadTask"
             ) as mock_book_upload:
                 mock_upload_task = MagicMock()
                 mock_upload_task.run.side_effect = Exception("Upload failed")
@@ -250,7 +250,7 @@ class TestRun:
             )
 
             with patch(
-                "fundamental.services.tasks.multi_upload_task.BookUploadTask"
+                "bookcard.services.tasks.multi_upload_task.BookUploadTask"
             ) as mock_book_upload:
                 mock_upload_task1 = MagicMock()
                 mock_upload_task1.metadata = {"book_ids": [1]}
@@ -282,7 +282,7 @@ class TestRun:
             )
 
             with patch(
-                "fundamental.services.tasks.multi_upload_task.BookUploadTask"
+                "bookcard.services.tasks.multi_upload_task.BookUploadTask"
             ) as mock_book_upload:
                 mock_upload_task = MagicMock()
                 mock_upload_task.metadata = {"book_ids": [1]}
@@ -317,7 +317,7 @@ class TestRun:
             )
 
             with patch(
-                "fundamental.services.tasks.multi_upload_task.BookUploadTask"
+                "bookcard.services.tasks.multi_upload_task.BookUploadTask"
             ) as mock_book_upload:
                 mock_upload_task = MagicMock()
                 mock_upload_task.metadata = {"book_ids": [1]}

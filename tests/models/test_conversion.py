@@ -21,7 +21,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from fundamental.models.conversion import (
+from bookcard.models.conversion import (
     BookConversion,
     ConversionMethod,
     ConversionStatus,

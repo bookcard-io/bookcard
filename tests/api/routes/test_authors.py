@@ -25,15 +25,15 @@ import pytest
 from fastapi import HTTPException, Request, status
 from fastapi.responses import FileResponse, Response
 
-import fundamental.api.routes.authors as authors
-from fundamental.api.schemas.author import (
+import bookcard.api.routes.authors as authors
+from bookcard.api.schemas.author import (
     AuthorMergeRecommendRequest,
     AuthorMergeRequest,
     AuthorUpdate,
     PhotoFromUrlRequest,
     PhotoUploadResponse,
 )
-from fundamental.models.auth import User
+from bookcard.models.auth import User
 from tests.conftest import DummySession
 
 
@@ -251,14 +251,10 @@ def test_get_author_service(monkeypatch: pytest.MonkeyPatch) -> None:
     request = DummyRequest()
 
     with (
-        patch("fundamental.api.routes.authors.AuthorRepository") as mock_repo_class,
-        patch(
-            "fundamental.api.routes.authors.LibraryRepository"
-        ) as mock_lib_repo_class,
-        patch(
-            "fundamental.api.routes.authors.LibraryService"
-        ) as mock_lib_service_class,
-        patch("fundamental.api.routes.authors.AuthorService") as mock_service_class,
+        patch("bookcard.api.routes.authors.AuthorRepository") as mock_repo_class,
+        patch("bookcard.api.routes.authors.LibraryRepository") as mock_lib_repo_class,
+        patch("bookcard.api.routes.authors.LibraryService") as mock_lib_service_class,
+        patch("bookcard.api.routes.authors.AuthorService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -293,15 +289,9 @@ def test_get_rematch_service(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_author_service = MockAuthorService()
 
     with (
-        patch(
-            "fundamental.api.routes.authors.LibraryRepository"
-        ) as mock_lib_repo_class,
-        patch(
-            "fundamental.api.routes.authors.LibraryService"
-        ) as mock_lib_service_class,
-        patch(
-            "fundamental.api.routes.authors.AuthorRematchService"
-        ) as mock_service_class,
+        patch("bookcard.api.routes.authors.LibraryRepository") as mock_lib_repo_class,
+        patch("bookcard.api.routes.authors.LibraryService") as mock_lib_service_class,
+        patch("bookcard.api.routes.authors.AuthorRematchService") as mock_service_class,
     ):
         mock_lib_repo = MagicMock()
         mock_lib_repo_class.return_value = mock_lib_repo
@@ -340,16 +330,10 @@ def test_get_merge_service(monkeypatch: pytest.MonkeyPatch) -> None:
     request = DummyRequest()
 
     with (
-        patch("fundamental.api.routes.authors.AuthorRepository") as mock_repo_class,
-        patch(
-            "fundamental.api.routes.authors.LibraryRepository"
-        ) as mock_lib_repo_class,
-        patch(
-            "fundamental.api.routes.authors.LibraryService"
-        ) as mock_lib_service_class,
-        patch(
-            "fundamental.api.routes.authors.AuthorMergeService"
-        ) as mock_service_class,
+        patch("bookcard.api.routes.authors.AuthorRepository") as mock_repo_class,
+        patch("bookcard.api.routes.authors.LibraryRepository") as mock_lib_repo_class,
+        patch("bookcard.api.routes.authors.LibraryService") as mock_lib_service_class,
+        patch("bookcard.api.routes.authors.AuthorMergeService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -476,7 +460,7 @@ def test_list_authors_success(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     with patch(
-        "fundamental.api.routes.authors.PermissionService"
+        "bookcard.api.routes.authors.PermissionService"
     ) as mock_perm_service_class:
         mock_perm_service = MagicMock()
         mock_perm_service.check_permission.return_value = None
@@ -512,7 +496,7 @@ def test_list_authors_with_filter(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     with patch(
-        "fundamental.api.routes.authors.PermissionService"
+        "bookcard.api.routes.authors.PermissionService"
     ) as mock_perm_service_class:
         mock_perm_service = MagicMock()
         mock_perm_service.check_permission.return_value = None
@@ -542,7 +526,7 @@ def test_list_authors_page_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     with patch(
-        "fundamental.api.routes.authors.PermissionService"
+        "bookcard.api.routes.authors.PermissionService"
     ) as mock_perm_service_class:
         mock_perm_service = MagicMock()
         mock_perm_service.check_permission.return_value = None
@@ -583,7 +567,7 @@ def test_list_authors_error(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     with patch(
-        "fundamental.api.routes.authors.PermissionService"
+        "bookcard.api.routes.authors.PermissionService"
     ) as mock_perm_service_class:
         mock_perm_service = MagicMock()
         mock_perm_service.check_permission.return_value = None
@@ -1025,7 +1009,7 @@ def test_get_author_photo_not_found_author(monkeypatch: pytest.MonkeyPatch) -> N
 
     request = DummyRequest()
     # Mock AuthorExceptionMapper to return 404 HTTPException
-    with patch("fundamental.api.routes.authors.AuthorExceptionMapper") as mock_mapper:
+    with patch("bookcard.api.routes.authors.AuthorExceptionMapper") as mock_mapper:
         from fastapi import HTTPException
 
         mock_mapper.map_value_error_to_http_exception.return_value = HTTPException(
@@ -1126,7 +1110,7 @@ def test_get_permission_helper(monkeypatch: pytest.MonkeyPatch) -> None:
     session = DummySession()
 
     with patch(
-        "fundamental.api.routes.authors.AuthorPermissionHelper"
+        "bookcard.api.routes.authors.AuthorPermissionHelper"
     ) as mock_helper_class:
         mock_helper = MagicMock()
         mock_helper_class.return_value = mock_helper
@@ -1151,7 +1135,7 @@ def test_list_authors_page_size_less_than_one(
     )
 
     with patch(
-        "fundamental.api.routes.authors.PermissionService"
+        "bookcard.api.routes.authors.PermissionService"
     ) as mock_perm_service_class:
         mock_perm_service = MagicMock()
         mock_perm_service.check_permission.return_value = None

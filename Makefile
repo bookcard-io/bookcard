@@ -86,7 +86,7 @@ dev: setup-uv
 		. ./.env; \
 	fi; \
 	set +a; \
-	uv run uvicorn fundamental.api.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude tests --reload-exclude web --reload-exclude "**/test_*.py" --reload-exclude "**/*_test.py" & \
+	uv run uvicorn bookcard.api.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude tests --reload-exclude web --reload-exclude "**/test_*.py" --reload-exclude "**/*_test.py" & \
 	PID1=$$!; \
 	cd web && npm run dev & \
 	PID2=$$!; \
@@ -132,7 +132,7 @@ formatpy:
 
 test:
 	@echo "Running tests with coverage..."; \
-	cd $(CURDIR) && uv run --frozen pytest --cov=fundamental --cov-report=term-missing -n auto; \
+	cd $(CURDIR) && uv run --frozen pytest --cov=bookcard --cov-report=term-missing -n auto; \
 	cd $(CURDIR)/web && npm run test:coverage
 
 testjs:
@@ -141,7 +141,7 @@ testjs:
 
 testpy:
 	@echo "Running Python tests with coverage..."; \
-	cd $(CURDIR) && uv run --frozen pytest --cov=fundamental --cov-report=term-missing -n auto
+	cd $(CURDIR) && uv run --frozen pytest --cov=bookcard --cov-report=term-missing -n auto
 
 test-changed:
 	@echo "Finding changed test files..."; \

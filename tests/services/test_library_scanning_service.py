@@ -19,10 +19,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.config import Library
-from fundamental.models.library_scanning import LibraryScanState
-from fundamental.repositories.library_repository import LibraryRepository
-from fundamental.services.library_scanning_service import LibraryScanningService
+from bookcard.models.config import Library
+from bookcard.models.library_scanning import LibraryScanState
+from bookcard.repositories.library_repository import LibraryRepository
+from bookcard.services.library_scanning_service import LibraryScanningService
 
 
 @pytest.fixture
@@ -91,12 +91,12 @@ class TestLibraryScanningService:
         # Mock TaskService using a specific import path if possible, but since it's used inside
         # the method we might need to patch it where it's imported.
         # The LibraryScanningService imports TaskService.
-        # We'll try patching 'fundamental.services.library_scanning_service.TaskService'
+        # We'll try patching 'bookcard.services.library_scanning_service.TaskService'
 
         from unittest.mock import patch
 
         with patch(
-            "fundamental.services.library_scanning_service.TaskService"
+            "bookcard.services.library_scanning_service.TaskService"
         ) as mock_task_service:
             mock_task_service_instance = mock_task_service.return_value
             mock_task = MagicMock()
@@ -123,7 +123,7 @@ class TestLibraryScanningService:
         from unittest.mock import patch
 
         with patch(
-            "fundamental.services.library_scanning_service.TaskService"
+            "bookcard.services.library_scanning_service.TaskService"
         ) as mock_task_service_cls:
             mock_task_service_instance = mock_task_service_cls.return_value
             mock_task = MagicMock()
@@ -149,7 +149,7 @@ class TestLibraryScanningService:
         from unittest.mock import patch
 
         with patch(
-            "fundamental.services.library_scanning_service.TaskService"
+            "bookcard.services.library_scanning_service.TaskService"
         ) as mock_task_service_cls:
             mock_task_service_instance = mock_task_service_cls.return_value
             mock_task = MagicMock()
@@ -328,7 +328,7 @@ class TestLibraryScanningService:
         from unittest.mock import patch
 
         with patch(
-            "fundamental.services.library_scanning_service.TaskService"
+            "bookcard.services.library_scanning_service.TaskService"
         ) as mock_task_service_cls:
             mock_task_service_instance = mock_task_service_cls.return_value
             mock_task = MagicMock()
@@ -352,7 +352,7 @@ class TestLibraryScanningService:
         mock_library_repo : MagicMock
             Mock library repository.
         """
-        from fundamental.services.messaging.redis_broker import RedisBroker
+        from bookcard.services.messaging.redis_broker import RedisBroker
 
         mock_redis_broker = MagicMock(spec=RedisBroker)
         mock_redis_broker.client = MagicMock()
@@ -365,10 +365,10 @@ class TestLibraryScanningService:
 
         with (
             patch(
-                "fundamental.services.library_scanning_service.TaskService"
+                "bookcard.services.library_scanning_service.TaskService"
             ) as mock_task_service_cls,
             patch(
-                "fundamental.services.library_scanning_service.JobProgressTracker"
+                "bookcard.services.library_scanning_service.JobProgressTracker"
             ) as mock_tracker_class,
         ):
             mock_task_service_instance = mock_task_service_cls.return_value

@@ -20,10 +20,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.config import EPUBFixerConfig, Library, ScheduledTasksConfig
-from fundamental.models.epub_fixer import EPUBFixRun
-from fundamental.services.epub_fixer.services.scanner import EPUBFileInfo
-from fundamental.services.tasks.epub_fix_daily_scan_task import (
+from bookcard.models.config import EPUBFixerConfig, Library, ScheduledTasksConfig
+from bookcard.models.epub_fixer import EPUBFixRun
+from bookcard.services.epub_fixer.services.scanner import EPUBFileInfo
+from bookcard.services.tasks.epub_fix_daily_scan_task import (
     EPUBFixDailyScanTask,
     _raise_no_library_error,
 )
@@ -343,10 +343,10 @@ class TestEPUBFixDailyScanTaskScanEPUBFiles:
 
         with (
             patch(
-                "fundamental.services.tasks.epub_fix_daily_scan_task.CalibreBookRepository"
+                "bookcard.services.tasks.epub_fix_daily_scan_task.CalibreBookRepository"
             ) as mock_repo_class,
             patch(
-                "fundamental.services.tasks.epub_fix_daily_scan_task.EPUBScanner"
+                "bookcard.services.tasks.epub_fix_daily_scan_task.EPUBScanner"
             ) as mock_scanner_class,
         ):
             mock_repo = MagicMock()
@@ -792,10 +792,10 @@ class TestEPUBFixDailyScanTaskRun:
 
         with (
             patch(
-                "fundamental.services.tasks.epub_fix_daily_scan_task.LibraryRepository"
+                "bookcard.services.tasks.epub_fix_daily_scan_task.LibraryRepository"
             ) as _,
             patch(
-                "fundamental.services.tasks.epub_fix_daily_scan_task.LibraryService"
+                "bookcard.services.tasks.epub_fix_daily_scan_task.LibraryService"
             ) as mock_service_class,
         ):
             mock_service = MagicMock()
@@ -839,10 +839,10 @@ class TestEPUBFixDailyScanTaskRun:
 
         with (
             patch(
-                "fundamental.services.tasks.epub_fix_daily_scan_task.LibraryRepository"
+                "bookcard.services.tasks.epub_fix_daily_scan_task.LibraryRepository"
             ) as _,
             patch(
-                "fundamental.services.tasks.epub_fix_daily_scan_task.LibraryService"
+                "bookcard.services.tasks.epub_fix_daily_scan_task.LibraryService"
             ) as mock_service_class,
         ):
             mock_service = MagicMock()
@@ -892,13 +892,13 @@ class TestEPUBFixDailyScanTaskRun:
 
         with (
             patch(
-                "fundamental.services.tasks.epub_fix_daily_scan_task.LibraryRepository"
+                "bookcard.services.tasks.epub_fix_daily_scan_task.LibraryRepository"
             ) as _,
             patch(
-                "fundamental.services.tasks.epub_fix_daily_scan_task.LibraryService"
+                "bookcard.services.tasks.epub_fix_daily_scan_task.LibraryService"
             ) as mock_service_class,
             patch(
-                "fundamental.services.tasks.epub_fix_daily_scan_task.EPUBFixerService"
+                "bookcard.services.tasks.epub_fix_daily_scan_task.EPUBFixerService"
             ) as mock_fixer_service_class,
         ):
             mock_service = MagicMock()

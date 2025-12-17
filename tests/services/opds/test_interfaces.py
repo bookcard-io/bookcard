@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import pytest
 
-from fundamental.services.opds.interfaces import (
+from bookcard.services.opds.interfaces import (
     IOpdsAuthProvider,
     IOpdsBookQueryService,
     IOpdsFeedService,

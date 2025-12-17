@@ -23,11 +23,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException, Request, status
 
-import fundamental.api.routes.ingest as ingest_routes
-from fundamental.api.schemas.ingest import IngestConfigUpdate
-from fundamental.models.auth import User
-from fundamental.models.ingest import IngestHistory, IngestStatus
-from fundamental.models.tasks import TaskType
+import bookcard.api.routes.ingest as ingest_routes
+from bookcard.api.schemas.ingest import IngestConfigUpdate
+from bookcard.models.auth import User
+from bookcard.models.ingest import IngestHistory, IngestStatus
+from bookcard.models.tasks import TaskType
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession
@@ -165,7 +165,7 @@ def test_get_ingest_config(session: DummySession) -> None:
     session : DummySession
         Dummy session.
     """
-    from fundamental.models.ingest import IngestConfig
+    from bookcard.models.ingest import IngestConfig
 
     mock_config = IngestConfig(
         ingest_dir="/path/to/ingest",
@@ -178,9 +178,7 @@ def test_get_ingest_config(session: DummySession) -> None:
         auto_delete_after_ingest=True,
     )
 
-    with patch(
-        "fundamental.api.routes.ingest.IngestConfigService"
-    ) as mock_service_class:
+    with patch("bookcard.api.routes.ingest.IngestConfigService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.get_config.return_value = mock_config
         mock_service_class.return_value = mock_service
@@ -229,7 +227,7 @@ def test_update_ingest_config_restarts_watcher(
     session : DummySession
         Dummy session.
     """
-    from fundamental.models.ingest import IngestConfig
+    from bookcard.models.ingest import IngestConfig
 
     old_config = IngestConfig(
         ingest_dir="/old/path",
@@ -258,9 +256,7 @@ def test_update_ingest_config_restarts_watcher(
         ingest_dir="/new/path" if dir_changed else None,
     )
 
-    with patch(
-        "fundamental.api.routes.ingest.IngestConfigService"
-    ) as mock_service_class:
+    with patch("bookcard.api.routes.ingest.IngestConfigService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.get_config.return_value = old_config
         mock_service.update_config.return_value = new_config
@@ -295,7 +291,7 @@ def test_update_ingest_config_watcher_not_available(
     session : DummySession
         Dummy session.
     """
-    from fundamental.models.ingest import IngestConfig
+    from bookcard.models.ingest import IngestConfig
 
     old_config = IngestConfig(
         ingest_dir="/old/path",
@@ -321,9 +317,7 @@ def test_update_ingest_config_watcher_not_available(
 
     config_update = IngestConfigUpdate(enabled=True)
 
-    with patch(
-        "fundamental.api.routes.ingest.IngestConfigService"
-    ) as mock_service_class:
+    with patch("bookcard.api.routes.ingest.IngestConfigService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.get_config.return_value = old_config
         mock_service.update_config.return_value = new_config
@@ -352,7 +346,7 @@ def test_update_ingest_config_watcher_restart_error(
     session : DummySession
         Dummy session.
     """
-    from fundamental.models.ingest import IngestConfig
+    from bookcard.models.ingest import IngestConfig
 
     old_config = IngestConfig(
         ingest_dir="/old/path",
@@ -378,9 +372,7 @@ def test_update_ingest_config_watcher_restart_error(
 
     config_update = IngestConfigUpdate(enabled=True)
 
-    with patch(
-        "fundamental.api.routes.ingest.IngestConfigService"
-    ) as mock_service_class:
+    with patch("bookcard.api.routes.ingest.IngestConfigService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.get_config.return_value = old_config
         mock_service.update_config.return_value = new_config
@@ -440,9 +432,7 @@ def test_list_ingest_history(
         )
     ]
 
-    with patch(
-        "fundamental.api.routes.ingest.IngestHistoryRepository"
-    ) as mock_repo_class:
+    with patch("bookcard.api.routes.ingest.IngestHistoryRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
 
@@ -480,9 +470,7 @@ def test_get_ingest_history_success(admin_user: User, session: DummySession) -> 
         file_path="/path/to/book.epub",
     )
 
-    with patch(
-        "fundamental.api.routes.ingest.IngestHistoryRepository"
-    ) as mock_repo_class:
+    with patch("bookcard.api.routes.ingest.IngestHistoryRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_history
         mock_repo_class.return_value = mock_repo
@@ -507,9 +495,7 @@ def test_get_ingest_history_not_found(admin_user: User, session: DummySession) -
     """
     history_id = 999
 
-    with patch(
-        "fundamental.api.routes.ingest.IngestHistoryRepository"
-    ) as mock_repo_class:
+    with patch("bookcard.api.routes.ingest.IngestHistoryRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = None
         mock_repo_class.return_value = mock_repo
@@ -701,9 +687,7 @@ def test_retry_ingest_success(
     )
 
     with (
-        patch(
-            "fundamental.api.routes.ingest.IngestHistoryRepository"
-        ) as mock_repo_class,
+        patch("bookcard.api.routes.ingest.IngestHistoryRepository") as mock_repo_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_history
@@ -739,9 +723,7 @@ def test_retry_ingest_not_found(
     """
     history_id = 999
 
-    with patch(
-        "fundamental.api.routes.ingest.IngestHistoryRepository"
-    ) as mock_repo_class:
+    with patch("bookcard.api.routes.ingest.IngestHistoryRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = None
         mock_repo_class.return_value = mock_repo
@@ -780,9 +762,7 @@ def test_retry_ingest_not_failed(
         file_path="/path/to/book.epub",
     )
 
-    with patch(
-        "fundamental.api.routes.ingest.IngestHistoryRepository"
-    ) as mock_repo_class:
+    with patch("bookcard.api.routes.ingest.IngestHistoryRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_history
         mock_repo_class.return_value = mock_repo
@@ -822,9 +802,7 @@ def test_retry_ingest_no_files(
         ingest_metadata={},
     )
 
-    with patch(
-        "fundamental.api.routes.ingest.IngestHistoryRepository"
-    ) as mock_repo_class:
+    with patch("bookcard.api.routes.ingest.IngestHistoryRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_history
         mock_repo_class.return_value = mock_repo
@@ -867,9 +845,7 @@ def test_retry_ingest_no_task_runner(
     # Remove task runner
     delattr(mock_request_no_watcher.app.state, "task_runner")
 
-    with patch(
-        "fundamental.api.routes.ingest.IngestHistoryRepository"
-    ) as mock_repo_class:
+    with patch("bookcard.api.routes.ingest.IngestHistoryRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_history
         mock_repo_class.return_value = mock_repo

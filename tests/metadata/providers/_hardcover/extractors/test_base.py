@@ -17,7 +17,7 @@
 
 from __future__ import annotations
 
-from fundamental.metadata.providers._hardcover.extractors.base import (
+from bookcard.metadata.providers._hardcover.extractors.base import (
     FieldExtractor,
 )
 

@@ -22,8 +22,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.services.conversion.exceptions import ConversionError
-from fundamental.services.conversion.strategies.calibre import (
+from bookcard.services.conversion.exceptions import ConversionError
+from bookcard.services.conversion.strategies.calibre import (
     CalibreConversionStrategy,
 )
 

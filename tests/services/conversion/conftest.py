@@ -24,10 +24,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.config import Library
-from fundamental.models.conversion import BookConversion, ConversionStatus
-from fundamental.models.core import Book
-from fundamental.models.media import Data
+from bookcard.models.config import Library
+from bookcard.models.conversion import BookConversion, ConversionStatus
+from bookcard.models.core import Book
+from bookcard.models.media import Data
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

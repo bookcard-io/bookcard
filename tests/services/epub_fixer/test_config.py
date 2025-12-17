@@ -18,8 +18,8 @@
 import os
 from pathlib import Path
 
-from fundamental.models.config import EPUBFixerConfig
-from fundamental.services.epub_fixer.config import EPUBFixerSettings
+from bookcard.models.config import EPUBFixerConfig
+from bookcard.services.epub_fixer.config import EPUBFixerSettings
 
 
 def test_epub_fixer_settings_defaults() -> None:

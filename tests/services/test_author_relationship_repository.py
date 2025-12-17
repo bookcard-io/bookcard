@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from fundamental.models.author_metadata import (
+from bookcard.models.author_metadata import (
     AuthorMetadata,
     AuthorSimilarity,
     AuthorUserMetadata,
@@ -27,10 +27,10 @@ from fundamental.models.author_metadata import (
     AuthorWork,
     WorkSubject,
 )
-from fundamental.services.author_merge.author_relationship_repository import (
+from bookcard.services.author_merge.author_relationship_repository import (
     AuthorRelationshipRepository,
 )
-from fundamental.services.author_merge.value_objects import RelationshipCounts
+from bookcard.services.author_merge.value_objects import RelationshipCounts
 from tests.conftest import DummySession
 
 # ============================================================================

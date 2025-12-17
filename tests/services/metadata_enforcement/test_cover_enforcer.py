@@ -24,11 +24,11 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 from PIL import Image
 
-from fundamental.models.config import Library
-from fundamental.models.core import Book
-from fundamental.models.media import Data
-from fundamental.repositories.models import BookWithFullRelations
-from fundamental.services.metadata_enforcement.cover_enforcer import (
+from bookcard.models.config import Library
+from bookcard.models.core import Book
+from bookcard.models.media import Data
+from bookcard.repositories.models import BookWithFullRelations
+from bookcard.services.metadata_enforcement.cover_enforcer import (
     CoverEnforcementService,
 )
 
@@ -137,7 +137,7 @@ def test_enforce_cover_cover_not_found(
     book_dir.mkdir(parents=True)
 
     with patch(
-        "fundamental.services.metadata_enforcement.cover_enforcer.LibraryPathResolver"
+        "bookcard.services.metadata_enforcement.cover_enforcer.LibraryPathResolver"
     ) as mock_resolver_class:
         mock_resolver = MagicMock()
         mock_resolver.get_library_root.return_value = library_root
@@ -160,7 +160,7 @@ def test_enforce_cover_invalid_image(
     cover_file.write_text("not an image")
 
     with patch(
-        "fundamental.services.metadata_enforcement.cover_enforcer.LibraryPathResolver"
+        "bookcard.services.metadata_enforcement.cover_enforcer.LibraryPathResolver"
     ) as mock_resolver_class:
         mock_resolver = MagicMock()
         mock_resolver.get_library_root.return_value = library_root
@@ -187,10 +187,10 @@ def test_enforce_cover_valid_no_ebooks(
 
     with (
         patch(
-            "fundamental.services.metadata_enforcement.cover_enforcer.LibraryPathResolver"
+            "bookcard.services.metadata_enforcement.cover_enforcer.LibraryPathResolver"
         ) as mock_resolver_class,
         patch(
-            "fundamental.services.metadata_enforcement.cover_enforcer.CalibreBookRepository"
+            "bookcard.services.metadata_enforcement.cover_enforcer.CalibreBookRepository"
         ) as mock_repo_class,
     ):
         mock_resolver = MagicMock()
@@ -214,7 +214,7 @@ def test_enforce_cover_oserror(
 ) -> None:
     """Test enforce_cover with OSError."""
     with patch(
-        "fundamental.services.metadata_enforcement.cover_enforcer.LibraryPathResolver"
+        "bookcard.services.metadata_enforcement.cover_enforcer.LibraryPathResolver"
     ) as mock_resolver_class:
         mock_resolver = MagicMock()
         mock_resolver.get_library_root.side_effect = OSError("Permission denied")
@@ -240,10 +240,10 @@ def test_enforce_cover_valueerror(
 
     with (
         patch(
-            "fundamental.services.metadata_enforcement.cover_enforcer.LibraryPathResolver"
+            "bookcard.services.metadata_enforcement.cover_enforcer.LibraryPathResolver"
         ) as mock_resolver_class,
         patch(
-            "fundamental.services.metadata_enforcement.cover_enforcer.Image.open"
+            "bookcard.services.metadata_enforcement.cover_enforcer.Image.open"
         ) as mock_image,
     ):
         mock_resolver = MagicMock()
@@ -410,7 +410,7 @@ def test_embed_cover_into_ebooks_no_polish(
 
     with (
         patch(
-            "fundamental.services.metadata_enforcement.cover_enforcer.LibraryPathResolver"
+            "bookcard.services.metadata_enforcement.cover_enforcer.LibraryPathResolver"
         ) as mock_resolver_class,
         patch.object(
             CoverEnforcementService, "_get_ebook_polish_path", return_value=None
@@ -438,7 +438,7 @@ def test_embed_cover_into_ebooks_no_book_id(
     cover_file.write_bytes(b"test")
 
     with patch(
-        "fundamental.services.metadata_enforcement.cover_enforcer.LibraryPathResolver"
+        "bookcard.services.metadata_enforcement.cover_enforcer.LibraryPathResolver"
     ) as mock_resolver_class:
         mock_resolver = MagicMock()
         mock_resolver.get_library_root.return_value = library_root
@@ -466,10 +466,10 @@ def test_embed_cover_into_ebooks_success(
 
     with (
         patch(
-            "fundamental.services.metadata_enforcement.cover_enforcer.LibraryPathResolver"
+            "bookcard.services.metadata_enforcement.cover_enforcer.LibraryPathResolver"
         ) as mock_resolver_class,
         patch(
-            "fundamental.services.metadata_enforcement.cover_enforcer.CalibreBookRepository"
+            "bookcard.services.metadata_enforcement.cover_enforcer.CalibreBookRepository"
         ) as mock_repo_class,
         patch.object(
             CoverEnforcementService,
@@ -512,10 +512,10 @@ def test_embed_cover_into_ebooks_unsupported_format(
 
     with (
         patch(
-            "fundamental.services.metadata_enforcement.cover_enforcer.LibraryPathResolver"
+            "bookcard.services.metadata_enforcement.cover_enforcer.LibraryPathResolver"
         ) as mock_resolver_class,
         patch(
-            "fundamental.services.metadata_enforcement.cover_enforcer.CalibreBookRepository"
+            "bookcard.services.metadata_enforcement.cover_enforcer.CalibreBookRepository"
         ) as mock_repo_class,
         patch.object(
             CoverEnforcementService,

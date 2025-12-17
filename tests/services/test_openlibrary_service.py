@@ -21,10 +21,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.config import AppConfig
-from fundamental.models.tasks import TaskType
-from fundamental.services.openlibrary_service import OpenLibraryService
-from fundamental.services.tasks.base import TaskRunner
+from bookcard.config import AppConfig
+from bookcard.models.tasks import TaskType
+from bookcard.services.openlibrary_service import OpenLibraryService
+from bookcard.services.tasks.base import TaskRunner
 
 
 @pytest.fixture

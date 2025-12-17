@@ -19,12 +19,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.services.library_scanning.workers.deduplicate import (
+from bookcard.services.library_scanning.workers.deduplicate import (
     DeduplicateWorker,
     NoOpDataSource,
 )
-from fundamental.services.messaging.base import MessageBroker
-from fundamental.services.messaging.redis_broker import RedisBroker
+from bookcard.services.messaging.base import MessageBroker
+from bookcard.services.messaging.redis_broker import RedisBroker
 
 
 @pytest.fixture
@@ -114,7 +114,7 @@ class TestDeduplicateWorkerProcess:
             Worker instance.
         """
         with patch(
-            "fundamental.services.library_scanning.workers.deduplicate.create_db_engine"
+            "bookcard.services.library_scanning.workers.deduplicate.create_db_engine"
         ):
             return DeduplicateWorker(mock_broker)
 
@@ -165,22 +165,22 @@ class TestDeduplicateWorkerProcess:
         """
         with (
             patch(
-                "fundamental.services.library_scanning.workers.deduplicate.create_db_engine"
+                "bookcard.services.library_scanning.workers.deduplicate.create_db_engine"
             ),
             patch(
-                "fundamental.services.library_scanning.workers.deduplicate.get_session"
+                "bookcard.services.library_scanning.workers.deduplicate.get_session"
             ) as mock_get_session,
             patch(
-                "fundamental.services.library_scanning.workers.deduplicate.LibraryRepository"
+                "bookcard.services.library_scanning.workers.deduplicate.LibraryRepository"
             ) as mock_repo_class,
             patch(
-                "fundamental.services.library_scanning.workers.deduplicate.JobProgressTracker"
+                "bookcard.services.library_scanning.workers.deduplicate.JobProgressTracker"
             ) as mock_progress_class,
             patch(
-                "fundamental.services.library_scanning.workers.deduplicate.DeduplicateStage"
+                "bookcard.services.library_scanning.workers.deduplicate.DeduplicateStage"
             ) as mock_stage_class,
             patch(
-                "fundamental.services.library_scanning.workers.deduplicate.ScanTaskTracker"
+                "bookcard.services.library_scanning.workers.deduplicate.ScanTaskTracker"
             ),
         ):
             worker = DeduplicateWorker(mock_redis_broker)

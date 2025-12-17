@@ -18,7 +18,7 @@
 
 def test_epub_fixer_init_imports() -> None:
     """Test that all exports from __init__.py can be imported."""
-    from fundamental.services.epub_fixer import (
+    from bookcard.services.epub_fixer import (
         BackupService,
         BodyIdLinkFix,
         EncodingFix,
@@ -64,7 +64,7 @@ def test_epub_fixer_init_imports() -> None:
 
 def test_core_init_imports() -> None:
     """Test that all exports from core/__init__.py can be imported."""
-    from fundamental.services.epub_fixer.core import (
+    from bookcard.services.epub_fixer.core import (
         EPUBContents,
         EPUBReader,
         EPUBWriter,
@@ -79,7 +79,7 @@ def test_core_init_imports() -> None:
 
 def test_fixes_init_imports() -> None:
     """Test that all exports from fixes/__init__.py can be imported."""
-    from fundamental.services.epub_fixer.core.fixes import (
+    from bookcard.services.epub_fixer.core.fixes import (
         BodyIdLinkFix,
         EncodingFix,
         EPUBFix,
@@ -96,7 +96,7 @@ def test_fixes_init_imports() -> None:
 
 def test_services_init_imports() -> None:
     """Test that all exports from services/__init__.py can be imported."""
-    from fundamental.services.epub_fixer.services import (
+    from bookcard.services.epub_fixer.services import (
         BackupService,
         EPUBScanner,
         FixResultRecorder,
@@ -115,7 +115,7 @@ def test_services_init_imports() -> None:
 
 def test_utils_init_imports() -> None:
     """Test that all exports from utils/__init__.py can be imported."""
-    from fundamental.services.epub_fixer.utils import FileTypes, OPFLocator
+    from bookcard.services.epub_fixer.utils import FileTypes, OPFLocator
 
     assert FileTypes is not None
     assert OPFLocator is not None

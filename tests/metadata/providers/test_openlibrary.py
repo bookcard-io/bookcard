@@ -23,15 +23,15 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from fundamental.metadata.base import (
+from bookcard.metadata.base import (
     MetadataProviderNetworkError,
     MetadataProviderParseError,
     MetadataProviderTimeoutError,
 )
-from fundamental.metadata.providers.openlibrary import OpenLibraryProvider
+from bookcard.metadata.providers.openlibrary import OpenLibraryProvider
 
 if TYPE_CHECKING:
-    from fundamental.models.metadata import MetadataRecord
+    from bookcard.models.metadata import MetadataRecord
 
 
 @pytest.fixture

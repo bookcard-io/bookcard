@@ -20,7 +20,7 @@ from unittest.mock import Mock
 import pytest
 from fastapi import Request
 
-from fundamental.services.opds.url_builder import OpdsUrlBuilder
+from bookcard.services.opds.url_builder import OpdsUrlBuilder
 
 
 @pytest.fixture

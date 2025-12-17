@@ -20,7 +20,7 @@ trap shutdown SIGTERM SIGINT
 
 # Start backend in background using full path to uvicorn from virtual environment
 echo "Starting backend server on port 8000..."
-/opt/venv/bin/uvicorn fundamental.api.main:app --host 0.0.0.0 --port 8000 &
+/opt/venv/bin/uvicorn bookcard.api.main:app --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
 
 # Give backend a moment to start

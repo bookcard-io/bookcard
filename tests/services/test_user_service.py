@@ -19,9 +19,9 @@ from __future__ import annotations
 
 import pytest
 
-from fundamental.models.auth import User
-from fundamental.repositories.user_repository import UserRepository
-from fundamental.services.user_service import UserService
+from bookcard.models.auth import User
+from bookcard.repositories.user_repository import UserRepository
+from bookcard.services.user_service import UserService
 from tests.conftest import DummySession
 
 
@@ -558,7 +558,7 @@ def test_sync_user_roles_removes_and_adds() -> None:
     """Test _sync_user_roles removes old roles and adds new ones (covers lines 418-434)."""
     from unittest.mock import MagicMock
 
-    from fundamental.models.auth import UserRole
+    from bookcard.models.auth import UserRole
 
     session = DummySession()
     repo = UserRepository(session)  # type: ignore[arg-type]
@@ -588,7 +588,7 @@ def test_sync_user_roles_handles_errors() -> None:
     """Test _sync_user_roles suppresses errors (covers lines 425-427, 432-434)."""
     from unittest.mock import MagicMock
 
-    from fundamental.models.auth import UserRole
+    from bookcard.models.auth import UserRole
 
     session = DummySession()
     repo = UserRepository(session)  # type: ignore[arg-type]
@@ -615,7 +615,7 @@ def test_sync_default_device_updates_existing() -> None:
     """Test _sync_default_device updates existing device (covers lines 474-489)."""
     from unittest.mock import MagicMock
 
-    from fundamental.models.auth import EBookFormat, EReaderDevice
+    from bookcard.models.auth import EBookFormat, EReaderDevice
 
     session = DummySession()
     repo = UserRepository(session)  # type: ignore[arg-type]
@@ -687,7 +687,7 @@ def test_sync_default_device_creates_new() -> None:
         assert call_kwargs["device_type"] == "generic"
         assert call_kwargs["is_default"] is True
         # preferred_format defaults to EPUB when device_format is None
-        from fundamental.models.auth import EBookFormat
+        from bookcard.models.auth import EBookFormat
 
         assert call_kwargs["preferred_format"] == EBookFormat.EPUB
 
@@ -696,7 +696,7 @@ def test_sync_default_device_invalid_format() -> None:
     """Test _sync_default_device handles invalid format gracefully (covers lines 484-488)."""
     from unittest.mock import MagicMock
 
-    from fundamental.models.auth import EReaderDevice
+    from bookcard.models.auth import EReaderDevice
 
     session = DummySession()
     repo = UserRepository(session)  # type: ignore[arg-type]
@@ -751,7 +751,7 @@ def test_generate_incremented_device_name_with_base_name() -> None:
     """Test _generate_incremented_device_name increments when base name exists (covers lines 544-561)."""
     from unittest.mock import MagicMock
 
-    from fundamental.models.auth import EReaderDevice
+    from bookcard.models.auth import EReaderDevice
 
     session = DummySession()
     repo = UserRepository(session)  # type: ignore[arg-type]
@@ -776,7 +776,7 @@ def test_generate_incremented_device_name_with_numbered() -> None:
     """Test _generate_incremented_device_name increments from highest number (covers lines 549-561)."""
     from unittest.mock import MagicMock
 
-    from fundamental.models.auth import EReaderDevice
+    from bookcard.models.auth import EReaderDevice
 
     session = DummySession()
     repo = UserRepository(session)  # type: ignore[arg-type]
@@ -804,7 +804,7 @@ def test_delete_user_executes_all_commands() -> None:
     """Test delete_user executes all deletion commands (covers lines 596-634)."""
     from unittest.mock import MagicMock, patch
 
-    from fundamental.models.auth import User
+    from bookcard.models.auth import User
 
     session = DummySession()
     repo = UserRepository(session)  # type: ignore[arg-type]
@@ -816,9 +816,7 @@ def test_delete_user_executes_all_commands() -> None:
     mock_device_repo = MagicMock()
     mock_user_role_repo = MagicMock()
 
-    with patch(
-        "fundamental.services.user_service.CommandExecutor"
-    ) as mock_executor_class:
+    with patch("bookcard.services.user_service.CommandExecutor") as mock_executor_class:
         mock_executor = MagicMock()
         mock_executor_class.return_value = mock_executor
 
@@ -839,7 +837,7 @@ def test_delete_user_without_optional_repos() -> None:
     """Test delete_user works without optional repositories (covers lines 607-616)."""
     from unittest.mock import MagicMock, patch
 
-    from fundamental.models.auth import User
+    from bookcard.models.auth import User
 
     session = DummySession()
     repo = UserRepository(session)  # type: ignore[arg-type]
@@ -848,9 +846,7 @@ def test_delete_user_without_optional_repos() -> None:
     user = User(id=1, username="user", email="user@example.com", password_hash="hash")
     session.add(user)
 
-    with patch(
-        "fundamental.services.user_service.CommandExecutor"
-    ) as mock_executor_class:
+    with patch("bookcard.services.user_service.CommandExecutor") as mock_executor_class:
         mock_executor = MagicMock()
         mock_executor_class.return_value = mock_executor
 
@@ -878,7 +874,7 @@ def test_sync_default_device_invalid_format_suppressed_new_device() -> None:
     """Test _sync_default_device suppresses invalid format when creating new device (covers lines 494-496)."""
     from unittest.mock import MagicMock, patch
 
-    from fundamental.models.auth import EBookFormat
+    from bookcard.models.auth import EBookFormat
 
     session = DummySession()
     repo = UserRepository(session)  # type: ignore[arg-type]
@@ -1109,7 +1105,7 @@ def test_create_admin_user_user_not_found_after_creation() -> None:
 # Tests for _initialize_default_settings (lines 800-819)
 def test_initialize_default_settings_creates_all_settings() -> None:
     """Test _initialize_default_settings creates all default settings (covers lines 800-819)."""
-    from fundamental.services.user_service import DEFAULT_USER_SETTINGS
+    from bookcard.services.user_service import DEFAULT_USER_SETTINGS
 
     session = DummySession()
     repo = UserRepository(session)  # type: ignore[arg-type]

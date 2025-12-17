@@ -21,10 +21,10 @@ import pytest
 from fastapi import Request
 from sqlmodel import Session
 
-from fundamental.models.auth import User
-from fundamental.repositories.user_repository import UserRepository
-from fundamental.services.opds.auth_service import OpdsAuthService
-from fundamental.services.security import JWTManager, PasswordHasher, SecurityTokenError
+from bookcard.models.auth import User
+from bookcard.repositories.user_repository import UserRepository
+from bookcard.services.opds.auth_service import OpdsAuthService
+from bookcard.services.security import JWTManager, PasswordHasher, SecurityTokenError
 
 
 @pytest.fixture
@@ -162,9 +162,7 @@ class TestOpdsAuthService:
         # The service instantiates a NEW JWTManager(config).
         # We should patch the class `JWTManager` where it is imported in `auth_service.py`.
 
-        with patch(
-            "fundamental.services.opds.auth_service.JWTManager"
-        ) as mock_jwt_class:
+        with patch("bookcard.services.opds.auth_service.JWTManager") as mock_jwt_class:
             mock_jwt_instance = mock_jwt_class.return_value
             mock_jwt_instance.decode_token.return_value = {"sub": "1"}
 
@@ -203,9 +201,7 @@ class TestOpdsAuthService:
         """Test JWT auth with invalid token."""
         mock_request.headers = {"Authorization": "Bearer token"}
 
-        with patch(
-            "fundamental.services.opds.auth_service.JWTManager"
-        ) as mock_jwt_class:
+        with patch("bookcard.services.opds.auth_service.JWTManager") as mock_jwt_class:
             mock_jwt_instance = mock_jwt_class.return_value
             mock_jwt_instance.decode_token.side_effect = SecurityTokenError("Invalid")
 
@@ -219,9 +215,7 @@ class TestOpdsAuthService:
         """Test JWT auth with invalid user ID in claim."""
         mock_request.headers = {"Authorization": "Bearer token"}
 
-        with patch(
-            "fundamental.services.opds.auth_service.JWTManager"
-        ) as mock_jwt_class:
+        with patch("bookcard.services.opds.auth_service.JWTManager") as mock_jwt_class:
             mock_jwt_instance = mock_jwt_class.return_value
             mock_jwt_instance.decode_token.return_value = {"sub": "0"}
 
@@ -239,9 +233,7 @@ class TestOpdsAuthService:
         """Test JWT auth catching other exceptions."""
         mock_request.headers = {"Authorization": "Bearer token"}
 
-        with patch(
-            "fundamental.services.opds.auth_service.JWTManager"
-        ) as mock_jwt_class:
+        with patch("bookcard.services.opds.auth_service.JWTManager") as mock_jwt_class:
             mock_jwt_instance = mock_jwt_class.return_value
             mock_jwt_instance.decode_token.side_effect = exception
 

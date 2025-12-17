@@ -25,18 +25,18 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from fundamental.services.calibre_plugin_service import (
+from bookcard.services.calibre_plugin_service import (
     CalibreNotFoundError,
     CalibrePluginService,
 )
-from fundamental.services.calibre_plugin_service.commands import CalibreCommandRunner
-from fundamental.services.calibre_plugin_service.config import CalibreConfigLocator
-from fundamental.services.calibre_plugin_service.parsers import CompositeParser
-from fundamental.services.calibre_plugin_service.parsers.legacy import (
+from bookcard.services.calibre_plugin_service.commands import CalibreCommandRunner
+from bookcard.services.calibre_plugin_service.config import CalibreConfigLocator
+from bookcard.services.calibre_plugin_service.parsers import CompositeParser
+from bookcard.services.calibre_plugin_service.parsers.legacy import (
     LegacyFormatParser,
 )
-from fundamental.services.calibre_plugin_service.parsers.table import TableFormatParser
-from fundamental.services.calibre_plugin_service.sources import (
+from bookcard.services.calibre_plugin_service.parsers.table import TableFormatParser
+from bookcard.services.calibre_plugin_service.sources import (
     DefaultTempDirectoryFactory,
     GitRepositoryZipSource,
     LocalZipSource,

@@ -22,7 +22,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.author_metadata import (
+from bookcard.models.author_metadata import (
     AuthorAlternateName,
     AuthorLink,
     AuthorMapping,
@@ -32,11 +32,11 @@ from fundamental.models.author_metadata import (
     AuthorSimilarity,
     AuthorWork,
 )
-from fundamental.services.library_scanning.pipeline.context import PipelineContext
-from fundamental.services.library_scanning.pipeline.duplicate_detector import (
+from bookcard.services.library_scanning.pipeline.context import PipelineContext
+from bookcard.services.library_scanning.pipeline.duplicate_detector import (
     DuplicatePair,
 )
-from fundamental.services.library_scanning.pipeline.merge_commands import (
+from bookcard.services.library_scanning.pipeline.merge_commands import (
     AuthorMerger,
     MergeAlternateNames,
     MergeFields,

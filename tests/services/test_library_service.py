@@ -19,9 +19,9 @@ from __future__ import annotations
 
 import pytest
 
-from fundamental.models.config import Library
-from fundamental.repositories.library_repository import LibraryRepository
-from fundamental.services.library_service import LibraryService
+from bookcard.models.config import Library
+from bookcard.repositories.library_repository import LibraryRepository
+from bookcard.services.library_service import LibraryService
 from tests.conftest import DummySession
 
 
@@ -405,7 +405,7 @@ def test_get_library_stats_success() -> None:
     }
 
     with patch(
-        "fundamental.services.library_service.CalibreBookRepository"
+        "bookcard.services.library_service.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get_library_stats.return_value = mock_stats

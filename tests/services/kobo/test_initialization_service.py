@@ -22,12 +22,12 @@ from unittest.mock import MagicMock, Mock, patch
 import httpx
 import pytest
 
-from fundamental.api.schemas.kobo import KoboInitializationResponse
-from fundamental.services.kobo.initialization_service import (
+from bookcard.api.schemas.kobo import KoboInitializationResponse
+from bookcard.services.kobo.initialization_service import (
     NATIVE_KOBO_RESOURCES,
     KoboInitializationService,
 )
-from fundamental.services.kobo.store_proxy_service import KoboStoreProxyService
+from bookcard.services.kobo.store_proxy_service import KoboStoreProxyService
 
 # ============================================================================
 # Fixtures

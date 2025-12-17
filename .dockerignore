@@ -109,7 +109,7 @@ logs/
 data/
 uploads/
 books/
-fundamental.db*
+bookcard.db*
 
 # Test files
 tests/

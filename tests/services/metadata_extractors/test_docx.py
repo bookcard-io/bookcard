@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pytest
 
-from fundamental.services.metadata_extractors.docx import DocxMetadataExtractor
+from bookcard.services.metadata_extractors.docx import DocxMetadataExtractor
 
 
 @pytest.fixture

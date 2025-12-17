@@ -15,7 +15,7 @@
 
 """Tests for OPF locator utility."""
 
-from fundamental.services.epub_fixer.utils.opf_locator import OPFLocator
+from bookcard.services.epub_fixer.utils.opf_locator import OPFLocator
 
 
 def test_find_opf_path_success() -> None:

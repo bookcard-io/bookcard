@@ -15,9 +15,9 @@
 
 """Tests for body ID link fix implementation."""
 
-from fundamental.models.epub_fixer import EPUBFixType
-from fundamental.services.epub_fixer.core.epub import EPUBContents
-from fundamental.services.epub_fixer.core.fixes.body_id_link import BodyIdLinkFix
+from bookcard.models.epub_fixer import EPUBFixType
+from bookcard.services.epub_fixer.core.epub import EPUBContents
+from bookcard.services.epub_fixer.core.fixes.body_id_link import BodyIdLinkFix
 
 
 def test_body_id_link_fix_type() -> None:

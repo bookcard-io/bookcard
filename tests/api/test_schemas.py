@@ -18,7 +18,7 @@
 import pytest
 from pydantic import ValidationError
 
-from fundamental.api.schemas import (
+from bookcard.api.schemas import (
     InviteValidationResponse,
     LoginRequest,
     LoginResponse,
@@ -234,8 +234,8 @@ def test_profile_read(
 
 def test_user_read_from_user_with_default_ereader() -> None:
     """Test UserRead.from_user with default e-reader device."""
-    from fundamental.api.schemas import UserRead
-    from fundamental.models.auth import EReaderDevice, User
+    from bookcard.api.schemas import UserRead
+    from bookcard.models.auth import EReaderDevice, User
 
     user = User(
         id=1,
@@ -267,8 +267,8 @@ def test_user_read_from_user_with_default_ereader() -> None:
 
 def test_user_read_from_user_with_roles() -> None:
     """Test UserRead.from_user with roles."""
-    from fundamental.api.schemas import RoleRead, UserRead
-    from fundamental.models.auth import Role, User, UserRole
+    from bookcard.api.schemas import RoleRead, UserRead
+    from bookcard.models.auth import Role, User, UserRole
 
     user = User(
         id=1,
@@ -296,8 +296,8 @@ def test_user_read_from_user_with_roles() -> None:
 
 def test_user_read_from_user_with_role_none() -> None:
     """Test UserRead.from_user handles UserRole with None role."""
-    from fundamental.api.schemas import UserRead
-    from fundamental.models.auth import User, UserRole
+    from bookcard.api.schemas import UserRead
+    from bookcard.models.auth import User, UserRole
 
     user = User(
         id=1,
@@ -309,7 +309,7 @@ def test_user_read_from_user_with_role_none() -> None:
     user_role1 = UserRole(id=1, user_id=1, role_id=1)
     user_role1.role = None  # type: ignore[attr-defined]
     user_role2 = UserRole(id=2, user_id=1, role_id=2)
-    from fundamental.models.auth import Role
+    from bookcard.models.auth import Role
 
     role2 = Role(id=2, name="editor", description="Editor role")
     user_role2.role = role2  # type: ignore[attr-defined]

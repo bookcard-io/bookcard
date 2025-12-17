@@ -23,18 +23,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.config import Library
-from fundamental.models.conversion import (
+from bookcard.models.config import Library
+from bookcard.models.conversion import (
     BookConversion,
     ConversionStatus,
 )
-from fundamental.models.tasks import TaskType
-from fundamental.services.book_conversion_orchestration_service import (
+from bookcard.models.tasks import TaskType
+from bookcard.services.book_conversion_orchestration_service import (
     BookConversionOrchestrationService,
     ConversionListResult,
 )
-from fundamental.services.book_service import BookService
-from fundamental.services.tasks.base import TaskRunner
+from bookcard.services.book_service import BookService
+from bookcard.services.tasks.base import TaskRunner
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession
@@ -94,7 +94,7 @@ def orchestration_service(
 ) -> BookConversionOrchestrationService:
     """Create BookConversionOrchestrationService instance."""
     with patch(
-        "fundamental.services.book_conversion_orchestration_service.create_conversion_service"
+        "bookcard.services.book_conversion_orchestration_service.create_conversion_service"
     ) as mock_create:
         mock_create.return_value = mock_conversion_service
         return BookConversionOrchestrationService(
@@ -118,7 +118,7 @@ class TestInit:
     ) -> None:
         """Test initialization with task runner (covers lines 117-121)."""
         with patch(
-            "fundamental.services.book_conversion_orchestration_service.create_conversion_service"
+            "bookcard.services.book_conversion_orchestration_service.create_conversion_service"
         ) as mock_create:
             mock_create.return_value = mock_conversion_service
             service = BookConversionOrchestrationService(
@@ -143,7 +143,7 @@ class TestInit:
     ) -> None:
         """Test initialization without task runner."""
         with patch(
-            "fundamental.services.book_conversion_orchestration_service.create_conversion_service"
+            "bookcard.services.book_conversion_orchestration_service.create_conversion_service"
         ) as mock_create:
             mock_create.return_value = mock_conversion_service
             service = BookConversionOrchestrationService(
@@ -300,7 +300,7 @@ class TestInitiateConversion:
     ) -> None:
         """Test initiate_conversion when task runner unavailable (covers lines 216-218)."""
         with patch(
-            "fundamental.services.book_conversion_orchestration_service.create_conversion_service"
+            "bookcard.services.book_conversion_orchestration_service.create_conversion_service"
         ) as mock_create:
             mock_create.return_value = mock_conversion_service
             service = BookConversionOrchestrationService(

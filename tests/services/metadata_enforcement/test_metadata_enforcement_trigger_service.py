@@ -22,10 +22,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.config import Library
-from fundamental.models.core import Book
-from fundamental.repositories.models import BookWithFullRelations
-from fundamental.services.metadata_enforcement_trigger_service import (
+from bookcard.models.config import Library
+from bookcard.models.core import Book
+from bookcard.repositories.models import BookWithFullRelations
+from bookcard.services.metadata_enforcement_trigger_service import (
     MetadataEnforcementTriggerService,
 )
 
@@ -132,7 +132,7 @@ def test_trigger_enforcement_if_enabled_enabled(
     mock_library_service.get_active_library.return_value = library
 
     with patch(
-        "fundamental.services.metadata_enforcement_trigger_service.MetadataEnforcementService"
+        "bookcard.services.metadata_enforcement_trigger_service.MetadataEnforcementService"
     ) as mock_enforcement_service_class:
         mock_enforcement_service = MagicMock()
         mock_enforcement_service.enforce_metadata.return_value = MagicMock(success=True)
@@ -159,7 +159,7 @@ def test_trigger_enforcement_if_enabled_disabled(
     mock_library_service.get_active_library.return_value = library_disabled
 
     with patch(
-        "fundamental.services.metadata_enforcement_trigger_service.MetadataEnforcementService"
+        "bookcard.services.metadata_enforcement_trigger_service.MetadataEnforcementService"
     ) as mock_enforcement_service_class:
         service = MetadataEnforcementTriggerService(
             session,  # type: ignore[arg-type]
@@ -179,7 +179,7 @@ def test_trigger_enforcement_if_enabled_no_library(
     mock_library_service.get_active_library.return_value = None
 
     with patch(
-        "fundamental.services.metadata_enforcement_trigger_service.MetadataEnforcementService"
+        "bookcard.services.metadata_enforcement_trigger_service.MetadataEnforcementService"
     ) as mock_enforcement_service_class:
         service = MetadataEnforcementTriggerService(
             session,  # type: ignore[arg-type]
@@ -200,7 +200,7 @@ def test_trigger_enforcement_if_enabled_exception(
     mock_library_service.get_active_library.return_value = library
 
     with patch(
-        "fundamental.services.metadata_enforcement_trigger_service.MetadataEnforcementService"
+        "bookcard.services.metadata_enforcement_trigger_service.MetadataEnforcementService"
     ) as mock_enforcement_service_class:
         mock_enforcement_service = MagicMock()
         mock_enforcement_service.enforce_metadata.side_effect = Exception("Test error")

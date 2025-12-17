@@ -19,7 +19,7 @@ from pathlib import Path  # noqa: TC003
 
 from sqlalchemy import text
 
-from fundamental.repositories.session_manager import CalibreSessionManager
+from bookcard.repositories.session_manager import CalibreSessionManager
 
 
 def test_calibre_session_manager_sets_sqlite_pragmas(tmp_path: Path) -> None:

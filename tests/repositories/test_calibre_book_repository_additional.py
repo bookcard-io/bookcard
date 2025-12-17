@@ -28,18 +28,18 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.core import (
+from bookcard.models.core import (
     BookLanguageLink,
     BookPublisherLink,
     BookRatingLink,
     BookSeriesLink,
     Identifier,
 )
-from fundamental.repositories import CalibreBookRepository
-from fundamental.repositories.book_relationship_manager import (
+from bookcard.repositories import CalibreBookRepository
+from bookcard.repositories.book_relationship_manager import (
     BookRelationshipManager,
 )
-from fundamental.repositories.session_manager import CalibreSessionManager
+from bookcard.repositories.session_manager import CalibreSessionManager
 
 if TYPE_CHECKING:
     from collections.abc import Generator

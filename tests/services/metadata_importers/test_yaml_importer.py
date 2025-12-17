@@ -22,7 +22,7 @@ from unittest.mock import patch
 
 import pytest
 
-from fundamental.services.metadata_importers.yaml_importer import YamlImporter
+from bookcard.services.metadata_importers.yaml_importer import YamlImporter
 
 
 @pytest.fixture
@@ -103,7 +103,7 @@ def test_import_metadata_minimal() -> None:
 
 def test_import_metadata_pyyaml_not_installed() -> None:
     """Test import_metadata raises error when PyYAML is not installed."""
-    with patch("fundamental.services.metadata_importers.yaml_importer.yaml", None):
+    with patch("bookcard.services.metadata_importers.yaml_importer.yaml", None):
         importer = YamlImporter()
         with pytest.raises(ValueError, match="YAML import requires PyYAML"):
             importer.import_metadata("title: Test")
@@ -348,7 +348,7 @@ def test_import_metadata_yaml_not_installed() -> None:
     """Test import_metadata when yaml is not installed (lines 28-29)."""
     # Mock yaml module to be None to simulate ImportError
     with (
-        patch("fundamental.services.metadata_importers.yaml_importer.yaml", None),
+        patch("bookcard.services.metadata_importers.yaml_importer.yaml", None),
         pytest.raises(ValueError, match="YAML import requires PyYAML"),
     ):
         YamlImporter().import_metadata("title: Test")
@@ -400,7 +400,7 @@ def test_yaml_import_error_handling() -> None:
     # This tests the ImportError handling when yaml module is not available
     # The actual import happens at module level, so we test the behavior
     # when yaml is None (which is set in lines 28-29)
-    with patch("fundamental.services.metadata_importers.yaml_importer.yaml", None):
+    with patch("bookcard.services.metadata_importers.yaml_importer.yaml", None):
         importer = YamlImporter()
         with pytest.raises(ValueError, match="YAML import requires PyYAML"):
             importer.import_metadata("title: Test")

@@ -22,9 +22,9 @@ from unittest.mock import patch
 
 import pytest
 
-from fundamental.models.core import Book
-from fundamental.repositories.models import BookWithFullRelations
-from fundamental.services.metadata_exporters.yaml_exporter import YamlExporter
+from bookcard.models.core import Book
+from bookcard.repositories.models import BookWithFullRelations
+from bookcard.services.metadata_exporters.yaml_exporter import YamlExporter
 
 
 @pytest.fixture
@@ -134,7 +134,7 @@ def test_export_pyyaml_not_installed(
 ) -> None:
     """Test export raises error when PyYAML is not installed."""
     with (
-        patch("fundamental.services.metadata_exporters.yaml_exporter.yaml", None),
+        patch("bookcard.services.metadata_exporters.yaml_exporter.yaml", None),
         pytest.raises(ValueError, match="YAML export requires PyYAML"),
     ):
         yaml_exporter.export(book_with_rels)

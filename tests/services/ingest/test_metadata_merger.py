@@ -19,8 +19,8 @@ from __future__ import annotations
 
 import pytest
 
-from fundamental.models.metadata import MetadataRecord
-from fundamental.services.ingest.metadata_merger import (
+from bookcard.models.metadata import MetadataRecord
+from bookcard.services.ingest.metadata_merger import (
     MergeStrategy,
     MetadataMerger,
     ScoredMetadataRecord,

@@ -22,19 +22,19 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.author_metadata import AuthorMapping
-from fundamental.models.config import Library
-from fundamental.models.core import Author
-from fundamental.repositories.config_repository import LibraryRepository
-from fundamental.services.author_rematch_service import AuthorRematchService
-from fundamental.services.author_service import AuthorService
-from fundamental.services.config_service import LibraryService
-from fundamental.services.library_scanning.pipeline.link_components import (
+from bookcard.models.author_metadata import AuthorMapping
+from bookcard.models.config import Library
+from bookcard.models.core import Author
+from bookcard.repositories.config_repository import LibraryRepository
+from bookcard.services.author_rematch_service import AuthorRematchService
+from bookcard.services.author_service import AuthorService
+from bookcard.services.config_service import LibraryService
+from bookcard.services.library_scanning.pipeline.link_components import (
     AuthorMappingRepository,
 )
-from fundamental.services.library_scanning.workers.progress import JobProgressTracker
-from fundamental.services.messaging.base import MessageBroker
-from fundamental.services.messaging.redis_broker import RedisBroker
+from bookcard.services.library_scanning.workers.progress import JobProgressTracker
+from bookcard.services.messaging.base import MessageBroker
+from bookcard.services.messaging.redis_broker import RedisBroker
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession
@@ -383,7 +383,7 @@ class TestResolveViaCalibrePrefix:
         )
 
         with patch(
-            "fundamental.services.author_rematch_service.AuthorMappingRepository"
+            "bookcard.services.author_rematch_service.AuthorMappingRepository"
         ) as mock_repo_class:
             mock_repo = MagicMock(spec=AuthorMappingRepository)
             mock_repo_class.return_value = mock_repo
@@ -408,7 +408,7 @@ class TestResolveViaCalibrePrefix:
         )
 
         with patch(
-            "fundamental.services.author_rematch_service.AuthorMappingRepository"
+            "bookcard.services.author_rematch_service.AuthorMappingRepository"
         ) as mock_repo_class:
             mock_repo = MagicMock(spec=AuthorMappingRepository)
             mock_repo_class.return_value = mock_repo
@@ -495,7 +495,7 @@ class TestResolveLibraryAndAuthorIds:
         )
 
         with patch(
-            "fundamental.services.author_rematch_service.AuthorMappingRepository"
+            "bookcard.services.author_rematch_service.AuthorMappingRepository"
         ) as mock_repo_class:
             mock_repo = MagicMock(spec=AuthorMappingRepository)
             mock_repo_class.return_value = mock_repo
@@ -525,7 +525,7 @@ class TestResolveLibraryAndAuthorIds:
         )
 
         with patch(
-            "fundamental.services.author_rematch_service.AuthorMappingRepository"
+            "bookcard.services.author_rematch_service.AuthorMappingRepository"
         ) as mock_repo_class:
             mock_repo = MagicMock(spec=AuthorMappingRepository)
             mock_repo_class.return_value = mock_repo
@@ -574,7 +574,7 @@ class TestGetCalibreAuthorDict:
         rematch_service._library_repo = mock_library_repo
 
         with patch(
-            "fundamental.services.author_rematch_service.CalibreBookRepository"
+            "bookcard.services.author_rematch_service.CalibreBookRepository"
         ) as mock_repo_class:
             mock_calibre_repo = MagicMock()
             mock_calibre_session = MagicMock()
@@ -642,7 +642,7 @@ class TestGetCalibreAuthorDict:
         rematch_service._library_repo = mock_library_repo
 
         with patch(
-            "fundamental.services.author_rematch_service.CalibreBookRepository"
+            "bookcard.services.author_rematch_service.CalibreBookRepository"
         ) as mock_repo_class:
             mock_calibre_repo = MagicMock()
             mock_calibre_session = MagicMock()
@@ -671,7 +671,7 @@ class TestGetCalibreAuthorDict:
         rematch_service._library_repo = mock_library_repo
 
         with patch(
-            "fundamental.services.author_rematch_service.CalibreBookRepository"
+            "bookcard.services.author_rematch_service.CalibreBookRepository"
         ) as mock_repo_class:
             mock_calibre_repo = MagicMock()
             mock_calibre_session = MagicMock()
@@ -712,7 +712,7 @@ class TestEnqueueRematchJob:
         mock_message_broker.__class__ = RedisBroker
 
         with patch(
-            "fundamental.services.author_rematch_service.JobProgressTracker"
+            "bookcard.services.author_rematch_service.JobProgressTracker"
         ) as mock_tracker_class:
             mock_tracker = MagicMock(spec=JobProgressTracker)
             mock_tracker_class.return_value = mock_tracker
@@ -746,7 +746,7 @@ class TestEnqueueRematchJob:
         mock_message_broker.__class__ = RedisBroker
 
         with patch(
-            "fundamental.services.author_rematch_service.JobProgressTracker"
+            "bookcard.services.author_rematch_service.JobProgressTracker"
         ) as mock_tracker_class:
             mock_tracker = MagicMock(spec=JobProgressTracker)
             mock_tracker_class.return_value = mock_tracker

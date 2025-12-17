@@ -32,7 +32,7 @@ fi
 # Change ownership of application directories that need to be writable
 # Use || true to continue even if chown fails (e.g., on read-only mounts)
 chown -R appuser:appuser /app/web/.next 2>/dev/null || true
-chown -R appuser:appuser /app/fundamental 2>/dev/null || true
+chown -R appuser:appuser /app/bookcard 2>/dev/null || true
 
 # Ensure app user can write to /data directory (mounted volume)
 # This is the main directory where the application writes data

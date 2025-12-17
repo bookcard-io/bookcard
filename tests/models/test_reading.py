@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from fundamental.models.reading import ReadingSession
+from bookcard.models.reading import ReadingSession
 
 
 @pytest.fixture

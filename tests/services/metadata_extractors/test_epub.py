@@ -25,7 +25,7 @@ from pathlib import Path
 import pytest
 from lxml import etree  # type: ignore[attr-defined]
 
-from fundamental.services.metadata_extractors.epub import EpubMetadataExtractor
+from bookcard.services.metadata_extractors.epub import EpubMetadataExtractor
 
 
 @pytest.fixture

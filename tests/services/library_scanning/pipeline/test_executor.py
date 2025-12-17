@@ -21,12 +21,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.services.library_scanning.pipeline.base import (
+from bookcard.services.library_scanning.pipeline.base import (
     PipelineStage,
     StageResult,
 )
-from fundamental.services.library_scanning.pipeline.context import PipelineContext
-from fundamental.services.library_scanning.pipeline.executor import PipelineExecutor
+from bookcard.services.library_scanning.pipeline.context import PipelineContext
+from bookcard.services.library_scanning.pipeline.executor import PipelineExecutor
 
 
 class MockStage(PipelineStage):

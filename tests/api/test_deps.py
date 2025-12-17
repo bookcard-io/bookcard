@@ -22,7 +22,7 @@ import pytest
 from fastapi import HTTPException, Request, status
 from sqlmodel import Session
 
-from fundamental.api.deps import (
+from bookcard.api.deps import (
     get_current_user,
     get_db_session,
     get_kobo_auth_token,
@@ -30,10 +30,10 @@ from fundamental.api.deps import (
     get_opds_user,
     require_permission,
 )
-from fundamental.config import AppConfig
-from fundamental.database import create_db_engine
-from fundamental.models.auth import User
-from fundamental.services.security import SecurityTokenError
+from bookcard.config import AppConfig
+from bookcard.database import create_db_engine
+from bookcard.models.auth import User
+from bookcard.services.security import SecurityTokenError
 from tests.conftest import TEST_ENCRYPTION_KEY, DummySession
 
 
@@ -90,7 +90,7 @@ def test_get_current_user_invalid_token() -> None:
         encryption_key=TEST_ENCRYPTION_KEY,
     )
     session = DummySession()
-    with patch("fundamental.api.deps.JWTManager") as mock_jwt_class:
+    with patch("bookcard.api.deps.JWTManager") as mock_jwt_class:
         mock_jwt = MagicMock()
         mock_jwt.decode_token.side_effect = SecurityTokenError()
         mock_jwt_class.return_value = mock_jwt
@@ -113,11 +113,11 @@ def test_get_current_user_user_not_found() -> None:
         encryption_key=TEST_ENCRYPTION_KEY,
     )
     session = DummySession()
-    with patch("fundamental.api.deps.JWTManager") as mock_jwt_class:
+    with patch("bookcard.api.deps.JWTManager") as mock_jwt_class:
         mock_jwt = MagicMock()
         mock_jwt.decode_token.return_value = {"sub": "999"}
         mock_jwt_class.return_value = mock_jwt
-        with patch("fundamental.api.deps.UserRepository") as mock_repo_class:
+        with patch("bookcard.api.deps.UserRepository") as mock_repo_class:
             mock_repo = MagicMock()
             mock_repo.get.return_value = None
             mock_repo_class.return_value = mock_repo
@@ -146,11 +146,11 @@ def test_get_current_user_success() -> None:
         email="test@example.com",
         password_hash="hash",
     )
-    with patch("fundamental.api.deps.JWTManager") as mock_jwt_class:
+    with patch("bookcard.api.deps.JWTManager") as mock_jwt_class:
         mock_jwt = MagicMock()
         mock_jwt.decode_token.return_value = {"sub": "1"}
         mock_jwt_class.return_value = mock_jwt
-        with patch("fundamental.api.deps.UserRepository") as mock_repo_class:
+        with patch("bookcard.api.deps.UserRepository") as mock_repo_class:
             mock_repo = MagicMock()
             mock_repo.get.return_value = user
             mock_repo_class.return_value = mock_repo
@@ -182,9 +182,9 @@ def test_get_current_user_oidc_fallback_by_sub() -> None:
     )
 
     with (
-        patch("fundamental.api.deps.JWTManager") as mock_jwt_class,
-        patch("fundamental.api.deps.OIDCAuthService") as mock_oidc_class,
-        patch("fundamental.api.deps.UserRepository") as mock_repo_class,
+        patch("bookcard.api.deps.JWTManager") as mock_jwt_class,
+        patch("bookcard.api.deps.OIDCAuthService") as mock_oidc_class,
+        patch("bookcard.api.deps.UserRepository") as mock_repo_class,
     ):
         mock_jwt = MagicMock()
         mock_jwt.decode_token.side_effect = SecurityTokenError()
@@ -206,7 +206,7 @@ def test_get_current_user_oidc_fallback_by_sub() -> None:
 
 def test_get_admin_user_success() -> None:
     """Test successful get_admin_user with admin user."""
-    from fundamental.api.deps import get_admin_user
+    from bookcard.api.deps import get_admin_user
 
     admin_user = User(
         id=1,
@@ -222,7 +222,7 @@ def test_get_admin_user_success() -> None:
 
 def test_get_admin_user_not_admin() -> None:
     """Test get_admin_user raises 403 when user is not admin."""
-    from fundamental.api.deps import get_admin_user
+    from bookcard.api.deps import get_admin_user
 
     regular_user = User(
         id=1,
@@ -251,7 +251,7 @@ def test_require_permission_no_context() -> None:
 
     permission_checker = require_permission("books", "read")
 
-    with patch("fundamental.api.deps.PermissionService") as mock_service_class:
+    with patch("bookcard.api.deps.PermissionService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.check_permission.return_value = None  # Permission granted
         mock_service_class.return_value = mock_service
@@ -277,7 +277,7 @@ def test_require_permission_with_dict_context() -> None:
     context = {"book_id": 123}
     permission_checker = require_permission("books", "read", context=context)
 
-    with patch("fundamental.api.deps.PermissionService") as mock_service_class:
+    with patch("bookcard.api.deps.PermissionService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.check_permission.return_value = None  # Permission granted
         mock_service_class.return_value = mock_service
@@ -312,7 +312,7 @@ def test_require_permission_with_callable_context() -> None:
         context=context_provider,  # type: ignore[arg-type]
     )
 
-    with patch("fundamental.api.deps.PermissionService") as mock_service_class:
+    with patch("bookcard.api.deps.PermissionService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.check_permission.return_value = None  # Permission granted
         mock_service_class.return_value = mock_service
@@ -338,7 +338,7 @@ def test_require_permission_denied() -> None:
 
     permission_checker = require_permission("books", "write")
 
-    with patch("fundamental.api.deps.PermissionService") as mock_service_class:
+    with patch("bookcard.api.deps.PermissionService") as mock_service_class:
         mock_service = MagicMock()
         mock_service.check_permission.side_effect = HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -422,10 +422,10 @@ def test_get_opds_user(
     """
     session = DummySession()
     with (
-        patch("fundamental.api.deps.UserRepository") as mock_repo_class,
-        patch("fundamental.api.deps.PasswordHasher") as mock_hasher_class,
-        patch("fundamental.api.deps.JWTManager") as mock_jwt_class,
-        patch("fundamental.api.deps.OpdsAuthService") as mock_service_class,
+        patch("bookcard.api.deps.UserRepository") as mock_repo_class,
+        patch("bookcard.api.deps.PasswordHasher") as mock_hasher_class,
+        patch("bookcard.api.deps.JWTManager") as mock_jwt_class,
+        patch("bookcard.api.deps.OpdsAuthService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -574,9 +574,9 @@ def test_get_kobo_user(
     """
     session = DummySession()
     with (
-        patch("fundamental.api.deps.KoboAuthTokenRepository") as mock_token_repo_class,
-        patch("fundamental.api.deps.UserRepository") as mock_user_repo_class,
-        patch("fundamental.api.deps.KoboAuthService") as mock_service_class,
+        patch("bookcard.api.deps.KoboAuthTokenRepository") as mock_token_repo_class,
+        patch("bookcard.api.deps.UserRepository") as mock_user_repo_class,
+        patch("bookcard.api.deps.KoboAuthService") as mock_service_class,
     ):
         mock_token_repo = MagicMock()
         mock_token_repo_class.return_value = mock_token_repo

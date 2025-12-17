@@ -20,7 +20,7 @@ from tempfile import NamedTemporaryFile
 
 import pytest
 
-from fundamental.services.readlist.comicrack_importer import ComicRackImporter
+from bookcard.services.readlist.comicrack_importer import ComicRackImporter
 
 
 def test_comicrack_importer_can_import() -> None:

@@ -24,7 +24,7 @@ import pytest
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-from fundamental.models.core import (
+from bookcard.models.core import (
     Author,
     BookAuthorLink,
     BookLanguageLink,
@@ -37,8 +37,8 @@ from fundamental.models.core import (
     Series,
     Tag,
 )
-from fundamental.repositories.book_relationship_manager import BookRelationshipManager
-from fundamental.services.book_metadata import BookMetadata, Contributor
+from bookcard.repositories.book_relationship_manager import BookRelationshipManager
+from bookcard.services.book_metadata import BookMetadata, Contributor
 from tests.conftest import DummySession, MockResult
 
 

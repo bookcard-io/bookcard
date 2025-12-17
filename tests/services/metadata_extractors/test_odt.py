@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pytest
 
-from fundamental.services.metadata_extractors.odt import OdtMetadataExtractor
+from bookcard.services.metadata_extractors.odt import OdtMetadataExtractor
 
 
 @pytest.fixture

@@ -24,7 +24,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.services.metadata_extractors.fbz import FbzMetadataExtractor
+from bookcard.services.metadata_extractors.fbz import FbzMetadataExtractor
 
 
 @pytest.fixture

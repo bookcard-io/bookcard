@@ -21,10 +21,10 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from fundamental.models.author_metadata import AuthorMapping, AuthorMetadata
-from fundamental.services.library_scanning.data_sources.types import AuthorData
-from fundamental.services.library_scanning.matching.types import MatchResult
-from fundamental.services.library_scanning.pipeline.link_components import (
+from bookcard.models.author_metadata import AuthorMapping, AuthorMetadata
+from bookcard.services.library_scanning.data_sources.types import AuthorData
+from bookcard.services.library_scanning.matching.types import MatchResult
+from bookcard.services.library_scanning.pipeline.link_components import (
     AuthorMappingRepository,
     AuthorMetadataRepository,
     LinkingStatistics,

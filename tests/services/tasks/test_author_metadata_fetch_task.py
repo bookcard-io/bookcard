@@ -21,7 +21,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.services.tasks.author_metadata_fetch_task import (
+from bookcard.services.tasks.author_metadata_fetch_task import (
     AuthorMetadataFetchTask,
 )
 
@@ -77,10 +77,10 @@ class TestAuthorMetadataFetchTaskInit:
 class TestAuthorMetadataFetchTaskRun:
     """Test AuthorMetadataFetchTask run method."""
 
-    @patch("fundamental.services.tasks.author_metadata_fetch_task.AuthorRepository")
-    @patch("fundamental.services.tasks.author_metadata_fetch_task.LibraryRepository")
-    @patch("fundamental.services.tasks.author_metadata_fetch_task.LibraryService")
-    @patch("fundamental.services.tasks.author_metadata_fetch_task.AuthorService")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.AuthorRepository")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.LibraryRepository")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.LibraryService")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.AuthorService")
     def test_run_success(
         self,
         mock_author_service_class: MagicMock,
@@ -118,10 +118,10 @@ class TestAuthorMetadataFetchTaskRun:
         # Verify author service was called
         mock_author_service.fetch_author_metadata.assert_called_once_with("OL123A")
 
-    @patch("fundamental.services.tasks.author_metadata_fetch_task.AuthorRepository")
-    @patch("fundamental.services.tasks.author_metadata_fetch_task.LibraryRepository")
-    @patch("fundamental.services.tasks.author_metadata_fetch_task.LibraryService")
-    @patch("fundamental.services.tasks.author_metadata_fetch_task.AuthorService")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.AuthorRepository")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.LibraryRepository")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.LibraryService")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.AuthorService")
     def test_run_cancelled_before_processing(
         self,
         mock_author_service_class: MagicMock,
@@ -144,10 +144,10 @@ class TestAuthorMetadataFetchTaskRun:
         # Should not call author service
         mock_author_service_class.assert_not_called()
 
-    @patch("fundamental.services.tasks.author_metadata_fetch_task.AuthorRepository")
-    @patch("fundamental.services.tasks.author_metadata_fetch_task.LibraryRepository")
-    @patch("fundamental.services.tasks.author_metadata_fetch_task.LibraryService")
-    @patch("fundamental.services.tasks.author_metadata_fetch_task.AuthorService")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.AuthorRepository")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.LibraryRepository")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.LibraryService")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.AuthorService")
     def test_run_cancelled_during_execution(
         self,
         mock_author_service_class: MagicMock,
@@ -185,10 +185,10 @@ class TestAuthorMetadataFetchTaskRun:
         # Should not call fetch_author_metadata
         mock_author_service.fetch_author_metadata.assert_not_called()
 
-    @patch("fundamental.services.tasks.author_metadata_fetch_task.AuthorRepository")
-    @patch("fundamental.services.tasks.author_metadata_fetch_task.LibraryRepository")
-    @patch("fundamental.services.tasks.author_metadata_fetch_task.LibraryService")
-    @patch("fundamental.services.tasks.author_metadata_fetch_task.AuthorService")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.AuthorRepository")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.LibraryRepository")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.LibraryService")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.AuthorService")
     def test_run_exception(
         self,
         mock_author_service_class: MagicMock,

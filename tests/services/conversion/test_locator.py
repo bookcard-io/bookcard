@@ -22,7 +22,7 @@ from unittest.mock import patch
 
 import pytest
 
-from fundamental.services.conversion.locator import ConverterLocator
+from bookcard.services.conversion.locator import ConverterLocator
 
 
 @pytest.fixture

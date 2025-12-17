@@ -15,9 +15,9 @@
 
 """Tests for stray image fix implementation."""
 
-from fundamental.models.epub_fixer import EPUBFixType
-from fundamental.services.epub_fixer.core.epub import EPUBContents
-from fundamental.services.epub_fixer.core.fixes.stray_img import StrayImageFix
+from bookcard.models.epub_fixer import EPUBFixType
+from bookcard.services.epub_fixer.core.epub import EPUBContents
+from bookcard.services.epub_fixer.core.fixes.stray_img import StrayImageFix
 
 
 def test_stray_image_fix_type() -> None:

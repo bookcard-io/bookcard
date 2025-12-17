@@ -19,8 +19,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from fundamental.metadata.base import MetadataProvider
-from fundamental.models.metadata import MetadataRecord, MetadataSourceInfo
+from bookcard.metadata.base import MetadataProvider
+from bookcard.models.metadata import MetadataRecord, MetadataSourceInfo
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

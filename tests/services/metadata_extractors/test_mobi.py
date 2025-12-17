@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pytest
 
-from fundamental.services.metadata_extractors.mobi import MobiMetadataExtractor
+from bookcard.services.metadata_extractors.mobi import MobiMetadataExtractor
 
 
 @pytest.fixture

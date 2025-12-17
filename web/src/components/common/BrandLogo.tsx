@@ -32,7 +32,7 @@ export interface BrandLogoProps {
 /**
  * Reusable brand logo component.
  *
- * Displays the Fundamental logo and brand name.
+ * Displays the Bookcard logo and brand name.
  * Follows DRY by centralizing logo/brand display logic.
  * Follows SRP by only handling logo/brand rendering.
  *
@@ -62,7 +62,7 @@ export function BrandLogo({
     >
       <img
         src="/reading-logo.png"
-        alt="Fundamental Logo"
+        alt="Bookcard Logo"
         width={24}
         height={24}
         className={cn("h-6 min-h-6 w-6 min-w-6 shrink-0", logoClassName)}
@@ -74,7 +74,7 @@ export function BrandLogo({
             textClassName,
           )}
         >
-          Fundamental
+          Bookcard
         </span>
       )}
     </Link>

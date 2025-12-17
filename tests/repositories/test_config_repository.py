@@ -17,8 +17,8 @@
 
 from __future__ import annotations
 
-from fundamental.models.config import Library
-from fundamental.repositories.config_repository import LibraryRepository
+from bookcard.models.config import Library
+from bookcard.repositories.config_repository import LibraryRepository
 from tests.conftest import DummySession
 
 

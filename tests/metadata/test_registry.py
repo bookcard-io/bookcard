@@ -22,12 +22,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.metadata.base import MetadataProvider
-from fundamental.metadata.registry import (
+from bookcard.metadata.base import MetadataProvider
+from bookcard.metadata.registry import (
     MetadataProviderRegistry,
     get_registry,
 )
-from fundamental.models.metadata import MetadataRecord, MetadataSourceInfo
+from bookcard.models.metadata import MetadataRecord, MetadataSourceInfo
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -85,7 +85,7 @@ def test_registry_discover_providers_path_not_exists() -> None:
     registry._providers = {}
 
     # Patch Path operations to simulate non-existent providers directory
-    with patch("fundamental.metadata.registry.Path") as mock_path:
+    with patch("bookcard.metadata.registry.Path") as mock_path:
         # Create mock for providers_path
         mock_providers_path = MagicMock()
         mock_providers_path.exists.return_value = False
@@ -339,7 +339,7 @@ def test_registry_list_providers() -> None:
 def test_get_registry_creates_instance() -> None:
     """Test get_registry creates global instance (covers lines 211-213)."""
     # Reset global registry
-    import fundamental.metadata.registry as registry_module
+    import bookcard.metadata.registry as registry_module
 
     registry_module._registry = None
 

@@ -15,7 +15,7 @@
 
 """Tests for file type utilities."""
 
-from fundamental.services.epub_fixer.utils.file_types import FileTypes
+from bookcard.services.epub_fixer.utils.file_types import FileTypes
 
 
 def test_is_text_file_html() -> None:

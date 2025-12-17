@@ -22,9 +22,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.auth import User
-from fundamental.models.kobo import KoboAuthToken
-from fundamental.services.kobo.auth_service import KoboAuthService
+from bookcard.models.auth import User
+from bookcard.models.kobo import KoboAuthToken
+from bookcard.services.kobo.auth_service import KoboAuthService
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession

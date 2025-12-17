@@ -19,8 +19,8 @@ from __future__ import annotations
 
 import pytest
 
-from fundamental.models.ingest import IngestHistory, IngestStatus
-from fundamental.services.ingest.metadata_extraction import (
+from bookcard.models.ingest import IngestHistory, IngestStatus
+from bookcard.services.ingest.metadata_extraction import (
     ExtractedMetadata,
     extract_metadata,
 )

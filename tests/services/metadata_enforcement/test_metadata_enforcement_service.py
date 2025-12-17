@@ -23,15 +23,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.config import Library
-from fundamental.models.core import Book
-from fundamental.models.media import Data
-from fundamental.models.metadata_enforcement import EnforcementStatus
-from fundamental.repositories.models import BookWithFullRelations
-from fundamental.services.metadata_enforcement.ebook_enforcer import (
+from bookcard.models.config import Library
+from bookcard.models.core import Book
+from bookcard.models.media import Data
+from bookcard.models.metadata_enforcement import EnforcementStatus
+from bookcard.repositories.models import BookWithFullRelations
+from bookcard.services.metadata_enforcement.ebook_enforcer import (
     EbookMetadataEnforcer,
 )
-from fundamental.services.metadata_enforcement_service import (
+from bookcard.services.metadata_enforcement_service import (
     MetadataEnforcementService,
 )
 
@@ -160,7 +160,7 @@ def test_enforce_metadata_success(
     book_dir.mkdir(parents=True)
 
     with patch(
-        "fundamental.repositories.calibre_book_repository.CalibreBookRepository"
+        "bookcard.repositories.calibre_book_repository.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_session = MagicMock()
@@ -253,7 +253,7 @@ def test_enforce_ebook_files_no_enforcer(
     data_record = Data(id=1, book=1, format="PDF", uncompressed_size=100, name="test")
 
     with patch(
-        "fundamental.repositories.calibre_book_repository.CalibreBookRepository"
+        "bookcard.repositories.calibre_book_repository.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_session = MagicMock()
@@ -288,7 +288,7 @@ def test_enforce_ebook_files_no_book_id(
     data_record = Data(id=1, book=1, format="EPUB", uncompressed_size=100, name="test")
 
     with patch(
-        "fundamental.repositories.calibre_book_repository.CalibreBookRepository"
+        "bookcard.repositories.calibre_book_repository.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_session = MagicMock()
@@ -323,7 +323,7 @@ def test_enforce_ebook_files_file_not_found(
     data_record = Data(id=1, book=1, format="EPUB", uncompressed_size=100, name="test")
 
     with patch(
-        "fundamental.repositories.calibre_book_repository.CalibreBookRepository"
+        "bookcard.repositories.calibre_book_repository.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_session = MagicMock()
@@ -364,7 +364,7 @@ def test_enforce_ebook_files_success(
     data_record = Data(id=1, book=1, format="EPUB", uncompressed_size=100, name="test")
 
     with patch(
-        "fundamental.repositories.calibre_book_repository.CalibreBookRepository"
+        "bookcard.repositories.calibre_book_repository.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_session = MagicMock()
@@ -408,7 +408,7 @@ def test_enforce_ebook_files_exception(
     mock_ebook_enforcer.enforce_metadata.side_effect = Exception("Enforce error")
 
     with patch(
-        "fundamental.repositories.calibre_book_repository.CalibreBookRepository"
+        "bookcard.repositories.calibre_book_repository.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_session = MagicMock()

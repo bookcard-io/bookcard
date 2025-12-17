@@ -73,7 +73,7 @@ repos:
         stages: [pre-commit]
       - id: pytest
         name: run pytest with coverage
-        entry: uv run --frozen pytest ./tests -q --cov=fundamental --cov-report= --cov-fail-under=90 -n auto
+        entry: uv run --frozen pytest ./tests -q --cov=bookcard --cov-report= --cov-fail-under=90 -n auto
         language: system
         types: [python]
         pass_filenames: false

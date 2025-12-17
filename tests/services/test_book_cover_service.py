@@ -25,11 +25,11 @@ import httpx
 import pytest
 from PIL import Image
 
-from fundamental.models.config import Library
-from fundamental.models.core import Book
-from fundamental.repositories.models import BookWithFullRelations
-from fundamental.services.book_cover_service import BookCoverService
-from fundamental.services.book_service import BookService
+from bookcard.models.config import Library
+from bookcard.models.core import Book
+from bookcard.repositories.models import BookWithFullRelations
+from bookcard.services.book_cover_service import BookCoverService
+from bookcard.services.book_service import BookService
 from tests.conftest import DummySession
 
 # ============================================================================
@@ -197,7 +197,7 @@ class TestDownloadAndValidateImage:
         mock_response.raise_for_status.return_value = None
 
         with patch(
-            "fundamental.services.book_cover_service.httpx.Client"
+            "bookcard.services.book_cover_service.httpx.Client"
         ) as mock_client_class:
             mock_client = MagicMock()
             mock_client.__enter__.return_value = mock_client
@@ -223,7 +223,7 @@ class TestDownloadAndValidateImage:
         mock_response.raise_for_status.return_value = None
 
         with patch(
-            "fundamental.services.book_cover_service.httpx.Client"
+            "bookcard.services.book_cover_service.httpx.Client"
         ) as mock_client_class:
             mock_client = MagicMock()
             mock_client.__enter__.return_value = mock_client
@@ -247,7 +247,7 @@ class TestDownloadAndValidateImage:
         mock_response.raise_for_status.return_value = None
 
         with patch(
-            "fundamental.services.book_cover_service.httpx.Client"
+            "bookcard.services.book_cover_service.httpx.Client"
         ) as mock_client_class:
             mock_client = MagicMock()
             mock_client.__enter__.return_value = mock_client
@@ -266,7 +266,7 @@ class TestDownloadAndValidateImage:
         url = "https://example.com/image.jpg"
 
         with patch(
-            "fundamental.services.book_cover_service.httpx.Client"
+            "bookcard.services.book_cover_service.httpx.Client"
         ) as mock_client_class:
             mock_client = MagicMock()
             mock_client.__enter__.return_value = mock_client
@@ -293,7 +293,7 @@ class TestDownloadAndValidateImage:
         )
 
         with patch(
-            "fundamental.services.book_cover_service.httpx.Client"
+            "bookcard.services.book_cover_service.httpx.Client"
         ) as mock_client_class:
             mock_client = MagicMock()
             mock_client.__enter__.return_value = mock_client
@@ -318,7 +318,7 @@ class TestDownloadAndValidateImage:
         mock_response.raise_for_status.return_value = None
 
         with patch(
-            "fundamental.services.book_cover_service.httpx.Client"
+            "bookcard.services.book_cover_service.httpx.Client"
         ) as mock_client_class:
             mock_client = MagicMock()
             mock_client.__enter__.return_value = mock_client
@@ -547,7 +547,7 @@ class TestSaveTempCover:
         if image_format:
             img.format = image_format
 
-        with patch("fundamental.api.routes.books._temp_cover_storage", {}):
+        with patch("bookcard.api.routes.books._temp_cover_storage", {}):
             result = cover_service.save_temp_cover(sample_image_bytes, img)
 
             assert result.startswith("/api/books/temp-covers/")
@@ -565,9 +565,7 @@ class TestSaveTempCover:
         sample_image: Image.Image,
     ) -> None:
         """Test save_temp_cover stores path in module dict."""
-        with patch(
-            "fundamental.api.routes.books._temp_cover_storage", {}
-        ) as mock_storage:
+        with patch("bookcard.api.routes.books._temp_cover_storage", {}) as mock_storage:
             cover_service.save_temp_cover(sample_image_bytes, sample_image)
 
             # Verify storage dict was updated

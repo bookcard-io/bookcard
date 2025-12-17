@@ -26,7 +26,7 @@ def test_coverage() -> None:
     """Run tests with coverage and multi-threading."""
     args = [
         "tests",
-        "--cov=fundamental",
+        "--cov=bookcard",
         "--cov-report=term-missing",
         "--cov-report=html",
         "-n",
@@ -88,7 +88,7 @@ def serve() -> None:
     import uvicorn
 
     uvicorn.run(
-        "fundamental.api.main:app",
+        "bookcard.api.main:app",
         host="0.0.0.0",  # noqa: S104
         port=8000,
         reload=True,

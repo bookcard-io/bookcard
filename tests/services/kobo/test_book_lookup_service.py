@@ -21,9 +21,9 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from fundamental.models.core import Book
-from fundamental.repositories.models import BookWithFullRelations
-from fundamental.services.kobo.book_lookup_service import KoboBookLookupService
+from bookcard.models.core import Book
+from bookcard.repositories.models import BookWithFullRelations
+from bookcard.services.kobo.book_lookup_service import KoboBookLookupService
 
 # ============================================================================
 # Fixtures

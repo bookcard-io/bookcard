@@ -18,9 +18,9 @@
 from pathlib import Path
 from unittest.mock import patch
 
-from fundamental.services.book_metadata import BookMetadata
-from fundamental.services.book_metadata_extractor import BookMetadataExtractor
-from fundamental.services.metadata_extractors import MetadataExtractionStrategy
+from bookcard.services.book_metadata import BookMetadata
+from bookcard.services.book_metadata_extractor import BookMetadataExtractor
+from bookcard.services.metadata_extractors import MetadataExtractionStrategy
 
 
 class MockMetadataStrategy(MetadataExtractionStrategy):
@@ -57,7 +57,7 @@ def test_book_metadata_extractor_init() -> None:
     extractor = BookMetadataExtractor()
     assert len(extractor._strategies) == 13  # Updated: 13 extractors (was 6)
     # Last strategy should be FilenameMetadataExtractor (fallback)
-    from fundamental.services.metadata_extractors import FilenameMetadataExtractor
+    from bookcard.services.metadata_extractors import FilenameMetadataExtractor
 
     assert isinstance(extractor._strategies[-1], FilenameMetadataExtractor)
 

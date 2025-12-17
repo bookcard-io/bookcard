@@ -22,29 +22,29 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.auth import EBookFormat, EReaderDevice
-from fundamental.models.config import Library
-from fundamental.models.conversion import BookConversion, ConversionMethod
-from fundamental.models.core import Book
-from fundamental.models.epub_fixer import EPUBFix
-from fundamental.models.ingest import IngestHistory
-from fundamental.models.kobo import (
+from bookcard.models.auth import EBookFormat, EReaderDevice
+from bookcard.models.config import Library
+from bookcard.models.conversion import BookConversion, ConversionMethod
+from bookcard.models.core import Book
+from bookcard.models.epub_fixer import EPUBFix
+from bookcard.models.ingest import IngestHistory
+from bookcard.models.kobo import (
     KoboArchivedBook,
     KoboReadingState,
     KoboSyncedBook,
 )
-from fundamental.models.metadata_enforcement import (
+from bookcard.models.metadata_enforcement import (
     MetadataEnforcementOperation,
 )
-from fundamental.models.reading import (
+from bookcard.models.reading import (
     Annotation,
     AnnotationDirtied,
     ReadingProgress,
     ReadingSession,
     ReadStatus,
 )
-from fundamental.repositories import BookWithFullRelations, BookWithRelations
-from fundamental.services.book_service import BookService
+from bookcard.repositories import BookWithFullRelations, BookWithRelations
+from bookcard.services.book_service import BookService
 
 
 def test_book_service_init() -> None:
@@ -57,7 +57,7 @@ def test_book_service_init() -> None:
     )
 
     with patch(
-        "fundamental.services.book_service.CalibreBookRepository"
+        "bookcard.services.book_service.CalibreBookRepository"
     ) as mock_repo_class:
         service = BookService(library)
         assert service._library is library
@@ -77,7 +77,7 @@ def test_list_books_calculates_offset() -> None:
     )
 
     with patch(
-        "fundamental.services.book_service.CalibreBookRepository"
+        "bookcard.services.book_service.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.list_books.return_value = []
@@ -116,7 +116,7 @@ def test_list_books_with_search() -> None:
     )
 
     with patch(
-        "fundamental.services.book_service.CalibreBookRepository"
+        "bookcard.services.book_service.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.list_books.return_value = []
@@ -146,7 +146,7 @@ def test_get_book_delegates_to_repo() -> None:
     )
 
     with patch(
-        "fundamental.services.book_service.CalibreBookRepository"
+        "bookcard.services.book_service.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_book = MagicMock()
@@ -171,7 +171,7 @@ def test_get_thumbnail_url_with_book_has_cover() -> None:
 
     book = Book(id=123, title="Test Book", uuid="test-uuid", has_cover=True)
 
-    with patch("fundamental.services.book_service.CalibreBookRepository"):
+    with patch("bookcard.services.book_service.CalibreBookRepository"):
         service = BookService(library)
         result = service.get_thumbnail_url(book)
 
@@ -204,7 +204,7 @@ def test_get_thumbnail_url_with_cover_path_exists() -> None:
     mock_cover_path.stat.return_value.st_mtime = 1234567890.5
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch.object(BookService, "get_thumbnail_path", return_value=mock_cover_path),
     ):
         service = BookService(library)
@@ -225,7 +225,7 @@ def test_get_thumbnail_url_with_book_no_cover() -> None:
 
     book = Book(id=123, title="Test Book", uuid="test-uuid", has_cover=False)
 
-    with patch("fundamental.services.book_service.CalibreBookRepository"):
+    with patch("bookcard.services.book_service.CalibreBookRepository"):
         service = BookService(library)
         result = service.get_thumbnail_url(book)
 
@@ -244,7 +244,7 @@ def test_get_thumbnail_url_with_book_with_relations_has_cover() -> None:
     book = Book(id=456, title="Test Book", uuid="test-uuid", has_cover=True)
     book_with_rels = BookWithRelations(book=book, authors=[], series=None, formats=[])
 
-    with patch("fundamental.services.book_service.CalibreBookRepository"):
+    with patch("bookcard.services.book_service.CalibreBookRepository"):
         service = BookService(library)
         result = service.get_thumbnail_url(book_with_rels)
 
@@ -263,7 +263,7 @@ def test_get_thumbnail_url_with_book_with_relations_no_cover() -> None:
     book = Book(id=456, title="Test Book", uuid="test-uuid", has_cover=False)
     book_with_rels = BookWithRelations(book=book, authors=[], series=None, formats=[])
 
-    with patch("fundamental.services.book_service.CalibreBookRepository"):
+    with patch("bookcard.services.book_service.CalibreBookRepository"):
         service = BookService(library)
         result = service.get_thumbnail_url(book_with_rels)
 
@@ -288,7 +288,7 @@ def test_get_thumbnail_path_with_book_has_cover_exists() -> None:
     )
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch("pathlib.Path.exists", return_value=True) as mock_exists,
     ):
         service = BookService(library)
@@ -310,7 +310,7 @@ def test_get_thumbnail_path_with_book_no_cover() -> None:
 
     book = Book(id=123, title="Test Book", uuid="test-uuid", has_cover=False)
 
-    with patch("fundamental.services.book_service.CalibreBookRepository"):
+    with patch("bookcard.services.book_service.CalibreBookRepository"):
         service = BookService(library)
         result = service.get_thumbnail_path(book)
 
@@ -335,7 +335,7 @@ def test_get_thumbnail_path_with_book_cover_not_exists() -> None:
     )
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch("pathlib.Path.exists", return_value=False) as mock_exists,
     ):
         service = BookService(library)
@@ -364,7 +364,7 @@ def test_get_thumbnail_path_with_book_with_relations() -> None:
     book_with_rels = BookWithRelations(book=book, authors=[], series=None, formats=[])
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch("pathlib.Path.exists", return_value=True),
     ):
         service = BookService(library)
@@ -384,7 +384,7 @@ def test_search_suggestions_delegates_to_repo() -> None:
     )
 
     with patch(
-        "fundamental.services.book_service.CalibreBookRepository"
+        "bookcard.services.book_service.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.search_suggestions.return_value = {
@@ -429,7 +429,7 @@ def test_filter_suggestions_delegates_to_repo() -> None:
     )
 
     with patch(
-        "fundamental.services.book_service.CalibreBookRepository"
+        "bookcard.services.book_service.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.filter_suggestions.return_value = [
@@ -465,7 +465,7 @@ def test_list_books_with_filters_calculates_offset() -> None:
     )
 
     with patch(
-        "fundamental.services.book_service.CalibreBookRepository"
+        "bookcard.services.book_service.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.list_books_with_filters.return_value = []
@@ -522,7 +522,7 @@ def test_list_books_with_filters_all_filters() -> None:
     )
 
     with patch(
-        "fundamental.services.book_service.CalibreBookRepository"
+        "bookcard.services.book_service.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.list_books_with_filters.return_value = []
@@ -581,7 +581,7 @@ def test_get_book_full_delegates_to_repo() -> None:
     )
 
     with patch(
-        "fundamental.services.book_service.CalibreBookRepository"
+        "bookcard.services.book_service.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_book_full = MagicMock()
@@ -605,7 +605,7 @@ def test_update_book_delegates_to_repo() -> None:
     )
 
     with patch(
-        "fundamental.services.book_service.CalibreBookRepository"
+        "bookcard.services.book_service.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_updated_book = MagicMock()
@@ -654,7 +654,7 @@ def test_get_thumbnail_url_with_book_with_full_relations() -> None:
         formats=[],
     )
 
-    with patch("fundamental.services.book_service.CalibreBookRepository"):
+    with patch("bookcard.services.book_service.CalibreBookRepository"):
         service = BookService(library)
         result = service.get_thumbnail_url(book_with_full_rels)
 
@@ -695,7 +695,7 @@ def test_get_thumbnail_path_with_book_with_full_relations() -> None:
     )
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch("pathlib.Path.exists", return_value=True),
     ):
         service = BookService(library)
@@ -724,7 +724,7 @@ def test_get_thumbnail_path_with_library_root() -> None:
     )
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch("pathlib.Path.exists", return_value=True),
     ):
         service = BookService(library)
@@ -748,7 +748,7 @@ def test_add_book_with_library_root() -> None:
     library.library_root = "/custom/library/root"  # type: ignore[attr-defined]
 
     with patch(
-        "fundamental.services.book_service.CalibreBookRepository"
+        "bookcard.services.book_service.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.add_book.return_value = 123
@@ -776,7 +776,7 @@ def test_add_book_without_library_root() -> None:
     )
 
     with patch(
-        "fundamental.services.book_service.CalibreBookRepository"
+        "bookcard.services.book_service.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.add_book.return_value = 123
@@ -805,7 +805,7 @@ def test_delete_book_with_library_root() -> None:
     library.library_root = "/custom/library/root"  # type: ignore[attr-defined]
 
     with patch(
-        "fundamental.services.book_service.CalibreBookRepository"
+        "bookcard.services.book_service.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -827,7 +827,7 @@ def test_delete_book_without_library_root() -> None:
     )
 
     with patch(
-        "fundamental.services.book_service.CalibreBookRepository"
+        "bookcard.services.book_service.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -839,9 +839,9 @@ def test_delete_book_without_library_root() -> None:
         assert call_kwargs["library_path"] == Path("/path/to/library")
 
 
-# Tests for Fundamental database associations deletion (bug fix)
-def test_delete_book_deletes_fundamental_associations_with_session() -> None:
-    """Test delete_book deletes Fundamental database associations when session is available."""
+# Tests for Bookcard database associations deletion (bug fix)
+def test_delete_book_deletes_bookcard_associations_with_session() -> None:
+    """Test delete_book deletes Bookcard database associations when session is available."""
     library = Library(
         id=1,
         name="Test Library",
@@ -853,23 +853,23 @@ def test_delete_book_deletes_fundamental_associations_with_session() -> None:
     mock_repo = MagicMock()
 
     with patch(
-        "fundamental.services.book_service.CalibreBookRepository"
+        "bookcard.services.book_service.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo_class.return_value = mock_repo
 
         service = BookService(library, session=mock_session)
         with patch.object(
-            service, "_delete_fundamental_associations"
+            service, "_delete_bookcard_associations"
         ) as mock_delete_associations:
             service.delete_book(book_id=123, delete_files_from_drive=False)
 
-            # Verify Fundamental associations are deleted before Calibre deletion
+            # Verify Bookcard associations are deleted before Calibre deletion
             mock_delete_associations.assert_called_once_with(123)
             mock_repo.delete_book.assert_called_once()
 
 
-def test_delete_book_skips_fundamental_associations_without_session() -> None:
-    """Test delete_book skips Fundamental associations deletion when session is None."""
+def test_delete_book_skips_bookcard_associations_without_session() -> None:
+    """Test delete_book skips Bookcard associations deletion when session is None."""
     library = Library(
         id=1,
         name="Test Library",
@@ -880,23 +880,23 @@ def test_delete_book_skips_fundamental_associations_without_session() -> None:
     mock_repo = MagicMock()
 
     with patch(
-        "fundamental.services.book_service.CalibreBookRepository"
+        "bookcard.services.book_service.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo_class.return_value = mock_repo
 
         service = BookService(library, session=None)
         with patch.object(
-            service, "_delete_fundamental_associations"
+            service, "_delete_bookcard_associations"
         ) as mock_delete_associations:
             service.delete_book(book_id=123, delete_files_from_drive=False)
 
-            # Verify Fundamental associations deletion is not called
+            # Verify Bookcard associations deletion is not called
             mock_delete_associations.assert_not_called()
             mock_repo.delete_book.assert_called_once()
 
 
-def test_delete_fundamental_associations_deletes_all_model_types() -> None:
-    """Test _delete_fundamental_associations deletes all expected model types."""
+def test_delete_bookcard_associations_deletes_all_model_types() -> None:
+    """Test _delete_bookcard_associations deletes all expected model types."""
     library = Library(
         id=1,
         name="Test Library",
@@ -955,7 +955,7 @@ def test_delete_fundamental_associations_deletes_all_model_types() -> None:
     service = BookService(library, session=mock_session)
 
     # Call the method
-    service._delete_fundamental_associations(book_id)
+    service._delete_bookcard_associations(book_id)
 
     # Verify session.exec was called for each model type (12 models)
     assert mock_session.exec.call_count == 12
@@ -967,8 +967,8 @@ def test_delete_fundamental_associations_deletes_all_model_types() -> None:
     mock_session.commit.assert_called_once()
 
 
-def test_delete_fundamental_associations_handles_empty_results() -> None:
-    """Test _delete_fundamental_associations handles empty query results gracefully."""
+def test_delete_bookcard_associations_handles_empty_results() -> None:
+    """Test _delete_bookcard_associations handles empty query results gracefully."""
     library = Library(
         id=1,
         name="Test Library",
@@ -983,7 +983,7 @@ def test_delete_fundamental_associations_handles_empty_results() -> None:
     service = BookService(library, session=mock_session)
 
     # Call the method
-    service._delete_fundamental_associations(123)
+    service._delete_bookcard_associations(123)
 
     # Verify session.exec was called for each model type
     assert mock_session.exec.call_count == 12
@@ -995,8 +995,8 @@ def test_delete_fundamental_associations_handles_empty_results() -> None:
     mock_session.commit.assert_called_once()
 
 
-def test_delete_fundamental_associations_handles_errors() -> None:
-    """Test _delete_fundamental_associations rolls back on error."""
+def test_delete_bookcard_associations_handles_errors() -> None:
+    """Test _delete_bookcard_associations rolls back on error."""
     library = Library(
         id=1,
         name="Test Library",
@@ -1011,7 +1011,7 @@ def test_delete_fundamental_associations_handles_errors() -> None:
 
     # Call the method and expect it to raise
     with pytest.raises(Exception, match="Database error"):
-        service._delete_fundamental_associations(123)
+        service._delete_bookcard_associations(123)
 
     # Verify rollback was called
     mock_session.rollback.assert_called_once()
@@ -1020,8 +1020,8 @@ def test_delete_fundamental_associations_handles_errors() -> None:
     mock_session.commit.assert_not_called()
 
 
-def test_delete_fundamental_associations_no_session() -> None:
-    """Test _delete_fundamental_associations does nothing when session is None."""
+def test_delete_bookcard_associations_no_session() -> None:
+    """Test _delete_bookcard_associations does nothing when session is None."""
     library = Library(
         id=1,
         name="Test Library",
@@ -1032,7 +1032,7 @@ def test_delete_fundamental_associations_no_session() -> None:
     service = BookService(library, session=None)
 
     # Call the method - should not raise
-    service._delete_fundamental_associations(123)
+    service._delete_bookcard_associations(123)
 
     # No assertions needed - method should return early without error
 
@@ -1164,7 +1164,7 @@ def test_send_book_to_device_success(
 ) -> None:
     """Test send_book_to_device successfully sends book (covers lines 552-597)."""
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch.object(
             BookService, "get_book_full", return_value=book_with_rels
         ) as mock_get_book_full,
@@ -1205,7 +1205,7 @@ def test_send_book_to_device_book_not_found(
 ) -> None:
     """Test send_book_to_device raises ValueError when book not found (covers lines 558-561)."""
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch.object(BookService, "get_book_full", return_value=None),
     ):
         service = BookService(library)
@@ -1244,7 +1244,7 @@ def test_send_book_to_device_book_missing_id(
     )
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch.object(BookService, "get_book_full", return_value=book_with_rels),
     ):
         service = BookService(library)
@@ -1275,7 +1275,7 @@ def test_send_book_to_device_format_not_found(
         preferred_format=EBookFormat.EPUB,
     )
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch.object(BookService, "get_book_full", return_value=book_with_rels),
         patch.object(BookService, "_get_primary_author_name", return_value="Author"),
         patch.object(BookService, "_determine_format_to_send", return_value="PDF"),
@@ -1302,9 +1302,9 @@ def test_send_book_with_to_email_device_found(
 ) -> None:
     """Test send_book with to_email when device is found (covers lines 636-652)."""
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch(
-            "fundamental.repositories.ereader_repository.EReaderRepository"
+            "bookcard.repositories.ereader_repository.EReaderRepository"
         ) as mock_repo_class,
         patch.object(BookService, "get_book_full", return_value=book_with_rels),
         patch.object(BookService, "send_book_to_device") as mock_send_to_device,
@@ -1339,9 +1339,9 @@ def test_send_book_with_to_email_generic(
 ) -> None:
     """Test send_book with to_email when device not found (generic email) (covers lines 653-661)."""
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch(
-            "fundamental.repositories.ereader_repository.EReaderRepository"
+            "bookcard.repositories.ereader_repository.EReaderRepository"
         ) as mock_repo_class,
         patch.object(BookService, "get_book_full", return_value=book_with_rels),
         patch.object(BookService, "send_book_to_email") as mock_send_to_email,
@@ -1376,9 +1376,9 @@ def test_send_book_without_to_email_device_found(
 ) -> None:
     """Test send_book without to_email uses default device (covers lines 662-679)."""
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch(
-            "fundamental.repositories.ereader_repository.EReaderRepository"
+            "bookcard.repositories.ereader_repository.EReaderRepository"
         ) as mock_repo_class,
         patch.object(BookService, "get_book_full", return_value=book_with_rels),
         patch.object(BookService, "send_book_to_device") as mock_send_to_device,
@@ -1411,9 +1411,9 @@ def test_send_book_without_to_email_no_device(
 ) -> None:
     """Test send_book without to_email raises ValueError when no device (covers lines 664-667)."""
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch(
-            "fundamental.repositories.ereader_repository.EReaderRepository"
+            "bookcard.repositories.ereader_repository.EReaderRepository"
         ) as mock_repo_class,
         patch.object(BookService, "_get_user_device", return_value=None),
     ):
@@ -1441,9 +1441,9 @@ def test_find_device_by_email_found(
 ) -> None:
     """Test _find_device_by_email finds device (covers lines 696-710)."""
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch(
-            "fundamental.repositories.ereader_repository.EReaderRepository"
+            "bookcard.repositories.ereader_repository.EReaderRepository"
         ) as mock_repo_class,
     ):
         mock_repo = MagicMock()
@@ -1463,9 +1463,9 @@ def test_find_device_by_email_not_found(
 ) -> None:
     """Test _find_device_by_email returns None when device not found (covers lines 708-710)."""
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch(
-            "fundamental.repositories.ereader_repository.EReaderRepository"
+            "bookcard.repositories.ereader_repository.EReaderRepository"
         ) as mock_repo_class,
     ):
         mock_repo = MagicMock()
@@ -1482,7 +1482,7 @@ def test_find_device_by_email_no_session(
     library: Library,
 ) -> None:
     """Test _find_device_by_email returns None when no session (covers lines 696-698)."""
-    with patch("fundamental.services.book_service.CalibreBookRepository"):
+    with patch("bookcard.services.book_service.CalibreBookRepository"):
         service = BookService(library, session=None)
         result = service._find_device_by_email(user_id=1, email="device@example.com")
 
@@ -1497,9 +1497,9 @@ def test_get_user_device_default_device(
 ) -> None:
     """Test _get_user_device returns default device (covers lines 725-736)."""
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch(
-            "fundamental.repositories.ereader_repository.EReaderRepository"
+            "bookcard.repositories.ereader_repository.EReaderRepository"
         ) as mock_repo_class,
     ):
         mock_repo = MagicMock()
@@ -1530,9 +1530,9 @@ def test_get_user_device_first_device(
     )
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch(
-            "fundamental.repositories.ereader_repository.EReaderRepository"
+            "bookcard.repositories.ereader_repository.EReaderRepository"
         ) as mock_repo_class,
     ):
         mock_repo = MagicMock()
@@ -1554,9 +1554,9 @@ def test_get_user_device_no_devices(
 ) -> None:
     """Test _get_user_device returns None when no devices (covers lines 744-745)."""
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch(
-            "fundamental.repositories.ereader_repository.EReaderRepository"
+            "bookcard.repositories.ereader_repository.EReaderRepository"
         ) as mock_repo_class,
     ):
         mock_repo = MagicMock()
@@ -1574,7 +1574,7 @@ def test_get_user_device_no_session(
     library: Library,
 ) -> None:
     """Test _get_user_device returns None when no session (covers lines 725-727)."""
-    with patch("fundamental.services.book_service.CalibreBookRepository"):
+    with patch("bookcard.services.book_service.CalibreBookRepository"):
         service = BookService(library, session=None)
         result = service._get_user_device(user_id=1)
 
@@ -1590,7 +1590,7 @@ def test_send_book_to_email_success(
 ) -> None:
     """Test send_book_to_email successfully sends book (covers lines 779-837)."""
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch.object(BookService, "get_book_full", return_value=book_with_rels),
         patch.object(
             BookService, "_get_primary_author_name", return_value="Author One"
@@ -1627,7 +1627,7 @@ def test_send_book_to_email_book_not_found(
 ) -> None:
     """Test send_book_to_email raises ValueError when book not found (covers lines 785-788)."""
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch.object(BookService, "get_book_full", return_value=None),
     ):
         service = BookService(library)
@@ -1666,7 +1666,7 @@ def test_send_book_to_email_book_missing_id(
     )
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch.object(BookService, "get_book_full", return_value=book_with_rels),
     ):
         service = BookService(library)
@@ -1699,7 +1699,7 @@ def test_send_book_to_email_format_determination(
 ) -> None:
     """Test send_book_to_email format determination (covers lines 798-814)."""
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch.object(BookService, "get_book_full", return_value=book_with_rels),
         patch.object(BookService, "_get_primary_author_name", return_value="Author"),
         patch.object(
@@ -1754,7 +1754,7 @@ def test_send_book_to_email_no_formats_available(
     )
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch.object(BookService, "get_book_full", return_value=book_with_rels),
     ):
         service = BookService(library)
@@ -1792,7 +1792,7 @@ def test_send_book_to_email_format_str_empty(
     )
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch.object(BookService, "get_book_full", return_value=book_with_rels),
         patch.object(BookService, "_get_book_file_path", return_value=None),
     ):
@@ -1813,7 +1813,7 @@ def test_send_book_to_email_format_not_found(
 ) -> None:
     """Test send_book_to_email raises ValueError when format not found (covers lines 819-823)."""
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch.object(BookService, "get_book_full", return_value=book_with_rels),
         patch.object(BookService, "_find_format_in_book", return_value=None),
     ):
@@ -1855,7 +1855,7 @@ def test_determine_format_to_send(
         preferred_format=device_format,
     )
 
-    with patch("fundamental.services.book_service.CalibreBookRepository"):
+    with patch("bookcard.services.book_service.CalibreBookRepository"):
         service = BookService(library)
         result = service._determine_format_to_send(
             book_with_rels=book_with_rels,
@@ -1898,7 +1898,7 @@ def test_determine_format_to_send_no_formats_available(
         preferred_format=None,
     )
 
-    with patch("fundamental.services.book_service.CalibreBookRepository"):
+    with patch("bookcard.services.book_service.CalibreBookRepository"):
         service = BookService(library)
         with pytest.raises(ValueError, match="no_formats_available"):
             service._determine_format_to_send(
@@ -1941,7 +1941,7 @@ def test_find_format_in_book(
     expected_result: dict[str, str | int] | None,
 ) -> None:
     """Test _find_format_in_book (covers lines 901-906)."""
-    with patch("fundamental.services.book_service.CalibreBookRepository"):
+    with patch("bookcard.services.book_service.CalibreBookRepository"):
         service = BookService(library)
         result = service._find_format_in_book(formats, requested_format)
 
@@ -1959,7 +1959,7 @@ def test_get_book_file_path_with_library_root(
     format_data = {"format": "EPUB", "name": "test.epub", "size": 1000}
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch.object(BookService, "_get_file_name", return_value="test.epub"),
     ):
         service = BookService(library)
@@ -1985,7 +1985,7 @@ def test_get_book_file_path_without_library_root_dir(
     format_data = {"format": "EPUB", "name": "test.epub", "size": 1000}
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch.object(BookService, "_get_file_name", return_value="test.epub"),
         patch("pathlib.Path.is_dir", return_value=True),
     ):
@@ -2014,7 +2014,7 @@ def test_get_book_file_path_without_library_root_file(
     format_data = {"format": "EPUB", "name": "test.epub", "size": 1000}
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch.object(BookService, "_get_file_name", return_value="test.epub"),
         patch("pathlib.Path.is_dir", return_value=False),
     ):
@@ -2041,7 +2041,7 @@ def test_get_book_file_path_primary_path_exists(
     format_data = {"format": "EPUB", "name": "test.epub", "size": 1000}
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch.object(BookService, "_get_file_name", return_value="test.epub"),
     ):
         service = BookService(library)
@@ -2067,7 +2067,7 @@ def test_get_book_file_path_alternative_path_exists(
     format_data = {"format": "EPUB", "name": "test.epub", "size": 1000}
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch.object(BookService, "_get_file_name", return_value="nonexistent.epub"),
     ):
         service = BookService(library)
@@ -2093,7 +2093,7 @@ def test_get_book_file_path_directory_search(
     format_data = {"format": "EPUB", "name": "test.epub", "size": 1000}
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch.object(BookService, "_get_file_name", return_value="nonexistent.epub"),
     ):
         service = BookService(library)
@@ -2120,7 +2120,7 @@ def test_get_book_file_path_not_found(
     format_data = {"format": "EPUB", "name": "test.epub", "size": 1000}
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch.object(BookService, "_get_file_name", return_value="nonexistent.epub"),
     ):
         service = BookService(library)
@@ -2160,7 +2160,7 @@ def test_get_file_name(
     expected_name: str,
 ) -> None:
     """Test _get_file_name (covers lines 1005-1022)."""
-    with patch("fundamental.services.book_service.CalibreBookRepository"):
+    with patch("bookcard.services.book_service.CalibreBookRepository"):
         service = BookService(library)
         result = service._get_file_name(format_data, book_id, file_format)
 
@@ -2200,7 +2200,7 @@ def test_get_primary_author_name(
         formats=[],
     )
 
-    with patch("fundamental.services.book_service.CalibreBookRepository"):
+    with patch("bookcard.services.book_service.CalibreBookRepository"):
         result = BookService._get_primary_author_name(book_with_rels)
 
         assert result == expected_result
@@ -2210,7 +2210,7 @@ def test_get_primary_author_name(
 def test_lookup_tags_by_names_empty_list(library: Library) -> None:
     """Test lookup_tags_by_names with empty list (covers line 365-366)."""
     with patch(
-        "fundamental.services.book_service.CalibreBookRepository"
+        "bookcard.services.book_service.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -2224,7 +2224,7 @@ def test_lookup_tags_by_names_empty_list(library: Library) -> None:
 def test_lookup_tags_by_names_single_tag(library: Library) -> None:
     """Test lookup_tags_by_names with single tag (covers lines 368-381)."""
     with patch(
-        "fundamental.services.book_service.CalibreBookRepository"
+        "bookcard.services.book_service.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -2245,7 +2245,7 @@ def test_lookup_tags_by_names_single_tag(library: Library) -> None:
 def test_lookup_tags_by_names_multiple_tags(library: Library) -> None:
     """Test lookup_tags_by_names with multiple tags (covers lines 368-381)."""
     with patch(
-        "fundamental.services.book_service.CalibreBookRepository"
+        "bookcard.services.book_service.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -2268,7 +2268,7 @@ def test_lookup_tags_by_names_multiple_tags(library: Library) -> None:
 def test_lookup_tags_by_names_case_insensitive(library: Library) -> None:
     """Test lookup_tags_by_names is case-insensitive (covers lines 371-373)."""
     with patch(
-        "fundamental.services.book_service.CalibreBookRepository"
+        "bookcard.services.book_service.CalibreBookRepository"
     ) as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -2290,7 +2290,7 @@ def test_lookup_tags_by_names_case_insensitive(library: Library) -> None:
 # Tests for _ensure_epub_for_kindle (lines 1125-1198)
 def test_ensure_epub_for_kindle_epub_exists(library: Library, book: Book) -> None:
     """Test _ensure_epub_for_kindle when EPUB already exists (covers lines 1125-1127)."""
-    from fundamental.repositories import BookWithFullRelations
+    from bookcard.repositories import BookWithFullRelations
 
     book_with_rels = BookWithFullRelations(
         book=book,
@@ -2317,7 +2317,7 @@ def test_ensure_epub_for_kindle_epub_exists(library: Library, book: Book) -> Non
         formats=[EBookFormat.EPUB],
     )
 
-    with patch("fundamental.services.book_service.CalibreBookRepository"):
+    with patch("bookcard.services.book_service.CalibreBookRepository"):
         service = BookService(library)
         result = service._ensure_epub_for_kindle(1, book_with_rels, device)
 
@@ -2326,7 +2326,7 @@ def test_ensure_epub_for_kindle_epub_exists(library: Library, book: Book) -> Non
 
 def test_ensure_epub_for_kindle_no_formats(library: Library, book: Book) -> None:
     """Test _ensure_epub_for_kindle when no formats available (covers lines 1130-1132)."""
-    from fundamental.repositories import BookWithFullRelations
+    from bookcard.repositories import BookWithFullRelations
 
     book_with_rels = BookWithFullRelations(
         book=book,
@@ -2353,7 +2353,7 @@ def test_ensure_epub_for_kindle_no_formats(library: Library, book: Book) -> None
         formats=[EBookFormat.EPUB],
     )
 
-    with patch("fundamental.services.book_service.CalibreBookRepository"):
+    with patch("bookcard.services.book_service.CalibreBookRepository"):
         service = BookService(library)
         with pytest.raises(ValueError, match="no_formats_available_for_conversion"):
             service._ensure_epub_for_kindle(1, book_with_rels, device)
@@ -2363,7 +2363,7 @@ def test_ensure_epub_for_kindle_no_valid_source_format(
     library: Library, book: Book
 ) -> None:
     """Test _ensure_epub_for_kindle when source format is invalid (covers lines 1135-1138)."""
-    from fundamental.repositories import BookWithFullRelations
+    from bookcard.repositories import BookWithFullRelations
 
     book_with_rels = BookWithFullRelations(
         book=book,
@@ -2390,7 +2390,7 @@ def test_ensure_epub_for_kindle_no_valid_source_format(
         formats=[EBookFormat.EPUB],
     )
 
-    with patch("fundamental.services.book_service.CalibreBookRepository"):
+    with patch("bookcard.services.book_service.CalibreBookRepository"):
         service = BookService(library)
         with pytest.raises(ValueError, match="no_valid_source_format_for_conversion"):
             service._ensure_epub_for_kindle(1, book_with_rels, device)
@@ -2398,7 +2398,7 @@ def test_ensure_epub_for_kindle_no_valid_source_format(
 
 def test_ensure_epub_for_kindle_no_session(library: Library, book: Book) -> None:
     """Test _ensure_epub_for_kindle when session is None (covers lines 1148-1150)."""
-    from fundamental.repositories import BookWithFullRelations
+    from bookcard.repositories import BookWithFullRelations
 
     book_with_rels = BookWithFullRelations(
         book=book,
@@ -2425,7 +2425,7 @@ def test_ensure_epub_for_kindle_no_session(library: Library, book: Book) -> None
         formats=[EBookFormat.EPUB],
     )
 
-    with patch("fundamental.services.book_service.CalibreBookRepository"):
+    with patch("bookcard.services.book_service.CalibreBookRepository"):
         service = BookService(library)
         service._session = None
         with pytest.raises(ValueError, match="Session not available"):
@@ -2434,7 +2434,7 @@ def test_ensure_epub_for_kindle_no_session(library: Library, book: Book) -> None
 
 def test_ensure_epub_for_kindle_no_library(library: Library, book: Book) -> None:
     """Test _ensure_epub_for_kindle when no active library (covers lines 1155-1157)."""
-    from fundamental.repositories import BookWithFullRelations
+    from bookcard.repositories import BookWithFullRelations
     from tests.conftest import DummySession
 
     book_with_rels = BookWithFullRelations(
@@ -2463,10 +2463,10 @@ def test_ensure_epub_for_kindle_no_library(library: Library, book: Book) -> None
     )
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
-        patch("fundamental.services.book_service.LibraryRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.LibraryRepository"),
         patch(
-            "fundamental.services.book_service.LibraryService"
+            "bookcard.services.book_service.LibraryService"
         ) as mock_lib_service_class,
     ):
         mock_lib_service = MagicMock()
@@ -2484,8 +2484,8 @@ def test_ensure_epub_for_kindle_conversion_success(
     library: Library, book: Book
 ) -> None:
     """Test _ensure_epub_for_kindle when conversion succeeds (covers lines 1161-1185)."""
-    from fundamental.models.conversion import BookConversion, ConversionStatus
-    from fundamental.repositories import BookWithFullRelations
+    from bookcard.models.conversion import BookConversion, ConversionStatus
+    from bookcard.repositories import BookWithFullRelations
     from tests.conftest import DummySession
 
     book_with_rels = BookWithFullRelations(
@@ -2539,13 +2539,13 @@ def test_ensure_epub_for_kindle_conversion_success(
     )
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
-        patch("fundamental.services.book_service.LibraryRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.LibraryRepository"),
         patch(
-            "fundamental.services.book_service.LibraryService"
+            "bookcard.services.book_service.LibraryService"
         ) as mock_lib_service_class,
         patch(
-            "fundamental.services.book_service.create_conversion_service"
+            "bookcard.services.book_service.create_conversion_service"
         ) as mock_create_conversion,
     ):
         mock_lib_service = MagicMock()
@@ -2575,8 +2575,8 @@ def test_ensure_epub_for_kindle_conversion_success(
 
 def test_ensure_epub_for_kindle_conversion_failed(library: Library, book: Book) -> None:
     """Test _ensure_epub_for_kindle when conversion fails (covers lines 1187-1189)."""
-    from fundamental.models.conversion import BookConversion, ConversionStatus
-    from fundamental.repositories import BookWithFullRelations
+    from bookcard.models.conversion import BookConversion, ConversionStatus
+    from bookcard.repositories import BookWithFullRelations
     from tests.conftest import DummySession
 
     book_with_rels = BookWithFullRelations(
@@ -2614,13 +2614,13 @@ def test_ensure_epub_for_kindle_conversion_failed(library: Library, book: Book) 
     )
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
-        patch("fundamental.services.book_service.LibraryRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.LibraryRepository"),
         patch(
-            "fundamental.services.book_service.LibraryService"
+            "bookcard.services.book_service.LibraryService"
         ) as mock_lib_service_class,
         patch(
-            "fundamental.services.book_service.create_conversion_service"
+            "bookcard.services.book_service.create_conversion_service"
         ) as mock_create_conversion,
     ):
         mock_lib_service = MagicMock()
@@ -2642,7 +2642,7 @@ def test_ensure_epub_for_kindle_exception_handling(
     library: Library, book: Book
 ) -> None:
     """Test _ensure_epub_for_kindle exception handling (covers lines 1190-1198)."""
-    from fundamental.repositories import BookWithFullRelations
+    from bookcard.repositories import BookWithFullRelations
     from tests.conftest import DummySession
 
     book_with_rels = BookWithFullRelations(
@@ -2671,13 +2671,13 @@ def test_ensure_epub_for_kindle_exception_handling(
     )
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
-        patch("fundamental.services.book_service.LibraryRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.LibraryRepository"),
         patch(
-            "fundamental.services.book_service.LibraryService"
+            "bookcard.services.book_service.LibraryService"
         ) as mock_lib_service_class,
         patch(
-            "fundamental.services.book_service.create_conversion_service"
+            "bookcard.services.book_service.create_conversion_service"
         ) as mock_create_conversion,
     ):
         mock_lib_service = MagicMock()
@@ -2697,8 +2697,8 @@ def test_ensure_epub_for_kindle_exception_handling(
 
 def test_ensure_epub_for_kindle_refresh_no_epub(library: Library, book: Book) -> None:
     """Test _ensure_epub_for_kindle when refresh doesn't find EPUB (covers lines 1177-1185)."""
-    from fundamental.models.conversion import BookConversion, ConversionStatus
-    from fundamental.repositories import BookWithFullRelations
+    from bookcard.models.conversion import BookConversion, ConversionStatus
+    from bookcard.repositories import BookWithFullRelations
     from tests.conftest import DummySession
 
     book_with_rels = BookWithFullRelations(
@@ -2752,13 +2752,13 @@ def test_ensure_epub_for_kindle_refresh_no_epub(library: Library, book: Book) ->
     )
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
-        patch("fundamental.services.book_service.LibraryRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.LibraryRepository"),
         patch(
-            "fundamental.services.book_service.LibraryService"
+            "bookcard.services.book_service.LibraryService"
         ) as mock_lib_service_class,
         patch(
-            "fundamental.services.book_service.create_conversion_service"
+            "bookcard.services.book_service.create_conversion_service"
         ) as mock_create_conversion,
     ):
         mock_lib_service = MagicMock()
@@ -2781,8 +2781,8 @@ def test_ensure_epub_for_kindle_refresh_no_epub(library: Library, book: Book) ->
 
 def test_ensure_epub_for_kindle_refresh_none(library: Library, book: Book) -> None:
     """Test _ensure_epub_for_kindle when refresh returns None (covers lines 1177-1185)."""
-    from fundamental.models.conversion import BookConversion, ConversionStatus
-    from fundamental.repositories import BookWithFullRelations
+    from bookcard.models.conversion import BookConversion, ConversionStatus
+    from bookcard.repositories import BookWithFullRelations
     from tests.conftest import DummySession
 
     book_with_rels = BookWithFullRelations(
@@ -2819,13 +2819,13 @@ def test_ensure_epub_for_kindle_refresh_none(library: Library, book: Book) -> No
     )
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
-        patch("fundamental.services.book_service.LibraryRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.LibraryRepository"),
         patch(
-            "fundamental.services.book_service.LibraryService"
+            "bookcard.services.book_service.LibraryService"
         ) as mock_lib_service_class,
         patch(
-            "fundamental.services.book_service.create_conversion_service"
+            "bookcard.services.book_service.create_conversion_service"
         ) as mock_create_conversion,
     ):
         mock_lib_service = MagicMock()
@@ -2848,8 +2848,8 @@ def test_ensure_epub_for_kindle_refresh_none(library: Library, book: Book) -> No
 
 def test_ensure_epub_for_kindle_no_user_id(library: Library, book: Book) -> None:
     """Test _ensure_epub_for_kindle when device has no user_id (covers line 1166)."""
-    from fundamental.models.conversion import BookConversion, ConversionStatus
-    from fundamental.repositories import BookWithFullRelations
+    from bookcard.models.conversion import BookConversion, ConversionStatus
+    from bookcard.repositories import BookWithFullRelations
     from tests.conftest import DummySession
 
     book_with_rels = BookWithFullRelations(
@@ -2886,13 +2886,13 @@ def test_ensure_epub_for_kindle_no_user_id(library: Library, book: Book) -> None
     )
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
-        patch("fundamental.services.book_service.LibraryRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.LibraryRepository"),
         patch(
-            "fundamental.services.book_service.LibraryService"
+            "bookcard.services.book_service.LibraryService"
         ) as mock_lib_service_class,
         patch(
-            "fundamental.services.book_service.create_conversion_service"
+            "bookcard.services.book_service.create_conversion_service"
         ) as mock_create_conversion,
     ):
         mock_lib_service = MagicMock()

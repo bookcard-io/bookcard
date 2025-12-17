@@ -16,7 +16,7 @@
 /**
  * TypeScript types for book-related data structures.
  *
- * These types match the backend API schemas defined in fundamental/api/schemas.py
+ * These types match the backend API schemas defined in bookcard/api/schemas.py
  */
 
 import type { ReadStatusValue } from "@/types/reading";

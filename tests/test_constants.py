@@ -20,7 +20,7 @@ from unittest.mock import patch
 
 import pytest
 
-from fundamental.constants import IS_HAIKU, IS_LINUX, IS_MACOS, IS_WIN
+from bookcard.constants import IS_HAIKU, IS_LINUX, IS_MACOS, IS_WIN
 
 
 @pytest.mark.parametrize(
@@ -59,7 +59,7 @@ def test_platform_constants(
         # Re-import to get updated constants
         import importlib
 
-        import fundamental.constants as constants_module
+        import bookcard.constants as constants_module
 
         importlib.reload(constants_module)
 

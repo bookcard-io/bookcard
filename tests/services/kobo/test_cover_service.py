@@ -25,10 +25,10 @@ import pytest
 from fastapi import HTTPException, status
 from fastapi.responses import FileResponse, RedirectResponse
 
-from fundamental.models.core import Book
-from fundamental.repositories.models import BookWithFullRelations
-from fundamental.services.kobo.cover_service import KoboCoverService
-from fundamental.services.kobo.store_proxy_service import KoboStoreProxyService
+from bookcard.models.core import Book
+from bookcard.repositories.models import BookWithFullRelations
+from bookcard.services.kobo.cover_service import KoboCoverService
+from bookcard.services.kobo.store_proxy_service import KoboStoreProxyService
 
 # ============================================================================
 # Fixtures

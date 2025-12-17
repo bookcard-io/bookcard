@@ -28,13 +28,13 @@ if TYPE_CHECKING:
 
     from tests.conftest import DummySession
 
-from fundamental.models.config import EPUBFixerConfig
-from fundamental.models.epub_fixer import EPUBFix, EPUBFixRun, EPUBFixType
-from fundamental.repositories.epub_fixer_repository import (
+from bookcard.models.config import EPUBFixerConfig
+from bookcard.models.epub_fixer import EPUBFix, EPUBFixRun, EPUBFixType
+from bookcard.repositories.epub_fixer_repository import (
     EPUBFixRepository,
     EPUBFixRunRepository,
 )
-from fundamental.services.epub_fixer_service import EPUBFixerService
+from bookcard.services.epub_fixer_service import EPUBFixerService
 
 
 @pytest.fixture
@@ -707,11 +707,11 @@ class TestEPUBFixerServiceProcessEpubFile:
         session.set_exec_result([config])
 
         with (
-            patch("fundamental.services.epub_fixer.EPUBFixerOrchestrator") as mock_orch,
-            patch("fundamental.services.epub_fixer.EPUBReader") as mock_reader,
-            patch("fundamental.services.epub_fixer.EPUBWriter") as mock_writer,
-            patch("fundamental.services.epub_fixer.BackupService") as mock_backup,
-            patch("fundamental.services.epub_fixer.FixResultRecorder") as mock_recorder,
+            patch("bookcard.services.epub_fixer.EPUBFixerOrchestrator") as mock_orch,
+            patch("bookcard.services.epub_fixer.EPUBReader") as mock_reader,
+            patch("bookcard.services.epub_fixer.EPUBWriter") as mock_writer,
+            patch("bookcard.services.epub_fixer.BackupService") as mock_backup,
+            patch("bookcard.services.epub_fixer.FixResultRecorder") as mock_recorder,
         ):
             # Setup mocks
             mock_orch_instance = MagicMock()
@@ -754,14 +754,12 @@ class TestEPUBFixerServiceProcessEpubFile:
         session.set_exec_result([None])
 
         with (
-            patch("fundamental.services.epub_fixer.EPUBFixerOrchestrator") as mock_orch,
-            patch("fundamental.services.epub_fixer.EPUBReader") as mock_reader,
-            patch("fundamental.services.epub_fixer.EPUBWriter") as mock_writer,
-            patch("fundamental.services.epub_fixer.BackupService") as mock_backup_class,
-            patch(
-                "fundamental.services.epub_fixer.NullBackupService"
-            ) as mock_null_backup,
-            patch("fundamental.services.epub_fixer.FixResultRecorder") as mock_recorder,
+            patch("bookcard.services.epub_fixer.EPUBFixerOrchestrator") as mock_orch,
+            patch("bookcard.services.epub_fixer.EPUBReader") as mock_reader,
+            patch("bookcard.services.epub_fixer.EPUBWriter") as mock_writer,
+            patch("bookcard.services.epub_fixer.BackupService") as mock_backup_class,
+            patch("bookcard.services.epub_fixer.NullBackupService") as mock_null_backup,
+            patch("bookcard.services.epub_fixer.FixResultRecorder") as mock_recorder,
         ):
             # Setup mocks
             mock_orch_instance = MagicMock()
@@ -804,14 +802,12 @@ class TestEPUBFixerServiceProcessEpubFile:
         session.set_exec_result([None])
 
         with (
-            patch("fundamental.services.epub_fixer.EPUBFixerOrchestrator") as mock_orch,
-            patch("fundamental.services.epub_fixer.EPUBReader") as mock_reader,
-            patch("fundamental.services.epub_fixer.EPUBWriter") as mock_writer,
-            patch("fundamental.services.epub_fixer.BackupService") as mock_backup_class,
-            patch(
-                "fundamental.services.epub_fixer.NullBackupService"
-            ) as mock_null_backup,
-            patch("fundamental.services.epub_fixer.FixResultRecorder") as mock_recorder,
+            patch("bookcard.services.epub_fixer.EPUBFixerOrchestrator") as mock_orch,
+            patch("bookcard.services.epub_fixer.EPUBReader") as mock_reader,
+            patch("bookcard.services.epub_fixer.EPUBWriter") as mock_writer,
+            patch("bookcard.services.epub_fixer.BackupService") as mock_backup_class,
+            patch("bookcard.services.epub_fixer.NullBackupService") as mock_null_backup,
+            patch("bookcard.services.epub_fixer.FixResultRecorder") as mock_recorder,
         ):
             # Setup mocks
             mock_fix_result = MagicMock()
@@ -857,14 +853,12 @@ class TestEPUBFixerServiceProcessEpubFile:
         session.set_exec_result([None])
 
         with (
-            patch("fundamental.services.epub_fixer.EPUBFixerOrchestrator") as mock_orch,
-            patch("fundamental.services.epub_fixer.EPUBReader") as mock_reader,
-            patch("fundamental.services.epub_fixer.EPUBWriter") as mock_writer,
-            patch("fundamental.services.epub_fixer.BackupService") as mock_backup_class,
-            patch(
-                "fundamental.services.epub_fixer.NullBackupService"
-            ) as mock_null_backup,
-            patch("fundamental.services.epub_fixer.FixResultRecorder") as mock_recorder,
+            patch("bookcard.services.epub_fixer.EPUBFixerOrchestrator") as mock_orch,
+            patch("bookcard.services.epub_fixer.EPUBReader") as mock_reader,
+            patch("bookcard.services.epub_fixer.EPUBWriter") as mock_writer,
+            patch("bookcard.services.epub_fixer.BackupService") as mock_backup_class,
+            patch("bookcard.services.epub_fixer.NullBackupService") as mock_null_backup,
+            patch("bookcard.services.epub_fixer.FixResultRecorder") as mock_recorder,
         ):
             mock_orch_instance = MagicMock()
             mock_orch_instance.process.return_value = []
@@ -913,9 +907,7 @@ class TestEPUBFixerServiceRollbackFixRun:
         mock_run_repo.get.return_value = fix_run
         mock_fix_repo.get_by_run.return_value = [epub_fix]
 
-        with patch(
-            "fundamental.services.epub_fixer.BackupService"
-        ) as mock_backup_class:
+        with patch("bookcard.services.epub_fixer.BackupService") as mock_backup_class:
             mock_backup_instance = MagicMock()
             mock_backup_instance.restore_backup.return_value = True
             mock_backup_class.return_value = mock_backup_instance
@@ -968,9 +960,7 @@ class TestEPUBFixerServiceRollbackFixRun:
         mock_run_repo.get.return_value = fix_run
         mock_fix_repo.get_by_run.return_value = [epub_fix]
 
-        with patch(
-            "fundamental.services.epub_fixer.BackupService"
-        ) as mock_backup_class:
+        with patch("bookcard.services.epub_fixer.BackupService") as mock_backup_class:
             mock_backup_instance = MagicMock()
             mock_backup_class.return_value = mock_backup_instance
 
@@ -996,9 +986,7 @@ class TestEPUBFixerServiceRollbackFixRun:
         mock_run_repo.get.return_value = fix_run
         mock_fix_repo.get_by_run.return_value = [epub_fix]
 
-        with patch(
-            "fundamental.services.epub_fixer.BackupService"
-        ) as mock_backup_class:
+        with patch("bookcard.services.epub_fixer.BackupService") as mock_backup_class:
             mock_backup_instance = MagicMock()
             mock_backup_instance.restore_backup.side_effect = OSError("Restore failed")
             mock_backup_class.return_value = mock_backup_instance
@@ -1025,9 +1013,7 @@ class TestEPUBFixerServiceRollbackFixRun:
         mock_run_repo.get.return_value = fix_run
         mock_fix_repo.get_by_run.return_value = [epub_fix]
 
-        with patch(
-            "fundamental.services.epub_fixer.BackupService"
-        ) as mock_backup_class:
+        with patch("bookcard.services.epub_fixer.BackupService") as mock_backup_class:
             mock_backup_instance = MagicMock()
             mock_backup_instance.restore_backup.side_effect = ValueError("Invalid path")
             mock_backup_class.return_value = mock_backup_instance
@@ -1054,9 +1040,7 @@ class TestEPUBFixerServiceRollbackFixRun:
         mock_run_repo.get.return_value = fix_run
         mock_fix_repo.get_by_run.return_value = [epub_fix]
 
-        with patch(
-            "fundamental.services.epub_fixer.BackupService"
-        ) as mock_backup_class:
+        with patch("bookcard.services.epub_fixer.BackupService") as mock_backup_class:
             mock_backup_instance = MagicMock()
             mock_backup_instance.restore_backup.return_value = True
             mock_backup_class.return_value = mock_backup_instance

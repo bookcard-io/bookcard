@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from fundamental.services.conversion.exceptions import (
+from bookcard.services.conversion.exceptions import (
     BookNotFoundError,
     ConversionError,
     ConverterNotAvailableError,

@@ -19,9 +19,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from fundamental.api.middleware.auth_middleware import AuthMiddleware
-from fundamental.config import AppConfig
-from fundamental.services.security import SecurityTokenError
+from bookcard.api.middleware.auth_middleware import AuthMiddleware
+from bookcard.config import AppConfig
+from bookcard.services.security import SecurityTokenError
 from tests.conftest import TEST_ENCRYPTION_KEY
 
 
@@ -52,7 +52,7 @@ async def test_auth_middleware_dispatch(
     call_next = AsyncMock(return_value=MagicMock())
     middleware = AuthMiddleware(MagicMock())
     if should_set_claims:
-        with patch("fundamental.api.middleware.auth_middleware.JWTManager") as mock_jwt:
+        with patch("bookcard.api.middleware.auth_middleware.JWTManager") as mock_jwt:
             mock_jwt_instance = MagicMock()
             mock_jwt_instance.decode_token.return_value = {
                 "sub": "1",
@@ -85,7 +85,7 @@ async def test_auth_middleware_invalid_token() -> None:
     request.state.user_claims = None
     call_next = AsyncMock(return_value=MagicMock())
     middleware = AuthMiddleware(MagicMock())
-    with patch("fundamental.api.middleware.auth_middleware.JWTManager") as mock_jwt:
+    with patch("bookcard.api.middleware.auth_middleware.JWTManager") as mock_jwt:
         mock_jwt_instance = MagicMock()
         mock_jwt_instance.decode_token.side_effect = SecurityTokenError()
         mock_jwt.return_value = mock_jwt_instance

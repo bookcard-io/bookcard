@@ -28,7 +28,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlmodel import Session, SQLModel
 
-from fundamental.models.core import (
+from bookcard.models.core import (
     Author,
     Book,
     Language,
@@ -37,9 +37,9 @@ from fundamental.models.core import (
     Series,
     Tag,
 )
-from fundamental.models.media import Data
-from fundamental.repositories.calibre.retry import SQLiteRetryPolicy
-from fundamental.repositories.interfaces import (
+from bookcard.models.media import Data
+from bookcard.repositories.calibre.retry import SQLiteRetryPolicy
+from bookcard.repositories.interfaces import (
     IBookMetadataService,
     IBookRelationshipManager,
     IBookSearchService,
@@ -47,7 +47,7 @@ from fundamental.repositories.interfaces import (
     ILibraryStatisticsService,
     ISessionManager,
 )
-from fundamental.services.book_metadata import BookMetadata
+from bookcard.services.book_metadata import BookMetadata
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

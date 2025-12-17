@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from fundamental.services.cover_extractors.epub import EpubCoverExtractor
+from bookcard.services.cover_extractors.epub import EpubCoverExtractor
 
 
 @pytest.fixture

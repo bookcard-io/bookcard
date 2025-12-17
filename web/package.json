@@ -1,5 +1,5 @@
 {
-  "name": "calibre-fundamental",
+  "name": "bookcard",
   "version": "1.0.0",
   "description": "Web app for browsing, reading, and downloading ebooks stored in a calibre database.",
   "engines": {
@@ -31,7 +31,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git@github.com:knguyen1/calibre-fundamental.git"
+    "url": "git@github.com:knguyen1/bookcard.git"
   },
   "keywords": [
     "music",
@@ -40,9 +40,9 @@
   "author": "knguyen",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/knguyen1/calibre-fundamental/issues"
+    "url": "https://github.com/knguyen1/bookcard/issues"
   },
-  "homepage": "https://github.com/knguyen1/calibre-fundamental#readme",
+  "homepage": "https://github.com/knguyen1/bookcard#readme",
   "dependencies": {
     "@fontsource/literata": "^5.2.8",
     "@fontsource/opendyslexic": "^5.2.5",

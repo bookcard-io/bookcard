@@ -22,8 +22,8 @@ from unittest.mock import patch
 
 import pytest
 
-from fundamental.models.config import Library
-from fundamental.services.metadata_enforcement.library_path_resolver import (
+from bookcard.models.config import Library
+from bookcard.services.metadata_enforcement.library_path_resolver import (
     LibraryPathResolver,
 )
 

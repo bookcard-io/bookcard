@@ -21,10 +21,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.tasks import Task, TaskStatus, TaskType
-from fundamental.services.task_service import TaskService
-from fundamental.services.tasks.base import BaseTask
-from fundamental.services.tasks.runner_dramatiq import (
+from bookcard.models.tasks import Task, TaskStatus, TaskType
+from bookcard.services.task_service import TaskService
+from bookcard.services.tasks.base import BaseTask
+from bookcard.services.tasks.runner_dramatiq import (
     DramatiqTaskRunner,
     _execute_task_actor,
 )
@@ -90,21 +90,21 @@ def runner(
     mock_dramatiq.actor.return_value = mock_actor
 
     with (
-        patch("fundamental.services.tasks.runner_dramatiq.dramatiq", mock_dramatiq),
+        patch("bookcard.services.tasks.runner_dramatiq.dramatiq", mock_dramatiq),
         patch(
-            "fundamental.services.tasks.runner_dramatiq.RedisBroker",
+            "bookcard.services.tasks.runner_dramatiq.RedisBroker",
             return_value=mock_broker,
         ),
         patch(
-            "fundamental.services.tasks.runner_dramatiq.TimeLimit",
+            "bookcard.services.tasks.runner_dramatiq.TimeLimit",
             return_value=MagicMock(),
         ),
         patch(
-            "fundamental.services.tasks.runner_dramatiq.ShutdownNotifications",
+            "bookcard.services.tasks.runner_dramatiq.ShutdownNotifications",
             return_value=MagicMock(),
         ),
         patch(
-            "fundamental.services.tasks.runner_dramatiq.threading.Thread"
+            "bookcard.services.tasks.runner_dramatiq.threading.Thread"
         ) as mock_thread_class,
     ):
         mock_thread = MagicMock()
@@ -146,7 +146,7 @@ def mock_base_task() -> MagicMock:
 def test_init_without_dramatiq(mock_engine: MagicMock) -> None:
     """Test __init__ raises ImportError when dramatiq is None."""
     with (
-        patch("fundamental.services.tasks.runner_dramatiq.dramatiq", None),
+        patch("bookcard.services.tasks.runner_dramatiq.dramatiq", None),
         pytest.raises(ImportError, match="dramatiq package is not installed"),
     ):
         DramatiqTaskRunner(
@@ -167,21 +167,21 @@ def test_init_success(
     mock_dramatiq.actor.return_value = mock_actor
 
     with (
-        patch("fundamental.services.tasks.runner_dramatiq.dramatiq", mock_dramatiq),
+        patch("bookcard.services.tasks.runner_dramatiq.dramatiq", mock_dramatiq),
         patch(
-            "fundamental.services.tasks.runner_dramatiq.RedisBroker",
+            "bookcard.services.tasks.runner_dramatiq.RedisBroker",
             return_value=mock_broker,
         ),
         patch(
-            "fundamental.services.tasks.runner_dramatiq.TimeLimit",
+            "bookcard.services.tasks.runner_dramatiq.TimeLimit",
             return_value=MagicMock(),
         ),
         patch(
-            "fundamental.services.tasks.runner_dramatiq.ShutdownNotifications",
+            "bookcard.services.tasks.runner_dramatiq.ShutdownNotifications",
             return_value=MagicMock(),
         ),
         patch(
-            "fundamental.services.tasks.runner_dramatiq.threading.Thread"
+            "bookcard.services.tasks.runner_dramatiq.threading.Thread"
         ) as mock_thread_class,
     ):
         mock_thread = MagicMock()
@@ -252,24 +252,24 @@ def test_closure_function_calls_execute_task_actor(
     mock_dramatiq.actor.side_effect = actor_decorator
 
     with (
-        patch("fundamental.services.tasks.runner_dramatiq.dramatiq", mock_dramatiq),
+        patch("bookcard.services.tasks.runner_dramatiq.dramatiq", mock_dramatiq),
         patch(
-            "fundamental.services.tasks.runner_dramatiq.RedisBroker",
+            "bookcard.services.tasks.runner_dramatiq.RedisBroker",
             return_value=mock_broker,
         ),
         patch(
-            "fundamental.services.tasks.runner_dramatiq.TimeLimit",
+            "bookcard.services.tasks.runner_dramatiq.TimeLimit",
             return_value=MagicMock(),
         ),
         patch(
-            "fundamental.services.tasks.runner_dramatiq.ShutdownNotifications",
+            "bookcard.services.tasks.runner_dramatiq.ShutdownNotifications",
             return_value=MagicMock(),
         ),
         patch(
-            "fundamental.services.tasks.runner_dramatiq.threading.Thread"
+            "bookcard.services.tasks.runner_dramatiq.threading.Thread"
         ) as mock_thread_class,
         patch(
-            "fundamental.services.tasks.runner_dramatiq._execute_task_actor"
+            "bookcard.services.tasks.runner_dramatiq._execute_task_actor"
         ) as mock_execute,
     ):
         mock_thread = MagicMock()
@@ -317,16 +317,16 @@ def test_execute_task_actor_success(
     """Test _execute_task_actor successfully executes task."""
     with (
         patch(
-            "fundamental.services.tasks.runner_dramatiq._get_session"
+            "bookcard.services.tasks.runner_dramatiq._get_session"
         ) as mock_get_session,
         patch(
-            "fundamental.services.tasks.runner_dramatiq.TaskService"
+            "bookcard.services.tasks.runner_dramatiq.TaskService"
         ) as mock_task_service_class,
         patch(
-            "fundamental.services.tasks.runner_dramatiq.create_task"
+            "bookcard.services.tasks.runner_dramatiq.create_task"
         ) as mock_create_task,
         patch(
-            "fundamental.services.tasks.runner_dramatiq.TaskExecutor"
+            "bookcard.services.tasks.runner_dramatiq.TaskExecutor"
         ) as mock_executor_class,
     ):
         mock_session = MagicMock()
@@ -364,12 +364,12 @@ def test_execute_task_actor_task_not_found(
     """Test _execute_task_actor when task is not found."""
     with (
         patch(
-            "fundamental.services.tasks.runner_dramatiq._get_session"
+            "bookcard.services.tasks.runner_dramatiq._get_session"
         ) as mock_get_session,
         patch(
-            "fundamental.services.tasks.runner_dramatiq.TaskService"
+            "bookcard.services.tasks.runner_dramatiq.TaskService"
         ) as mock_task_service_class,
-        patch("fundamental.services.tasks.runner_dramatiq.logger") as mock_logger,
+        patch("bookcard.services.tasks.runner_dramatiq.logger") as mock_logger,
     ):
         mock_session = MagicMock()
         mock_get_session.return_value.__enter__.return_value = mock_session
@@ -398,9 +398,9 @@ def test_execute_task_actor_exception(
     """Test _execute_task_actor handles exceptions."""
     with (
         patch(
-            "fundamental.services.tasks.runner_dramatiq._get_session"
+            "bookcard.services.tasks.runner_dramatiq._get_session"
         ) as mock_get_session,
-        patch("fundamental.services.tasks.runner_dramatiq.logger") as mock_logger,
+        patch("bookcard.services.tasks.runner_dramatiq.logger") as mock_logger,
     ):
         mock_get_session.return_value.__enter__.side_effect = RuntimeError(
             "Database error"
@@ -434,12 +434,12 @@ def test_enqueue_success(
     """Test successful enqueue."""
     with (
         patch(
-            "fundamental.services.tasks.runner_dramatiq._get_session"
+            "bookcard.services.tasks.runner_dramatiq._get_session"
         ) as mock_get_session,
         patch(
-            "fundamental.services.tasks.runner_dramatiq.TaskService"
+            "bookcard.services.tasks.runner_dramatiq.TaskService"
         ) as mock_task_service_class,
-        patch("fundamental.services.tasks.runner_dramatiq.logger") as mock_logger,
+        patch("bookcard.services.tasks.runner_dramatiq.logger") as mock_logger,
     ):
         mock_session = MagicMock()
         mock_get_session.return_value.__enter__.return_value = mock_session
@@ -477,10 +477,10 @@ def test_enqueue_task_id_none(
     """Test enqueue raises RuntimeError when task_id is None."""
     with (
         patch(
-            "fundamental.services.tasks.runner_dramatiq._get_session"
+            "bookcard.services.tasks.runner_dramatiq._get_session"
         ) as mock_get_session,
         patch(
-            "fundamental.services.tasks.runner_dramatiq.TaskService"
+            "bookcard.services.tasks.runner_dramatiq.TaskService"
         ) as mock_task_service_class,
     ):
         mock_session = MagicMock()
@@ -514,12 +514,12 @@ def test_enqueue_send_exception(
     """Test enqueue handles exception when sending to Dramatiq."""
     with (
         patch(
-            "fundamental.services.tasks.runner_dramatiq._get_session"
+            "bookcard.services.tasks.runner_dramatiq._get_session"
         ) as mock_get_session,
         patch(
-            "fundamental.services.tasks.runner_dramatiq.TaskService"
+            "bookcard.services.tasks.runner_dramatiq.TaskService"
         ) as mock_task_service_class,
-        patch("fundamental.services.tasks.runner_dramatiq.logger") as mock_logger,
+        patch("bookcard.services.tasks.runner_dramatiq.logger") as mock_logger,
     ):
         mock_session = MagicMock()
         mock_get_session.return_value.__enter__.return_value = mock_session
@@ -568,10 +568,10 @@ def test_cancel(
     """Test cancel method with various scenarios."""
     with (
         patch(
-            "fundamental.services.tasks.runner_dramatiq._get_session"
+            "bookcard.services.tasks.runner_dramatiq._get_session"
         ) as mock_get_session,
         patch(
-            "fundamental.services.tasks.runner_dramatiq.TaskService"
+            "bookcard.services.tasks.runner_dramatiq.TaskService"
         ) as mock_task_service_class,
     ):
         mock_session = MagicMock()
@@ -608,10 +608,10 @@ def test_get_status_success(
     """Test get_status returns task status."""
     with (
         patch(
-            "fundamental.services.tasks.runner_dramatiq._get_session"
+            "bookcard.services.tasks.runner_dramatiq._get_session"
         ) as mock_get_session,
         patch(
-            "fundamental.services.tasks.runner_dramatiq.TaskService"
+            "bookcard.services.tasks.runner_dramatiq.TaskService"
         ) as mock_task_service_class,
     ):
         mock_session = MagicMock()
@@ -635,10 +635,10 @@ def test_get_status_task_not_found(
     """Test get_status raises ValueError when task not found."""
     with (
         patch(
-            "fundamental.services.tasks.runner_dramatiq._get_session"
+            "bookcard.services.tasks.runner_dramatiq._get_session"
         ) as mock_get_session,
         patch(
-            "fundamental.services.tasks.runner_dramatiq.TaskService"
+            "bookcard.services.tasks.runner_dramatiq.TaskService"
         ) as mock_task_service_class,
     ):
         mock_session = MagicMock()
@@ -666,10 +666,10 @@ def test_get_progress_success(
     """Test get_progress returns task progress."""
     with (
         patch(
-            "fundamental.services.tasks.runner_dramatiq._get_session"
+            "bookcard.services.tasks.runner_dramatiq._get_session"
         ) as mock_get_session,
         patch(
-            "fundamental.services.tasks.runner_dramatiq.TaskService"
+            "bookcard.services.tasks.runner_dramatiq.TaskService"
         ) as mock_task_service_class,
     ):
         mock_session = MagicMock()
@@ -694,10 +694,10 @@ def test_get_progress_task_not_found(
     """Test get_progress raises ValueError when task not found."""
     with (
         patch(
-            "fundamental.services.tasks.runner_dramatiq._get_session"
+            "bookcard.services.tasks.runner_dramatiq._get_session"
         ) as mock_get_session,
         patch(
-            "fundamental.services.tasks.runner_dramatiq.TaskService"
+            "bookcard.services.tasks.runner_dramatiq.TaskService"
         ) as mock_task_service_class,
     ):
         mock_session = MagicMock()
@@ -722,7 +722,7 @@ def test_shutdown_with_worker(
     mock_worker: MagicMock,
 ) -> None:
     """Test shutdown stops worker."""
-    with patch("fundamental.services.tasks.runner_dramatiq.logger") as mock_logger:
+    with patch("bookcard.services.tasks.runner_dramatiq.logger") as mock_logger:
         runner._worker = mock_worker
         runner._worker_thread = MagicMock()
         runner._worker_thread.is_alive.return_value = False
@@ -737,7 +737,7 @@ def test_shutdown_without_worker(
     runner: DramatiqTaskRunner,
 ) -> None:
     """Test shutdown when worker is None."""
-    with patch("fundamental.services.tasks.runner_dramatiq.logger") as mock_logger:
+    with patch("bookcard.services.tasks.runner_dramatiq.logger") as mock_logger:
         runner._worker = None
         runner._worker_thread = None
 
@@ -752,7 +752,7 @@ def test_shutdown_thread_alive(
 ) -> None:
     """Test shutdown when thread is still alive after join."""
     with (
-        patch("fundamental.services.tasks.runner_dramatiq.logger") as mock_logger,
+        patch("bookcard.services.tasks.runner_dramatiq.logger") as mock_logger,
     ):
         runner._worker = mock_worker
         mock_thread = MagicMock()
@@ -772,7 +772,7 @@ def test_shutdown_thread_not_alive(
     mock_worker: MagicMock,
 ) -> None:
     """Test shutdown when thread is not alive after join."""
-    with patch("fundamental.services.tasks.runner_dramatiq.logger") as mock_logger:
+    with patch("bookcard.services.tasks.runner_dramatiq.logger") as mock_logger:
         runner._worker = mock_worker
         mock_thread = MagicMock()
         mock_thread.is_alive.return_value = False

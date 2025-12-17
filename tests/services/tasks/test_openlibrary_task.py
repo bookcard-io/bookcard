@@ -22,7 +22,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.services.tasks.openlibrary.task import OpenLibraryDumpIngestTask
+from bookcard.services.tasks.openlibrary.task import OpenLibraryDumpIngestTask
 
 
 @pytest.fixture
@@ -190,9 +190,7 @@ class TestOpenLibraryDumpIngestTaskRun:
             metadata=base_metadata,
         )
 
-    @patch(
-        "fundamental.services.tasks.openlibrary.task.OpenLibraryDumpIngestOrchestrator"
-    )
+    @patch("bookcard.services.tasks.openlibrary.task.OpenLibraryDumpIngestOrchestrator")
     def test_run_success(
         self,
         mock_orchestrator_class: MagicMock,
@@ -218,9 +216,7 @@ class TestOpenLibraryDumpIngestTaskRun:
         mock_orchestrator_class.assert_called_once()
         mock_orchestrator.run.assert_called_once()
 
-    @patch(
-        "fundamental.services.tasks.openlibrary.task.OpenLibraryDumpIngestOrchestrator"
-    )
+    @patch("bookcard.services.tasks.openlibrary.task.OpenLibraryDumpIngestOrchestrator")
     def test_run_with_exception(
         self,
         mock_orchestrator_class: MagicMock,
@@ -247,7 +243,7 @@ class TestOpenLibraryDumpIngestTaskRun:
 
         # Mock the repository adapter
         with patch(
-            "fundamental.services.tasks.openlibrary.task.DatabaseRepositoryAdapter"
+            "bookcard.services.tasks.openlibrary.task.DatabaseRepositoryAdapter"
         ) as mock_repo_adapter_class:
             mock_repo_adapter = MagicMock()
             mock_repo_adapter_class.return_value = mock_repo_adapter

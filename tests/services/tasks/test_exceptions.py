@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from fundamental.services.tasks.exceptions import (
+from bookcard.services.tasks.exceptions import (
     BookNotFoundError,
     EmailServerNotConfiguredError,
     LibraryNotConfiguredError,

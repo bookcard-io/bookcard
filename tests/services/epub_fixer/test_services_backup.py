@@ -17,7 +17,7 @@
 
 from pathlib import Path
 
-from fundamental.services.epub_fixer.services.backup import (
+from bookcard.services.epub_fixer.services.backup import (
     BackupService,
     NullBackupService,
 )

@@ -15,9 +15,9 @@
 
 """Tests for language fix implementation."""
 
-from fundamental.models.epub_fixer import EPUBFixType
-from fundamental.services.epub_fixer.core.epub import EPUBContents
-from fundamental.services.epub_fixer.core.fixes.language import LanguageFix
+from bookcard.models.epub_fixer import EPUBFixType
+from bookcard.services.epub_fixer.core.epub import EPUBContents
+from bookcard.services.epub_fixer.core.fixes.language import LanguageFix
 
 
 def test_language_fix_type() -> None:

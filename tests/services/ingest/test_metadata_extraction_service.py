@@ -25,8 +25,8 @@ import pytest
 if TYPE_CHECKING:
     from pathlib import Path
 
-from fundamental.repositories.book_metadata_service import BookMetadataService
-from fundamental.services.ingest.metadata_extraction_service import (
+from bookcard.repositories.book_metadata_service import BookMetadataService
+from bookcard.services.ingest.metadata_extraction_service import (
     FileMetadata,
     MetadataExtractionService,
 )

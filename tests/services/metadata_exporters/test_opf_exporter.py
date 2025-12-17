@@ -22,10 +22,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.core import Book
-from fundamental.repositories.models import BookWithFullRelations
-from fundamental.services.metadata_exporters.opf_exporter import OpfExporter
-from fundamental.services.opf_service import OpfService
+from bookcard.models.core import Book
+from bookcard.repositories.models import BookWithFullRelations
+from bookcard.services.metadata_exporters.opf_exporter import OpfExporter
+from bookcard.services.opf_service import OpfService
 
 
 @pytest.fixture

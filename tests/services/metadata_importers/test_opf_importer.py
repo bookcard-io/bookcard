@@ -22,7 +22,7 @@ from datetime import UTC, datetime
 import pytest
 from lxml import etree  # type: ignore[import]
 
-from fundamental.services.metadata_importers.opf_importer import OpfImporter
+from bookcard.services.metadata_importers.opf_importer import OpfImporter
 
 
 @pytest.fixture

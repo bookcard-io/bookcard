@@ -20,8 +20,8 @@ from pathlib import Path
 
 import pytest
 
-from fundamental.models.epub_fixer import EPUBFixType
-from fundamental.services.epub_fixer.core.epub import (
+from bookcard.models.epub_fixer import EPUBFixType
+from bookcard.services.epub_fixer.core.epub import (
     EPUBContents,
     EPUBReader,
     EPUBWriter,

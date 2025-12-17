@@ -26,15 +26,15 @@ import pytest
 from fastapi import HTTPException, Request, status
 from fastapi.responses import FileResponse, Response
 
-import fundamental.api.routes.shelves as shelves
-from fundamental.api.schemas.shelves import (
+import bookcard.api.routes.shelves as shelves
+from bookcard.api.schemas.shelves import (
     ShelfCreate,
     ShelfReorderRequest,
     ShelfUpdate,
 )
-from fundamental.models.auth import User
-from fundamental.models.config import Library
-from fundamental.models.shelves import BookShelfLink, Shelf
+from bookcard.models.auth import User
+from bookcard.models.config import Library
+from bookcard.models.shelves import BookShelfLink, Shelf
 from tests.conftest import DummySession
 
 
@@ -242,11 +242,11 @@ def test_shelf_service_dependency() -> None:
     mock_request.app.state.config = mock_config
 
     with (
-        patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class,
+        patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class,
         patch(
-            "fundamental.api.routes.shelves.BookShelfLinkRepository"
+            "bookcard.api.routes.shelves.BookShelfLinkRepository"
         ) as mock_link_repo_class,
-        patch("fundamental.api.routes.shelves.ShelfService") as mock_service_class,
+        patch("bookcard.api.routes.shelves.ShelfService") as mock_service_class,
     ):
         _service = shelves._shelf_service(mock_request, session)  # type: ignore[arg-type]
 
@@ -260,8 +260,8 @@ def test_get_active_library_id_no_library() -> None:
     session = DummySession()
 
     with (
-        patch("fundamental.api.routes.shelves.LibraryRepository") as mock_repo_class,
-        patch("fundamental.api.routes.shelves.LibraryService") as mock_service_class,
+        patch("bookcard.api.routes.shelves.LibraryRepository") as mock_repo_class,
+        patch("bookcard.api.routes.shelves.LibraryService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -287,8 +287,8 @@ def test_get_active_library_id_no_id() -> None:
     )
 
     with (
-        patch("fundamental.api.routes.shelves.LibraryRepository") as mock_repo_class,
-        patch("fundamental.api.routes.shelves.LibraryService") as mock_service_class,
+        patch("bookcard.api.routes.shelves.LibraryRepository") as mock_repo_class,
+        patch("bookcard.api.routes.shelves.LibraryService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -314,8 +314,8 @@ def test_get_active_library_id_success() -> None:
     )
 
     with (
-        patch("fundamental.api.routes.shelves.LibraryRepository") as mock_repo_class,
-        patch("fundamental.api.routes.shelves.LibraryService") as mock_service_class,
+        patch("bookcard.api.routes.shelves.LibraryRepository") as mock_repo_class,
+        patch("bookcard.api.routes.shelves.LibraryService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -341,7 +341,7 @@ def test_create_shelf_success(
 
     with (
         patch(
-            "fundamental.api.routes.shelves.BookShelfLinkRepository"
+            "bookcard.api.routes.shelves.BookShelfLinkRepository"
         ) as mock_link_repo_class,
     ):
         mock_link_repo = MagicMock()
@@ -425,7 +425,7 @@ def test_list_shelves_success(
 
     with (
         patch(
-            "fundamental.api.routes.shelves.BookShelfLinkRepository"
+            "bookcard.api.routes.shelves.BookShelfLinkRepository"
         ) as mock_link_repo_class,
     ):
         mock_link_repo = MagicMock()
@@ -456,9 +456,9 @@ def test_get_shelf_success(
     _mock_permission_service(monkeypatch)
 
     with (
-        patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class,
+        patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class,
         patch(
-            "fundamental.api.routes.shelves.BookShelfLinkRepository"
+            "bookcard.api.routes.shelves.BookShelfLinkRepository"
         ) as mock_link_repo_class,
     ):
         mock_repo = MagicMock()
@@ -486,7 +486,7 @@ def test_get_shelf_not_found(mock_user: User, mock_library: Library) -> None:
     session = DummySession()
     mock_service = MockShelfService()
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = None
         mock_repo_class.return_value = mock_repo
@@ -510,7 +510,7 @@ def test_get_shelf_permission_denied(
     mock_service = MockShelfService()
     mock_service.can_view_shelf_result = False
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -534,7 +534,7 @@ def test_get_shelf_wrong_library(
     mock_service = MockShelfService()
     mock_shelf.library_id = 2  # Different library
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -563,9 +563,9 @@ def test_get_shelf_no_id(
     _mock_permission_service(monkeypatch)
 
     with (
-        patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class,
+        patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class,
         patch(
-            "fundamental.api.routes.shelves.BookShelfLinkRepository"
+            "bookcard.api.routes.shelves.BookShelfLinkRepository"
         ) as mock_link_repo_class,
     ):
         mock_repo = MagicMock()
@@ -600,9 +600,9 @@ def test_update_shelf_success(
     _mock_permission_service(monkeypatch)
 
     with (
-        patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class,
+        patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class,
         patch(
-            "fundamental.api.routes.shelves.BookShelfLinkRepository"
+            "bookcard.api.routes.shelves.BookShelfLinkRepository"
         ) as mock_link_repo_class,
     ):
         mock_repo = MagicMock()
@@ -630,7 +630,7 @@ def test_update_shelf_not_found(mock_user: User, mock_library: Library) -> None:
     session = DummySession()
     mock_service = MockShelfService()
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = None
         mock_repo_class.return_value = mock_repo
@@ -655,7 +655,7 @@ def test_update_shelf_wrong_library(
     mock_service = MockShelfService()
     mock_shelf.library_id = 2
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -684,7 +684,7 @@ def test_update_shelf_value_error(
     mock_service.update_shelf_result = None
     _mock_permission_service(monkeypatch)
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -723,7 +723,7 @@ def test_update_shelf_no_id_after_update(
     mock_service.update_shelf_result = shelf_no_id
     _mock_permission_service(monkeypatch)
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -751,7 +751,7 @@ def test_delete_shelf_success(
     mock_service = MockShelfService()
     _mock_permission_service(monkeypatch)
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -772,7 +772,7 @@ def test_delete_shelf_not_found(mock_user: User, mock_library: Library) -> None:
     session = DummySession()
     mock_service = MockShelfService()
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = None
         mock_repo_class.return_value = mock_repo
@@ -800,7 +800,7 @@ def test_delete_shelf_value_error(
     mock_service.delete_shelf_exception = ValueError("Shelf not found")
     _mock_permission_service(monkeypatch)
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -823,7 +823,7 @@ def test_add_book_to_shelf_success(
     session = DummySession()
     mock_service = MockShelfService()
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -845,7 +845,7 @@ def test_add_book_to_shelf_not_found(mock_user: User, mock_library: Library) -> 
     session = DummySession()
     mock_service = MockShelfService()
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = None
         mock_repo_class.return_value = mock_repo
@@ -870,7 +870,7 @@ def test_add_book_to_shelf_value_error(
     mock_service = MockShelfService()
     mock_service.add_book_to_shelf_exception = ValueError("Book already in shelf")
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -894,7 +894,7 @@ def test_remove_book_from_shelf_success(
     session = DummySession()
     mock_service = MockShelfService()
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -918,7 +918,7 @@ def test_remove_book_from_shelf_not_found(
     session = DummySession()
     mock_service = MockShelfService()
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = None
         mock_repo_class.return_value = mock_repo
@@ -943,7 +943,7 @@ def test_remove_book_from_shelf_value_error(
     mock_service = MockShelfService()
     mock_service.remove_book_from_shelf_exception = ValueError("Book not in shelf")
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -967,7 +967,7 @@ def test_reorder_shelf_books_success(
     session = DummySession()
     mock_service = MockShelfService()
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -989,7 +989,7 @@ def test_reorder_shelf_books_not_found(mock_user: User, mock_library: Library) -
     session = DummySession()
     mock_service = MockShelfService()
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = None
         mock_repo_class.return_value = mock_repo
@@ -1014,7 +1014,7 @@ def test_reorder_shelf_books_value_error(
     mock_service = MockShelfService()
     mock_service.reorder_books_exception = ValueError("Shelf not found")
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -1054,9 +1054,9 @@ def test_get_shelf_books_success(
     )
 
     with (
-        patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class,
+        patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class,
         patch(
-            "fundamental.api.routes.shelves.BookShelfLinkRepository"
+            "bookcard.api.routes.shelves.BookShelfLinkRepository"
         ) as mock_link_repo_class,
     ):
         mock_repo = MagicMock()
@@ -1089,7 +1089,7 @@ def test_get_shelf_books_not_found(mock_user: User, mock_library: Library) -> No
     session = DummySession()
     mock_service = MockShelfService()
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = None
         mock_repo_class.return_value = mock_repo
@@ -1113,7 +1113,7 @@ def test_get_shelf_books_wrong_library(
     mock_service = MockShelfService()
     mock_shelf.library_id = 2
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -1137,7 +1137,7 @@ def test_get_shelf_books_permission_denied(
     mock_service = MockShelfService()
     mock_service.can_view_shelf_result = False
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -1176,9 +1176,9 @@ def test_get_shelf_books_sort_by_date_added(
     )
 
     with (
-        patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class,
+        patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class,
         patch(
-            "fundamental.api.routes.shelves.BookShelfLinkRepository"
+            "bookcard.api.routes.shelves.BookShelfLinkRepository"
         ) as mock_link_repo_class,
     ):
         mock_repo = MagicMock()
@@ -1227,9 +1227,9 @@ def test_get_shelf_books_sort_by_book_id(
     )
 
     with (
-        patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class,
+        patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class,
         patch(
-            "fundamental.api.routes.shelves.BookShelfLinkRepository"
+            "bookcard.api.routes.shelves.BookShelfLinkRepository"
         ) as mock_link_repo_class,
     ):
         mock_repo = MagicMock()
@@ -1274,9 +1274,9 @@ def test_get_shelf_books_pagination(
     ]
 
     with (
-        patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class,
+        patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class,
         patch(
-            "fundamental.api.routes.shelves.BookShelfLinkRepository"
+            "bookcard.api.routes.shelves.BookShelfLinkRepository"
         ) as mock_link_repo_class,
     ):
         mock_repo = MagicMock()
@@ -1314,9 +1314,9 @@ def test_upload_shelf_cover_picture_success(
     mock_file.file.read.return_value = b"image content"
 
     with (
-        patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class,
+        patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class,
         patch(
-            "fundamental.api.routes.shelves.BookShelfLinkRepository"
+            "bookcard.api.routes.shelves.BookShelfLinkRepository"
         ) as mock_link_repo_class,
     ):
         mock_repo = MagicMock()
@@ -1349,7 +1349,7 @@ def test_upload_shelf_cover_picture_not_found(
     mock_file = MagicMock()
     mock_file.filename = "cover.jpg"
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = None
         mock_repo_class.return_value = mock_repo
@@ -1376,7 +1376,7 @@ def test_upload_shelf_cover_picture_no_filename(
     mock_file = MagicMock()
     mock_file.filename = None
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -1404,7 +1404,7 @@ def test_upload_shelf_cover_picture_read_error(
     mock_file.filename = "cover.jpg"
     mock_file.file.read.side_effect = OSError("Read error")
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -1433,7 +1433,7 @@ def test_upload_shelf_cover_picture_value_error_shelf_not_found(
     mock_file.filename = "cover.jpg"
     mock_file.file.read.return_value = b"image content"
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -1462,7 +1462,7 @@ def test_upload_shelf_cover_picture_value_error_invalid_file_type(
     mock_file.filename = "cover.txt"
     mock_file.file.read.return_value = b"content"
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -1493,7 +1493,7 @@ def test_upload_shelf_cover_picture_value_error_failed_to_save(
     mock_file.filename = "cover.jpg"
     mock_file.file.read.return_value = b"image content"
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -1522,7 +1522,7 @@ def test_upload_shelf_cover_picture_permission_error(
     mock_file.filename = "cover.jpg"
     mock_file.file.read.return_value = b"image content"
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -1562,7 +1562,7 @@ def test_upload_shelf_cover_picture_no_id_after_upload(
     mock_file.file.read.return_value = b"image content"
 
     with (
-        patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class,
+        patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class,
     ):
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
@@ -1592,7 +1592,7 @@ def test_upload_shelf_cover_picture_unexpected_value_error(
     mock_file.filename = "cover.jpg"
     mock_file.file.read.return_value = b"image content"
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -1613,7 +1613,7 @@ def test_get_shelf_cover_picture_not_found(mock_library: Library) -> None:
     session = DummySession()
     mock_request = MagicMock(spec=Request)
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = None
         mock_repo_class.return_value = mock_repo
@@ -1637,7 +1637,7 @@ def test_get_shelf_cover_picture_no_cover(
     mock_request = MagicMock(spec=Request)
     mock_shelf.cover_picture = None
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -1665,7 +1665,7 @@ def test_get_shelf_cover_picture_absolute_path(
         cover_file.write_bytes(b"image content")
         mock_shelf.cover_picture = str(cover_file)
 
-        with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+        with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
             mock_repo = MagicMock()
             mock_repo.get.return_value = mock_shelf
             mock_repo_class.return_value = mock_repo
@@ -1698,7 +1698,7 @@ def test_get_shelf_cover_picture_relative_path(
         cover_file.write_bytes(b"image content")
         mock_shelf.cover_picture = "shelves/1/cover.jpg"
 
-        with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+        with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
             mock_repo = MagicMock()
             mock_repo.get.return_value = mock_shelf
             mock_repo_class.return_value = mock_repo
@@ -1722,7 +1722,7 @@ def test_get_shelf_cover_picture_file_not_exists(
     mock_request = MagicMock(spec=Request)
     mock_shelf.cover_picture = "/nonexistent/cover.jpg"
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -1762,7 +1762,7 @@ def test_get_shelf_cover_picture_media_types(
             mock_shelf.cover_picture = str(cover_file)
 
             with patch(
-                "fundamental.api.routes.shelves.ShelfRepository"
+                "bookcard.api.routes.shelves.ShelfRepository"
             ) as mock_repo_class:
                 mock_repo = MagicMock()
                 mock_repo.get.return_value = mock_shelf
@@ -1788,9 +1788,9 @@ def test_delete_shelf_cover_picture_success(
     mock_service.delete_cover_picture_result = mock_shelf
 
     with (
-        patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class,
+        patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class,
         patch(
-            "fundamental.api.routes.shelves.BookShelfLinkRepository"
+            "bookcard.api.routes.shelves.BookShelfLinkRepository"
         ) as mock_link_repo_class,
     ):
         mock_repo = MagicMock()
@@ -1819,7 +1819,7 @@ def test_delete_shelf_cover_picture_not_found(
     session = DummySession()
     mock_service = MockShelfService()
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = None
         mock_repo_class.return_value = mock_repo
@@ -1843,7 +1843,7 @@ def test_delete_shelf_cover_picture_value_error_shelf_not_found(
     mock_service = MockShelfService()
     mock_service.delete_cover_picture_exception = ValueError("shelf_not_found")
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -1867,7 +1867,7 @@ def test_delete_shelf_cover_picture_permission_error(
     mock_service = MockShelfService()
     mock_service.delete_cover_picture_exception = PermissionError("permission_denied")
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -1901,7 +1901,7 @@ def test_delete_shelf_cover_picture_no_id_after_delete(
     mock_service = MockShelfService()
     mock_service.delete_cover_picture_result = shelf_no_id
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo
@@ -1925,7 +1925,7 @@ def test_delete_shelf_cover_picture_unexpected_value_error(
     mock_service = MockShelfService()
     mock_service.delete_cover_picture_exception = ValueError("unexpected_error")
 
-    with patch("fundamental.api.routes.shelves.ShelfRepository") as mock_repo_class:
+    with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
         mock_repo.get.return_value = mock_shelf
         mock_repo_class.return_value = mock_repo

@@ -16,7 +16,7 @@
 /**
  * TypeScript types for shelf-related data structures.
  *
- * These types match the backend API schemas defined in fundamental/api/schemas/shelves.py
+ * These types match the backend API schemas defined in bookcard/api/schemas/shelves.py
  */
 
 export type ShelfType = "shelf" | "read_list";

@@ -22,11 +22,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.auth import User
-from fundamental.models.core import Book
-from fundamental.repositories.models import BookWithFullRelations, BookWithRelations
-from fundamental.services.book_permission_helper import BookPermissionHelper
-from fundamental.services.permission_service import PermissionService
+from bookcard.models.auth import User
+from bookcard.models.core import Book
+from bookcard.repositories.models import BookWithFullRelations, BookWithRelations
+from bookcard.services.book_permission_helper import BookPermissionHelper
+from bookcard.services.permission_service import PermissionService
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession

@@ -17,8 +17,8 @@
 
 from __future__ import annotations
 
-from fundamental.models.auth import Permission, Role, RolePermission, UserRole
-from fundamental.repositories.role_repository import (
+from bookcard.models.auth import Permission, Role, RolePermission, UserRole
+from bookcard.repositories.role_repository import (
     PermissionRepository,
     RolePermissionRepository,
     RoleRepository,

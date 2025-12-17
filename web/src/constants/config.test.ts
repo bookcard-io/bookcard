@@ -110,7 +110,7 @@ describe("config", () => {
     delete process.env.NEXT_PUBLIC_BACKEND_URL;
     vi.resetModules();
     const { BACKEND_URL } = await import("./config");
-    expect(BACKEND_URL).toBe("http://fundamental-backend:8000");
+    expect(BACKEND_URL).toBe("http://bookcard-backend:8000");
   });
 
   it("should use default development URL when no env vars are set", async () => {

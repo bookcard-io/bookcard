@@ -22,7 +22,7 @@ from unittest.mock import patch
 import pytest
 from PIL import Image  # type: ignore[import-untyped]
 
-from fundamental.services.cover_extractors.docx import DocxCoverExtractor
+from bookcard.services.cover_extractors.docx import DocxCoverExtractor
 
 
 @pytest.fixture

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from fundamental.services.ingest.exceptions import (
+from bookcard.services.ingest.exceptions import (
     IngestError,
     IngestHistoryCreationError,
     IngestHistoryNotFoundError,

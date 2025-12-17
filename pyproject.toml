@@ -3,7 +3,7 @@ requires = ["hatchling==1.27.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "calibre-fundamental"
+name = "bookcard"
 version = "0.1.0"
 description = "Web app for browsing, reading, and downloading ebooks stored in a calibre database."
 readme = "README.md"
@@ -41,7 +41,7 @@ dependencies = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["fundamental"]
+packages = ["bookcard"]
 
 [project.scripts]
 test-cov = "scripts.scripts:test_coverage"
@@ -132,7 +132,7 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"fundamental/db/migrations/env.py" = ["F401"]
+"bookcard/db/migrations/env.py" = ["F401"]
 "tests/*" = [
     "D",      # relax all docstring rules for tests
     "S101",   # assert usage in tests
@@ -151,7 +151,7 @@ convention = "numpy"
 
 [tool.coverage.run]
 omit = [
-    "fundamental/db/migrations/*",
+    "bookcard/db/migrations/*",
 ]
 
 [tool.coverage.report]

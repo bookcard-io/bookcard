@@ -15,8 +15,8 @@
 
 """Additional edge case tests for language fix to reach 100% coverage."""
 
-from fundamental.services.epub_fixer.core.epub import EPUBContents
-from fundamental.services.epub_fixer.core.fixes.language import LanguageFix
+from bookcard.services.epub_fixer.core.epub import EPUBContents
+from bookcard.services.epub_fixer.core.fixes.language import LanguageFix
 
 
 def test_language_fix_language_changed_no_previous_result() -> None:

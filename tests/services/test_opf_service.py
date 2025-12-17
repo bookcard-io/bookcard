@@ -22,9 +22,9 @@ from datetime import UTC, datetime
 import pytest
 from lxml import etree  # type: ignore[import]
 
-from fundamental.models.core import Book
-from fundamental.repositories.models import BookWithFullRelations
-from fundamental.services.opf_service import OpfMetadataResult, OpfService
+from bookcard.models.core import Book
+from bookcard.repositories.models import BookWithFullRelations
+from bookcard.services.opf_service import OpfMetadataResult, OpfService
 
 
 @pytest.fixture
@@ -139,7 +139,7 @@ def test_add_identifier(book_with_full_metadata: BookWithFullRelations) -> None:
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_with_full_metadata)
     service._add_identifier(metadata, structured)
@@ -156,7 +156,7 @@ def test_add_title_with_title(book_with_full_metadata: BookWithFullRelations) ->
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_with_full_metadata)
     service._add_title(metadata, structured)
@@ -172,7 +172,7 @@ def test_add_title_without_title(book_minimal: BookWithFullRelations) -> None:
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_minimal)
     service._add_title(metadata, structured)
@@ -187,7 +187,7 @@ def test_add_authors(book_with_full_metadata: BookWithFullRelations) -> None:
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_with_full_metadata)
     service._add_authors(metadata, structured)
@@ -206,7 +206,7 @@ def test_add_publisher_with_publisher(
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_with_full_metadata)
     service._add_publisher(metadata, structured)
@@ -222,7 +222,7 @@ def test_add_publisher_without_publisher(book_minimal: BookWithFullRelations) ->
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_minimal)
     service._add_publisher(metadata, structured)
@@ -237,7 +237,7 @@ def test_add_publication_date(book_with_full_metadata: BookWithFullRelations) ->
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_with_full_metadata)
     service._add_publication_date(metadata, structured)
@@ -272,7 +272,7 @@ def test_add_publication_date_with_timestamp(book: Book) -> None:
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_with_date)
     service._add_publication_date(metadata, structured)
@@ -291,7 +291,7 @@ def test_add_description_with_description(
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_with_full_metadata)
     service._add_description(metadata, structured)
@@ -309,7 +309,7 @@ def test_add_description_without_description(
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_minimal)
     service._add_description(metadata, structured)
@@ -324,7 +324,7 @@ def test_add_languages(book_with_full_metadata: BookWithFullRelations) -> None:
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_with_full_metadata)
     service._add_languages(metadata, structured)
@@ -341,7 +341,7 @@ def test_add_languages_empty(book_minimal: BookWithFullRelations) -> None:
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_minimal)
     service._add_languages(metadata, structured)
@@ -356,7 +356,7 @@ def test_add_identifiers(book_with_full_metadata: BookWithFullRelations) -> None
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_with_full_metadata)
     service._add_identifiers(metadata, structured)
@@ -396,7 +396,7 @@ def test_add_identifiers_isbn_lowercase(book: Book) -> None:
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_with_isbn)
     service._add_identifiers(metadata, structured)
@@ -432,7 +432,7 @@ def test_add_identifiers_empty_val(book: Book) -> None:
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_with_empty_id)
     service._add_identifiers(metadata, structured)
@@ -451,7 +451,7 @@ def test_add_series(book_with_full_metadata: BookWithFullRelations) -> None:
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_with_full_metadata)
     service._add_series(metadata, structured)
@@ -491,7 +491,7 @@ def test_add_series_without_index(book: Book) -> None:
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_with_series)
     service._add_series(metadata, structured)
@@ -508,7 +508,7 @@ def test_add_series_without_series(book_minimal: BookWithFullRelations) -> None:
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_minimal)
     service._add_series(metadata, structured)
@@ -523,7 +523,7 @@ def test_add_tags(book_with_full_metadata: BookWithFullRelations) -> None:
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_with_full_metadata)
     service._add_tags(metadata, structured)
@@ -540,7 +540,7 @@ def test_add_tags_empty(book_minimal: BookWithFullRelations) -> None:
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_minimal)
     service._add_tags(metadata, structured)
@@ -555,7 +555,7 @@ def test_add_rating(book_with_full_metadata: BookWithFullRelations) -> None:
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_with_full_metadata)
     service._add_rating(metadata, structured)
@@ -571,7 +571,7 @@ def test_add_rating_without_rating(book_minimal: BookWithFullRelations) -> None:
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_minimal)
     service._add_rating(metadata, structured)
@@ -586,7 +586,7 @@ def test_add_modified_date(book_with_full_metadata: BookWithFullRelations) -> No
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_with_full_metadata)
     service._add_modified_date(metadata, structured)
@@ -621,7 +621,7 @@ def test_add_modified_date_with_plus_00_00(book: Book) -> None:
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_with_timestamp)
     # Mock timestamp with +00:00
@@ -657,7 +657,7 @@ def test_add_modified_date_without_z(book: Book) -> None:
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_with_timestamp)
     # Mock timestamp without Z
@@ -678,7 +678,7 @@ def test_add_modified_date_without_timestamp(
     package = service._create_package_element()
     metadata = etree.SubElement(package, "metadata")
 
-    from fundamental.services.metadata_builder import MetadataBuilder
+    from bookcard.services.metadata_builder import MetadataBuilder
 
     structured = MetadataBuilder.build(book_minimal)
     structured.timestamp = None

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from fundamental.metadata.providers._hardcover.extractors.published_date import (
+from bookcard.metadata.providers._hardcover.extractors.published_date import (
     PublishedDateExtractor,
 )
 

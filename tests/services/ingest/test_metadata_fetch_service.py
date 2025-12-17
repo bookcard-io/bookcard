@@ -24,12 +24,12 @@ import pytest
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
-from fundamental.models.metadata import MetadataRecord
-from fundamental.services.ingest.metadata_fetch_service import MetadataFetchService
-from fundamental.services.ingest.metadata_merger import MergeStrategy, MetadataMerger
-from fundamental.services.ingest.metadata_query import MetadataQuery
-from fundamental.services.ingest.metadata_scorer import MetadataScorer, ScoringConfig
-from fundamental.services.metadata_service import MetadataService
+from bookcard.models.metadata import MetadataRecord
+from bookcard.services.ingest.metadata_fetch_service import MetadataFetchService
+from bookcard.services.ingest.metadata_merger import MergeStrategy, MetadataMerger
+from bookcard.services.ingest.metadata_query import MetadataQuery
+from bookcard.services.ingest.metadata_scorer import MetadataScorer, ScoringConfig
+from bookcard.services.metadata_service import MetadataService
 
 
 @pytest.fixture

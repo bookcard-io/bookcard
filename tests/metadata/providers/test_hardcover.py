@@ -22,12 +22,12 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from fundamental.metadata.base import (
+from bookcard.metadata.base import (
     MetadataProviderNetworkError,
     MetadataProviderParseError,
     MetadataProviderTimeoutError,
 )
-from fundamental.metadata.providers.hardcover import HardcoverProvider
+from bookcard.metadata.providers.hardcover import HardcoverProvider
 
 
 @pytest.fixture
@@ -141,9 +141,9 @@ def test_hardcover_provider_init(mock_http_client: MagicMock) -> None:
 def test_hardcover_provider_init_no_token() -> None:
     """Test initialization without bearer token (covers lines 105-111)."""
     with (
-        patch("fundamental.metadata.providers.hardcover.logger") as mock_logger,
+        patch("bookcard.metadata.providers.hardcover.logger") as mock_logger,
         patch(
-            "fundamental.metadata.providers.hardcover.HardcoverProvider.DEFAULT_BEARER_TOKEN",
+            "bookcard.metadata.providers.hardcover.HardcoverProvider.DEFAULT_BEARER_TOKEN",
             "",
         ),
     ):
@@ -155,9 +155,9 @@ def test_hardcover_provider_init_no_token() -> None:
 def test_hardcover_provider_init_no_token_disabled() -> None:
     """Test initialization without bearer token when already disabled (covers lines 105-111)."""
     with (
-        patch("fundamental.metadata.providers.hardcover.logger") as mock_logger,
+        patch("bookcard.metadata.providers.hardcover.logger") as mock_logger,
         patch(
-            "fundamental.metadata.providers.hardcover.HardcoverProvider.DEFAULT_BEARER_TOKEN",
+            "bookcard.metadata.providers.hardcover.HardcoverProvider.DEFAULT_BEARER_TOKEN",
             "",
         ),
     ):
@@ -428,7 +428,7 @@ def test_fetch_edition_details_valueerror(
         side_effect=ValueError("Invalid ID")
     )
 
-    with patch("fundamental.metadata.providers.hardcover.logger") as mock_logger:
+    with patch("bookcard.metadata.providers.hardcover.logger") as mock_logger:
         result = hardcover_provider._fetch_edition_details("invalid")
         assert result is None
         mock_logger.warning.assert_called_once()
@@ -442,7 +442,7 @@ def test_fetch_edition_details_typeerror(
         side_effect=TypeError("Type error")
     )
 
-    with patch("fundamental.metadata.providers.hardcover.logger") as mock_logger:
+    with patch("bookcard.metadata.providers.hardcover.logger") as mock_logger:
         result = hardcover_provider._fetch_edition_details(1)
         assert result is None
         mock_logger.warning.assert_called_once()
@@ -456,7 +456,7 @@ def test_fetch_edition_details_keyerror(
         side_effect=KeyError("Missing key")
     )
 
-    with patch("fundamental.metadata.providers.hardcover.logger") as mock_logger:
+    with patch("bookcard.metadata.providers.hardcover.logger") as mock_logger:
         result = hardcover_provider._fetch_edition_details(1)
         assert result is None
         mock_logger.warning.assert_called_once()
@@ -470,7 +470,7 @@ def test_fetch_edition_details_parse_error(
         side_effect=MetadataProviderParseError("Parse error")
     )
 
-    with patch("fundamental.metadata.providers.hardcover.logger") as mock_logger:
+    with patch("bookcard.metadata.providers.hardcover.logger") as mock_logger:
         result = hardcover_provider._fetch_edition_details(1)
         assert result is None
         mock_logger.warning.assert_called_once()
@@ -484,7 +484,7 @@ def test_fetch_edition_details_network_error(
         side_effect=MetadataProviderNetworkError("Network error")
     )
 
-    with patch("fundamental.metadata.providers.hardcover.logger") as mock_logger:
+    with patch("bookcard.metadata.providers.hardcover.logger") as mock_logger:
         result = hardcover_provider._fetch_edition_details(1)
         assert result is None
         mock_logger.warning.assert_called_once()
@@ -526,7 +526,7 @@ def test_hardcover_provider_init_default_token(mock_http_client: MagicMock) -> N
     with (
         patch.dict("os.environ", {"HARDCOVER_API_TOKEN": "env-token"}),
         patch(
-            "fundamental.metadata.providers.hardcover.HardcoverProvider.DEFAULT_BEARER_TOKEN",
+            "bookcard.metadata.providers.hardcover.HardcoverProvider.DEFAULT_BEARER_TOKEN",
             "env-token",
         ),
     ):

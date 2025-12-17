@@ -23,7 +23,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import redis
 
-from fundamental.services.messaging.redis_broker import RedisBroker, RedisMessage
+from bookcard.services.messaging.redis_broker import RedisBroker, RedisMessage
 
 
 @pytest.fixture
@@ -140,7 +140,7 @@ class TestRedisBrokerInit:
 
         assert broker.client == mock_redis_client
         assert broker.poll_interval == 0.1
-        assert broker.prefix == "fundamental:queue:"
+        assert broker.prefix == "bookcard:queue:"
         assert broker._running is False
         assert broker._threads == []
         assert broker._stop_events == []
@@ -165,7 +165,7 @@ class TestRedisBrokerGetQueueName:
         """Test _get_queue_name."""
         result = redis_broker._get_queue_name("test_topic")
 
-        assert result == "fundamental:queue:test_topic"
+        assert result == "bookcard:queue:test_topic"
 
 
 class TestRedisBrokerPublish:
@@ -189,7 +189,7 @@ class TestRedisBrokerPublish:
 
         mock_redis_client.lpush.assert_called_once()
         call_args = mock_redis_client.lpush.call_args
-        assert call_args[0][0] == "fundamental:queue:test_topic"
+        assert call_args[0][0] == "bookcard:queue:test_topic"
         payload = json.loads(call_args[0][1])
         assert payload["message_id"] == "existing-id"
 

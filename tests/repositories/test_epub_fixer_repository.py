@@ -23,8 +23,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.epub_fixer import EPUBFix, EPUBFixRun, EPUBFixType
-from fundamental.repositories.epub_fixer_repository import (
+from bookcard.models.epub_fixer import EPUBFix, EPUBFixRun, EPUBFixType
+from bookcard.repositories.epub_fixer_repository import (
     EPUBFixRepository,
     EPUBFixRunRepository,
 )

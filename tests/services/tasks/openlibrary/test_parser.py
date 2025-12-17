@@ -26,8 +26,8 @@ import pytest
 if TYPE_CHECKING:
     from pathlib import Path
 
-from fundamental.services.tasks.openlibrary.models import DumpRecord
-from fundamental.services.tasks.openlibrary.parser import (
+from bookcard.services.tasks.openlibrary.models import DumpRecord
+from bookcard.services.tasks.openlibrary.parser import (
     DumpFileParser,
     OpenLibraryDumpParser,
 )
@@ -145,7 +145,7 @@ class TestDumpFileParserParseFile:
 
         # Mock gzip.open to raise an exception during iteration
         with patch(
-            "fundamental.services.tasks.openlibrary.parser.gzip.open"
+            "bookcard.services.tasks.openlibrary.parser.gzip.open"
         ) as mock_gzip_open:
             mock_file = MagicMock()
             mock_file.__enter__ = MagicMock(return_value=mock_file)
@@ -393,7 +393,7 @@ class TestOpenLibraryDumpParserParseFile:
 
         # Mock gzip.open to raise an exception during iteration
         with patch(
-            "fundamental.services.tasks.openlibrary.parser.gzip.open"
+            "bookcard.services.tasks.openlibrary.parser.gzip.open"
         ) as mock_gzip_open:
             mock_file = MagicMock()
             mock_file.__enter__ = MagicMock(return_value=mock_file)

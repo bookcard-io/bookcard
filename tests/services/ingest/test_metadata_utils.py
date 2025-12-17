@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from fundamental.services.ingest.metadata_utils import (
+from bookcard.services.ingest.metadata_utils import (
     StringNormalizer,
     StringSimilarityCalculator,
 )

@@ -19,9 +19,9 @@ from __future__ import annotations
 
 import pytest
 
-from fundamental.models.auth import EBookFormat, EReaderDevice
-from fundamental.repositories.ereader_repository import EReaderRepository
-from fundamental.services.ereader_service import EReaderService
+from bookcard.models.auth import EBookFormat, EReaderDevice
+from bookcard.repositories.ereader_repository import EReaderRepository
+from bookcard.services.ereader_service import EReaderService
 from tests.conftest import DummySession
 
 

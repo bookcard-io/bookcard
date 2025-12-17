@@ -23,17 +23,17 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.core import Book
-from fundamental.models.kobo import (
+from bookcard.models.core import Book
+from bookcard.models.kobo import (
     KoboArchivedBook,
     KoboReadingState,
     KoboSyncedBook,
 )
-from fundamental.models.reading import ReadStatus, ReadStatusEnum
-from fundamental.repositories.models import BookWithFullRelations, BookWithRelations
-from fundamental.services.kobo.metadata_service import KoboMetadataService
-from fundamental.services.kobo.sync_service import KoboSyncService
-from fundamental.services.kobo.sync_token_service import SyncToken
+from bookcard.models.reading import ReadStatus, ReadStatusEnum
+from bookcard.repositories.models import BookWithFullRelations, BookWithRelations
+from bookcard.services.kobo.metadata_service import KoboMetadataService
+from bookcard.services.kobo.sync_service import KoboSyncService
+from bookcard.services.kobo.sync_token_service import SyncToken
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession
@@ -670,7 +670,7 @@ def test_get_shelf_book_ids_with_shelves(
     mock_shelf_service : MagicMock
         Mock shelf service.
     """
-    from fundamental.models.shelves import BookShelfLink, Shelf
+    from bookcard.models.shelves import BookShelfLink, Shelf
 
     shelf = Shelf(
         id=1,

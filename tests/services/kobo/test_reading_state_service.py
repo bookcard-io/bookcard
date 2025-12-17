@@ -23,9 +23,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.kobo import KoboBookmark, KoboReadingState
-from fundamental.models.reading import ReadStatus, ReadStatusEnum
-from fundamental.services.kobo.reading_state_service import KoboReadingStateService
+from bookcard.models.kobo import KoboBookmark, KoboReadingState
+from bookcard.models.reading import ReadStatus, ReadStatusEnum
+from bookcard.services.kobo.reading_state_service import KoboReadingStateService
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession

@@ -23,8 +23,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.auth import User
-from fundamental.models.core import (
+from bookcard.models.auth import User
+from bookcard.models.core import (
     Book,
     BookAuthorLink,
     BookLanguageLink,
@@ -35,8 +35,8 @@ from fundamental.models.core import (
     Comment,
     Identifier,
 )
-from fundamental.models.media import Data
-from fundamental.repositories.delete_commands import (
+from bookcard.models.media import Data
+from bookcard.repositories.delete_commands import (
     DeleteBookAuthorLinksCommand,
     DeleteBookCommand,
     DeleteBookLanguageLinksCommand,
@@ -327,7 +327,7 @@ def test_delete_data_records_execute_deletes_persistent(
     session.add_exec_result([data1, data2])
 
     # Patch inspect to return our mocks
-    import fundamental.repositories.delete_commands as delete_commands_mod
+    import bookcard.repositories.delete_commands as delete_commands_mod
 
     original_inspect = delete_commands_mod.inspect
 
@@ -370,7 +370,7 @@ def test_delete_data_records_execute_skips_non_persistent(
 
     session.add_exec_result([data1, data2])
 
-    import fundamental.repositories.delete_commands as delete_commands_mod
+    import bookcard.repositories.delete_commands as delete_commands_mod
 
     original_inspect = delete_commands_mod.inspect
 
@@ -408,7 +408,7 @@ def test_delete_data_records_undo_restores_data(
 
     session.add_exec_result([data1])
 
-    import fundamental.repositories.delete_commands as delete_commands_mod
+    import bookcard.repositories.delete_commands as delete_commands_mod
 
     original_inspect = delete_commands_mod.inspect
 
@@ -659,7 +659,7 @@ def test_delete_user_devices_execute_deletes_devices(
     session: DummySession, user_id: int, mock_device_repo: MagicMock
 ) -> None:
     """Test DeleteUserDevicesCommand execute deletes devices."""
-    from fundamental.models.auth import EBookFormat, EReaderDevice
+    from bookcard.models.auth import EBookFormat, EReaderDevice
 
     device1 = EReaderDevice(
         id=1,
@@ -714,7 +714,7 @@ def test_delete_user_devices_undo_restores_devices(
     session: DummySession, user_id: int, mock_device_repo: MagicMock
 ) -> None:
     """Test DeleteUserDevicesCommand undo restores devices."""
-    from fundamental.models.auth import EBookFormat, EReaderDevice
+    from bookcard.models.auth import EBookFormat, EReaderDevice
 
     device1 = EReaderDevice(
         id=1,
@@ -757,7 +757,7 @@ def test_delete_user_roles_execute_deletes_roles(
     session: DummySession, user_id: int, mock_user_role_repo: MagicMock
 ) -> None:
     """Test DeleteUserRolesCommand execute deletes user roles."""
-    from fundamental.models.auth import Role, UserRole
+    from bookcard.models.auth import Role, UserRole
 
     role1 = Role(id=1, name="admin", description="Admin role")
     role2 = Role(id=2, name="user", description="User role")
@@ -802,7 +802,7 @@ def test_delete_user_roles_undo_restores_roles(
     session: DummySession, user_id: int, mock_user_role_repo: MagicMock
 ) -> None:
     """Test DeleteUserRolesCommand undo restores user roles."""
-    from fundamental.models.auth import Role, UserRole
+    from bookcard.models.auth import Role, UserRole
 
     role1 = Role(id=1, name="admin", description="Admin role")
     user_role1 = UserRole(id=1, user_id=user_id, role_id=1, role=role1)
@@ -840,7 +840,7 @@ def test_delete_user_settings_execute_deletes_settings(
     session: DummySession, user_id: int
 ) -> None:
     """Test DeleteUserSettingsCommand execute deletes user settings."""
-    from fundamental.models.auth import UserSetting
+    from bookcard.models.auth import UserSetting
 
     setting1 = UserSetting(id=1, user_id=user_id, key="theme", value="dark")
     setting2 = UserSetting(id=2, user_id=user_id, key="language", value="en")
@@ -874,7 +874,7 @@ def test_delete_user_settings_undo_restores_settings(
     session: DummySession, user_id: int
 ) -> None:
     """Test DeleteUserSettingsCommand undo restores user settings."""
-    from fundamental.models.auth import UserSetting
+    from bookcard.models.auth import UserSetting
 
     setting1 = UserSetting(id=1, user_id=user_id, key="theme", value="dark")
 
@@ -905,7 +905,7 @@ def test_delete_refresh_tokens_execute_deletes_tokens(
     """Test DeleteRefreshTokensCommand execute deletes refresh tokens."""
     from datetime import UTC, datetime, timedelta
 
-    from fundamental.models.auth import RefreshToken
+    from bookcard.models.auth import RefreshToken
 
     token1 = RefreshToken(
         id=1,
@@ -951,7 +951,7 @@ def test_delete_refresh_tokens_undo_restores_tokens(
     """Test DeleteRefreshTokensCommand undo restores refresh tokens."""
     from datetime import UTC, datetime, timedelta
 
-    from fundamental.models.auth import RefreshToken
+    from bookcard.models.auth import RefreshToken
 
     token1 = RefreshToken(
         id=1,

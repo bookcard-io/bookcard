@@ -19,8 +19,8 @@ from __future__ import annotations
 
 import pytest
 
-from fundamental.repositories.command_executor import CommandExecutor
-from fundamental.repositories.delete_commands import DeleteCommand
+from bookcard.repositories.command_executor import CommandExecutor
+from bookcard.repositories.delete_commands import DeleteCommand
 
 
 class MockDeleteCommand(DeleteCommand):

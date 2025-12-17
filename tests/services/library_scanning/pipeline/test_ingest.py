@@ -22,19 +22,19 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.author_metadata import AuthorMetadata
-from fundamental.services.library_scanning.data_sources.base import (
+from bookcard.models.author_metadata import AuthorMetadata
+from bookcard.services.library_scanning.data_sources.base import (
     DataSourceNetworkError,
     DataSourceRateLimitError,
 )
-from fundamental.services.library_scanning.data_sources.types import AuthorData
-from fundamental.services.library_scanning.matching.types import MatchResult
-from fundamental.services.library_scanning.pipeline.context import PipelineContext
-from fundamental.services.library_scanning.pipeline.ingest import (
+from bookcard.services.library_scanning.data_sources.types import AuthorData
+from bookcard.services.library_scanning.matching.types import MatchResult
+from bookcard.services.library_scanning.pipeline.context import PipelineContext
+from bookcard.services.library_scanning.pipeline.ingest import (
     IngestStage,
     IngestStageFactory,
 )
-from fundamental.services.library_scanning.pipeline.ingest_components import (
+from bookcard.services.library_scanning.pipeline.ingest_components import (
     AuthorDataFetcher,
     AuthorIngestionUnitOfWork,
     MatchResultDeduplicator,
@@ -192,7 +192,7 @@ def test_initialize_from_context(
     stage = IngestStage()
 
     with patch(
-        "fundamental.services.library_scanning.pipeline.ingest.IngestStageFactory.create_components"
+        "bookcard.services.library_scanning.pipeline.ingest.IngestStageFactory.create_components"
     ) as mock_create:
         mock_create.return_value = {
             "author_fetcher": MagicMock(),
@@ -599,7 +599,7 @@ def test_execute_initializes_from_context(
     mock_deduplicator.deduplicate_by_key.return_value = ([], 0)
 
     with patch(
-        "fundamental.services.library_scanning.pipeline.ingest.IngestStageFactory.create_components"
+        "bookcard.services.library_scanning.pipeline.ingest.IngestStageFactory.create_components"
     ) as mock_create:
         mock_create.return_value = {
             "author_fetcher": MagicMock(),

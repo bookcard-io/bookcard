@@ -186,7 +186,7 @@ function LoginForm() {
       <div className="relative z-[1] w-full max-w-[28rem] rounded-md bg-[var(--color-surface-tonal-a0)] p-10 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-1px_rgba(0,0,0,0.06)]">
         <div className="mb-8">
           <h1 className="mb-2 font-bold text-[1.875rem] text-[var(--color-text-a0)] leading-tight">
-            Sign in to Fundamental
+            Sign in to Bookcard
           </h1>
           <p className="text-[var(--color-text-a30)] text-sm leading-normal">
             Welcome back! Please enter your details.
@@ -307,7 +307,7 @@ export default function LoginPage() {
           <div className="relative z-[1] w-full max-w-[28rem] rounded-md bg-[var(--color-surface-tonal-a0)] p-10">
             <div className="mb-8">
               <h1 className="mb-2 font-bold text-[1.875rem] text-[var(--color-text-a0)] leading-tight">
-                Sign in to Fundamental
+                Sign in to Bookcard
               </h1>
               <p className="text-[var(--color-text-a30)] text-sm leading-normal">
                 Loading...

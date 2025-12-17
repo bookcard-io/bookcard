@@ -23,11 +23,11 @@ from tempfile import TemporaryDirectory
 import pytest
 from sqlmodel import Session, create_engine
 
-from fundamental.database import create_all_tables, get_session
-from fundamental.models.config import Library
-from fundamental.models.core import Book, BookSeriesLink, Series
-from fundamental.services.readlist.book_matcher import BookMatcherService
-from fundamental.services.readlist.interfaces import BookReference
+from bookcard.database import create_all_tables, get_session
+from bookcard.models.config import Library
+from bookcard.models.core import Book, BookSeriesLink, Series
+from bookcard.services.readlist.book_matcher import BookMatcherService
+from bookcard.services.readlist.interfaces import BookReference
 
 
 @pytest.fixture

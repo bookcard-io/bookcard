@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from fundamental.repositories.filename_utils import (
+from bookcard.repositories.filename_utils import (
     calculate_book_path,
     sanitize_filename,
 )

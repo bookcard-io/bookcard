@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from fundamental.services.tasks.metadata_normalizer import TaskMetadataNormalizer
+from bookcard.services.tasks.metadata_normalizer import TaskMetadataNormalizer
 
 
 @pytest.fixture

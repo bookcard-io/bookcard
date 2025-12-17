@@ -21,8 +21,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.config import AppConfig
-from fundamental.services.oidc_auth_service import (
+from bookcard.config import AppConfig
+from bookcard.services.oidc_auth_service import (
     OIDCAuthService,
     OIDCTokenValidationError,
 )
@@ -36,8 +36,8 @@ def _cfg() -> AppConfig:
         jwt_expires_minutes=15,
         encryption_key=TEST_ENCRYPTION_KEY,
         oidc_enabled=True,
-        oidc_client_id="fundamental-client",
-        oidc_issuer="http://issuer.example/realms/fundamental",
+        oidc_client_id="bookcard-client",
+        oidc_issuer="http://issuer.example/realms/bookcard",
     )
 
 
@@ -48,16 +48,16 @@ def test_validate_access_token_happy_path() -> None:
     with (
         patch.object(service, "_get_jwks", return_value={"keys": [{"kid": "k1"}]}),
         patch(
-            "fundamental.services.oidc_auth_service.jwt.get_unverified_header",
+            "bookcard.services.oidc_auth_service.jwt.get_unverified_header",
             return_value={"kid": "k1"},
         ),
         patch(
-            "fundamental.services.oidc_auth_service.RSAAlgorithm.from_jwk",
+            "bookcard.services.oidc_auth_service.RSAAlgorithm.from_jwk",
             return_value="pub",
         ),
         patch(
-            "fundamental.services.oidc_auth_service.jwt.decode",
-            return_value={"sub": "s", "aud": "fundamental-client"},
+            "bookcard.services.oidc_auth_service.jwt.decode",
+            return_value={"sub": "s", "aud": "bookcard-client"},
         ),
     ):
         claims = service.validate_access_token(token="t")
@@ -71,15 +71,15 @@ def test_validate_access_token_audience_mismatch_raises() -> None:
     with (
         patch.object(service, "_get_jwks", return_value={"keys": [{"kid": "k1"}]}),
         patch(
-            "fundamental.services.oidc_auth_service.jwt.get_unverified_header",
+            "bookcard.services.oidc_auth_service.jwt.get_unverified_header",
             return_value={"kid": "k1"},
         ),
         patch(
-            "fundamental.services.oidc_auth_service.RSAAlgorithm.from_jwk",
+            "bookcard.services.oidc_auth_service.RSAAlgorithm.from_jwk",
             return_value="pub",
         ),
         patch(
-            "fundamental.services.oidc_auth_service.jwt.decode",
+            "bookcard.services.oidc_auth_service.jwt.decode",
             return_value={"sub": "s", "aud": "some-other-client"},
         ),
         pytest.raises(OIDCTokenValidationError),

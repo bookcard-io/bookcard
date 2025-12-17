@@ -20,7 +20,7 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import FastAPI
 
-from fundamental.api.services.bootstrap import (
+from bookcard.api.services.bootstrap import (
     initialize_services,
     start_background_services,
     stop_background_services,

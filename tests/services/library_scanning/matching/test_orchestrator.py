@@ -20,19 +20,19 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.author_metadata import AuthorMapping, AuthorMetadata
-from fundamental.models.core import Author
-from fundamental.services.library_scanning.data_sources.base import (
+from bookcard.models.author_metadata import AuthorMapping, AuthorMetadata
+from bookcard.models.core import Author
+from bookcard.services.library_scanning.data_sources.base import (
     BaseDataSource,
     DataSourceNetworkError,
     DataSourceRateLimitError,
 )
-from fundamental.services.library_scanning.data_sources.types import AuthorData
-from fundamental.services.library_scanning.matching.base import BaseMatchingStrategy
-from fundamental.services.library_scanning.matching.orchestrator import (
+from bookcard.services.library_scanning.data_sources.types import AuthorData
+from bookcard.services.library_scanning.matching.base import BaseMatchingStrategy
+from bookcard.services.library_scanning.matching.orchestrator import (
     MatchingOrchestrator,
 )
-from fundamental.services.library_scanning.matching.types import MatchResult
+from bookcard.services.library_scanning.matching.types import MatchResult
 from tests.conftest import DummySession
 
 

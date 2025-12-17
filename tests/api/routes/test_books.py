@@ -24,11 +24,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-import fundamental.api.routes.books as books
-from fundamental.models.auth import User
-from fundamental.models.config import Library
-from fundamental.models.core import Book
-from fundamental.repositories import BookWithFullRelations, BookWithRelations
+import bookcard.api.routes.books as books
+from bookcard.models.auth import User
+from bookcard.models.config import Library
+from bookcard.models.core import Book
+from bookcard.repositories import BookWithFullRelations, BookWithRelations
 from tests.conftest import DummySession
 
 
@@ -105,7 +105,7 @@ def _mock_permission_service(monkeypatch: pytest.MonkeyPatch) -> None:
 
     # Patch PermissionService in the permission_service module where it's actually used
     monkeypatch.setattr(
-        "fundamental.services.permission_service.PermissionService",
+        "bookcard.services.permission_service.PermissionService",
         MockPermissionService,
     )
 
@@ -156,7 +156,7 @@ class MockResponseBuilder:
         full: bool = False,
     ) -> object:
         """Mock build_book_read method."""
-        from fundamental.api.schemas import BookRead
+        from bookcard.api.schemas import BookRead
 
         book = book_with_rels.book
         if book.id is None:
@@ -353,8 +353,8 @@ def test_get_active_library_service_no_active_library() -> None:
     session = DummySession()
 
     with (
-        patch("fundamental.api.routes.books.LibraryRepository") as mock_repo_class,
-        patch("fundamental.api.routes.books.LibraryService") as mock_service_class,
+        patch("bookcard.api.routes.books.LibraryRepository") as mock_repo_class,
+        patch("bookcard.api.routes.books.LibraryService") as mock_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -381,9 +381,9 @@ def test_get_active_library_service_success() -> None:
     )
 
     with (
-        patch("fundamental.api.routes.books.LibraryRepository") as mock_repo_class,
-        patch("fundamental.api.routes.books.LibraryService") as mock_service_class,
-        patch("fundamental.api.routes.books.BookService") as mock_book_service_class,
+        patch("bookcard.api.routes.books.LibraryRepository") as mock_repo_class,
+        patch("bookcard.api.routes.books.LibraryService") as mock_service_class,
+        patch("bookcard.api.routes.books.BookService") as mock_book_service_class,
     ):
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
@@ -1106,7 +1106,7 @@ def test_filter_suggestions_success(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_filter_books_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test filter_books succeeds with valid filters (covers lines 422-472)."""
-    from fundamental.api.schemas import BookFilterRequest
+    from bookcard.api.schemas import BookFilterRequest
 
     session = DummySession()
     current_user = _create_mock_user()
@@ -1181,7 +1181,7 @@ def test_filter_books_success(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_filter_books_pagination_adjustments(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test filter_books adjusts invalid pagination parameters (covers lines 422-472)."""
-    from fundamental.api.schemas import BookFilterRequest
+    from bookcard.api.schemas import BookFilterRequest
 
     session = DummySession()
     current_user = _create_mock_user()
@@ -1249,7 +1249,7 @@ def test_filter_books_pagination_adjustments(monkeypatch: pytest.MonkeyPatch) ->
 
 def test_filter_books_skips_books_without_id(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test filter_books skips books without ID (covers lines 422-472)."""
-    from fundamental.api.schemas import BookFilterRequest
+    from bookcard.api.schemas import BookFilterRequest
 
     session = DummySession()
     current_user = _create_mock_user()
@@ -1326,7 +1326,7 @@ def test_filter_books_skips_books_without_id(monkeypatch: pytest.MonkeyPatch) ->
 
 def test_filter_books_with_full_true(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test filter_books with full=True returns full details (covers lines 1149-1162)."""
-    from fundamental.api.schemas import BookFilterRequest
+    from bookcard.api.schemas import BookFilterRequest
 
     session = DummySession()
     current_user = _create_mock_user()
@@ -1554,7 +1554,7 @@ def test_update_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test update_book succeeds with valid update (covers lines 284-329)."""
     from datetime import datetime
 
-    from fundamental.api.schemas import BookUpdate
+    from bookcard.api.schemas import BookUpdate
 
     session = DummySession()
 
@@ -1671,7 +1671,7 @@ def test_update_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_update_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test update_book raises 404 when book not found (covers lines 286-292)."""
-    from fundamental.api.schemas import BookUpdate
+    from bookcard.api.schemas import BookUpdate
 
     session = DummySession()
 
@@ -1709,7 +1709,7 @@ def test_update_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_update_book_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test update_book raises 404 when update returns None (covers lines 314-318)."""
-    from fundamental.api.schemas import BookUpdate
+    from bookcard.api.schemas import BookUpdate
 
     session = DummySession()
 
@@ -1774,7 +1774,7 @@ def test_update_book_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_update_book_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test update_book raises 500 when book has no ID (covers lines 320-325)."""
-    from fundamental.api.schemas import BookUpdate
+    from bookcard.api.schemas import BookUpdate
 
     session = DummySession()
 
@@ -2238,8 +2238,8 @@ def test_email_config_service(monkeypatch: pytest.MonkeyPatch) -> None:
     request = DummyRequest()
 
     with (
-        patch("fundamental.api.routes.books.EmailConfigService") as mock_service_class,
-        patch("fundamental.api.routes.books.DataEncryptor") as mock_encryptor_class,
+        patch("bookcard.api.routes.books.EmailConfigService") as mock_service_class,
+        patch("bookcard.api.routes.books.DataEncryptor") as mock_encryptor_class,
     ):
         mock_encryptor = MagicMock()
         mock_encryptor_class.return_value = mock_encryptor
@@ -2255,8 +2255,8 @@ def test_email_config_service(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_send_book_email_server_not_configured(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test send_book raises 400 when email server not configured (covers lines 755-759)."""
 
-    from fundamental.api.schemas.books import BookSendRequest
-    from fundamental.models.auth import User
+    from bookcard.api.schemas.books import BookSendRequest
+    from bookcard.models.auth import User
 
     class DummyRequest:
         def __init__(self) -> None:
@@ -2338,9 +2338,9 @@ def test_send_book_email_server_disabled(monkeypatch: pytest.MonkeyPatch) -> Non
     """Test send_book raises 400 when email server is disabled (covers line 755)."""
     from datetime import UTC, datetime
 
-    from fundamental.api.schemas.books import BookSendRequest
-    from fundamental.models.auth import User
-    from fundamental.models.config import EmailServerConfig, EmailServerType
+    from bookcard.api.schemas.books import BookSendRequest
+    from bookcard.models.auth import User
+    from bookcard.models.config import EmailServerConfig, EmailServerType
 
     class DummyRequest:
         def __init__(self) -> None:
@@ -2430,9 +2430,9 @@ def test_send_book_user_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test send_book raises 500 when user missing id (covers lines 766-770)."""
     from datetime import UTC, datetime
 
-    from fundamental.api.schemas.books import BookSendRequest
-    from fundamental.models.auth import User
-    from fundamental.models.config import EmailServerConfig, EmailServerType
+    from bookcard.api.schemas.books import BookSendRequest
+    from bookcard.models.auth import User
+    from bookcard.models.config import EmailServerConfig, EmailServerType
 
     class DummyRequest:
         def __init__(self) -> None:
@@ -2524,10 +2524,10 @@ def test_send_book_success_enqueues_task(monkeypatch: pytest.MonkeyPatch) -> Non
     from datetime import UTC, datetime
     from unittest.mock import MagicMock
 
-    from fundamental.api.schemas.books import BookSendRequest
-    from fundamental.models.auth import User
-    from fundamental.models.config import EmailServerConfig, EmailServerType
-    from fundamental.models.tasks import TaskType
+    from bookcard.api.schemas.books import BookSendRequest
+    from bookcard.models.auth import User
+    from bookcard.models.config import EmailServerConfig, EmailServerType
+    from bookcard.models.tasks import TaskType
 
     class DummyRequest:
         def __init__(self) -> None:
@@ -2643,9 +2643,9 @@ def test_send_book_task_runner_unavailable(monkeypatch: pytest.MonkeyPatch) -> N
     """Test send_book raises 503 when task runner is unavailable (covers lines 1040-1048)."""
     from datetime import UTC, datetime
 
-    from fundamental.api.schemas.books import BookSendRequest
-    from fundamental.models.auth import User
-    from fundamental.models.config import EmailServerConfig, EmailServerType
+    from bookcard.api.schemas.books import BookSendRequest
+    from bookcard.models.auth import User
+    from bookcard.models.config import EmailServerConfig, EmailServerType
 
     class DummyRequest:
         def __init__(self) -> None:
@@ -2738,9 +2738,9 @@ def test_send_book_task_runner_none(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test send_book raises 503 when task runner is None (covers lines 1040-1048)."""
     from datetime import UTC, datetime
 
-    from fundamental.api.schemas.books import BookSendRequest
-    from fundamental.models.auth import User
-    from fundamental.models.config import EmailServerConfig, EmailServerType
+    from bookcard.api.schemas.books import BookSendRequest
+    from bookcard.models.auth import User
+    from bookcard.models.config import EmailServerConfig, EmailServerType
 
     class DummyRequest:
         def __init__(self) -> None:
@@ -2834,9 +2834,9 @@ def test_send_book_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     from datetime import UTC, datetime
     from unittest.mock import MagicMock
 
-    from fundamental.api.schemas.books import BookSendRequest
-    from fundamental.models.auth import User
-    from fundamental.models.config import EmailServerConfig, EmailServerType
+    from bookcard.api.schemas.books import BookSendRequest
+    from bookcard.models.auth import User
+    from bookcard.models.config import EmailServerConfig, EmailServerType
 
     class DummyRequest:
         def __init__(self) -> None:
@@ -2917,7 +2917,7 @@ def test_download_book_metadata_not_found(monkeypatch: pytest.MonkeyPatch) -> No
     _mock_permission_service(monkeypatch)
     mock_service = MockBookService(get_book_full_result=None)
 
-    with patch("fundamental.api.routes.books._get_active_library_service") as mock_get:
+    with patch("bookcard.api.routes.books._get_active_library_service") as mock_get:
         mock_get.return_value = mock_service
 
         mock_permission_helper, _ = _setup_route_mocks(
@@ -2943,7 +2943,7 @@ def test_download_book_metadata_unsupported_format(
     """Test download_book_metadata with unsupported format (lines 764-768)."""
     from datetime import UTC, datetime
 
-    from fundamental.repositories.models import BookWithFullRelations
+    from bookcard.repositories.models import BookWithFullRelations
 
     session = DummySession()
     current_user = _create_mock_user()
@@ -2975,7 +2975,7 @@ def test_download_book_metadata_unsupported_format(
     )
     mock_service = MockBookService(get_book_full_result=book_with_rels)
 
-    with patch("fundamental.api.routes.books._get_active_library_service") as mock_get:
+    with patch("bookcard.api.routes.books._get_active_library_service") as mock_get:
         mock_get.return_value = mock_service
 
         mock_permission_helper, _ = _setup_route_mocks(
@@ -3001,7 +3001,7 @@ def test_download_book_metadata_other_value_error(
     """Test download_book_metadata with other ValueError (lines 769-773)."""
     from datetime import UTC, datetime
 
-    from fundamental.repositories.models import BookWithFullRelations
+    from bookcard.repositories.models import BookWithFullRelations
 
     session = DummySession()
     current_user = _create_mock_user()
@@ -3033,11 +3033,11 @@ def test_download_book_metadata_other_value_error(
     )
     mock_service = MockBookService(get_book_full_result=book_with_rels)
 
-    with patch("fundamental.api.routes.books._get_active_library_service") as mock_get:
+    with patch("bookcard.api.routes.books._get_active_library_service") as mock_get:
         mock_get.return_value = mock_service
 
         with patch(
-            "fundamental.api.routes.books.MetadataExportService"
+            "bookcard.api.routes.books.MetadataExportService"
         ) as mock_export_service:
             mock_instance = MagicMock()
             mock_instance.export_metadata.side_effect = ValueError("Other error")
@@ -3133,7 +3133,7 @@ def test_import_book_metadata_unsupported_format_error() -> None:
     mock_file.file.read.return_value = b"<package></package>"
 
     with patch(
-        "fundamental.api.routes.books.MetadataImportService"
+        "bookcard.api.routes.books.MetadataImportService"
     ) as mock_import_service:
         mock_instance = MagicMock()
         mock_instance.import_metadata.side_effect = ValueError(
@@ -3158,7 +3158,7 @@ def test_import_book_metadata_other_value_error() -> None:
     mock_file.file.read.return_value = b"<package></package>"
 
     with patch(
-        "fundamental.api.routes.books.MetadataImportService"
+        "bookcard.api.routes.books.MetadataImportService"
     ) as mock_import_service:
         mock_instance = MagicMock()
         mock_instance.import_metadata.side_effect = ValueError("Parsing error")
@@ -3181,7 +3181,7 @@ def test_import_book_metadata_unexpected_exception() -> None:
     mock_file.file.read.return_value = b"<package></package>"
 
     with patch(
-        "fundamental.api.routes.books.MetadataImportService"
+        "bookcard.api.routes.books.MetadataImportService"
     ) as mock_import_service:
         mock_instance = MagicMock()
         mock_instance.import_metadata.side_effect = RuntimeError("Unexpected error")

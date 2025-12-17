@@ -23,10 +23,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.config import Library
-from fundamental.services.conversion.backup import FileBackupService
-from fundamental.services.conversion.exceptions import ConverterNotAvailableError
-from fundamental.services.conversion.factory import create_conversion_service
+from bookcard.models.config import Library
+from bookcard.services.conversion.backup import FileBackupService
+from bookcard.services.conversion.exceptions import ConverterNotAvailableError
+from bookcard.services.conversion.factory import create_conversion_service
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession
@@ -80,13 +80,13 @@ def test_create_conversion_service(
     """
     with (
         patch(
-            "fundamental.services.conversion.factory.CalibreBookRepository"
+            "bookcard.services.conversion.factory.CalibreBookRepository"
         ) as mock_repo_class,
         patch(
-            "fundamental.services.conversion.factory.ConverterLocator"
+            "bookcard.services.conversion.factory.ConverterLocator"
         ) as mock_locator_class,
         patch(
-            "fundamental.services.conversion.factory.CalibreConversionStrategy"
+            "bookcard.services.conversion.factory.CalibreConversionStrategy"
         ) as mock_strategy_class,
     ):
         mock_repo = MagicMock()
@@ -137,13 +137,13 @@ def test_create_conversion_service_with_backup_service(
 
     with (
         patch(
-            "fundamental.services.conversion.factory.CalibreBookRepository"
+            "bookcard.services.conversion.factory.CalibreBookRepository"
         ) as mock_repo_class,
         patch(
-            "fundamental.services.conversion.factory.ConverterLocator"
+            "bookcard.services.conversion.factory.ConverterLocator"
         ) as mock_locator_class,
         patch(
-            "fundamental.services.conversion.factory.CalibreConversionStrategy"
+            "bookcard.services.conversion.factory.CalibreConversionStrategy"
         ) as mock_strategy_class,
     ):
         mock_repo = MagicMock()
@@ -185,13 +185,13 @@ def test_create_conversion_service_creates_default_backup_service(
     """
     with (
         patch(
-            "fundamental.services.conversion.factory.CalibreBookRepository"
+            "bookcard.services.conversion.factory.CalibreBookRepository"
         ) as mock_repo_class,
         patch(
-            "fundamental.services.conversion.factory.ConverterLocator"
+            "bookcard.services.conversion.factory.ConverterLocator"
         ) as mock_locator_class,
         patch(
-            "fundamental.services.conversion.factory.CalibreConversionStrategy"
+            "bookcard.services.conversion.factory.CalibreConversionStrategy"
         ) as mock_strategy_class,
     ):
         mock_repo = MagicMock()

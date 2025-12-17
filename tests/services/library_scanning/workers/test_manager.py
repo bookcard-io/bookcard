@@ -19,7 +19,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.services.library_scanning.workers.manager import ScanWorkerManager
+from bookcard.services.library_scanning.workers.manager import ScanWorkerManager
 
 
 @pytest.fixture

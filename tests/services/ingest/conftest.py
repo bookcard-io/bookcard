@@ -25,9 +25,9 @@ import pytest
 if TYPE_CHECKING:
     from pathlib import Path
 
-from fundamental.models.ingest import IngestConfig, IngestHistory, IngestStatus
-from fundamental.models.metadata import MetadataRecord
-from fundamental.services.ingest.file_discovery_service import FileGroup
+from bookcard.models.ingest import IngestConfig, IngestHistory, IngestStatus
+from bookcard.models.metadata import MetadataRecord
+from bookcard.services.ingest.file_discovery_service import FileGroup
 
 
 @pytest.fixture

@@ -18,7 +18,7 @@
 from pathlib import Path
 from unittest.mock import patch
 
-from fundamental.services.epub_fixer.services.backup import BackupService
+from bookcard.services.epub_fixer.services.backup import BackupService
 
 
 def test_backup_service_create_backup_oserror(temp_dir: Path) -> None:

@@ -24,12 +24,12 @@ from unittest.mock import patch
 
 import pytest
 
-from fundamental.models.shelves import BookShelfLink, Shelf
-from fundamental.repositories.shelf_repository import (
+from bookcard.models.shelves import BookShelfLink, Shelf
+from bookcard.repositories.shelf_repository import (
     BookShelfLinkRepository,
     ShelfRepository,
 )
-from fundamental.services.shelf_service import ShelfService
+from bookcard.services.shelf_service import ShelfService
 from tests.conftest import DummySession
 
 

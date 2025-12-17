@@ -20,8 +20,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import patch
 
-from fundamental.models.shelves import BookShelfLink, Shelf
-from fundamental.repositories.shelf_repository import (
+from bookcard.models.shelves import BookShelfLink, Shelf
+from bookcard.repositories.shelf_repository import (
     BookShelfLinkRepository,
     ShelfRepository,
 )

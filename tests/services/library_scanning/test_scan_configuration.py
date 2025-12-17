@@ -19,8 +19,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.config import LibraryScanProviderConfig
-from fundamental.services.library_scanning.scan_configuration import (
+from bookcard.models.config import LibraryScanProviderConfig
+from bookcard.services.library_scanning.scan_configuration import (
     DatabaseScanConfigurationProvider,
     ScanConfiguration,
 )

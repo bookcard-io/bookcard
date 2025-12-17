@@ -26,8 +26,8 @@ from unittest.mock import patch
 import pytest
 from PIL import Image
 
-from fundamental.models.media import Data
-from fundamental.repositories.file_manager import CalibreFileManager
+from bookcard.models.media import Data
+from bookcard.repositories.file_manager import CalibreFileManager
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession
@@ -176,7 +176,7 @@ class TestCalibreFileManagerSaveBookCover:
         """Test save_book_cover handles exceptions gracefully."""
         cover_data = b"invalid image data"
 
-        with patch("fundamental.repositories.file_manager.Image.open") as mock_open:
+        with patch("bookcard.repositories.file_manager.Image.open") as mock_open:
             mock_open.side_effect = exception
 
             result = file_manager.save_book_cover(

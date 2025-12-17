@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from fundamental.services.epub_fixer.core.epub import EPUBContents
+from bookcard.services.epub_fixer.core.epub import EPUBContents
 
 
 @pytest.fixture

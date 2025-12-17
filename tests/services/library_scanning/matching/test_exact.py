@@ -21,10 +21,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.core import Author
-from fundamental.services.library_scanning.data_sources.base import BaseDataSource
-from fundamental.services.library_scanning.data_sources.types import AuthorData
-from fundamental.services.library_scanning.matching.exact import (
+from bookcard.models.core import Author
+from bookcard.services.library_scanning.data_sources.base import BaseDataSource
+from bookcard.services.library_scanning.data_sources.types import AuthorData
+from bookcard.services.library_scanning.matching.exact import (
     ExactNameMatchingStrategy,
     normalize_name,
 )

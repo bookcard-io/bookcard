@@ -23,7 +23,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.author_metadata import (
+from bookcard.models.author_metadata import (
     AuthorAlternateName,
     AuthorLink,
     AuthorMapping,
@@ -35,7 +35,7 @@ from fundamental.models.author_metadata import (
     AuthorWork,
     WorkSubject,
 )
-from fundamental.services.author.dict_builder import AuthorDictBuilder
+from bookcard.services.author.dict_builder import AuthorDictBuilder
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession

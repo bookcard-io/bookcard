@@ -20,10 +20,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.api.services.container import (
+from bookcard.api.services.container import (
     ServiceContainer,
 )
-from fundamental.config import AppConfig
+from bookcard.config import AppConfig
 
 
 @pytest.fixture
@@ -110,9 +110,7 @@ class TestCreateTaskRunner:
         mock_engine : MagicMock
             Mock database engine.
         """
-        with patch(
-            "fundamental.api.services.container.create_task_runner"
-        ) as mock_create:
+        with patch("bookcard.api.services.container.create_task_runner") as mock_create:
             mock_runner = MagicMock()
             mock_create.return_value = mock_runner
 
@@ -146,9 +144,7 @@ class TestCreateTaskRunner:
         exception_type : type[Exception]
             Type of exception to raise.
         """
-        with patch(
-            "fundamental.api.services.container.create_task_runner"
-        ) as mock_create:
+        with patch("bookcard.api.services.container.create_task_runner") as mock_create:
             mock_create.side_effect = exception_type("Test error")
 
             result = container.create_task_runner()
@@ -167,9 +163,7 @@ class TestCreateRedisBroker:
         container : ServiceContainer
             Service container instance.
         """
-        with patch(
-            "fundamental.api.services.container.RedisBroker"
-        ) as mock_broker_class:
+        with patch("bookcard.api.services.container.RedisBroker") as mock_broker_class:
             mock_broker = MagicMock()
             mock_broker_class.return_value = mock_broker
 
@@ -219,9 +213,7 @@ class TestCreateRedisBroker:
         exception_type : type[Exception]
             Type of exception to raise.
         """
-        with patch(
-            "fundamental.api.services.container.RedisBroker"
-        ) as mock_broker_class:
+        with patch("bookcard.api.services.container.RedisBroker") as mock_broker_class:
             mock_broker_class.side_effect = exception_type("Test error")
 
             result = container.create_redis_broker()
@@ -243,7 +235,7 @@ class TestCreateScanWorkerManager:
             Service container instance.
         """
         with patch(
-            "fundamental.api.services.container.ScanWorkerManager"
+            "bookcard.api.services.container.ScanWorkerManager"
         ) as mock_manager_class:
             mock_manager = MagicMock()
             mock_manager_class.return_value = mock_manager
@@ -295,7 +287,7 @@ class TestCreateScanWorkerManager:
             Type of exception to raise.
         """
         with patch(
-            "fundamental.api.services.container.ScanWorkerManager"
+            "bookcard.api.services.container.ScanWorkerManager"
         ) as mock_manager_class:
             mock_manager_class.side_effect = exception_type("Test error")
 
@@ -321,7 +313,7 @@ class TestCreateScheduler:
         """
         mock_task_runner = MagicMock()
         with patch(
-            "fundamental.api.services.container.TaskScheduler"
+            "bookcard.api.services.container.TaskScheduler"
         ) as mock_scheduler_class:
             mock_scheduler = MagicMock()
             mock_scheduler_class.return_value = mock_scheduler
@@ -387,7 +379,7 @@ class TestCreateScheduler:
         """
         mock_task_runner = MagicMock()
         with patch(
-            "fundamental.api.services.container.TaskScheduler"
+            "bookcard.api.services.container.TaskScheduler"
         ) as mock_scheduler_class:
             mock_scheduler_class.side_effect = exception_type("Test error")
 
@@ -415,12 +407,12 @@ class TestCreateIngestWatcher:
         mock_config = SimpleNamespace(enabled=True)
 
         with (
-            patch("fundamental.api.services.container.get_session") as mock_get_session,
+            patch("bookcard.api.services.container.get_session") as mock_get_session,
             patch(
-                "fundamental.api.services.container.IngestConfigService"
+                "bookcard.api.services.container.IngestConfigService"
             ) as mock_config_service_class,
             patch(
-                "fundamental.api.services.container.IngestWatcherService"
+                "bookcard.api.services.container.IngestWatcherService"
             ) as mock_watcher_class,
         ):
             mock_session = MagicMock()
@@ -468,9 +460,9 @@ class TestCreateIngestWatcher:
         mock_config = SimpleNamespace(enabled=False)
 
         with (
-            patch("fundamental.api.services.container.get_session") as mock_get_session,
+            patch("bookcard.api.services.container.get_session") as mock_get_session,
             patch(
-                "fundamental.api.services.container.IngestConfigService"
+                "bookcard.api.services.container.IngestConfigService"
             ) as mock_config_service_class,
         ):
             mock_session = MagicMock()
@@ -512,9 +504,7 @@ class TestCreateIngestWatcher:
         """
         mock_task_runner = MagicMock()
 
-        with patch(
-            "fundamental.api.services.container.get_session"
-        ) as mock_get_session:
+        with patch("bookcard.api.services.container.get_session") as mock_get_session:
             # Test exception during config service creation
             if exception_type in (
                 ConnectionError,
@@ -545,12 +535,12 @@ class TestCreateIngestWatcher:
         mock_config = SimpleNamespace(enabled=True)
 
         with (
-            patch("fundamental.api.services.container.get_session") as mock_get_session,
+            patch("bookcard.api.services.container.get_session") as mock_get_session,
             patch(
-                "fundamental.api.services.container.IngestConfigService"
+                "bookcard.api.services.container.IngestConfigService"
             ) as mock_config_service_class,
             patch(
-                "fundamental.api.services.container.IngestWatcherService"
+                "bookcard.api.services.container.IngestWatcherService"
             ) as mock_watcher_class,
         ):
             mock_session = MagicMock()

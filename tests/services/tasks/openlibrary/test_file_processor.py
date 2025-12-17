@@ -27,13 +27,13 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
 
-from fundamental.models.openlibrary import OpenLibraryAuthor
-from fundamental.services.tasks.openlibrary.batch import BatchProcessor
-from fundamental.services.tasks.openlibrary.config import IngestionConfig
-from fundamental.services.tasks.openlibrary.file_processor import FileProcessor
-from fundamental.services.tasks.openlibrary.models import DumpRecord
-from fundamental.services.tasks.openlibrary.parser import DumpFileParser
-from fundamental.services.tasks.openlibrary.processors import RecordProcessor
+from bookcard.models.openlibrary import OpenLibraryAuthor
+from bookcard.services.tasks.openlibrary.batch import BatchProcessor
+from bookcard.services.tasks.openlibrary.config import IngestionConfig
+from bookcard.services.tasks.openlibrary.file_processor import FileProcessor
+from bookcard.services.tasks.openlibrary.models import DumpRecord
+from bookcard.services.tasks.openlibrary.parser import DumpFileParser
+from bookcard.services.tasks.openlibrary.processors import RecordProcessor
 
 
 def create_gzip_dump_file(file_path: Path, lines: list[str]) -> None:

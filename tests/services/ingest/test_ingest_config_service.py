@@ -23,9 +23,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.ingest import IngestConfig
-from fundamental.repositories.ingest_repository import IngestConfigRepository
-from fundamental.services.ingest.ingest_config_service import IngestConfigService
+from bookcard.models.ingest import IngestConfig
+from bookcard.repositories.ingest_repository import IngestConfigRepository
+from bookcard.services.ingest.ingest_config_service import IngestConfigService
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession

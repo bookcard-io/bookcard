@@ -21,11 +21,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.author_metadata import (
+from bookcard.models.author_metadata import (
     AuthorMapping,
     AuthorMetadata,
 )
-from fundamental.repositories.author_repository import AuthorRepository
+from bookcard.repositories.author_repository import AuthorRepository
 
 
 class MockResult:
@@ -169,10 +169,8 @@ class TestAuthorRepositoryInit:
 class TestAuthorRepositoryListByLibrary:
     """Test AuthorRepository.list_by_library."""
 
-    @patch(
-        "fundamental.repositories.author_listing_components.MatchedAuthorQueryBuilder"
-    )
-    @patch("fundamental.repositories.author_listing_components.AuthorHydrator")
+    @patch("bookcard.repositories.author_listing_components.MatchedAuthorQueryBuilder")
+    @patch("bookcard.repositories.author_listing_components.AuthorHydrator")
     def test_list_by_library_success(
         self,
         mock_hydrator_class: MagicMock,
@@ -242,7 +240,7 @@ class TestAuthorRepositoryListByLibrary:
         assert len(result) == 1
         assert total == 2
 
-    @patch("fundamental.repositories.author_repository.logger")
+    @patch("bookcard.repositories.author_repository.logger")
     def test_count_matched_exception(
         self, mock_logger: MagicMock, author_repo: AuthorRepository, library_id: int
     ) -> None:
@@ -259,7 +257,7 @@ class TestAuthorRepositoryListByLibrary:
 
         Covers lines 147-152.
         """
-        from fundamental.repositories.author_listing_components import (
+        from bookcard.repositories.author_listing_components import (
             MatchedAuthorQueryBuilder,
         )
 
@@ -269,7 +267,7 @@ class TestAuthorRepositoryListByLibrary:
             author_repo._count_matched(MatchedAuthorQueryBuilder(), library_id)
         mock_logger.exception.assert_called_once()
 
-    @patch("fundamental.repositories.author_repository.logger")
+    @patch("bookcard.repositories.author_repository.logger")
     def test_fetch_matched_results_exception(
         self, mock_logger: MagicMock, author_repo: AuthorRepository, library_id: int
     ) -> None:
@@ -286,7 +284,7 @@ class TestAuthorRepositoryListByLibrary:
 
         Covers lines 171-176.
         """
-        from fundamental.repositories.author_listing_components import (
+        from bookcard.repositories.author_listing_components import (
             MatchedAuthorQueryBuilder,
         )
 
@@ -666,10 +664,10 @@ class TestAuthorRepositoryGetById:
 class TestAuthorRepositoryListUnmatchedByLibrary:
     """Test AuthorRepository.list_unmatched_by_library."""
 
-    @patch("fundamental.repositories.author_repository.MappedAuthorWithoutKeyFetcher")
-    @patch("fundamental.repositories.author_repository.MappedIdsFetcher")
-    @patch("fundamental.repositories.author_repository.UnmatchedAuthorFetcher")
-    @patch("fundamental.repositories.author_repository.AuthorHydrator")
+    @patch("bookcard.repositories.author_repository.MappedAuthorWithoutKeyFetcher")
+    @patch("bookcard.repositories.author_repository.MappedIdsFetcher")
+    @patch("bookcard.repositories.author_repository.UnmatchedAuthorFetcher")
+    @patch("bookcard.repositories.author_repository.AuthorHydrator")
     def test_list_unmatched_by_library_with_calibre_db(
         self,
         mock_hydrator_class: MagicMock,
@@ -696,7 +694,7 @@ class TestAuthorRepositoryListUnmatchedByLibrary:
         library_id : int
             Library ID.
         """
-        from fundamental.models.core import Author
+        from bookcard.models.core import Author
 
         # Setup mocks
         mock_mapped_without_key_fetcher = MagicMock()
@@ -744,7 +742,7 @@ class TestAuthorRepositoryListUnmatchedByLibrary:
         mock_mapped_ids_fetcher.get_mapped_ids.assert_called_once_with(library_id)
         mock_unmatched_fetcher.fetch_unmatched.assert_called_once()
 
-    @patch("fundamental.repositories.author_repository.MappedAuthorWithoutKeyFetcher")
+    @patch("bookcard.repositories.author_repository.MappedAuthorWithoutKeyFetcher")
     def test_list_unmatched_by_library_no_calibre_db(
         self,
         mock_mapped_without_key_fetcher_class: MagicMock,

@@ -22,11 +22,11 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from fundamental.metadata.base import (
+from bookcard.metadata.base import (
     MetadataProviderNetworkError,
     MetadataProviderParseError,
 )
-from fundamental.metadata.providers._hardcover.client import (
+from bookcard.metadata.providers._hardcover.client import (
     HardcoverGraphQLClient,
     HttpClient,
 )

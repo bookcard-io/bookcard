@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from fundamental.services.tasks.base import BaseTask
+from bookcard.services.tasks.base import BaseTask
 
 
 class ConcreteTask(BaseTask):

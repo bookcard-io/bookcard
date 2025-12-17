@@ -23,10 +23,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.tasks import Task, TaskStatus, TaskType
-from fundamental.services.task_service import TaskService
-from fundamental.services.tasks.base import BaseTask
-from fundamental.services.tasks.runner_thread import ThreadTaskRunner
+from bookcard.models.tasks import Task, TaskStatus, TaskType
+from bookcard.services.task_service import TaskService
+from bookcard.services.tasks.base import BaseTask
+from bookcard.services.tasks.runner_thread import ThreadTaskRunner
 
 
 @pytest.fixture
@@ -58,7 +58,7 @@ class TestThreadTaskRunnerInit:
     ) -> None:
         """Test __init__ starts worker thread."""
         with patch(
-            "fundamental.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.runner_thread._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -72,7 +72,7 @@ class TestThreadTaskRunnerInit:
     ) -> None:
         """Test __init__ creates queue."""
         with patch(
-            "fundamental.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.runner_thread._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -89,7 +89,7 @@ class TestEnqueue:
     ) -> None:
         """Test enqueue creates task in database."""
         with patch(
-            "fundamental.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.runner_thread._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -105,7 +105,7 @@ class TestEnqueue:
             # Make worker thread fail to get task so it doesn't process
             mock_task_service.get_task.return_value = None
             with patch(
-                "fundamental.services.tasks.runner_thread.TaskService",
+                "bookcard.services.tasks.runner_thread.TaskService",
                 return_value=mock_task_service,
             ):
                 runner = ThreadTaskRunner(mock_engine, mock_task_factory)
@@ -137,7 +137,7 @@ class TestEnqueue:
     ) -> None:
         """Test enqueue raises RuntimeError when task creation fails."""
         with patch(
-            "fundamental.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.runner_thread._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -150,7 +150,7 @@ class TestEnqueue:
             )
             mock_task_service.create_task.return_value = mock_task
             with patch(
-                "fundamental.services.tasks.runner_thread.TaskService",
+                "bookcard.services.tasks.runner_thread.TaskService",
                 return_value=mock_task_service,
             ):
                 runner = ThreadTaskRunner(mock_engine, mock_task_factory)
@@ -171,14 +171,14 @@ class TestCancel:
     ) -> None:
         """Test cancel returns False when task not found."""
         with patch(
-            "fundamental.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.runner_thread._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
             mock_task_service = MagicMock(spec=TaskService)
             mock_task_service.get_task.return_value = None
             with patch(
-                "fundamental.services.tasks.runner_thread.TaskService",
+                "bookcard.services.tasks.runner_thread.TaskService",
                 return_value=mock_task_service,
             ):
                 runner = ThreadTaskRunner(mock_engine, mock_task_factory)
@@ -191,7 +191,7 @@ class TestCancel:
     ) -> None:
         """Test cancel marks running task as cancelled."""
         with patch(
-            "fundamental.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.runner_thread._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -205,7 +205,7 @@ class TestCancel:
             mock_task_service.get_task.return_value = mock_task
             mock_task_service.cancel_task.return_value = True
             with patch(
-                "fundamental.services.tasks.runner_thread.TaskService",
+                "bookcard.services.tasks.runner_thread.TaskService",
                 return_value=mock_task_service,
             ):
                 runner = ThreadTaskRunner(mock_engine, mock_task_factory)
@@ -225,7 +225,7 @@ class TestGetStatus:
     ) -> None:
         """Test get_status returns task status."""
         with patch(
-            "fundamental.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.runner_thread._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -238,7 +238,7 @@ class TestGetStatus:
             )
             mock_task_service.get_task.return_value = mock_task
             with patch(
-                "fundamental.services.tasks.runner_thread.TaskService",
+                "bookcard.services.tasks.runner_thread.TaskService",
                 return_value=mock_task_service,
             ):
                 runner = ThreadTaskRunner(mock_engine, mock_task_factory)
@@ -251,14 +251,14 @@ class TestGetStatus:
     ) -> None:
         """Test get_status raises ValueError when task not found."""
         with patch(
-            "fundamental.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.runner_thread._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
             mock_task_service = MagicMock(spec=TaskService)
             mock_task_service.get_task.return_value = None
             with patch(
-                "fundamental.services.tasks.runner_thread.TaskService",
+                "bookcard.services.tasks.runner_thread.TaskService",
                 return_value=mock_task_service,
             ):
                 runner = ThreadTaskRunner(mock_engine, mock_task_factory)
@@ -275,7 +275,7 @@ class TestGetProgress:
     ) -> None:
         """Test get_progress returns task progress."""
         with patch(
-            "fundamental.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.runner_thread._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -289,7 +289,7 @@ class TestGetProgress:
             )
             mock_task_service.get_task.return_value = mock_task
             with patch(
-                "fundamental.services.tasks.runner_thread.TaskService",
+                "bookcard.services.tasks.runner_thread.TaskService",
                 return_value=mock_task_service,
             ):
                 runner = ThreadTaskRunner(mock_engine, mock_task_factory)
@@ -302,14 +302,14 @@ class TestGetProgress:
     ) -> None:
         """Test get_progress raises ValueError when task not found."""
         with patch(
-            "fundamental.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.runner_thread._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
             mock_task_service = MagicMock(spec=TaskService)
             mock_task_service.get_task.return_value = None
             with patch(
-                "fundamental.services.tasks.runner_thread.TaskService",
+                "bookcard.services.tasks.runner_thread.TaskService",
                 return_value=mock_task_service,
             ):
                 runner = ThreadTaskRunner(mock_engine, mock_task_factory)
@@ -326,7 +326,7 @@ class TestWorkerLoop:
     ) -> None:
         """Test _worker_loop processes queued task."""
         with patch(
-            "fundamental.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.runner_thread._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -340,11 +340,11 @@ class TestWorkerLoop:
             mock_task_service.get_task.return_value = mock_task
             with (
                 patch(
-                    "fundamental.services.tasks.runner_thread.TaskService",
+                    "bookcard.services.tasks.runner_thread.TaskService",
                     return_value=mock_task_service,
                 ),
                 patch(
-                    "fundamental.services.tasks.runner_thread.TaskExecutor"
+                    "bookcard.services.tasks.runner_thread.TaskExecutor"
                 ) as mock_executor_class,
             ):
                 mock_executor = MagicMock()
@@ -360,14 +360,14 @@ class TestWorkerLoop:
     ) -> None:
         """Test _worker_loop handles missing task gracefully."""
         with patch(
-            "fundamental.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.runner_thread._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
             mock_task_service = MagicMock(spec=TaskService)
             mock_task_service.get_task.return_value = None
             with patch(
-                "fundamental.services.tasks.runner_thread.TaskService",
+                "bookcard.services.tasks.runner_thread.TaskService",
                 return_value=mock_task_service,
             ):
                 runner = ThreadTaskRunner(mock_engine, mock_task_factory)
@@ -381,7 +381,7 @@ class TestWorkerLoop:
     ) -> None:
         """Test _worker_loop handles exceptions gracefully."""
         with patch(
-            "fundamental.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.runner_thread._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -395,7 +395,7 @@ class TestWorkerLoop:
             mock_task_service.get_task.return_value = mock_task
             mock_task_service.start_task.side_effect = Exception("Test error")
             with patch(
-                "fundamental.services.tasks.runner_thread.TaskService",
+                "bookcard.services.tasks.runner_thread.TaskService",
                 return_value=mock_task_service,
             ):
                 runner = ThreadTaskRunner(mock_engine, mock_task_factory)
@@ -413,7 +413,7 @@ class TestShutdown:
     ) -> None:
         """Test shutdown waits for queue to empty."""
         with patch(
-            "fundamental.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.runner_thread._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -421,7 +421,7 @@ class TestShutdown:
             # Make worker thread skip processing (task not found) but still call task_done()
             mock_task_service.get_task.return_value = None
             with patch(
-                "fundamental.services.tasks.runner_thread.TaskService",
+                "bookcard.services.tasks.runner_thread.TaskService",
                 return_value=mock_task_service,
             ):
                 runner = ThreadTaskRunner(mock_engine, mock_task_factory)
@@ -436,7 +436,7 @@ class TestShutdown:
     ) -> None:
         """Test shutdown waits for worker thread."""
         with patch(
-            "fundamental.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.runner_thread._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session

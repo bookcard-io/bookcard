@@ -23,7 +23,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from PIL import Image  # type: ignore[import-untyped]
 
-from fundamental.services.cover_extractors.cbz import CbzCoverExtractor
+from bookcard.services.cover_extractors.cbz import CbzCoverExtractor
 
 
 @pytest.fixture

@@ -22,9 +22,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.api.schemas.kobo import KoboTagItemRequest
-from fundamental.services.kobo.book_lookup_service import KoboBookLookupService
-from fundamental.services.kobo.shelf_item_service import KoboShelfItemService
+from bookcard.api.schemas.kobo import KoboTagItemRequest
+from bookcard.services.kobo.book_lookup_service import KoboBookLookupService
+from bookcard.services.kobo.shelf_item_service import KoboShelfItemService
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession
@@ -136,14 +136,14 @@ def test_add_items_to_shelf_success(
     tag_item_request : KoboTagItemRequest
         Tag item request.
     """
-    from fundamental.models.core import Book
+    from bookcard.models.core import Book
 
     book = Book(id=1, title="Test Book", uuid="test-uuid-123")
     mock_book_lookup_service.find_book_by_uuid.return_value = (1, book)
 
     # Mock ShelfService to avoid actual database operations
     with patch(
-        "fundamental.services.kobo.shelf_item_service.ShelfService"
+        "bookcard.services.kobo.shelf_item_service.ShelfService"
     ) as mock_shelf_service_class:
         mock_shelf_service = MagicMock()
         mock_shelf_service.add_book_to_shelf = MagicMock()
@@ -179,7 +179,7 @@ def test_add_items_to_shelf_wrong_type(
     )
 
     with patch(
-        "fundamental.services.kobo.shelf_item_service.ShelfService"
+        "bookcard.services.kobo.shelf_item_service.ShelfService"
     ) as mock_shelf_service_class:
         mock_shelf_service = MagicMock()
         mock_shelf_service_class.return_value = mock_shelf_service
@@ -206,7 +206,7 @@ def test_add_items_to_shelf_no_revision_id(
     tag_item_request = KoboTagItemRequest(Items=[{"Type": "ProductRevisionTagItem"}])
 
     with patch(
-        "fundamental.services.kobo.shelf_item_service.ShelfService"
+        "bookcard.services.kobo.shelf_item_service.ShelfService"
     ) as mock_shelf_service_class:
         mock_shelf_service = MagicMock()
         mock_shelf_service_class.return_value = mock_shelf_service
@@ -236,7 +236,7 @@ def test_add_items_to_shelf_book_not_found(
     mock_book_lookup_service.find_book_by_uuid.return_value = None
 
     with patch(
-        "fundamental.services.kobo.shelf_item_service.ShelfService"
+        "bookcard.services.kobo.shelf_item_service.ShelfService"
     ) as mock_shelf_service_class:
         mock_shelf_service = MagicMock()
         mock_shelf_service_class.return_value = mock_shelf_service
@@ -264,13 +264,13 @@ def test_add_items_to_shelf_already_in_shelf(
     tag_item_request : KoboTagItemRequest
         Tag item request.
     """
-    from fundamental.models.core import Book
+    from bookcard.models.core import Book
 
     book = Book(id=1, title="Test Book", uuid="test-uuid-123")
     mock_book_lookup_service.find_book_by_uuid.return_value = (1, book)
 
     with patch(
-        "fundamental.services.kobo.shelf_item_service.ShelfService"
+        "bookcard.services.kobo.shelf_item_service.ShelfService"
     ) as mock_shelf_service_class:
         mock_shelf_service = MagicMock()
         mock_shelf_service.add_book_to_shelf = MagicMock(
@@ -305,13 +305,13 @@ def test_remove_items_from_shelf_success(
     tag_item_request : KoboTagItemRequest
         Tag item request.
     """
-    from fundamental.models.core import Book
+    from bookcard.models.core import Book
 
     book = Book(id=1, title="Test Book", uuid="test-uuid-123")
     mock_book_lookup_service.find_book_by_uuid.return_value = (1, book)
 
     with patch(
-        "fundamental.services.kobo.shelf_item_service.ShelfService"
+        "bookcard.services.kobo.shelf_item_service.ShelfService"
     ) as mock_shelf_service_class:
         mock_shelf_service = MagicMock()
         mock_shelf_service.remove_book_from_shelf = MagicMock()
@@ -347,9 +347,9 @@ def test_remove_items_from_shelf_wrong_type(
     )
 
     with (
-        patch("fundamental.services.kobo.shelf_item_service.ShelfRepository"),
-        patch("fundamental.services.kobo.shelf_item_service.BookShelfLinkRepository"),
-        patch("fundamental.services.kobo.shelf_item_service.ShelfService"),
+        patch("bookcard.services.kobo.shelf_item_service.ShelfRepository"),
+        patch("bookcard.services.kobo.shelf_item_service.BookShelfLinkRepository"),
+        patch("bookcard.services.kobo.shelf_item_service.ShelfService"),
     ):
         shelf_item_service.remove_items_from_shelf(
             shelf_id=1, user_id=1, item_data=tag_item_request
@@ -374,9 +374,9 @@ def test_remove_items_from_shelf_no_revision_id(
     tag_item_request = KoboTagItemRequest(Items=[{"Type": "ProductRevisionTagItem"}])
 
     with (
-        patch("fundamental.services.kobo.shelf_item_service.ShelfRepository"),
-        patch("fundamental.services.kobo.shelf_item_service.BookShelfLinkRepository"),
-        patch("fundamental.services.kobo.shelf_item_service.ShelfService"),
+        patch("bookcard.services.kobo.shelf_item_service.ShelfRepository"),
+        patch("bookcard.services.kobo.shelf_item_service.BookShelfLinkRepository"),
+        patch("bookcard.services.kobo.shelf_item_service.ShelfService"),
     ):
         shelf_item_service.remove_items_from_shelf(
             shelf_id=1, user_id=1, item_data=tag_item_request
@@ -404,7 +404,7 @@ def test_remove_items_from_shelf_book_not_found(
     mock_book_lookup_service.find_book_by_uuid.return_value = None
 
     with patch(
-        "fundamental.services.kobo.shelf_item_service.ShelfService"
+        "bookcard.services.kobo.shelf_item_service.ShelfService"
     ) as mock_shelf_service_class:
         mock_shelf_service = MagicMock()
         mock_shelf_service_class.return_value = mock_shelf_service
@@ -432,13 +432,13 @@ def test_remove_items_from_shelf_not_in_shelf(
     tag_item_request : KoboTagItemRequest
         Tag item request.
     """
-    from fundamental.models.core import Book
+    from bookcard.models.core import Book
 
     book = Book(id=1, title="Test Book", uuid="test-uuid-123")
     mock_book_lookup_service.find_book_by_uuid.return_value = (1, book)
 
     with patch(
-        "fundamental.services.kobo.shelf_item_service.ShelfService"
+        "bookcard.services.kobo.shelf_item_service.ShelfService"
     ) as mock_shelf_service_class:
         mock_shelf_service = MagicMock()
         mock_shelf_service.remove_book_from_shelf = MagicMock(

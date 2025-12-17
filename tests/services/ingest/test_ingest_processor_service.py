@@ -28,25 +28,25 @@ if TYPE_CHECKING:
 
     from tests.conftest import DummySession
 
-from fundamental.models.config import Library
-from fundamental.models.ingest import IngestHistory, IngestStatus
-from fundamental.models.metadata import MetadataRecord
-from fundamental.repositories.config_repository import LibraryRepository
-from fundamental.repositories.ingest_repository import (
+from bookcard.models.config import Library
+from bookcard.models.ingest import IngestHistory, IngestStatus
+from bookcard.models.metadata import MetadataRecord
+from bookcard.repositories.config_repository import LibraryRepository
+from bookcard.repositories.ingest_repository import (
     IngestAuditRepository,
     IngestHistoryRepository,
 )
-from fundamental.services.author_exceptions import NoActiveLibraryError
-from fundamental.services.book_service import BookService
-from fundamental.services.ingest.exceptions import (
+from bookcard.services.author_exceptions import NoActiveLibraryError
+from bookcard.services.book_service import BookService
+from bookcard.services.ingest.exceptions import (
     IngestHistoryCreationError,
     IngestHistoryNotFoundError,
 )
-from fundamental.services.ingest.file_discovery_service import FileGroup
-from fundamental.services.ingest.ingest_config_service import IngestConfigService
-from fundamental.services.ingest.ingest_processor_service import IngestProcessorService
-from fundamental.services.ingest.metadata_extraction import ExtractedMetadata
-from fundamental.services.ingest.metadata_fetch_service import MetadataFetchService
+from bookcard.services.ingest.file_discovery_service import FileGroup
+from bookcard.services.ingest.ingest_config_service import IngestConfigService
+from bookcard.services.ingest.ingest_processor_service import IngestProcessorService
+from bookcard.services.ingest.metadata_extraction import ExtractedMetadata
+from bookcard.services.ingest.metadata_fetch_service import MetadataFetchService
 
 
 @pytest.fixture
@@ -396,7 +396,7 @@ class TestFetchAndStoreMetadata:
         service_defaults._history_repo.get = MagicMock(return_value=ingest_history)  # type: ignore[method-assign]
 
         with patch(
-            "fundamental.services.ingest.ingest_processor_service.MetadataFetchService"
+            "bookcard.services.ingest.ingest_processor_service.MetadataFetchService"
         ) as mock_fetch_class:
             mock_fetch_instance = MagicMock()
             mock_fetch_instance.fetch_metadata.return_value = metadata_record
@@ -459,7 +459,7 @@ class TestAddBookToLibrary:
         mock_book_service.add_book.return_value = 456
 
         with patch(
-            "fundamental.services.ingest.ingest_processor_service.extract_metadata"
+            "bookcard.services.ingest.ingest_processor_service.extract_metadata"
         ) as mock_extract:
             mock_extract.return_value = ExtractedMetadata(
                 title="Extracted Title",
@@ -499,7 +499,7 @@ class TestAddBookToLibrary:
         mock_book_service.add_book.return_value = 789
 
         with patch(
-            "fundamental.services.ingest.ingest_processor_service.extract_metadata"
+            "bookcard.services.ingest.ingest_processor_service.extract_metadata"
         ) as mock_extract:
             mock_extract.return_value = ExtractedMetadata(
                 title="Test",
@@ -532,7 +532,7 @@ class TestAddBookToLibrary:
         mock_book_service.add_book.return_value = 789
 
         with patch(
-            "fundamental.services.ingest.ingest_processor_service.extract_metadata"
+            "bookcard.services.ingest.ingest_processor_service.extract_metadata"
         ) as mock_extract:
             mock_extract.return_value = ExtractedMetadata(
                 title="Test",
@@ -602,7 +602,7 @@ class TestAddBookToLibrary:
         mock_history_repo.get.return_value = ingest_history
 
         with patch(
-            "fundamental.services.ingest.ingest_processor_service.extract_metadata"
+            "bookcard.services.ingest.ingest_processor_service.extract_metadata"
         ) as mock_extract:
             mock_extract.return_value = ExtractedMetadata(
                 title="my_book",
@@ -630,7 +630,7 @@ class TestSetBookCover:
     ) -> None:
         """Test successful cover setting."""
         with patch(
-            "fundamental.services.book_cover_service.BookCoverService"
+            "bookcard.services.book_cover_service.BookCoverService"
         ) as mock_cover_class:
             mock_cover_service = MagicMock()
             mock_cover_class.return_value = mock_cover_service
@@ -660,7 +660,7 @@ class TestSetBookCover:
     ) -> None:
         """Test cover setting handles exceptions gracefully."""
         with patch(
-            "fundamental.services.book_cover_service.BookCoverService"
+            "bookcard.services.book_cover_service.BookCoverService"
         ) as mock_cover_class:
             mock_cover_service = MagicMock()
             mock_cover_service.save_cover_from_url.side_effect = exception
@@ -999,7 +999,7 @@ class TestPrivateHelpers:
         service_defaults._config_service = mock_config_service
 
         with patch(
-            "fundamental.services.ingest.ingest_processor_service.MetadataFetchService"
+            "bookcard.services.ingest.ingest_processor_service.MetadataFetchService"
         ) as mock_fetch_class:
             mock_fetch_instance = MagicMock()
             mock_fetch_class.create_default.return_value = mock_fetch_instance

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from fundamental.models.core import (
+from bookcard.models.core import (
     Author,
     BookAuthorLink,
     BookLanguageLink,
@@ -35,8 +35,8 @@ from fundamental.models.core import (
     Series,
     Tag,
 )  # type: ignore[arg-type]
-from fundamental.repositories.book_relationship_manager import BookRelationshipManager
-from fundamental.services.book_metadata import BookMetadata
+from bookcard.repositories.book_relationship_manager import BookRelationshipManager
+from bookcard.services.book_metadata import BookMetadata
 from tests.conftest import DummySession, MockResult
 
 

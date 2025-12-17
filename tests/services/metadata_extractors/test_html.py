@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from fundamental.services.metadata_extractors.html import HtmlMetadataExtractor
+from bookcard.services.metadata_extractors.html import HtmlMetadataExtractor
 
 
 @pytest.fixture

@@ -21,7 +21,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from fundamental.models.epub_fixer import EPUBFixRun
+from bookcard.models.epub_fixer import EPUBFixRun
 
 
 @pytest.fixture

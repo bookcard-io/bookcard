@@ -23,8 +23,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.services.tasks.book_upload_task import BookUploadTask
-from fundamental.services.tasks.exceptions import (
+from bookcard.services.tasks.book_upload_task import BookUploadTask
+from bookcard.services.tasks.exceptions import (
     LibraryNotConfiguredError,
     TaskCancelledError,
 )
@@ -186,11 +186,11 @@ class TestBookUploadTaskAddBookToLibrary:
         )
 
     @patch(
-        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+        "bookcard.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
     )
-    @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
-    @patch("fundamental.services.tasks.book_upload_task.LibraryService")
-    @patch("fundamental.services.tasks.book_upload_task.BookService")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryRepository")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryService")
+    @patch("bookcard.services.tasks.book_upload_task.BookService")
     def test_add_book_to_library_success(
         self,
         mock_book_service_class: MagicMock,
@@ -235,8 +235,8 @@ class TestBookUploadTaskAddBookToLibrary:
         assert task.metadata["book_ids"] == [123]
         mock_book_service.add_book.assert_called_once()
 
-    @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
-    @patch("fundamental.services.tasks.book_upload_task.LibraryService")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryRepository")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryService")
     def test_add_book_to_library_no_active_library(
         self,
         mock_library_service_class: MagicMock,
@@ -254,9 +254,9 @@ class TestBookUploadTaskAddBookToLibrary:
         with pytest.raises(LibraryNotConfiguredError):
             task._get_active_library(worker_context["session"])
 
-    @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
-    @patch("fundamental.services.tasks.book_upload_task.LibraryService")
-    @patch("fundamental.services.tasks.book_upload_task.BookService")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryRepository")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryService")
+    @patch("bookcard.services.tasks.book_upload_task.BookService")
     def test_add_book_to_library_cancelled(
         self,
         mock_book_service_class: MagicMock,
@@ -285,9 +285,9 @@ class TestBookUploadTaskAddBookToLibrary:
                 worker_context["update_progress"],
             )
 
-    @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
-    @patch("fundamental.services.tasks.book_upload_task.LibraryService")
-    @patch("fundamental.services.tasks.book_upload_task.BookService")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryRepository")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryService")
+    @patch("bookcard.services.tasks.book_upload_task.BookService")
     def test_add_book_to_library_cancelled_after_library_found(
         self,
         mock_book_service_class: MagicMock,
@@ -321,11 +321,11 @@ class TestBookUploadTaskAddBookToLibrary:
             )
 
     @patch(
-        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+        "bookcard.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
     )
-    @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
-    @patch("fundamental.services.tasks.book_upload_task.LibraryService")
-    @patch("fundamental.services.tasks.book_upload_task.BookService")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryRepository")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryService")
+    @patch("bookcard.services.tasks.book_upload_task.BookService")
     def test_add_book_to_library_extracts_title_from_filename(
         self,
         mock_book_service_class: MagicMock,
@@ -392,11 +392,11 @@ class TestBookUploadTaskRun:
         )
 
     @patch(
-        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+        "bookcard.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
     )
-    @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
-    @patch("fundamental.services.tasks.book_upload_task.LibraryService")
-    @patch("fundamental.services.tasks.book_upload_task.BookService")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryRepository")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryService")
+    @patch("bookcard.services.tasks.book_upload_task.BookService")
     def test_run_success(
         self,
         mock_book_service_class: MagicMock,
@@ -439,9 +439,9 @@ class TestBookUploadTaskRun:
         assert "book_ids" in task.metadata
         assert task.metadata["book_ids"] == [123]
 
-    @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
-    @patch("fundamental.services.tasks.book_upload_task.LibraryService")
-    @patch("fundamental.services.tasks.book_upload_task.BookService")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryRepository")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryService")
+    @patch("bookcard.services.tasks.book_upload_task.BookService")
     def test_run_cancelled_before_processing(
         self,
         mock_book_service_class: MagicMock,
@@ -458,9 +458,9 @@ class TestBookUploadTaskRun:
         # Should not call book service
         mock_book_service_class.assert_not_called()
 
-    @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
-    @patch("fundamental.services.tasks.book_upload_task.LibraryService")
-    @patch("fundamental.services.tasks.book_upload_task.BookService")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryRepository")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryService")
+    @patch("bookcard.services.tasks.book_upload_task.BookService")
     def test_run_cancelled_during_execution(
         self,
         mock_book_service_class: MagicMock,
@@ -493,11 +493,11 @@ class TestBookUploadTaskRun:
         mock_book_service_class.assert_not_called()
 
     @patch(
-        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+        "bookcard.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
     )
-    @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
-    @patch("fundamental.services.tasks.book_upload_task.LibraryService")
-    @patch("fundamental.services.tasks.book_upload_task.BookService")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryRepository")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryService")
+    @patch("bookcard.services.tasks.book_upload_task.BookService")
     def test_run_exception(
         self,
         mock_book_service_class: MagicMock,
@@ -536,11 +536,11 @@ class TestBookUploadTaskRun:
             task.run(worker_context)
 
     @patch(
-        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+        "bookcard.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
     )
-    @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
-    @patch("fundamental.services.tasks.book_upload_task.LibraryService")
-    @patch("fundamental.services.tasks.book_upload_task.BookService")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryRepository")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryService")
+    @patch("bookcard.services.tasks.book_upload_task.BookService")
     def test_run_sets_file_size(
         self,
         mock_book_service_class: MagicMock,
@@ -581,11 +581,11 @@ class TestBookUploadTaskRun:
         assert task.metadata["file_size"] > 0
 
     @patch(
-        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+        "bookcard.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
     )
-    @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
-    @patch("fundamental.services.tasks.book_upload_task.LibraryService")
-    @patch("fundamental.services.tasks.book_upload_task.BookService")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryRepository")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryService")
+    @patch("bookcard.services.tasks.book_upload_task.BookService")
     def test_run_logs_book_ids_confirmation(
         self,
         mock_book_service_class: MagicMock,
@@ -638,7 +638,7 @@ class TestBookUploadTaskAdditional:
             metadata=metadata,
         )
 
-    @patch("fundamental.services.tasks.book_upload_task.BookMetadataService")
+    @patch("bookcard.services.tasks.book_upload_task.BookMetadataService")
     def test_extract_author_exception_handling(
         self,
         mock_metadata_service_class: MagicMock,
@@ -653,14 +653,14 @@ class TestBookUploadTaskAdditional:
 
         assert result is None
 
-    @patch("fundamental.services.tasks.book_upload_task.BookDuplicateHandler")
+    @patch("bookcard.services.tasks.book_upload_task.BookDuplicateHandler")
     def test_check_and_handle_duplicate_skip(
         self,
         mock_duplicate_handler_class: MagicMock,
         task: BookUploadTask,
     ) -> None:
         """Test _check_and_handle_duplicate when should_skip is True (covers lines 307-309)."""
-        from fundamental.services.duplicate_detection.book_duplicate_handler import (
+        from bookcard.services.duplicate_detection.book_duplicate_handler import (
             DuplicateCheckResult,
         )
 
@@ -685,14 +685,14 @@ class TestBookUploadTaskAdditional:
                 "Test Author",
             )
 
-    @patch("fundamental.services.tasks.book_upload_task.BookDuplicateHandler")
+    @patch("bookcard.services.tasks.book_upload_task.BookDuplicateHandler")
     def test_check_and_handle_duplicate_overwrite(
         self,
         mock_duplicate_handler_class: MagicMock,
         task: BookUploadTask,
     ) -> None:
         """Test _check_and_handle_duplicate when should_overwrite is True (covers lines 313-321)."""
-        from fundamental.services.duplicate_detection.book_duplicate_handler import (
+        from bookcard.services.duplicate_detection.book_duplicate_handler import (
             DuplicateCheckResult,
         )
 
@@ -728,7 +728,7 @@ class TestBookUploadTaskAdditional:
         worker_context: dict[str, MagicMock],
     ) -> None:
         """Test _get_post_processors returns existing processors (covers line 409)."""
-        from fundamental.services.tasks.post_processors import PostIngestProcessor
+        from bookcard.services.tasks.post_processors import PostIngestProcessor
 
         mock_processor = MagicMock(spec=PostIngestProcessor)
         task._post_processors = [mock_processor]
@@ -753,11 +753,11 @@ class TestBookUploadTaskAdditional:
             task._validate_metadata_before_completion()
 
     @patch(
-        "fundamental.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
+        "bookcard.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"
     )
-    @patch("fundamental.services.tasks.book_upload_task.LibraryRepository")
-    @patch("fundamental.services.tasks.book_upload_task.LibraryService")
-    @patch("fundamental.services.tasks.book_upload_task.BookService")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryRepository")
+    @patch("bookcard.services.tasks.book_upload_task.LibraryService")
+    @patch("bookcard.services.tasks.book_upload_task.BookService")
     def test_run_with_worker_context_object(
         self,
         mock_book_service_class: MagicMock,
@@ -767,7 +767,7 @@ class TestBookUploadTaskAdditional:
         task: BookUploadTask,
     ) -> None:
         """Test run with WorkerContext object instead of dict (covers line 471)."""
-        from fundamental.services.tasks.context import WorkerContext
+        from bookcard.services.tasks.context import WorkerContext
 
         mock_calibre_repo = MagicMock()
         mock_calibre_session = MagicMock()

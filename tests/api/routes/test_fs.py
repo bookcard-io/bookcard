@@ -29,7 +29,7 @@ from fastapi import HTTPException
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-from fundamental.api.routes.fs import (
+from bookcard.api.routes.fs import (
     EXCLUDED_FS_DIR_PREFIXES,
     _build_suggestions,
     _is_under_excluded,
@@ -162,7 +162,7 @@ def test_list_subdirectories_returns_directories(
 
     # Patch _is_under_excluded to return False for temp directories
     # (temp dirs resolve to /tmp/... which is excluded)
-    with patch("fundamental.api.routes.fs._is_under_excluded", return_value=False):
+    with patch("bookcard.api.routes.fs._is_under_excluded", return_value=False):
         result = list(_list_subdirectories(temp_dir))
         assert len(result) == 2
         assert any(p.name == "dir1" for p in result)
@@ -185,7 +185,7 @@ def test_list_subdirectories_skips_files(
     (temp_dir / "file.txt").write_text("content")
     (temp_dir / "dir").mkdir()
 
-    with patch("fundamental.api.routes.fs._is_under_excluded", return_value=False):
+    with patch("bookcard.api.routes.fs._is_under_excluded", return_value=False):
         result = list(_list_subdirectories(temp_dir))
         assert len(result) == 1
         assert result[0].name == "dir"
@@ -203,7 +203,7 @@ def test_list_subdirectories_skips_excluded(
         return path.name == "dir2"
 
     with patch(
-        "fundamental.api.routes.fs._is_under_excluded",
+        "bookcard.api.routes.fs._is_under_excluded",
         side_effect=mock_is_under_excluded,
     ):
         result = list(_list_subdirectories(temp_dir))
@@ -232,7 +232,7 @@ def test_list_subdirectories_skips_no_permission_child(
 
     with (
         patch("os.access", side_effect=mock_access),
-        patch("fundamental.api.routes.fs._is_under_excluded", return_value=False),
+        patch("bookcard.api.routes.fs._is_under_excluded", return_value=False),
     ):
         result = list(_list_subdirectories(temp_dir))
         assert len(result) == 1
@@ -410,9 +410,7 @@ def test_list_children_filtered_root(
         Path("/media"),
     ]
 
-    with patch(
-        "fundamental.api.routes.fs._list_subdirectories", return_value=mock_dirs
-    ):
+    with patch("bookcard.api.routes.fs._list_subdirectories", return_value=mock_dirs):
         result = _list_children_filtered(root_dir)
         # Should exclude /bin and /usr, keep /home and /media
         assert len(result) == 2
@@ -428,7 +426,7 @@ def test_list_children_filtered_non_root(
     (temp_dir / "dir2").mkdir()
 
     # Patch _is_under_excluded to return False for temp directories
-    with patch("fundamental.api.routes.fs._is_under_excluded", return_value=False):
+    with patch("bookcard.api.routes.fs._is_under_excluded", return_value=False):
         result = _list_children_filtered(temp_dir)
         assert len(result) == 2
 
@@ -440,9 +438,7 @@ def test_list_children_filtered_root_excludes_exact_matches(
     root_dir = Path("/")
     mock_dirs = [Path("/bin"), Path("/usr")]
 
-    with patch(
-        "fundamental.api.routes.fs._list_subdirectories", return_value=mock_dirs
-    ):
+    with patch("bookcard.api.routes.fs._list_subdirectories", return_value=mock_dirs):
         result = _list_children_filtered(root_dir)
         assert len(result) == 0
 
@@ -454,9 +450,7 @@ def test_list_children_filtered_root_excludes_prefixes(
     root_dir = Path("/")
     mock_dirs = [Path("/usr/local"), Path("/bin/bash")]
 
-    with patch(
-        "fundamental.api.routes.fs._list_subdirectories", return_value=mock_dirs
-    ):
+    with patch("bookcard.api.routes.fs._list_subdirectories", return_value=mock_dirs):
         result = _list_children_filtered(root_dir)
         assert len(result) == 0
 
@@ -543,7 +537,7 @@ def test_suggest_dirs_empty_query(
     mock_dirs = [Path("/home"), Path("/media")]
 
     with patch(
-        "fundamental.api.routes.fs._list_children_filtered", return_value=mock_dirs
+        "bookcard.api.routes.fs._list_children_filtered", return_value=mock_dirs
     ):
         result = suggest_dirs(q="", limit=50)
         assert "suggestions" in result
@@ -558,7 +552,7 @@ def test_suggest_dirs_with_query(
     test_dir.mkdir()
 
     with patch(
-        "fundamental.api.routes.fs._list_children_filtered", return_value=[test_dir]
+        "bookcard.api.routes.fs._list_children_filtered", return_value=[test_dir]
     ):
         result = suggest_dirs(q=str(temp_dir), limit=50)
         assert "suggestions" in result
@@ -569,7 +563,7 @@ def test_suggest_dirs_excluded_candidate(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test suggest_dirs returns empty when candidate is excluded (lines 252-254)."""
-    with patch("fundamental.api.routes.fs._is_under_excluded", return_value=True):
+    with patch("bookcard.api.routes.fs._is_under_excluded", return_value=True):
         result = suggest_dirs(q="/bin", limit=50)
         assert result["suggestions"] == []
 
@@ -580,11 +574,11 @@ def test_suggest_dirs_excluded_base_dir(
     """Test suggest_dirs returns empty when base_dir is excluded (lines 257-259)."""
     with (
         patch(
-            "fundamental.api.routes.fs._is_under_excluded",
+            "bookcard.api.routes.fs._is_under_excluded",
             side_effect=lambda p: p.name == "bin",
         ),
         patch(
-            "fundamental.api.routes.fs._resolve_base_and_needle",
+            "bookcard.api.routes.fs._resolve_base_and_needle",
             return_value=(Path("/bin"), ""),
         ),
     ):
@@ -599,7 +593,7 @@ def test_suggest_dirs_respects_limit(
     mock_dirs = [temp_dir / f"dir{i}" for i in range(20)]
 
     with patch(
-        "fundamental.api.routes.fs._list_children_filtered", return_value=mock_dirs
+        "bookcard.api.routes.fs._list_children_filtered", return_value=mock_dirs
     ):
         result = suggest_dirs(q=str(temp_dir), limit=5)
         assert len(result["suggestions"]) <= 5
@@ -613,13 +607,13 @@ def test_suggest_dirs_with_tilde(
     mock_dir = Path(expanded)
 
     with (
-        patch("fundamental.api.routes.fs._is_under_excluded", return_value=False),
+        patch("bookcard.api.routes.fs._is_under_excluded", return_value=False),
         patch(
-            "fundamental.api.routes.fs._resolve_base_and_needle",
+            "bookcard.api.routes.fs._resolve_base_and_needle",
             return_value=(mock_dir.parent, "books"),
         ),
         patch(
-            "fundamental.api.routes.fs._list_children_filtered", return_value=[mock_dir]
+            "bookcard.api.routes.fs._list_children_filtered", return_value=[mock_dir]
         ),
     ):
         result = suggest_dirs(q="~/books", limit=50)
@@ -634,13 +628,13 @@ def test_suggest_dirs_with_relative_path(
     test_dir.mkdir()
 
     with (
-        patch("fundamental.api.routes.fs._is_under_excluded", return_value=False),
+        patch("bookcard.api.routes.fs._is_under_excluded", return_value=False),
         patch(
-            "fundamental.api.routes.fs._resolve_base_and_needle",
+            "bookcard.api.routes.fs._resolve_base_and_needle",
             return_value=(temp_dir, "books"),
         ),
         patch(
-            "fundamental.api.routes.fs._list_children_filtered", return_value=[test_dir]
+            "bookcard.api.routes.fs._list_children_filtered", return_value=[test_dir]
         ),
     ):
         result = suggest_dirs(q="books", limit=50)
@@ -652,9 +646,9 @@ def test_suggest_dirs_handles_oserror(
 ) -> None:
     """Test suggest_dirs handles OSError from _resolve_base_and_needle."""
     with (
-        patch("fundamental.api.routes.fs._is_under_excluded", return_value=False),
+        patch("bookcard.api.routes.fs._is_under_excluded", return_value=False),
         patch(
-            "fundamental.api.routes.fs._resolve_base_and_needle",
+            "bookcard.api.routes.fs._resolve_base_and_needle",
             side_effect=HTTPException(status_code=400, detail="Permission denied"),
         ),
     ):
@@ -677,7 +671,7 @@ def test_list_files_returns_files(
     (temp_dir / "dir").mkdir()
 
     # Patch _is_under_excluded to return False for temp directories
-    with patch("fundamental.api.routes.fs._is_under_excluded", return_value=False):
+    with patch("bookcard.api.routes.fs._is_under_excluded", return_value=False):
         result = list(_list_files(temp_dir))
         assert len(result) == 2
         assert any(p.name == "file1.txt" for p in result)
@@ -700,7 +694,7 @@ def test_list_files_skips_directories(
     (temp_dir / "file.txt").write_text("content")
     (temp_dir / "dir").mkdir()
 
-    with patch("fundamental.api.routes.fs._is_under_excluded", return_value=False):
+    with patch("bookcard.api.routes.fs._is_under_excluded", return_value=False):
         result = list(_list_files(temp_dir))
         assert len(result) == 1
         assert result[0].name == "file.txt"
@@ -736,7 +730,7 @@ def test_list_files_skips_excluded(
         return path.name == "file2.txt"
 
     with patch(
-        "fundamental.api.routes.fs._is_under_excluded",
+        "bookcard.api.routes.fs._is_under_excluded",
         side_effect=mock_is_under_excluded,
     ):
         result = list(_list_files(temp_dir))
@@ -765,7 +759,7 @@ def test_list_files_skips_no_permission_file(
 
     with (
         patch("os.access", side_effect=mock_access),
-        patch("fundamental.api.routes.fs._is_under_excluded", return_value=False),
+        patch("bookcard.api.routes.fs._is_under_excluded", return_value=False),
     ):
         result = list(_list_files(temp_dir))
         assert len(result) == 1
@@ -805,13 +799,13 @@ def test_suggest_dirs_include_files_false(
     (temp_dir / "file.txt").write_text("content")
 
     with (
-        patch("fundamental.api.routes.fs._is_under_excluded", return_value=False),
+        patch("bookcard.api.routes.fs._is_under_excluded", return_value=False),
         patch(
-            "fundamental.api.routes.fs._resolve_base_and_needle",
+            "bookcard.api.routes.fs._resolve_base_and_needle",
             return_value=(temp_dir, ""),
         ),
         patch(
-            "fundamental.api.routes.fs._list_children_filtered", return_value=[test_dir]
+            "bookcard.api.routes.fs._list_children_filtered", return_value=[test_dir]
         ) as mock_filtered,
     ):
         result = suggest_dirs(q=str(temp_dir), limit=50, include_files=False)
@@ -830,13 +824,13 @@ def test_suggest_dirs_include_files_true(
     test_file.write_text("content")
 
     with (
-        patch("fundamental.api.routes.fs._is_under_excluded", return_value=False),
+        patch("bookcard.api.routes.fs._is_under_excluded", return_value=False),
         patch(
-            "fundamental.api.routes.fs._resolve_base_and_needle",
+            "bookcard.api.routes.fs._resolve_base_and_needle",
             return_value=(temp_dir, ""),
         ),
         patch(
-            "fundamental.api.routes.fs._list_children_with_files_filtered",
+            "bookcard.api.routes.fs._list_children_with_files_filtered",
             return_value=[test_dir, test_file],
         ) as mock_with_files,
     ):

@@ -24,7 +24,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.services.metadata_extractors.pdf import PdfMetadataExtractor
+from bookcard.services.metadata_extractors.pdf import PdfMetadataExtractor
 
 
 @pytest.fixture
@@ -57,7 +57,7 @@ def test_extract_no_metadata(extractor: PdfMetadataExtractor) -> None:
 
     try:
         with patch(
-            "fundamental.services.metadata_extractors.pdf.PdfReader"
+            "bookcard.services.metadata_extractors.pdf.PdfReader"
         ) as mock_reader_class:
             mock_reader = MagicMock()
             mock_reader.metadata = None
@@ -77,7 +77,7 @@ def test_extract_with_info_metadata(extractor: PdfMetadataExtractor) -> None:
 
     try:
         with patch(
-            "fundamental.services.metadata_extractors.pdf.PdfReader"
+            "bookcard.services.metadata_extractors.pdf.PdfReader"
         ) as mock_reader_class:
             mock_reader = MagicMock()
             mock_reader.metadata = {
@@ -110,7 +110,7 @@ def test_extract_with_xmp_metadata(extractor: PdfMetadataExtractor) -> None:
 
     try:
         with patch(
-            "fundamental.services.metadata_extractors.pdf.PdfReader"
+            "bookcard.services.metadata_extractors.pdf.PdfReader"
         ) as mock_reader_class:
             mock_xmp = MagicMock()
             mock_xmp.dc_title = "XMP Title"
@@ -494,9 +494,9 @@ def test_extract_primary_author_from_contributors(
 
     try:
         with patch(
-            "fundamental.services.metadata_extractors.pdf.PdfReader"
+            "bookcard.services.metadata_extractors.pdf.PdfReader"
         ) as mock_reader_class:
-            from fundamental.services.book_metadata import Contributor
+            from bookcard.services.book_metadata import Contributor
 
             mock_reader = MagicMock()
             mock_reader.metadata = {}

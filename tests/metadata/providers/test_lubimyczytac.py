@@ -23,12 +23,12 @@ import httpx
 import pytest
 from lxml.html import fromstring
 
-from fundamental.metadata.base import (
+from bookcard.metadata.base import (
     MetadataProviderNetworkError,
     MetadataProviderParseError,
     MetadataProviderTimeoutError,
 )
-from fundamental.metadata.providers.lubimyczytac import (
+from bookcard.metadata.providers.lubimyczytac import (
     LubimyCzytacProvider,
     _get_int_or_float,
     _get_language_name,
@@ -1039,9 +1039,7 @@ def test_lubimyczytac_provider_prepare_query_with_slash(
         return original_sub(pattern, repl, string, count, flags)  # type: ignore[no-overload-impl]
 
     # Patch re.sub in the lubimyczytac module namespace
-    with patch(
-        "fundamental.metadata.providers.lubimyczytac.re.sub", side_effect=mock_sub
-    ):
+    with patch("bookcard.metadata.providers.lubimyczytac.re.sub", side_effect=mock_sub):
         # Now test with slash in title - this should trigger line 346
         query = lubimyczytac_provider._prepare_query("test/book title")
         # Should process tokens with lowercase and split on space (line 346-348)

@@ -20,9 +20,9 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-from fundamental.models.config import Library
-from fundamental.models.core import Book
-from fundamental.services.book_service import BookService
+from bookcard.models.config import Library
+from bookcard.models.core import Book
+from bookcard.services.book_service import BookService
 
 
 def test_get_thumbnail_path_with_library_root() -> None:
@@ -44,7 +44,7 @@ def test_get_thumbnail_path_with_library_root() -> None:
     )
 
     with (
-        patch("fundamental.services.book_service.CalibreBookRepository"),
+        patch("bookcard.services.book_service.CalibreBookRepository"),
         patch("pathlib.Path.exists", return_value=True) as mock_exists,
     ):
         service = BookService(library)

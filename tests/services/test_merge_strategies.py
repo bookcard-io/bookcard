@@ -22,19 +22,19 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.author_metadata import AuthorMapping, AuthorMetadata
-from fundamental.services.author_merge.author_relationship_repository import (
+from bookcard.models.author_metadata import AuthorMapping, AuthorMetadata
+from bookcard.services.author_merge.author_relationship_repository import (
     AuthorRelationshipRepository,
 )
-from fundamental.services.author_merge.calibre_author_service import (
+from bookcard.services.author_merge.calibre_author_service import (
     CalibreAuthorService,
 )
-from fundamental.services.author_merge.merge_strategies import (
+from bookcard.services.author_merge.merge_strategies import (
     BothHaveBooksMergeStrategy,
     MergeStrategyFactory,
     ZeroBooksMergeStrategy,
 )
-from fundamental.services.author_merge.value_objects import MergeContext
+from bookcard.services.author_merge.value_objects import MergeContext
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession

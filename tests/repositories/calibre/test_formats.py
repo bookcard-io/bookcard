@@ -25,15 +25,15 @@ from unittest.mock import MagicMock
 import pytest
 from sqlmodel import select
 
-from fundamental.models.media import Data
-from fundamental.repositories.calibre.formats import BookFormatOperations
+from bookcard.models.media import Data
+from bookcard.repositories.calibre.formats import BookFormatOperations
 from tests.repositories.calibre.conftest import MockFileManager, MockSessionManager
 
 if TYPE_CHECKING:
     from sqlmodel import Session
 
-    from fundamental.models.core import Book
-    from fundamental.repositories.calibre.retry import SQLiteRetryPolicy
+    from bookcard.models.core import Book
+    from bookcard.repositories.calibre.retry import SQLiteRetryPolicy
 
 
 class TestBookFormatOperations:

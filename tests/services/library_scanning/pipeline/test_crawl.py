@@ -21,10 +21,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.core import Author, Book, BookAuthorLink
-from fundamental.repositories import CalibreBookRepository
-from fundamental.services.library_scanning.pipeline.context import PipelineContext
-from fundamental.services.library_scanning.pipeline.crawl import CrawlStage
+from bookcard.models.core import Author, Book, BookAuthorLink
+from bookcard.repositories import CalibreBookRepository
+from bookcard.services.library_scanning.pipeline.context import PipelineContext
+from bookcard.services.library_scanning.pipeline.crawl import CrawlStage
 
 
 @pytest.fixture
@@ -155,7 +155,7 @@ def test_crawl_stage_execute_with_author_limit(
     ]
 
     with patch(
-        "fundamental.services.library_scanning.pipeline.crawl.CalibreBookRepository",
+        "bookcard.services.library_scanning.pipeline.crawl.CalibreBookRepository",
         return_value=mock_calibre_repo,
     ):
         result = stage.execute(pipeline_context)
@@ -183,7 +183,7 @@ def test_crawl_stage_execute_success(
     ]
 
     with patch(
-        "fundamental.services.library_scanning.pipeline.crawl.CalibreBookRepository",
+        "bookcard.services.library_scanning.pipeline.crawl.CalibreBookRepository",
         return_value=mock_calibre_repo,
     ):
         result = stage.execute(pipeline_context)
@@ -208,7 +208,7 @@ def test_crawl_stage_execute_empty_results(
     mock_calibre_session.exec.return_value.all.side_effect = [[], [], []]
 
     with patch(
-        "fundamental.services.library_scanning.pipeline.crawl.CalibreBookRepository",
+        "bookcard.services.library_scanning.pipeline.crawl.CalibreBookRepository",
         return_value=mock_calibre_repo,
     ):
         result = stage.execute(pipeline_context)
@@ -244,7 +244,7 @@ def test_crawl_stage_execute_exception(
     mock_calibre_repo.get_session.side_effect = Exception("Database error")
 
     with patch(
-        "fundamental.services.library_scanning.pipeline.crawl.CalibreBookRepository",
+        "bookcard.services.library_scanning.pipeline.crawl.CalibreBookRepository",
         return_value=mock_calibre_repo,
     ):
         result = stage.execute(pipeline_context)
@@ -277,7 +277,7 @@ def test_crawl_stage_progress_updates(
     pipeline_context.progress_callback = progress_callback
 
     with patch(
-        "fundamental.services.library_scanning.pipeline.crawl.CalibreBookRepository",
+        "bookcard.services.library_scanning.pipeline.crawl.CalibreBookRepository",
         return_value=mock_calibre_repo,
     ):
         stage.execute(pipeline_context)

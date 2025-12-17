@@ -22,9 +22,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.core import Book
-from fundamental.repositories.models import BookWithFullRelations
-from fundamental.services.metadata_export_service import MetadataExportService
+from bookcard.models.core import Book
+from bookcard.repositories.models import BookWithFullRelations
+from bookcard.services.metadata_export_service import MetadataExportService
 
 
 @pytest.fixture
@@ -61,7 +61,7 @@ def test_init_default_services() -> None:
     """Test __init__ with default services."""
     service = MetadataExportService()
     assert len(service._exporters) == 3
-    from fundamental.services.metadata_exporters.opf_exporter import OpfExporter
+    from bookcard.services.metadata_exporters.opf_exporter import OpfExporter
 
     assert isinstance(service._exporters[0], OpfExporter)
     assert service._exporters[0]._opf_service is not None
@@ -71,7 +71,7 @@ def test_init_custom_opf_service() -> None:
     """Test __init__ with custom OPF service."""
     mock_opf_service = MagicMock()
     service = MetadataExportService(opf_service=mock_opf_service)
-    from fundamental.services.metadata_exporters.opf_exporter import OpfExporter
+    from bookcard.services.metadata_exporters.opf_exporter import OpfExporter
 
     assert isinstance(service._exporters[0], OpfExporter)
     assert service._exporters[0]._opf_service == mock_opf_service

@@ -22,12 +22,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.core import Book
-from fundamental.models.media import Data
-from fundamental.services.conversion.book_repository import (
+from bookcard.models.core import Book
+from bookcard.models.media import Data
+from bookcard.services.conversion.book_repository import (
     CalibreBookRepositoryAdapter,
 )
-from fundamental.services.conversion.exceptions import BookNotFoundError
+from bookcard.services.conversion.exceptions import BookNotFoundError
 
 if TYPE_CHECKING:
     from pathlib import Path

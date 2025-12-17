@@ -23,12 +23,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.config import EmailServerConfig, EmailServerType, Library
-from fundamental.models.core import Book
-from fundamental.repositories import BookWithFullRelations
-from fundamental.services.email_service import EmailServiceError
-from fundamental.services.tasks.email_send_task import EmailSendTask
-from fundamental.services.tasks.exceptions import (
+from bookcard.models.config import EmailServerConfig, EmailServerType, Library
+from bookcard.models.core import Book
+from bookcard.repositories import BookWithFullRelations
+from bookcard.services.email_service import EmailServiceError
+from bookcard.services.tasks.email_send_task import EmailSendTask
+from bookcard.services.tasks.exceptions import (
     EmailServerNotConfiguredError,
     LibraryNotConfiguredError,
 )
@@ -210,19 +210,19 @@ class TestEmailSendTaskRun:
         task = EmailSendTask(task_id=1, user_id=1, metadata=base_metadata)
 
         with (
-            patch("fundamental.services.tasks.email_send_task.LibraryRepository"),
+            patch("bookcard.services.tasks.email_send_task.LibraryRepository"),
             patch(
-                "fundamental.services.tasks.email_send_task.LibraryService",
+                "bookcard.services.tasks.email_send_task.LibraryService",
                 return_value=mock_library_service,
             ),
-            patch("fundamental.services.tasks.email_send_task.DataEncryptor"),
+            patch("bookcard.services.tasks.email_send_task.DataEncryptor"),
             patch(
-                "fundamental.services.tasks.email_send_task.EmailConfigService",
+                "bookcard.services.tasks.email_send_task.EmailConfigService",
                 return_value=mock_email_config_service,
             ),
-            patch("fundamental.services.tasks.email_send_task.EmailService"),
+            patch("bookcard.services.tasks.email_send_task.EmailService"),
             patch(
-                "fundamental.services.tasks.email_send_task.BookService",
+                "bookcard.services.tasks.email_send_task.BookService",
                 return_value=mock_book_service,
             ),
         ):
@@ -273,9 +273,9 @@ class TestEmailSendTaskRun:
         task = EmailSendTask(task_id=1, user_id=1, metadata=base_metadata)
 
         with (
-            patch("fundamental.services.tasks.email_send_task.LibraryRepository"),
+            patch("bookcard.services.tasks.email_send_task.LibraryRepository"),
             patch(
-                "fundamental.services.tasks.email_send_task.LibraryService"
+                "bookcard.services.tasks.email_send_task.LibraryService"
             ) as mock_library_service,
         ):
             mock_library_service.return_value.get_active_library.return_value = None
@@ -293,14 +293,14 @@ class TestEmailSendTaskRun:
         task = EmailSendTask(task_id=1, user_id=1, metadata=base_metadata)
 
         with (
-            patch("fundamental.services.tasks.email_send_task.LibraryRepository"),
+            patch("bookcard.services.tasks.email_send_task.LibraryRepository"),
             patch(
-                "fundamental.services.tasks.email_send_task.LibraryService",
+                "bookcard.services.tasks.email_send_task.LibraryService",
                 return_value=mock_library_service,
             ),
-            patch("fundamental.services.tasks.email_send_task.DataEncryptor"),
+            patch("bookcard.services.tasks.email_send_task.DataEncryptor"),
             patch(
-                "fundamental.services.tasks.email_send_task.EmailConfigService"
+                "bookcard.services.tasks.email_send_task.EmailConfigService"
             ) as mock_email_config_service,
         ):
             # Return None or disabled config
@@ -327,14 +327,14 @@ class TestEmailSendTaskRun:
         )
 
         with (
-            patch("fundamental.services.tasks.email_send_task.LibraryRepository"),
+            patch("bookcard.services.tasks.email_send_task.LibraryRepository"),
             patch(
-                "fundamental.services.tasks.email_send_task.LibraryService",
+                "bookcard.services.tasks.email_send_task.LibraryService",
                 return_value=mock_library_service,
             ),
-            patch("fundamental.services.tasks.email_send_task.DataEncryptor"),
+            patch("bookcard.services.tasks.email_send_task.DataEncryptor"),
             patch(
-                "fundamental.services.tasks.email_send_task.EmailConfigService"
+                "bookcard.services.tasks.email_send_task.EmailConfigService"
             ) as mock_email_config_service,
         ):
             mock_email_config_service.return_value.get_config.return_value = (
@@ -377,19 +377,19 @@ class TestEmailSendTaskRun:
         update_progress.side_effect = cancel_after_progress
 
         with (
-            patch("fundamental.services.tasks.email_send_task.LibraryRepository"),
+            patch("bookcard.services.tasks.email_send_task.LibraryRepository"),
             patch(
-                "fundamental.services.tasks.email_send_task.LibraryService",
+                "bookcard.services.tasks.email_send_task.LibraryService",
                 return_value=mock_library_service,
             ),
-            patch("fundamental.services.tasks.email_send_task.DataEncryptor"),
+            patch("bookcard.services.tasks.email_send_task.DataEncryptor"),
             patch(
-                "fundamental.services.tasks.email_send_task.EmailConfigService",
+                "bookcard.services.tasks.email_send_task.EmailConfigService",
                 return_value=mock_email_config_service,
             ),
-            patch("fundamental.services.tasks.email_send_task.EmailService"),
+            patch("bookcard.services.tasks.email_send_task.EmailService"),
             patch(
-                "fundamental.services.tasks.email_send_task.BookService"
+                "bookcard.services.tasks.email_send_task.BookService"
             ) as mock_book_service,
         ):
             task.run(worker_context)
@@ -412,19 +412,19 @@ class TestEmailSendTaskRun:
         mock_book_service.send_book.side_effect = EmailServiceError("Email send failed")
 
         with (
-            patch("fundamental.services.tasks.email_send_task.LibraryRepository"),
+            patch("bookcard.services.tasks.email_send_task.LibraryRepository"),
             patch(
-                "fundamental.services.tasks.email_send_task.LibraryService",
+                "bookcard.services.tasks.email_send_task.LibraryService",
                 return_value=mock_library_service,
             ),
-            patch("fundamental.services.tasks.email_send_task.DataEncryptor"),
+            patch("bookcard.services.tasks.email_send_task.DataEncryptor"),
             patch(
-                "fundamental.services.tasks.email_send_task.EmailConfigService",
+                "bookcard.services.tasks.email_send_task.EmailConfigService",
                 return_value=mock_email_config_service,
             ),
-            patch("fundamental.services.tasks.email_send_task.EmailService"),
+            patch("bookcard.services.tasks.email_send_task.EmailService"),
             patch(
-                "fundamental.services.tasks.email_send_task.BookService",
+                "bookcard.services.tasks.email_send_task.BookService",
                 return_value=mock_book_service,
             ),
             pytest.raises(EmailServiceError, match="Email send failed"),
@@ -445,19 +445,19 @@ class TestEmailSendTaskRun:
         mock_book_service.send_book.side_effect = RuntimeError("Unexpected error")
 
         with (
-            patch("fundamental.services.tasks.email_send_task.LibraryRepository"),
+            patch("bookcard.services.tasks.email_send_task.LibraryRepository"),
             patch(
-                "fundamental.services.tasks.email_send_task.LibraryService",
+                "bookcard.services.tasks.email_send_task.LibraryService",
                 return_value=mock_library_service,
             ),
-            patch("fundamental.services.tasks.email_send_task.DataEncryptor"),
+            patch("bookcard.services.tasks.email_send_task.DataEncryptor"),
             patch(
-                "fundamental.services.tasks.email_send_task.EmailConfigService",
+                "bookcard.services.tasks.email_send_task.EmailConfigService",
                 return_value=mock_email_config_service,
             ),
-            patch("fundamental.services.tasks.email_send_task.EmailService"),
+            patch("bookcard.services.tasks.email_send_task.EmailService"),
             patch(
-                "fundamental.services.tasks.email_send_task.BookService",
+                "bookcard.services.tasks.email_send_task.BookService",
                 return_value=mock_book_service,
             ),
             pytest.raises(RuntimeError, match="Unexpected error"),
@@ -479,19 +479,19 @@ class TestEmailSendTaskRun:
         task = EmailSendTask(task_id=1, user_id=1, metadata=metadata)
 
         with (
-            patch("fundamental.services.tasks.email_send_task.LibraryRepository"),
+            patch("bookcard.services.tasks.email_send_task.LibraryRepository"),
             patch(
-                "fundamental.services.tasks.email_send_task.LibraryService",
+                "bookcard.services.tasks.email_send_task.LibraryService",
                 return_value=mock_library_service,
             ),
-            patch("fundamental.services.tasks.email_send_task.DataEncryptor"),
+            patch("bookcard.services.tasks.email_send_task.DataEncryptor"),
             patch(
-                "fundamental.services.tasks.email_send_task.EmailConfigService",
+                "bookcard.services.tasks.email_send_task.EmailConfigService",
                 return_value=mock_email_config_service,
             ),
-            patch("fundamental.services.tasks.email_send_task.EmailService"),
+            patch("bookcard.services.tasks.email_send_task.EmailService"),
             patch(
-                "fundamental.services.tasks.email_send_task.BookService",
+                "bookcard.services.tasks.email_send_task.BookService",
                 return_value=mock_book_service,
             ),
         ):

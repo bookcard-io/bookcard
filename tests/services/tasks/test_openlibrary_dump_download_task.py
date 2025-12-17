@@ -24,7 +24,7 @@ from unittest.mock import MagicMock, Mock, patch
 import httpx
 import pytest
 
-from fundamental.services.tasks.openlibrary_dump_download_task import (
+from bookcard.services.tasks.openlibrary_dump_download_task import (
     OpenLibraryDumpDownloadTask,
 )
 
@@ -239,7 +239,7 @@ class TestOpenLibraryDumpDownloadTaskDownloadFile:
         client.__exit__ = Mock(return_value=False)
         return client
 
-    @patch("fundamental.services.tasks.openlibrary_dump_download_task.httpx.Client")
+    @patch("bookcard.services.tasks.openlibrary_dump_download_task.httpx.Client")
     def test_download_file_success(
         self,
         mock_client_class: Mock,
@@ -272,7 +272,7 @@ class TestOpenLibraryDumpDownloadTaskDownloadFile:
         assert (task.dump_dir / "test_file.txt").exists()
         mock_update_progress.assert_called()
 
-    @patch("fundamental.services.tasks.openlibrary_dump_download_task.httpx.Client")
+    @patch("bookcard.services.tasks.openlibrary_dump_download_task.httpx.Client")
     def test_download_file_no_filename(
         self,
         mock_client_class: Mock,
@@ -301,7 +301,7 @@ class TestOpenLibraryDumpDownloadTaskDownloadFile:
         assert file_path == str(task.dump_dir / "download")
         assert (task.dump_dir / "download").exists()
 
-    @patch("fundamental.services.tasks.openlibrary_dump_download_task.httpx.Client")
+    @patch("bookcard.services.tasks.openlibrary_dump_download_task.httpx.Client")
     def test_download_file_no_content_length(
         self,
         mock_client_class: Mock,
@@ -338,7 +338,7 @@ class TestOpenLibraryDumpDownloadTaskDownloadFile:
         assert file_path == str(task.dump_dir / "test.txt")
         mock_update_progress.assert_called()
 
-    @patch("fundamental.services.tasks.openlibrary_dump_download_task.httpx.Client")
+    @patch("bookcard.services.tasks.openlibrary_dump_download_task.httpx.Client")
     def test_download_file_cancelled(
         self,
         mock_client_class: Mock,
@@ -378,7 +378,7 @@ class TestOpenLibraryDumpDownloadTaskDownloadFile:
         # File should be deleted on cancellation
         assert not (task.dump_dir / "test.txt").exists()
 
-    @patch("fundamental.services.tasks.openlibrary_dump_download_task.httpx.Client")
+    @patch("bookcard.services.tasks.openlibrary_dump_download_task.httpx.Client")
     def test_download_file_http_error(
         self,
         mock_client_class: Mock,
@@ -477,7 +477,7 @@ class TestOpenLibraryDumpDownloadTaskRun:
         )
 
     @patch(
-        "fundamental.services.tasks.openlibrary_dump_download_task.OpenLibraryDumpDownloadTask._download_file"
+        "bookcard.services.tasks.openlibrary_dump_download_task.OpenLibraryDumpDownloadTask._download_file"
     )
     def test_run_success(
         self,
@@ -516,7 +516,7 @@ class TestOpenLibraryDumpDownloadTaskRun:
         assert final_call[0][0] == 1.0
 
     @patch(
-        "fundamental.services.tasks.openlibrary_dump_download_task.OpenLibraryDumpDownloadTask._download_file"
+        "bookcard.services.tasks.openlibrary_dump_download_task.OpenLibraryDumpDownloadTask._download_file"
     )
     def test_run_cancelled_before_processing(
         self,
@@ -542,7 +542,7 @@ class TestOpenLibraryDumpDownloadTaskRun:
         mock_download.assert_not_called()
 
     @patch(
-        "fundamental.services.tasks.openlibrary_dump_download_task.OpenLibraryDumpDownloadTask._download_file"
+        "bookcard.services.tasks.openlibrary_dump_download_task.OpenLibraryDumpDownloadTask._download_file"
     )
     def test_run_cancelled_during_download(
         self,
@@ -579,7 +579,7 @@ class TestOpenLibraryDumpDownloadTaskRun:
         assert call_count == 1
 
     @patch(
-        "fundamental.services.tasks.openlibrary_dump_download_task.OpenLibraryDumpDownloadTask._download_file"
+        "bookcard.services.tasks.openlibrary_dump_download_task.OpenLibraryDumpDownloadTask._download_file"
     )
     def test_run_partial_failure(
         self,
@@ -613,7 +613,7 @@ class TestOpenLibraryDumpDownloadTaskRun:
         assert task.metadata["failed_files"][0] == task.urls[1]
 
     @patch(
-        "fundamental.services.tasks.openlibrary_dump_download_task.OpenLibraryDumpDownloadTask._download_file"
+        "bookcard.services.tasks.openlibrary_dump_download_task.OpenLibraryDumpDownloadTask._download_file"
     )
     def test_run_all_failed(
         self,
@@ -638,7 +638,7 @@ class TestOpenLibraryDumpDownloadTaskRun:
             task.run(worker_context)
 
     @patch(
-        "fundamental.services.tasks.openlibrary_dump_download_task.OpenLibraryDumpDownloadTask._download_file"
+        "bookcard.services.tasks.openlibrary_dump_download_task.OpenLibraryDumpDownloadTask._download_file"
     )
     def test_run_exception(
         self,

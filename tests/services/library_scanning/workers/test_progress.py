@@ -19,8 +19,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.services.library_scanning.workers.progress import JobProgressTracker
-from fundamental.services.messaging.redis_broker import RedisBroker
+from bookcard.services.library_scanning.workers.progress import JobProgressTracker
+from bookcard.services.messaging.redis_broker import RedisBroker
 
 
 @pytest.fixture

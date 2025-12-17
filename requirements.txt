@@ -7,7 +7,7 @@ alabaster==1.0.0 \
 alembic==1.17.1 \
     --hash=sha256:8a289f6778262df31571d29cca4c7fbacd2f0f582ea0816f4c399b6da7528486 \
     --hash=sha256:cbc2386e60f89608bb63f30d2d6cc66c7aaed1fe105bd862828600e5ad167023
-    # via calibre-fundamental (pyproject.toml)
+    # via bookcard (pyproject.toml)
 annotated-doc==0.0.3 \
     --hash=sha256:348ec6664a76f1fd3be81f43dffbee4c7e8ce931ba71ec67cc7f4ade7fbbb580 \
     --hash=sha256:e18370014c70187422c33e945053ff4c286f453a984eba84d0dbfa0c935adeda
@@ -90,13 +90,13 @@ bcrypt==4.3.0 \
     --hash=sha256:f6746e6fec103fcd509b96bacdfdaa2fbde9a553245dbada284435173a6f1aef \
     --hash=sha256:f81b0ed2639568bf14749112298f9e4e2b28853dab50a8b357e31798686a036d
     # via
-    #   calibre-fundamental (pyproject.toml)
+    #   bookcard (pyproject.toml)
     #   passlib
 beautifulsoup4==4.14.2 \
     --hash=sha256:2a98ab9f944a11acee9cc848508ec28d9228abfd522ef0fad6a02a72e0ded69e \
     --hash=sha256:5ef6fa3a8cbece8488d66985560f97ed091e22bbc4e9c2338508a9d5de6d4515
     # via
-    #   calibre-fundamental (pyproject.toml)
+    #   bookcard (pyproject.toml)
     #   scholarly
 bibtexparser==1.4.3 \
     --hash=sha256:a9c7ded64bc137720e4df0b1b7f12734edc1361185f1c9097048ff7c35af2b8f
@@ -494,11 +494,11 @@ cryptography==46.0.3 \
     --hash=sha256:e7aec276d68421f9574040c26e2a7c3771060bc0cff408bae1dcb19d3ab1e63c \
     --hash=sha256:ef639cb3372f69ec44915fafcd6698b6cc78fbe0c2ea41be867f6ed612811963 \
     --hash=sha256:f260d0d41e9b4da1ed1e0f1ce571f97fe370b152ab18778e9e8f67d6af432018
-    # via calibre-fundamental (pyproject.toml)
+    # via bookcard (pyproject.toml)
 defusedxml==0.7.1 \
     --hash=sha256:1bb3032db185915b62d7c6209c5a8792be6a32ab2fedacc84e01b52c51aa3e69 \
     --hash=sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61
-    # via calibre-fundamental (pyproject.toml)
+    # via bookcard (pyproject.toml)
 deprecated==1.3.1 \
     --hash=sha256:597bfef186b6f60181535a29fbe44865ce137a5079f295b479886c82729d5f3f \
     --hash=sha256:b1b50e0ff0c1fddaa5708a2c6b0a6588bb09b892825ab2b214ac9ea9d92a5223
@@ -516,7 +516,7 @@ docutils==0.21.2 \
 dramatiq==2.0.0 \
     --hash=sha256:732eff33f9080338b528f2dff7336a5145687cf9efb57a6a0bbd42ca937f1a30 \
     --hash=sha256:85ff840bcc1393812e0079bb310036f647e011036124a7a1492692da7966a093
-    # via calibre-fundamental (pyproject.toml)
+    # via bookcard (pyproject.toml)
 email-validator==2.3.0 \
     --hash=sha256:80f13f623413e6b197ae73bb10bf4eb0908faf509ad8362c5edeb0be7fd450b4 \
     --hash=sha256:9fc05c37f2f6cf439ff414f8fc46d917929974a82244c20eb10231ba60c54426
@@ -528,7 +528,7 @@ fake-useragent==2.2.0 \
 fastapi==0.121.0 \
     --hash=sha256:06663356a0b1ee93e875bbf05a31fb22314f5bed455afaaad2b2dad7f26e98fa \
     --hash=sha256:8bdf1b15a55f4e4b0d6201033da9109ea15632cb76cf156e7b8b4019f2172106
-    # via calibre-fundamental (pyproject.toml)
+    # via bookcard (pyproject.toml)
 free-proxy==1.1.3 \
     --hash=sha256:6d82aa112e3df7725bdbf177e2110bccdf5f3bbd6e1c70b8616ec12ae3bbf98c
     # via scholarly
@@ -707,7 +707,7 @@ httpx==0.28.1 \
     --hash=sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc \
     --hash=sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad
     # via
-    #   calibre-fundamental (pyproject.toml)
+    #   bookcard (pyproject.toml)
     #   scholarly
 idna==3.11 \
     --hash=sha256:771a87f49d9defaf64091e6e6fe9c18d4833f140bd19464795bc32d966ca37ea \
@@ -943,7 +943,7 @@ lxml==6.0.2 \
     --hash=sha256:fbc74f42c3525ac4ffa4b89cbdd00057b6196bcefe8bce794abd42d33a018092 \
     --hash=sha256:fe659f6b5d10fb5a17f00a50eb903eb277a71ee35df4615db573c069bcf967ac
     # via
-    #   calibre-fundamental (pyproject.toml)
+    #   bookcard (pyproject.toml)
     #   free-proxy
 mako==1.3.10 \
     --hash=sha256:99579a6f39583fa7e5630a28c3c1f440e4e97a414b80372649c0ce338da2ea28 \
@@ -1059,7 +1059,7 @@ packaging==25.0 \
 passlib==1.7.4 \
     --hash=sha256:aa6bca462b8d8bda89c70b382f0c298a20b5560af6cbfa2dce410c0a2fb669f1 \
     --hash=sha256:defd50f72b65c5402ab2c573830a6978e5f202ad0d984793c8dde2c4152ebe04
-    # via calibre-fundamental (pyproject.toml)
+    # via bookcard (pyproject.toml)
 pillow==12.0.0 \
     --hash=sha256:0869154a2d0546545cde61d1789a6524319fc1897d9ee31218eae7a60ccc5643 \
     --hash=sha256:09f2d0abef9e4e2f349305a4f8cc784a8a6c2f58a8c4892eea13b10a943bd26e \
@@ -1152,7 +1152,7 @@ pillow==12.0.0 \
     --hash=sha256:f4f1231b7dec408e8670264ce63e9c71409d9583dd21d32c163e25213ee2a344 \
     --hash=sha256:fa3ed2a29a9e9d2d488b4da81dcb54720ac3104a20bf0bd273f1e4648aff5af9 \
     --hash=sha256:fb3096c30df99fd01c7bf8e544f392103d0795b9f98ba71a8054bcbf56b255f1
-    # via calibre-fundamental (pyproject.toml)
+    # via bookcard (pyproject.toml)
 psutil==7.1.3 ; sys_platform != 'cygwin' \
     --hash=sha256:0005da714eee687b4b8decd3d6cc7c6db36215c9e74e5ad2264b90c3df7d92dc \
     --hash=sha256:1068c303be3a72f8e18e412c5b2a8f6d31750fb152f9cb106b54090296c9d251 \
@@ -1177,7 +1177,7 @@ psutil==7.1.3 ; sys_platform != 'cygwin' \
 psycopg==3.2.12 \
     --hash=sha256:85c08d6f6e2a897b16280e0ff6406bef29b1327c045db06d21f364d7cd5da90b \
     --hash=sha256:8a1611a2d4c16ae37eada46438be9029a35bb959bb50b3d0e1e93c0f3d54c9ee
-    # via calibre-fundamental (pyproject.toml)
+    # via bookcard (pyproject.toml)
 psycopg-binary==3.2.12 ; implementation_name != 'pypy' \
     --hash=sha256:095ccda59042a1239ac2fefe693a336cb5cecf8944a8d9e98b07f07e94e2b78d \
     --hash=sha256:0afb71a99871a41dd677d207c6a988d978edde5d6a018bafaed4f9da45357055 \
@@ -1245,11 +1245,11 @@ psycopg-binary==3.2.12 ; implementation_name != 'pypy' \
 py-ezmail==2.3.5 \
     --hash=sha256:7a23614d8513ce267e07c5b317395499bdada53b7867548b692c066f78e2e1b5 \
     --hash=sha256:ea2088c9a645a4980c871a1bf27dff203fe48470188428712679596b6c00a034
-    # via calibre-fundamental (pyproject.toml)
+    # via bookcard (pyproject.toml)
 py7zr==1.0.0 \
     --hash=sha256:6f42d2ff34c808e9026ad11b721c13b41b0673cf2b4e8f8fb34f9d65ae143dd1 \
     --hash=sha256:f6bfee81637c9032f6a9f0eb045a4bfc7a7ff4138becfc42d7cb89b54ffbfef1
-    # via calibre-fundamental (pyproject.toml)
+    # via bookcard (pyproject.toml)
 pybcj==1.0.7 \
     --hash=sha256:00448182d535cca37e8f24d892d480fa86f80ff20c79385f6eca75f118efcbb4 \
     --hash=sha256:029112255c22de66e0117bec932c8be341ed20c56dcf6a961c14689f7f0ce772 \
@@ -1358,7 +1358,7 @@ pydantic==2.12.4 \
     --hash=sha256:0f8cb9555000a4b5b617f66bfd2566264c4984b27589d3b845685983e8ea85ac \
     --hash=sha256:92d3d202a745d46f9be6df459ac5a064fdaa3c1c4cd8adcfa332ccf3c05f871e
     # via
-    #   calibre-fundamental (pyproject.toml)
+    #   bookcard (pyproject.toml)
     #   fastapi
     #   sqlmodel
 pydantic-core==2.41.5 \
@@ -1491,7 +1491,7 @@ pygments==2.19.2 \
 pyjwt==2.10.1 \
     --hash=sha256:3cc5772eb20009233caf06e9d8a0577824723b44e6648ee0a2aedb6cf9381953 \
     --hash=sha256:dcdd193e30abefd5debf142f9adfcdd2b58004e644f25406ffaebd50bd98dacb
-    # via calibre-fundamental (pyproject.toml)
+    # via bookcard (pyproject.toml)
 pyparsing==3.2.5 \
     --hash=sha256:2df8d5b7b2802ef88e8d016a2eb9c7aeaa923529cd251ed0fe4608275d4105b6 \
     --hash=sha256:e38a4f02064cf41fe6593d328d0512495ad1f3d8a91c4f73fc401b3079a59a5e
@@ -1499,7 +1499,7 @@ pyparsing==3.2.5 \
 pypdf==6.2.0 \
     --hash=sha256:46b4d8495d68ae9c818e7964853cd9984e6a04c19fe7112760195395992dce48 \
     --hash=sha256:4c0f3e62677217a777ab79abe22bf1285442d70efabf552f61c7a03b6f5c569f
-    # via calibre-fundamental (pyproject.toml)
+    # via bookcard (pyproject.toml)
 pyppmd==1.2.0 \
     --hash=sha256:011c813389476e84387599ad4aa834100e888c6608a6e7d6f07ea7cbac8a8e65 \
     --hash=sha256:0354919ab0f4065d76c64ad0dc21f14116651a2124cf4915b96c4e76d9caf470 \
@@ -1574,13 +1574,13 @@ python-dotenv==1.2.1 \
     --hash=sha256:42667e897e16ab0d66954af0e60a9caa94f0fd4ecf3aaf6d2d260eec1aa36ad6 \
     --hash=sha256:b81ee9561e9ca4004139c6cbba3a238c32b03e4894671e181b671e8cb8425d61
     # via
-    #   calibre-fundamental (pyproject.toml)
+    #   bookcard (pyproject.toml)
     #   scholarly
     #   uvicorn
 python-multipart==0.0.20 \
     --hash=sha256:8a62d3a8335e06589fe01f2a3e178cdcc632f3fbe0d492ad9ee0ec35aab1f104 \
     --hash=sha256:8dd0cab45b8e23064ae09147625994d090fa46f5b0d1e13af944c331a7fa9d13
-    # via calibre-fundamental (pyproject.toml)
+    # via bookcard (pyproject.toml)
 pyyaml==6.0.3 \
     --hash=sha256:00c4bdeba853cc34e7dd471f16b4114f4162dc03e6b7afcc2128711f0eca823c \
     --hash=sha256:0150219816b6a1fa26fb4699fb7daa9caf09eb1999f3b70fb6e786805e80375a \
@@ -1656,7 +1656,7 @@ pyyaml==6.0.3 \
     --hash=sha256:fa160448684b4e94d80416c0fa4aac48967a969efe22931448d853ada8baf926 \
     --hash=sha256:fc09d0aa354569bc501d4e787133afc08552722d3ab34836a80547331bb5d4a0
     # via
-    #   calibre-fundamental (pyproject.toml)
+    #   bookcard (pyproject.toml)
     #   uvicorn
 pyzstd==0.18.0 \
     --hash=sha256:05ce49412c7aef970e0a6be8e9add4748bc474a7f13533a14555642022f871e9 \
@@ -1757,12 +1757,12 @@ pyzstd==0.18.0 \
 rarfile==4.2 \
     --hash=sha256:8757e1e3757e32962e229cab2432efc1f15f210823cc96ccba0f6a39d17370c9 \
     --hash=sha256:8e1c8e72d0845ad2b32a47ab11a719bc2e41165ec101fd4d3fe9e92aa3f469ef
-    # via calibre-fundamental (pyproject.toml)
+    # via bookcard (pyproject.toml)
 redis==6.4.0 \
     --hash=sha256:b01bc7282b8444e28ec36b261df5375183bb47a07eb9c603f284e89cbc5ef010 \
     --hash=sha256:f0544fa9604264e9464cdf4814e7d4830f74b165d52f2a330a760a88dd248b7f
     # via
-    #   calibre-fundamental (pyproject.toml)
+    #   bookcard (pyproject.toml)
     #   dramatiq
 requests==2.32.5 \
     --hash=sha256:2462f94637a34fd532264295e186976db0f5d453d1cdd31473c85a6a161affb6 \
@@ -1778,7 +1778,7 @@ roman-numerals-py==3.1.0 \
 scholarly==1.7.11 \
     --hash=sha256:2c983dd44d9d9398a6f2605102ae6e5586023b41ebbaec1461917ee48eb153f0 \
     --hash=sha256:be404853e0d020254de32d2050c54dc201f1f36efa4a9d3f8e740d3be4361b20
-    # via calibre-fundamental (pyproject.toml)
+    # via bookcard (pyproject.toml)
 selenium==4.38.0 \
     --hash=sha256:c117af6727859d50f622d6d0785b945c5db3e28a45ec12ad85cee2e7cc84fc4c \
     --hash=sha256:ed47563f188130a6fd486b327ca7ba48c5b11fb900e07d6457befdde320e35fd
@@ -1902,13 +1902,13 @@ sqlalchemy==2.0.44 \
     --hash=sha256:f9480c0740aabd8cb29c329b422fb65358049840b34aba0adf63162371d2a96e \
     --hash=sha256:ff486e183d151e51b1d694c7aa1695747599bb00b9f5f604092b54b74c64a8e1
     # via
-    #   calibre-fundamental (pyproject.toml)
+    #   bookcard (pyproject.toml)
     #   alembic
     #   sqlmodel
 sqlmodel==0.0.27 \
     --hash=sha256:667fe10aa8ff5438134668228dc7d7a08306f4c5c4c7e6ad3ad68defa0e7aa49 \
     --hash=sha256:ad1227f2014a03905aef32e21428640848ac09ff793047744a73dfdd077ff620
-    # via calibre-fundamental (pyproject.toml)
+    # via bookcard (pyproject.toml)
 starlette==0.49.3 \
     --hash=sha256:1c14546f299b5901a1ea0e34410575bc33bbd741377a10484a54445588d00284 \
     --hash=sha256:b579b99715fdc2980cf88c8ec96d3bf1ce16f5a8051a7c2b84ef9b1cdecaea2f
@@ -1963,7 +1963,7 @@ urllib3==2.5.0 \
 uvicorn==0.38.0 \
     --hash=sha256:48c0afd214ceb59340075b4a052ea1ee91c16fbc2a9b1469cca0e54566977b02 \
     --hash=sha256:fd97093bdd120a2609fc0d3afe931d4d4ad688b6e75f0f929fde1bc36fe0e91d
-    # via calibre-fundamental (pyproject.toml)
+    # via bookcard (pyproject.toml)
 uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32' \
     --hash=sha256:017bd46f9e7b78e81606329d07141d3da446f8798c6baeec124260e22c262772 \
     --hash=sha256:0530a5fbad9c9e4ee3f2b33b148c6a64d47bbad8000ea63704fa8260f4cf728e \
@@ -2164,7 +2164,7 @@ watchfiles==1.1.1 \
     --hash=sha256:f8979280bdafff686ba5e4d8f97840f929a87ed9cdf133cbbd42f7766774d2aa \
     --hash=sha256:f9a2ae5c91cecc9edd47e041a930490c31c3afb1f5e6d71de3dc671bfaca02bf
     # via
-    #   calibre-fundamental (pyproject.toml)
+    #   bookcard (pyproject.toml)
     #   uvicorn
 websocket-client==1.9.0 \
     --hash=sha256:9e813624b6eb619999a97dc7958469217c3176312b3a16a4bd1bc7e08a46ec98 \

@@ -21,8 +21,8 @@ from typing import Any
 
 import pytest
 
-from fundamental.models.auth import Invite, User, UserSetting
-from fundamental.repositories.admin_repositories import (
+from bookcard.models.auth import Invite, User, UserSetting
+from bookcard.repositories.admin_repositories import (
     InviteRepository,
     SettingRepository,
     UserAdminRepository,

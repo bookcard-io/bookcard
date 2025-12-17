@@ -21,14 +21,14 @@ import unittest.mock
 
 import pytest
 
-from fundamental.models.auth import Role, RolePermission, UserRole
-from fundamental.repositories.role_repository import (
+from bookcard.models.auth import Role, RolePermission, UserRole
+from bookcard.repositories.role_repository import (
     PermissionRepository,
     RolePermissionRepository,
     RoleRepository,
     UserRoleRepository,
 )
-from fundamental.services.role_service import RoleService
+from bookcard.services.role_service import RoleService
 from tests.conftest import DummySession
 
 
@@ -277,7 +277,7 @@ def test_revoke_permission_from_role_not_found() -> None:
 
 def test_create_role_with_permission_assignments_by_id() -> None:
     """Test create_role with permission_assignments by permission_id (covers lines 120-164)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -439,7 +439,7 @@ def test_create_role_permission_id_or_name_required() -> None:
 
 def test_create_role_permission_id_is_none() -> None:
     """Test create_role with permission.id is None (covers lines 152-153)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -474,7 +474,7 @@ def test_create_role_permission_id_is_none() -> None:
 
 def test_create_role_role_id_is_none() -> None:
     """Test create_role with role.id is None after flush (covers lines 155-156)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -723,7 +723,7 @@ def test_add_role_permissions_empty_list() -> None:
 
 def test_add_role_permissions_already_exists() -> None:
     """Test _add_role_permissions with permission already granted (covers lines 312-315)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -993,7 +993,7 @@ def test_delete_role_not_found_in_delete() -> None:
 
 def test_can_delete_permission_success() -> None:
     """Test can_delete_permission when permission can be deleted (covers lines 526-541)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1047,7 +1047,7 @@ def test_can_delete_permission_not_found() -> None:
 
 def test_can_delete_permission_assigned_to_roles() -> None:
     """Test can_delete_permission when permission is assigned to roles (covers lines 531-539)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1080,7 +1080,7 @@ def test_can_delete_permission_assigned_to_roles() -> None:
 
 def test_delete_permission_success() -> None:
     """Test delete_permission (covers lines 558-573)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1109,7 +1109,7 @@ def test_delete_permission_success() -> None:
 
 def test_delete_permission_cannot_delete() -> None:
     """Test delete_permission when permission cannot be deleted (covers lines 559-564)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1139,7 +1139,7 @@ def test_delete_permission_cannot_delete() -> None:
 
 def test_delete_permission_not_found_in_delete() -> None:
     """Test delete_permission when permission not found in delete (covers line 567)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1193,7 +1193,7 @@ def test_create_permission_success() -> None:
 
 def test_create_permission_already_exists() -> None:
     """Test create_permission when permission already exists (covers line 674)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1220,7 +1220,7 @@ def test_create_permission_already_exists() -> None:
 
 def test_create_permission_resource_action_exists() -> None:
     """Test create_permission when resource+action already exists (covers line 679)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1252,7 +1252,7 @@ def test_create_permission_resource_action_exists() -> None:
 
 def test_get_or_create_permission_existing_by_name() -> None:
     """Test get_or_create_permission with existing permission by name (covers lines 722-728)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1281,7 +1281,7 @@ def test_get_or_create_permission_existing_by_name() -> None:
 
 def test_get_or_create_permission_different_resource_action() -> None:
     """Test get_or_create_permission with name exists but different resource/action (covers line 725)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1310,7 +1310,7 @@ def test_get_or_create_permission_different_resource_action() -> None:
 
 def test_get_or_create_permission_existing_by_resource_action() -> None:
     """Test get_or_create_permission with existing permission by resource+action (covers lines 731-739)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1341,7 +1341,7 @@ def test_get_or_create_permission_existing_by_resource_action() -> None:
 
 def test_get_or_create_permission_different_name() -> None:
     """Test get_or_create_permission with resource+action exists but different name (covers line 736)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1402,7 +1402,7 @@ def test_get_or_create_permission_create_new() -> None:
 
 def test_update_permission_success() -> None:
     """Test update_permission (covers lines 777-814)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1456,7 +1456,7 @@ def test_update_permission_not_found() -> None:
 
 def test_update_permission_name_already_exists() -> None:
     """Test update_permission with name that already exists (covers line 784)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1486,7 +1486,7 @@ def test_update_permission_name_already_exists() -> None:
 
 def test_update_permission_resource_action_exists() -> None:
     """Test update_permission with resource+action that already exists (covers lines 793-800, 803-810)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1567,8 +1567,8 @@ def test_update_role_permission_condition_not_found() -> None:
 
 def test_update_permission_from_schema_success() -> None:
     """Test update_permission_from_schema (covers lines 873-907)."""
-    from fundamental.api.schemas.auth import PermissionUpdate
-    from fundamental.models.auth import Permission
+    from bookcard.api.schemas.auth import PermissionUpdate
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1599,7 +1599,7 @@ def test_update_permission_from_schema_success() -> None:
 
 def test_update_permission_from_schema_blank_name() -> None:
     """Test update_permission_from_schema with blank name (covers line 878)."""
-    from fundamental.api.schemas.auth import PermissionUpdate
+    from bookcard.api.schemas.auth import PermissionUpdate
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1623,7 +1623,7 @@ def test_update_permission_from_schema_blank_name() -> None:
 
 def test_update_permission_from_schema_blank_resource() -> None:
     """Test update_permission_from_schema with blank resource (covers line 890)."""
-    from fundamental.api.schemas.auth import PermissionUpdate
+    from bookcard.api.schemas.auth import PermissionUpdate
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1647,7 +1647,7 @@ def test_update_permission_from_schema_blank_resource() -> None:
 
 def test_update_permission_from_schema_blank_action() -> None:
     """Test update_permission_from_schema with blank action (covers line 897)."""
-    from fundamental.api.schemas.auth import PermissionUpdate
+    from bookcard.api.schemas.auth import PermissionUpdate
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1671,7 +1671,7 @@ def test_update_permission_from_schema_blank_action() -> None:
 
 def test_process_permission_assignments_by_id() -> None:
     """Test _process_permission_assignments with permission_id (covers lines 935-936)."""
-    from fundamental.api.schemas.auth import PermissionAssignment
+    from bookcard.api.schemas.auth import PermissionAssignment
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1697,7 +1697,7 @@ def test_process_permission_assignments_by_id() -> None:
 
 def test_process_permission_assignments_by_name() -> None:
     """Test _process_permission_assignments with permission_name (covers lines 938-963)."""
-    from fundamental.api.schemas.auth import PermissionAssignment
+    from bookcard.api.schemas.auth import PermissionAssignment
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1731,7 +1731,7 @@ def test_process_permission_assignments_by_name() -> None:
 
 def test_process_permission_assignments_blank_name() -> None:
     """Test _process_permission_assignments with blank permission_name (covers line 940)."""
-    from fundamental.api.schemas.auth import PermissionAssignment
+    from bookcard.api.schemas.auth import PermissionAssignment
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1757,7 +1757,7 @@ def test_process_permission_assignments_blank_name() -> None:
 
 def test_process_permission_assignments_blank_resource() -> None:
     """Test _process_permission_assignments with blank resource (covers line 950)."""
-    from fundamental.api.schemas.auth import PermissionAssignment
+    from bookcard.api.schemas.auth import PermissionAssignment
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1783,7 +1783,7 @@ def test_process_permission_assignments_blank_resource() -> None:
 
 def test_process_permission_assignments_blank_action() -> None:
     """Test _process_permission_assignments with blank action (covers line 952)."""
-    from fundamental.api.schemas.auth import PermissionAssignment
+    from bookcard.api.schemas.auth import PermissionAssignment
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1809,7 +1809,7 @@ def test_process_permission_assignments_blank_action() -> None:
 
 def test_process_permission_assignments_missing_id_or_name() -> None:
     """Test _process_permission_assignments without permission_id or permission_name (covers line 965)."""
-    from fundamental.api.schemas.auth import PermissionAssignment
+    from bookcard.api.schemas.auth import PermissionAssignment
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1833,7 +1833,7 @@ def test_process_permission_assignments_missing_id_or_name() -> None:
 
 def test_create_role_from_schema_success() -> None:
     """Test create_role_from_schema (covers lines 974-1008)."""
-    from fundamental.api.schemas.auth import PermissionAssignment, RoleCreate
+    from bookcard.api.schemas.auth import PermissionAssignment, RoleCreate
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1881,7 +1881,7 @@ def test_create_role_from_schema_success() -> None:
 
 def test_create_role_from_schema_blank_name() -> None:
     """Test create_role_from_schema with blank name (covers line 994)."""
-    from fundamental.api.schemas.auth import RoleCreate
+    from bookcard.api.schemas.auth import RoleCreate
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1905,7 +1905,7 @@ def test_create_role_from_schema_blank_name() -> None:
 
 def test_update_role_from_schema_success() -> None:
     """Test update_role_from_schema (covers lines 1010-1068)."""
-    from fundamental.api.schemas.auth import PermissionAssignment, RoleUpdate
+    from bookcard.api.schemas.auth import PermissionAssignment, RoleUpdate
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -1958,7 +1958,7 @@ def test_update_role_from_schema_success() -> None:
 
 def test_update_role_from_schema_blank_name() -> None:
     """Test update_role_from_schema with blank name (covers line 1042)."""
-    from fundamental.api.schemas.auth import RoleUpdate
+    from bookcard.api.schemas.auth import RoleUpdate
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -2066,7 +2066,7 @@ def test_add_role_permissions_permission_id_or_name_required() -> None:
 
 def test_add_role_permissions_permission_id_is_none() -> None:
     """Test _add_role_permissions with permission.id is None (covers lines 302-303)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -2103,7 +2103,7 @@ def test_add_role_permissions_permission_id_is_none() -> None:
 
 def test_add_role_permissions_different_value_error() -> None:
     """Test _add_role_permissions with different ValueError (covers line 314)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -2296,7 +2296,7 @@ def test_delete_permission_not_found_after_check() -> None:
 
 def test_get_or_create_permission_existing_matches_name() -> None:
     """Test get_or_create_permission with existing resource+action matching name (covers line 739)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -2328,7 +2328,7 @@ def test_get_or_create_permission_existing_matches_name() -> None:
 
 def test_update_permission_resource_exists() -> None:
     """Test update_permission with existing resource+action (covers lines 795-801)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -2365,7 +2365,7 @@ def test_update_permission_resource_exists() -> None:
 
 def test_update_permission_action_exists() -> None:
     """Test update_permission with existing resource+action for action (covers line 811)."""
-    from fundamental.models.auth import Permission
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -2402,8 +2402,8 @@ def test_update_permission_action_exists() -> None:
 
 def test_update_permission_from_schema_empty_description() -> None:
     """Test update_permission_from_schema with empty description (covers line 885)."""
-    from fundamental.api.schemas.auth import PermissionUpdate
-    from fundamental.models.auth import Permission
+    from bookcard.api.schemas.auth import PermissionUpdate
+    from bookcard.models.auth import Permission
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -2437,7 +2437,7 @@ def test_update_permission_from_schema_empty_description() -> None:
 
 def test_process_permission_assignments_empty_description() -> None:
     """Test _process_permission_assignments with empty permission_description (covers line 963)."""
-    from fundamental.api.schemas.auth import PermissionAssignment
+    from bookcard.api.schemas.auth import PermissionAssignment
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -2475,7 +2475,7 @@ def test_process_permission_assignments_empty_description() -> None:
 
 def test_create_role_from_schema_empty_description() -> None:
     """Test create_role_from_schema with empty description (covers line 999)."""
-    from fundamental.api.schemas.auth import RoleCreate
+    from bookcard.api.schemas.auth import RoleCreate
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]
@@ -2501,7 +2501,7 @@ def test_create_role_from_schema_empty_description() -> None:
 
 def test_update_role_from_schema_empty_description() -> None:
     """Test update_role_from_schema with empty description (covers line 1050)."""
-    from fundamental.api.schemas.auth import RoleUpdate
+    from bookcard.api.schemas.auth import RoleUpdate
 
     session = DummySession()
     role_repo = RoleRepository(session)  # type: ignore[arg-type]

@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
-from fundamental.repositories.calibre.repository import CalibreBookRepository
+from bookcard.repositories.calibre.repository import CalibreBookRepository
 from tests.repositories.calibre.conftest import (
     MockBookMetadataService,
     MockBookRelationshipManager,
@@ -34,7 +34,7 @@ from tests.repositories.calibre.conftest import (
 if TYPE_CHECKING:
     from sqlmodel import Session
 
-    from fundamental.models.core import Book
+    from bookcard.models.core import Book
 
 
 class TestCalibreBookRepository:

@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from fundamental.services.auth_service import AuthError, AuthService
+from bookcard.services.auth_service import AuthError, AuthService
 from tests.conftest import (
     DummySession,
     FakeHasher,
@@ -85,7 +85,7 @@ def test_register_user_success(
     monkeypatch: pytest.MonkeyPatch, auth_service: AuthService, session: DummySession
 ) -> None:
     # Ensure service uses our dummy user class instead of ORM
-    import fundamental.services.auth_service as auth_mod
+    import bookcard.services.auth_service as auth_mod
 
     monkeypatch.setattr(auth_mod, "User", DummyUser, raising=False)
 
@@ -293,7 +293,7 @@ def test_validate_invite_token_success(
     """Test validate_invite_token returns True for valid token."""
     from datetime import UTC, datetime, timedelta
 
-    from fundamental.models.auth import Invite
+    from bookcard.models.auth import Invite
 
     invite = Invite(
         id=1,
@@ -312,7 +312,7 @@ def test_validate_invite_token_success(
                 return invite
             return None
 
-    import fundamental.repositories.admin_repositories as admin_repos_mod
+    import bookcard.repositories.admin_repositories as admin_repos_mod
 
     monkeypatch.setattr(admin_repos_mod, "InviteRepository", MockInviteRepoClass)
 
@@ -324,7 +324,7 @@ def test_validate_invite_token_not_found(
     auth_service: AuthService, session: DummySession, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Test validate_invite_token raises when token not found."""
-    from fundamental.models.auth import Invite
+    from bookcard.models.auth import Invite
 
     class MockInviteRepoClass:
         def __init__(self, session: object) -> None:
@@ -333,7 +333,7 @@ def test_validate_invite_token_not_found(
         def get_by_token(self, token: str) -> Invite | None:
             return None
 
-    import fundamental.repositories.admin_repositories as admin_repos_mod
+    import bookcard.repositories.admin_repositories as admin_repos_mod
 
     monkeypatch.setattr(admin_repos_mod, "InviteRepository", MockInviteRepoClass)
 
@@ -347,7 +347,7 @@ def test_validate_invite_token_expired(
     """Test validate_invite_token raises when token is expired."""
     from datetime import UTC, datetime, timedelta
 
-    from fundamental.models.auth import Invite
+    from bookcard.models.auth import Invite
 
     expired_invite = Invite(
         id=1,
@@ -366,7 +366,7 @@ def test_validate_invite_token_expired(
                 return expired_invite
             return None
 
-    import fundamental.repositories.admin_repositories as admin_repos_mod
+    import bookcard.repositories.admin_repositories as admin_repos_mod
 
     monkeypatch.setattr(admin_repos_mod, "InviteRepository", MockInviteRepoClass)
 
@@ -380,7 +380,7 @@ def test_validate_invite_token_already_used(
     """Test validate_invite_token raises when token is already used."""
     from datetime import UTC, datetime, timedelta
 
-    from fundamental.models.auth import Invite
+    from bookcard.models.auth import Invite
 
     used_invite = Invite(
         id=1,
@@ -399,7 +399,7 @@ def test_validate_invite_token_already_used(
                 return used_invite
             return None
 
-    import fundamental.repositories.admin_repositories as admin_repos_mod
+    import bookcard.repositories.admin_repositories as admin_repos_mod
 
     monkeypatch.setattr(admin_repos_mod, "InviteRepository", MockInviteRepoClass)
 
@@ -519,7 +519,7 @@ def test_upsert_setting_update(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test upsert_setting updates existing setting (covers lines 250-257)."""
-    from fundamental.models.auth import UserSetting
+    from bookcard.models.auth import UserSetting
 
     user = user_factory(user_id=1, username="alice", email="a@example.com")
     user_repo.seed(user)
@@ -551,7 +551,7 @@ def test_get_setting(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test get_setting retrieves setting (covers lines 285-288)."""
-    from fundamental.models.auth import UserSetting
+    from bookcard.models.auth import UserSetting
 
     class MockSettingRepository:
         def __init__(self, session: object) -> None:
@@ -562,7 +562,7 @@ def test_get_setting(
                 return UserSetting(id=1, user_id=1, key="theme", value="dark")
             return None
 
-    import fundamental.repositories.admin_repositories as admin_repos_mod
+    import bookcard.repositories.admin_repositories as admin_repos_mod
 
     monkeypatch.setattr(admin_repos_mod, "SettingRepository", MockSettingRepository)
 
@@ -579,7 +579,7 @@ def test_get_all_settings(
     session: DummySession,
 ) -> None:
     """Test get_all_settings retrieves all user settings (covers lines 303-308)."""
-    from fundamental.models.auth import UserSetting
+    from bookcard.models.auth import UserSetting
 
     setting1 = UserSetting(id=1, user_id=1, key="theme", value="dark")
     setting2 = UserSetting(id=2, user_id=1, key="language", value="en")
@@ -841,8 +841,8 @@ def test_get_email_server_config_with_decryption(
     import tempfile
     from datetime import UTC, datetime
 
-    from fundamental.models.config import EmailServerConfig, EmailServerType
-    from fundamental.services.security import DataEncryptor
+    from bookcard.models.config import EmailServerConfig, EmailServerType
+    from bookcard.services.security import DataEncryptor
     from tests.conftest import TEST_ENCRYPTION_KEY
 
     encryptor = DataEncryptor(TEST_ENCRYPTION_KEY)
@@ -892,8 +892,8 @@ def test_get_email_server_config_skips_decryption_when_not_string(
     import tempfile
     from datetime import UTC, datetime
 
-    from fundamental.models.config import EmailServerConfig, EmailServerType
-    from fundamental.services.security import DataEncryptor
+    from bookcard.models.config import EmailServerConfig, EmailServerType
+    from bookcard.services.security import DataEncryptor
     from tests.conftest import TEST_ENCRYPTION_KEY
 
     encryptor = DataEncryptor(TEST_ENCRYPTION_KEY)
@@ -941,8 +941,8 @@ def test_apply_smtp_config_all_fields(
     import tempfile
     from datetime import UTC, datetime
 
-    from fundamental.models.config import EmailServerConfig, EmailServerType
-    from fundamental.services.security import DataEncryptor
+    from bookcard.models.config import EmailServerConfig, EmailServerType
+    from bookcard.services.security import DataEncryptor
     from tests.conftest import TEST_ENCRYPTION_KEY
 
     encryptor = DataEncryptor(TEST_ENCRYPTION_KEY)
@@ -1006,7 +1006,7 @@ def test_apply_smtp_config_without_encryptor(
     import tempfile
     from datetime import UTC, datetime
 
-    from fundamental.models.config import EmailServerConfig, EmailServerType
+    from bookcard.models.config import EmailServerConfig, EmailServerType
 
     temp_dir = tempfile.mkdtemp()
 
@@ -1057,8 +1057,8 @@ def test_apply_gmail_config_all_fields(
     import tempfile
     from datetime import UTC, datetime
 
-    from fundamental.models.config import EmailServerConfig, EmailServerType
-    from fundamental.services.security import DataEncryptor
+    from bookcard.models.config import EmailServerConfig, EmailServerType
+    from bookcard.services.security import DataEncryptor
     from tests.conftest import TEST_ENCRYPTION_KEY
 
     encryptor = DataEncryptor(TEST_ENCRYPTION_KEY)
@@ -1125,7 +1125,7 @@ def test_apply_gmail_config_without_encryptor(
     import tempfile
     from datetime import UTC, datetime
 
-    from fundamental.models.config import EmailServerConfig, EmailServerType
+    from bookcard.models.config import EmailServerConfig, EmailServerType
 
     temp_dir = tempfile.mkdtemp()
 
@@ -1177,7 +1177,7 @@ def test_apply_gmail_config_none_token(
     import tempfile
     from datetime import UTC, datetime
 
-    from fundamental.models.config import EmailServerConfig, EmailServerType
+    from bookcard.models.config import EmailServerConfig, EmailServerType
 
     temp_dir = tempfile.mkdtemp()
 
@@ -1237,7 +1237,7 @@ def test_upsert_email_server_config_creates_new_smtp(
     session: DummySession,
 ) -> None:
     """Test upsert_email_server_config creates new SMTP config (covers lines 494-534)."""
-    from fundamental.models.config import EmailServerType
+    from bookcard.models.config import EmailServerType
 
     session.add_exec_result([None])  # get_email_server_config returns None
 
@@ -1266,7 +1266,7 @@ def test_upsert_email_server_config_updates_existing_smtp(
     """Test upsert_email_server_config updates existing SMTP config (covers lines 494-534)."""
     from datetime import UTC, datetime
 
-    from fundamental.models.config import EmailServerConfig, EmailServerType
+    from bookcard.models.config import EmailServerConfig, EmailServerType
 
     existing_config = EmailServerConfig(
         id=1,
@@ -1296,7 +1296,7 @@ def test_upsert_email_server_config_creates_new_gmail(
     session: DummySession,
 ) -> None:
     """Test upsert_email_server_config creates new Gmail config (covers lines 519-534)."""
-    from fundamental.models.config import EmailServerType
+    from bookcard.models.config import EmailServerType
 
     session.add_exec_result([None])
 

@@ -19,8 +19,8 @@ from typing import Any
 
 import pytest
 
-from fundamental.models.auth import User
-from fundamental.repositories.user_repository import UserRepository
+from bookcard.models.auth import User
+from bookcard.repositories.user_repository import UserRepository
 
 
 class MockResult:

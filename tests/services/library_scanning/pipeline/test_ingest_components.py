@@ -23,7 +23,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.author_metadata import (
+from bookcard.models.author_metadata import (
     AuthorAlternateName,
     AuthorLink,
     AuthorMetadata,
@@ -32,19 +32,19 @@ from fundamental.models.author_metadata import (
     AuthorWork,
     WorkSubject,
 )
-from fundamental.services.library_scanning.data_sources.base import (
+from bookcard.services.library_scanning.data_sources.base import (
     DataSourceError,
     DataSourceNetworkError,
     DataSourceNotFoundError,
     DataSourceRateLimitError,
 )
-from fundamental.services.library_scanning.data_sources.types import (
+from bookcard.services.library_scanning.data_sources.types import (
     AuthorData,
     BookData,
     IdentifierDict,
 )
-from fundamental.services.library_scanning.matching.types import MatchResult
-from fundamental.services.library_scanning.pipeline.ingest_components import (
+from bookcard.services.library_scanning.matching.types import MatchResult
+from bookcard.services.library_scanning.pipeline.ingest_components import (
     AlternateNameService,
     AuthorAlternateNameRepository,
     AuthorDataFetcher,
@@ -1939,7 +1939,7 @@ class TestWorkMetadataRepository:
 
     def test_find_by_work_key(self, session: DummySession) -> None:
         """Test find_by_work_key finds existing work metadata."""
-        from fundamental.models.author_metadata import WorkMetadata
+        from bookcard.models.author_metadata import WorkMetadata
 
         work_metadata = WorkMetadata(
             id=1,
@@ -1955,7 +1955,7 @@ class TestWorkMetadataRepository:
 
     def test_create_work_metadata(self, session: DummySession) -> None:
         """Test create work metadata."""
-        from fundamental.models.author_metadata import WorkMetadata
+        from bookcard.models.author_metadata import WorkMetadata
 
         work_metadata = WorkMetadata(
             work_key="OL123W",
@@ -1970,7 +1970,7 @@ class TestWorkMetadataRepository:
 
     def test_update_work_metadata(self, session: DummySession) -> None:
         """Test update work metadata."""
-        from fundamental.models.author_metadata import WorkMetadata
+        from bookcard.models.author_metadata import WorkMetadata
 
         existing = WorkMetadata(
             id=1,
@@ -2094,7 +2094,7 @@ class TestWorkMetadataService:
 
     def test_normalize_and_persist_update(self, session: DummySession) -> None:
         """Test normalize_and_persist updates existing work metadata."""
-        from fundamental.models.author_metadata import WorkMetadata
+        from bookcard.models.author_metadata import WorkMetadata
 
         existing = WorkMetadata(
             id=1,
@@ -2285,7 +2285,7 @@ class TestWorkBasedSubjectStrategyEdgeCases:
         self, session: DummySession, mock_data_source: MagicMock
     ) -> None:
         """Test fetch_subjects stops when max unique subjects reached."""
-        from fundamental.services.library_scanning.pipeline.ingest_components import (
+        from bookcard.services.library_scanning.pipeline.ingest_components import (
             MAX_UNIQUE_SUBJECTS,
         )
 
@@ -2315,7 +2315,7 @@ class TestWorkBasedSubjectStrategyEdgeCases:
         self, session: DummySession, mock_data_source: MagicMock
     ) -> None:
         """Test fetch_subjects stops when max works to query reached."""
-        from fundamental.services.library_scanning.pipeline.ingest_components import (
+        from bookcard.services.library_scanning.pipeline.ingest_components import (
             MAX_WORKS_TO_QUERY,
         )
 

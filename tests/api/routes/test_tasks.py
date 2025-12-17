@@ -24,10 +24,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException, Request, status
 
-import fundamental.api.routes.tasks as tasks
-from fundamental.models.auth import User
-from fundamental.models.tasks import Task, TaskStatistics, TaskStatus, TaskType
-from fundamental.services.messaging.redis_broker import RedisBroker
+import bookcard.api.routes.tasks as tasks
+from bookcard.models.auth import User
+from bookcard.models.tasks import Task, TaskStatistics, TaskStatus, TaskType
+from bookcard.services.messaging.redis_broker import RedisBroker
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession
@@ -137,7 +137,7 @@ class TestListTasks:
             created_at=datetime.now(UTC),
         )
 
-        with patch("fundamental.api.routes.tasks.TaskService") as mock_service_class:
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.list_tasks.return_value = [task1, task2]
             mock_service_class.return_value = mock_service
@@ -176,7 +176,7 @@ class TestListTasks:
             created_at=datetime.now(UTC),
         )
 
-        with patch("fundamental.api.routes.tasks.TaskService") as mock_service_class:
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.list_tasks.return_value = [task]
             mock_service_class.return_value = mock_service
@@ -212,7 +212,7 @@ class TestListTasks:
             created_at=datetime.now(UTC),
         )
 
-        with patch("fundamental.api.routes.tasks.TaskService") as mock_service_class:
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.list_tasks.return_value = [task]
             mock_service_class.return_value = mock_service
@@ -253,7 +253,7 @@ class TestListTasks:
             for i in range(1, 51)  # 50 tasks
         ]
 
-        with patch("fundamental.api.routes.tasks.TaskService") as mock_service_class:
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.list_tasks.return_value = tasks_list
             mock_service_class.return_value = mock_service
@@ -295,7 +295,7 @@ class TestListTasks:
             for i in range(1, 26)  # Exactly 25 tasks (page_size)
         ]
 
-        with patch("fundamental.api.routes.tasks.TaskService") as mock_service_class:
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.list_tasks.return_value = tasks_list
             mock_service_class.return_value = mock_service
@@ -333,7 +333,7 @@ class TestListTasks:
             )
         }
 
-        with patch("fundamental.api.routes.tasks.TaskService") as mock_service_class:
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.list_tasks.return_value = [mock_row]
             mock_service_class.return_value = mock_service
@@ -366,7 +366,7 @@ class TestListTasks:
         mock_row = MagicMock()
         mock_row.__getitem__ = lambda self, key: task if key == 0 else None
 
-        with patch("fundamental.api.routes.tasks.TaskService") as mock_service_class:
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.list_tasks.return_value = [mock_row]
             mock_service_class.return_value = mock_service
@@ -391,7 +391,7 @@ class TestListTasks:
         mock_row = MagicMock()
         mock_row.__getitem__ = MagicMock(side_effect=IndexError())
 
-        with patch("fundamental.api.routes.tasks.TaskService") as mock_service_class:
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.list_tasks.return_value = [mock_row]
             mock_service_class.return_value = mock_service
@@ -428,7 +428,7 @@ class TestGetTask:
             completed_at=datetime.now(UTC),
         )
 
-        with patch("fundamental.api.routes.tasks.TaskService") as mock_service_class:
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.get_task.return_value = task
             mock_service_class.return_value = mock_service
@@ -451,7 +451,7 @@ class TestGetTask:
         mock_permission_service: None,
     ) -> None:
         """Test get_task raises 404 when task not found."""
-        with patch("fundamental.api.routes.tasks.TaskService") as mock_service_class:
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.get_task.return_value = None
             mock_service_class.return_value = mock_service
@@ -484,7 +484,7 @@ class TestGetTask:
             created_at=datetime.now(UTC),
         )
 
-        with patch("fundamental.api.routes.tasks.TaskService") as mock_service_class:
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.get_task.return_value = task
             mock_service_class.return_value = mock_service
@@ -522,7 +522,7 @@ class TestCancelTask:
         mock_runner.cancel.return_value = True
         mock_request.app.state.task_runner = mock_runner
 
-        with patch("fundamental.api.routes.tasks.TaskService") as mock_service_class:
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.get_task.return_value = task
             mock_service_class.return_value = mock_service
@@ -564,10 +564,8 @@ class TestCancelTask:
         mock_request.app.state.scan_worker_broker = mock_broker
 
         with (
-            patch("fundamental.api.routes.tasks.TaskService") as mock_service_class,
-            patch(
-                "fundamental.api.routes.tasks.JobProgressTracker"
-            ) as mock_tracker_class,
+            patch("bookcard.api.routes.tasks.TaskService") as mock_service_class,
+            patch("bookcard.api.routes.tasks.JobProgressTracker") as mock_tracker_class,
         ):
             mock_service = MagicMock()
             mock_service.get_task.return_value = task
@@ -598,7 +596,7 @@ class TestCancelTask:
         mock_runner = MagicMock()
         mock_request.app.state.task_runner = mock_runner
 
-        with patch("fundamental.api.routes.tasks.TaskService") as mock_service_class:
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.get_task.return_value = None
             mock_service_class.return_value = mock_service
@@ -634,7 +632,7 @@ class TestCancelTask:
         )
         mock_request.app.state.task_runner = None
 
-        with patch("fundamental.api.routes.tasks.TaskService") as mock_service_class:
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.get_task.return_value = task
             mock_service_class.return_value = mock_service
@@ -672,7 +670,7 @@ class TestCancelTask:
         mock_runner.cancel.return_value = False
         mock_request.app.state.task_runner = mock_runner
 
-        with patch("fundamental.api.routes.tasks.TaskService") as mock_service_class:
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.get_task.return_value = task
             mock_service_class.return_value = mock_service
@@ -709,7 +707,7 @@ class TestGetTaskStatistics:
             last_run_at=datetime.now(UTC),
         )
 
-        with patch("fundamental.api.routes.tasks.TaskService") as mock_service_class:
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.get_task_statistics.return_value = [stats]
             mock_service_class.return_value = mock_service
@@ -740,7 +738,7 @@ class TestGetTaskStatistics:
             failure_count=0,
         )
 
-        with patch("fundamental.api.routes.tasks.TaskService") as mock_service_class:
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.get_task_statistics.return_value = [stats]
             mock_service_class.return_value = mock_service
@@ -785,7 +783,7 @@ class TestGetTaskStatistics:
             failure_count=1,
         )
 
-        with patch("fundamental.api.routes.tasks.TaskService") as mock_service_class:
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.get_task_statistics.return_value = [stats]
             mock_service_class.return_value = mock_service

@@ -24,7 +24,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.services.cover_extractors.fbz import FbzCoverExtractor
+from bookcard.services.cover_extractors.fbz import FbzCoverExtractor
 
 
 @pytest.fixture

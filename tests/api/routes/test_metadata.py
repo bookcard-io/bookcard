@@ -25,8 +25,8 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-import fundamental.api.routes.metadata as metadata_routes
-from fundamental.api.schemas import (
+import bookcard.api.routes.metadata as metadata_routes
+from bookcard.api.schemas import (
     MetadataProviderCompletedEvent,
     MetadataProviderStartedEvent,
     MetadataSearchCompletedEvent,
@@ -34,8 +34,8 @@ from fundamental.api.schemas import (
     MetadataSearchRequest,
     MetadataSearchStartedEvent,
 )
-from fundamental.metadata.base import MetadataProviderError
-from fundamental.models.metadata import MetadataRecord, MetadataSourceInfo
+from bookcard.metadata.base import MetadataProviderError
+from bookcard.models.metadata import MetadataRecord, MetadataSourceInfo
 
 if TYPE_CHECKING:
     import threading
@@ -134,7 +134,7 @@ def mock_metadata_service() -> MockMetadataService:
 
 def test_get_metadata_service() -> None:
     """Test _get_metadata_service returns MetadataService (covers line 60)."""
-    with patch("fundamental.api.routes.metadata.MetadataService") as mock_service_class:
+    with patch("bookcard.api.routes.metadata.MetadataService") as mock_service_class:
         service = metadata_routes._get_metadata_service()
         mock_service_class.assert_called_once()
         assert service is not None
@@ -520,14 +520,14 @@ def test_search_metadata_stream_sse_generator(
     # use TestClient instead of calling the function directly
     from fastapi import FastAPI
 
-    from fundamental.models.auth import User
+    from bookcard.models.auth import User
 
     app = FastAPI()
     app.include_router(metadata_routes.router)
 
     # Override the dependency to return a mock user
     mock_user = User(id=1, username="test", email="test@test.com", password_hash="hash")
-    from fundamental.api.deps import get_current_user
+    from bookcard.api.deps import get_current_user
 
     app.dependency_overrides[get_current_user] = lambda: mock_user
 

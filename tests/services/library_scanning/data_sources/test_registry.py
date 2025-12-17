@@ -17,8 +17,8 @@
 
 import pytest
 
-from fundamental.services.library_scanning.data_sources.base import BaseDataSource
-from fundamental.services.library_scanning.data_sources.registry import (
+from bookcard.services.library_scanning.data_sources.base import BaseDataSource
+from bookcard.services.library_scanning.data_sources.registry import (
     DataSourceRegistry,
 )
 
@@ -75,7 +75,7 @@ def test_register_source() -> None:
     """Test register_source adds new source."""
     from collections.abc import Sequence
 
-    from fundamental.services.library_scanning.data_sources.types import (
+    from bookcard.services.library_scanning.data_sources.types import (
         AuthorData,
         BookData,
         IdentifierDict,
@@ -127,7 +127,7 @@ def test_register_source() -> None:
     assert isinstance(source, TestDataSource)
 
     # Cleanup: remove test source (restore original state)
-    from fundamental.services.library_scanning.data_sources.registry import (
+    from bookcard.services.library_scanning.data_sources.registry import (
         _DATA_SOURCES,
     )
 
@@ -139,7 +139,7 @@ def test_register_source_case_insensitive() -> None:
     """Test register_source stores name in lowercase."""
     from collections.abc import Sequence
 
-    from fundamental.services.library_scanning.data_sources.types import (
+    from bookcard.services.library_scanning.data_sources.types import (
         AuthorData,
         BookData,
         IdentifierDict,
@@ -185,7 +185,7 @@ def test_register_source_case_insensitive() -> None:
     assert "testsource" in sources
 
     # Cleanup
-    from fundamental.services.library_scanning.data_sources.registry import (
+    from bookcard.services.library_scanning.data_sources.registry import (
         _DATA_SOURCES,
     )
 

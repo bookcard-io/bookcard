@@ -23,12 +23,12 @@ import httpx
 import pytest
 from lxml import etree  # type: ignore[import]
 
-from fundamental.metadata.base import (
+from bookcard.metadata.base import (
     MetadataProviderNetworkError,
     MetadataProviderParseError,
     MetadataProviderTimeoutError,
 )
-from fundamental.metadata.providers.douban import (
+from bookcard.metadata.providers.douban import (
     DoubanProvider,
     _clean_date,
     _sanitize_html_to_text,

@@ -20,7 +20,7 @@ from __future__ import annotations
 import pytest
 from fastapi import HTTPException, status
 
-from fundamental.services.book_exception_mapper import BookExceptionMapper
+from bookcard.services.book_exception_mapper import BookExceptionMapper
 
 # ============================================================================
 # map_value_error_to_http_exception Tests

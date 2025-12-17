@@ -24,14 +24,14 @@ from unittest.mock import patch
 
 import pytest
 
-from fundamental.models.ingest import (
+from bookcard.models.ingest import (
     IngestAudit,
     IngestConfig,
     IngestHistory,
     IngestRetry,
     IngestStatus,
 )
-from fundamental.repositories.ingest_repository import (
+from bookcard.repositories.ingest_repository import (
     IngestAuditRepository,
     IngestConfigRepository,
     IngestHistoryRepository,

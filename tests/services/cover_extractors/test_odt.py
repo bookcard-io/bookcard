@@ -25,7 +25,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from PIL import Image
 
-from fundamental.services.cover_extractors.odt import OdtCoverExtractor
+from bookcard.services.cover_extractors.odt import OdtCoverExtractor
 
 if TYPE_CHECKING:
     from pathlib import Path

@@ -20,8 +20,8 @@ from __future__ import annotations
 import pytest
 from fastapi import HTTPException, status
 
-from fundamental.services.author_exception_mapper import AuthorExceptionMapper
-from fundamental.services.author_exceptions import (
+from bookcard.services.author_exception_mapper import AuthorExceptionMapper
+from bookcard.services.author_exceptions import (
     AuthorMetadataFetchError,
     AuthorNotFoundError,
     AuthorServiceError,

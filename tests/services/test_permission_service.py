@@ -23,8 +23,8 @@ from typing import TYPE_CHECKING
 import pytest
 from fastapi import HTTPException, status
 
-from fundamental.models.auth import Permission, RolePermission, User, UserRole
-from fundamental.services.permission_service import PermissionService
+from bookcard.models.auth import Permission, RolePermission, User, UserRole
+from bookcard.services.permission_service import PermissionService
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession

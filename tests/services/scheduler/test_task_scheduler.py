@@ -23,7 +23,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.services.scheduler.task_scheduler import TaskScheduler
+from bookcard.services.scheduler.task_scheduler import TaskScheduler
 from tests.conftest import DummySession
 
 
@@ -78,7 +78,7 @@ class TestSchedulerLoop:
         mock_engine: MagicMock,
     ) -> None:
         """Test _scheduler_loop runs and checks tasks (covers lines 94-104)."""
-        from fundamental.models.config import ScheduledTasksConfig
+        from bookcard.models.config import ScheduledTasksConfig
 
         config = ScheduledTasksConfig(
             id=1,
@@ -91,9 +91,7 @@ class TestSchedulerLoop:
 
         with (
             patch("sqlmodel.Session") as mock_session_class,
-            patch(
-                "fundamental.services.scheduler.base.datetime"
-            ) as mock_datetime_module,
+            patch("bookcard.services.scheduler.base.datetime") as mock_datetime_module,
         ):
             from datetime import datetime as dt
 
@@ -127,7 +125,7 @@ class TestSchedulerLoop:
             mock_session_class.side_effect = Exception("Test error")
 
             with patch(
-                "fundamental.services.scheduler.task_scheduler.logger"
+                "bookcard.services.scheduler.task_scheduler.logger"
             ) as mock_logger:
                 # Start scheduler
                 scheduler.start()
@@ -147,7 +145,7 @@ class TestSchedulerLoop:
         mock_engine: MagicMock,
     ) -> None:
         """Test _scheduler_loop sleeps between iterations (covers line 104)."""
-        from fundamental.models.config import ScheduledTasksConfig
+        from bookcard.models.config import ScheduledTasksConfig
 
         config = ScheduledTasksConfig(
             id=1,
@@ -160,7 +158,7 @@ class TestSchedulerLoop:
         with (
             patch("sqlmodel.Session") as mock_session_class,
             patch("time.sleep") as mock_sleep,
-            patch("fundamental.services.scheduler.base.datetime") as mock_datetime,
+            patch("bookcard.services.scheduler.base.datetime") as mock_datetime,
         ):
             mock_now = datetime(2024, 1, 1, 2, 0, 0, tzinfo=UTC)
             mock_datetime.now.return_value = mock_now
@@ -198,9 +196,7 @@ class TestShutdown:
         assert scheduler._scheduler_thread is not None
         assert scheduler._scheduler_thread.is_alive()
 
-        with patch(
-            "fundamental.services.scheduler.task_scheduler.logger"
-        ) as mock_logger:
+        with patch("bookcard.services.scheduler.task_scheduler.logger") as mock_logger:
             scheduler.shutdown()
 
             assert scheduler._shutdown is True
@@ -220,9 +216,7 @@ class TestShutdown:
         """Test shutdown when no thread exists."""
         scheduler._scheduler_thread = None
 
-        with patch(
-            "fundamental.services.scheduler.task_scheduler.logger"
-        ) as mock_logger:
+        with patch("bookcard.services.scheduler.task_scheduler.logger") as mock_logger:
             scheduler.shutdown()
 
             assert scheduler._shutdown is True

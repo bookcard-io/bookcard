@@ -20,13 +20,13 @@ from unittest.mock import Mock, patch
 import pytest
 from sqlmodel import Session
 
-from fundamental.models.auth import User
-from fundamental.models.config import Library
-from fundamental.repositories.models import BookWithRelations
-from fundamental.services.book_permission_helper import BookPermissionHelper
-from fundamental.services.book_service import BookService
-from fundamental.services.opds.book_query_service import OpdsBookQueryService
-from fundamental.services.permission_service import PermissionService
+from bookcard.models.auth import User
+from bookcard.models.config import Library
+from bookcard.repositories.models import BookWithRelations
+from bookcard.services.book_permission_helper import BookPermissionHelper
+from bookcard.services.book_service import BookService
+from bookcard.services.opds.book_query_service import OpdsBookQueryService
+from bookcard.services.permission_service import PermissionService
 
 
 @pytest.fixture
@@ -75,9 +75,9 @@ class TestOpdsBookQueryService:
     def test_init_defaults(self, mock_session: Mock, mock_library: Mock) -> None:
         """Test initialization with defaults."""
         with (
-            patch("fundamental.services.opds.book_query_service.BookService"),
-            patch("fundamental.services.opds.book_query_service.PermissionService"),
-            patch("fundamental.services.opds.book_query_service.BookPermissionHelper"),
+            patch("bookcard.services.opds.book_query_service.BookService"),
+            patch("bookcard.services.opds.book_query_service.PermissionService"),
+            patch("bookcard.services.opds.book_query_service.BookPermissionHelper"),
         ):
             service = OpdsBookQueryService(mock_session, mock_library)
             assert service._book_service is not None

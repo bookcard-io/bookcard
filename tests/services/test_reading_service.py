@@ -22,19 +22,19 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from fundamental.models.reading import (
+from bookcard.models.reading import (
     ReadingProgress,
     ReadingSession,
     ReadStatus,
     ReadStatusEnum,
 )
-from fundamental.repositories.reading_repository import (
+from bookcard.repositories.reading_repository import (
     AnnotationRepository,
     ReadingProgressRepository,
     ReadingSessionRepository,
     ReadStatusRepository,
 )
-from fundamental.services.reading_service import ReadingService
+from bookcard.services.reading_service import ReadingService
 
 if TYPE_CHECKING:
     from tests.conftest import DummySession

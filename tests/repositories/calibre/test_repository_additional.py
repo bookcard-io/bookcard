@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from fundamental.repositories.calibre.repository import CalibreBookRepository
+from bookcard.repositories.calibre.repository import CalibreBookRepository
 
 if TYPE_CHECKING:
     from sqlmodel import Session

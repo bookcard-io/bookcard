@@ -26,7 +26,7 @@ from unittest.mock import MagicMock
 import pytest
 from PIL import Image  # type: ignore[import-untyped]
 
-from fundamental.services.cover_extractors.pdf import PdfCoverExtractor
+from bookcard.services.cover_extractors.pdf import PdfCoverExtractor
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -138,7 +138,7 @@ def test_extract_cover_import_error(extractor: PdfCoverExtractor) -> None:
         # Reload the module to trigger ImportError
         import importlib
 
-        import fundamental.services.cover_extractors.pdf as pdf_module
+        import bookcard.services.cover_extractors.pdf as pdf_module
 
         importlib.reload(pdf_module)
 
@@ -162,7 +162,7 @@ def test_extract_cover_import_error(extractor: PdfCoverExtractor) -> None:
         # Reload the module again to restore original behavior
         import importlib
 
-        import fundamental.services.cover_extractors.pdf as pdf_module
+        import bookcard.services.cover_extractors.pdf as pdf_module
 
         importlib.reload(pdf_module)
 

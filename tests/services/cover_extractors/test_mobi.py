@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from fundamental.services.cover_extractors.mobi import MobiCoverExtractor
+from bookcard.services.cover_extractors.mobi import MobiCoverExtractor
 
 
 @pytest.fixture

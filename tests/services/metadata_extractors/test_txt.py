@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from fundamental.services.metadata_extractors.txt import TxtMetadataExtractor
+from bookcard.services.metadata_extractors.txt import TxtMetadataExtractor
 
 
 @pytest.fixture

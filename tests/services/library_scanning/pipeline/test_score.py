@@ -22,13 +22,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.author_metadata import (
+from bookcard.models.author_metadata import (
     AuthorMetadata,
     AuthorSimilarity,
     WorkSubject,
 )
-from fundamental.services.library_scanning.pipeline.context import PipelineContext
-from fundamental.services.library_scanning.pipeline.score import (
+from bookcard.services.library_scanning.pipeline.context import PipelineContext
+from bookcard.services.library_scanning.pipeline.score import (
     AuthorPairProcessor,
     AuthorRepository,
     CompositeSimilarityCalculator,

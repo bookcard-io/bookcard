@@ -19,16 +19,16 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.services.library_scanning.data_sources.base import BaseDataSource
-from fundamental.services.library_scanning.pipeline.context import PipelineContext
-from fundamental.services.library_scanning.pipeline.executor import PipelineExecutor
-from fundamental.services.library_scanning.scan_configuration import ScanConfiguration
-from fundamental.services.library_scanning.scan_factories import (
+from bookcard.services.library_scanning.data_sources.base import BaseDataSource
+from bookcard.services.library_scanning.pipeline.context import PipelineContext
+from bookcard.services.library_scanning.pipeline.executor import PipelineExecutor
+from bookcard.services.library_scanning.scan_configuration import ScanConfiguration
+from bookcard.services.library_scanning.scan_factories import (
     DataSourceFactory,
     PipelineContextFactory,
     PipelineFactory,
 )
-from fundamental.services.library_scanning.scan_orchestrator import (
+from bookcard.services.library_scanning.scan_orchestrator import (
     LibraryScanOrchestrator,
 )
 

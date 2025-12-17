@@ -21,9 +21,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.author_metadata import AuthorMetadata
-from fundamental.models.core import Author
-from fundamental.repositories.author_listing_components import (
+from bookcard.models.author_metadata import AuthorMetadata
+from bookcard.models.core import Author
+from bookcard.repositories.author_listing_components import (
     AuthorHydrator,
     AuthorResultCombiner,
     MappedIdsFetcher,
@@ -31,7 +31,7 @@ from fundamental.repositories.author_listing_components import (
     UnmatchedAuthorFetcher,
     UnmatchedAuthorRow,
 )
-from fundamental.repositories.calibre_book_repository import CalibreBookRepository
+from bookcard.repositories.calibre_book_repository import CalibreBookRepository
 
 
 class MockResult:
@@ -260,7 +260,7 @@ class TestUnmatchedAuthorFetcher:
         result = fetcher.fetch_unmatched(set(), None, "metadata.db")
         assert result == []
 
-    @patch("fundamental.repositories.author_listing_components.CalibreBookRepository")
+    @patch("bookcard.repositories.author_listing_components.CalibreBookRepository")
     def test_fetch_unmatched_success(
         self,
         mock_repo_class: MagicMock,
@@ -305,7 +305,7 @@ class TestUnmatchedAuthorFetcher:
         assert author3 in result
         assert author1 not in result
 
-    @patch("fundamental.repositories.author_listing_components.CalibreBookRepository")
+    @patch("bookcard.repositories.author_listing_components.CalibreBookRepository")
     def test_fetch_unmatched_with_none_id(
         self,
         mock_repo_class: MagicMock,
@@ -344,8 +344,8 @@ class TestUnmatchedAuthorFetcher:
 
         assert len(result) == 0
 
-    @patch("fundamental.repositories.author_listing_components.logger")
-    @patch("fundamental.repositories.author_listing_components.CalibreBookRepository")
+    @patch("bookcard.repositories.author_listing_components.logger")
+    @patch("bookcard.repositories.author_listing_components.CalibreBookRepository")
     def test_fetch_unmatched_exception(
         self,
         mock_repo_class: MagicMock,
@@ -503,7 +503,7 @@ class TestAuthorHydrator:
         assert result[1].id == 1
         assert result[2].id == 2
 
-    @patch("fundamental.repositories.author_listing_components.logger")
+    @patch("bookcard.repositories.author_listing_components.logger")
     def test_hydrate_matched_exception(
         self, mock_logger: MagicMock, mock_session: MockSession
     ) -> None:
@@ -540,7 +540,7 @@ class TestAuthorHydrator:
         result = hydrator.create_unmatched_metadata([], "/path/to/db", "metadata.db")
         assert result == {}
 
-    @patch("fundamental.repositories.author_listing_components.CalibreBookRepository")
+    @patch("bookcard.repositories.author_listing_components.CalibreBookRepository")
     def test_create_unmatched_metadata_success(
         self,
         mock_repo_class: MagicMock,
@@ -585,7 +585,7 @@ class TestAuthorHydrator:
         assert result[1].openlibrary_key == "calibre-1"
         assert result[1].id is None
 
-    @patch("fundamental.repositories.author_listing_components.CalibreBookRepository")
+    @patch("bookcard.repositories.author_listing_components.CalibreBookRepository")
     def test_create_unmatched_metadata_with_none_id(
         self,
         mock_repo_class: MagicMock,
@@ -620,8 +620,8 @@ class TestAuthorHydrator:
 
         assert len(result) == 0
 
-    @patch("fundamental.repositories.author_listing_components.logger")
-    @patch("fundamental.repositories.author_listing_components.CalibreBookRepository")
+    @patch("bookcard.repositories.author_listing_components.logger")
+    @patch("bookcard.repositories.author_listing_components.CalibreBookRepository")
     def test_create_unmatched_metadata_exception(
         self,
         mock_repo_class: MagicMock,
@@ -662,7 +662,7 @@ class TestMappedAuthorWithoutKeyFetcher:
 
         Covers line 235.
         """
-        from fundamental.repositories.author_listing_components import (
+        from bookcard.repositories.author_listing_components import (
             MappedAuthorWithoutKeyFetcher,
         )
 
@@ -683,7 +683,7 @@ class TestMappedAuthorWithoutKeyFetcher:
 
         Covers lines 250-270.
         """
-        from fundamental.repositories.author_listing_components import (
+        from bookcard.repositories.author_listing_components import (
             MappedAuthorWithoutKeyFetcher,
         )
 
@@ -702,7 +702,7 @@ class TestMappedAuthorWithoutKeyFetcher:
         assert author1 in result
         assert author2 in result
 
-    @patch("fundamental.repositories.author_listing_components.logger")
+    @patch("bookcard.repositories.author_listing_components.logger")
     def test_fetch_mapped_without_key_exception(
         self,
         mock_logger: MagicMock,
@@ -722,7 +722,7 @@ class TestMappedAuthorWithoutKeyFetcher:
 
         Covers lines 271-273.
         """
-        from fundamental.repositories.author_listing_components import (
+        from bookcard.repositories.author_listing_components import (
             MappedAuthorWithoutKeyFetcher,
         )
 

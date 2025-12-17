@@ -23,13 +23,13 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from fundamental.models.core import Book
-from fundamental.repositories.models import BookWithFullRelations
-from fundamental.services.epub_fixer.core.epub import EPUBContents
-from fundamental.services.metadata_enforcement.epub_enforcer import (
+from bookcard.models.core import Book
+from bookcard.repositories.models import BookWithFullRelations
+from bookcard.services.epub_fixer.core.epub import EPUBContents
+from bookcard.services.metadata_enforcement.epub_enforcer import (
     EpubMetadataEnforcer,
 )
-from fundamental.services.opf_service import OpfMetadataResult, OpfService
+from bookcard.services.opf_service import OpfMetadataResult, OpfService
 
 
 @pytest.fixture

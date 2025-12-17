@@ -22,8 +22,8 @@ from tests.conftest import DummySession
 
 def test_find_by_email_delegates_to_session(session: DummySession) -> None:
     """Test find_by_email queries by exact email match."""
-    from fundamental.models.auth import User
-    from fundamental.repositories.user_repository import UserRepository
+    from bookcard.models.auth import User
+    from bookcard.repositories.user_repository import UserRepository
 
     # Test actual repository to ensure coverage
     user_repo = UserRepository(session)  # type: ignore[arg-type]
@@ -39,8 +39,8 @@ def test_find_by_email_delegates_to_session(session: DummySession) -> None:
 
 def test_find_by_username_delegates_to_session(session: DummySession) -> None:
     """Test find_by_username queries by exact username match."""
-    from fundamental.models.auth import User
-    from fundamental.repositories.user_repository import UserRepository
+    from bookcard.models.auth import User
+    from bookcard.repositories.user_repository import UserRepository
 
     # Test actual repository to ensure coverage
     user_repo = UserRepository(session)  # type: ignore[arg-type]
@@ -56,8 +56,8 @@ def test_find_by_username_delegates_to_session(session: DummySession) -> None:
 
 def test_list_admins_filters_by_is_admin(session: DummySession) -> None:
     """Test list_admins returns only users with is_admin=True."""
-    from fundamental.models.auth import User
-    from fundamental.repositories.user_repository import UserRepository
+    from bookcard.models.auth import User
+    from bookcard.repositories.user_repository import UserRepository
 
     # Test actual repository to ensure coverage
     user_repo = UserRepository(session)  # type: ignore[arg-type]
@@ -77,10 +77,10 @@ def test_list_admins_filters_by_is_admin(session: DummySession) -> None:
 
 def test_token_blacklist_is_blacklisted_true(session: DummySession) -> None:
     """Test is_blacklisted returns True when token is blacklisted (covers lines 83-84)."""
-    from fundamental.models.auth import TokenBlacklist
+    from bookcard.models.auth import TokenBlacklist
 
     # Import the actual repository to ensure coverage
-    from fundamental.repositories.user_repository import TokenBlacklistRepository
+    from bookcard.repositories.user_repository import TokenBlacklistRepository
 
     repo = TokenBlacklistRepository(session)  # type: ignore[arg-type]
 
@@ -98,7 +98,7 @@ def test_token_blacklist_is_blacklisted_true(session: DummySession) -> None:
 
 def test_token_blacklist_is_blacklisted_false(session: DummySession) -> None:
     """Test is_blacklisted returns False when token is not blacklisted (covers lines 83-84)."""
-    from fundamental.repositories.user_repository import TokenBlacklistRepository
+    from bookcard.repositories.user_repository import TokenBlacklistRepository
 
     repo = TokenBlacklistRepository(session)  # type: ignore[arg-type]
 
@@ -110,7 +110,7 @@ def test_token_blacklist_is_blacklisted_false(session: DummySession) -> None:
 
 def test_token_blacklist_add_to_blacklist(session: DummySession) -> None:
     """Test add_to_blacklist creates and returns blacklist entry (covers lines 101-107)."""
-    from fundamental.repositories.user_repository import TokenBlacklistRepository
+    from bookcard.repositories.user_repository import TokenBlacklistRepository
 
     repo = TokenBlacklistRepository(session)  # type: ignore[arg-type]
 

@@ -21,7 +21,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from fundamental.models.ingest import IngestHistory, IngestStatus
+from bookcard.models.ingest import IngestHistory, IngestStatus
 
 
 @pytest.fixture

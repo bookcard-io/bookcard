@@ -21,9 +21,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.config import Library
-from fundamental.repositories.calibre_book_repository import CalibreBookRepository
-from fundamental.services.author_merge.calibre_repository_factory import (
+from bookcard.models.config import Library
+from bookcard.repositories.calibre_book_repository import CalibreBookRepository
+from bookcard.services.author_merge.calibre_repository_factory import (
     CalibreRepositoryFactory,
 )
 
@@ -88,7 +88,7 @@ class TestCalibreRepositoryFactoryCreate:
     ) -> None:
         """Test create with valid library."""
         with patch(
-            "fundamental.services.author_merge.calibre_repository_factory.CalibreBookRepository"
+            "bookcard.services.author_merge.calibre_repository_factory.CalibreBookRepository"
         ) as mock_repo_class:
             mock_repo = MagicMock(spec=CalibreBookRepository)
             mock_repo_class.return_value = mock_repo
@@ -141,7 +141,7 @@ class TestCalibreRepositoryFactoryCreate:
         )
 
         with patch(
-            "fundamental.services.author_merge.calibre_repository_factory.CalibreBookRepository"
+            "bookcard.services.author_merge.calibre_repository_factory.CalibreBookRepository"
         ) as mock_repo_class:
             mock_repo = MagicMock(spec=CalibreBookRepository)
             mock_repo_class.return_value = mock_repo

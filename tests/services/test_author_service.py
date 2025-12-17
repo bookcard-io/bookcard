@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
     from tests.conftest import DummySession
 
-from fundamental.models.author_metadata import (
+from bookcard.models.author_metadata import (
     AuthorAlternateName,
     AuthorLink,
     AuthorMapping,
@@ -40,10 +40,10 @@ from fundamental.models.author_metadata import (
     AuthorWork,
     WorkSubject,
 )
-from fundamental.models.config import Library
-from fundamental.repositories.author_repository import AuthorRepository
-from fundamental.repositories.config_repository import LibraryRepository
-from fundamental.services.author_exceptions import (
+from bookcard.models.config import Library
+from bookcard.repositories.author_repository import AuthorRepository
+from bookcard.repositories.config_repository import LibraryRepository
+from bookcard.services.author_exceptions import (
     AuthorMetadataFetchError,
     AuthorNotFoundError,
     InvalidPhotoFormatError,
@@ -51,9 +51,9 @@ from fundamental.services.author_exceptions import (
     PhotoNotFoundError,
     PhotoStorageError,
 )
-from fundamental.services.author_service import AuthorService
-from fundamental.services.config_service import LibraryService
-from fundamental.services.library_scanning.data_sources.types import AuthorData
+from bookcard.services.author_service import AuthorService
+from bookcard.services.config_service import LibraryService
+from bookcard.services.library_scanning.data_sources.types import AuthorData
 
 # ============================================================================
 # Fixtures
@@ -406,7 +406,7 @@ class TestGetAuthorByIdOrKey:
         active_library: Library,
     ) -> None:
         """Test get_author_by_id_or_key with calibre- prefix falls back to Calibre."""
-        from fundamental.models.core import Author
+        from bookcard.models.core import Author
 
         # Mock lookup to return None (author not in metadata table)
         mock_author_repo.get_by_calibre_id_and_library.return_value = None
@@ -415,7 +415,7 @@ class TestGetAuthorByIdOrKey:
 
         calibre_author = Author(id=42, name="Calibre Author")
         with patch(
-            "fundamental.services.author.core_service.CalibreBookRepository"
+            "bookcard.services.author.core_service.CalibreBookRepository"
         ) as mock_repo_class:
             mock_repo = MagicMock()
             mock_repo_class.return_value = mock_repo
@@ -501,7 +501,7 @@ class TestGetCalibreAuthorDict:
         mock_author_repo: MagicMock,
     ) -> None:
         """Test get_author_by_id_or_key with calibre- ID falls back to Calibre DB."""
-        from fundamental.models.core import Author
+        from bookcard.models.core import Author
 
         # Mock lookup to return None (author not in metadata table)
         mock_author_repo.get_by_calibre_id_and_library.return_value = None
@@ -510,7 +510,7 @@ class TestGetCalibreAuthorDict:
 
         calibre_author = Author(id=42, name="Calibre Author")
         with patch(
-            "fundamental.services.author.core_service.CalibreBookRepository"
+            "bookcard.services.author.core_service.CalibreBookRepository"
         ) as mock_repo_class:
             mock_repo = MagicMock()
             mock_repo_class.return_value = mock_repo
@@ -562,7 +562,7 @@ class TestGetCalibreAuthorDict:
         mock_author_repo.get_by_openlibrary_key_and_library.return_value = None
 
         with patch(
-            "fundamental.services.author.core_service.CalibreBookRepository"
+            "bookcard.services.author.core_service.CalibreBookRepository"
         ) as mock_repo_class:
             mock_repo = MagicMock()
             mock_repo_class.return_value = mock_repo
@@ -673,19 +673,19 @@ class TestFetchAuthorMetadata:
 
         with (
             patch(
-                "fundamental.services.author.metadata_service.DataSourceRegistry"
+                "bookcard.services.author.metadata_service.DataSourceRegistry"
             ) as mock_registry,
             patch(
-                "fundamental.services.author.metadata_service.PipelineContextFactory"
+                "bookcard.services.author.metadata_service.PipelineContextFactory"
             ) as mock_factory,
             patch(
-                "fundamental.services.author.metadata_service.AuthorDataFetcher"
+                "bookcard.services.author.metadata_service.AuthorDataFetcher"
             ) as mock_fetcher_class,
             patch(
-                "fundamental.services.author.metadata_service.IngestStageFactory"
+                "bookcard.services.author.metadata_service.IngestStageFactory"
             ) as mock_ingest_factory,
             patch(
-                "fundamental.services.author.metadata_service.IngestStage"
+                "bookcard.services.author.metadata_service.IngestStage"
             ) as mock_ingest_stage_class,
         ):
             mock_data_source = MagicMock()
@@ -775,13 +775,13 @@ class TestFetchAuthorMetadata:
 
         with (
             patch(
-                "fundamental.services.author.metadata_service.DataSourceRegistry"
+                "bookcard.services.author.metadata_service.DataSourceRegistry"
             ) as mock_registry,
             patch(
-                "fundamental.services.author.metadata_service.PipelineContextFactory"
+                "bookcard.services.author.metadata_service.PipelineContextFactory"
             ) as mock_factory,
             patch(
-                "fundamental.services.author.metadata_service.AuthorDataFetcher"
+                "bookcard.services.author.metadata_service.AuthorDataFetcher"
             ) as mock_fetcher_class,
         ):
             mock_data_source = MagicMock()
@@ -817,19 +817,19 @@ class TestFetchAuthorMetadata:
 
         with (
             patch(
-                "fundamental.services.author.metadata_service.DataSourceRegistry"
+                "bookcard.services.author.metadata_service.DataSourceRegistry"
             ) as mock_registry,
             patch(
-                "fundamental.services.author.metadata_service.PipelineContextFactory"
+                "bookcard.services.author.metadata_service.PipelineContextFactory"
             ) as mock_factory,
             patch(
-                "fundamental.services.author.metadata_service.AuthorDataFetcher"
+                "bookcard.services.author.metadata_service.AuthorDataFetcher"
             ) as mock_fetcher_class,
             patch(
-                "fundamental.services.author.metadata_service.IngestStageFactory"
+                "bookcard.services.author.metadata_service.IngestStageFactory"
             ) as mock_ingest_factory,
             patch(
-                "fundamental.services.author.metadata_service.IngestStage"
+                "bookcard.services.author.metadata_service.IngestStage"
             ) as mock_ingest_stage_class,
         ):
             mock_data_source = MagicMock()
@@ -902,19 +902,19 @@ class TestFetchAuthorMetadata:
 
         with (
             patch(
-                "fundamental.services.author.metadata_service.DataSourceRegistry"
+                "bookcard.services.author.metadata_service.DataSourceRegistry"
             ) as mock_registry,
             patch(
-                "fundamental.services.author.metadata_service.PipelineContextFactory"
+                "bookcard.services.author.metadata_service.PipelineContextFactory"
             ) as mock_factory,
             patch(
-                "fundamental.services.author.metadata_service.AuthorDataFetcher"
+                "bookcard.services.author.metadata_service.AuthorDataFetcher"
             ) as mock_fetcher_class,
             patch(
-                "fundamental.services.author.metadata_service.IngestStageFactory"
+                "bookcard.services.author.metadata_service.IngestStageFactory"
             ) as mock_ingest_factory,
             patch(
-                "fundamental.services.author.metadata_service.IngestStage"
+                "bookcard.services.author.metadata_service.IngestStage"
             ) as mock_ingest_stage_class,
         ):
             mock_data_source = MagicMock()
@@ -927,7 +927,7 @@ class TestFetchAuthorMetadata:
             mock_factory.return_value = mock_context_factory
 
             mock_fetcher = MagicMock()
-            from fundamental.services.library_scanning.data_sources.types import (
+            from bookcard.services.library_scanning.data_sources.types import (
                 AuthorData,
             )
 
@@ -972,19 +972,19 @@ class TestFetchAuthorMetadata:
 
         with (
             patch(
-                "fundamental.services.author.metadata_service.DataSourceRegistry"
+                "bookcard.services.author.metadata_service.DataSourceRegistry"
             ) as mock_registry,
             patch(
-                "fundamental.services.author.metadata_service.PipelineContextFactory"
+                "bookcard.services.author.metadata_service.PipelineContextFactory"
             ) as mock_factory,
             patch(
-                "fundamental.services.author.metadata_service.AuthorDataFetcher"
+                "bookcard.services.author.metadata_service.AuthorDataFetcher"
             ) as mock_fetcher_class,
             patch(
-                "fundamental.services.author.metadata_service.IngestStageFactory"
+                "bookcard.services.author.metadata_service.IngestStageFactory"
             ) as mock_ingest_factory,
             patch(
-                "fundamental.services.author.metadata_service.IngestStage"
+                "bookcard.services.author.metadata_service.IngestStage"
             ) as mock_ingest_stage_class,
         ):
             mock_data_source = MagicMock()
@@ -997,7 +997,7 @@ class TestFetchAuthorMetadata:
             mock_factory.return_value = mock_context_factory
 
             mock_fetcher = MagicMock()
-            from fundamental.services.library_scanning.data_sources.types import (
+            from bookcard.services.library_scanning.data_sources.types import (
                 AuthorData,
             )
 
@@ -1042,19 +1042,19 @@ class TestFetchAuthorMetadata:
 
         with (
             patch(
-                "fundamental.services.author.metadata_service.DataSourceRegistry"
+                "bookcard.services.author.metadata_service.DataSourceRegistry"
             ) as mock_registry,
             patch(
-                "fundamental.services.author.metadata_service.PipelineContextFactory"
+                "bookcard.services.author.metadata_service.PipelineContextFactory"
             ) as mock_factory,
             patch(
-                "fundamental.services.author.metadata_service.AuthorDataFetcher"
+                "bookcard.services.author.metadata_service.AuthorDataFetcher"
             ) as mock_fetcher_class,
             patch(
-                "fundamental.services.author.metadata_service.IngestStageFactory"
+                "bookcard.services.author.metadata_service.IngestStageFactory"
             ) as mock_ingest_factory,
             patch(
-                "fundamental.services.author.metadata_service.IngestStage"
+                "bookcard.services.author.metadata_service.IngestStage"
             ) as mock_ingest_stage_class,
         ):
             mock_data_source = MagicMock()
@@ -1067,7 +1067,7 @@ class TestFetchAuthorMetadata:
             mock_factory.return_value = mock_context_factory
 
             mock_fetcher = MagicMock()
-            from fundamental.services.library_scanning.data_sources.types import (
+            from bookcard.services.library_scanning.data_sources.types import (
                 AuthorData,
             )
 

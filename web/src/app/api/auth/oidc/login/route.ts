@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { BACKEND_URL } from "@/constants/config";
 
-const POST_LOGIN_NEXT_COOKIE = "fundamental_post_login_next";
+const POST_LOGIN_NEXT_COOKIE = "bookcard_post_login_next";
 
 /**
  * GET /api/auth/oidc/login

@@ -21,17 +21,17 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fundamental.models.author_metadata import AuthorMapping, AuthorMetadata
-from fundamental.services.author_merge.author_recommendation_service import (
+from bookcard.models.author_metadata import AuthorMapping, AuthorMetadata
+from bookcard.services.author_merge.author_recommendation_service import (
     AuthorRecommendationService,
 )
-from fundamental.services.author_merge.author_relationship_repository import (
+from bookcard.services.author_merge.author_relationship_repository import (
     AuthorRelationshipRepository,
 )
-from fundamental.services.author_merge.calibre_author_service import (
+from bookcard.services.author_merge.calibre_author_service import (
     CalibreAuthorService,
 )
-from fundamental.services.author_merge.value_objects import (
+from bookcard.services.author_merge.value_objects import (
     AuthorScore,
     RelationshipCounts,
 )

@@ -21,7 +21,7 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import text
 
-import fundamental.database as db
+import bookcard.database as db
 
 
 def test_create_db_engine_passes_config(monkeypatch: pytest.MonkeyPatch) -> None:

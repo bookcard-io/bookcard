@@ -25,8 +25,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlmodel import select
 
-from fundamental.models.core import Book, Comment
-from fundamental.repositories.calibre.writes import BookWriteOperations
+from bookcard.models.core import Book, Comment
+from bookcard.repositories.calibre.writes import BookWriteOperations
 from tests.repositories.calibre.conftest import (
     MockBookRelationshipManager,
     MockFileManager,
@@ -36,7 +36,7 @@ from tests.repositories.calibre.conftest import (
 if TYPE_CHECKING:
     from sqlmodel import Session
 
-    from fundamental.repositories.calibre.retry import SQLiteRetryPolicy
+    from bookcard.repositories.calibre.retry import SQLiteRetryPolicy
 
 
 class TestBookWriteOperationsAdditional:

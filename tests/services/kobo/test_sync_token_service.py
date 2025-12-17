@@ -24,7 +24,7 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 
-from fundamental.services.kobo.sync_token_service import SyncToken, _parse_timestamp
+from bookcard.services.kobo.sync_token_service import SyncToken, _parse_timestamp
 
 # ============================================================================
 # Fixtures

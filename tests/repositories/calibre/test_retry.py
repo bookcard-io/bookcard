@@ -23,7 +23,7 @@ import pytest
 from sqlalchemy.exc import OperationalError
 from sqlmodel import Session
 
-from fundamental.repositories.calibre.retry import SQLiteRetryPolicy
+from bookcard.repositories.calibre.retry import SQLiteRetryPolicy
 
 
 def _create_operational_error(msg: str) -> OperationalError:

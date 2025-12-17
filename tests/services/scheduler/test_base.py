@@ -22,10 +22,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fundamental.models.auth import User
-from fundamental.models.config import ScheduledTasksConfig
-from fundamental.models.tasks import TaskType
-from fundamental.services.scheduler.base import (
+from bookcard.models.auth import User
+from bookcard.models.config import ScheduledTasksConfig
+from bookcard.models.tasks import TaskType
+from bookcard.services.scheduler.base import (
     BaseScheduler,
     ScheduledTaskDefinition,
 )
@@ -144,7 +144,7 @@ class TestCheckAndTriggerTasks:
         session = DummySession()
         session._exec_results = [[scheduled_tasks_config]]
 
-        with patch("fundamental.services.scheduler.base.datetime") as mock_datetime:
+        with patch("bookcard.services.scheduler.base.datetime") as mock_datetime:
             mock_now = datetime(2024, 1, 1, current_hour, 0, 0, tzinfo=UTC)
             mock_datetime.now.return_value = mock_now
             # Remove side_effect to avoid DTZ001 warning - we only need now() mocked
@@ -172,7 +172,7 @@ class TestCheckAndTriggerTasks:
         session = DummySession()
         session._exec_results = [[scheduled_tasks_config]]
 
-        with patch("fundamental.services.scheduler.base.datetime") as mock_datetime:
+        with patch("bookcard.services.scheduler.base.datetime") as mock_datetime:
             mock_now = datetime(2024, 1, 1, 2, 0, 0, tzinfo=UTC)
             mock_datetime.now.return_value = mock_now
             # Remove side_effect to avoid DTZ001 warning - we only need now() mocked
@@ -217,7 +217,7 @@ class TestTriggerTaskIfNeeded:
         session = DummySession()
         session._exec_results = [[admin_user]]
 
-        with patch("fundamental.services.scheduler.base.datetime") as mock_datetime:
+        with patch("bookcard.services.scheduler.base.datetime") as mock_datetime:
             mock_now = datetime(2024, 1, 1, hour, minute, 0, tzinfo=UTC)
             mock_datetime.now.return_value = mock_now
             # Remove side_effect to avoid DTZ001 warning - we only need now() mocked
@@ -340,7 +340,7 @@ class TestTriggerTaskIfNeeded:
 
         scheduler._task_runner.enqueue.side_effect = Exception("Test error")  # type: ignore[assignment]
 
-        with patch("fundamental.services.scheduler.base.logger") as mock_logger:
+        with patch("bookcard.services.scheduler.base.logger") as mock_logger:
             scheduler._trigger_task_if_needed(
                 session,  # type: ignore[arg-type]
                 task_def,
@@ -447,7 +447,7 @@ class TestGetSystemUser:
         session = DummySession()
         session._exec_results = [[], []]  # No admin, no user
 
-        with patch("fundamental.services.scheduler.base.logger") as mock_logger:
+        with patch("bookcard.services.scheduler.base.logger") as mock_logger:
             result = scheduler._get_system_user(session)  # type: ignore[arg-type]
 
             assert result is None
@@ -468,7 +468,7 @@ class TestGetSystemUser:
         session = DummySession()
         session._exec_results = [[user_no_id]]
 
-        with patch("fundamental.services.scheduler.base.logger") as mock_logger:
+        with patch("bookcard.services.scheduler.base.logger") as mock_logger:
             result = scheduler._get_system_user(session)  # type: ignore[arg-type]
 
             assert result is None
