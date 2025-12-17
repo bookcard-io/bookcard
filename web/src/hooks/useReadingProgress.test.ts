@@ -170,6 +170,12 @@ describe("useReadingProgress", () => {
   });
 
   it("should not retry on 404 errors", async () => {
+    // Set up auth cookie so the service makes API calls
+    Object.defineProperty(document, "cookie", {
+      writable: true,
+      value: "bookcard_token=test-token",
+    });
+
     const mockFetchResponse = {
       ok: false,
       status: 404,
@@ -200,23 +206,32 @@ describe("useReadingProgress", () => {
     });
     const wrapperWithRetry = createQueryClientWrapper(queryClientWithRetry);
 
-    renderHook(() => useReadingProgress({ bookId: 1, format: "EPUB" }), {
-      wrapper: wrapperWithRetry,
+    const { result } = renderHook(
+      () => useReadingProgress({ bookId: 1, format: "EPUB" }),
+      {
+        wrapper: wrapperWithRetry,
+      },
+    );
+
+    // Wait for active library to load and query to execute
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
     });
 
-    await waitFor(() => {
-      const fetchCalls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock
-        .calls;
-      const progressCalls = fetchCalls.filter(
-        (call) =>
-          typeof call[0] === "string" &&
-          call[0].startsWith("/api/reading/progress") &&
-          call[0].includes("book_id=1") &&
-          call[0].includes("format=EPUB"),
-      );
-      // Should not retry on 404
-      expect(progressCalls.length).toBe(1);
-    });
+    // Wait a bit more to ensure retry logic has completed
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    const fetchCalls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock
+      .calls;
+    const progressCalls = fetchCalls.filter(
+      (call) =>
+        typeof call[0] === "string" &&
+        call[0].startsWith("/api/reading/progress") &&
+        call[0].includes("book_id=1") &&
+        call[0].includes("format=EPUB"),
+    );
+    // Should not retry on 404 (getProgress returns null for 404, so no error to retry)
+    expect(progressCalls.length).toBe(1);
   });
 
   it("should retry on non-404 errors (up to 2 times)", () => {
@@ -283,6 +298,7 @@ describe("useReadingProgress", () => {
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
+      expect(result.current.progress).not.toBeNull();
     });
 
     const initialCallCount = (
@@ -295,21 +311,24 @@ describe("useReadingProgress", () => {
         call[0].includes("format=EPUB"),
     ).length;
 
-    act(() => {
-      result.current.refetch();
+    expect(initialCallCount).toBeGreaterThan(0);
+
+    await act(async () => {
+      await result.current.refetch();
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    const newCallCount = (
-      globalThis.fetch as ReturnType<typeof vi.fn>
-    ).mock.calls.filter(
-      (call) =>
-        typeof call[0] === "string" &&
-        call[0].startsWith("/api/reading/progress") &&
-        call[0].includes("book_id=1") &&
-        call[0].includes("format=EPUB"),
-    ).length;
-    expect(newCallCount).toBeGreaterThan(initialCallCount);
+    await waitFor(() => {
+      const newCallCount = (
+        globalThis.fetch as ReturnType<typeof vi.fn>
+      ).mock.calls.filter(
+        (call) =>
+          typeof call[0] === "string" &&
+          call[0].startsWith("/api/reading/progress") &&
+          call[0].includes("book_id=1") &&
+          call[0].includes("format=EPUB"),
+      ).length;
+      expect(newCallCount).toBeGreaterThan(initialCallCount);
+    });
   });
 
   it("should update progress", async () => {
@@ -373,6 +392,12 @@ describe("useReadingProgress", () => {
   });
 
   it("should handle update error", async () => {
+    // Set up auth cookie so the service makes API calls instead of using localStorage
+    Object.defineProperty(document, "cookie", {
+      writable: true,
+      value: "bookcard_token=test-token",
+    });
+
     const getMockResponse = {
       ok: true,
       json: vi.fn().mockResolvedValue(mockProgress),
