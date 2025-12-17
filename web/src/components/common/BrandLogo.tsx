@@ -61,7 +61,7 @@ export function BrandLogo({
       aria-label="Go to home page"
     >
       <img
-        src="/logo.svg"
+        src="/reading-logo.png"
         alt="Fundamental Logo"
         width={24}
         height={24}
@@ -70,7 +70,7 @@ export function BrandLogo({
       {showText && (
         <span
           className={cn(
-            "whitespace-nowrap font-medium text-[var(--color-text-a0)] text-lg",
+            "whitespace-nowrap font-medium text-[var(--color-text-a0)] text-lg tracking-wide",
             textClassName,
           )}
         >

@@ -21,6 +21,9 @@ import { RootProviders } from "@/components/RootProviders";
 export const metadata: Metadata = {
   title: "Fundamental - Ebook Library",
   description: "Self-hosted ebook management and reading application",
+  icons: {
+    icon: "/reading-logo.png",
+  },
 };
 
 export default function RootLayout({
