@@ -136,6 +136,95 @@ class MockPermissionHelper:
         """Mock check_create_permission - always allows."""
 
 
+class MockBookFileService:
+    """Mock BookFileService for testing."""
+
+    def __init__(self, book_service: MockBookService) -> None:
+        """Initialize mock book file service."""
+        self._book_service = book_service
+
+    def resolve_file_path(
+        self,
+        book: Book,
+        book_id: int,
+        file_format: str,
+        format_data: dict[str, str | int],
+    ) -> tuple[Path, str]:
+        """Mock resolve_file_path method."""
+        library_path = self._get_library_path()
+        book_path = library_path / book.path
+        file_name = self.get_file_name(format_data, book_id, file_format)
+        file_path = book_path / file_name
+
+        if file_path.exists():
+            return file_path, file_name
+
+        alt_file_name = f"{book_id}.{file_format.lower()}"
+        alt_file_path = book_path / alt_file_name
+        if alt_file_path.exists():
+            return alt_file_path, alt_file_name
+
+        from fastapi import HTTPException, status
+
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"file_not_found: tried {file_path} and {alt_file_path}",
+        )
+
+    @staticmethod
+    def build_download_filename(
+        book_with_rels: BookWithFullRelations, book_id: int, file_format: str
+    ) -> str:
+        """Mock build_download_filename method."""
+        authors_str = (
+            ", ".join(book_with_rels.authors) if book_with_rels.authors else ""
+        )
+        safe_author = "".join(
+            c for c in authors_str if c.isalnum() or c in (" ", "-", "_", ",")
+        ).strip()
+        if not safe_author:
+            safe_author = "Unknown"
+
+        safe_title = "".join(
+            c for c in book_with_rels.book.title if c.isalnum() or c in (" ", "-", "_")
+        ).strip()
+        if not safe_title:
+            safe_title = f"book_{book_id}"
+
+        return f"{safe_author} - {safe_title}.{file_format.lower()}"
+
+    def _get_library_path(self) -> Path:
+        """Mock _get_library_path method."""
+        if self._book_service._library is None:
+            raise ValueError("Library is not set in mock service")
+
+        lib_root = getattr(self._book_service._library, "library_root", None)
+        if lib_root:
+            return Path(lib_root)
+
+        library_db_path = getattr(self._book_service._library, "calibre_db_path", None)
+        if library_db_path is None:
+            raise ValueError("calibre_db_path is not set in library")
+        library_db_path_obj = Path(library_db_path)
+        if library_db_path_obj.is_dir():
+            return library_db_path_obj
+        return library_db_path_obj.parent
+
+    @staticmethod
+    def get_file_name(
+        format_data: dict[str, str | int], book_id: int, file_format: str
+    ) -> str:
+        """Mock get_file_name method."""
+        file_name = format_data.get("name", "")
+        if not file_name or not isinstance(file_name, str):
+            return f"{book_id}.{file_format.lower()}"
+
+        expected_suffix = f".{file_format.lower()}"
+        if not file_name.lower().endswith(expected_suffix):
+            return f"{file_name}{expected_suffix}"
+        return file_name
+
+
 def _setup_route_mocks(
     monkeypatch: pytest.MonkeyPatch,
     session: DummySession,
@@ -270,12 +359,15 @@ def test_download_book_file_success(
             monkeypatch, session, mock_service
         )
 
+        mock_book_file_service = MockBookFileService(mock_service)
+
         result = books.download_book_file(
             current_user=current_user,
             book_id=1,
             file_format="EPUB",
             book_service=mock_service,
             permission_helper=mock_permission_helper,
+            book_file_service=mock_book_file_service,
         )
 
         assert result is not None
@@ -342,12 +434,15 @@ def test_download_book_file_with_library_root(
             monkeypatch, session, mock_service
         )
 
+        mock_book_file_service = MockBookFileService(mock_service)
+
         result = books.download_book_file(
             current_user=current_user,
             book_id=1,
             file_format="EPUB",
             book_service=mock_service,
             permission_helper=mock_permission_helper,
+            book_file_service=mock_book_file_service,
         )
 
         assert result is not None
@@ -416,12 +511,15 @@ def test_download_book_file_alt_path_exists(
             monkeypatch, session, mock_service
         )
 
+        mock_book_file_service = MockBookFileService(mock_service)
+
         result = books.download_book_file(
             current_user=current_user,
             book_id=1,
             file_format="EPUB",
             book_service=mock_service,
             permission_helper=mock_permission_helper,
+            book_file_service=mock_book_file_service,
         )
 
         assert result is not None
@@ -486,12 +584,15 @@ def test_download_book_file_sanitizes_author_title(
             monkeypatch, session, mock_service
         )
 
+        mock_book_file_service = MockBookFileService(mock_service)
+
         result = books.download_book_file(
             current_user=current_user,
             book_id=1,
             file_format="EPUB",
             book_service=mock_service,
             permission_helper=mock_permission_helper,
+            book_file_service=mock_book_file_service,
         )
 
         assert result is not None
@@ -519,6 +620,8 @@ def test_download_book_file_not_found(
 
     mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
 
+    mock_book_file_service = MockBookFileService(mock_service)
+
     with pytest.raises(HTTPException) as exc_info:
         books.download_book_file(
             current_user=current_user,
@@ -526,6 +629,7 @@ def test_download_book_file_not_found(
             file_format="EPUB",
             book_service=mock_service,
             permission_helper=mock_permission_helper,
+            book_file_service=mock_book_file_service,
         )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -577,6 +681,8 @@ def test_download_book_file_missing_id(
 
     mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
 
+    mock_book_file_service = MockBookFileService(mock_service)
+
     with pytest.raises(HTTPException) as exc_info:
         books.download_book_file(
             current_user=current_user,
@@ -584,6 +690,7 @@ def test_download_book_file_missing_id(
             file_format="EPUB",
             book_service=mock_service,
             permission_helper=mock_permission_helper,
+            book_file_service=mock_book_file_service,
         )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -635,6 +742,8 @@ def test_download_book_file_format_not_found(
 
     mock_permission_helper, _ = _setup_route_mocks(monkeypatch, session, mock_service)
 
+    mock_book_file_service = MockBookFileService(mock_service)
+
     with pytest.raises(HTTPException) as exc_info:
         books.download_book_file(
             current_user=current_user,
@@ -642,6 +751,7 @@ def test_download_book_file_format_not_found(
             file_format="EPUB",
             book_service=mock_service,
             permission_helper=mock_permission_helper,
+            book_file_service=mock_book_file_service,
         )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -711,12 +821,15 @@ def test_download_book_file_db_path_is_file(
             monkeypatch, session, mock_service
         )
 
+        mock_book_file_service = MockBookFileService(mock_service)
+
         result = books.download_book_file(
             current_user=current_user,
             book_id=1,
             file_format="EPUB",
             book_service=mock_service,
             permission_helper=mock_permission_helper,
+            book_file_service=mock_book_file_service,
         )
 
         assert result is not None
@@ -780,6 +893,8 @@ def test_download_book_file_not_found_both_paths(
             monkeypatch, session, mock_service
         )
 
+        mock_book_file_service = MockBookFileService(mock_service)
+
         with pytest.raises(HTTPException) as exc_info:
             books.download_book_file(
                 current_user=current_user,
@@ -787,6 +902,7 @@ def test_download_book_file_not_found_both_paths(
                 file_format="EPUB",
                 book_service=mock_service,
                 permission_helper=mock_permission_helper,
+                book_file_service=mock_book_file_service,
             )
 
         assert isinstance(exc_info.value, HTTPException)
@@ -853,12 +969,15 @@ def test_download_book_file_empty_author(
             monkeypatch, session, mock_service
         )
 
+        mock_book_file_service = MockBookFileService(mock_service)
+
         result = books.download_book_file(
             current_user=current_user,
             book_id=1,
             file_format="EPUB",
             book_service=mock_service,
             permission_helper=mock_permission_helper,
+            book_file_service=mock_book_file_service,
         )
 
         assert result is not None
@@ -923,12 +1042,15 @@ def test_download_book_file_empty_title(
             monkeypatch, session, mock_service
         )
 
+        mock_book_file_service = MockBookFileService(mock_service)
+
         result = books.download_book_file(
             current_user=current_user,
             book_id=1,
             file_format="EPUB",
             book_service=mock_service,
             permission_helper=mock_permission_helper,
+            book_file_service=mock_book_file_service,
         )
 
         assert result is not None
