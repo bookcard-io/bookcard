@@ -28,6 +28,7 @@ import { ShelfSelectionBar } from "@/components/shelves/ShelfSelectionBar";
 import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { useSelectedShelf } from "@/contexts/SelectedShelfContext";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
+import { useUser } from "@/contexts/UserContext";
 import { useMainContent } from "@/hooks/useMainContent";
 import { deleteShelf } from "@/services/shelfService";
 
@@ -71,6 +72,8 @@ export function MainContent() {
   } = useMainContent();
 
   const { selectedShelfId, setSelectedShelfId } = useSelectedShelf();
+  const { user } = useUser();
+  const isGuest = !user;
   const [selectedShelfIds, setSelectedShelfIds] = useState<Set<number>>(
     new Set(),
   );
@@ -176,7 +179,7 @@ export function MainContent() {
                 sortBy={sorting.sortBy}
                 sortOrder={sorting.sortOrder}
                 onBookClick={bookModal.handleBookClick}
-                onBookEdit={bookEditModal.handleEditBook}
+                onBookEdit={isGuest ? undefined : bookEditModal.handleEditBook}
                 bookDataUpdateRef={booksGridBookDataUpdateRef}
                 onBooksDataChange={setBooksNavigationData}
               />
@@ -189,7 +192,7 @@ export function MainContent() {
                 sortBy={sorting.sortBy}
                 sortOrder={sorting.sortOrder}
                 onBookClick={bookModal.handleBookClick}
-                onBookEdit={bookEditModal.handleEditBook}
+                onBookEdit={isGuest ? undefined : bookEditModal.handleEditBook}
                 bookDataUpdateRef={booksGridBookDataUpdateRef}
                 onBooksDataChange={setBooksNavigationData}
               />
@@ -216,12 +219,12 @@ export function MainContent() {
         onClose={bookModal.handleCloseModal}
         onNavigatePrevious={bookModal.handleNavigatePrevious}
         onNavigateNext={bookModal.handleNavigateNext}
-        onEdit={bookEditModal.handleEditBook}
+        onEdit={isGuest ? undefined : bookEditModal.handleEditBook}
         onBookDeleted={(bookId) => {
           booksGridBookDataUpdateRef.current?.removeBook?.(bookId);
         }}
       />
-      {bookEditModal.editingBookId !== null && (
+      {!isGuest && bookEditModal.editingBookId !== null && (
         <BookEditModal
           bookId={bookEditModal.editingBookId}
           onClose={bookEditModal.handleCloseModal}

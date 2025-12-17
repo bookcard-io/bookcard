@@ -32,6 +32,8 @@ from bookcard.api.deps import get_admin_user, get_current_user, get_db_session
 from bookcard.api.schemas import (
     AdminUserCreate,
     AdminUserUpdate,
+    BasicConfigRead,
+    BasicConfigUpdate,
     EReaderDeviceCreate,
     EReaderDeviceRead,
     EReaderDeviceUpdate,
@@ -69,6 +71,7 @@ from bookcard.repositories.role_repository import (
 from bookcard.repositories.user_repository import UserRepository
 from bookcard.services.auth_service import AuthService
 from bookcard.services.config_service import (
+    BasicConfigService,
     LibraryService,
     ScheduledTasksConfigService,
 )
@@ -2268,3 +2271,53 @@ def upsert_scheduled_tasks_config(
         raise HTTPException(status_code=400, detail=msg) from exc
 
     return ScheduledTasksConfigRead.model_validate(cfg, from_attributes=True)
+
+
+@router.get(
+    "/basic-config",
+    response_model=BasicConfigRead,
+    dependencies=[Depends(get_admin_user)],
+)
+def get_basic_config(session: SessionDep) -> BasicConfigRead:
+    """Get basic system configuration (admin only)."""
+    service = BasicConfigService(session)
+    config = service.get_basic_config()
+    return BasicConfigRead.model_validate(config, from_attributes=True)
+
+
+@router.put(
+    "/basic-config",
+    response_model=BasicConfigRead,
+    dependencies=[Depends(get_admin_user)],
+)
+def upsert_basic_config(
+    request: Request,
+    session: SessionDep,
+    payload: BasicConfigUpdate,
+) -> BasicConfigRead:
+    """Update basic system configuration (admin only)."""
+    current_user = get_current_user(request, session)
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    service = BasicConfigService(session)
+    cfg = service.update_basic_config(
+        allow_anonymous_browsing=payload.allow_anonymous_browsing,
+        allow_public_registration=payload.allow_public_registration,
+        require_email_for_registration=payload.require_email_for_registration,
+        max_upload_size_mb=payload.max_upload_size_mb,
+    )
+    logger.info(
+        "Basic config updated: user_id=%s allow_anonymous_browsing=%s",
+        current_user.id,
+        cfg.allow_anonymous_browsing,
+    )
+    return BasicConfigRead.model_validate(cfg, from_attributes=True)
+
+
+@router.get("/basic-config/public", response_model=BasicConfigRead)
+def get_basic_config_public(session: SessionDep) -> BasicConfigRead:
+    """Get basic system configuration for public consumers."""
+    service = BasicConfigService(session)
+    config = service.get_basic_config()
+    return BasicConfigRead.model_validate(config, from_attributes=True)

@@ -60,11 +60,12 @@ export function ActiveLibraryProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // All authenticated users can view the active library
-    // (only admins can change it)
+    // Active library is readable by:
+    // - authenticated users
+    // - anonymous users when anonymous browsing is enabled
     try {
       setIsLoading(true);
-      const response = await fetch("/api/admin/libraries/active");
+      const response = await fetch("/api/libraries/active");
       if (response.ok) {
         const data = await response.json();
         setActiveLibrary(data);

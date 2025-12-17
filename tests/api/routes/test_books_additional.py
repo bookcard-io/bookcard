@@ -205,38 +205,6 @@ def test_find_format_data_case_insensitive() -> None:
     assert format_data["format"] == "epub"
 
 
-def test_get_file_name_with_name() -> None:
-    """Test _get_file_name when name is provided (covers lines 118-127)."""
-    format_data = {"format": "EPUB", "name": "My Book"}
-    file_name = books._get_file_name(format_data, 123, "EPUB")
-
-    assert file_name == "My Book.epub"
-
-
-def test_get_file_name_with_name_and_extension() -> None:
-    """Test _get_file_name when name already has extension (covers lines 118-127)."""
-    format_data = {"format": "EPUB", "name": "My Book.epub"}
-    file_name = books._get_file_name(format_data, 123, "EPUB")
-
-    assert file_name == "My Book.epub"
-
-
-def test_get_file_name_without_name() -> None:
-    """Test _get_file_name when name is missing (covers lines 118-121)."""
-    format_data = {"format": "EPUB"}
-    file_name = books._get_file_name(format_data, 123, "EPUB")
-
-    assert file_name == "123.epub"
-
-
-def test_get_file_name_with_non_string_name() -> None:
-    """Test _get_file_name when name is not a string (covers lines 118-121)."""
-    format_data = {"format": "EPUB", "name": 123}
-    file_name = books._get_file_name(format_data, 123, "EPUB")
-
-    assert file_name == "123.epub"
-
-
 def test_get_media_type_unknown_format() -> None:
     """Test _get_media_type for unknown format (covers line 143)."""
     media_type = books._get_media_type("UNKNOWN")

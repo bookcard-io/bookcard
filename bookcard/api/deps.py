@@ -36,7 +36,7 @@ from bookcard.repositories.user_repository import (
     TokenBlacklistRepository,
     UserRepository,
 )
-from bookcard.services.config_service import LibraryService
+from bookcard.services.config_service import BasicConfigService, LibraryService
 from bookcard.services.kobo.auth_service import KoboAuthService
 from bookcard.services.oidc_auth_service import OIDCAuthError, OIDCAuthService
 from bookcard.services.opds.auth_service import OpdsAuthService
@@ -187,6 +187,53 @@ def _get_user_from_oidc_token(request: Request, session: Session, token: str) ->
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED, detail="user_not_found"
     )
+
+
+def get_optional_user(
+    request: Request,
+    session: Annotated[Session, Depends(get_db_session)],
+) -> User | None:
+    """Return the current user when a valid token is present; allow anonymous otherwise.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+    session : Session
+        Database session.
+
+    Returns
+    -------
+    User | None
+        Authenticated user if token is valid, otherwise ``None`` when anonymous
+        browsing is enabled.
+
+    Raises
+    ------
+    HTTPException
+        If a token is provided but invalid, or if anonymous browsing is disabled.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header.removeprefix("Bearer ")
+        with suppress(SecurityTokenError):
+            return _get_user_from_local_jwt(request, session, token)
+
+        if request.app.state.config.oidc_enabled:
+            return _get_user_from_oidc_token(request, session, token)
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_token"
+        )
+
+    basic_config_service = BasicConfigService(session)
+    basic_config = basic_config_service.get_basic_config()
+    if not basic_config.allow_anonymous_browsing:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="missing_token"
+        )
+
+    return None
 
 
 def get_admin_user(

@@ -81,6 +81,7 @@ export function BookCardMenu({
   onOpenAddToShelfModal,
 }: BookCardMenuProps) {
   const { user, canPerformAction } = useUser();
+  const isGuest = !user;
   const bookContext = buildBookPermissionContext(book);
   const canWrite = canPerformAction("books", "write", bookContext);
   const canDelete = canPerformAction("books", "delete", bookContext);
@@ -188,69 +189,65 @@ export function BookCardMenu({
           onMouseLeave={sendFlyoutMenu.handleParentMouseLeave}
           onClick={handleSendToClick}
           books={[book]}
-          disabled={isSendDisabled}
+          disabled={isGuest ? false : isSendDisabled}
+          mode={isGuest ? "email_only" : "full"}
         />
-        <DropdownMenuItem
-          icon={<LibraryBuilding className="h-4 w-4" />}
-          label="Move to library"
-          onClick={isAdmin ? () => handleItemClick(onMoveToLibrary) : undefined}
-          disabled={!isAdmin}
-        />
-        <AddToShelfMenuItem
-          itemRef={flyoutMenu.parentItemRef}
-          onMouseEnter={handleAddToShelfMouseEnter}
-          onMouseLeave={flyoutMenu.handleParentMouseLeave}
-          onClick={handleAddToClick}
-        />
-        <DropdownMenuItem
-          icon="pi pi-arrow-right-arrow-left"
-          label="Convert format"
-          onClick={canWrite ? () => handleItemClick(onConvert) : undefined}
-          disabled={!canWrite}
-        />
-        <DropdownMenuItem
-          icon="pi pi-trash"
-          label="Delete"
-          onClick={canDelete ? () => handleItemClick(onDelete) : undefined}
-          disabled={!canDelete}
-        />
-        <hr className={cn("my-1 h-px border-0 bg-surface-tonal-a20")} />
-        {/* biome-ignore lint/a11y/noStaticElementInteractions: hover wrapper for flyout menu */}
-        <div
-          onMouseEnter={handleMoreMouseEnter}
-          onMouseLeave={moreFlyoutMenu.handleParentMouseLeave}
-          className="relative"
-          role="presentation"
-        >
-          <DropdownMenuItem
-            ref={moreFlyoutMenu.parentItemRef}
-            label="More..."
-            onClick={onMore ? () => handleItemClick(onMore) : handleMoreClick}
-            rightContent={
-              <i
-                className="pi pi-chevron-right flex-shrink-0 text-xs"
-                aria-hidden="true"
+        {!isGuest && (
+          <>
+            <DropdownMenuItem
+              icon={<LibraryBuilding className="h-4 w-4" />}
+              label="Move to library"
+              onClick={
+                isAdmin ? () => handleItemClick(onMoveToLibrary) : undefined
+              }
+              disabled={!isAdmin}
+            />
+            <AddToShelfMenuItem
+              itemRef={flyoutMenu.parentItemRef}
+              onMouseEnter={handleAddToShelfMouseEnter}
+              onMouseLeave={flyoutMenu.handleParentMouseLeave}
+              onClick={handleAddToClick}
+            />
+            <DropdownMenuItem
+              icon="pi pi-arrow-right-arrow-left"
+              label="Convert format"
+              onClick={canWrite ? () => handleItemClick(onConvert) : undefined}
+              disabled={!canWrite}
+            />
+            <DropdownMenuItem
+              icon="pi pi-trash"
+              label="Delete"
+              onClick={canDelete ? () => handleItemClick(onDelete) : undefined}
+              disabled={!canDelete}
+            />
+            <hr className={cn("my-1 h-px border-0 bg-surface-tonal-a20")} />
+            {/* biome-ignore lint/a11y/noStaticElementInteractions: hover wrapper for flyout menu */}
+            <div
+              onMouseEnter={handleMoreMouseEnter}
+              onMouseLeave={moreFlyoutMenu.handleParentMouseLeave}
+              className="relative"
+              role="presentation"
+            >
+              <DropdownMenuItem
+                ref={moreFlyoutMenu.parentItemRef}
+                label="More..."
+                onClick={
+                  onMore ? () => handleItemClick(onMore) : handleMoreClick
+                }
+                rightContent={
+                  <i
+                    className="pi pi-chevron-right flex-shrink-0 text-xs"
+                    aria-hidden="true"
+                  />
+                }
+                justifyBetween
               />
-            }
-            justifyBetween
-          />
-        </div>
+            </div>
+          </>
+        )}
       </DropdownMenu>
       {isOpen && (
         <>
-          <AddToShelfFlyoutMenu
-            isOpen={flyoutMenu.isFlyoutOpen}
-            parentItemRef={flyoutMenu.parentItemRef}
-            books={[book]}
-            onOpenModal={() => {
-              onOpenAddToShelfModal?.();
-              flyoutMenu.handleFlyoutClose();
-              onClose();
-            }}
-            onClose={flyoutMenu.handleFlyoutClose}
-            onMouseEnter={flyoutMenu.handleFlyoutMouseEnter}
-            onSuccess={onClose}
-          />
           <SendToDeviceFlyoutMenu
             isOpen={sendFlyoutMenu.isFlyoutOpen}
             parentItemRef={sendFlyoutMenu.parentItemRef}
@@ -259,16 +256,34 @@ export function BookCardMenu({
             onMouseEnter={sendFlyoutMenu.handleFlyoutMouseEnter}
             onSuccess={onClose}
             onCloseParent={onClose}
+            mode={isGuest ? "email_only" : "full"}
           />
-          <MoreActionsFlyoutMenu
-            isOpen={moreFlyoutMenu.isFlyoutOpen}
-            parentItemRef={moreFlyoutMenu.parentItemRef}
-            book={book}
-            onClose={moreFlyoutMenu.handleFlyoutClose}
-            onMouseEnter={moreFlyoutMenu.handleFlyoutMouseEnter}
-            onSuccess={onClose}
-            onCloseParent={onClose}
-          />
+          {!isGuest && (
+            <>
+              <AddToShelfFlyoutMenu
+                isOpen={flyoutMenu.isFlyoutOpen}
+                parentItemRef={flyoutMenu.parentItemRef}
+                books={[book]}
+                onOpenModal={() => {
+                  onOpenAddToShelfModal?.();
+                  flyoutMenu.handleFlyoutClose();
+                  onClose();
+                }}
+                onClose={flyoutMenu.handleFlyoutClose}
+                onMouseEnter={flyoutMenu.handleFlyoutMouseEnter}
+                onSuccess={onClose}
+              />
+              <MoreActionsFlyoutMenu
+                isOpen={moreFlyoutMenu.isFlyoutOpen}
+                parentItemRef={moreFlyoutMenu.parentItemRef}
+                book={book}
+                onClose={moreFlyoutMenu.handleFlyoutClose}
+                onMouseEnter={moreFlyoutMenu.handleFlyoutMouseEnter}
+                onSuccess={onClose}
+                onCloseParent={onClose}
+              />
+            </>
+          )}
         </>
       )}
     </>

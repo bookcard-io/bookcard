@@ -75,7 +75,7 @@ export function createQueryClientWrapper(
 const PROVIDER_ENDPOINTS = [
   "/api/auth/me",
   "/api/auth/settings",
-  "/api/admin/libraries/active",
+  "/api/libraries/active",
 ];
 
 /**
@@ -201,7 +201,7 @@ export function createMockFetchWithActiveLibrary(
   let responseIndex = 0;
   return (url: string) => {
     // Handle active library endpoint
-    if (url === "/api/admin/libraries/active") {
+    if (url === "/api/libraries/active") {
       return Promise.resolve({
         ok: true,
         json: () => Promise.resolve(activeLibrary),

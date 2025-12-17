@@ -33,6 +33,7 @@ from bookcard.api.routes.fs import router as fs_router
 from bookcard.api.routes.ingest import router as ingest_router
 from bookcard.api.routes.kcc import router as kcc_router
 from bookcard.api.routes.kobo import router as kobo_router
+from bookcard.api.routes.libraries import router as libraries_router
 from bookcard.api.routes.library_scanning import router as library_scanning_router
 from bookcard.api.routes.metadata import router as metadata_router
 from bookcard.api.routes.opds import router as opds_router
@@ -53,6 +54,7 @@ ROUTERS: list[APIRouter] = [
     fs_router,
     ingest_router,
     kcc_router,
+    libraries_router,
     library_scanning_router,
     kobo_router,
     metadata_router,

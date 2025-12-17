@@ -16,6 +16,7 @@
 "use client";
 
 import { EmailServerConfig } from "../email/EmailServerConfig";
+import { SystemSettingsConfig } from "../system/SystemSettingsConfig";
 import styles from "./SystemTab.module.scss";
 
 /**
@@ -28,6 +29,14 @@ import styles from "./SystemTab.module.scss";
 export function SystemTab() {
   return (
     <div className={styles.container}>
+      <div className={styles.section}>
+        <h2 className={styles.sectionTitle}>System Settings</h2>
+        <p className="mb-4 text-sm text-text-a30 leading-relaxed">
+          Configure system-wide settings that affect how the application behaves
+          for all users.
+        </p>
+        <SystemSettingsConfig />
+      </div>
       <div className={styles.section}>
         <h2 className={styles.sectionTitle}>Email Server Settings</h2>
         <p className="mb-4 text-sm text-text-a30 leading-relaxed">

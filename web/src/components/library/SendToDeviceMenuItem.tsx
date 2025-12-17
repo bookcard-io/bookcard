@@ -34,6 +34,13 @@ export interface SendToDeviceMenuItemProps {
   books?: Book[];
   /** Whether the item is disabled (in addition to permission check). */
   disabled?: boolean;
+  /**
+   * Menu mode.
+   *
+   * - "full": uses permission checks and supports devices + email.
+   * - "email_only": allows anonymous users to send to an email address only.
+   */
+  mode?: "full" | "email_only";
 }
 
 /**
@@ -56,6 +63,7 @@ export function SendToDeviceMenuItem({
   onClick,
   books,
   disabled = false,
+  mode = "full",
 }: SendToDeviceMenuItemProps) {
   const { canPerformAction } = useUser();
 
@@ -65,10 +73,13 @@ export function SendToDeviceMenuItem({
     if (!books || books.length === 0) {
       return false;
     }
+    if (mode === "email_only") {
+      return true;
+    }
     return books.every((book) =>
       canPerformAction("books", "send", buildBookPermissionContext(book)),
     );
-  }, [books, canPerformAction]);
+  }, [books, canPerformAction, mode]);
 
   // Item is disabled if user lacks permission OR explicitly disabled
   const isDisabled = !canSend || disabled;
@@ -86,7 +97,7 @@ export function SendToDeviceMenuItem({
       <DropdownMenuItem
         ref={itemRef}
         icon="pi pi-send"
-        label="Send to..."
+        label={mode === "email_only" ? "Send email" : "Send to..."}
         onClick={handleClick}
         disabled={isDisabled}
         rightContent={

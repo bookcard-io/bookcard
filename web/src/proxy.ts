@@ -13,40 +13,47 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
-import { AUTH_COOKIE_NAME } from "@/constants/config";
+import type { NextRequest, NextResponse } from "next/server";
+import { getAuthToken } from "./middleware/auth";
+import { getAllowAnonymousBrowsing } from "./middleware/configProvider";
+import { handleRequest } from "./middleware/requestHandler";
+import { classifyRoute } from "./middleware/routeClassifier";
 
-export function proxy(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-  const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
+/**
+ * Main middleware function for request proxying and authentication.
+ *
+ * Orchestrates route classification, authentication checking, and request handling.
+ * Follows SRP by delegating to focused helper functions.
+ * Follows SoC by separating concerns into distinct functions.
+ *
+ * Parameters
+ * ----------
+ * req : NextRequest
+ *     The incoming request.
+ *
+ * Returns
+ * -------
+ * Promise<NextResponse>
+ *     The response for the request.
+ */
+export async function proxy(req: NextRequest): Promise<NextResponse> {
+  const classification = classifyRoute(req.nextUrl.pathname);
+  const token = getAuthToken(req);
+  const hasToken = Boolean(token);
 
-  const isAuthRoute =
-    pathname.startsWith("/login") || pathname.startsWith("/api/auth");
-  const isPublicAsset =
-    pathname.startsWith("/_next/") ||
-    pathname.startsWith("/favicon") ||
-    pathname.startsWith("/assets") ||
-    pathname.startsWith("/static");
-
-  if (isPublicAsset) {
-    return NextResponse.next();
+  // For unauthenticated users on non-exempt routes, check anonymous browsing config
+  let allowAnonymousBrowsing = false;
+  if (
+    !hasToken &&
+    !classification.isPublicAsset &&
+    !classification.isApiRoute &&
+    !classification.isAuthRoute &&
+    !classification.isHomePage
+  ) {
+    allowAnonymousBrowsing = await getAllowAnonymousBrowsing(req);
   }
 
-  if (!token && !isAuthRoute) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("next", req.nextUrl.pathname);
-    return NextResponse.redirect(url);
-  }
-
-  if (token && pathname === "/login") {
-    const url = req.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
-  }
-
-  return NextResponse.next();
+  return handleRequest(classification, hasToken, req, allowAnonymousBrowsing);
 }
 
 export const config = {

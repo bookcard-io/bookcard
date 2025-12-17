@@ -30,6 +30,7 @@ from sqlmodel import select
 
 from bookcard.config import AppConfig
 from bookcard.models.config import (
+    BasicConfig,
     EPUBFixerConfig,
     FileHandlingConfig,
     Library,
@@ -48,6 +49,71 @@ if TYPE_CHECKING:
     from sqlmodel import Session
 
 logger = logging.getLogger(__name__)
+
+
+class BasicConfigService:
+    """Service for managing basic system configuration."""
+
+    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+        """Initialize the basic configuration service.
+
+        Parameters
+        ----------
+        session : Session
+            Active SQLModel session.
+        """
+        self._session = session
+
+    def get_basic_config(self) -> BasicConfig:
+        """Get the singleton basic configuration, creating defaults if missing."""
+        stmt = select(BasicConfig).limit(1)
+        config = self._session.exec(stmt).first()
+        if config is None:
+            config = BasicConfig()
+            self._session.add(config)
+            self._session.commit()
+            self._session.refresh(config)
+        return config
+
+    def update_basic_config(
+        self,
+        *,
+        allow_anonymous_browsing: bool | None = None,
+        allow_public_registration: bool | None = None,
+        require_email_for_registration: bool | None = None,
+        max_upload_size_mb: int | None = None,
+    ) -> BasicConfig:
+        """Update basic configuration flags.
+
+        Parameters
+        ----------
+        allow_anonymous_browsing : bool | None
+            Optional toggle for anonymous browsing.
+        allow_public_registration : bool | None
+            Optional toggle for public registration.
+        require_email_for_registration : bool | None
+            Optional toggle for requiring email during registration.
+        max_upload_size_mb : int | None
+            Optional maximum upload size in megabytes.
+
+        Returns
+        -------
+        BasicConfig
+            Updated configuration record.
+        """
+        config = self.get_basic_config()
+        if allow_anonymous_browsing is not None:
+            config.allow_anonymous_browsing = allow_anonymous_browsing
+        if allow_public_registration is not None:
+            config.allow_public_registration = allow_public_registration
+        if require_email_for_registration is not None:
+            config.require_email_for_registration = require_email_for_registration
+        if max_upload_size_mb is not None:
+            config.max_upload_size_mb = max_upload_size_mb
+        self._session.add(config)
+        self._session.commit()
+        self._session.refresh(config)
+        return config
 
 
 class LibraryService:

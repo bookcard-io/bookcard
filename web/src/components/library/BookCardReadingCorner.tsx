@@ -19,6 +19,7 @@ import type { MouseEvent } from "react";
 import { useCallback, useMemo } from "react";
 import { BsBookmarkFill } from "react-icons/bs";
 import { useActiveLibrary } from "@/contexts/ActiveLibraryContext";
+import { useUser } from "@/contexts/UserContext";
 import { useReadStatus } from "@/hooks/useReadStatus";
 import { cn } from "@/libs/utils";
 import type { BookReadingSummary } from "@/types/book";
@@ -72,6 +73,8 @@ export function BookCardReadingCorner({
   readingSummary,
   className,
 }: BookCardReadingCornerProps) {
+  const { user } = useUser();
+  const isGuest = !user;
   const { activeLibrary, isLoading: isActiveLibraryLoading } =
     useActiveLibrary();
   const hasActiveLibrary = activeLibrary !== null && !isActiveLibraryLoading;
@@ -126,7 +129,7 @@ export function BookCardReadingCorner({
     [canUpdate, markAsRead],
   );
 
-  if (!hasActiveLibrary) {
+  if (!hasActiveLibrary || isGuest) {
     return null;
   }
 

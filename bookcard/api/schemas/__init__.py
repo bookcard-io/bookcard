@@ -88,6 +88,7 @@ from bookcard.api.schemas.books import (
     TagLookupItem,
     TagLookupResponse,
 )
+from bookcard.api.schemas.config import BasicConfigRead, BasicConfigUpdate
 from bookcard.api.schemas.conversion import (
     BookConversionListResponse,
     BookConversionRead,
@@ -160,6 +161,8 @@ __all__ = [
     "AdminUserCreate",
     "AdminUserUpdate",
     "AuthConfigResponse",
+    "BasicConfigRead",
+    "BasicConfigUpdate",
     "BookBatchUploadResponse",
     "BookBulkSendRequest",
     "BookConversionListResponse",

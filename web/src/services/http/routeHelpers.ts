@@ -43,10 +43,24 @@ import { createHttpClientFromRequest } from "./HttpClient";
  *     Either a client instance or an error response.
  */
 export function getAuthenticatedClient(req: NextRequest) {
+  return getClient(req, { requireAuth: true });
+}
+
+export function getOptionalClient(req: NextRequest) {
+  return getClient(req, { requireAuth: false });
+}
+
+function getClient(
+  req: NextRequest,
+  options: { requireAuth: boolean },
+): {
+  client: ReturnType<typeof createHttpClientFromRequest>;
+  error: NextResponse | null;
+} {
   const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
-  if (!token) {
+  if (!token && options.requireAuth) {
     return {
-      client: null,
+      client: null as never,
       error: NextResponse.json({ error: "unauthorized" }, { status: 401 }),
     };
   }

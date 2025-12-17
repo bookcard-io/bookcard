@@ -38,7 +38,12 @@ from fastapi import (
 from fastapi.responses import FileResponse
 from sqlmodel import Session
 
-from bookcard.api.deps import get_active_library_id, get_current_user, get_db_session
+from bookcard.api.deps import (
+    get_active_library_id,
+    get_current_user,
+    get_db_session,
+    get_optional_user,
+)
 from bookcard.api.schemas import (
     BookBatchUploadResponse,
     BookBulkSendRequest,
@@ -74,6 +79,7 @@ from bookcard.services.book_dedrm_orchestration_service import (
     BookDeDRMOrchestrationService,
 )
 from bookcard.services.book_exception_mapper import BookExceptionMapper
+from bookcard.services.book_file_service import BookFileService
 from bookcard.services.book_permission_helper import BookPermissionHelper
 from bookcard.services.book_read_model_service import BookReadModelService
 from bookcard.services.book_response_builder import BookResponseBuilder
@@ -98,6 +104,7 @@ router = APIRouter(prefix="/books", tags=["books"])
 
 SessionDep = Annotated[Session, Depends(get_db_session)]
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
+OptionalUserDep = Annotated[User | None, Depends(get_optional_user)]
 ActiveLibraryIdDep = Annotated[int, Depends(get_active_library_id)]
 
 # Temporary cover storage (in-memory for now, could be moved to disk/DB)
@@ -146,39 +153,6 @@ def _find_format_data(
         if isinstance(fmt_format, str) and fmt_format.upper() == format_upper:
             format_data = fmt
     return format_data, available_formats
-
-
-def _get_file_name(
-    format_data: dict[str, str | int],
-    book_id: int,
-    file_format: str,
-) -> str:
-    """Get filename for the book file.
-
-    Parameters
-    ----------
-    format_data : dict[str, str | int]
-        Format data dictionary, may contain 'name' field.
-    book_id : int
-        Book ID for fallback naming.
-    file_format : str
-        File format extension.
-
-    Returns
-    -------
-    str
-        Filename for the book file.
-    """
-    file_name = format_data.get("name", "")
-    if not file_name or not isinstance(file_name, str):
-        # Calibre standard naming: {book_id}.{format_lower}
-        return f"{book_id}.{file_format.lower()}"
-
-    # Ensure filename has the correct extension
-    expected_suffix = f".{file_format.lower()}"
-    if not file_name.lower().endswith(expected_suffix):
-        return f"{file_name}{expected_suffix}"
-    return file_name
 
 
 def _get_media_type(format_upper: str) -> str:
@@ -250,6 +224,24 @@ def _get_active_library_service(
     return BookService(library, session=session)
 
 
+def _get_book_file_service(
+    book_service: Annotated[BookService, Depends(_get_active_library_service)],
+) -> BookFileService:
+    """Construct the book file service.
+
+    Parameters
+    ----------
+    book_service : BookService
+        Book service for the active library.
+
+    Returns
+    -------
+    BookFileService
+        Book file service instance.
+    """
+    return BookFileService(book_service)
+
+
 def _get_permission_helper(session: SessionDep) -> BookPermissionHelper:
     """Get book permission helper instance.
 
@@ -303,6 +295,7 @@ def _get_cover_service(
 
 
 BookServiceDep = Annotated[BookService, Depends(_get_active_library_service)]
+BookFileServiceDep = Annotated[BookFileService, Depends(_get_book_file_service)]
 PermissionHelperDep = Annotated[
     BookPermissionHelper,
     Depends(_get_permission_helper),
@@ -412,7 +405,7 @@ CoverServiceDep = Annotated[
 
 @router.get("", response_model=BookListResponse)
 def list_books(
-    current_user: CurrentUserDep,
+    current_user: OptionalUserDep,
     book_service: BookServiceDep,
     permission_helper: PermissionHelperDep,
     response_builder: ResponseBuilderDep,
@@ -478,7 +471,8 @@ def list_books(
     HTTPException
         If no active library is configured (404) or permission denied (403).
     """
-    permission_helper.check_read_permission(current_user)
+    if current_user is not None:
+        permission_helper.check_read_permission(current_user)
 
     if page < 1:
         page = 1
@@ -504,7 +498,7 @@ def list_books(
     read_model_service.apply_includes(
         book_reads=book_reads,
         include=include,
-        user_id=current_user.id,
+        user_id=current_user.id if current_user is not None else None,
         library_id=library_id,
     )
     total_pages = math.ceil(total / page_size) if page_size > 0 else 0
@@ -520,7 +514,7 @@ def list_books(
 
 @router.get("/{book_id}", response_model=BookRead)
 def get_book(
-    current_user: CurrentUserDep,
+    current_user: OptionalUserDep,
     book_id: int,
     book_service: BookServiceDep,
     permission_helper: PermissionHelperDep,
@@ -575,7 +569,8 @@ def get_book(
             detail="book_not_found",
         )
 
-    permission_helper.check_read_permission(current_user, book_with_rels)
+    if current_user is not None:
+        permission_helper.check_read_permission(current_user, book_with_rels)
 
     try:
         book_read = response_builder.build_book_read(book_with_rels, full=full)
@@ -583,7 +578,7 @@ def get_book(
         read_model_service.apply_includes_to_one(
             book_read=book_read,
             include=include,
-            user_id=current_user.id,
+            user_id=current_user.id if current_user is not None else None,
             library_id=library_id,
         )
     except ValueError as exc:
@@ -728,7 +723,7 @@ def delete_book(
 
 @router.get("/{book_id}/cover", response_model=None)
 def get_book_cover(
-    current_user: CurrentUserDep,
+    current_user: OptionalUserDep,
     book_id: int,
     book_service: BookServiceDep,
     permission_helper: PermissionHelperDep,
@@ -760,7 +755,8 @@ def get_book_cover(
             detail="book_not_found",
         )
 
-    permission_helper.check_read_permission(current_user, book_with_rels)
+    if current_user is not None:
+        permission_helper.check_read_permission(current_user, book_with_rels)
 
     cover_path = book_service.get_thumbnail_path(book_with_rels)
     book_id_for_filename = book_with_rels.book.id
@@ -776,11 +772,12 @@ def get_book_cover(
 
 @router.get("/{book_id}/download/{file_format}", response_model=None)
 def download_book_file(
-    current_user: CurrentUserDep,
+    current_user: OptionalUserDep,
     book_id: int,
     file_format: str,
     book_service: BookServiceDep,
     permission_helper: PermissionHelperDep,
+    book_file_service: BookFileServiceDep,
 ) -> FileResponse | Response:
     """Download a book file in the specified format.
 
@@ -811,7 +808,8 @@ def download_book_file(
             detail="book_not_found",
         )
 
-    permission_helper.check_read_permission(current_user, book_with_rels)
+    if current_user is not None:
+        permission_helper.check_read_permission(current_user, book_with_rels)
 
     book = book_with_rels.book
     if book.id is None:
@@ -820,68 +818,23 @@ def download_book_file(
             detail="book_missing_id",
         )
 
-    # Find the format in the book's formats
     format_upper = file_format.upper()
     format_data, available_formats = _find_format_data(
         book_with_rels.formats, file_format
     )
-
     if format_data is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"format_not_found: requested '{format_upper}', available: {available_formats}",
         )
 
-    # Construct file path: library_root / book.path / file_name
-    # Prefer explicit library_root from config when provided
-    lib_root = getattr(book_service._library, "library_root", None)  # type: ignore[attr-defined]  # noqa: SLF001
-    if lib_root:
-        library_path = Path(lib_root)
-    else:
-        # Determine library root robustly from configured calibre_db_path
-        library_db_path = book_service._library.calibre_db_path  # type: ignore[attr-defined]  # noqa: SLF001
-        library_db_path_obj = Path(library_db_path)
-        # If calibre_db_path points to a directory, use it directly.
-        # If it points to a file (e.g., metadata.db), use its parent directory.
-        if library_db_path_obj.is_dir():
-            library_path = library_db_path_obj
-        else:
-            library_path = library_db_path_obj.parent
-    book_path = library_path / book.path
-    file_name = _get_file_name(format_data, book_id, file_format)
-    file_path = book_path / file_name
-
-    if not file_path.exists():
-        # Try alternative: just the format extension
-        alt_file_name = f"{book_id}.{file_format.lower()}"
-        alt_file_path = book_path / alt_file_name
-        if alt_file_path.exists():
-            file_path = alt_file_path
-            file_name = alt_file_name
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"file_not_found: tried {file_path} and {alt_file_path}",
-            )
-
-    # Determine media type based on format
+    file_path, _file_name = book_file_service.resolve_file_path(
+        book, book_id, file_format, format_data
+    )
     media_type = _get_media_type(format_upper)
-
-    # Sanitize author name(s)
-    authors_str = ", ".join(book_with_rels.authors) if book_with_rels.authors else ""
-    safe_author = "".join(
-        c for c in authors_str if c.isalnum() or c in (" ", "-", "_", ",")
-    ).strip()
-    if not safe_author:
-        safe_author = "Unknown"
-
-    # Use book title for filename, sanitized
-    safe_title = "".join(
-        c for c in book.title if c.isalnum() or c in (" ", "-", "_")
-    ).strip()
-    if not safe_title:
-        safe_title = f"book_{book_id}"
-    filename = f"{safe_author} - {safe_title}.{file_format.lower()}"
+    filename = book_file_service.build_download_filename(
+        book_with_rels, book_id, file_format
+    )
 
     return FileResponse(
         path=str(file_path),
@@ -892,7 +845,7 @@ def download_book_file(
 
 @router.get("/{book_id}/metadata", response_model=None)
 def download_book_metadata(
-    current_user: CurrentUserDep,
+    current_user: OptionalUserDep,
     book_id: int,
     format: str,  # noqa: A002
     book_service: BookServiceDep,
@@ -929,7 +882,8 @@ def download_book_metadata(
             detail="book_not_found",
         )
 
-    permission_helper.check_read_permission(current_user, book_with_rels)
+    if current_user is not None:
+        permission_helper.check_read_permission(current_user, book_with_rels)
 
     format_lower = format.lower() if format else "opf"
     export_service = MetadataExportService()
@@ -1646,7 +1600,7 @@ def get_temp_cover(
 
 @router.get("/search/suggestions", response_model=SearchSuggestionsResponse)
 def search_suggestions(
-    current_user: CurrentUserDep,
+    current_user: OptionalUserDep,
     q: str,
     book_service: BookServiceDep,
     permission_helper: PermissionHelperDep,
@@ -1673,7 +1627,8 @@ def search_suggestions(
     HTTPException
         If no active library is configured (404).
     """
-    permission_helper.check_read_permission(current_user)
+    if current_user is not None:
+        permission_helper.check_read_permission(current_user)
 
     if not q or not q.strip():
         return SearchSuggestionsResponse()
@@ -1708,7 +1663,7 @@ def search_suggestions(
 
 @router.get("/filter/suggestions", response_model=FilterSuggestionsResponse)
 def filter_suggestions(
-    current_user: CurrentUserDep,
+    current_user: OptionalUserDep,
     q: str,
     filter_type: str,
     book_service: BookServiceDep,
@@ -1739,7 +1694,8 @@ def filter_suggestions(
     HTTPException
         If no active library is configured (404).
     """
-    permission_helper.check_read_permission(current_user)
+    if current_user is not None:
+        permission_helper.check_read_permission(current_user)
 
     if not q or not q.strip():
         return FilterSuggestionsResponse()
@@ -1760,7 +1716,7 @@ def filter_suggestions(
 
 @router.get("/tags/by-name", response_model=TagLookupResponse)
 def lookup_tags_by_name(
-    current_user: CurrentUserDep,
+    current_user: OptionalUserDep,
     book_service: BookServiceDep,
     permission_helper: PermissionHelperDep,
     names: str = Query(..., description="Comma-separated list of tag names to lookup"),
@@ -1788,7 +1744,8 @@ def lookup_tags_by_name(
     HTTPException
         If permission denied (403).
     """
-    permission_helper.check_read_permission(current_user)
+    if current_user is not None:
+        permission_helper.check_read_permission(current_user)
 
     # Parse comma-separated names
     tag_names = [name.strip() for name in names.split(",") if name.strip()]
@@ -1808,7 +1765,7 @@ def lookup_tags_by_name(
 
 @router.post("/filter", response_model=BookListResponse)
 def filter_books(
-    current_user: CurrentUserDep,
+    current_user: OptionalUserDep,
     filter_request: BookFilterRequest,
     book_service: BookServiceDep,
     permission_helper: PermissionHelperDep,
@@ -1860,7 +1817,8 @@ def filter_books(
     HTTPException
         If no active library is configured (404) or permission denied (403).
     """
-    permission_helper.check_read_permission(current_user)
+    if current_user is not None:
+        permission_helper.check_read_permission(current_user)
 
     if page < 1:
         page = 1
@@ -1891,7 +1849,7 @@ def filter_books(
     read_model_service.apply_includes(
         book_reads=book_reads,
         include=include,
-        user_id=current_user.id,
+        user_id=current_user.id if current_user is not None else None,
         library_id=library_id,
     )
     total_pages = math.ceil(total / page_size) if page_size > 0 else 0
@@ -2133,7 +2091,7 @@ def add_format(
 def get_format_metadata(
     book_id: int,
     file_format: str,
-    current_user: CurrentUserDep,
+    current_user: OptionalUserDep,
     permission_helper: PermissionHelperDep,
     book_service: BookServiceDep,
 ) -> FormatMetadataResponse:
@@ -2172,7 +2130,8 @@ def get_format_metadata(
             detail="book_not_found",
         )
 
-    permission_helper.check_read_permission(current_user, existing_book)
+    if current_user is not None:
+        permission_helper.check_read_permission(current_user, existing_book)
 
     # Use the repository from the book service to initialize the metadata service
     # This accesses the private _book_repo, which is generally discouraged but necessary

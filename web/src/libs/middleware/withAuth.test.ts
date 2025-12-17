@@ -15,7 +15,8 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { HttpClient } from "@/services/http/HttpClient";
+import type { AuthProvider } from "@/services/auth/AuthProvider";
+import { DefaultHttpClient } from "@/services/http/HttpClient";
 import { getAuthenticatedClient } from "@/services/http/routeHelpers";
 import { withAuthentication } from "./withAuth";
 
@@ -55,10 +56,11 @@ function createMockRequest(cookies: Record<string, string> = {}): NextRequest {
  * HttpClient
  *     Mock HttpClient instance.
  */
-function createMockClient(): HttpClient {
-  return {
-    request: vi.fn(),
-  } as unknown as HttpClient;
+function createMockClient(): DefaultHttpClient {
+  const authProvider: AuthProvider = {
+    getAuthHeader: () => "Bearer test-token",
+  };
+  return new DefaultHttpClient(authProvider, "http://example.com");
 }
 
 /**
@@ -113,7 +115,7 @@ describe("withAuthentication", () => {
     );
 
     vi.mocked(getAuthenticatedClient).mockReturnValue({
-      client: null,
+      client: createMockClient(),
       error: errorResponse,
     });
 

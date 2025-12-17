@@ -191,6 +191,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (updates.size === 0) {
       return;
     }
+
+    // Skip database save for anonymous users (they use localStorage via useSetting)
+    if (!user) {
+      pendingUpdatesRef.current.clear();
+      return;
+    }
+
     const updatesToSave = new Map(updates);
     pendingUpdatesRef.current.clear();
     setIsSaving(true);
@@ -220,7 +227,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsSaving(false);
     }
-  }, []);
+  }, [user]);
 
   const scheduleSettingsSave = useCallback(() => {
     if (debounceTimerRef.current) {

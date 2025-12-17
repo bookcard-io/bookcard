@@ -57,7 +57,7 @@ export function BookViewHeader({
   onBookRefreshRequested,
 }: BookViewHeaderProps) {
   const router = useRouter();
-  const { canPerformAction } = useUser();
+  const { user, canPerformAction } = useUser();
   const { showDanger, showSuccess, showWarning } = useGlobalMessages();
   const [isCoverOpen, setIsCoverOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -75,7 +75,10 @@ export function BookViewHeader({
 
   // Check permissions
   const bookContext = buildBookPermissionContext(book);
-  const canRead = canPerformAction("books", "read", bookContext);
+  const isGuest = !user;
+  const canRead = isGuest
+    ? true
+    : canPerformAction("books", "read", bookContext);
   const canWrite = canPerformAction("books", "write", bookContext);
   const canSend = canPerformAction("books", "send", bookContext);
 

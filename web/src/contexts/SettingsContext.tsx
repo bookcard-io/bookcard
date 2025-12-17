@@ -28,6 +28,7 @@ export interface SettingsContextType {
   isSaving: boolean;
   updateSetting: (key: string, value: string) => void;
   getSetting: (key: string) => string | null;
+  isAuthenticated: boolean;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(
@@ -53,7 +54,7 @@ export interface SettingsProviderProps {
  *     Ignored; debouncing is handled in UserContext.
  */
 export function SettingsProvider({ children }: SettingsProviderProps) {
-  const { settings, isLoading, isSaving, getSetting, updateSetting } =
+  const { settings, isLoading, isSaving, getSetting, updateSetting, user } =
     useUser();
 
   const value = useMemo(
@@ -63,8 +64,9 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
       isSaving,
       updateSetting,
       getSetting,
+      isAuthenticated: Boolean(user),
     }),
-    [settings, isLoading, isSaving, updateSetting, getSetting],
+    [settings, isLoading, isSaving, updateSetting, getSetting, user],
   );
 
   return (

@@ -14,7 +14,10 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { type NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedClient } from "@/services/http/routeHelpers";
+import {
+  getAuthenticatedClient,
+  getOptionalClient,
+} from "@/services/http/routeHelpers";
 
 /**
  * GET /api/books/[id]
@@ -27,7 +30,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { client, error } = getAuthenticatedClient(request);
+    const { client, error } = getOptionalClient(request);
 
     if (error) {
       return error;

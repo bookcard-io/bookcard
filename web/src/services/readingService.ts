@@ -19,6 +19,7 @@
  * Provides methods for managing reading progress, sessions, and status.
  */
 
+import { AUTH_COOKIE_NAME } from "@/constants/config";
 import type {
   ReadingHistoryResponse,
   ReadingProgress,
@@ -31,6 +32,31 @@ import type {
 } from "@/types/reading";
 
 const API_BASE = "/api/reading";
+
+const localProgressKey = (bookId: number, format: string) =>
+  `reading-progress:${bookId}:${format.toLowerCase()}`;
+
+const hasAuthCookie = () =>
+  typeof document !== "undefined" &&
+  document.cookie.includes(`${AUTH_COOKIE_NAME}=`);
+
+const buildLocalProgress = (
+  data: ReadingProgressCreate,
+  updatedAt: string,
+): ReadingProgress => ({
+  id: -1,
+  user_id: 0,
+  library_id: 0,
+  book_id: data.book_id,
+  format: data.format,
+  progress: data.progress,
+  cfi: data.cfi ?? null,
+  page_number: data.page_number ?? null,
+  device: data.device ?? null,
+  spread_mode: data.spread_mode ?? null,
+  reading_direction: data.reading_direction ?? null,
+  updated_at: updatedAt,
+});
 
 /**
  * Update reading progress for a book.
@@ -48,6 +74,16 @@ const API_BASE = "/api/reading";
 export async function updateProgress(
   data: ReadingProgressCreate,
 ): Promise<ReadingProgress> {
+  if (!hasAuthCookie() && typeof window !== "undefined") {
+    const updatedAt = new Date().toISOString();
+    const progress = buildLocalProgress(data, updatedAt);
+    window.localStorage.setItem(
+      localProgressKey(data.book_id, data.format),
+      JSON.stringify(progress),
+    );
+    return progress;
+  }
+
   const response = await fetch(`${API_BASE}/progress`, {
     method: "PUT",
     headers: {
@@ -86,6 +122,20 @@ export async function getProgress(
   bookId: number,
   format: string,
 ): Promise<ReadingProgress | null> {
+  if (!hasAuthCookie() && typeof window !== "undefined") {
+    const cached = window.localStorage.getItem(
+      localProgressKey(bookId, format),
+    );
+    if (!cached) {
+      return null;
+    }
+    try {
+      return JSON.parse(cached) as ReadingProgress;
+    } catch {
+      return null;
+    }
+  }
+
   const params = new URLSearchParams({
     book_id: bookId.toString(),
     format,

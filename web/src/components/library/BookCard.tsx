@@ -29,6 +29,7 @@ import { BookCardModals } from "@/components/library/BookCardModals";
 import { BookCardOverlay } from "@/components/library/BookCardOverlay";
 import { BookCardReadingCorner } from "@/components/library/BookCardReadingCorner";
 import { useSelectedBooks } from "@/contexts/SelectedBooksContext";
+import { useUser } from "@/contexts/UserContext";
 import { useBookCardMenu } from "@/hooks/useBookCardMenu";
 import { useBookCardMenuActions } from "@/hooks/useBookCardMenuActions";
 import { useBookCardModals } from "@/hooks/useBookCardModals";
@@ -72,13 +73,16 @@ export function BookCard({
   onClick: _onClick,
   onEdit,
   onBookDeleted,
-  showSelection = false,
+  showSelection: showSelectionProp = false,
   hideActions = false,
   variant = "default",
 }: BookCardProps) {
   const { isSelected } = useSelectedBooks();
+  const { user } = useUser();
+  const isGuest = !user;
   const selected = isSelected(book.id);
   const showActions = !hideActions;
+  const showSelection = showSelectionProp && !isGuest;
 
   // Hooks for logic and state
   const menu = useBookCardMenu();
@@ -141,7 +145,8 @@ export function BookCard({
                     allBooks={allBooks}
                     selected={selected}
                     showSelection={showSelection}
-                    onEdit={onEdit}
+                    onEdit={isGuest ? undefined : onEdit}
+                    showMenu
                     menuProps={{
                       buttonRef: menu.menuButtonRef,
                       isMenuOpen: menu.isMenuOpen,
@@ -164,7 +169,8 @@ export function BookCard({
               allBooks={allBooks}
               selected={selected}
               showSelection={showSelection}
-              onEdit={onEdit}
+              onEdit={isGuest ? undefined : onEdit}
+              showMenu
               variant="mobile"
               menuProps={{
                 buttonRef: menu.menuButtonRef,
@@ -193,16 +199,18 @@ export function BookCard({
             isSendDisabled={menuActions.isSendDisabled}
             onOpenAddToShelfModal={modals.openAddToShelf}
           />
-          <BookCardModals
-            book={book}
-            deleteState={menuActions.deleteConfirmation}
-            shelfState={shelfCreation}
-            addToShelfState={{
-              show: modals.showAddToShelfModal,
-              onClose: modals.closeAddToShelf,
-              onSuccess: menu.handleMenuClose,
-            }}
-          />
+          {!isGuest && (
+            <BookCardModals
+              book={book}
+              deleteState={menuActions.deleteConfirmation}
+              shelfState={shelfCreation}
+              addToShelfState={{
+                show: modals.showAddToShelfModal,
+                onClose: modals.closeAddToShelf,
+                onSuccess: menu.handleMenuClose,
+              }}
+            />
+          )}
         </>
       )}
     </>

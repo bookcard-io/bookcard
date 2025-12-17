@@ -64,22 +64,43 @@ export function useSetting({
   key,
   defaultValue,
 }: UseSettingOptions): UseSettingResult {
-  const { getSetting, updateSetting, isLoading } = useSettings();
+  const { getSetting, updateSetting, isLoading, isAuthenticated } =
+    useSettings();
   const [value, setValue] = useState(defaultValue);
 
   // Load setting value on mount or when settings are loaded
   useEffect(() => {
-    if (!isLoading) {
+    if (isLoading) {
+      return;
+    }
+
+    if (isAuthenticated) {
       const savedValue = getSetting(key);
       if (savedValue) {
         setValue(savedValue);
+      } else {
+        setValue(defaultValue);
+      }
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      const savedValue = window.localStorage.getItem(key);
+      if (savedValue) {
+        setValue(savedValue);
+      } else {
+        setValue(defaultValue);
       }
     }
-  }, [getSetting, isLoading, key]);
+  }, [defaultValue, getSetting, isAuthenticated, isLoading, key]);
 
   const handleSetValue = (newValue: string) => {
     setValue(newValue);
-    updateSetting(key, newValue);
+    if (isAuthenticated) {
+      updateSetting(key, newValue);
+    } else if (typeof window !== "undefined") {
+      window.localStorage.setItem(key, newValue);
+    }
   };
 
   return {

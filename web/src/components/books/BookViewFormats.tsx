@@ -43,10 +43,13 @@ export interface BookViewFormatsProps {
  * Follows SRP by focusing solely on formats presentation.
  */
 export function BookViewFormats({ formats, book }: BookViewFormatsProps) {
-  const { canPerformAction } = useUser();
+  const { user, canPerformAction } = useUser();
   const { showDanger } = useGlobalMessages();
   const bookContext = book ? buildBookPermissionContext(book) : undefined;
-  const canRead = canPerformAction("books", "read", bookContext);
+  const isGuest = !user;
+  const canRead = isGuest
+    ? true
+    : canPerformAction("books", "read", bookContext);
   const bookId = book?.id;
 
   const handleDownload = useCallback(

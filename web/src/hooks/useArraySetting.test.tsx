@@ -71,6 +71,7 @@ describe("useArraySetting", () => {
       settings: {},
       isLoading: false,
       isSaving: false,
+      isAuthenticated: true,
       getSetting: mockGetSettingForTest,
       updateSetting: mockUpdateSettingForTest,
     });
@@ -103,6 +104,7 @@ describe("useArraySetting", () => {
       settings: {},
       isLoading: false,
       isSaving: false,
+      isAuthenticated: true,
       getSetting: mockGetSettingForTest,
       updateSetting: mockUpdateSettingForTest,
     });
@@ -138,6 +140,7 @@ describe("useArraySetting", () => {
       settings: {},
       isLoading: false,
       isSaving: false,
+      isAuthenticated: true,
       getSetting: mockGetSettingForTest,
       updateSetting: mockUpdateSettingForTest,
     });
@@ -173,6 +176,7 @@ describe("useArraySetting", () => {
       settings: {},
       isLoading: false,
       isSaving: false,
+      isAuthenticated: true,
       getSetting: mockGetSettingForTest,
       updateSetting: mockUpdateSettingForTest,
     });
@@ -205,6 +209,7 @@ describe("useArraySetting", () => {
       settings: {},
       isLoading: true,
       isSaving: false,
+      isAuthenticated: true,
       getSetting: mockGetSettingForTest,
       updateSetting: mockUpdateSettingForTest,
     });
@@ -239,6 +244,7 @@ describe("useArraySetting", () => {
       settings: {},
       isLoading: false,
       isSaving: false,
+      isAuthenticated: true,
       getSetting: mockGetSettingForTest,
       updateSetting: mockUpdateSettingForTest,
     });
@@ -286,6 +292,7 @@ describe("useArraySetting", () => {
       settings: {},
       isLoading: false,
       isSaving: false,
+      isAuthenticated: true,
       getSetting: mockGetSettingForTest,
       updateSetting: mockUpdateSettingForTest,
     });
@@ -328,6 +335,7 @@ describe("useArraySetting", () => {
       settings: {},
       isLoading: false,
       isSaving: false,
+      isAuthenticated: true,
       getSetting: mockGetSettingForTest,
       updateSetting: mockUpdateSettingForTest,
     });
@@ -371,6 +379,7 @@ describe("useArraySetting", () => {
       settings: {},
       isLoading: false,
       isSaving: false,
+      isAuthenticated: true,
       getSetting: mockGetSettingForTest,
       updateSetting: mockUpdateSettingForTest,
     });
@@ -402,6 +411,7 @@ describe("useArraySetting", () => {
       settings: {},
       isLoading: true,
       isSaving: false,
+      isAuthenticated: true,
       getSetting: mockGetSettingForTest,
       updateSetting: mockUpdateSettingForTest,
     });
@@ -427,6 +437,7 @@ describe("useArraySetting", () => {
       settings: {},
       isLoading: false,
       isSaving: false,
+      isAuthenticated: true,
       getSetting: mockGetSettingForTest,
       updateSetting: mockUpdateSettingForTest,
     });

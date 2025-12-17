@@ -45,6 +45,7 @@ describe("useBooleanSetting", () => {
       settings: {},
       isLoading: false,
       isSaving: false,
+      isAuthenticated: true,
       getSetting: mockGetSetting,
       updateSetting: mockUpdateSetting,
     });
@@ -102,6 +103,7 @@ describe("useBooleanSetting", () => {
       settings: {},
       isLoading: true,
       isSaving: false,
+      isAuthenticated: true,
       getSetting: mockGetSetting,
       updateSetting: mockUpdateSetting,
     });

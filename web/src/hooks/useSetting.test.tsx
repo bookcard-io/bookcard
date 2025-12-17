@@ -63,6 +63,7 @@ function createWrapper(
     ),
     isLoading,
     isSaving: false,
+    isAuthenticated: true,
     getSetting: mockGetSetting,
     updateSetting: mockUpdateSetting,
   });
@@ -130,6 +131,7 @@ describe("useSetting", () => {
       settings: {},
       isLoading: false,
       isSaving: false,
+      isAuthenticated: true,
       getSetting: mockGetSetting,
       updateSetting: mockUpdateSetting,
     });
@@ -175,6 +177,7 @@ describe("useSetting", () => {
       },
       isLoading: false,
       isSaving: false,
+      isAuthenticated: true,
       getSetting: mockGetSetting,
       updateSetting: mockUpdateSetting,
     });
@@ -202,6 +205,7 @@ describe("useSetting", () => {
       },
       isLoading: false,
       isSaving: false,
+      isAuthenticated: true,
       getSetting: mockGetSetting2,
       updateSetting: mockUpdateSetting,
     });

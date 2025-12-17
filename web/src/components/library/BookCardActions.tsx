@@ -14,6 +14,7 @@ export interface BookCardActionsProps {
   onEdit?: (bookId: number) => void;
   menuProps: BookCardMenuButtonProps;
   variant?: "desktop" | "mobile";
+  showMenu?: boolean;
 }
 
 export function BookCardActions({
@@ -37,10 +38,12 @@ export function BookCardActions({
           variant={variant === "mobile" ? "mobile" : undefined}
         />
       )}
-      <BookCardMenuButton
-        {...props.menuProps}
-        variant={variant === "mobile" ? "mobile" : undefined}
-      />
+      {props.showMenu !== false && (
+        <BookCardMenuButton
+          {...props.menuProps}
+          variant={variant === "mobile" ? "mobile" : undefined}
+        />
+      )}
     </>
   );
 }

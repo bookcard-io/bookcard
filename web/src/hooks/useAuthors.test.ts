@@ -184,7 +184,7 @@ describe("useAuthors", () => {
       // Mock active library to return null
       (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
         (url: string) => {
-          if (url === "/api/admin/libraries/active") {
+          if (url === "/api/libraries/active") {
             return Promise.resolve({
               ok: true,
               json: () => Promise.resolve(null),

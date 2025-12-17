@@ -46,6 +46,13 @@ export interface SendToDeviceFlyoutMenuProps {
   onSuccess?: () => void;
   /** Callback to close parent menu (for Esc key handling). */
   onCloseParent?: () => void;
+  /**
+   * Menu mode.
+   *
+   * - "full": devices + email, gated by permissions.
+   * - "email_only": email-only mode for anonymous browsing.
+   */
+  mode?: "full" | "email_only";
 }
 
 /**
@@ -69,6 +76,7 @@ export function SendToDeviceFlyoutMenu({
   onMouseEnter,
   onSuccess,
   onCloseParent,
+  mode = "full",
 }: SendToDeviceFlyoutMenuProps) {
   const [mounted, setMounted] = useState(false);
   const [showEmailInput, setShowEmailInput] = useState(false);
@@ -95,7 +103,13 @@ export function SendToDeviceFlyoutMenu({
   const canSend =
     books.length > 0 &&
     books[0] !== undefined &&
-    canPerformAction("books", "send", buildBookPermissionContext(books[0]));
+    (mode === "email_only"
+      ? true
+      : canPerformAction(
+          "books",
+          "send",
+          buildBookPermissionContext(books[0]),
+        ));
 
   const { position, direction, menuRef } = useFlyoutPosition({
     isOpen,
@@ -157,11 +171,16 @@ export function SendToDeviceFlyoutMenu({
 
   // Get default device and other devices
   const defaultDevice =
-    user?.ereader_devices?.find((device) => device.is_default) || null;
+    mode === "email_only"
+      ? null
+      : user?.ereader_devices?.find((device) => device.is_default) || null;
 
   const otherDevices =
-    user?.ereader_devices?.filter((device) => !device.is_default).slice(0, 5) ||
-    [];
+    mode === "email_only"
+      ? []
+      : user?.ereader_devices
+          ?.filter((device) => !device.is_default)
+          .slice(0, 5) || [];
 
   /**
    * Handle mouse entering the flyout menu.
@@ -356,19 +375,23 @@ export function SendToDeviceFlyoutMenu({
       data-keep-selection
     >
       <div className="py-1">
-        {defaultDevice && (
+        {mode === "full" && defaultDevice && (
           <DropdownMenuItem
             label={`Send to ${defaultDevice.device_name || defaultDevice.email}`}
             onClick={handleSendToDefault}
             disabled={!canSend}
           />
         )}
-        <DevicesSection
-          devices={otherDevices}
-          onDeviceClick={handleSendToDevice}
-          disabled={!canSend}
-        />
-        <hr className={cn("my-1 h-px border-0 bg-surface-tonal-a20")} />
+        {mode === "full" && (
+          <>
+            <DevicesSection
+              devices={otherDevices}
+              onDeviceClick={handleSendToDevice}
+              disabled={!canSend}
+            />
+            <hr className={cn("my-1 h-px border-0 bg-surface-tonal-a20")} />
+          </>
+        )}
         {showEmailInput ? (
           <div className="px-4 py-2.5">
             <input
