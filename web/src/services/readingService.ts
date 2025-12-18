@@ -19,7 +19,6 @@
  * Provides methods for managing reading progress, sessions, and status.
  */
 
-import { AUTH_COOKIE_NAME } from "@/constants/config";
 import type {
   ReadingHistoryResponse,
   ReadingProgress,
@@ -35,10 +34,6 @@ const API_BASE = "/api/reading";
 
 const localProgressKey = (bookId: number, format: string) =>
   `reading-progress:${bookId}:${format.toLowerCase()}`;
-
-const hasAuthCookie = () =>
-  typeof document !== "undefined" &&
-  document.cookie.includes(`${AUTH_COOKIE_NAME}=`);
 
 const buildLocalProgress = (
   data: ReadingProgressCreate,
@@ -61,6 +56,8 @@ const buildLocalProgress = (
 /**
  * Update reading progress for a book.
  *
+ * Tries to update via API first. If unauthenticated (401/403), falls back to localStorage.
+ *
  * Parameters
  * ----------
  * data : ReadingProgressCreate
@@ -74,16 +71,6 @@ const buildLocalProgress = (
 export async function updateProgress(
   data: ReadingProgressCreate,
 ): Promise<ReadingProgress> {
-  if (!hasAuthCookie() && typeof window !== "undefined") {
-    const updatedAt = new Date().toISOString();
-    const progress = buildLocalProgress(data, updatedAt);
-    window.localStorage.setItem(
-      localProgressKey(data.book_id, data.format),
-      JSON.stringify(progress),
-    );
-    return progress;
-  }
-
   const response = await fetch(`${API_BASE}/progress`, {
     method: "PUT",
     headers: {
@@ -94,6 +81,21 @@ export async function updateProgress(
   });
 
   if (!response.ok) {
+    // If unauthenticated, fall back to localStorage
+    if (
+      (response.status === 401 || response.status === 403) &&
+      typeof window !== "undefined"
+    ) {
+      const updatedAt = new Date().toISOString();
+      const progress = buildLocalProgress(data, updatedAt);
+      window.localStorage.setItem(
+        localProgressKey(data.book_id, data.format),
+        JSON.stringify(progress),
+      );
+      return progress;
+    }
+
+    // For other errors, throw
     const error = await response
       .json()
       .catch(() => ({ detail: "Failed to update reading progress" }));
@@ -105,6 +107,8 @@ export async function updateProgress(
 
 /**
  * Get reading progress for a book.
+ *
+ * Tries to fetch from API first. If unauthenticated (401/403), falls back to localStorage.
  *
  * Parameters
  * ----------
@@ -122,20 +126,6 @@ export async function getProgress(
   bookId: number,
   format: string,
 ): Promise<ReadingProgress | null> {
-  if (!hasAuthCookie() && typeof window !== "undefined") {
-    const cached = window.localStorage.getItem(
-      localProgressKey(bookId, format),
-    );
-    if (!cached) {
-      return null;
-    }
-    try {
-      return JSON.parse(cached) as ReadingProgress;
-    } catch {
-      return null;
-    }
-  }
-
   const params = new URLSearchParams({
     book_id: bookId.toString(),
     format,
@@ -149,8 +139,41 @@ export async function getProgress(
   if (!response.ok) {
     // 404 is expected when there's no progress yet
     if (response.status === 404) {
+      // Check localStorage as fallback for unauthenticated users
+      if (typeof window !== "undefined") {
+        const cached = window.localStorage.getItem(
+          localProgressKey(bookId, format),
+        );
+        if (cached) {
+          try {
+            return JSON.parse(cached) as ReadingProgress;
+          } catch {
+            return null;
+          }
+        }
+      }
       return null;
     }
+
+    // If unauthenticated, try localStorage
+    if (
+      (response.status === 401 || response.status === 403) &&
+      typeof window !== "undefined"
+    ) {
+      const cached = window.localStorage.getItem(
+        localProgressKey(bookId, format),
+      );
+      if (cached) {
+        try {
+          return JSON.parse(cached) as ReadingProgress;
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    }
+
+    // For other errors, throw
     const error = await response
       .json()
       .catch(() => ({ detail: "Failed to get reading progress" }));
