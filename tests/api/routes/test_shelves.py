@@ -101,7 +101,7 @@ class MockShelfService:
     def update_shelf(
         self,
         shelf_id: int,
-        user_id: int,
+        user: User,
         name: str | None = None,
         description: str | None = None,
         is_public: bool | None = None,
@@ -112,7 +112,7 @@ class MockShelfService:
             raise ValueError("update_shelf not mocked")
         return self.update_shelf_result
 
-    def delete_shelf(self, shelf_id: int, user_id: int) -> None:
+    def delete_shelf(self, shelf_id: int, user: User) -> None:
         """Mock delete_shelf method."""
         if self.delete_shelf_exception:
             raise self.delete_shelf_exception
@@ -121,7 +121,7 @@ class MockShelfService:
         self,
         shelf_id: int,
         book_id: int,
-        user_id: int,
+        user: User,
     ) -> BookShelfLink:
         """Mock add_book_to_shelf method."""
         if self.add_book_to_shelf_exception:
@@ -137,7 +137,7 @@ class MockShelfService:
         self,
         shelf_id: int,
         book_id: int,
-        user_id: int,
+        user: User,
     ) -> None:
         """Mock remove_book_from_shelf method."""
         if self.remove_book_from_shelf_exception:
@@ -147,7 +147,7 @@ class MockShelfService:
         self,
         shelf_id: int,
         book_orders: dict[int, int],
-        user_id: int,
+        user: User,
     ) -> None:
         """Mock reorder_books method."""
         if self.reorder_books_exception:
@@ -192,7 +192,7 @@ class MockShelfService:
         """Mock can_view_shelf method."""
         return self.can_view_shelf_result
 
-    def can_edit_shelf(self, shelf: Shelf, user_id: int, is_admin: bool) -> bool:
+    def can_edit_shelf(self, shelf: Shelf, user: User) -> bool:
         """Mock can_edit_shelf method."""
         return self.can_edit_shelf_result
 
@@ -817,9 +817,13 @@ def test_delete_shelf_value_error(
 
 
 def test_add_book_to_shelf_success(
-    mock_user: User, mock_shelf: Shelf, mock_library: Library
+    mock_user: User,
+    mock_shelf: Shelf,
+    mock_library: Library,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test add_book_to_shelf succeeds (covers lines 495-510)."""
+    _mock_permission_service(monkeypatch)
     session = DummySession()
     mock_service = MockShelfService()
 
@@ -840,8 +844,11 @@ def test_add_book_to_shelf_success(
         assert result is None
 
 
-def test_add_book_to_shelf_not_found(mock_user: User, mock_library: Library) -> None:
+def test_add_book_to_shelf_not_found(
+    mock_user: User, mock_library: Library, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test add_book_to_shelf raises 404 when shelf not found (covers lines 497-501)."""
+    _mock_permission_service(monkeypatch)
     session = DummySession()
     mock_service = MockShelfService()
 
@@ -863,9 +870,13 @@ def test_add_book_to_shelf_not_found(mock_user: User, mock_library: Library) -> 
 
 
 def test_add_book_to_shelf_value_error(
-    mock_user: User, mock_shelf: Shelf, mock_library: Library
+    mock_user: User,
+    mock_shelf: Shelf,
+    mock_library: Library,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test add_book_to_shelf handles ValueError (covers lines 506-510)."""
+    _mock_permission_service(monkeypatch)
     session = DummySession()
     mock_service = MockShelfService()
     mock_service.add_book_to_shelf_exception = ValueError("Book already in shelf")
@@ -888,9 +899,13 @@ def test_add_book_to_shelf_value_error(
 
 
 def test_remove_book_from_shelf_success(
-    mock_user: User, mock_shelf: Shelf, mock_library: Library
+    mock_user: User,
+    mock_shelf: Shelf,
+    mock_library: Library,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test remove_book_from_shelf succeeds (covers lines 546-561)."""
+    _mock_permission_service(monkeypatch)
     session = DummySession()
     mock_service = MockShelfService()
 
@@ -936,9 +951,13 @@ def test_remove_book_from_shelf_not_found(
 
 
 def test_remove_book_from_shelf_value_error(
-    mock_user: User, mock_shelf: Shelf, mock_library: Library
+    mock_user: User,
+    mock_shelf: Shelf,
+    mock_library: Library,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test remove_book_from_shelf handles ValueError (covers lines 557-561)."""
+    _mock_permission_service(monkeypatch)
     session = DummySession()
     mock_service = MockShelfService()
     mock_service.remove_book_from_shelf_exception = ValueError("Book not in shelf")
@@ -961,9 +980,13 @@ def test_remove_book_from_shelf_value_error(
 
 
 def test_reorder_shelf_books_success(
-    mock_user: User, mock_shelf: Shelf, mock_library: Library
+    mock_user: User,
+    mock_shelf: Shelf,
+    mock_library: Library,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test reorder_shelf_books succeeds (covers lines 597-616)."""
+    _mock_permission_service(monkeypatch)
     session = DummySession()
     mock_service = MockShelfService()
 
@@ -1007,9 +1030,13 @@ def test_reorder_shelf_books_not_found(mock_user: User, mock_library: Library) -
 
 
 def test_reorder_shelf_books_value_error(
-    mock_user: User, mock_shelf: Shelf, mock_library: Library
+    mock_user: User,
+    mock_shelf: Shelf,
+    mock_library: Library,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test reorder_shelf_books handles ValueError (covers lines 612-616)."""
+    _mock_permission_service(monkeypatch)
     session = DummySession()
     mock_service = MockShelfService()
     mock_service.reorder_books_exception = ValueError("Shelf not found")

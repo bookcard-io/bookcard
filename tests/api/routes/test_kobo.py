@@ -2204,7 +2204,7 @@ def test_handle_tags_update_delete_success(
         )
 
         assert result.status_code == status.HTTP_200_OK
-        mock_shelf_service.delete_shelf.assert_called_once_with(1, kobo_user.id)
+        mock_shelf_service.delete_shelf.assert_called_once_with(1, kobo_user)
 
 
 def test_handle_tags_update_proxy_redirect(
@@ -2362,7 +2362,7 @@ def test_handle_tags_add_items_success(session: DummySession, kobo_user: User) -
 
         assert result.status_code == status.HTTP_201_CREATED
         mock_shelf_item_service.add_items_to_shelf.assert_called_once_with(
-            1, kobo_user.id, item_data
+            1, kobo_user, item_data
         )
 
 
