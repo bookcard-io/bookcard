@@ -21,10 +21,17 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from bookcard.models.config import EPUBFixerConfig, Library, ScheduledTasksConfig
+from bookcard.models.config import (
+    EPUBFixerConfig,
+    FileHandlingConfig,
+    Library,
+    ScheduledTasksConfig,
+)
 from bookcard.repositories.config_repository import LibraryRepository
 from bookcard.services.config_service import (
+    BasicConfigService,
     EPUBFixerConfigService,
+    FileHandlingConfigService,
     LibraryService,
     ScheduledTasksConfigService,
 )
@@ -1477,3 +1484,385 @@ def test_update_scheduled_tasks_config(
         assert result.epub_fixer_daily_scan == epub_fixer_daily_scan
 
     assert session.commit_count == 1  # type: ignore[possibly-missing-attribute]
+
+
+# ============================================================================
+# Tests for BasicConfigService
+# ============================================================================
+
+
+@pytest.fixture
+def basic_config_service(session: DummySession) -> BasicConfigService:
+    """Create a BasicConfigService instance for testing.
+
+    Parameters
+    ----------
+    session : DummySession
+        Test session.
+
+    Returns
+    -------
+    BasicConfigService
+        Basic config service instance.
+    """
+    return BasicConfigService(session)  # type: ignore[arg-type]
+
+
+def test_basic_config_service_init(
+    basic_config_service: BasicConfigService,
+) -> None:
+    """Test BasicConfigService initialization (covers line 65).
+
+    Parameters
+    ----------
+    basic_config_service : BasicConfigService
+        Basic config service instance.
+    """
+    assert basic_config_service._session is not None
+
+
+def test_get_basic_config_creates_default(
+    basic_config_service: BasicConfigService,
+) -> None:
+    """Test get_basic_config creates default config when none exists (covers lines 69-76).
+
+    Parameters
+    ----------
+    basic_config_service : BasicConfigService
+        Basic config service instance.
+    """
+    session = basic_config_service._session
+    session.add_exec_result([])  # type: ignore[possibly-missing-attribute]  # No existing config
+
+    result = basic_config_service.get_basic_config()
+
+    assert result is not None
+    from bookcard.models.config import BasicConfig
+
+    assert isinstance(result, BasicConfig)
+    assert result in session.added  # type: ignore[possibly-missing-attribute]
+    assert session.commit_count == 1  # type: ignore[possibly-missing-attribute]
+
+
+def test_get_basic_config_existing(
+    basic_config_service: BasicConfigService,
+) -> None:
+    """Test get_basic_config returns existing config (covers line 70).
+
+    Parameters
+    ----------
+    basic_config_service : BasicConfigService
+        Basic config service instance.
+    """
+    session = basic_config_service._session
+    from bookcard.models.config import BasicConfig
+
+    existing_config = BasicConfig(id=1, allow_anonymous_browsing=True)
+    session.add_exec_result([existing_config])  # type: ignore[possibly-missing-attribute]
+
+    result = basic_config_service.get_basic_config()
+
+    assert result == existing_config
+    assert result.allow_anonymous_browsing is True
+
+
+@pytest.mark.parametrize(
+    (
+        "allow_anonymous_browsing",
+        "allow_public_registration",
+        "require_email_for_registration",
+        "max_upload_size_mb",
+    ),
+    [
+        (True, None, None, None),
+        (None, True, None, None),
+        (None, None, True, None),
+        (None, None, None, 100),
+        (True, True, True, 200),
+    ],
+)
+def test_update_basic_config(
+    basic_config_service: BasicConfigService,
+    allow_anonymous_browsing: bool | None,
+    allow_public_registration: bool | None,
+    require_email_for_registration: bool | None,
+    max_upload_size_mb: int | None,
+) -> None:
+    """Test update_basic_config updates all fields (covers lines 104-116).
+
+    Parameters
+    ----------
+    basic_config_service : BasicConfigService
+        Basic config service instance.
+    allow_anonymous_browsing : bool | None
+        Allow anonymous browsing flag to set.
+    allow_public_registration : bool | None
+        Allow public registration flag to set.
+    require_email_for_registration : bool | None
+        Require email for registration flag to set.
+    max_upload_size_mb : int | None
+        Max upload size in MB to set.
+    """
+    session = basic_config_service._session
+    from bookcard.models.config import BasicConfig
+
+    existing_config = BasicConfig(
+        id=1,
+        allow_anonymous_browsing=False,
+        allow_public_registration=False,
+        require_email_for_registration=False,
+        max_upload_size_mb=50,
+    )
+    session.add_exec_result([existing_config])  # type: ignore[possibly-missing-attribute]
+
+    result = basic_config_service.update_basic_config(
+        allow_anonymous_browsing=allow_anonymous_browsing,
+        allow_public_registration=allow_public_registration,
+        require_email_for_registration=require_email_for_registration,
+        max_upload_size_mb=max_upload_size_mb,
+    )
+
+    if allow_anonymous_browsing is not None:
+        assert result.allow_anonymous_browsing == allow_anonymous_browsing
+    if allow_public_registration is not None:
+        assert result.allow_public_registration == allow_public_registration
+    if require_email_for_registration is not None:
+        assert result.require_email_for_registration == require_email_for_registration
+    if max_upload_size_mb is not None:
+        assert result.max_upload_size_mb == max_upload_size_mb
+
+    assert session.commit_count == 1  # type: ignore[possibly-missing-attribute]
+
+
+# ============================================================================
+# Tests for LibraryService._update_library_fields with auto_metadata_enforcement
+# ============================================================================
+
+
+def test_update_library_fields_auto_metadata_enforcement(
+    library_service: LibraryService,
+) -> None:
+    """Test _update_library_fields updates auto_metadata_enforcement (covers lines 622, 624).
+
+    Parameters
+    ----------
+    library_service : LibraryService
+        Library service instance.
+    """
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+        auto_metadata_enforcement=False,
+    )
+
+    library_service._update_library_fields(library, auto_metadata_enforcement=True)
+
+    assert library.auto_metadata_enforcement is True
+
+
+# ============================================================================
+# Tests for LibraryService._update_auto_convert_fields
+# ============================================================================
+
+
+@pytest.mark.parametrize(
+    (
+        "auto_convert_on_ingest",
+        "auto_convert_target_format",
+        "auto_convert_ignored_formats",
+        "auto_convert_backup_originals",
+        "epub_fixer_auto_fix_on_ingest",
+        "duplicate_handling",
+    ),
+    [
+        (True, None, None, None, None, None),
+        (None, "EPUB", None, None, None, None),
+        (None, None, '["MOBI", "AZW3"]', None, None, None),
+        (None, None, None, True, None, None),
+        (None, None, None, None, True, None),
+        (None, None, None, None, None, "IGNORE"),
+        (True, "EPUB", '["MOBI"]', True, True, "OVERWRITE"),
+    ],
+)
+def test_update_auto_convert_fields(
+    library_service: LibraryService,
+    auto_convert_on_ingest: bool | None,
+    auto_convert_target_format: str | None,
+    auto_convert_ignored_formats: str | None,
+    auto_convert_backup_originals: bool | None,
+    epub_fixer_auto_fix_on_ingest: bool | None,
+    duplicate_handling: str | None,
+) -> None:
+    """Test _update_auto_convert_fields updates all fields (covers lines 657, 659, 661, 663, 665, 667).
+
+    Parameters
+    ----------
+    library_service : LibraryService
+        Library service instance.
+    auto_convert_on_ingest : bool | None
+        Auto convert on ingest flag to set.
+    auto_convert_target_format : str | None
+        Target format to set.
+    auto_convert_ignored_formats : str | None
+        Ignored formats to set.
+    auto_convert_backup_originals : bool | None
+        Backup originals flag to set.
+    epub_fixer_auto_fix_on_ingest : bool | None
+        EPUB fixer auto fix flag to set.
+    duplicate_handling : str | None
+        Duplicate handling strategy to set.
+    """
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library",
+        calibre_db_file="metadata.db",
+        auto_convert_on_ingest=False,
+        auto_convert_target_format=None,
+        auto_convert_ignored_formats=None,
+        auto_convert_backup_originals=False,
+        epub_fixer_auto_fix_on_ingest=False,
+        duplicate_handling=None,
+    )
+
+    library_service._update_auto_convert_fields(
+        library,
+        auto_convert_on_ingest=auto_convert_on_ingest,
+        auto_convert_target_format=auto_convert_target_format,
+        auto_convert_ignored_formats=auto_convert_ignored_formats,
+        auto_convert_backup_originals=auto_convert_backup_originals,
+        epub_fixer_auto_fix_on_ingest=epub_fixer_auto_fix_on_ingest,
+        duplicate_handling=duplicate_handling,
+    )
+
+    if auto_convert_on_ingest is not None:
+        assert library.auto_convert_on_ingest == auto_convert_on_ingest
+    if auto_convert_target_format is not None:
+        assert library.auto_convert_target_format == auto_convert_target_format
+    if auto_convert_ignored_formats is not None:
+        assert library.auto_convert_ignored_formats == auto_convert_ignored_formats
+    if auto_convert_backup_originals is not None:
+        assert library.auto_convert_backup_originals == auto_convert_backup_originals
+    if epub_fixer_auto_fix_on_ingest is not None:
+        assert library.epub_fixer_auto_fix_on_ingest == epub_fixer_auto_fix_on_ingest
+    if duplicate_handling is not None:
+        assert library.duplicate_handling == duplicate_handling
+
+
+# ============================================================================
+# Tests for FileHandlingConfigService
+# ============================================================================
+
+
+@pytest.fixture
+def file_handling_service(session: DummySession) -> FileHandlingConfigService:
+    """Create a FileHandlingConfigService instance for testing.
+
+    Parameters
+    ----------
+    session : DummySession
+        Test session.
+
+    Returns
+    -------
+    FileHandlingConfigService
+        File handling config service instance.
+    """
+    return FileHandlingConfigService(session)  # type: ignore[arg-type]
+
+
+def test_file_handling_config_service_init(
+    file_handling_service: FileHandlingConfigService,
+) -> None:
+    """Test FileHandlingConfigService initialization (covers line 1063).
+
+    Parameters
+    ----------
+    file_handling_service : FileHandlingConfigService
+        File handling config service instance.
+    """
+    assert file_handling_service._session is not None
+
+
+def test_get_file_handling_config_creates_default(
+    file_handling_service: FileHandlingConfigService,
+) -> None:
+    """Test get_file_handling_config creates default config when none exists (covers lines 1075-1083).
+
+    Parameters
+    ----------
+    file_handling_service : FileHandlingConfigService
+        File handling config service instance.
+    """
+    session = file_handling_service._session
+    session.add_exec_result([])  # type: ignore[possibly-missing-attribute]  # No existing config
+
+    result = file_handling_service.get_file_handling_config()
+
+    assert result is not None
+    assert isinstance(result, FileHandlingConfig)
+    assert result in session.added  # type: ignore[possibly-missing-attribute]
+    assert session.commit_count == 1  # type: ignore[possibly-missing-attribute]
+
+
+def test_get_allowed_upload_formats_empty(
+    file_handling_service: FileHandlingConfigService,
+) -> None:
+    """Test get_allowed_upload_formats returns empty list when config is empty (covers line 1095).
+
+    Parameters
+    ----------
+    file_handling_service : FileHandlingConfigService
+        File handling config service instance.
+    """
+    session = file_handling_service._session
+    config = FileHandlingConfig(id=1, allowed_upload_formats=None)
+    session.add_exec_result([config])  # type: ignore[possibly-missing-attribute]
+
+    result = file_handling_service.get_allowed_upload_formats()
+
+    assert result == []
+
+
+def test_get_allowed_upload_formats_with_formats(
+    file_handling_service: FileHandlingConfigService,
+) -> None:
+    """Test get_allowed_upload_formats parses formats correctly (covers lines 1093-1097).
+
+    Parameters
+    ----------
+    file_handling_service : FileHandlingConfigService
+        File handling config service instance.
+    """
+    session = file_handling_service._session
+    config = FileHandlingConfig(id=1, allowed_upload_formats="EPUB, MOBI, PDF, AZW3")
+    session.add_exec_result([config])  # type: ignore[possibly-missing-attribute]
+
+    result = file_handling_service.get_allowed_upload_formats()
+
+    assert result == ["epub", "mobi", "pdf", "azw3"]
+
+
+def test_is_format_allowed(
+    file_handling_service: FileHandlingConfigService,
+) -> None:
+    """Test is_format_allowed checks format correctly (covers lines 1117-1119).
+
+    Parameters
+    ----------
+    file_handling_service : FileHandlingConfigService
+        File handling config service instance.
+    """
+    session = file_handling_service._session
+    config = FileHandlingConfig(id=1, allowed_upload_formats="EPUB, MOBI, PDF")
+    # Need to return config for both get_file_handling_config() calls
+    session.add_exec_result([config])  # type: ignore[possibly-missing-attribute]
+    session.add_exec_result([config])  # type: ignore[possibly-missing-attribute]
+
+    assert file_handling_service.is_format_allowed("epub") is True
+    assert file_handling_service.is_format_allowed(".EPUB") is True
+    assert file_handling_service.is_format_allowed("mobi") is True
+    # Use a format that's definitely not in the allowed list
+    assert file_handling_service.is_format_allowed("xyz") is False
