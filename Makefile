@@ -180,9 +180,16 @@ docs-serve:
 docs-deploy:
 	@echo "Deploying documentation with versioning..."; \
 	if [ -z "$$VERSION" ]; then \
-		echo "Error: VERSION environment variable is required."; \
-		echo "Usage: VERSION=0.1.0 make docs-deploy"; \
-		exit 1; \
+		VERSION=$$(grep -m 1 '^version = ' pyproject.toml | cut -d '"' -f 2); \
+		if [ -z "$$VERSION" ]; then \
+			VERSION=$$(grep -m 1 '"version":' web/package.json | cut -d '"' -f 4); \
+		fi; \
+		if [ -z "$$VERSION" ]; then \
+			echo "Error: VERSION environment variable is required and could not be detected from pyproject.toml or web/package.json."; \
+			echo "Usage: VERSION=0.1.0 make docs-deploy"; \
+			exit 1; \
+		fi; \
+		echo "Detected version: $$VERSION"; \
 	fi; \
 	cd $(CURDIR) && uv run --frozen python scripts/generate_openapi.py; \
 	cd $(CURDIR) && uv run --frozen mike deploy $$VERSION latest; \

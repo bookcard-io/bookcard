@@ -90,6 +90,9 @@ class ReadingProgressRepository(Repository[ReadingProgress]):
     ) -> list[ReadingProgress]:
         """Get recent reads ordered by updated_at.
 
+        Returns only books with actual reading progress (progress > 0).
+        Deduplicates by book_id to show only the most recently updated format per book.
+
         Parameters
         ----------
         user_id : int
@@ -103,17 +106,38 @@ class ReadingProgressRepository(Repository[ReadingProgress]):
         -------
         list[ReadingProgress]
             List of recent reading progress records, ordered by updated_at descending.
+            Only includes books with progress > 0, one record per book (most recent format).
         """
+        # Get all progress records with actual reading progress
         stmt = (
             select(ReadingProgress)
             .where(
                 ReadingProgress.user_id == user_id,
                 ReadingProgress.library_id == library_id,
+                ReadingProgress.progress > 0.0,
             )
             .order_by(desc(ReadingProgress.updated_at))
-            .limit(limit)
         )
-        return list(self._session.exec(stmt).all())
+        all_progress = list(self._session.exec(stmt).all())
+
+        # Deduplicate by book_id, keeping the most recent format for each book
+        seen_books: dict[int, ReadingProgress] = {}
+        for progress in all_progress:
+            book_id = progress.book_id
+            if book_id not in seen_books:
+                seen_books[book_id] = progress
+            else:
+                # Keep the one with the most recent updated_at
+                if progress.updated_at > seen_books[book_id].updated_at:
+                    seen_books[book_id] = progress
+
+        # Return the most recent books up to the limit
+        sorted_books = sorted(
+            seen_books.values(),
+            key=lambda p: p.updated_at,
+            reverse=True,
+        )
+        return sorted_books[:limit]
 
 
 class ReadingSessionRepository(Repository[ReadingSession]):

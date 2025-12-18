@@ -285,14 +285,17 @@ class ReadingService:
         session.progress_end = progress_end
         self._session.flush()
 
-        # Auto-mark as read if threshold reached
-        if progress_end >= AUTO_MARK_THRESHOLD:
-            self._auto_mark_as_read(
-                session.user_id,
-                session.library_id,
-                session.book_id,
-                progress_end,
-            )
+        # Update reading progress table so it appears in recent reads
+        # This ensures the progress is saved and will show up in the recent reads list
+        # update_progress handles creating/updating the record and auto-marking as read
+        self.update_progress(
+            user_id=session.user_id,
+            library_id=session.library_id,
+            book_id=session.book_id,
+            book_format=session.format,
+            progress=progress_end,
+            device=session.device,
+        )
 
         return session
 

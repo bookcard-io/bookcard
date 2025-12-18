@@ -27,4 +27,4 @@ Bookcard is a self-hosted ebook management and reading platform that provides a 
 
 - Check the [User Guide](user-guide/installation.md) for common questions
 - Review the [API Documentation](api/overview.md) for integration details
-- See [Contributing](developers/contributing.md) for development guidelines
+- See [Contributing](developers/workflow.md) for development guidelines

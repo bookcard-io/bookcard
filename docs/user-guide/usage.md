@@ -15,10 +15,10 @@ This guide covers how to use Bookcard to manage and read your ebook library.
 1. Navigate to a book in your library
 2. Click "Read" to open the web reader
 3. Use the toolbar to:
-   - Adjust font size
-   - Change theme (light/dark)
-   - Navigate pages
-   - Bookmark pages
+      - Adjust font size
+      - Change theme (light/dark)
+      - Navigate pages
+      - Bookmark pages
 
 ### Reading Progress
 

@@ -40,24 +40,24 @@ Bookcard is built with a modern, layered architecture:
 ### Layers
 
 1. **API Layer** (`bookcard/api/`)
-   - Route handlers
-   - Request/response validation
-   - Authentication/authorization
+    - Route handlers
+    - Request/response validation
+    - Authentication/authorization
 
 2. **Service Layer** (`bookcard/services/`)
-   - Business logic
-   - Orchestration
-   - Transaction management
+    - Business logic
+    - Orchestration
+    - Transaction management
 
 3. **Repository Layer** (`bookcard/repositories/`)
-   - Data access
-   - Database queries
-   - File operations
+    - Data access
+    - Database queries
+    - File operations
 
 4. **Model Layer** (`bookcard/models/`)
-   - SQLModel database models
-   - Pydantic schemas
-   - Domain entities
+    - SQLModel database models
+    - Pydantic schemas
+    - Domain entities
 
 ### Key Principles
 
@@ -85,6 +85,7 @@ Bookcard is built with a modern, layered architecture:
 ## Background Tasks
 
 Long-running operations (library scanning, conversions) use:
+
 - **Dramatiq**: Task queue library
 - **Redis**: Message broker
 - **Workers**: Separate processes for task execution

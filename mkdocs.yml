@@ -55,12 +55,12 @@ markdown_extensions:
       custom_fences:
         - name: mermaid
           class: mermaid
-          format: "!!python/name:pymdownx.superfences.fence_code_format"
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - admonition
   - pymdownx.details
   - pymdownx.emoji:
-      emoji_index: "!!python/name:material.extensions.emoji.twemoji"
-      emoji_generator: "!!python/name:material.extensions.emoji.to_svg"
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.tabbed:
       alternate_style: true
   - attr_list
@@ -71,8 +71,17 @@ markdown_extensions:
 nav:
   - Home: index.md
   - User Guide:
+      - user-guide/docker-installation.md
       - user-guide/installation.md
       - user-guide/usage.md
+      - user-guide/users-and-permissions.md
+      - user-guide/library-configuration.md
+      - user-guide/ingestion-configuration.md
+      - user-guide/book-card-interface.md
+      - user-guide/uploading-books.md
+      - user-guide/fetching-metadata.md
+      - user-guide/library-scanning.md
+      - user-guide/managing-devices.md
       - user-guide/screenshots.md
   - API:
       - api/overview.md
@@ -80,7 +89,9 @@ nav:
       - api/reference.md
   - Developers:
       - developers/architecture.md
-      - developers/contributing.md
+      - developers/setup.md
+      - developers/workflow.md
+      - developers/code-style.md
   - Security:
       - auth/README.md
 

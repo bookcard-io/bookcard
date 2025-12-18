@@ -41,7 +41,7 @@ Your OIDC provider handles identity (authentication, user management). The appli
 
 3. **Create users in your provider**, or connect your provider to LDAP/AD as needed.
 
-4. **Restart Application**: `docker-compose restart bookcard`
+4. **Restart Application**: `docker compose restart bookcard`
 
 **First User**: The first SSO user to log in automatically receives admin privileges.
 
