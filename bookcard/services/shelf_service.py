@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING
 from bookcard.models.shelves import BookShelfLink, Shelf, ShelfTypeEnum
 from bookcard.repositories.config_repository import LibraryRepository
 from bookcard.services.config_service import LibraryService
+from bookcard.services.permission_service import PermissionService
 from bookcard.services.readlist.import_service import (
     ImportResult,
     ReadListImportService,
@@ -39,6 +40,7 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from sqlmodel import Session
 
+    from bookcard.models.auth import User
     from bookcard.repositories.shelf_repository import (
         BookShelfLinkRepository,
         ShelfRepository,
@@ -146,7 +148,7 @@ class ShelfService:
     def update_shelf(
         self,
         shelf_id: int,
-        user_id: int,
+        user: User,
         name: str | None = None,
         description: str | None = None,
         is_public: bool | None = None,
@@ -158,12 +160,14 @@ class ShelfService:
         ----------
         shelf_id : int
             Shelf ID to update.
-        user_id : int
-            User ID requesting the update (for permission check).
+        user : User
+            User requesting the update (for permission check).
         name : str | None
             New shelf name (optional).
         is_public : bool | None
             New public status (optional).
+        shelf_type : ShelfTypeEnum | None
+            New shelf type (optional).
 
         Returns
         -------
@@ -175,12 +179,16 @@ class ShelfService:
         ValueError
             If shelf not found, permission denied, or name conflict.
         """
+        if user.id is None:
+            msg = "User must have an ID"
+            raise ValueError(msg)
+
         shelf = self._shelf_repo.get(shelf_id)
         if shelf is None:
             msg = f"Shelf {shelf_id} not found"
             raise ValueError(msg)
 
-        if not self.can_edit_shelf(shelf, user_id, False):
+        if not self.can_edit_shelf(shelf, user):
             msg = "Permission denied: cannot edit this shelf"
             raise ValueError(msg)
 
@@ -188,7 +196,7 @@ class ShelfService:
             if not self._shelf_repo.check_name_unique(
                 shelf.library_id,
                 name,
-                user_id,
+                user.id,
                 shelf.is_public if is_public is None else is_public,
                 exclude_id=shelf_id,
             ):
@@ -206,27 +214,31 @@ class ShelfService:
         self._session.flush()
         return shelf
 
-    def delete_shelf(self, shelf_id: int, user_id: int) -> None:
+    def delete_shelf(self, shelf_id: int, user: User) -> None:
         """Delete a shelf and all its book associations.
 
         Parameters
         ----------
         shelf_id : int
             Shelf ID to delete.
-        user_id : int
-            User ID requesting the deletion (for permission check).
+        user : User
+            User requesting the deletion (for permission check).
 
         Raises
         ------
         ValueError
             If shelf not found or permission denied.
         """
+        if user.id is None:
+            msg = "User must have an ID"
+            raise ValueError(msg)
+
         shelf = self._shelf_repo.get(shelf_id)
         if shelf is None:
             msg = f"Shelf {shelf_id} not found"
             raise ValueError(msg)
 
-        if not self.can_edit_shelf(shelf, user_id, False):
+        if not self.can_edit_shelf(shelf, user):
             msg = "Permission denied: cannot delete this shelf"
             raise ValueError(msg)
 
@@ -240,7 +252,7 @@ class ShelfService:
         self,
         shelf_id: int,
         book_id: int,
-        user_id: int,
+        user: User,
     ) -> BookShelfLink:
         """Add a book to a shelf.
 
@@ -250,8 +262,8 @@ class ShelfService:
             Shelf ID.
         book_id : int
             Calibre book ID.
-        user_id : int
-            User ID requesting the addition (for permission check).
+        user : User
+            User requesting the addition (for permission check).
 
         Returns
         -------
@@ -263,12 +275,16 @@ class ShelfService:
         ValueError
             If shelf not found, permission denied, or book already in shelf.
         """
+        if user.id is None:
+            msg = "User must have an ID"
+            raise ValueError(msg)
+
         shelf = self._shelf_repo.get(shelf_id)
         if shelf is None:
             msg = f"Shelf {shelf_id} not found"
             raise ValueError(msg)
 
-        if not self.can_edit_shelf(shelf, user_id, False):
+        if not self.can_edit_shelf(shelf, user):
             msg = "Permission denied: cannot add books to this shelf"
             raise ValueError(msg)
 
@@ -297,7 +313,7 @@ class ShelfService:
         self,
         shelf_id: int,
         book_id: int,
-        user_id: int,
+        user: User,
     ) -> None:
         """Remove a book from a shelf.
 
@@ -307,20 +323,24 @@ class ShelfService:
             Shelf ID.
         book_id : int
             Calibre book ID.
-        user_id : int
-            User ID requesting the removal (for permission check).
+        user : User
+            User requesting the removal (for permission check).
 
         Raises
         ------
         ValueError
             If shelf not found, permission denied, or book not in shelf.
         """
+        if user.id is None:
+            msg = "User must have an ID"
+            raise ValueError(msg)
+
         shelf = self._shelf_repo.get(shelf_id)
         if shelf is None:
             msg = f"Shelf {shelf_id} not found"
             raise ValueError(msg)
 
-        if not self.can_edit_shelf(shelf, user_id, False):
+        if not self.can_edit_shelf(shelf, user):
             msg = "Permission denied: cannot remove books from this shelf"
             raise ValueError(msg)
 
@@ -339,7 +359,7 @@ class ShelfService:
         self,
         shelf_id: int,
         book_orders: dict[int, int],
-        user_id: int,
+        user: User,
     ) -> None:
         """Reorder books in a shelf.
 
@@ -349,20 +369,24 @@ class ShelfService:
             Shelf ID.
         book_orders : dict[int, int]
             Mapping of book_id to new order value.
-        user_id : int
-            User ID requesting the reorder (for permission check).
+        user : User
+            User requesting the reorder (for permission check).
 
         Raises
         ------
         ValueError
             If shelf not found or permission denied.
         """
+        if user.id is None:
+            msg = "User must have an ID"
+            raise ValueError(msg)
+
         shelf = self._shelf_repo.get(shelf_id)
         if shelf is None:
             msg = f"Shelf {shelf_id} not found"
             raise ValueError(msg)
 
-        if not self.can_edit_shelf(shelf, user_id, False):
+        if not self.can_edit_shelf(shelf, user):
             msg = "Permission denied: cannot reorder books in this shelf"
             raise ValueError(msg)
 
@@ -375,32 +399,46 @@ class ShelfService:
     def can_edit_shelf(
         self,
         shelf: Shelf,
-        user_id: int,
-        is_admin: bool,
+        user: User,
     ) -> bool:
         """Check if a user can edit a shelf.
+
+        Checks for shelves:edit permission first. If the user has the permission
+        (with or without conditions), they can edit. Otherwise, falls back to
+        ownership-based checks.
 
         Parameters
         ----------
         shelf : Shelf
             Shelf to check.
-        user_id : int
-            User ID to check permissions for.
-        is_admin : bool
-            Whether the user is an admin.
+        user : User
+            User to check permissions for.
 
         Returns
         -------
         bool
             True if user can edit the shelf, False otherwise.
         """
+        if user.id is None:
+            return False
+
+        # Check for shelves:edit permission
+        permission_service = PermissionService(self._session)
+        context: dict[str, object] = {}
+        if shelf.user_id is not None:
+            context["owner_id"] = shelf.user_id
+
+        # Check if user has shelves:edit permission
+        if permission_service.has_permission(user, "shelves", "edit", context):
+            return True
+
+        # Fall back to ownership-based checks
         # Private shelf: only owner can edit
         if not shelf.is_public:
-            return shelf.user_id == user_id
+            return shelf.user_id == user.id
 
         # Public shelf: owner or admin can edit
-        # (In future, can check for shelves:edit permission)
-        return shelf.user_id == user_id or is_admin
+        return shelf.user_id == user.id or user.is_admin
 
     def can_view_shelf(
         self,
@@ -714,7 +752,7 @@ class ShelfService:
         shelf_id: int,
         file_path: Path,
         importer_name: str,
-        user_id: int,
+        user: User,
         auto_match: bool = False,
     ) -> ImportResult:
         """Import a read list from a file into a shelf.
@@ -727,8 +765,8 @@ class ShelfService:
             Path to the read list file.
         importer_name : str
             Name of the importer to use (e.g., "comicrack").
-        user_id : int
-            User ID requesting the import (for permission check).
+        user : User
+            User requesting the import (for permission check).
         auto_match : bool
             If True, automatically add matched books to shelf (default: False).
 
@@ -742,13 +780,17 @@ class ShelfService:
         ValueError
             If shelf not found, permission denied, or import fails.
         """
+        if user.id is None:
+            msg = "User must have an ID"
+            raise ValueError(msg)
+
         # Validate shelf exists and user has permission
         shelf = self._shelf_repo.get(shelf_id)
         if shelf is None:
             msg = f"Shelf {shelf_id} not found"
             raise ValueError(msg)
 
-        if not self.can_edit_shelf(shelf, user_id, False):
+        if not self.can_edit_shelf(shelf, user):
             msg = "Permission denied: cannot import to this shelf"
             raise ValueError(msg)
 
@@ -778,7 +820,7 @@ class ShelfService:
                         self.add_book_to_shelf(
                             shelf_id,
                             match_result.book_id,
-                            user_id,
+                            user,
                         )
 
             # Update shelf last_modified

@@ -1044,7 +1044,7 @@ def handle_tags_update(
 
         link_repo = BookShelfLinkRepository(session)
         shelf_service = ShelfService(session, shelf_repo, link_repo)
-        shelf_service.delete_shelf(shelf.id or 0, kobo_user.id)
+        shelf_service.delete_shelf(shelf.id or 0, kobo_user)
     else:
         if tag_data:
             shelf_service = _get_kobo_shelf_service(session)
@@ -1110,7 +1110,7 @@ def handle_tags_add_items(
             detail="shelf_missing_id",
         )
 
-    shelf_item_service.add_items_to_shelf(shelf.id, kobo_user.id, item_data)
+    shelf_item_service.add_items_to_shelf(shelf.id, kobo_user, item_data)
 
     session.commit()
 

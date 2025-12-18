@@ -443,7 +443,7 @@ def update_shelf(
     try:
         shelf = shelf_service.update_shelf(
             shelf_id=shelf_id,
-            user_id=current_user.id,
+            user=current_user,
             name=shelf_data.name,
             description=shelf_data.description,
             is_public=shelf_data.is_public,
@@ -529,7 +529,7 @@ def delete_shelf(
     )
 
     try:
-        shelf_service.delete_shelf(shelf_id, current_user.id)
+        shelf_service.delete_shelf(shelf_id, current_user)
         session.commit()
     except ValueError as e:
         raise HTTPException(
@@ -579,8 +579,13 @@ def add_book_to_shelf(
             detail=f"Shelf {shelf_id} not found",
         )
 
+    # Check permission with shelf context
+    permission_service = PermissionService(session)
+    shelf_context = _build_shelf_permission_context(shelf_check)
+    permission_service.check_permission(current_user, "shelves", "edit", shelf_context)
+
     try:
-        shelf_service.add_book_to_shelf(shelf_id, book_id, current_user.id)
+        shelf_service.add_book_to_shelf(shelf_id, book_id, current_user)
         session.commit()
     except ValueError as e:
         raise HTTPException(
@@ -630,8 +635,13 @@ def remove_book_from_shelf(
             detail=f"Shelf {shelf_id} not found",
         )
 
+    # Check permission with shelf context
+    permission_service = PermissionService(session)
+    shelf_context = _build_shelf_permission_context(shelf_check)
+    permission_service.check_permission(current_user, "shelves", "edit", shelf_context)
+
     try:
-        shelf_service.remove_book_from_shelf(shelf_id, book_id, current_user.id)
+        shelf_service.remove_book_from_shelf(shelf_id, book_id, current_user)
         session.commit()
     except ValueError as e:
         raise HTTPException(
@@ -681,11 +691,16 @@ def reorder_shelf_books(
             detail=f"Shelf {shelf_id} not found",
         )
 
+    # Check permission with shelf context
+    permission_service = PermissionService(session)
+    shelf_context = _build_shelf_permission_context(shelf_check)
+    permission_service.check_permission(current_user, "shelves", "edit", shelf_context)
+
     try:
         shelf_service.reorder_books(
             shelf_id,
             reorder_data.book_orders,
-            current_user.id,
+            current_user,
         )
         session.commit()
     except ValueError as e:
@@ -1135,7 +1150,7 @@ def import_read_list(
             shelf_id=shelf_id,
             file_path=tmp_path,
             importer_name=importer,
-            user_id=current_user.id,  # type: ignore[arg-type]
+            user=current_user,
             auto_match=auto_match,
         )
         session.commit()

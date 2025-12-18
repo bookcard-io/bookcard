@@ -23,6 +23,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from bookcard.api.schemas.kobo import KoboTagItemRequest
+from bookcard.models.auth import User
 from bookcard.services.kobo.book_lookup_service import KoboBookLookupService
 from bookcard.services.kobo.shelf_item_service import KoboShelfItemService
 
@@ -149,16 +150,22 @@ def test_add_items_to_shelf_success(
         mock_shelf_service.add_book_to_shelf = MagicMock()
         mock_shelf_service_class.return_value = mock_shelf_service
 
+        user = User(
+            id=1, username="testuser", email="test@example.com", password_hash="hash"
+        )
         shelf_item_service.add_items_to_shelf(
-            shelf_id=1, user_id=1, item_data=tag_item_request
+            shelf_id=1, user=user, item_data=tag_item_request
         )
 
         mock_book_lookup_service.find_book_by_uuid.assert_called_once_with(
             "test-uuid-123"
         )
-        mock_shelf_service.add_book_to_shelf.assert_called_once_with(
-            shelf_id=1, book_id=1, user_id=1
-        )
+        # Check that add_book_to_shelf was called with user object
+        assert mock_shelf_service.add_book_to_shelf.called
+        call_args = mock_shelf_service.add_book_to_shelf.call_args
+        assert call_args.kwargs["shelf_id"] == 1
+        assert call_args.kwargs["book_id"] == 1
+        assert call_args.kwargs["user"].id == 1
 
 
 def test_add_items_to_shelf_wrong_type(
@@ -183,8 +190,11 @@ def test_add_items_to_shelf_wrong_type(
     ) as mock_shelf_service_class:
         mock_shelf_service = MagicMock()
         mock_shelf_service_class.return_value = mock_shelf_service
+        user = User(
+            id=1, username="testuser", email="test@example.com", password_hash="hash"
+        )
         shelf_item_service.add_items_to_shelf(
-            shelf_id=1, user_id=1, item_data=tag_item_request
+            shelf_id=1, user=user, item_data=tag_item_request
         )
 
     mock_book_lookup_service.find_book_by_uuid.assert_not_called()
@@ -210,8 +220,11 @@ def test_add_items_to_shelf_no_revision_id(
     ) as mock_shelf_service_class:
         mock_shelf_service = MagicMock()
         mock_shelf_service_class.return_value = mock_shelf_service
+        user = User(
+            id=1, username="testuser", email="test@example.com", password_hash="hash"
+        )
         shelf_item_service.add_items_to_shelf(
-            shelf_id=1, user_id=1, item_data=tag_item_request
+            shelf_id=1, user=user, item_data=tag_item_request
         )
 
     mock_book_lookup_service.find_book_by_uuid.assert_not_called()
@@ -241,8 +254,11 @@ def test_add_items_to_shelf_book_not_found(
         mock_shelf_service = MagicMock()
         mock_shelf_service_class.return_value = mock_shelf_service
 
+        user = User(
+            id=1, username="testuser", email="test@example.com", password_hash="hash"
+        )
         shelf_item_service.add_items_to_shelf(
-            shelf_id=1, user_id=1, item_data=tag_item_request
+            shelf_id=1, user=user, item_data=tag_item_request
         )
 
         mock_shelf_service.add_book_to_shelf.assert_not_called()
@@ -279,8 +295,11 @@ def test_add_items_to_shelf_already_in_shelf(
         mock_shelf_service_class.return_value = mock_shelf_service
 
         # Should not raise, just suppress the error
+        user = User(
+            id=1, username="testuser", email="test@example.com", password_hash="hash"
+        )
         shelf_item_service.add_items_to_shelf(
-            shelf_id=1, user_id=1, item_data=tag_item_request
+            shelf_id=1, user=user, item_data=tag_item_request
         )
 
 
@@ -317,16 +336,22 @@ def test_remove_items_from_shelf_success(
         mock_shelf_service.remove_book_from_shelf = MagicMock()
         mock_shelf_service_class.return_value = mock_shelf_service
 
+        user = User(
+            id=1, username="testuser", email="test@example.com", password_hash="hash"
+        )
         shelf_item_service.remove_items_from_shelf(
-            shelf_id=1, user_id=1, item_data=tag_item_request
+            shelf_id=1, user=user, item_data=tag_item_request
         )
 
         mock_book_lookup_service.find_book_by_uuid.assert_called_once_with(
             "test-uuid-123"
         )
-        mock_shelf_service.remove_book_from_shelf.assert_called_once_with(
-            shelf_id=1, book_id=1, user_id=1
-        )
+        # Check that remove_book_from_shelf was called with user object
+        assert mock_shelf_service.remove_book_from_shelf.called
+        call_args = mock_shelf_service.remove_book_from_shelf.call_args
+        assert call_args.kwargs["shelf_id"] == 1
+        assert call_args.kwargs["book_id"] == 1
+        assert call_args.kwargs["user"].id == 1
 
 
 def test_remove_items_from_shelf_wrong_type(
@@ -351,8 +376,11 @@ def test_remove_items_from_shelf_wrong_type(
         patch("bookcard.services.kobo.shelf_item_service.BookShelfLinkRepository"),
         patch("bookcard.services.kobo.shelf_item_service.ShelfService"),
     ):
+        user = User(
+            id=1, username="testuser", email="test@example.com", password_hash="hash"
+        )
         shelf_item_service.remove_items_from_shelf(
-            shelf_id=1, user_id=1, item_data=tag_item_request
+            shelf_id=1, user=user, item_data=tag_item_request
         )
 
     mock_book_lookup_service.find_book_by_uuid.assert_not_called()
@@ -378,8 +406,11 @@ def test_remove_items_from_shelf_no_revision_id(
         patch("bookcard.services.kobo.shelf_item_service.BookShelfLinkRepository"),
         patch("bookcard.services.kobo.shelf_item_service.ShelfService"),
     ):
+        user = User(
+            id=1, username="testuser", email="test@example.com", password_hash="hash"
+        )
         shelf_item_service.remove_items_from_shelf(
-            shelf_id=1, user_id=1, item_data=tag_item_request
+            shelf_id=1, user=user, item_data=tag_item_request
         )
 
     mock_book_lookup_service.find_book_by_uuid.assert_not_called()
@@ -409,8 +440,11 @@ def test_remove_items_from_shelf_book_not_found(
         mock_shelf_service = MagicMock()
         mock_shelf_service_class.return_value = mock_shelf_service
 
+        user = User(
+            id=1, username="testuser", email="test@example.com", password_hash="hash"
+        )
         shelf_item_service.remove_items_from_shelf(
-            shelf_id=1, user_id=1, item_data=tag_item_request
+            shelf_id=1, user=user, item_data=tag_item_request
         )
 
         mock_shelf_service.remove_book_from_shelf.assert_not_called()
@@ -447,6 +481,9 @@ def test_remove_items_from_shelf_not_in_shelf(
         mock_shelf_service_class.return_value = mock_shelf_service
 
         # Should not raise, just suppress the error
+        user = User(
+            id=1, username="testuser", email="test@example.com", password_hash="hash"
+        )
         shelf_item_service.remove_items_from_shelf(
-            shelf_id=1, user_id=1, item_data=tag_item_request
+            shelf_id=1, user=user, item_data=tag_item_request
         )

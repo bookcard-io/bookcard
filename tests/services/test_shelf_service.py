@@ -24,6 +24,7 @@ from unittest.mock import patch
 
 import pytest
 
+from bookcard.models.auth import User
 from bookcard.models.shelves import BookShelfLink, Shelf
 from bookcard.repositories.shelf_repository import (
     BookShelfLinkRepository,
@@ -31,6 +32,30 @@ from bookcard.repositories.shelf_repository import (
 )
 from bookcard.services.shelf_service import ShelfService
 from tests.conftest import DummySession
+
+
+def _create_user(user_id: int, is_admin: bool = False) -> User:
+    """Create a test user.
+
+    Parameters
+    ----------
+    user_id : int
+        User ID.
+    is_admin : bool
+        Whether user is admin.
+
+    Returns
+    -------
+    User
+        Test user instance.
+    """
+    return User(
+        id=user_id,
+        username=f"user{user_id}",
+        email=f"user{user_id}@example.com",
+        password_hash="hash",
+        is_admin=is_admin,
+    )
 
 
 def test_shelf_service_init() -> None:
@@ -178,10 +203,13 @@ def test_update_shelf_success() -> None:
         session.add(shelf)
 
         # Mock check_name_unique to return True
+        user = User(
+            id=1, username="testuser", email="test@example.com", password_hash="hash"
+        )
         with patch.object(shelf_repo, "check_name_unique", return_value=True):
             updated = service.update_shelf(
                 shelf_id=1,
-                user_id=1,
+                user=user,
                 name="Updated Name",
                 description="Updated description",
                 is_public=True,
@@ -207,8 +235,11 @@ def test_update_shelf_not_found() -> None:
             data_directory=tmpdir,
         )
 
+        user = User(
+            id=1, username="testuser", email="test@example.com", password_hash="hash"
+        )
         with pytest.raises(ValueError, match="Shelf 999 not found"):
-            service.update_shelf(shelf_id=999, user_id=1, name="New Name")
+            service.update_shelf(shelf_id=999, user=user, name="New Name")
 
 
 def test_update_shelf_permission_denied() -> None:
@@ -237,11 +268,12 @@ def test_update_shelf_permission_denied() -> None:
         )
         session.add(shelf)
 
+        user2 = _create_user(2)
         with pytest.raises(
             ValueError, match="Permission denied: cannot edit this shelf"
         ):
             service.update_shelf(
-                shelf_id=1, user_id=2, name="New Name"
+                shelf_id=1, user=user2, name="New Name"
             )  # User 2 tries to edit
 
 
@@ -272,13 +304,14 @@ def test_update_shelf_name_conflict() -> None:
         session.add(shelf)
 
         # Mock check_name_unique to return False (name conflict)
+        user = _create_user(1)
         with (
             patch.object(shelf_repo, "check_name_unique", return_value=False),
             pytest.raises(
                 ValueError, match="Shelf name 'Conflict Name' already exists"
             ),
         ):
-            service.update_shelf(shelf_id=1, user_id=1, name="Conflict Name")
+            service.update_shelf(shelf_id=1, user=user, name="Conflict Name")
 
 
 def test_update_shelf_partial_update() -> None:
@@ -311,7 +344,7 @@ def test_update_shelf_partial_update() -> None:
         with patch.object(shelf_repo, "check_name_unique", return_value=True):
             updated = service.update_shelf(
                 shelf_id=1,
-                user_id=1,
+                user=_create_user(1),
                 description="New description",
             )
 
@@ -348,7 +381,8 @@ def test_delete_shelf_success() -> None:
 
         # Mock delete_by_shelf to avoid actual deletion
         with patch.object(link_repo, "delete_by_shelf"):
-            service.delete_shelf(shelf_id=1, user_id=1)
+            user = _create_user(1)
+            service.delete_shelf(shelf_id=1, user=user)
 
             assert shelf in session.deleted
             assert session.flush_count > 0
@@ -368,8 +402,9 @@ def test_delete_shelf_not_found() -> None:
             data_directory=tmpdir,
         )
 
+        user = _create_user(1)
         with pytest.raises(ValueError, match="Shelf 999 not found"):
-            service.delete_shelf(shelf_id=999, user_id=1)
+            service.delete_shelf(shelf_id=999, user=user)
 
 
 def test_delete_shelf_permission_denied() -> None:
@@ -398,10 +433,11 @@ def test_delete_shelf_permission_denied() -> None:
         )
         session.add(shelf)
 
+        user2 = _create_user(2)
         with pytest.raises(
             ValueError, match="Permission denied: cannot delete this shelf"
         ):
-            service.delete_shelf(shelf_id=1, user_id=2)  # User 2 tries to delete
+            service.delete_shelf(shelf_id=1, user=user2)  # User 2 tries to delete
 
 
 def test_add_book_to_shelf_success() -> None:
@@ -435,7 +471,8 @@ def test_add_book_to_shelf_success() -> None:
             patch.object(link_repo, "find_by_shelf_and_book", return_value=None),
             patch.object(link_repo, "get_max_order", return_value=5),
         ):
-            link = service.add_book_to_shelf(shelf_id=1, book_id=100, user_id=1)
+            user = _create_user(1)
+            link = service.add_book_to_shelf(shelf_id=1, book_id=100, user=user)
 
             assert link.shelf_id == 1
             assert link.book_id == 100
@@ -458,8 +495,9 @@ def test_add_book_to_shelf_not_found() -> None:
             data_directory=tmpdir,
         )
 
+        user = _create_user(1)
         with pytest.raises(ValueError, match="Shelf 999 not found"):
-            service.add_book_to_shelf(shelf_id=999, book_id=100, user_id=1)
+            service.add_book_to_shelf(shelf_id=999, book_id=100, user=user)
 
 
 def test_add_book_to_shelf_permission_denied() -> None:
@@ -488,10 +526,11 @@ def test_add_book_to_shelf_permission_denied() -> None:
         )
         session.add(shelf)
 
+        user2 = _create_user(2)
         with pytest.raises(
             ValueError, match="Permission denied: cannot add books to this shelf"
         ):
-            service.add_book_to_shelf(shelf_id=1, book_id=100, user_id=2)
+            service.add_book_to_shelf(shelf_id=1, book_id=100, user=user2)
 
 
 def test_add_book_to_shelf_already_exists() -> None:
@@ -527,13 +566,14 @@ def test_add_book_to_shelf_already_exists() -> None:
             date_added=datetime.now(UTC),
         )
 
+        user = _create_user(1)
         with (
             patch.object(
                 link_repo, "find_by_shelf_and_book", return_value=existing_link
             ),
             pytest.raises(ValueError, match="Book 100 is already in shelf My Shelf"),
         ):
-            service.add_book_to_shelf(shelf_id=1, book_id=100, user_id=1)
+            service.add_book_to_shelf(shelf_id=1, book_id=100, user=user)
 
 
 def test_remove_book_from_shelf_success() -> None:
@@ -571,7 +611,8 @@ def test_remove_book_from_shelf_success() -> None:
         )
 
         with patch.object(link_repo, "find_by_shelf_and_book", return_value=link):
-            service.remove_book_from_shelf(shelf_id=1, book_id=100, user_id=1)
+            user = _create_user(1)
+            service.remove_book_from_shelf(shelf_id=1, book_id=100, user=user)
 
             assert link in session.deleted
             assert session.flush_count > 0
@@ -591,8 +632,9 @@ def test_remove_book_from_shelf_not_found() -> None:
             data_directory=tmpdir,
         )
 
+        user = _create_user(1)
         with pytest.raises(ValueError, match="Shelf 999 not found"):
-            service.remove_book_from_shelf(shelf_id=999, book_id=100, user_id=1)
+            service.remove_book_from_shelf(shelf_id=999, book_id=100, user=user)
 
 
 def test_remove_book_from_shelf_permission_denied() -> None:
@@ -621,10 +663,11 @@ def test_remove_book_from_shelf_permission_denied() -> None:
         )
         session.add(shelf)
 
+        user2 = _create_user(2)
         with pytest.raises(
             ValueError, match="Permission denied: cannot remove books from this shelf"
         ):
-            service.remove_book_from_shelf(shelf_id=1, book_id=100, user_id=2)
+            service.remove_book_from_shelf(shelf_id=1, book_id=100, user=user2)
 
 
 def test_remove_book_from_shelf_book_not_in_shelf() -> None:
@@ -653,11 +696,12 @@ def test_remove_book_from_shelf_book_not_in_shelf() -> None:
         )
         session.add(shelf)
 
+        user = _create_user(1)
         with (
             patch.object(link_repo, "find_by_shelf_and_book", return_value=None),
             pytest.raises(ValueError, match="Book 100 is not in shelf My Shelf"),
         ):
-            service.remove_book_from_shelf(shelf_id=1, book_id=100, user_id=1)
+            service.remove_book_from_shelf(shelf_id=1, book_id=100, user=user)
 
 
 def test_reorder_books_success() -> None:
@@ -689,7 +733,8 @@ def test_reorder_books_success() -> None:
         book_orders = {100: 0, 101: 1, 102: 2}
 
         with patch.object(link_repo, "reorder_books"):
-            service.reorder_books(shelf_id=1, book_orders=book_orders, user_id=1)
+            user = _create_user(1)
+            service.reorder_books(shelf_id=1, book_orders=book_orders, user=user)
 
             assert session.flush_count > 0
 
@@ -708,8 +753,9 @@ def test_reorder_books_not_found() -> None:
             data_directory=tmpdir,
         )
 
+        user = _create_user(1)
         with pytest.raises(ValueError, match="Shelf 999 not found"):
-            service.reorder_books(shelf_id=999, book_orders={}, user_id=1)
+            service.reorder_books(shelf_id=999, book_orders={}, user=user)
 
 
 def test_reorder_books_permission_denied() -> None:
@@ -738,10 +784,11 @@ def test_reorder_books_permission_denied() -> None:
         )
         session.add(shelf)
 
+        user2 = _create_user(2)
         with pytest.raises(
             ValueError, match="Permission denied: cannot reorder books in this shelf"
         ):
-            service.reorder_books(shelf_id=1, book_orders={100: 0}, user_id=2)
+            service.reorder_books(shelf_id=1, book_orders={100: 0}, user=user2)
 
 
 def test_can_edit_shelf_private_owner() -> None:
@@ -769,8 +816,10 @@ def test_can_edit_shelf_private_owner() -> None:
             last_modified=datetime.now(UTC),
         )
 
-        assert service.can_edit_shelf(shelf, user_id=1, is_admin=False) is True
-        assert service.can_edit_shelf(shelf, user_id=2, is_admin=False) is False
+        user1 = _create_user(1)
+        user2 = _create_user(2)
+        assert service.can_edit_shelf(shelf, user1) is True
+        assert service.can_edit_shelf(shelf, user2) is False
 
 
 def test_can_edit_shelf_public_owner_or_admin() -> None:
@@ -798,10 +847,14 @@ def test_can_edit_shelf_public_owner_or_admin() -> None:
             last_modified=datetime.now(UTC),
         )
 
-        assert service.can_edit_shelf(shelf, user_id=1, is_admin=False) is True
-        assert service.can_edit_shelf(shelf, user_id=1, is_admin=True) is True
-        assert service.can_edit_shelf(shelf, user_id=2, is_admin=True) is True
-        assert service.can_edit_shelf(shelf, user_id=2, is_admin=False) is False
+        user1 = _create_user(1, is_admin=False)
+        user1_admin = _create_user(1, is_admin=True)
+        user2_admin = _create_user(2, is_admin=True)
+        user2 = _create_user(2, is_admin=False)
+        assert service.can_edit_shelf(shelf, user1) is True
+        assert service.can_edit_shelf(shelf, user1_admin) is True
+        assert service.can_edit_shelf(shelf, user2_admin) is True
+        assert service.can_edit_shelf(shelf, user2) is False
 
 
 def test_can_view_shelf_public() -> None:

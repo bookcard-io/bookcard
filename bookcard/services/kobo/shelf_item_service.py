@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from sqlmodel import Session
 
     from bookcard.api.schemas.kobo import KoboTagItemRequest
+    from bookcard.models.auth import User
     from bookcard.services.kobo.book_lookup_service import KoboBookLookupService
 
 
@@ -58,7 +59,7 @@ class KoboShelfItemService:
         self._book_lookup_service = book_lookup_service
 
     def add_items_to_shelf(
-        self, shelf_id: int, user_id: int, item_data: KoboTagItemRequest
+        self, shelf_id: int, user: User, item_data: KoboTagItemRequest
     ) -> None:
         """Add items to a shelf.
 
@@ -66,8 +67,8 @@ class KoboShelfItemService:
         ----------
         shelf_id : int
             Shelf ID.
-        user_id : int
-            User ID.
+        user : User
+            User making the request.
         item_data : KoboTagItemRequest
             Items to add.
         """
@@ -96,11 +97,11 @@ class KoboShelfItemService:
                 shelf_service.add_book_to_shelf(
                     shelf_id=shelf_id,
                     book_id=book_id,
-                    user_id=user_id,
+                    user=user,
                 )
 
     def remove_items_from_shelf(
-        self, shelf_id: int, user_id: int, item_data: KoboTagItemRequest
+        self, shelf_id: int, user: User, item_data: KoboTagItemRequest
     ) -> None:
         """Remove items from a shelf.
 
@@ -108,8 +109,8 @@ class KoboShelfItemService:
         ----------
         shelf_id : int
             Shelf ID.
-        user_id : int
-            User ID.
+        user : User
+            User making the request.
         item_data : KoboTagItemRequest
             Items to remove.
         """
@@ -138,5 +139,5 @@ class KoboShelfItemService:
                 shelf_service.remove_book_from_shelf(
                     shelf_id=shelf_id,
                     book_id=book_id,
-                    user_id=user_id,
+                    user=user,
                 )

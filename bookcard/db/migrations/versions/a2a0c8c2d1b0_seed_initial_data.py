@@ -280,6 +280,8 @@ def upgrade() -> None:  # noqa: C901
         permission_ids["books:send"],
         permission_ids["shelves:create"],
         permission_ids["shelves:read"],
+        permission_ids["shelves:edit"],
+        permission_ids["shelves:delete"],
     ]
     for perm_id in user_permissions:
         conn.execute(
@@ -302,6 +304,7 @@ def upgrade() -> None:  # noqa: C901
         permission_ids["users:read"],
         permission_ids["books:read"],
         permission_ids["shelves:read"],
+        permission_ids["books:send"],
     ]
     for perm_id in viewer_permissions:
         conn.execute(
