@@ -1,9 +1,7 @@
 ---
 services:
   bookcard:
-    build:
-      context: ..
-      dockerfile: infra/Dockerfile
+    image: ghcr.io/bookcard-io/bookcard:latest
     container_name: bookcard
     restart: unless-stopped
     depends_on:
