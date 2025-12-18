@@ -15,6 +15,34 @@ shutdown() {
     exit 0
 }
 
+# Function to ensure BOOKCARD_FERNET_KEY is set
+ensure_fernet_key() {
+    local key_file="/data/fernet_key"
+
+    # If already set in environment, use it
+    if [ -n "$BOOKCARD_FERNET_KEY" ]; then
+        echo "Using BOOKCARD_FERNET_KEY from environment"
+        return
+    fi
+
+    # If key file exists, read from it
+    if [ -f "$key_file" ]; then
+        echo "Reading BOOKCARD_FERNET_KEY from persisted file"
+        export BOOKCARD_FERNET_KEY=$(cat "$key_file")
+        return
+    fi
+
+    # Generate new key and save it
+    echo "Generating new BOOKCARD_FERNET_KEY and saving to $key_file"
+    export BOOKCARD_FERNET_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+    echo "$BOOKCARD_FERNET_KEY" > "$key_file"
+    chmod 600 "$key_file"
+    echo "BOOKCARD_FERNET_KEY saved to $key_file"
+}
+
+# Ensure Fernet key is set before starting services
+ensure_fernet_key
+
 # Trap signals for graceful shutdown
 trap shutdown SIGTERM SIGINT
 

@@ -1,3 +1,4 @@
+---
 services:
   bookcard:
     build:
@@ -5,97 +6,88 @@ services:
       dockerfile: infra/Dockerfile
     container_name: bookcard
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     volumes:
-      # Your books directory, typically where calibre's `metadata.db` is located
+      # The location of your Calibre library
       - /path/to/books:/books
 
-      # Bookcard's data/configs directory; mount this to persist data and configs
-      - ~/.bookcard:/data
+      # The location of the application data
+      - /path/to/app-data:/data
 
-      # Path to automatically ingest books from.  Files here will be automatically ingested and deleted.
+      # Optional: for automatic books ingestion
+      # Warning: Files will be deleted on successful ingestion
       - /path/to/books/ingest:/data/books_ingest
 
-      # Optional: Calibre configuration directory - persists plugins, plugin settings (e.g., DeDRM serial numbers),
-      # and plugin enable/disable state (customize.py.json). Without this mount, plugins and their
-      # configurations (like device serial numbers) will be lost on container restart.
+      # Optional: Calibre configuration, for using calibre plugins,
+      # e.g. DeDRM, etc.
       - /path/to/calibre-config:/home/appuser/.config/calibre
     environment:
-      PGID: ${PGID:-1000}
-      PUID: ${PUID:-1000}
-
-      # backend authentication settings
-      BOOKCARD_JWT_SECRET: ${BOOKCARD_JWT_SECRET:-youShouldChangeThis}
-      BOOKCARD_JWT_ALG: ${BOOKCARD_JWT_ALG:-HS256}
-      BOOKCARD_JWT_EXPIRES_MIN: ${BOOKCARD_JWT_EXPIRES_MIN:-131400} # 3 months
-      BOOKCARD_ALEMBIC_ENABLED: ${BOOKCARD_ALEMBIC_ENABLED:-true}
-      # Database URL - defaults to SQLite if postgres service is not available
-      # Set BOOKCARD_DATABASE_URL to use PostgreSQL, or leave unset for SQLite
-      BOOKCARD_DATABASE_URL: ${BOOKCARD_DATABASE_URL:-}
-
-      # library administration settings
+      # Initial user
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
 
-      # Key used for storing user-provided passwords and tokens.
-      # You should change this.  DO NOT use this key in production.
-      # Get a key from: https://fernet.utils.com/
-      # Or generate a key with: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
-      BOOKCARD_FERNET_KEY: ${BOOKCARD_FERNET_KEY:-EifxhGYj-u0JolSrDhBLqyIZSnoZCVKOAFQbuv70T08=}
-      # !!! One more time: DO NOT USE THIS KEY IN PRODUCTION. !!!
+      BOOKCARD_JWT_SECRET: ${BOOKCARD_JWT_SECRET:-youShouldChangeThis}
+      BOOKCARD_JWT_ALG: ${BOOKCARD_JWT_ALG:-HS256}
+      BOOKCARD_JWT_EXPIRES_MIN: ${BOOKCARD_JWT_EXPIRES_MIN:-131400}
+      BOOKCARD_DATABASE_URL: >-
+        ${BOOKCARD_DATABASE_URL:-postgresql+psycopg://admin:admin123@postgres:5432/bookcard}
 
-      # Redis configuration for distributed workers (optional)
-      # Set ENABLE_REDIS=false to disable Redis features
-      # If Redis service is available, it will be used automatically
       ENABLE_REDIS: ${ENABLE_REDIS:-true}
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
 
-      # Optional OIDC integration
+      # Optional OIDC integration, e.g. PingFederate, Keycloak, etc.
+      # Configure the callback URL in your auth broker as:
+      # https://bookcard-host/api/auth/oidc/callback
       OIDC_ENABLED: ${OIDC_ENABLED:-false}
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
       OIDC_SCOPES: ${OIDC_SCOPES:-openid profile email}
 
-      # Frontend configuration
+      # Only change if you know what you are doing
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: "1"
       NPM_CONFIG_LOGLEVEL: warn
       PORT: "3000"
-      # Backend API URL (used by server-side API routes)
-      # Since frontend and backend are in the same container, use localhost
       BACKEND_URL: ${BACKEND_URL:-http://localhost:8000}
+
+      # Set equal to the output if `id`
+      PGID: ${PGID:-1000}
+      PUID: ${PUID:-1000}
     env_file:
       - .env
     ports:
-      - "3000:3000"  # Frontend
+      - "3000:3000"
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health | grep -q 'ok' && curl -fsS http://localhost:3000 | grep -q '<!DOCTYPE html>' || exit 1"]
+      test:
+        - CMD-SHELL
+        - >-
+          curl -fsS http://localhost:8000/health | grep -q 'ok' &&
+          curl -fsS http://localhost:3000 | grep -q '<!DOCTYPE html>' ||
+          exit 1
       interval: 30s
       timeout: 10s
       retries: 5
     networks:
       - bookcard-network
 
-  # Optional Redis service - only needed if ENABLE_REDIS=true
-  # The application will work without Redis (library scanning features will be disabled)
   redis:
     image: redis:8.4.0
     container_name: bookcard-redis
     restart: unless-stopped
     command: redis-server ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
-    # ports:
-    #   - "6379:6379"
     env_file:
       - .env
     networks:
       - bookcard-network
 
-  # Optional PostgreSQL service - only needed if you want to use PostgreSQL instead of SQLite
-  # The application defaults to SQLite if BOOKCARD_DATABASE_URL is not set
-  # To use PostgreSQL, set BOOKCARD_DATABASE_URL=postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
   postgres:
     image: postgres:18.1-alpine3.22
     container_name: bookcard-postgres
@@ -104,12 +96,11 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin123}
       POSTGRES_DB: ${POSTGRES_DB:-bookcard}
-    # Port not exposed to host - only accessible within Docker network
-    # Uncomment if you'd like to access the database from outside the container
-    # ports:
-    #   - "5432:5432"
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-bookcard}" ]
+      test:
+        - CMD-SHELL
+        - >-
+          pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-bookcard}
       interval: 30s
       timeout: 10s
       retries: 5

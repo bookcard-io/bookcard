@@ -269,7 +269,7 @@ class AppConfig:
             ),
             echo_sql=AppConfig._parse_bool_env("BOOKCARD_ECHO_SQL", "false"),
             alembic_enabled=AppConfig._parse_bool_env(
-                "BOOKCARD_ALEMBIC_ENABLED", "false"
+                "BOOKCARD_ALEMBIC_ENABLED", "true"
             ),
             data_directory=AppConfig._normalize_env_value_with_default(
                 os.getenv("DATA_DIRECTORY"), "/data"
