@@ -1,3 +1,4 @@
+---
 default_install_hook_types: [pre-commit, pre-push]
 
 repos:
@@ -49,6 +50,11 @@ repos:
         stages: [pre-commit]
       - id: ruff-format
         stages: [pre-commit]
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.37.1
+    hooks:
+      - id: yamllint
+        stages: [pre-commit]
   - repo: local
     hooks:
       - id: biome-check
@@ -56,7 +62,8 @@ repos:
         entry: bash -c 'cd web && npm run lint:fix'
         language: node
         types: [text]
-        files: "\\.(jsx?|tsx?|c(js|ts)|m(js|ts)|d\\.(ts|cts|mts)|jsonc?|css|svelte|vue|astro|graphql|gql)$"
+        files: >-
+          "\\.(jsx?|tsx?|c(js|ts)|m(js|ts)|d\\.(ts|cts|mts)|jsonc?|css|svelte|vue|astro|graphql|gql)$"
         stages: [pre-commit]
       - id: check-types
         name: check types
@@ -73,14 +80,18 @@ repos:
         stages: [pre-commit]
       - id: pytest
         name: run pytest with coverage
-        entry: uv run --frozen pytest ./tests -q --cov=bookcard --cov-report= --cov-fail-under=90 -n auto
+        entry: >-
+          uv run --frozen pytest ./tests -q --cov=bookcard
+          --cov-report= --cov-fail-under=90 -n auto
         language: system
         types: [python]
         pass_filenames: false
         stages: [pre-push]
       - id: vitest
         name: run vitest
-        entry: bash -lc 'cd web && npx --yes vitest run --silent --bail 1 --reporter=dot >/dev/null 2>&1'
+        entry: >-
+          bash -lc 'cd web && npx --yes vitest run --silent --bail 1
+          --reporter=dot >/dev/null 2>&1'
         language: system
         types_or: [javascript, ts, tsx, jsx]
         pass_filenames: false

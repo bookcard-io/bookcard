@@ -1,0 +1,60 @@
+# Multi-stage Dockerfile for documentation
+# Builds MkDocs static site and serves with nginx
+
+# ============================================================================
+# Stage 1: Build documentation
+# ============================================================================
+FROM python:3.12-slim AS docs-builder
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv for faster dependency management
+RUN pip install --no-cache-dir uv
+
+# Copy dependency files
+COPY pyproject.toml ./
+
+# Install documentation dependencies from pyproject.toml dev group
+# uv sync creates .venv and installs dev group dependencies
+RUN uv sync --group dev
+
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Copy application code (needed for OpenAPI generation)
+COPY bookcard/ ./bookcard/
+COPY scripts/ ./scripts/
+COPY alembic.ini ./
+
+# Copy documentation source
+COPY docs/ ./docs/
+
+# Generate OpenAPI JSON from FastAPI app
+RUN python scripts/generate_openapi.py
+
+# Build documentation
+# Try building from root with docs/mkdocs.yml, fallback to root mkdocs.yml
+RUN if [ -f docs/mkdocs.yml ]; then \
+        mkdocs build --config-file docs/mkdocs.yml --site-dir /app/site; \
+    else \
+        mkdocs build --site-dir /app/site; \
+    fi
+
+# ============================================================================
+# Stage 2: Serve with nginx
+# ============================================================================
+FROM nginx:alpine
+
+# Copy built documentation
+COPY --from=docs-builder /app/site /usr/share/nginx/html
+
+# Copy nginx configuration
+COPY infra/nginx-docs.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

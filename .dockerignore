@@ -6,6 +6,7 @@
 # Documentation
 README.md
 docs/
+site/
 *.md
 !LICENSE
 

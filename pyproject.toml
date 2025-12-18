@@ -60,6 +60,7 @@ dev = [
     "mkdocs-material>=9.7.1",
     "mkdocs-swagger-ui-tag>=0.7.2",
     "mkdocstrings[python]>=1.0.0",
+    "mike>=2.1.3",
     "pre-commit>=4.3.0",
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
@@ -149,6 +150,8 @@ select = [
     "S108",   # insecure usage of directory
 ]
 "scripts/scripts.py" = ["S603", "S404"]
+"scripts/build_docs.py" = ["S404", "S603", "S607"]
+"scripts/generate_openapi.py" = []
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"

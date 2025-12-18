@@ -1,0 +1,17 @@
+:root {
+  /* Light theme */
+  /* Using a darker blue for better contrast on light background */
+  --md-primary-fg-color:        #5f6e9f;
+  --md-primary-fg-color--light: #7f95da;
+  --md-primary-fg-color--dark:  #4f5b82;
+  --md-accent-fg-color:         #5f6e9f;
+}
+
+[data-md-color-scheme="slate"] {
+  /* Dark theme */
+  /* Keeping the lighter blue which works well on dark background */
+  --md-primary-fg-color:        #90aaf9;
+  --md-primary-fg-color--light: #9eb3fa;
+  --md-primary-fg-color--dark:  #7f95da;
+  --md-accent-fg-color:         #90aaf9;
+}

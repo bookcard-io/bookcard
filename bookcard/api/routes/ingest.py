@@ -37,6 +37,7 @@ from bookcard.api.schemas.ingest import (
     IngestRetryResponse,
     IngestScanResponse,
 )
+from bookcard.models.auth import User
 from bookcard.models.ingest import IngestHistory, IngestStatus
 from bookcard.repositories.ingest_repository import (
     IngestHistoryRepository,
@@ -44,7 +45,6 @@ from bookcard.repositories.ingest_repository import (
 from bookcard.services.ingest.ingest_config_service import IngestConfigService
 
 if TYPE_CHECKING:
-    from bookcard.models.auth import User
     from bookcard.services.ingest.ingest_watcher_service import IngestWatcherService
     from bookcard.services.tasks.base import TaskRunner
 
@@ -53,8 +53,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
 SessionDep = Annotated[Session, Depends(get_db_session)]
-CurrentUserDep = Annotated["User", Depends(get_current_user)]
-AdminUserDep = Annotated["User", Depends(get_admin_user)]
+CurrentUserDep = Annotated[User, Depends(get_current_user)]
+AdminUserDep = Annotated[User, Depends(get_admin_user)]
 
 
 def _get_task_runner(request: Request) -> TaskRunner | None:

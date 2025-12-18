@@ -1,4 +1,4 @@
-.PHONY: dev setup-uv kill-ports format formatjs formatpy test testjs testpy test-changed
+.PHONY: dev setup-uv kill-ports format formatjs formatpy test testjs testpy test-changed docs-build docs-serve docs-deploy
 
 setup-uv:
 	@if command -v uv >/dev/null 2>&1; then \
@@ -168,3 +168,23 @@ test-changed:
 	if [ -z "$$PYTHON_TESTS" ] && [ -z "$$JS_TESTS" ]; then \
 		echo "No changed test files found."; \
 	fi
+
+docs-build:
+	@echo "Building documentation..."; \
+	cd $(CURDIR) && uv run --frozen python scripts/build_docs.py
+
+docs-serve:
+	@echo "Serving documentation at http://127.0.0.1:8001"; \
+	cd $(CURDIR) && uv run --frozen python scripts/build_docs.py serve
+
+docs-deploy:
+	@echo "Deploying documentation with versioning..."; \
+	if [ -z "$$VERSION" ]; then \
+		echo "Error: VERSION environment variable is required."; \
+		echo "Usage: VERSION=0.1.0 make docs-deploy"; \
+		exit 1; \
+	fi; \
+	cd $(CURDIR) && uv run --frozen python scripts/generate_openapi.py; \
+	cd $(CURDIR) && uv run --frozen mike deploy $$VERSION latest; \
+	cd $(CURDIR) && uv run --frozen mike set-default latest; \
+	echo "Documentation deployed for version $$VERSION"
