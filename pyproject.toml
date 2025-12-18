@@ -56,6 +56,10 @@ migrate-create = "scripts.scripts:migrate_create"
 
 [dependency-groups]
 dev = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.7.1",
+    "mkdocs-swagger-ui-tag>=0.7.2",
+    "mkdocstrings[python]>=1.0.0",
     "pre-commit>=4.3.0",
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
