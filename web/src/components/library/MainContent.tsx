@@ -26,6 +26,7 @@ import { SearchWidgetBar } from "@/components/library/SearchWidgetBar";
 import { FiltersPanel } from "@/components/library/widgets/FiltersPanel";
 import { ShelfSelectionBar } from "@/components/shelves/ShelfSelectionBar";
 import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
+import { LibraryFiltersProvider } from "@/contexts/LibraryFiltersContext";
 import { useSelectedShelf } from "@/contexts/SelectedShelfContext";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
 import { useUser } from "@/contexts/UserContext";
@@ -170,7 +171,7 @@ export function MainContent() {
           )}
         </div>
         {activeTab === "library" && (
-          <>
+          <LibraryFiltersProvider filters={filters} search={search}>
             {viewMode.isReady && viewMode.viewMode === "grid" && (
               <BooksGrid
                 searchQuery={search.filterQuery}
@@ -197,7 +198,7 @@ export function MainContent() {
                 onBooksDataChange={setBooksNavigationData}
               />
             )}
-          </>
+          </LibraryFiltersProvider>
         )}
         {activeTab === "shelves" && (
           <ShelvesGrid

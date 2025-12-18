@@ -15,6 +15,7 @@
 
 import type { ReactNode } from "react";
 import { Button } from "@/components/forms/Button";
+import { useLibraryFiltersContext } from "@/contexts/LibraryFiltersContext";
 import { useScrollNavigation } from "@/hooks/useScrollNavigation";
 import { useStickyStatus } from "@/hooks/useStickyStatus";
 import { cn } from "@/libs/utils";
@@ -56,6 +57,9 @@ export function BooksViewStatus({
   const stickyStatus = useStickyStatus();
   const scrollNavigation = useScrollNavigation();
 
+  // Get filter state from context
+  const { isFiltered, clearAll } = useLibraryFiltersContext();
+
   // Use hook results only when sticky is enabled
   const { statusRef, isSticky, opacity } = disableSticky
     ? { statusRef: { current: null }, isSticky: false, opacity: 0 }
@@ -89,10 +93,23 @@ export function BooksViewStatus({
       )}
       {/* Content layer */}
       <div className="relative z-10 flex w-full items-center justify-between">
-        <div className="text-center text-sm text-text-a40">
-          {hasMore
-            ? `Scroll for more (${currentCount} of ${total})`
-            : `${currentCount} of ${total} books`}
+        <div className="flex items-center gap-3">
+          <div className="text-center text-sm text-text-a40">
+            {hasMore
+              ? `Scroll for more (${currentCount} of ${total})`
+              : `${currentCount} of ${total} books`}
+          </div>
+          {isFiltered && (
+            <button
+              type="button"
+              onClick={clearAll}
+              className="flex items-center gap-1.5 rounded-md bg-surface-a20 px-2 py-1 text-text-a60 text-xs transition-colors hover:bg-surface-a30 hover:text-text-a80"
+              aria-label="Clear all filters"
+            >
+              <i className="pi pi-times" aria-hidden="true" />
+              <span>Filtered</span>
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {actions && <div className="flex items-center">{actions}</div>}
