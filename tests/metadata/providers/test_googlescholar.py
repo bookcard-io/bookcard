@@ -35,16 +35,26 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
-def googlescholar_provider() -> GoogleScholarProvider:
+def googlescholar_provider(monkeypatch: pytest.MonkeyPatch) -> GoogleScholarProvider:
     """Create a GoogleScholarProvider instance for testing."""
+    mock_scholarly = MagicMock()
+    mock_scholarly.set_timeout = MagicMock()
+    mock_scholarly.set_retries = MagicMock()
+    monkeypatch.setattr(
+        "bookcard.metadata.providers.googlescholar.scholarly", mock_scholarly
+    )
     return GoogleScholarProvider(enabled=True)
 
 
 def test_googlescholar_provider_init() -> None:
     """Test GoogleScholarProvider initialization."""
-    provider = GoogleScholarProvider(enabled=True, timeout=25)
-    assert provider.enabled is True
-    assert provider.timeout == 25
+    mock_scholarly = MagicMock()
+    mock_scholarly.set_timeout = MagicMock()
+    mock_scholarly.set_retries = MagicMock()
+    with patch("bookcard.metadata.providers.googlescholar.scholarly", mock_scholarly):
+        provider = GoogleScholarProvider(enabled=True, timeout=25)
+        assert provider.enabled is True
+        assert provider.timeout == 25
 
 
 def test_googlescholar_provider_init_scholarly_unavailable() -> None:
