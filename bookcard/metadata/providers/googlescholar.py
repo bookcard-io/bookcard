@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import quote, unquote
 
 try:
-    from scholarly import scholarly
+    from scholarly import scholarly  # type: ignore[import-untyped, import-not-found]
 except ImportError:
     scholarly = None  # type: ignore[assignment, misc]
 
@@ -175,6 +175,12 @@ class GoogleScholarProvider(MetadataProvider):
         search_query = self._prepare_query(query)
         if not search_query:
             return []
+
+        # At this point, scholarly is guaranteed to be not None
+        # because search() checks this before calling _perform_search
+        if scholarly is None:
+            msg = "scholarly library is not available"
+            raise MetadataProviderError(msg)
 
         # Configure scholarly
         scholarly.set_timeout(self.timeout)
