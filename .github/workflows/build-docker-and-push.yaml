@@ -1,9 +1,8 @@
+---
 name: Build Docker (and push)
 
-on:
+on:  # yamllint disable-line rule:truthy
   push:
-    branches:
-      - main
     tags:
       - "v*"
 
@@ -30,7 +29,8 @@ jobs:
         run: |
           set -euxo pipefail
           df -h
-          # Remove preinstalled SDKs we don't need to make room for Docker multi-arch builds.
+          # Remove preinstalled SDKs we don't need to make room for Docker
+          # multi-arch builds.
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android || true
           sudo apt-get clean || true
           df -h
