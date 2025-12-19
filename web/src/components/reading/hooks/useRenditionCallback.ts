@@ -56,6 +56,13 @@ export interface RenditionCallbackOptions {
   isInitialLoadRef: RefObject<boolean>;
 }
 
+// Define minimal interface for spine item
+interface SpineItem {
+  linear: string;
+  href: string;
+  [key: string]: unknown;
+}
+
 /**
  * Hook to create rendition callback handler.
  *
@@ -121,7 +128,7 @@ export function useRenditionCallback(options: RenditionCallbackOptions) {
 
           // Search for first linear item
           if (typeof spine.each === "function") {
-            spine.each((item: any) => {
+            spine.each((item: SpineItem) => {
               if (item.linear !== "no" && !firstLinearItem) {
                 firstLinearItem = item;
               }

@@ -17,7 +17,7 @@
 
 import type { MouseEvent } from "react";
 import { useCallback, useMemo } from "react";
-import { BsBookmarkFill } from "react-icons/bs";
+import { GoBookmark } from "react-icons/go";
 import { useActiveLibrary } from "@/contexts/ActiveLibraryContext";
 import { useUser } from "@/contexts/UserContext";
 import { useReadStatus } from "@/hooks/useReadStatus";
@@ -184,7 +184,7 @@ export function BookCardReadingCorner({
       }
     >
       <span className="relative inline-flex h-6 w-6 items-center justify-center">
-        <BsBookmarkFill className="h-5 w-5" aria-hidden="true" />
+        <GoBookmark className="h-5 w-5" aria-hidden="true" />
         {displayState.percent !== null && (
           <span
             className={cn(

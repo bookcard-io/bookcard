@@ -60,7 +60,7 @@ repos:
     hooks:
       - id: biome-check
         name: biome check
-        entry: bash -c 'cd web && npm run lint:fix'
+        entry: bash -c 'cd web && npm run lint:fix -- --error-on-warnings'
         language: node
         types: [text]
         files: >-
