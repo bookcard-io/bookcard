@@ -16,13 +16,20 @@
 /**
  * Empty state component for books view.
  *
- * Displays message when no books are found.
+ * Displays friendly message when no books are found.
+ * Guides users to add books using the Add Books button.
  * Follows SRP by handling only empty state display.
  */
 export function BooksViewEmpty() {
   return (
     <div className="flex min-h-[400px] items-center justify-center p-8">
-      <p className="m-0 text-base text-text-a40">No books found</p>
+      <div className="text-center">
+        <p className="mb-2 text-base text-text-a0">Your library is empty</p>
+        <p className="m-0 text-sm text-text-a30">
+          Click <span className="font-medium text-text-a10">+ Add Books</span>{" "}
+          in the top right corner to get started
+        </p>
+      </div>
     </div>
   );
 }

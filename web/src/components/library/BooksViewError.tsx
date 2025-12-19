@@ -13,18 +13,23 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import { BooksViewSplash } from "./BooksViewSplash";
+
 /**
  * Error state component for books view.
  *
  * Displays error message when book loading fails.
+ * Shows splash screen for no active library error.
  * Follows SRP by handling only error display.
  */
 export function BooksViewError({ error }: { error: string }) {
-  // Show friendly message for no active library error
-  const friendlyMessage =
-    error === "no_active_library"
-      ? "No library is currently active. Please configure a library in the admin settings."
-      : `Error loading books: ${error}`;
+  // Show splash screen for no active library error
+  if (error === "no_active_library") {
+    return <BooksViewSplash />;
+  }
+
+  // Show friendly message for other errors
+  const friendlyMessage = `Error loading books: ${error}`;
 
   return (
     <div className="flex min-h-[400px] items-center justify-center p-8">

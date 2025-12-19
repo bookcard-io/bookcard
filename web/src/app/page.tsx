@@ -16,7 +16,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { MainContent } from "@/components/library/MainContent";
 import { SelectedBooksProvider } from "@/contexts/SelectedBooksContext";
@@ -35,6 +35,12 @@ function GatedHome() {
   const allowAnonymous = config?.allow_anonymous_browsing ?? false;
   const isLoading = isUserLoading || isConfigLoading;
 
+  useEffect(() => {
+    if (!isLoading && (!allowAnonymous || error) && !user) {
+      router.replace("/login?next=%2F");
+    }
+  }, [isLoading, allowAnonymous, error, user, router]);
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-text-a40">
@@ -44,7 +50,6 @@ function GatedHome() {
   }
 
   if ((!allowAnonymous || error) && !user) {
-    router.replace("/login?next=%2F");
     return null;
   }
 

@@ -15,7 +15,8 @@
 
 "use client";
 
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { BlurAfterClickProvider } from "@/components/profile/BlurAfterClickContext";
 import { cn } from "@/libs/utils";
 import { ConfigurationTab } from "./tabs/ConfigurationTab";
@@ -31,12 +32,35 @@ type TabId =
   | "scheduled-tasks"
   | "plugins";
 
+const validTabs: Record<string, TabId> = {
+  users: "users",
+  configuration: "configuration",
+  system: "system",
+  "scheduled-tasks": "scheduled-tasks",
+  plugins: "plugins",
+};
+
 export function AdminSettings() {
-  const [activeTab, setActiveTab] = useState<TabId>("users");
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const initialTab: TabId =
+    (tabParam && validTabs[tabParam]) || "configuration";
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
+
+  // Sync tab state with URL query parameter changes
+  useEffect(() => {
+    const newTab: TabId = (tabParam && validTabs[tabParam]) || "configuration";
+    setActiveTab((current) => {
+      if (current !== newTab) {
+        return newTab;
+      }
+      return current;
+    });
+  }, [tabParam]);
 
   const tabs: { id: TabId; label: string }[] = [
-    { id: "users", label: "Users & Permissions" },
     { id: "configuration", label: "Configuration" },
+    { id: "users", label: "Users & Permissions" },
     { id: "system", label: "System" },
     { id: "scheduled-tasks", label: "Scheduled Tasks" },
     { id: "plugins", label: "Plugins" },
