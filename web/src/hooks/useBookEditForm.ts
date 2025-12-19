@@ -429,7 +429,7 @@ export function useBookEditForm({
    * user clicks Save, not when they select the metadata.
    */
   const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
+    async (e: React.FormEvent): Promise<boolean> => {
       e.preventDefault();
       setIsSubmitting(true);
 
@@ -455,9 +455,18 @@ export function useBookEditForm({
         }
 
         // Submit the form after cover is downloaded (or if no staged cover)
-        await handleFormSubmit(e);
-      } finally {
+        const success = await handleFormSubmit(e);
+
+        // Only stop submitting if validation failed or an error occurred.
+        // If successful, we want to keep the spinner while the modal dismisses
+        // (which happens in onUpdateSuccess callback in useBookForm)
+        if (!success) {
+          setIsSubmitting(false);
+        }
+        return success;
+      } catch (_err) {
         setIsSubmitting(false);
+        return false;
       }
     },
     [handleFormSubmit, stagedCoverUrl, bookId, downloadCoverFromUrl],

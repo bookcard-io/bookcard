@@ -45,7 +45,7 @@ export interface UseBookFormResult {
     value: BookUpdate[K],
   ) => void;
   /** Handler for form submission. */
-  handleSubmit: (e: React.FormEvent) => Promise<void>;
+  handleSubmit: (e: React.FormEvent) => Promise<boolean>;
   /** Reset form to initial state. */
   resetForm: () => void;
 }
@@ -223,17 +223,17 @@ export function useBookForm({
   );
 
   const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
+    async (e: React.FormEvent): Promise<boolean> => {
       e.preventDefault();
 
       if (!book?.id) {
-        return;
+        return false;
       }
 
       // Validate form
       const isValid = await form.trigger();
       if (!isValid) {
-        return;
+        return false;
       }
 
       // Get validated form data
@@ -275,16 +275,23 @@ export function useBookForm({
         cleanedPayload.language_codes = null;
       }
 
-      const updated = await updateBook(cleanedPayload);
-      if (updated) {
-        justUpdatedRef.current = true;
-        setShowSuccess(true);
-        // Hide success message after 3 seconds
-        setTimeout(() => setShowSuccess(false), 3000);
-        // Reset form with updated book data to clear dirty state
-        const updatedFormData = bookToFormData(updated);
-        form.reset(updatedFormData);
-        onUpdateSuccess?.(updated);
+      try {
+        const updated = await updateBook(cleanedPayload);
+        if (updated) {
+          justUpdatedRef.current = true;
+          setShowSuccess(true);
+          // Hide success message after 3 seconds
+          setTimeout(() => setShowSuccess(false), 3000);
+          // Reset form with updated book data to clear dirty state
+          const updatedFormData = bookToFormData(updated);
+          form.reset(updatedFormData);
+          onUpdateSuccess?.(updated);
+          return true;
+        }
+        return false;
+      } catch (_err) {
+        // Error is handled by useBook hook (updateBook)
+        return false;
       }
     },
     [book?.id, form, updateBook, onUpdateSuccess, bookToFormData],
