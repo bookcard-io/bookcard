@@ -168,19 +168,16 @@ export function BookCardReadingCorner({
         displayState.shouldShow ? "opacity-100" : "opacity-0",
         // Show on card hover
         "group-hover:opacity-100",
-        displayState.isUnread &&
-          "hover:bg-primary-a0 hover:text-[var(--color-white)]",
+        "hover:bg-primary-a0 hover:text-[var(--color-white)]",
         isUpdating && "cursor-wait opacity-80",
         className,
       )}
       onClick={handleToggleReadStatus}
-      aria-label={displayState.isUnread ? "Mark as read" : "Toggle read status"}
+      aria-label="Mark as read"
       title={
-        displayState.isUnread
-          ? displayState.percent !== null
-            ? `Mark as read (${displayState.percent}%)`
-            : "Mark as read"
-          : "Toggle read status"
+        displayState.percent !== null
+          ? `Mark as read (${displayState.percent}%)`
+          : "Mark as read"
       }
     >
       <span className="relative inline-flex h-7 w-7 items-center justify-center">
