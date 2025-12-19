@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -253,7 +253,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "rarfile", specifier = ">=4.2" },
     { name = "redis", specifier = ">=6.4.0" },
-    { name = "scholarly", specifier = ">=1.2.0,<1.8" },
+    { name = "scholarly", specifier = ">=1.7.11,<1.8" },
     { name = "sqlalchemy", specifier = ">=2.0.44" },
     { name = "sqlmodel", specifier = ">=0.0.27" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.38.0" },
