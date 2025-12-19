@@ -33,7 +33,6 @@ import { useUser } from "@/contexts/UserContext";
 import { useBookCardMenu } from "@/hooks/useBookCardMenu";
 import { useBookCardMenuActions } from "@/hooks/useBookCardMenuActions";
 import { useBookCardModals } from "@/hooks/useBookCardModals";
-import { useBookNavigation } from "@/hooks/useBookNavigation";
 import { useCreateShelfWithBook } from "@/hooks/useCreateShelfWithBook";
 import type { Book } from "@/types/book";
 import { getBookCardAriaLabel } from "@/utils/book";
@@ -95,7 +94,6 @@ export function BookCard({
     bookId: book.id,
   });
   const modals = useBookCardModals();
-  const { isNavigating, navigateToReader } = useBookNavigation(book);
 
   // Layout selection strategy
   const layouts = {
@@ -112,7 +110,6 @@ export function BookCard({
   }, [_onClick, book]);
 
   const handleKeyDown = createEnterSpaceHandler(handleClick);
-  const handleReadClick = isNavigating ? undefined : navigateToReader;
 
   return (
     <>
@@ -134,12 +131,7 @@ export function BookCard({
             {showActions && variant === "default" && (
               <div className="hidden md:block">
                 <BookCardOverlay selected={selected}>
-                  {!selected && (
-                    <BookCardCenterActions
-                      onReadClick={handleReadClick}
-                      isReading={isNavigating}
-                    />
-                  )}
+                  {!selected && <BookCardCenterActions book={book} />}
                   <BookCardActions
                     book={book}
                     allBooks={allBooks}

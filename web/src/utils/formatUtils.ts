@@ -22,6 +22,13 @@
 export const COMIC_FORMATS = ["CBZ", "CBR", "CB7", "CBC"] as const;
 
 /**
+ * All supported readable formats in priority order.
+ *
+ * EPUB is preferred, then PDF, then comics.
+ */
+export const READABLE_FORMATS = ["EPUB", "PDF", ...COMIC_FORMATS] as const;
+
+/**
  * Check if a format is a comic book format.
  *
  * Follows OCP by extracting format detection logic from components.
