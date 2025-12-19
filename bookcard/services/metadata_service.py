@@ -741,7 +741,10 @@ class MetadataService:
         except MetadataProviderError:
             # Re-raise provider errors
             raise
-        except (RuntimeError, OSError, ValueError, TypeError) as e:
+        except concurrent.futures.CancelledError:
+            # Re-raise cancellation
+            raise
+        except Exception as e:
             # Wrap unexpected errors
             provider_id = provider.get_source_info().id
             msg = f"Unexpected error in provider {provider_id}: {e}"

@@ -124,46 +124,92 @@ class GoogleBooksProvider(MetadataProvider):
             return []
 
         try:
-            # Build search query
-            search_query = self._build_search_query(query)
-            params = {
-                "q": search_query,
-                "maxResults": min(max_results, 40),  # API limit is 40
-                "langRestrict": locale,
-            }
-
-            # Make API request
-            response = httpx.get(
-                self.SEARCH_ENDPOINT,
-                params=params,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-
-            # Parse response
-            data = response.json()
-            items = data.get("items", [])
-
-            records = []
-            for item in items[:max_results]:
-                try:
-                    record = self._parse_item(item)
-                    if record:
-                        records.append(record)
-                except (KeyError, ValueError, TypeError, AttributeError) as e:
-                    logger.warning("Failed to parse Google Books item: %s", e)
-                    continue
+            data = self._fetch_data(query, locale, max_results)
+            return self._process_response(data, max_results)
         except httpx.TimeoutException as e:
             msg = f"Google Books API request timed out: {e}"
             raise MetadataProviderTimeoutError(msg) from e
+        except httpx.HTTPStatusError as e:
+            msg = f"Google Books API returned error: {e}"
+            raise MetadataProviderNetworkError(msg) from e
         except httpx.RequestError as e:
             msg = f"Google Books API request failed: {e}"
             raise MetadataProviderNetworkError(msg) from e
         except (KeyError, ValueError, TypeError) as e:
             msg = f"Failed to parse Google Books API response: {e}"
             raise MetadataProviderParseError(msg) from e
-        else:
-            return records
+
+    def _fetch_data(self, query: str, locale: str, max_results: int) -> dict:
+        """Fetch data from Google Books API.
+
+        Parameters
+        ----------
+        query : str
+            Search query.
+        locale : str
+            Locale code.
+        max_results : int
+            Maximum number of results.
+
+        Returns
+        -------
+        dict
+            JSON response data.
+
+        Raises
+        ------
+        httpx.TimeoutException
+            If request times out.
+        httpx.HTTPStatusError
+            If response status code is error.
+        httpx.RequestError
+            If request fails.
+        """
+        # Build search query
+        search_query = self._build_search_query(query)
+        params = {
+            "q": search_query,
+            "maxResults": min(max_results, 40),  # API limit is 40
+            "langRestrict": locale,
+        }
+
+        # Make API request
+        response = httpx.get(
+            self.SEARCH_ENDPOINT,
+            params=params,
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def _process_response(
+        self, data: dict, max_results: int
+    ) -> Sequence[MetadataRecord]:
+        """Process API response data.
+
+        Parameters
+        ----------
+        data : dict
+            API response data.
+        max_results : int
+            Maximum number of results to process.
+
+        Returns
+        -------
+        Sequence[MetadataRecord]
+            Sequence of metadata records.
+        """
+        items = data.get("items", [])
+        records = []
+        for item in items[:max_results]:
+            try:
+                record = self._parse_item(item)
+                if record:
+                    records.append(record)
+            except (KeyError, ValueError, TypeError, AttributeError) as e:
+                logger.warning("Failed to parse Google Books item: %s", e)
+                continue
+        return records
 
     def _build_search_query(self, query: str) -> str:
         """Build search query from input string.
