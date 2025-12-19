@@ -147,6 +147,7 @@ export function useBookEditForm({
 
   const [showMetadataModal, setShowMetadataModal] = useState(false);
   const [isLuckySearching, setIsLuckySearching] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { stagedCoverUrl, setStagedCoverUrl, clearStagedCoverUrl } =
     useStagedCoverUrl({
@@ -430,29 +431,34 @@ export function useBookEditForm({
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
+      setIsSubmitting(true);
 
-      // If there's a staged cover URL, download it first
-      // Check if it's an external URL (not a temp URL from backend)
-      if (
-        stagedCoverUrl &&
-        bookId !== null &&
-        !stagedCoverUrl.startsWith("/api/books/temp-covers/") &&
-        !stagedCoverUrl.startsWith("/api/books/") &&
-        (stagedCoverUrl.startsWith("http://") ||
-          stagedCoverUrl.startsWith("https://"))
-      ) {
-        try {
-          await downloadCoverFromUrl(stagedCoverUrl);
-        } catch (err) {
-          // Error is handled by useCoverFromUrl hook
-          // Continue with form submission even if cover download fails
-          // eslint-disable-next-line no-console
-          console.error("Failed to download staged cover:", err);
+      try {
+        // If there's a staged cover URL, download it first
+        // Check if it's an external URL (not a temp URL from backend)
+        if (
+          stagedCoverUrl &&
+          bookId !== null &&
+          !stagedCoverUrl.startsWith("/api/books/temp-covers/") &&
+          !stagedCoverUrl.startsWith("/api/books/") &&
+          (stagedCoverUrl.startsWith("http://") ||
+            stagedCoverUrl.startsWith("https://"))
+        ) {
+          try {
+            await downloadCoverFromUrl(stagedCoverUrl);
+          } catch (err) {
+            // Error is handled by useCoverFromUrl hook
+            // Continue with form submission even if cover download fails
+            // eslint-disable-next-line no-console
+            console.error("Failed to download staged cover:", err);
+          }
         }
-      }
 
-      // Submit the form after cover is downloaded (or if no staged cover)
-      await handleFormSubmit(e);
+        // Submit the form after cover is downloaded (or if no staged cover)
+        await handleFormSubmit(e);
+      } finally {
+        setIsSubmitting(false);
+      }
     },
     [handleFormSubmit, stagedCoverUrl, bookId, downloadCoverFromUrl],
   );
@@ -464,7 +470,7 @@ export function useBookEditForm({
     form,
     hasChanges,
     showSuccess,
-    isUpdating,
+    isUpdating: isUpdating || isSubmitting,
     updateError,
     stagedCoverUrl,
     showMetadataModal,
