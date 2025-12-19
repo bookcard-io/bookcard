@@ -107,6 +107,34 @@ export function useRenditionCallback(options: RenditionCallbackOptions) {
         onLocationChange,
         isInitialLoadRef,
       });
+
+      // Fix: Check for non-linear start (e.g. cover wrapper) when no initialCfi is provided.
+      // This ensures we skip wrappers and land on the first actual content page.
+      if (!initialCfi) {
+        const book = rendition.book;
+        // biome-ignore lint/suspicious/noExplicitAny: Accessing internal spine structure
+        const spine = (book as any).spine;
+
+        if (spine) {
+          // biome-ignore lint/suspicious/noExplicitAny: Dealing with untyped spine items
+          let firstLinearItem: any = null;
+
+          // Search for first linear item
+          if (typeof spine.each === "function") {
+            spine.each((item: any) => {
+              if (item.linear !== "no" && !firstLinearItem) {
+                firstLinearItem = item;
+              }
+            });
+          }
+
+          if (firstLinearItem) {
+            rendition.display(firstLinearItem.href).catch(() => {
+              // Ignore errors when trying to display the first linear item
+            });
+          }
+        }
+      }
     },
     [
       renditionRef,
