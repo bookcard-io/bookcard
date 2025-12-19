@@ -1,80 +1,89 @@
 ---
 services:
-  bookcard-backend:
+  bookcard:
     build:
       context: ..
-      dockerfile: infra/Dockerfile.backend
-    container_name: bookcard-backend
+      dockerfile: infra/Dockerfile
+    container_name: bookcard
     restart: unless-stopped
-    environment:
-      # backend authentication settings
-      BOOKCARD_JWT_SECRET: ${BOOKCARD_JWT_SECRET:-youShouldChangeThis}
-      BOOKCARD_JWT_ALG: ${BOOKCARD_JWT_ALG:-HS256}
-      BOOKCARD_JWT_EXPIRES_MIN: ${BOOKCARD_JWT_EXPIRES_MIN:-131400}  # 3 months
-      BOOKCARD_ALEMBIC_ENABLED: ${BOOKCARD_ALEMBIC_ENABLED:-true}
-      # Database URL - defaults to SQLite if postgres service is not available
-      # Set BOOKCARD_DATABASE_URL to use PostgreSQL, or leave unset for SQLite
-      BOOKCARD_DATABASE_URL: ${BOOKCARD_DATABASE_URL:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      # The location of your Calibre library
+      - /path/to/books:/books
 
-      # library administration settings
+      # The location of the application data
+      - ~/.bookcard/data:/data
+
+      # Optional: for automatic books ingestion
+      # Warning: Files will be deleted on successful ingestion
+      - ~/.bookcard/data/ingest:/data/books_ingest
+
+      # Optional: Calibre configuration, for using calibre plugins,
+      # e.g. DeDRM, etc.
+      - ~/.bookcard/data/calibre-config:/home/appuser/.config/calibre
+    environment:
+      # Initial user
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
 
-      # Key used for storing user-provided passwords and tokens.
+      BOOKCARD_JWT_SECRET: ${BOOKCARD_JWT_SECRET:-youShouldChangeThis}
+      BOOKCARD_JWT_ALG: ${BOOKCARD_JWT_ALG:-HS256}
+      BOOKCARD_JWT_EXPIRES_MIN: ${BOOKCARD_JWT_EXPIRES_MIN:-131400}
+      # Database URL - defaults to SQLite if not set
+      # Set to use PostgreSQL:
+      # postgresql+psycopg://admin:admin123@postgres:5432/bookcard
+      BOOKCARD_DATABASE_URL: ${BOOKCARD_DATABASE_URL:-}
+
+      # Development-specific settings
+      BOOKCARD_ALEMBIC_ENABLED: ${BOOKCARD_ALEMBIC_ENABLED:-true}
       BOOKCARD_FERNET_KEY: ${BOOKCARD_FERNET_KEY:-EifxhGYj-u0JolSrDhBLqyIZSnoZCVKOAFQbuv70T08=}  # yamllint disable-line rule:line-length
 
-      # Redis configuration for distributed workers (optional)
-      # Set ENABLE_REDIS=false to disable Redis features
-      # If Redis service is available, it will be used automatically
       ENABLE_REDIS: ${ENABLE_REDIS:-true}
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
 
-      # Optional OIDC integration
+      # Optional OIDC integration, e.g. PingFederate, Keycloak, etc.
+      # Configure the callback URL in your auth broker as:
+      # https://bookcard-host/api/auth/oidc/callback
       OIDC_ENABLED: ${OIDC_ENABLED:-false}
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
       OIDC_SCOPES: ${OIDC_SCOPES:-openid profile email}
-    env_file:
-      - .env
-    ports:
-      - "8000:8000"
-    # Redis and Postgres are optional - removed depends_on to allow service
-    # to start without them
-    # If you want to use PostgreSQL, set BOOKCARD_DATABASE_URL in .env
-    # or environment
-    # If you want to use Redis, ensure the redis service is running
-    # and ENABLE_REDIS=true
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health | grep -q 'ok'"]  # yamllint disable-line rule:line-length
-      interval: 30s
-      timeout: 5s
-      retries: 5
 
-  bookcard-web:
-    build:
-      context: ../web
-      dockerfile: ../infra/Dockerfile.web
-    container_name: bookcard-web
-    restart: unless-stopped
-    environment:
+      # Development environment
       NODE_ENV: development
       NEXT_TELEMETRY_DISABLED: "1"
       NPM_CONFIG_LOGLEVEL: warn
       PORT: "3000"
-      # Backend API URL (used by server-side API routes)
-      BACKEND_URL: ${BACKEND_URL:-http://bookcard-backend:8000}
+      BACKEND_URL: ${BACKEND_URL:-http://localhost:8000}
+
+      # Set equal to the output if `id`
+      PGID: ${PGID:-1000}
+      PUID: ${PUID:-1000}
+    env_file:
+      - .env
     ports:
       - "3000:3000"
-    depends_on:
-      - bookcard-backend
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          curl -fsS http://localhost:8000/health | grep -q 'ok' &&
+          curl -fsS http://localhost:3000 | grep -q '<!DOCTYPE html>' ||
+          exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - bookcard-network
 
-  # Optional Redis service - only needed if ENABLE_REDIS=true
-  # The application will work without Redis
-  # (library scanning features will be disabled)
   redis:
     image: redis:8.4.0
     container_name: bookcard-redis
@@ -84,8 +93,8 @@ services:
       - "6379:6379"
     env_file:
       - .env
-    profiles:
-      - redis
+    networks:
+      - bookcard-network
 
   postgres:
     image: postgres:18.1-alpine3.22
@@ -98,14 +107,17 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-bookcard}"]  # yamllint disable-line rule:line-length
+      test:
+        - CMD-SHELL
+        - >-
+          pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-bookcard}
       interval: 30s
       timeout: 10s
       retries: 5
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    profiles:
-      - postgres
+    networks:
+      - bookcard-network
 
   # Documentation service - serves MkDocs static site
   docs:
@@ -116,6 +128,10 @@ services:
     restart: unless-stopped
     ports:
       - "${DOCS_PORT:-8080}:80"
+
+networks:
+  bookcard-network:
+    driver: bridge
 
 volumes:
   postgres_data:
