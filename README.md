@@ -34,7 +34,7 @@ Bookcard provides a modern alternative to existing Calibre-based solutions. Whil
 Bookcard differentiates itself by:
 
 - **Modern architecture**: Next.js frontend and FastAPI backend
-- **User-friendly**: Bring your own `metadata.db` (existing Calibre library), or not; the app will work with ther
+- **User-friendly**: Bring your own `metadata.db` (existing Calibre library), or not; the app will work either way
 - **Advanced metadata**: Library-wide scanning linking books to authoritative databases
 - **Clean architecture**: Proper separation of concerns for easier maintenance
 
