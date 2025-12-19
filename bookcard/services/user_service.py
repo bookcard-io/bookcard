@@ -41,6 +41,7 @@ from bookcard.repositories.delete_commands import (
     DeleteUserCommand,
     DeleteUserDataDirectoryCommand,
     DeleteUserDevicesCommand,
+    DeleteUserReadingDataCommand,
     DeleteUserRolesCommand,
     DeleteUserSettingsCommand,
 )
@@ -779,12 +780,15 @@ class UserService:
         # 4. Delete refresh tokens
         executor.execute(DeleteRefreshTokensCommand(self._session, user_id))
 
-        # 5. Delete user's data directory (if provided)
+        # 5. Delete reading-related data (progress, sessions, statuses, annotations)
+        executor.execute(DeleteUserReadingDataCommand(self._session, user_id))
+
+        # 6. Delete user's data directory (if provided)
         if data_directory is not None:
             user_data_dir = Path(data_directory) / str(user_id)
             executor.execute(DeleteUserDataDirectoryCommand(user_data_dir))
 
-        # 6. Delete the user record itself (must be last for database integrity)
+        # 7. Delete the user record itself (must be last for database integrity)
         executor.execute(DeleteUserCommand(self._session, user))
 
         # Clear executor after successful execution

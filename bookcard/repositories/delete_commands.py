@@ -42,6 +42,12 @@ from bookcard.models.core import (
     Identifier,
 )
 from bookcard.models.media import Data
+from bookcard.models.reading import (
+    Annotation,
+    ReadingProgress,
+    ReadingSession,
+    ReadStatus,
+)
 from bookcard.repositories.ereader_repository import EReaderRepository
 
 if TYPE_CHECKING:
@@ -982,6 +988,124 @@ class DeleteRefreshTokensCommand(DeleteCommand):
             )
             for token in self._deleted_tokens:
                 self._session.add(token)
+
+
+class DeleteUserReadingDataCommand(DeleteCommand):
+    """Command to delete all reading-related data for a user.
+
+    Deletes ReadingProgress, ReadingSession, ReadStatus, and Annotation records
+    associated with the user. These must be deleted before the user can be deleted
+    due to foreign key constraints.
+    """
+
+    def __init__(self, session: Session, user_id: int) -> None:
+        """Initialize command to delete user reading data.
+
+        Parameters
+        ----------
+        session : Session
+            Database session for executing the deletion.
+        user_id : int
+            User identifier.
+        """
+        self._session = session
+        self._user_id = user_id
+        self._deleted_reading_progress: list[ReadingProgress] = []
+        self._deleted_reading_sessions: list[ReadingSession] = []
+        self._deleted_read_statuses: list[ReadStatus] = []
+        self._deleted_annotations: list[Annotation] = []
+
+    def execute(self) -> None:
+        """Execute deletion of all reading-related data.
+
+        Finds and deletes all ReadingProgress, ReadingSession, ReadStatus,
+        and Annotation records for the user. Stores deleted records for potential undo.
+        """
+        # Delete ReadingProgress records
+        reading_progress = list(
+            self._session.exec(
+                select(ReadingProgress).where(ReadingProgress.user_id == self._user_id)
+            ).all()
+        )
+        self._deleted_reading_progress = reading_progress.copy()
+        for progress in reading_progress:
+            self._session.delete(progress)
+
+        # Delete ReadingSession records
+        reading_sessions = list(
+            self._session.exec(
+                select(ReadingSession).where(ReadingSession.user_id == self._user_id)
+            ).all()
+        )
+        self._deleted_reading_sessions = reading_sessions.copy()
+        for session in reading_sessions:
+            self._session.delete(session)
+
+        # Delete ReadStatus records
+        read_statuses = list(
+            self._session.exec(
+                select(ReadStatus).where(ReadStatus.user_id == self._user_id)
+            ).all()
+        )
+        self._deleted_read_statuses = read_statuses.copy()
+        for status in read_statuses:
+            self._session.delete(status)
+
+        # Delete Annotation records
+        annotations = list(
+            self._session.exec(
+                select(Annotation).where(Annotation.user_id == self._user_id)
+            ).all()
+        )
+        self._deleted_annotations = annotations.copy()
+        for annotation in annotations:
+            self._session.delete(annotation)
+
+        total_deleted = (
+            len(reading_progress)
+            + len(reading_sessions)
+            + len(read_statuses)
+            + len(annotations)
+        )
+        if total_deleted > 0:
+            logger.debug(
+                "Deleted reading data for user %d: %d progress, %d sessions, "
+                "%d statuses, %d annotations",
+                self._user_id,
+                len(reading_progress),
+                len(reading_sessions),
+                len(read_statuses),
+                len(annotations),
+            )
+
+    def undo(self) -> None:
+        """Restore all deleted reading-related data.
+
+        Re-adds all previously deleted reading records to the session.
+        """
+        if (
+            self._deleted_reading_progress
+            or self._deleted_reading_sessions
+            or self._deleted_read_statuses
+            or self._deleted_annotations
+        ):
+            logger.debug(
+                "Restoring reading data for user %d: %d progress, %d sessions, "
+                "%d statuses, %d annotations",
+                self._user_id,
+                len(self._deleted_reading_progress),
+                len(self._deleted_reading_sessions),
+                len(self._deleted_read_statuses),
+                len(self._deleted_annotations),
+            )
+            for progress in self._deleted_reading_progress:
+                self._session.add(progress)
+            for session in self._deleted_reading_sessions:
+                self._session.add(session)
+            for status in self._deleted_read_statuses:
+                self._session.add(status)
+            for annotation in self._deleted_annotations:
+                self._session.add(annotation)
 
 
 class DeleteUserDataDirectoryCommand(DeleteCommand):
