@@ -827,8 +827,8 @@ def test_delete_user_executes_all_commands() -> None:
             data_directory="/tmp",
         )
 
-        # Should execute 6 commands
-        assert mock_executor.execute.call_count == 6
+        # Should execute 7 commands (devices, roles, settings, tokens, reading data, directory, user)
+        assert mock_executor.execute.call_count == 7
         mock_executor.clear.assert_called_once()
         assert session.flush_count >= 1
 
@@ -854,8 +854,8 @@ def test_delete_user_without_optional_repos() -> None:
             1, device_repo=None, user_role_repo=None, data_directory=None
         )
 
-        # Should execute 3 commands (settings, tokens, user - no devices, roles, or directory)
-        assert mock_executor.execute.call_count == 3
+        # Should execute 4 commands (settings, tokens, reading data, user - no devices, roles, or directory)
+        assert mock_executor.execute.call_count == 4
 
 
 def test_delete_user_not_found() -> None:
