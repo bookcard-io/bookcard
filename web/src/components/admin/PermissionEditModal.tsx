@@ -16,6 +16,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { DeletePermissionConfirmationModal } from "@/components/admin/DeletePermissionConfirmationModal";
 import { Button } from "@/components/forms/Button";
 import { TextArea } from "@/components/forms/TextArea";
 import { TextInput } from "@/components/forms/TextInput";
@@ -23,15 +24,12 @@ import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { useRoles } from "@/contexts/RolesContext";
 import { useModal } from "@/hooks/useModal";
 import { useModalInteractions } from "@/hooks/useModalInteractions";
+import { usePermissionDelete } from "@/hooks/usePermissionDelete";
 import { usePermissionForm } from "@/hooks/usePermissionForm";
+import { usePermissionRules } from "@/hooks/usePermissionRules";
+import { usePermissionSubmit } from "@/hooks/usePermissionSubmit";
 import { cn } from "@/libs/utils";
-import type {
-  Permission,
-  PermissionUpdate,
-  Role,
-  RolePermission,
-  RolePermissionUpdate,
-} from "@/services/roleService";
+import type { Permission, Role, RolePermission } from "@/services/roleService";
 import {
   createPermission,
   deletePermission,
@@ -62,8 +60,9 @@ export interface PermissionEditModalProps {
  * - Role context mode: Edit permissions within a role context (permission + role-permission condition)
  *
  * Follows SRP by delegating concerns to specialized hooks.
- * Follows IOC by accepting callbacks for all operations.
- * Follows DRY by consolidating both use cases into one component.
+ * Follows IOC by accepting callbacks for all operations and injecting services.
+ * Follows DRY by consolidating both use cases into one component and reusing utilities.
+ * Follows SOC by separating business logic, API calls, and presentation.
  */
 export function PermissionEditModal({
   permission,
@@ -75,23 +74,16 @@ export function PermissionEditModal({
   const { showDanger } = useGlobalMessages();
   const { updateRole: updateRoleOptimistic, roles, refresh } = useRoles();
   const isRoleContext = rolePermission !== undefined && role !== undefined;
-  const isEditMode = permission !== null && permission !== undefined;
+  const isEditMode = permission != null;
   const isLocked = role?.locked ?? false;
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
 
-  // Check if permission is orphaned (only associated with this role)
-  const isOrphaned = useCallback(() => {
-    if (!isRoleContext || !permission) {
-      return false;
-    }
-    // Count how many roles have this permission
-    const roleCount = roles.filter((r) =>
-      r.permissions.some((rp) => rp.permission.id === permission.id),
-    ).length;
-    // Orphaned if only associated with this one role
-    return roleCount === 1;
-  }, [isRoleContext, permission, roles]);
+  // Use permission rules hook for business logic (SOC)
+  const { isOrphaned } = usePermissionRules({
+    roles,
+    permission,
+    isRoleContext,
+  });
 
   // Prevent body scroll when modal is open
   useModal(true);
@@ -99,6 +91,30 @@ export function PermissionEditModal({
   // Use standardized modal interaction handlers (DRY, SRP)
   const { handleOverlayClick, handleModalClick, handleOverlayKeyDown } =
     useModalInteractions({ onClose });
+
+  // Inject operations for IOC (services can be mocked for testing)
+  const submitOperations = {
+    createPermission,
+    updatePermission,
+    updateRolePermission,
+    updateRoleOptimistic,
+  };
+
+  // Use permission submit hook for submission logic (SRP)
+  const handleSubmit = usePermissionSubmit({
+    isRoleContext,
+    isEditMode,
+    permission,
+    rolePermission,
+    role,
+    operations: submitOperations,
+    onSave: (data) => {
+      onSave(data);
+      onClose();
+    },
+    onCancel: onClose,
+    onError: showDanger,
+  });
 
   // Use permission form hook for form state and validation (SRP, DRY)
   const {
@@ -116,176 +132,8 @@ export function PermissionEditModal({
   } = usePermissionForm({
     permission: permission ?? undefined,
     rolePermission: rolePermission ?? undefined,
-    onSubmit: async (data) => {
-      if (isRoleContext && rolePermission && role && permission) {
-        // Role context mode: update permission and role-permission condition
-        // Parse condition JSON if provided
-        let conditionObj: Record<string, unknown> | null = null;
-        if (data.condition.trim()) {
-          conditionObj = JSON.parse(data.condition.trim());
-        }
-
-        // Update permission details
-        const permissionUpdate: PermissionUpdate = {
-          name:
-            data.name.trim() !== permission.name ? data.name.trim() : undefined,
-          description:
-            data.description.trim() !== (permission.description ?? "")
-              ? data.description.trim() || null
-              : undefined,
-          resource:
-            data.resource.trim() !== permission.resource
-              ? data.resource.trim()
-              : undefined,
-          action:
-            data.action.trim() !== permission.action
-              ? data.action.trim()
-              : undefined,
-        };
-
-        // Only update permission if any field changed
-        const hasPermissionChanges = Object.values(permissionUpdate).some(
-          (v) => v !== undefined,
-        );
-
-        // Update role-permission condition
-        const currentCondition = rolePermission.condition
-          ? JSON.stringify(rolePermission.condition, null, 2)
-          : "";
-        const conditionChanged = data.condition.trim() !== currentCondition;
-
-        if (conditionChanged) {
-          // Update condition (this returns the full updated role)
-          const rolePermissionUpdate: RolePermissionUpdate = {
-            condition: conditionObj,
-          };
-          const updatedRole = await updateRolePermission(
-            role.id,
-            rolePermission.id,
-            rolePermissionUpdate,
-          );
-          // If permission details also changed, update them first
-          if (hasPermissionChanges) {
-            await updatePermission(permission.id, permissionUpdate);
-            // The role returned from updateRolePermission may not have the latest permission data
-            // So we update it optimistically with the permission changes
-            const roleWithUpdatedPermission: Role = {
-              ...updatedRole,
-              permissions: updatedRole.permissions.map((rp) =>
-                rp.id === rolePermission.id
-                  ? {
-                      ...rp,
-                      permission: {
-                        ...rp.permission,
-                        name: permissionUpdate.name ?? rp.permission.name,
-                        description:
-                          permissionUpdate.description !== undefined
-                            ? permissionUpdate.description
-                            : rp.permission.description,
-                        resource:
-                          permissionUpdate.resource ?? rp.permission.resource,
-                        action: permissionUpdate.action ?? rp.permission.action,
-                      },
-                    }
-                  : rp,
-              ),
-            };
-            updateRoleOptimistic(roleWithUpdatedPermission);
-            onSave(roleWithUpdatedPermission);
-          } else {
-            // Only condition changed
-            updateRoleOptimistic(updatedRole);
-            onSave(updatedRole);
-          }
-        } else if (hasPermissionChanges) {
-          // Only permission details changed, update permission and construct updated role
-          await updatePermission(permission.id, permissionUpdate);
-          const updatedRole: Role = {
-            ...role,
-            permissions: role.permissions.map((rp) =>
-              rp.id === rolePermission.id
-                ? {
-                    ...rp,
-                    permission: {
-                      ...rp.permission,
-                      name: permissionUpdate.name ?? rp.permission.name,
-                      description:
-                        permissionUpdate.description !== undefined
-                          ? permissionUpdate.description
-                          : rp.permission.description,
-                      resource:
-                        permissionUpdate.resource ?? rp.permission.resource,
-                      action: permissionUpdate.action ?? rp.permission.action,
-                    },
-                  }
-                : rp,
-            ),
-          };
-          updateRoleOptimistic(updatedRole);
-          onSave(updatedRole);
-        } else {
-          // No changes
-          onClose();
-          return;
-        }
-      } else {
-        // Standalone mode: create or update permission
-        if (isEditMode && permission) {
-          // Update existing permission
-          const permissionUpdate: PermissionUpdate = {
-            name:
-              data.name.trim() !== permission.name
-                ? data.name.trim()
-                : undefined,
-            description:
-              data.description.trim() !== (permission.description ?? "")
-                ? data.description.trim() || null
-                : undefined,
-            resource:
-              data.resource.trim() !== permission.resource
-                ? data.resource.trim()
-                : undefined,
-            action:
-              data.action.trim() !== permission.action
-                ? data.action.trim()
-                : undefined,
-          };
-
-          // Only update if any field changed
-          const hasChanges = Object.values(permissionUpdate).some(
-            (v) => v !== undefined,
-          );
-
-          if (hasChanges) {
-            const updatedPermission = await updatePermission(
-              permission.id,
-              permissionUpdate,
-            );
-            onSave(updatedPermission);
-          } else {
-            // No changes
-            onClose();
-            return;
-          }
-        } else {
-          // Create new permission
-          // Note: condition is not part of Permission, it's part of RolePermission
-          // So we don't send condition when creating a standalone permission
-          const newPermission = await createPermission({
-            name: data.name.trim(),
-            description: data.description.trim() || null,
-            resource: data.resource.trim(),
-            action: data.action.trim(),
-          });
-          onSave(newPermission);
-        }
-      }
-
-      onClose();
-    },
-    onError: (error) => {
-      showDanger(error);
-    },
+    onSubmit: handleSubmit,
+    onError: showDanger,
   });
 
   const handleFormSubmit = useCallback(
@@ -301,43 +149,35 @@ export function PermissionEditModal({
     onClose();
   }, [reset, onClose]);
 
-  const handleDeletePermission = useCallback(async () => {
-    if (!isRoleContext || !permission) {
-      return;
-    }
+  // Inject operations for deletion (IOC)
+  const deleteOperations = {
+    deletePermission,
+    refreshRoles: refresh,
+  };
 
-    if (!isOrphaned()) {
-      setDeleteError(
-        "Cannot delete permission. This permission is associated with multiple roles. Please remove it from all roles first.",
-      );
-      return;
-    }
-
-    if (
-      !confirm(
-        `Are you sure you want to delete the permission "${permission.name}"? This action cannot be undone.`,
-      )
-    ) {
-      return;
-    }
-
-    setIsDeleting(true);
-    setDeleteError(null);
-
-    try {
-      await deletePermission(permission.id);
-      // Refresh roles to ensure consistency
-      await refresh();
-      // Close modal
+  // Use permission delete hook for deletion logic (SRP)
+  const { isDeleting, deleteError, handleDelete } = usePermissionDelete({
+    permission,
+    isOrphaned: isOrphaned(),
+    operations: deleteOperations,
+    onSuccess: () => {
+      setShowDeleteConfirmation(false);
       onClose();
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to delete permission";
-      setDeleteError(errorMessage);
-    } finally {
-      setIsDeleting(false);
-    }
-  }, [isRoleContext, isOrphaned, permission, onClose, refresh]);
+    },
+    onError: showDanger,
+  });
+
+  const handleDeleteClick = useCallback(() => {
+    setShowDeleteConfirmation(true);
+  }, []);
+
+  const handleDeleteCancel = useCallback(() => {
+    setShowDeleteConfirmation(false);
+  }, []);
+
+  // Compute modal title (fix conditional logic)
+  const modalTitle =
+    isEditMode || isRoleContext ? "Edit permission" : "Create permission";
 
   const modalContent = (
     /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
@@ -354,13 +194,7 @@ export function PermissionEditModal({
         )}
         role="dialog"
         aria-modal="true"
-        aria-label={
-          isRoleContext
-            ? "Edit permission"
-            : isEditMode
-              ? "Edit permission"
-              : "Create permission"
-        }
+        aria-label={modalTitle}
         onMouseDown={handleModalClick}
       >
         <button
@@ -376,11 +210,7 @@ export function PermissionEditModal({
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <div className={cn("flex items-center gap-2")}>
               <h2 className="m-0 truncate font-bold text-2xl text-text-a0 leading-[1.4]">
-                {isRoleContext
-                  ? "Edit Permission"
-                  : isEditMode
-                    ? "Edit permission"
-                    : "Create permission"}
+                {isRoleContext ? "Edit permission for role" : modalTitle}
               </h2>
               {isLocked && (
                 <span
@@ -474,11 +304,6 @@ export function PermissionEditModal({
                   {generalError}
                 </p>
               )}
-              {deleteError && (
-                <p className="m-0 text-[var(--color-danger-a0)] text-sm">
-                  {deleteError}
-                </p>
-              )}
             </div>
             <div className="flex w-full flex-shrink-0 flex-col-reverse justify-end gap-3 md:w-auto md:flex-row">
               {isRoleContext && isOrphaned() && (
@@ -486,9 +311,8 @@ export function PermissionEditModal({
                   type="button"
                   variant="danger"
                   size="medium"
-                  onClick={handleDeletePermission}
+                  onClick={handleDeleteClick}
                   disabled={isSubmitting || isDeleting}
-                  loading={isDeleting}
                 >
                   Delete permission
                 </Button>
@@ -522,6 +346,21 @@ export function PermissionEditModal({
     </div>
   );
 
-  // Render modal in a portal to avoid DOM hierarchy conflicts (DRY via utility)
-  return renderModalPortal(modalContent);
+  return (
+    <>
+      {/* Render modal in a portal to avoid DOM hierarchy conflicts (DRY via utility) */}
+      {renderModalPortal(modalContent)}
+      {/* Delete confirmation modal */}
+      {permission && (
+        <DeletePermissionConfirmationModal
+          isOpen={showDeleteConfirmation}
+          permissionName={permission.name}
+          isDeleting={isDeleting}
+          error={deleteError}
+          onClose={handleDeleteCancel}
+          onConfirm={handleDelete}
+        />
+      )}
+    </>
+  );
 }
