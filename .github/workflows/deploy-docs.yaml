@@ -1,0 +1,78 @@
+---
+name: Deploy Documentation to GitHub Pages
+
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'scripts/generate_openapi.py'
+      - 'scripts/build_docs.py'
+      - 'pyproject.toml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: docs-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Detect version
+        id: version
+        run: |
+          VERSION=$(grep -m 1 '^version = ' pyproject.toml | cut -d '"' -f 2)
+          if [ -z "$VERSION" ]; then
+            VERSION=$(grep -m 1 '"version":' web/package.json | cut -d '"' -f 4)
+          fi
+          if [ -z "$VERSION" ]; then
+            echo "Error: Could not detect version from pyproject.toml or " \
+              "web/package.json"
+            exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Detected version: $VERSION"
+
+      - name: Generate OpenAPI schema
+        run: uv run --frozen python scripts/generate_openapi.py
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy to GitHub Pages
+        run: |
+          uv run --frozen mike deploy \
+            ${{ steps.version.outputs.version }} latest
+          uv run --frozen mike set-default latest
+
+      - name: Push to gh-pages
+        run: |
+          git push origin gh-pages
