@@ -198,7 +198,7 @@ def list_ingest_history(
     session: SessionDep,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
-    status: IngestStatus | None = Query(None, alias="status"),  # noqa: B008
+    status: Annotated[IngestStatus | None, Query(alias="status")] = None,
 ) -> IngestHistoryListResponse:
     """List ingest history with pagination.
 

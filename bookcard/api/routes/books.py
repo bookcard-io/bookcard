@@ -2431,7 +2431,7 @@ def upload_books_batch(
     current_user: CurrentUserDep,
     permission_helper: PermissionHelperDep,
     session: SessionDep,
-    files: list[UploadFile] = File(...),  # noqa: B008
+    files: Annotated[list[UploadFile], File(...)],
 ) -> BookBatchUploadResponse:
     """Upload multiple book files to the active library (asynchronous).
 

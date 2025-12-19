@@ -80,8 +80,8 @@ def list_tasks(
     current_user: CurrentUserDep,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
-    status: TaskStatus | None = Query(None, alias="status"),  # noqa: B008
-    task_type: TaskType | None = Query(None, alias="task_type"),  # noqa: B008
+    status: Annotated[TaskStatus | None, Query(alias="status")] = None,
+    task_type: Annotated[TaskType | None, Query(alias="task_type")] = None,
 ) -> TaskListResponse:
     """List tasks with optional filters.
 
@@ -314,7 +314,7 @@ def cancel_task(
 def get_task_statistics(
     session: SessionDep,
     current_user: CurrentUserDep,
-    task_type: TaskType | None = Query(None, alias="task_type"),  # noqa: B008
+    task_type: Annotated[TaskType | None, Query(alias="task_type")] = None,
 ) -> list[TaskStatisticsRead]:
     """Get task statistics.
 
