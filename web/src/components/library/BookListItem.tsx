@@ -171,12 +171,7 @@ export function BookListItem({
         buttonRef={menu.menuButtonRef}
         cursorPosition={menu.cursorPosition}
         book={book}
-        onBookInfo={menuActions.handleBookInfo}
-        onMoveToLibrary={menuActions.handleMoveToLibrary}
-        onConvert={menuActions.handleConvert}
-        onDelete={menuActions.handleDelete}
-        onMore={menuActions.handleMore}
-        isSendDisabled={menuActions.isSendDisabled}
+        actions={menuActions}
       />
       <DeleteBookConfirmationModal
         isOpen={menuActions.deleteConfirmation.isOpen}

@@ -183,8 +183,8 @@ export function BookCardReadingCorner({
           : "Toggle read status"
       }
     >
-      <span className="relative inline-flex h-6 w-6 items-center justify-center">
-        <GoBookmark className="h-5 w-5" aria-hidden="true" />
+      <span className="relative inline-flex h-7 w-7 items-center justify-center">
+        <GoBookmark className="h-7 w-7" aria-hidden="true" />
         {displayState.percent !== null && (
           <span
             className={cn(

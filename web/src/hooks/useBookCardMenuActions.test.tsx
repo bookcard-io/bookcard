@@ -151,16 +151,16 @@ describe("useBookCardMenuActions", () => {
       { wrapper },
     );
 
-    expect(result.current.handleBookInfo).toBeDefined();
-    expect(result.current.handleSend).toBeDefined();
-    expect(result.current.handleMoveToLibrary).toBeDefined();
-    expect(result.current.handleConvert).toBeDefined();
-    expect(result.current.handleDelete).toBeDefined();
-    expect(result.current.handleMore).toBeDefined();
+    expect(result.current.onBookInfo).toBeDefined();
+    expect(result.current.onSend).toBeDefined();
+    expect(result.current.onMoveToLibrary).toBeDefined();
+    expect(result.current.onConvert).toBeDefined();
+    expect(result.current.onDelete).toBeDefined();
+    expect(result.current.onMore).toBeDefined();
     expect(result.current.deleteConfirmation).toBeDefined();
   });
 
-  it("should call onBookClick when handleBookInfo is called and onBookClick is provided", () => {
+  it("should call onBookClick when onBookInfo is called and onBookClick is provided", () => {
     const book = createMockBook(1);
     const onBookClick = vi.fn();
     const wrapper = createWrapper();
@@ -175,14 +175,14 @@ describe("useBookCardMenuActions", () => {
     );
 
     act(() => {
-      result.current.handleBookInfo();
+      result.current.onBookInfo();
     });
 
     expect(onBookClick).toHaveBeenCalledTimes(1);
     expect(onBookClick).toHaveBeenCalledWith(book);
   });
 
-  it("should not throw when handleBookInfo is called and onBookClick is not provided", () => {
+  it("should not throw when onBookInfo is called and onBookClick is not provided", () => {
     const book = createMockBook(1);
     const wrapper = createWrapper();
 
@@ -196,12 +196,12 @@ describe("useBookCardMenuActions", () => {
 
     expect(() => {
       act(() => {
-        result.current.handleBookInfo();
+        result.current.onBookInfo();
       });
     }).not.toThrow();
   });
 
-  it("should call deleteConfirmation.open when handleDelete is called", () => {
+  it("should call deleteConfirmation.open when onDelete is called", () => {
     const book = createMockBook(1);
     const wrapper = createWrapper();
 
@@ -216,7 +216,7 @@ describe("useBookCardMenuActions", () => {
     const openSpy = vi.spyOn(result.current.deleteConfirmation, "open");
 
     act(() => {
-      result.current.handleDelete();
+      result.current.onDelete();
     });
 
     expect(openSpy).toHaveBeenCalledTimes(1);
@@ -315,7 +315,7 @@ describe("useBookCardMenuActions", () => {
     }).not.toThrow();
   });
 
-  it("should not throw when handleSend is called", () => {
+  it("should not throw when onSend is called", () => {
     const book = createMockBook(1);
     const wrapper = createWrapper();
 
@@ -329,7 +329,7 @@ describe("useBookCardMenuActions", () => {
 
     expect(() => {
       act(() => {
-        result.current.handleSend();
+        result.current.onSend();
       });
     }).not.toThrow();
   });
@@ -457,7 +457,7 @@ describe("useBookCardMenuActions", () => {
     );
 
     await act(async () => {
-      await result.current.handleSend();
+      await result.current.onSend();
     });
 
     expect(globalThis.alert).toHaveBeenCalledWith("Send failed");
@@ -500,13 +500,13 @@ describe("useBookCardMenuActions", () => {
     );
 
     await act(async () => {
-      await result.current.handleSend();
+      await result.current.onSend();
     });
 
     expect(globalThis.alert).toHaveBeenCalledWith("Failed to send book");
   });
 
-  it("should not throw when handleMoveToLibrary is called", () => {
+  it("should not throw when onMoveToLibrary is called", () => {
     const book = createMockBook(1);
     const wrapper = createWrapper();
 
@@ -520,12 +520,12 @@ describe("useBookCardMenuActions", () => {
 
     expect(() => {
       act(() => {
-        result.current.handleMoveToLibrary();
+        result.current.onMoveToLibrary();
       });
     }).not.toThrow();
   });
 
-  it("should not throw when handleConvert is called", () => {
+  it("should not throw when onConvert is called", () => {
     const book = createMockBook(1);
     const wrapper = createWrapper();
 
@@ -539,12 +539,12 @@ describe("useBookCardMenuActions", () => {
 
     expect(() => {
       act(() => {
-        result.current.handleConvert();
+        result.current.onConvert();
       });
     }).not.toThrow();
   });
 
-  it("should not throw when handleMore is called", () => {
+  it("should not throw when onMore is called", () => {
     const book = createMockBook(1);
     const wrapper = createWrapper();
 
@@ -558,7 +558,7 @@ describe("useBookCardMenuActions", () => {
 
     expect(() => {
       act(() => {
-        result.current.handleMore();
+        result.current.onMore();
       });
     }).not.toThrow();
   });
@@ -593,12 +593,12 @@ describe("useBookCardMenuActions", () => {
 
     expect(() => {
       act(() => {
-        result.current.handleBookInfo();
-        result.current.handleSend();
-        result.current.handleMoveToLibrary();
-        result.current.handleConvert();
-        result.current.handleDelete();
-        result.current.handleMore();
+        result.current.onBookInfo();
+        result.current.onSend();
+        result.current.onMoveToLibrary();
+        result.current.onConvert();
+        result.current.onDelete();
+        result.current.onMore();
       });
     }).not.toThrow();
   });

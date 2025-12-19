@@ -183,12 +183,7 @@ export function BookCard({
             buttonRef={menu.menuButtonRef}
             cursorPosition={menu.cursorPosition}
             book={book}
-            onBookInfo={menuActions.handleBookInfo}
-            onMoveToLibrary={menuActions.handleMoveToLibrary}
-            onConvert={menuActions.handleConvert}
-            onDelete={menuActions.handleDelete}
-            onMore={menuActions.handleMore}
-            isSendDisabled={menuActions.isSendDisabled}
+            actions={menuActions}
             onOpenAddToShelfModal={modals.openAddToShelf}
           />
           {!isGuest && (

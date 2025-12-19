@@ -17,6 +17,7 @@ import { useCallback, useMemo } from "react";
 import { useUser } from "@/contexts/UserContext";
 import { sendBookToDevice } from "@/services/bookService";
 import type { Book } from "@/types/book";
+import { useBookNavigation } from "./useBookNavigation";
 import { useDeleteConfirmation } from "./useDeleteConfirmation";
 
 export interface UseBookCardMenuActionsOptions {
@@ -32,21 +33,25 @@ export interface UseBookCardMenuActionsOptions {
 
 export interface UseBookCardMenuActionsResult {
   /** Handler for Book info action. */
-  handleBookInfo: () => void;
+  onBookInfo: () => void;
+  /** Handler for Read book action. */
+  onReadBook: () => void;
   /** Handler for Send action. */
-  handleSend: () => void;
+  onSend: () => void;
   /** Handler for Move to library action. */
-  handleMoveToLibrary: () => void;
+  onMoveToLibrary: () => void;
   /** Handler for Convert action. */
-  handleConvert: () => void;
+  onConvert: () => void;
   /** Handler for Delete action. */
-  handleDelete: () => void;
+  onDelete: () => void;
   /** Handler for More action. */
-  handleMore: () => void;
+  onMore: () => void;
   /** Delete confirmation modal state and controls. */
   deleteConfirmation: ReturnType<typeof useDeleteConfirmation>;
   /** Whether Send action is disabled (no devices available). */
   isSendDisabled: boolean;
+  /** Whether Read book action is disabled (no readable format available). */
+  isReadBookDisabled: boolean;
 }
 
 /**
@@ -73,6 +78,7 @@ export function useBookCardMenuActions({
   onDeleteError,
 }: UseBookCardMenuActionsOptions): UseBookCardMenuActionsResult {
   const { user } = useUser();
+  const { navigateToReader, readableFormat } = useBookNavigation(book);
   const deleteConfirmation = useDeleteConfirmation({
     bookId: book.id,
     onSuccess: () => {
@@ -98,14 +104,21 @@ export function useBookCardMenuActions({
   }, [user?.ereader_devices]);
 
   const isSendDisabled = deviceToUse === null;
+  const isReadBookDisabled = !readableFormat;
 
-  const handleBookInfo = useCallback(() => {
+  const onBookInfo = useCallback(() => {
     if (onBookClick) {
       onBookClick(book);
     }
   }, [onBookClick, book]);
 
-  const handleSend = useCallback(async () => {
+  const onReadBook = useCallback(() => {
+    if (readableFormat) {
+      navigateToReader();
+    }
+  }, [navigateToReader, readableFormat]);
+
+  const onSend = useCallback(async () => {
     if (!deviceToUse) {
       return;
     }
@@ -121,30 +134,32 @@ export function useBookCardMenuActions({
     }
   }, [book.id, deviceToUse]);
 
-  const handleMoveToLibrary = useCallback(() => {
+  const onMoveToLibrary = useCallback(() => {
     // TODO: Implement move to library functionality
   }, []);
 
-  const handleConvert = useCallback(() => {
+  const onConvert = useCallback(() => {
     // TODO: Implement convert functionality
   }, []);
 
-  const handleDelete = useCallback(() => {
+  const onDelete = useCallback(() => {
     deleteConfirmation.open();
   }, [deleteConfirmation]);
 
-  const handleMore = useCallback(() => {
+  const onMore = useCallback(() => {
     // TODO: Implement more options functionality
   }, []);
 
   return {
-    handleBookInfo,
-    handleSend,
-    handleMoveToLibrary,
-    handleConvert,
-    handleDelete,
-    handleMore,
+    onBookInfo,
+    onReadBook,
+    onSend,
+    onMoveToLibrary,
+    onConvert,
+    onDelete,
+    onMore,
     deleteConfirmation,
     isSendDisabled,
+    isReadBookDisabled,
   };
 }

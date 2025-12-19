@@ -16,6 +16,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { FaBookReader } from "react-icons/fa";
 import { DropdownMenu } from "@/components/common/DropdownMenu";
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
 import { useUser } from "@/contexts/UserContext";
@@ -31,6 +32,25 @@ import { MoreActionsFlyoutMenu } from "./MoreActionsFlyoutMenu";
 import { SendToDeviceFlyoutMenu } from "./SendToDeviceFlyoutMenu";
 import { SendToDeviceMenuItem } from "./SendToDeviceMenuItem";
 
+export interface BookCardMenuActions {
+  /** Callback when Book info is clicked. */
+  onBookInfo?: () => void;
+  /** Callback when Read book is clicked. */
+  onReadBook?: () => void;
+  /** Callback when Move to library is clicked. */
+  onMoveToLibrary?: () => void;
+  /** Callback when Convert is clicked. */
+  onConvert?: () => void;
+  /** Callback when Delete is clicked. */
+  onDelete?: () => void;
+  /** Callback when More is clicked. */
+  onMore?: () => void;
+  /** Whether Send action is disabled. */
+  isSendDisabled?: boolean;
+  /** Whether Read book action is disabled. */
+  isReadBookDisabled?: boolean;
+}
+
 export interface BookCardMenuProps {
   /** Whether the menu is open. */
   isOpen: boolean;
@@ -42,18 +62,8 @@ export interface BookCardMenuProps {
   cursorPosition: { x: number; y: number } | null;
   /** Book data (required for operations and permission checking). */
   book: Book;
-  /** Callback when Book info is clicked. */
-  onBookInfo?: () => void;
-  /** Whether Send action is disabled. */
-  isSendDisabled?: boolean;
-  /** Callback when Move to library is clicked. */
-  onMoveToLibrary?: () => void;
-  /** Callback when Convert is clicked. */
-  onConvert?: () => void;
-  /** Callback when Delete is clicked. */
-  onDelete?: () => void;
-  /** Callback when More is clicked. */
-  onMore?: () => void;
+  /** Actions and state for the menu items. */
+  actions: BookCardMenuActions;
   /** Callback when Add to shelf modal should be opened. */
   onOpenAddToShelfModal?: () => void;
 }
@@ -72,14 +82,20 @@ export function BookCardMenu({
   buttonRef,
   cursorPosition,
   book,
-  onBookInfo,
-  onMoveToLibrary,
-  onConvert,
-  onDelete,
-  onMore,
-  isSendDisabled = false,
+  actions,
   onOpenAddToShelfModal,
 }: BookCardMenuProps) {
+  const {
+    onBookInfo,
+    onReadBook,
+    onMoveToLibrary,
+    onConvert,
+    onDelete,
+    onMore,
+    isSendDisabled = false,
+    isReadBookDisabled = false,
+  } = actions;
+
   const { user, canPerformAction } = useUser();
   const isGuest = !user;
   const bookContext = buildBookPermissionContext(book);
@@ -182,6 +198,14 @@ export function BookCardMenu({
           icon="pi pi-info-circle"
           label="Book info"
           onClick={() => handleItemClick(onBookInfo)}
+        />
+        <DropdownMenuItem
+          icon={<FaBookReader className="h-4 w-4" />}
+          label="Read book"
+          onClick={
+            isReadBookDisabled ? undefined : () => handleItemClick(onReadBook)
+          }
+          disabled={isReadBookDisabled}
         />
         <SendToDeviceMenuItem
           itemRef={sendFlyoutMenu.parentItemRef}
