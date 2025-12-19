@@ -162,7 +162,7 @@ export function BookCardReadingCorner({
       type="button"
       className={cn(
         "absolute top-2 right-2 z-20 inline-flex h-9 w-9 items-center justify-center rounded-md",
-        "text-text-a0 shadow-sm",
+        "bg-white/20 text-[var(--color-white)] shadow-sm backdrop-blur-sm",
         "transition-all duration-150",
         // Default: hidden unless there's progress
         displayState.shouldShow ? "opacity-100" : "opacity-0",
