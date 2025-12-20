@@ -1,3 +1,4 @@
+import { ConversionModal } from "@/components/books/ConversionModal";
 import { DeleteBookConfirmationModal } from "@/components/books/DeleteBookConfirmationModal";
 import { AddToShelfModal } from "@/components/library/AddToShelfModal";
 import { ShelfEditModal } from "@/components/shelves/ShelfEditModal";
@@ -32,11 +33,17 @@ interface AddToShelfState {
   onSuccess: () => void;
 }
 
+interface ConversionState {
+  isOpen: boolean;
+  close: () => void;
+}
+
 export interface BookCardModalsProps {
   book: Book;
   deleteState: DeleteState;
   shelfState: ShelfState;
   addToShelfState: AddToShelfState;
+  conversionState: ConversionState;
 }
 
 export function BookCardModals({
@@ -44,6 +51,7 @@ export function BookCardModals({
   deleteState,
   shelfState,
   addToShelfState,
+  conversionState,
 }: BookCardModalsProps) {
   return (
     <>
@@ -74,6 +82,11 @@ export function BookCardModals({
           onSuccess={addToShelfState.onSuccess}
         />
       )}
+      <ConversionModal
+        book={book}
+        isOpen={conversionState.isOpen}
+        onClose={conversionState.close}
+      />
     </>
   );
 }
