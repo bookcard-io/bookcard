@@ -26,10 +26,9 @@ from pathlib import Path
 
 # Ensure all route modules are imported to resolve ForwardRefs
 # This is needed for OpenAPI schema generation to work properly
-from bookcard.api import routes  # noqa: F401
-
-# Import app and ensure all routes are registered
-from bookcard.api.main import app
+# Import create_app and create minimal config for schema generation
+from bookcard.api.main import create_app
+from bookcard.config import AppConfig
 
 # Import models first to ensure they're available for ForwardRef resolution
 from bookcard.models.auth import User
@@ -49,6 +48,19 @@ def generate_openapi_json(output_path: Path | str = "docs/openapi.json") -> None
     """
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
+
+    # Create minimal config for schema generation (no env vars required)
+    # These dummy values are only used for app initialization, not for actual runtime
+    minimal_config = AppConfig(
+        jwt_secret="dummy-secret-for-schema-generation",  # noqa: S106
+        jwt_algorithm="HS256",
+        jwt_expires_minutes=131400,
+        encryption_key="dummy-encryption-key-for-schema-generation",
+        database_url="sqlite:///:memory:",
+    )
+
+    # Create app with minimal config (avoids requiring environment variables)
+    app = create_app(config=minimal_config)
 
     # Patch ingest module to resolve ForwardRef "User" string annotation
     # Some routes use string annotations like "User" which create ForwardRefs
