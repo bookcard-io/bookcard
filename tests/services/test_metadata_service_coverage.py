@@ -260,11 +260,13 @@ def test_initialize_providers_with_ids(
         "provider2": type(provider2),
     }
     mock_registry.get_provider = MagicMock(  # type: ignore[assignment]
-        side_effect=lambda pid: provider1
-        if pid == "provider1"
-        else provider2
-        if pid == "provider2"
-        else None
+        side_effect=lambda pid: (
+            provider1
+            if pid == "provider1"
+            else provider2
+            if pid == "provider2"
+            else None
+        )
     )
 
     service = MetadataService(registry=mock_registry)

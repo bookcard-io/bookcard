@@ -80,8 +80,8 @@ def test_result_unwrapper_unwrap_series_name_variants() -> None:
     assert unwrapper.unwrap_series_name(row_attr) == "Series B"
 
     row_getitem = MagicMock()
-    row_getitem.__getitem__.side_effect = (
-        lambda k: "Series C" if k == "series_name" else None
+    row_getitem.__getitem__.side_effect = lambda k: (
+        "Series C" if k == "series_name" else None
     )
     assert unwrapper.unwrap_series_name(row_getitem) == "Series C"
 
