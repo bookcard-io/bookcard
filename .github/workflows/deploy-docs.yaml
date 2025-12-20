@@ -60,6 +60,10 @@ jobs:
           echo "Detected version: $VERSION"
 
       - name: Generate OpenAPI schema
+        env:
+          BOOKCARD_JWT_SECRET: "dummy-secret-for-schema-generation"
+          BOOKCARD_JWT_ALG: "HS256"
+          BOOKCARD_FERNET_KEY: "dummy-encryption-key-for-schema-generation"
         run: uv run --frozen python scripts/generate_openapi.py
 
       - name: Configure Git
