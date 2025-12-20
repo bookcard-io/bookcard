@@ -13,17 +13,30 @@
 
 <div align="center"><img src="web/public/reading-logo.png" width="200" alt="Bookcard logo" /></div>
 
+📖 **Documentation:** [https://bookcard-io.github.io/bookcard](https://bookcard-io.github.io/bookcard)
+
 ---
 
 ## Table of Contents
 
-1. [About](#about)
-2. [Features](#features)
-3. [Installation](#installation)
+1. [Demo](#demo)
+2. [About](#about)
+3. [Features](#features)
+4. [Installation](#installation)
    - [Docker](#docker)
    - [Development](#development)
-4. [Contributing](#contributing)
-5. [License](#license)
+5. [Contributing](#contributing)
+6. [License](#license)
+
+---
+
+## Demo
+
+Try Bookcard online at [https://demo.bookcard.io/](https://demo.bookcard.io/)
+
+**Demo credentials:**
+- Username: `demo`
+- Password: `qjm1HVU7rtw0zqt!npc`
 
 ---
 
