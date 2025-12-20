@@ -36,8 +36,12 @@ def temp_calibre_db() -> Iterator[Path]:
     with TemporaryDirectory() as temp_dir:
         db_path = Path(temp_dir) / "metadata.db"
         engine = create_engine(f"sqlite:///{db_path}")
-        create_all_tables(engine)
-        yield db_path
+        try:
+            create_all_tables(engine)
+            yield db_path
+        finally:
+            # Ensure engine is disposed to release database file on Windows
+            engine.dispose()
 
 
 @pytest.fixture
@@ -56,8 +60,12 @@ def library(temp_calibre_db: Path) -> Library:
 def calibre_session(temp_calibre_db: Path) -> Iterator[Session]:
     """Create a session for the test Calibre database."""
     engine = create_engine(f"sqlite:///{temp_calibre_db}")
-    with get_session(engine) as session:
-        yield session
+    try:
+        with get_session(engine) as session:
+            yield session
+    finally:
+        # Ensure engine is disposed to release database file on Windows
+        engine.dispose()
 
 
 def test_book_matcher_exact_match(library: Library, calibre_session: Session) -> None:
