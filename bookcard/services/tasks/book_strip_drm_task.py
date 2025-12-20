@@ -16,14 +16,15 @@
 """Book DRM stripping task implementation.
 
 Runs DeDRM on an existing book format and, if it produces a different output,
-adds the result as an additional format for the same book (without modifying
-the original format).
+atomically replaces the original format with the result. A backup of the
+original file is always kept.
 """
 
 from __future__ import annotations
 
 import hashlib
 import logging
+import shutil
 from contextlib import suppress
 from typing import TYPE_CHECKING, Any
 
@@ -155,6 +156,9 @@ class BookStripDrmTask(BaseTask):
             context = worker_context
 
         processed_path = None
+        source_path = None
+        backup_path = None
+
         try:
             self._update_progress_or_cancel(0.1, context.update_progress)
 
@@ -165,6 +169,11 @@ class BookStripDrmTask(BaseTask):
             source_path = book_service.get_format_file_path(
                 self._book_id, self._source_format
             )
+
+            # 1) backup source file
+            backup_path = source_path.with_suffix(source_path.suffix + ".bak")
+            shutil.copy2(source_path, backup_path)
+
             self.set_metadata("source_format", self._source_format)
             self.set_metadata("output_format", self._output_format)
             self._update_progress_or_cancel(
@@ -173,6 +182,7 @@ class BookStripDrmTask(BaseTask):
                 {"source_format": self._source_format},
             )
 
+            # 2) remove drm
             processed_path = self._dedrm_service.strip_drm(source_path)
             self._update_progress_or_cancel(0.7, context.update_progress)
 
@@ -182,23 +192,30 @@ class BookStripDrmTask(BaseTask):
             self.set_metadata("did_strip", did_strip)
 
             if did_strip:
-                book_service.add_format(
-                    book_id=self._book_id,
-                    file_path=processed_path,
-                    file_format=self._output_format,
-                    replace=False,
-                )
+                # if success -> new file -> source.extension
+                # Atomic replacement
+                processed_path.replace(source_path)
+
+                # 3) do not remove .bak file on success or failure.
+                # (handled by not deleting backup_path)
+
                 self._update_progress_or_cancel(
                     0.95,
                     context.update_progress,
-                    {"output_format": self._output_format},
+                    {"output_format": self._source_format},
                 )
 
             self._update_progress_or_cancel(1.0, context.update_progress, self.metadata)
         except TaskCancelledError:
             logger.info("DeDRM task %d was cancelled", self.task_id)
             raise
+        except Exception:
+            # if fail -> move .bak file back to source.extension (restore and cleanup backup)
+            if source_path and backup_path and backup_path.exists():
+                with suppress(OSError):
+                    backup_path.replace(source_path)
+            raise
         finally:
-            if processed_path is not None:
+            if processed_path and processed_path.exists():
                 with suppress(OSError):
                     processed_path.unlink()
