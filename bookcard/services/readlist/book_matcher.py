@@ -95,6 +95,7 @@ class BookMatcherService(BookMatcher):
         fuzzy_index_tolerance: float = 0.5,
         fuzzy_year_tolerance: int = 1,
         title_similarity_threshold: float = 0.8,
+        session_manager: CalibreSessionManager | None = None,
     ) -> None:
         """Initialize book matcher service.
 
@@ -112,17 +113,28 @@ class BookMatcherService(BookMatcher):
             Maximum year difference for fuzzy match (default: 1).
         title_similarity_threshold : float
             Minimum title similarity for title match (default: 0.8).
+        session_manager : CalibreSessionManager | None
+            Optional session manager to use. If None, a new one is created.
         """
         self._library = library
-        self._session_manager = CalibreSessionManager(
-            calibre_db_path=str(library.calibre_db_path),
-            calibre_db_file=library.calibre_db_file,
-        )
+        if session_manager:
+            self._session_manager = session_manager
+        else:
+            self._session_manager = CalibreSessionManager(
+                calibre_db_path=str(library.calibre_db_path),
+                calibre_db_file=library.calibre_db_file,
+            )
+        self._owns_session_manager = session_manager is None
         self._exact_match_threshold = exact_match_threshold
         self._fuzzy_series_similarity = fuzzy_series_similarity
         self._fuzzy_index_tolerance = fuzzy_index_tolerance
         self._fuzzy_year_tolerance = fuzzy_year_tolerance
         self._title_similarity_threshold = title_similarity_threshold
+
+    def close(self) -> None:
+        """Close resources."""
+        if self._owns_session_manager and self._session_manager:
+            self._session_manager.dispose()
 
     @contextmanager
     def _get_session(self) -> Iterator[Session]:

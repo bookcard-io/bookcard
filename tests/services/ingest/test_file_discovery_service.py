@@ -228,7 +228,7 @@ def test_create_book_key_from_path_special_chars(
 ) -> None:
     """Test _create_book_key_from_path removes special characters."""
     # Create a subdirectory with special characters
-    book_dir = temp_dir / "Book@#$%^&*()"
+    book_dir = temp_dir / "Book@#$^&()"
     book_dir.mkdir()
     file_path = book_dir / "book.epub"
     file_path.touch()

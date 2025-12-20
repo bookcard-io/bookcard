@@ -17,7 +17,6 @@
 
 from __future__ import annotations
 
-import sys
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -25,6 +24,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
+
+from bookcard.constants import IS_WIN
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -69,7 +70,7 @@ def temp_dir() -> Iterator[Path]:  # type: ignore[type-arg]
         ("/root/.ssh", True),
     ],
 )
-@pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific paths")
+@pytest.mark.skipif(IS_WIN, reason="Unix-specific paths")
 def test_is_under_excluded(path_str: str, expected: bool) -> None:
     """Test _is_under_excluded identifies excluded paths (lines 83-88)."""
     path = Path(path_str)
@@ -94,9 +95,7 @@ def test_is_under_excluded(path_str: str, expected: bool) -> None:
         ("/root/.ssh", True),
     ],
 )
-@pytest.mark.skipif(
-    sys.platform != "win32", reason="Windows-specific test with mocked paths"
-)
+@pytest.mark.skipif(not IS_WIN, reason="Windows-specific test with mocked paths")
 def test_is_under_excluded_windows(path_str: str, expected: bool) -> None:
     """Test _is_under_excluded identifies excluded paths on Windows (lines 83-88)."""
     # On Windows, these Unix paths don't exist, so we need to mock the path resolution
@@ -108,7 +107,7 @@ def test_is_under_excluded_windows(path_str: str, expected: bool) -> None:
         assert result == expected
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific paths")
+@pytest.mark.skipif(IS_WIN, reason="Unix-specific paths")
 def test_is_under_excluded_exact_match() -> None:
     """Test _is_under_excluded matches exact excluded prefix."""
     for prefix in EXCLUDED_FS_DIR_PREFIXES:
@@ -116,9 +115,7 @@ def test_is_under_excluded_exact_match() -> None:
         assert _is_under_excluded(path) is True
 
 
-@pytest.mark.skipif(
-    sys.platform != "win32", reason="Windows-specific test with mocked paths"
-)
+@pytest.mark.skipif(not IS_WIN, reason="Windows-specific test with mocked paths")
 def test_is_under_excluded_exact_match_windows() -> None:
     """Test _is_under_excluded matches exact excluded prefix on Windows."""
     for prefix in EXCLUDED_FS_DIR_PREFIXES:
@@ -128,7 +125,7 @@ def test_is_under_excluded_exact_match_windows() -> None:
             assert _is_under_excluded(mock_path) is True
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific paths")
+@pytest.mark.skipif(IS_WIN, reason="Unix-specific paths")
 def test_is_under_excluded_subdirectory() -> None:
     """Test _is_under_excluded matches subdirectories of excluded prefixes."""
     for prefix in EXCLUDED_FS_DIR_PREFIXES:
@@ -136,9 +133,7 @@ def test_is_under_excluded_subdirectory() -> None:
         assert _is_under_excluded(subpath) is True
 
 
-@pytest.mark.skipif(
-    sys.platform != "win32", reason="Windows-specific test with mocked paths"
-)
+@pytest.mark.skipif(not IS_WIN, reason="Windows-specific test with mocked paths")
 def test_is_under_excluded_subdirectory_windows() -> None:
     """Test _is_under_excluded matches subdirectories of excluded prefixes on Windows."""
     for prefix in EXCLUDED_FS_DIR_PREFIXES:
@@ -295,7 +290,7 @@ def test_list_subdirectories_handles_scandir_exceptions(
         ("  ", ""),  # Whitespace-only returns empty (caller handles default to "/")
     ],
 )
-@pytest.mark.skipif(sys.platform == "win32", reason="Unix-specific paths")
+@pytest.mark.skipif(IS_WIN, reason="Unix-specific paths")
 def test_normalize_query(input_query: str, expected: str) -> None:
     """Test _normalize_query normalizes various input formats (lines 139-144)."""
     result = _normalize_query(input_query)
@@ -316,7 +311,7 @@ def test_normalize_query(input_query: str, expected: str) -> None:
         ("  ", ""),  # Whitespace-only returns empty (caller handles default to "/")
     ],
 )
-@pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific paths")
+@pytest.mark.skipif(not IS_WIN, reason="Windows-specific paths")
 def test_normalize_query_windows(input_query: str, expected: str) -> None:
     """Test _normalize_query normalizes various input formats on Windows (lines 139-144)."""
     result = _normalize_query(input_query)

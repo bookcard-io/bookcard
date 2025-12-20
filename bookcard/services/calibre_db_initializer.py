@@ -164,6 +164,9 @@ class CalibreDatabaseInitializer:
             # Validate database was created correctly
             self._validate_database(engine)
         except (OSError, ValueError, RuntimeError) as e:
+            # Dispose engine first to release file lock on Windows
+            engine.dispose(close=True)
+
             # Clean up on failure
             try:
                 if self._db_path.exists():
@@ -173,6 +176,7 @@ class CalibreDatabaseInitializer:
             msg = f"Failed to initialize database: {e}"
             raise ValueError(msg) from e
         finally:
+            # Engine might be already disposed, but it's safe to call again
             engine.dispose(close=True)
 
     def _seed_initial_data(self, engine: Engine) -> None:
