@@ -111,8 +111,8 @@ class TestResultUnwrapper:
         unwrapper = ResultUnwrapper()
         row = MagicMock()
         row.__getitem__ = MagicMock(return_value="Series C")
-        row.__getitem__.side_effect = (
-            lambda k: "Series C" if k == "series_name" else None
+        row.__getitem__.side_effect = lambda k: (
+            "Series C" if k == "series_name" else None
         )
         result = unwrapper.unwrap_series_name(row)
         assert result == "Series C"

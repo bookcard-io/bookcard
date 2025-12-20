@@ -220,7 +220,8 @@ class BookQueryBuilder:
         tag_alias = aliased(Tag)
 
         return (
-            stmt.outerjoin(BookAuthorLink, Book.id == BookAuthorLink.book)
+            stmt
+            .outerjoin(BookAuthorLink, Book.id == BookAuthorLink.book)
             .outerjoin(author_alias, BookAuthorLink.author == author_alias.id)
             .outerjoin(BookTagLink, Book.id == BookTagLink.book)
             .outerjoin(tag_alias, BookTagLink.tag == tag_alias.id)

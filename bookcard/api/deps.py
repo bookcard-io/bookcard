@@ -351,9 +351,11 @@ def require_permission(
     ...         require_permission(
     ...             "books",
     ...             "read",
-    ...             lambda req: get_book_context(
-    ...                 req,
-    ...                 session,
+    ...             lambda req: (
+    ...                 get_book_context(
+    ...                     req,
+    ...                     session,
+    ...                 )
     ...             ),
     ...         )
     ...     ),

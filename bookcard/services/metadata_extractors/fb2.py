@@ -400,7 +400,8 @@ class Fb2MetadataExtractor(MetadataExtractionStrategy):
         for fmt in formats:
             try:
                 if len(date_str) >= len(
-                    fmt.replace("%", "")
+                    fmt
+                    .replace("%", "")
                     .replace("T", "")
                     .replace("Z", "")
                     .replace(".", "")

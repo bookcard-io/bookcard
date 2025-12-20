@@ -1075,11 +1075,13 @@ def test_lubimyczytac_provider_parse_search_results_non_string_url(
     with patch.object(
         lubimyczytac_provider,
         "_parse_xpath_node",
-        side_effect=lambda **kwargs: "Test Book"
-        if "TITLE" in kwargs.get("xpath", "")
-        else 123
-        if "URL" in kwargs.get("xpath", "")
-        else ["Author 1"],
+        side_effect=lambda **kwargs: (
+            "Test Book"
+            if "TITLE" in kwargs.get("xpath", "")
+            else 123
+            if "URL" in kwargs.get("xpath", "")
+            else ["Author 1"]
+        ),
     ):
         results = lubimyczytac_provider._parse_search_results(root)
         # Should skip results with non-string URLs
