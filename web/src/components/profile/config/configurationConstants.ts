@@ -41,6 +41,7 @@ export const AVAILABLE_METADATA_PROVIDERS = [
   "LubimyCzytac.pl",
   "ComicVine",
   "OpenLibrary",
+  "DNB",
 ] as const;
 
 /**
@@ -57,6 +58,7 @@ export const PROVIDER_NAME_TO_ID: Record<string, string> = {
   "LubimyCzytac.pl": "lubimyczytac",
   ComicVine: "comicvine",
   OpenLibrary: "openlibrary",
+  DNB: "dnb",
 };
 
 export const DISPLAY_MODE_OPTIONS = [
