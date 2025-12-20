@@ -45,7 +45,7 @@ repos:
         files: ^(pyproject\.toml|uv\.lock)$
   # linters
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.3
+    rev: v0.14.10
     hooks:
       - id: ruff-check
         stages: [pre-commit]
