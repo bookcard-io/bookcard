@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useUser } from "@/contexts/UserContext";
 import { sendBookToDevice } from "@/services/bookService";
 import type { Book } from "@/types/book";
@@ -48,6 +48,11 @@ export interface UseBookCardMenuActionsResult {
   onMore: () => void;
   /** Delete confirmation modal state and controls. */
   deleteConfirmation: ReturnType<typeof useDeleteConfirmation>;
+  /** Conversion modal state and controls. */
+  conversionState: {
+    isOpen: boolean;
+    close: () => void;
+  };
   /** Whether Send action is disabled (no devices available). */
   isSendDisabled: boolean;
   /** Whether Read book action is disabled (no readable format available). */
@@ -79,6 +84,7 @@ export function useBookCardMenuActions({
 }: UseBookCardMenuActionsOptions): UseBookCardMenuActionsResult {
   const { user } = useUser();
   const { navigateToReader, readableFormat } = useBookNavigation(book);
+  const [isConversionModalOpen, setIsConversionModalOpen] = useState(false);
   const deleteConfirmation = useDeleteConfirmation({
     bookId: book.id,
     onSuccess: () => {
@@ -139,7 +145,11 @@ export function useBookCardMenuActions({
   }, []);
 
   const onConvert = useCallback(() => {
-    // TODO: Implement convert functionality
+    setIsConversionModalOpen(true);
+  }, []);
+
+  const closeConversionModal = useCallback(() => {
+    setIsConversionModalOpen(false);
   }, []);
 
   const onDelete = useCallback(() => {
@@ -150,6 +160,11 @@ export function useBookCardMenuActions({
     // TODO: Implement more options functionality
   }, []);
 
+  const conversionState = {
+    isOpen: isConversionModalOpen,
+    close: closeConversionModal,
+  };
+
   return {
     onBookInfo,
     onReadBook,
@@ -159,6 +174,7 @@ export function useBookCardMenuActions({
     onDelete,
     onMore,
     deleteConfirmation,
+    conversionState,
     isSendDisabled,
     isReadBookDisabled,
   };
