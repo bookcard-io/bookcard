@@ -160,13 +160,10 @@ export function useBookCardMenuActions({
     // TODO: Implement more options functionality
   }, []);
 
-  const conversionState = useMemo(
-    () => ({
-      isOpen: isConversionModalOpen,
-      close: closeConversionModal,
-    }),
-    [isConversionModalOpen, closeConversionModal],
-  );
+  const conversionState = {
+    isOpen: isConversionModalOpen,
+    close: closeConversionModal,
+  };
 
   return {
     onBookInfo,
