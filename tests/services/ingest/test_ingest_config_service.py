@@ -23,6 +23,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from bookcard.constants import IS_WIN
 from bookcard.models.ingest import IngestConfig
 from bookcard.repositories.ingest_repository import IngestConfigRepository
 from bookcard.services.ingest.ingest_config_service import IngestConfigService
@@ -91,8 +92,12 @@ def test_update_config_absolute_path(
     service: IngestConfigService, mock_config_repo: MagicMock
 ) -> None:
     """Test update_config with absolute path."""
-    result = service.update_config(ingest_dir="/absolute/path")
-    mock_config_repo.update_config.assert_called_once_with(ingest_dir="/absolute/path")
+    path = "/absolute/path"
+    if IS_WIN:
+        path = "C:\\absolute\\path"
+
+    result = service.update_config(ingest_dir=path)
+    mock_config_repo.update_config.assert_called_once_with(ingest_dir=path)
     assert result is not None
 
 
@@ -132,7 +137,7 @@ def test_get_ingest_dir(
     """Test get_ingest_dir method."""
     result = service.get_ingest_dir()
     assert isinstance(result, Path)
-    assert str(result) == "/tmp/ingest"
+    assert result.as_posix() == "/tmp/ingest"
     mock_config_repo.get_config.assert_called_once()
 
 

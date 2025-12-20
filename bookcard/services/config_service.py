@@ -315,7 +315,7 @@ class LibraryService:
             path = Path(default_dir) / f"{sanitized}-{counter}"
             counter += 1
 
-        return str(path)
+        return path.as_posix()
 
     @staticmethod
     def _parse_library_path(
@@ -343,19 +343,19 @@ class LibraryService:
         try:
             # Check if path exists and is a file
             if path_obj.exists() and path_obj.is_file():
-                return str(path_obj.parent), path_obj.name
+                return path_obj.parent.as_posix(), path_obj.name
             # Check if path exists and is a directory
             if path_obj.exists() and path_obj.is_dir():
-                return str(path_obj), default_filename
+                return path_obj.as_posix(), default_filename
             # Path doesn't exist - check if it looks like a file (has extension)
             if path_obj.suffix:
                 # Assume it's a file path
-                return str(path_obj.parent), path_obj.name
+                return path_obj.parent.as_posix(), path_obj.name
             # Assume it's a directory path
-            return str(path_obj), default_filename
+            return path_obj.as_posix(), default_filename
         except (OSError, ValueError):
             # On error, assume it's a directory
-            return str(path_obj), default_filename
+            return path_obj.as_posix(), default_filename
 
     @staticmethod
     def _get_default_library_directory() -> str:
@@ -373,11 +373,12 @@ class LibraryService:
         """
         env_dir = os.getenv("BOOKCARD_DEFAULT_LIBRARY_DIR")
         if env_dir:
-            return str(Path(env_dir).expanduser())
+            return Path(env_dir).expanduser().as_posix()
 
         # Default to AppConfig's data_directory
         config = AppConfig.from_env()
-        return config.data_directory
+        # Normalize to POSIX format for cross-platform compatibility
+        return Path(config.data_directory).as_posix()
 
     def update_library(
         self,

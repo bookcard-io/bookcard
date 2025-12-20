@@ -2499,7 +2499,7 @@ def test_save_file_to_temp_save_error() -> None:
         mock_file_service_class.return_value = mock_file_service
 
         mock_temp = MagicMock()
-        mock_temp.name = "/tmp/test.epub"
+        mock_temp.name = str(Path(tempfile.gettempdir()) / "test.epub")
         mock_temp_file.return_value.__enter__.return_value = mock_temp
 
         with pytest.raises(HTTPException) as exc_info:
@@ -2534,7 +2534,7 @@ def test_save_files_to_temp_cleanup_on_error() -> None:
         mock_file_service_class.return_value = mock_file_service
 
         mock_temp = MagicMock()
-        mock_temp.name = "/tmp/test.epub"
+        mock_temp.name = str(Path(tempfile.gettempdir()) / "test.epub")
         mock_temp_file.return_value.__enter__.return_value = mock_temp
 
         with pytest.raises(HTTPException):
@@ -2624,7 +2624,7 @@ def test_upload_books_batch_success(monkeypatch: pytest.MonkeyPatch) -> None:
         mock_file_service_class.return_value = mock_file_service
 
         mock_temp = MagicMock()
-        mock_temp.name = "/tmp/test.epub"
+        mock_temp.name = str(Path(tempfile.gettempdir()) / "test.epub")
         mock_temp_file.return_value.__enter__.return_value = mock_temp
 
         result = books.upload_books_batch(
@@ -2689,7 +2689,7 @@ def test_upload_books_batch_unexpected_error(monkeypatch: pytest.MonkeyPatch) ->
         mock_file_service_class.return_value = mock_file_service
 
         mock_temp = MagicMock()
-        mock_temp.name = "/tmp/test.epub"
+        mock_temp.name = str(Path(tempfile.gettempdir()) / "test.epub")
         mock_temp_file.return_value.__enter__.return_value = mock_temp
 
         with pytest.raises(HTTPException) as exc_info:

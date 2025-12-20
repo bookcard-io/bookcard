@@ -75,6 +75,18 @@ class OpenLibraryDumpDownloadTask(BaseTask):
         data_directory = metadata.get("data_directory", "/data")
         self.dump_dir = Path(data_directory) / "openlibrary" / "dump"
 
+    def _check_and_raise_if_cancelled(self) -> None:
+        """Check cancellation status and raise if cancelled.
+
+        Raises
+        ------
+        InterruptedError
+            If task is cancelled.
+        """
+        if self.check_cancelled():
+            error_msg = "Task cancelled"
+            raise InterruptedError(error_msg)
+
     def _download_file(
         self,
         url: str,
@@ -129,30 +141,33 @@ class OpenLibraryDumpDownloadTask(BaseTask):
             downloaded = 0
 
             # Write file
-            with file_path.open("wb") as f:
-                for chunk in response.iter_bytes(chunk_size=8192):
-                    if self.check_cancelled():
-                        file_path.unlink(missing_ok=True)
-                        error_msg = "Task cancelled"
-                        raise InterruptedError(error_msg)
+            try:
+                with file_path.open("wb") as f:
+                    for chunk in response.iter_bytes(chunk_size=8192):
+                        self._check_and_raise_if_cancelled()
 
-                    f.write(chunk)
-                    downloaded += len(chunk)
+                        f.write(chunk)
+                        downloaded += len(chunk)
 
-                    # Update progress: base progress for this file + download progress
-                    file_base_progress = file_index / total_files
-                    file_progress = downloaded / total_size if total_size > 0 else 0.5
-                    overall_progress = file_base_progress + (
-                        file_progress / total_files
-                    )
-                    update_progress(
-                        min(overall_progress, 0.99),
-                        {
-                            "current_file": filename,
-                            "downloaded_bytes": downloaded,
-                            "total_bytes": total_size if total_size > 0 else None,
-                        },
-                    )
+                        # Update progress: base progress for this file + download progress
+                        file_base_progress = file_index / total_files
+                        file_progress = (
+                            downloaded / total_size if total_size > 0 else 0.5
+                        )
+                        overall_progress = file_base_progress + (
+                            file_progress / total_files
+                        )
+                        update_progress(
+                            min(overall_progress, 0.99),
+                            {
+                                "current_file": filename,
+                                "downloaded_bytes": downloaded,
+                                "total_bytes": total_size if total_size > 0 else None,
+                            },
+                        )
+            except InterruptedError:
+                file_path.unlink(missing_ok=True)
+                raise
 
         logger.info("Successfully downloaded %s", filename)
         return str(file_path)

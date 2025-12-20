@@ -67,7 +67,7 @@ def test_find_converter(
     docker_path_str = "/app/calibre/ebook-convert"
 
     def exists_new(self: Path) -> bool:
-        if str(self) == docker_path_str:
+        if self.as_posix() == docker_path_str:
             return docker_exists
         return False
 
@@ -93,7 +93,7 @@ def test_find_converter_docker_path_first(
     docker_path_str = "/app/calibre/ebook-convert"
 
     def exists_new(self: Path) -> bool:
-        return str(self) == docker_path_str
+        return self.as_posix() == docker_path_str
 
     with (
         patch.object(Path, "exists", new=exists_new),
@@ -123,7 +123,7 @@ def test_find_converter_falls_back_to_path(
     path_result = "/usr/local/bin/ebook-convert"
 
     def exists_new(self: Path) -> bool:
-        if str(self) == docker_path_str:
+        if self.as_posix() == docker_path_str:
             return False
         return False
 
@@ -153,7 +153,7 @@ def test_find_converter_returns_none_when_not_found(
     docker_path_str = "/app/calibre/ebook-convert"
 
     def exists_new(self: Path) -> bool:
-        if str(self) == docker_path_str:
+        if self.as_posix() == docker_path_str:
             return False
         return False
 

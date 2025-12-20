@@ -74,10 +74,22 @@ def _is_under_excluded(path: Path) -> bool:
     bool
         Whether the path is under any of the excluded prefixes.
     """
+    # Check original path first (handles symlinks like /etc -> /private/etc on macOS)
+    original_posix = path.as_posix()
+    if any(
+        original_posix == prefix or original_posix.startswith(prefix + "/")
+        for prefix in EXCLUDED_FS_DIR_PREFIXES
+    ):
+        return True
+
+    # Check resolved path
     p = path.resolve(strict=False)
-    as_posix = p.as_posix()
+    resolved_posix = p.as_posix()
+    # On macOS, /etc and /var are symlinks to /private/etc and /private/var
+    # Normalize by removing /private prefix if present
+    normalized_posix = resolved_posix.removeprefix("/private")
     return any(
-        as_posix == prefix or as_posix.startswith(prefix + "/")
+        normalized_posix == prefix or normalized_posix.startswith(prefix + "/")
         for prefix in EXCLUDED_FS_DIR_PREFIXES
     )
 

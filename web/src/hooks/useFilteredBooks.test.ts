@@ -457,7 +457,10 @@ describe("useFilteredBooks", () => {
     renderHook(() => useFilteredBooks({ filters, full: true }), { wrapper });
 
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalled();
+      const calls = getNonProviderFetchCalls(
+        globalThis.fetch as ReturnType<typeof vi.fn>,
+      );
+      expect(calls.length).toBeGreaterThan(0);
     });
 
     // Get the first non-provider call (filtered books call)

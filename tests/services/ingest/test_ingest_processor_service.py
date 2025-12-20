@@ -38,6 +38,7 @@ from bookcard.repositories.ingest_repository import (
 )
 from bookcard.services.author_exceptions import NoActiveLibraryError
 from bookcard.services.book_service import BookService
+from bookcard.services.dedrm_service import DeDRMService
 from bookcard.services.ingest.exceptions import (
     IngestHistoryCreationError,
     IngestHistoryNotFoundError,
@@ -112,6 +113,15 @@ def mock_metadata_fetch_service() -> MagicMock:
 
 
 @pytest.fixture
+def mock_dedrm_service() -> MagicMock:
+    """Create a mock DeDRMService."""
+    service = MagicMock(spec=DeDRMService)
+    # By default, return the input file path (no DRM stripping)
+    service.strip_drm.side_effect = lambda path: path
+    return service
+
+
+@pytest.fixture
 def service(
     session: DummySession,
     mock_config_service: MagicMock,
@@ -120,6 +130,7 @@ def service(
     mock_library_repo: MagicMock,
     mock_book_service_factory: MagicMock,
     mock_metadata_fetch_service: MagicMock,
+    mock_dedrm_service: MagicMock,
 ) -> IngestProcessorService:
     """Create IngestProcessorService with mocked dependencies."""
     return IngestProcessorService(
@@ -130,6 +141,7 @@ def service(
         library_repo=mock_library_repo,
         book_service_factory=mock_book_service_factory,
         metadata_fetch_service=mock_metadata_fetch_service,
+        dedrm_service=mock_dedrm_service,
     )
 
 
@@ -207,6 +219,7 @@ class TestInit:
         mock_library_repo: MagicMock,
         mock_book_service_factory: MagicMock,
         mock_metadata_fetch_service: MagicMock,
+        mock_dedrm_service: MagicMock,
     ) -> None:
         """Test initialization with all dependencies provided."""
         service = IngestProcessorService(
@@ -217,6 +230,7 @@ class TestInit:
             library_repo=mock_library_repo,
             book_service_factory=mock_book_service_factory,
             metadata_fetch_service=mock_metadata_fetch_service,
+            dedrm_service=mock_dedrm_service,
         )
         assert service._session == session
         assert service._config_service == mock_config_service
@@ -225,6 +239,7 @@ class TestInit:
         assert service._library_repo == mock_library_repo
         assert service._book_service_factory == mock_book_service_factory
         assert service._metadata_fetch_service == mock_metadata_fetch_service
+        assert service._dedrm_service == mock_dedrm_service
 
     def test_init_with_defaults(self, session: DummySession) -> None:
         """Test initialization with default dependencies."""
@@ -236,6 +251,7 @@ class TestInit:
         assert isinstance(service._library_repo, LibraryRepository)
         assert callable(service._book_service_factory)
         assert service._metadata_fetch_service is None
+        assert isinstance(service._dedrm_service, DeDRMService)
 
 
 class TestProcessFileGroup:

@@ -1623,16 +1623,15 @@ class TestUploadAuthorPhoto:
         author_metadata.id = 1
         mock_author_repo.get_by_id_and_library.return_value = author_metadata
 
-        # Make directory read-only to cause save failure
-        photos_dir = tmp_path / "authors" / "1"
-        photos_dir.mkdir(parents=True, exist_ok=True)
-        photos_dir.chmod(0o444)
-
-        try:
-            with pytest.raises(PhotoStorageError, match="failed_to_save_file"):
-                author_service.upload_author_photo("1", b"content", "photo.jpg")
-        finally:
-            photos_dir.chmod(0o755)
+        # Mock FileSystemPhotoStorage.save to raise PhotoStorageError
+        with (
+            patch(
+                "bookcard.services.author.photo_storage.FileSystemPhotoStorage.save",
+                side_effect=PhotoStorageError("failed_to_save_file"),
+            ),
+            pytest.raises(PhotoStorageError, match="failed_to_save_file"),
+        ):
+            author_service.upload_author_photo("1", b"content", "photo.jpg")
 
 
 # ============================================================================

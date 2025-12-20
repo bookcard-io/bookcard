@@ -36,8 +36,12 @@ def temp_calibre_db() -> Iterator[Path]:
     with TemporaryDirectory() as temp_dir:
         db_path = Path(temp_dir) / "metadata.db"
         engine = create_engine(f"sqlite:///{db_path}")
-        create_all_tables(engine)
-        yield db_path
+        try:
+            create_all_tables(engine)
+            yield db_path
+        finally:
+            # Ensure engine is disposed to release database file on Windows
+            engine.dispose()
 
 
 @pytest.fixture
@@ -56,8 +60,12 @@ def library(temp_calibre_db: Path) -> Library:
 def calibre_session(temp_calibre_db: Path) -> Iterator[Session]:
     """Create a session for the test Calibre database."""
     engine = create_engine(f"sqlite:///{temp_calibre_db}")
-    with get_session(engine) as session:
-        yield session
+    try:
+        with get_session(engine) as session:
+            yield session
+    finally:
+        # Ensure engine is disposed to release database file on Windows
+        engine.dispose()
 
 
 def test_book_matcher_exact_match(library: Library, calibre_session: Session) -> None:
@@ -78,22 +86,28 @@ def test_book_matcher_exact_match(library: Library, calibre_session: Session) ->
     calibre_session.commit()
 
     matcher = BookMatcherService(library)
-    ref = BookReference(series="Test Series", volume=1.0, year=2020)
-    results = matcher.match_books([ref], library_id=0)
+    try:
+        ref = BookReference(series="Test Series", volume=1.0, year=2020)
+        results = matcher.match_books([ref], library_id=0)
 
-    assert len(results) == 1
-    assert results[0].book_id == 1
-    assert results[0].confidence == 1.0
-    assert results[0].match_type == "exact"
+        assert len(results) == 1
+        assert results[0].book_id == 1
+        assert results[0].confidence == 1.0
+        assert results[0].match_type == "exact"
+    finally:
+        matcher.close()
 
 
 def test_book_matcher_no_match(library: Library) -> None:
     """Test when no match is found."""
     matcher = BookMatcherService(library)
-    ref = BookReference(series="Non-existent Series", volume=1.0)
-    results = matcher.match_books([ref], library_id=0)
+    try:
+        ref = BookReference(series="Non-existent Series", volume=1.0)
+        results = matcher.match_books([ref], library_id=0)
 
-    assert len(results) == 1
-    assert results[0].book_id is None
-    assert results[0].confidence == 0.0
-    assert results[0].match_type == "none"
+        assert len(results) == 1
+        assert results[0].book_id is None
+        assert results[0].confidence == 0.0
+        assert results[0].match_type == "none"
+    finally:
+        matcher.close()

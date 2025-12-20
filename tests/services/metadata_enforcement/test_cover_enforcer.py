@@ -262,7 +262,7 @@ def test_get_ebook_polish_path_docker(library: Library) -> None:
     with patch("pathlib.Path.exists", return_value=True):
         service = CoverEnforcementService(library)
         result = service._get_ebook_polish_path()
-        assert result == "/app/calibre/ebook-polish"
+        assert Path(str(result)).as_posix() == "/app/calibre/ebook-polish"
 
 
 def test_get_ebook_polish_path_system(library: Library) -> None:

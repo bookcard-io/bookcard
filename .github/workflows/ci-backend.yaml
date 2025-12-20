@@ -1,0 +1,92 @@
+name: CI Backend
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths:
+      - 'bookcard/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/ci-backend.yaml'
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - 'bookcard/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/ci-backend.yaml'
+
+concurrency:
+  group: ci-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint & Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Ruff (lint)
+        uses: astral-sh/ruff-action@v3
+        with:
+          version: "0.14.10"
+          args: check --output-format=github --exit-non-zero-on-fix .
+
+      - name: Ruff (format)
+        uses: astral-sh/ruff-action@v3
+        with:
+          version: "0.14.10"
+          args: format --check .
+
+      - name: Type-check (ty)
+        run: uv run ty check
+
+  test-and-build:
+    name: Test & Build (Python ${{ matrix.python-version }} on ${{ matrix.os }})
+    needs: lint
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run tests
+        run: >-
+          uv run --frozen pytest --cov=bookcard --cov-report=xml
+          --cov-report=term-missing -n auto
+
+      - name: Build package
+        run: uv build
