@@ -196,6 +196,7 @@ export function BookCard({
                 onClose: modals.closeAddToShelf,
                 onSuccess: menu.handleMenuClose,
               }}
+              conversionState={menuActions.conversionState}
             />
           )}
         </>
