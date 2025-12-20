@@ -94,7 +94,7 @@ describe("format utils", () => {
 
     it("should format different dates correctly", () => {
       // Handle timezone differences
-      expect(formatDate("2023-06-01")).toMatch(/May (31|June 1), 2023/);
+      expect(formatDate("2023-06-01")).toMatch(/(May 31|June 1), 2023/);
       expect(formatDate("2022-03-15")).toMatch(/March (14|15), 2022/);
     });
   });
