@@ -752,7 +752,8 @@ class TestBookStripDrmTaskRun:
             task.run(worker_context)
 
             assert update_progress.call_count >= 4
-            mock_book_service.add_format.assert_called_once()
+            # We no longer call add_format, we replace the file in place
+            mock_book_service.add_format.assert_not_called()
 
     def test_run_with_worker_context(
         self,
@@ -802,7 +803,8 @@ class TestBookStripDrmTaskRun:
             task.run(worker_context)
 
             assert worker_context.update_progress.call_count >= 4
-            mock_book_service.add_format.assert_called_once()
+            # We no longer call add_format, we replace the file in place
+            mock_book_service.add_format.assert_not_called()
 
     def test_run_cancelled_before_processing(
         self, task: BookStripDrmTask, worker_context: WorkerContext
@@ -869,12 +871,8 @@ class TestBookStripDrmTaskRun:
             task.run(worker_context)
 
             assert task.metadata["did_strip"] is True
-            mock_book_service.add_format.assert_called_once_with(
-                book_id=1,
-                file_path=processed_file,
-                file_format="AZW3_NODRM",
-                replace=False,
-            )
+            # We no longer call add_format, we replace the file in place
+            mock_book_service.add_format.assert_not_called()
 
     def test_run_no_drm_stripped(
         self,
