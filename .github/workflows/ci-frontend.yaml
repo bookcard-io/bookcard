@@ -33,12 +33,10 @@ jobs:
     name: Lint & Typecheck
     needs: changes
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./web
     steps:
       - name: Check for frontend changes
         id: check_changes
+        shell: bash
         run: |
           if [ "${{ needs.changes.outputs.frontend }}" != "true" ]; then
             echo "No frontend changes detected, skipping lint and typecheck"
@@ -59,23 +57,23 @@ jobs:
 
       - name: Install dependencies
         if: steps.check_changes.outputs.has_changes == 'true'
+        working-directory: web
         run: npm ci
 
       - name: Lint (Biome)
         if: steps.check_changes.outputs.has_changes == 'true'
+        working-directory: web
         run: npm run lint -- --error-on-warnings
 
       - name: Typecheck
         if: steps.check_changes.outputs.has_changes == 'true'
+        working-directory: web
         run: npm run check:types
 
   test-and-build:
     name: Test & Build (Node ${{ matrix.node-version }})
     needs: [changes, lint]
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./web
     strategy:
       fail-fast: false
       matrix:
@@ -84,6 +82,7 @@ jobs:
     steps:
       - name: Check for frontend changes
         id: check_changes
+        shell: bash
         run: |
           if [ "${{ needs.changes.outputs.frontend }}" != "true" ]; then
             echo "No frontend changes detected, skipping test and build"
@@ -104,16 +103,20 @@ jobs:
 
       - name: Install dependencies
         if: steps.check_changes.outputs.has_changes == 'true'
+        working-directory: web
         run: npm ci
 
       - name: Install Playwright browsers
         if: steps.check_changes.outputs.has_changes == 'true'
+        working-directory: web
         run: npx playwright install --with-deps chromium
 
       - name: Run tests
         if: steps.check_changes.outputs.has_changes == 'true'
+        working-directory: web
         run: npm run test:coverage
 
       - name: Build
         if: steps.check_changes.outputs.has_changes == 'true'
+        working-directory: web
         run: npm run build

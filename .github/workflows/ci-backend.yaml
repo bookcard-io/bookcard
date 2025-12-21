@@ -39,6 +39,7 @@ jobs:
     steps:
       - name: Check for backend changes
         id: check_changes
+        shell: bash
         run: |
           if [ "${{ needs.changes.outputs.backend }}" != "true" ]; then
             echo "No backend changes detected, skipping lint and typecheck"
@@ -95,6 +96,7 @@ jobs:
     steps:
       - name: Check for backend changes
         id: check_changes
+        shell: bash
         run: |
           if [ "${{ needs.changes.outputs.backend }}" != "true" ]; then
             echo "No backend changes detected, skipping test and build"
