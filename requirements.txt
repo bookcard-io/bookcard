@@ -1306,9 +1306,9 @@ pyjwt==2.10.1 \
     --hash=sha256:3cc5772eb20009233caf06e9d8a0577824723b44e6648ee0a2aedb6cf9381953 \
     --hash=sha256:dcdd193e30abefd5debf142f9adfcdd2b58004e644f25406ffaebd50bd98dacb
     # via bookcard (pyproject.toml)
-pypdf==6.2.0 \
-    --hash=sha256:46b4d8495d68ae9c818e7964853cd9984e6a04c19fe7112760195395992dce48 \
-    --hash=sha256:4c0f3e62677217a777ab79abe22bf1285442d70efabf552f61c7a03b6f5c569f
+pypdf==6.4.0 \
+    --hash=sha256:4769d471f8ddc3341193ecc5d6560fa44cf8cd0abfabf21af4e195cc0c224072 \
+    --hash=sha256:55ab9837ed97fd7fcc5c131d52fcc2223bc5c6b8a1488bbf7c0e27f1f0023a79
     # via bookcard (pyproject.toml)
 pyppmd==1.2.0 \
     --hash=sha256:011c813389476e84387599ad4aa834100e888c6608a6e7d6f07ea7cbac8a8e65 \
