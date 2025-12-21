@@ -9,9 +9,9 @@ FROM node:22-alpine AS frontend-builder
 
 WORKDIR /app/web
 
-# Copy package.json only - ignoring package-lock.json to fix optional dependency issues on ARM64/musl
+# Copy both package.json and package-lock.json to fix optional dependency issues on ARM64/musl
 # See https://github.com/npm/cli/issues/4828
-COPY web/package.json ./
+COPY web/package*.json ./
 
 # Install dependencies
 RUN npm install
