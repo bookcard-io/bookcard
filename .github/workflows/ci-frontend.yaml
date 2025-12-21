@@ -4,23 +4,33 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
-    paths:
-      - 'web/**'
-      - '.github/workflows/ci-frontend.yaml'
   pull_request:
     branches: [main]
     types: [opened, reopened, synchronize, ready_for_review]
-    paths:
-      - 'web/**'
-      - '.github/workflows/ci-frontend.yaml'
 
 concurrency:
   group: ci-frontend-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'web/**'
+              - '.github/workflows/ci-frontend.yaml'
+
   lint:
     name: Lint & Typecheck
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -46,7 +56,8 @@ jobs:
 
   test-and-build:
     name: Test & Build (Node ${{ matrix.node-version }})
-    needs: lint
+    needs: [changes, lint]
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
