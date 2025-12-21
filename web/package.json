@@ -114,6 +114,9 @@
     "vitest": "^4.0.7",
     "vitest-browser-react": "^2.0.2"
   },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-musl": "4.54.0"
+  },
   "release": {
     "branches": [
       "main"
