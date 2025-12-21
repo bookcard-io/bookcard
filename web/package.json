@@ -115,7 +115,10 @@
     "vitest-browser-react": "^2.0.2"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-musl": "4.54.0"
+    "@rollup/rollup-linux-x64-musl": "4.54.0",
+    "lightningcss-linux-arm64-musl": "1.30.2",
+    "lightningcss-linux-x64-gnu": "1.30.2",
+    "lightningcss-linux-x64-musl": "1.30.2"
   },
   "release": {
     "branches": [
