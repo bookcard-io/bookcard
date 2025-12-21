@@ -4,29 +4,36 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
-    paths:
-      - 'bookcard/**'
-      - 'tests/**'
-      - 'pyproject.toml'
-      - 'uv.lock'
-      - '.github/workflows/ci-backend.yaml'
   pull_request:
     branches: [main]
     types: [opened, reopened, synchronize, ready_for_review]
-    paths:
-      - 'bookcard/**'
-      - 'tests/**'
-      - 'pyproject.toml'
-      - 'uv.lock'
-      - '.github/workflows/ci-backend.yaml'
 
 concurrency:
   group: ci-backend-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'bookcard/**'
+              - 'tests/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - '.github/workflows/ci-backend.yaml'
+
   lint:
     name: Lint & Typecheck
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,7 +67,8 @@ jobs:
 
   test-and-build:
     name: Test & Build (Python ${{ matrix.python-version }} on ${{ matrix.os }})
-    needs: lint
+    needs: [changes, lint]
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
