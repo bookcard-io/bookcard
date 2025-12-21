@@ -36,7 +36,10 @@ from bookcard.services.ingest.ingest_watcher_service import IngestWatcherService
 @pytest.fixture
 def mock_engine() -> MagicMock:
     """Create a mock database engine."""
-    return MagicMock()
+    engine = MagicMock()
+    # Configure connect().in_transaction() to return False to avoid SAWarning
+    engine.connect.return_value.in_transaction.return_value = False
+    return engine
 
 
 @pytest.fixture

@@ -35,7 +35,7 @@ from bookcard.models.core import (
 )
 
 if TYPE_CHECKING:
-    from sqlalchemy.sql import Select, Subquery
+    from sqlalchemy.sql import Select
     from sqlmodel import Session
     from sqlmodel.sql.expression import SelectOfScalar
 
@@ -73,16 +73,17 @@ class BookQueryBuilder:
         self,
         session: Session,
         author_id: int | None,
-    ) -> Subquery | None:
+    ) -> SelectOfScalar | None:
         """Build optional subquery for author filter."""
         if author_id is None:
             return None
 
-        author_books_subquery: Subquery = (
-            select(BookAuthorLink.book)
-            .where(BookAuthorLink.author == author_id)
-            .subquery()
+        author_books_select = select(BookAuthorLink.book).where(
+            BookAuthorLink.author == author_id
         )
+
+        # Create a subquery for the count to avoid executing the main query
+        author_books_subquery = author_books_select.subquery()
         author_book_count = session.exec(
             select(func.count()).select_from(author_books_subquery)
         ).one()
@@ -91,7 +92,7 @@ class BookQueryBuilder:
             author_id,
             author_book_count,
         )
-        return author_books_subquery
+        return author_books_select
 
     @overload
     def apply_pubdate_filter(
