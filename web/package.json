@@ -117,6 +117,7 @@
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-musl": "4.54.0",
     "@rollup/rollup-linux-arm64-musl": "4.54.0",
+    "@tailwindcss/oxide-linux-arm64-musl": "4.1.18",
     "lightningcss-linux-arm64-musl": "1.30.2",
     "lightningcss-linux-x64-gnu": "1.30.2",
     "lightningcss-linux-x64-musl": "1.30.2"
