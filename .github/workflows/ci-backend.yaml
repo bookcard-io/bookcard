@@ -1,3 +1,4 @@
+---
 name: CI Backend
 
 on:
@@ -19,6 +20,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
     steps:
+      - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -33,42 +35,56 @@ jobs:
   lint:
     name: Lint & Typecheck
     needs: changes
-    if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
     steps:
+      - name: Check for backend changes
+        id: check_changes
+        run: |
+          if [ "${{ needs.changes.outputs.backend }}" != "true" ]; then
+            echo "No backend changes detected, skipping lint and typecheck"
+          fi
+          echo "has_changes=${{ needs.changes.outputs.backend }}" \
+            >> $GITHUB_OUTPUT
+
       - uses: actions/checkout@v4
+        if: steps.check_changes.outputs.has_changes == 'true'
 
       - name: Install uv
+        if: steps.check_changes.outputs.has_changes == 'true'
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
       - name: Set up Python
+        if: steps.check_changes.outputs.has_changes == 'true'
         run: uv python install 3.12
 
       - name: Install dependencies
+        if: steps.check_changes.outputs.has_changes == 'true'
         run: uv sync --frozen
 
       - name: Ruff (lint)
+        if: steps.check_changes.outputs.has_changes == 'true'
         uses: astral-sh/ruff-action@v3
         with:
           version: "0.14.10"
           args: check --output-format=github --exit-non-zero-on-fix .
 
       - name: Ruff (format)
+        if: steps.check_changes.outputs.has_changes == 'true'
         uses: astral-sh/ruff-action@v3
         with:
           version: "0.14.10"
           args: format --check .
 
       - name: Type-check (ty)
+        if: steps.check_changes.outputs.has_changes == 'true'
         run: uv run ty check
 
   test-and-build:
     name: Test & Build (Python ${{ matrix.python-version }} on ${{ matrix.os }})
     needs: [changes, lint]
-    if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -77,24 +93,39 @@ jobs:
         python-version: ["3.12", "3.13"]
 
     steps:
+      - name: Check for backend changes
+        id: check_changes
+        run: |
+          if [ "${{ needs.changes.outputs.backend }}" != "true" ]; then
+            echo "No backend changes detected, skipping test and build"
+          fi
+          echo "has_changes=${{ needs.changes.outputs.backend }}" \
+            >> $GITHUB_OUTPUT
+
       - uses: actions/checkout@v4
+        if: steps.check_changes.outputs.has_changes == 'true'
 
       - name: Install uv
+        if: steps.check_changes.outputs.has_changes == 'true'
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
       - name: Set up Python ${{ matrix.python-version }}
+        if: steps.check_changes.outputs.has_changes == 'true'
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
+        if: steps.check_changes.outputs.has_changes == 'true'
         run: uv sync --frozen
 
       - name: Run tests
+        if: steps.check_changes.outputs.has_changes == 'true'
         run: >-
           uv run --frozen pytest --cov=bookcard --cov-report=xml
           --cov-report=term-missing -n auto
 
       - name: Build package
+        if: steps.check_changes.outputs.has_changes == 'true'
         run: uv build

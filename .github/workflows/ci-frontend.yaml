@@ -1,3 +1,4 @@
+---
 name: CI Frontend
 
 on:
@@ -19,6 +20,7 @@ jobs:
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
+      - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -30,15 +32,25 @@ jobs:
   lint:
     name: Lint & Typecheck
     needs: changes
-    if: ${{ needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./web
     steps:
+      - name: Check for frontend changes
+        id: check_changes
+        run: |
+          if [ "${{ needs.changes.outputs.frontend }}" != "true" ]; then
+            echo "No frontend changes detected, skipping lint and typecheck"
+          fi
+          echo "has_changes=${{ needs.changes.outputs.frontend }}" \
+            >> $GITHUB_OUTPUT
+
       - uses: actions/checkout@v4
+        if: steps.check_changes.outputs.has_changes == 'true'
 
       - name: Setup Node
+        if: steps.check_changes.outputs.has_changes == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -46,18 +58,20 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Install dependencies
+        if: steps.check_changes.outputs.has_changes == 'true'
         run: npm ci
 
       - name: Lint (Biome)
+        if: steps.check_changes.outputs.has_changes == 'true'
         run: npm run lint -- --error-on-warnings
 
       - name: Typecheck
+        if: steps.check_changes.outputs.has_changes == 'true'
         run: npm run check:types
 
   test-and-build:
     name: Test & Build (Node ${{ matrix.node-version }})
     needs: [changes, lint]
-    if: ${{ needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -68,9 +82,20 @@ jobs:
         node-version: [20, 22]
 
     steps:
+      - name: Check for frontend changes
+        id: check_changes
+        run: |
+          if [ "${{ needs.changes.outputs.frontend }}" != "true" ]; then
+            echo "No frontend changes detected, skipping test and build"
+          fi
+          echo "has_changes=${{ needs.changes.outputs.frontend }}" \
+            >> $GITHUB_OUTPUT
+
       - uses: actions/checkout@v4
+        if: steps.check_changes.outputs.has_changes == 'true'
 
       - name: Setup Node ${{ matrix.node-version }}
+        if: steps.check_changes.outputs.has_changes == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
@@ -78,13 +103,17 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Install dependencies
+        if: steps.check_changes.outputs.has_changes == 'true'
         run: npm ci
 
       - name: Install Playwright browsers
+        if: steps.check_changes.outputs.has_changes == 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Run tests
+        if: steps.check_changes.outputs.has_changes == 'true'
         run: npm run test:coverage
 
       - name: Build
+        if: steps.check_changes.outputs.has_changes == 'true'
         run: npm run build
