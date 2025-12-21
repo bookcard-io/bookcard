@@ -22,6 +22,11 @@ COPY web/ .
 # Build Next.js application
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+# Disable Sentry during Docker build to reduce memory usage
+ENV NEXT_PUBLIC_SENTRY_DISABLED=1
+# Increase Node.js heap size to prevent out-of-memory errors during build
+# Use 3GB to leave room for Docker and system overhead
+ENV NODE_OPTIONS=--max-old-space-size=3072
 RUN npm run build
 
 # ============================================================================
