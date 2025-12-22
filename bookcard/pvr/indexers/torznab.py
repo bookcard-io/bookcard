@@ -249,7 +249,7 @@ class TorznabParser:
                 root = ET.fromstring(xml_content.encode())  # noqa: S314
 
             # Check for error elements
-            error_elem = root.find("error")
+            error_elem = root.find(".//error")
             if error_elem is not None:
                 code = int(error_elem.get("code", "0"))
                 description = error_elem.get("description", "Unknown error")
@@ -705,7 +705,7 @@ class TorznabIndexer(BaseIndexer):
             root = ET.fromstring(response.content)  # noqa: S314
 
             # Check for error
-            error_elem = root.find("error")
+            error_elem = root.find(".//error")
             if error_elem is not None:
                 code = int(error_elem.get("code", "0"))
                 description = error_elem.get("description", "Unknown error")

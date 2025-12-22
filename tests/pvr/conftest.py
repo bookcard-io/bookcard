@@ -32,6 +32,9 @@ from bookcard.pvr.base import (
     DownloadClientSettings,
     IndexerSettings,
 )
+from bookcard.pvr.indexers.newznab import NewznabSettings
+from bookcard.pvr.indexers.torrent_rss import TorrentRssSettings
+from bookcard.pvr.indexers.torznab import TorznabSettings
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -239,3 +242,119 @@ def indexer_type_and_protocol(
 def download_client_type(request: pytest.FixtureRequest) -> DownloadClientType:
     """Parametrized fixture for download client types."""
     return request.param
+
+
+# ============================================================================
+# Indexer-Specific Fixtures
+# ============================================================================
+
+
+@pytest.fixture
+def newznab_settings(indexer_settings: IndexerSettings) -> NewznabSettings:
+    """Create Newznab settings."""
+    from bookcard.pvr.indexers.newznab import NewznabSettings
+
+    return NewznabSettings(
+        base_url=indexer_settings.base_url,
+        api_key=indexer_settings.api_key,
+        timeout_seconds=indexer_settings.timeout_seconds,
+        retry_count=indexer_settings.retry_count,
+        categories=indexer_settings.categories,
+        api_path="/api",
+    )
+
+
+@pytest.fixture
+def torznab_settings(indexer_settings: IndexerSettings) -> TorznabSettings:
+    """Create Torznab settings."""
+    from bookcard.pvr.indexers.torznab import TorznabSettings
+
+    return TorznabSettings(
+        base_url=indexer_settings.base_url,
+        api_key=indexer_settings.api_key,
+        timeout_seconds=indexer_settings.timeout_seconds,
+        retry_count=indexer_settings.retry_count,
+        categories=indexer_settings.categories,
+        api_path="/api",
+    )
+
+
+@pytest.fixture
+def torrent_rss_settings(indexer_settings: IndexerSettings) -> TorrentRssSettings:
+    """Create Torrent RSS settings."""
+    from bookcard.pvr.indexers.torrent_rss import TorrentRssSettings
+
+    return TorrentRssSettings(
+        base_url=indexer_settings.base_url,
+        api_key=indexer_settings.api_key,
+        timeout_seconds=indexer_settings.timeout_seconds,
+        retry_count=indexer_settings.retry_count,
+        categories=indexer_settings.categories,
+        feed_url="https://indexer.example.com/rss",
+    )
+
+
+@pytest.fixture
+def sample_rss_xml() -> bytes:
+    """Sample RSS XML for testing."""
+    return b"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+    <channel>
+        <title>Test Feed</title>
+        <item>
+            <title>Test Book Title</title>
+            <link>https://example.com/item1</link>
+            <description>Test description</description>
+            <pubDate>Mon, 01 Jan 2024 12:00:00 +0000</pubDate>
+            <enclosure url="https://example.com/file.torrent" length="1000000" type="application/x-bittorrent"/>
+        </item>
+    </channel>
+</rss>"""
+
+
+@pytest.fixture
+def sample_newznab_xml() -> bytes:
+    """Sample Newznab XML for testing."""
+    return b"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:newznab="http://www.newznab.com/DTD/2010/feeds/attributes/">
+    <channel>
+        <title>Newznab Feed</title>
+        <item>
+            <title>Test Book - Author Name [EPUB]</title>
+            <link>https://example.com/item1</link>
+            <description>Test description</description>
+            <pubDate>Mon, 01 Jan 2024 12:00:00 +0000</pubDate>
+            <enclosure url="https://example.com/file.nzb" length="1000000" type="application/x-nzb"/>
+            <newznab:attr name="author" value="Author Name"/>
+            <newznab:attr name="isbn" value="1234567890"/>
+            <newznab:attr name="format" value="epub"/>
+            <newznab:attr name="size" value="1000000"/>
+        </item>
+    </channel>
+</rss>"""
+
+
+@pytest.fixture
+def sample_torznab_xml() -> bytes:
+    """Sample Torznab XML for testing."""
+    return b"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:torznab="http://torznab.com/schemas/2015/feed">
+    <channel>
+        <title>Torznab Feed</title>
+        <item>
+            <title>Test Book - Author Name [EPUB]</title>
+            <link>https://example.com/item1</link>
+            <description>Test description</description>
+            <pubDate>Mon, 01 Jan 2024 12:00:00 +0000</pubDate>
+            <enclosure url="https://example.com/file.torrent" length="1000000" type="application/x-bittorrent"/>
+            <torznab:attr name="author" value="Author Name"/>
+            <torznab:attr name="isbn" value="1234567890"/>
+            <torznab:attr name="format" value="epub"/>
+            <torznab:attr name="size" value="1000000"/>
+            <torznab:attr name="seeders" value="10"/>
+            <torznab:attr name="leechers" value="5"/>
+            <torznab:attr name="infohash" value="abc123"/>
+            <torznab:attr name="magneturl" value="magnet:?xt=urn:btih:abc123"/>
+        </item>
+    </channel>
+</rss>"""
