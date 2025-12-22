@@ -30,6 +30,7 @@ from bookcard.api.routes.comic import router as comic_router
 from bookcard.api.routes.devices import router as devices_router
 from bookcard.api.routes.epub_fixer import router as epub_fixer_router
 from bookcard.api.routes.fs import router as fs_router
+from bookcard.api.routes.indexers import router as indexers_router
 from bookcard.api.routes.ingest import router as ingest_router
 from bookcard.api.routes.kcc import router as kcc_router
 from bookcard.api.routes.kobo import router as kobo_router
@@ -52,6 +53,7 @@ ROUTERS: list[APIRouter] = [
     devices_router,
     epub_fixer_router,
     fs_router,
+    indexers_router,
     ingest_router,
     kcc_router,
     libraries_router,
