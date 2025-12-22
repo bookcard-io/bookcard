@@ -23,6 +23,7 @@ import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from bookcard.models.auth import UserSetting
@@ -30,6 +31,7 @@ from bookcard.models.config import EPUBFixerConfig, Library
 from bookcard.models.conversion import ConversionMethod
 from bookcard.models.core import Book
 from bookcard.models.media import Data
+from bookcard.repositories import CalibreBookRepository
 
 logger = logging.getLogger(__name__)
 
@@ -277,13 +279,23 @@ class EPUBPostIngestProcessor(PostIngestProcessor):
             return
 
         # Get book and EPUB data
-        stmt = (
-            select(Book, Data)
-            .join(Data)
-            .where(Book.id == book_id)
-            .where(Data.format == "EPUB")
-        )
-        result = session.exec(stmt).first()
+        # We need to query the Calibre database, not the application database
+        if library is None:
+            logger.warning(
+                "Cannot resolve EPUB file path: library is None for book_id=%d", book_id
+            )
+            return
+
+        calibre_repo = CalibreBookRepository(str(library.calibre_db_path))
+        with calibre_repo.get_session() as calibre_session:
+            stmt = (
+                select(Book, Data)
+                .join(Data)
+                .where(Book.id == book_id)
+                .where(Data.format == "EPUB")
+            )
+            result = calibre_session.exec(stmt).first()
+
         if result is None:
             logger.debug("EPUB format not found for book %d", book_id)
             return
@@ -291,12 +303,6 @@ class EPUBPostIngestProcessor(PostIngestProcessor):
         book, data = result
 
         # Resolve file path (requires library)
-        if library is None:
-            logger.warning(
-                "Cannot resolve EPUB file path: library is None for book_id=%d", book_id
-            )
-            return
-
         path_resolver = LibraryPathResolver(library)
         file_path = path_resolver.get_book_file_path(book, data)
         if file_path is None:
@@ -620,14 +626,19 @@ class ConversionPostIngestProcessor(PostIngestProcessor):
             return
 
         # Get original format
-        original_format = self._get_original_format(session, book_id)
-        if original_format is None:
-            return
+        # Use Calibre session for querying book data
+        calibre_repo = CalibreBookRepository(str(library.calibre_db_path))
+        with calibre_repo.get_session() as calibre_session:
+            original_format = self._get_original_format(calibre_session, book_id)
+            if original_format is None:
+                return
 
-        # Check if conversion is needed
-        target_format = self._policy.get_target_format().upper()
-        if not self._should_convert(session, book_id, original_format, target_format):
-            return
+            # Check if conversion is needed
+            target_format = self._policy.get_target_format().upper()
+            if not self._should_convert(
+                calibre_session, book_id, original_format, target_format
+            ):
+                return
 
         # Perform conversion
         self._perform_conversion(
@@ -679,12 +690,18 @@ class ConversionPostIngestProcessor(PostIngestProcessor):
                 "Uploaded format not available for book %d, querying formats",
                 book_id,
             )
-            stmt = select(Data).where(Data.book == book_id).limit(1)
-            data = session.exec(stmt).first()
-            if data is None:
-                logger.warning("No format data found for book %d", book_id)
+            try:
+                # Use nested transaction to prevent session rollback on error
+                with session.begin_nested():
+                    stmt = select(Data).where(Data.book == book_id).limit(1)
+                    data = session.exec(stmt).first()
+                if data is None:
+                    logger.warning("No format data found for book %d", book_id)
+                    return None
+                return data.format.upper()
+            except SQLAlchemyError as e:
+                logger.warning("Failed to query Data table for book %d: %s", book_id, e)
                 return None
-            return data.format.upper()
 
         # Query for the Data record matching the uploaded format
         stmt = (
@@ -692,14 +709,27 @@ class ConversionPostIngestProcessor(PostIngestProcessor):
             .where(Data.book == book_id)
             .where(Data.format == self._uploaded_format)
         )
-        data = session.exec(stmt).first()
+        try:
+            # Use nested transaction to prevent session rollback on error
+            with session.begin_nested():
+                data = session.exec(stmt).first()
+        except SQLAlchemyError as e:
+            # Clean up logs: don't dump stack trace for expected schema errors
+            logger.warning(
+                "Failed to query Data table for book %d: %s (assuming uploaded format is correct)",
+                book_id,
+                e,
+            )
+            return self._uploaded_format
+
         if data is None:
             logger.warning(
                 "Format %s not found for book %d",
                 self._uploaded_format,
                 book_id,
             )
-            return None
+            # If not found in DB but we know what we uploaded, return that
+            return self._uploaded_format
         return self._uploaded_format
 
     def _should_convert(
@@ -747,16 +777,29 @@ class ConversionPostIngestProcessor(PostIngestProcessor):
             return False
 
         # Check if target format already exists
+        # Check against 'data' table name, handle different naming in Calibre
+        # The table name might be different or mapped differently in SQLModel
         stmt = (
             select(Data).where(Data.book == book_id).where(Data.format == target_format)
         )
-        if session.exec(stmt).first() is not None:
-            logger.debug(
-                "Book %d already has target format %s, skipping conversion",
+        try:
+            # Use nested transaction to prevent session rollback on error
+            with session.begin_nested():
+                if session.exec(stmt).first() is not None:
+                    logger.debug(
+                        "Book %d already has target format %s, skipping conversion",
+                        book_id,
+                        target_format,
+                    )
+                    return False
+        except SQLAlchemyError as e:
+            # If table check fails (e.g. table not found), assume format doesn't exist
+            # This handles cases where Calibre schema might differ
+            logger.warning(
+                "Failed to check existing format for book %d: %s (assuming not present)",
                 book_id,
-                target_format,
+                e,
             )
-            return False
 
         return True
 
