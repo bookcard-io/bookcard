@@ -23,6 +23,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
     from pathlib import Path
 
     from tests.conftest import DummySession
@@ -47,7 +48,7 @@ from bookcard.services.tasks.post_processors import (
 
 
 @pytest.fixture
-def library() -> Library:
+def library() -> Generator[Library, None, None]:
     """Create a library instance for testing.
 
     Returns
@@ -55,7 +56,19 @@ def library() -> Library:
     Library
         Library instance.
     """
-    return Library(id=1, name="Test Library", calibre_db_path="/path/to/library")
+    # Create a mock library root and metadata.db
+    import shutil
+    import tempfile
+    from pathlib import Path
+
+    tmp_dir = Path(tempfile.mkdtemp())
+    (tmp_dir / "metadata.db").touch()
+
+    lib = Library(id=1, name="Test Library", calibre_db_path=str(tmp_dir))
+
+    yield lib
+
+    shutil.rmtree(tmp_dir)
 
 
 @pytest.fixture
@@ -116,6 +129,35 @@ def user_setting() -> UserSetting:
         User setting instance.
     """
     return UserSetting(id=1, user_id=1, key="test_key", value="test_value")
+
+
+@pytest.fixture
+def mock_calibre_repo_class() -> Generator[MagicMock, None, None]:
+    """Mock CalibreBookRepository class."""
+    with patch("bookcard.services.tasks.post_processors.CalibreBookRepository") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_calibre_session(mock_calibre_repo_class: MagicMock) -> MagicMock:
+    """Mock Calibre database session."""
+    session = MagicMock()
+    mock_calibre_repo_class.return_value.get_session.return_value.__enter__.return_value = session
+    return session
+
+
+@pytest.fixture
+def mock_path_resolver_class() -> Generator[MagicMock, None, None]:
+    """Mock LibraryPathResolver class."""
+    with patch("bookcard.services.tasks.post_processors.LibraryPathResolver") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_create_conversion_service() -> Generator[MagicMock, None, None]:
+    """Mock create_conversion_service function."""
+    with patch("bookcard.services.conversion.create_conversion_service") as mock:
+        yield mock
 
 
 # ============================================================================
@@ -420,6 +462,7 @@ class TestEPUBPostIngestProcessor:
         session: DummySession,
         library: Library,
         book: Book,
+        mock_calibre_session: MagicMock,
     ) -> None:
         """Test process when EPUB format is not found.
 
@@ -431,6 +474,8 @@ class TestEPUBPostIngestProcessor:
             Library instance.
         book : Book
             Book instance.
+        mock_calibre_session : MagicMock
+            Mock Calibre session.
         """
         processor = EPUBPostIngestProcessor(session)  # type: ignore[arg-type]
 
@@ -441,8 +486,8 @@ class TestEPUBPostIngestProcessor:
         epub_config = EPUBFixerConfig(id=1, enabled=True, library_id=1)
         session.add_exec_result([epub_config])
 
-        # No EPUB data found
-        session.add_exec_result([None])
+        # Mock query result
+        mock_calibre_session.exec.return_value.first.return_value = None
 
         assert book.id is not None
         processor.process(
@@ -458,6 +503,8 @@ class TestEPUBPostIngestProcessor:
         library: Library,
         book: Book,
         epub_data: Data,
+        mock_calibre_session: MagicMock,
+        mock_path_resolver_class: MagicMock,
     ) -> None:
         """Test process when EPUB file is not found.
 
@@ -471,6 +518,10 @@ class TestEPUBPostIngestProcessor:
             Book instance.
         epub_data : Data
             EPUB data instance.
+        mock_calibre_session : MagicMock
+            Mock Calibre session.
+        mock_path_resolver_class : MagicMock
+            Mock LibraryPathResolver class.
         """
         processor = EPUBPostIngestProcessor(session)  # type: ignore[arg-type]
 
@@ -481,24 +532,21 @@ class TestEPUBPostIngestProcessor:
         epub_config = EPUBFixerConfig(id=1, enabled=True, library_id=1)
         session.add_exec_result([epub_config])
 
-        # EPUB data found
-        session.add_exec_result([(book, epub_data)])
+        # Mock query result
+        mock_calibre_session.exec.return_value.first.return_value = (book, epub_data)
 
         # Mock path resolver to return None
-        with patch(
-            "bookcard.services.tasks.post_processors.LibraryPathResolver"
-        ) as mock_resolver_class:
-            mock_resolver = MagicMock()
-            mock_resolver.get_book_file_path.return_value = None
-            mock_resolver_class.return_value = mock_resolver
+        mock_resolver = MagicMock()
+        mock_resolver.get_book_file_path.return_value = None
+        mock_path_resolver_class.return_value = mock_resolver
 
-            assert book.id is not None
-            processor.process(
-                session,  # type: ignore[arg-type]
-                book.id,
-                library,
-                user_id=1,
-            )
+        assert book.id is not None
+        processor.process(
+            session,  # type: ignore[arg-type]
+            book.id,
+            library,
+            user_id=1,
+        )
 
     def test_process_success_with_fixes(
         self,
@@ -507,6 +555,8 @@ class TestEPUBPostIngestProcessor:
         book: Book,
         epub_data: Data,
         tmp_path: Path,
+        mock_calibre_session: MagicMock,
+        mock_path_resolver_class: MagicMock,
     ) -> None:
         """Test process when EPUB fix succeeds with fixes applied.
 
@@ -522,6 +572,10 @@ class TestEPUBPostIngestProcessor:
             EPUB data instance.
         tmp_path : Path
             Temporary directory path.
+        mock_calibre_session : MagicMock
+            Mock Calibre session.
+        mock_path_resolver_class : MagicMock
+            Mock LibraryPathResolver class.
         """
         processor = EPUBPostIngestProcessor(session)  # type: ignore[arg-type]
 
@@ -532,50 +586,53 @@ class TestEPUBPostIngestProcessor:
         epub_config = EPUBFixerConfig(id=1, enabled=True, library_id=1)
         session.add_exec_result([epub_config])
 
-        # EPUB data found
-        session.add_exec_result([(book, epub_data)])
+        # Mock query results
+        mock_calibre_session.exec.return_value.first.side_effect = [
+            (book, epub_data),  # For process()
+            (
+                book,
+                epub_data,
+            ),  # For process_epub_file() inside service if called again
+        ]
 
         file_path = tmp_path / "book.epub"
         file_path.touch()
 
         # Mock path resolver
+        mock_resolver = MagicMock()
+        mock_resolver.get_book_file_path.return_value = file_path
+        mock_path_resolver_class.return_value = mock_resolver
+
+        # Mock EPUB fixer service
         with patch(
-            "bookcard.services.tasks.post_processors.LibraryPathResolver"
-        ) as mock_resolver_class:
-            mock_resolver = MagicMock()
-            mock_resolver.get_book_file_path.return_value = file_path
-            mock_resolver_class.return_value = mock_resolver
+            "bookcard.services.epub_fixer_service.EPUBFixerService"
+        ) as mock_fixer_class:
+            mock_fixer = MagicMock()
+            fix_run = MagicMock()
+            fix_run.id = 1
+            mock_fixer.process_epub_file.return_value = fix_run
+            mock_fixer.get_fixes_for_run.return_value = [
+                MagicMock(),
+                MagicMock(),
+            ]  # 2 fixes
+            mock_fixer_class.return_value = mock_fixer
 
-            # Mock EPUB fixer service
-            with patch(
-                "bookcard.services.epub_fixer_service.EPUBFixerService"
-            ) as mock_fixer_class:
-                mock_fixer = MagicMock()
-                fix_run = MagicMock()
-                fix_run.id = 1
-                mock_fixer.process_epub_file.return_value = fix_run
-                mock_fixer.get_fixes_for_run.return_value = [
-                    MagicMock(),
-                    MagicMock(),
-                ]  # 2 fixes
-                mock_fixer_class.return_value = mock_fixer
+            assert book.id is not None
+            processor.process(
+                session,  # type: ignore[arg-type]
+                book.id,
+                library,
+                user_id=1,
+            )
 
-                assert book.id is not None
-                processor.process(
-                    session,  # type: ignore[arg-type]
-                    book.id,
-                    library,
-                    user_id=1,
-                )
-
-                mock_fixer.process_epub_file.assert_called_once_with(
-                    file_path=file_path,
-                    book_id=book.id,
-                    book_title=book.title,
-                    user_id=1,
-                    library_id=library.id,
-                    manually_triggered=False,
-                )
+            mock_fixer.process_epub_file.assert_called_once_with(
+                file_path=file_path,
+                book_id=book.id,
+                book_title=book.title,
+                user_id=1,
+                library_id=library.id,
+                manually_triggered=False,
+            )
 
     def test_process_success_no_fixes(
         self,
@@ -584,6 +641,8 @@ class TestEPUBPostIngestProcessor:
         book: Book,
         epub_data: Data,
         tmp_path: Path,
+        mock_calibre_session: MagicMock,
+        mock_path_resolver_class: MagicMock,
     ) -> None:
         """Test process when EPUB fix succeeds with no fixes needed.
 
@@ -599,6 +658,10 @@ class TestEPUBPostIngestProcessor:
             EPUB data instance.
         tmp_path : Path
             Temporary directory path.
+        mock_calibre_session : MagicMock
+            Mock Calibre session.
+        mock_path_resolver_class : MagicMock
+            Mock LibraryPathResolver class.
         """
         processor = EPUBPostIngestProcessor(session)  # type: ignore[arg-type]
 
@@ -609,38 +672,35 @@ class TestEPUBPostIngestProcessor:
         epub_config = EPUBFixerConfig(id=1, enabled=True, library_id=1)
         session.add_exec_result([epub_config])
 
-        # EPUB data found
-        session.add_exec_result([(book, epub_data)])
+        # Mock query results
+        mock_calibre_session.exec.return_value.first.return_value = (book, epub_data)
 
         file_path = tmp_path / "book.epub"
         file_path.touch()
 
         # Mock path resolver
+        mock_resolver = MagicMock()
+        mock_resolver.get_book_file_path.return_value = file_path
+        mock_path_resolver_class.return_value = mock_resolver
+
+        # Mock EPUB fixer service
         with patch(
-            "bookcard.services.tasks.post_processors.LibraryPathResolver"
-        ) as mock_resolver_class:
-            mock_resolver = MagicMock()
-            mock_resolver.get_book_file_path.return_value = file_path
-            mock_resolver_class.return_value = mock_resolver
+            "bookcard.services.epub_fixer_service.EPUBFixerService"
+        ) as mock_fixer_class:
+            mock_fixer = MagicMock()
+            fix_run = MagicMock()
+            fix_run.id = 1
+            mock_fixer.process_epub_file.return_value = fix_run
+            mock_fixer.get_fixes_for_run.return_value = []  # No fixes
+            mock_fixer_class.return_value = mock_fixer
 
-            # Mock EPUB fixer service
-            with patch(
-                "bookcard.services.epub_fixer_service.EPUBFixerService"
-            ) as mock_fixer_class:
-                mock_fixer = MagicMock()
-                fix_run = MagicMock()
-                fix_run.id = 1
-                mock_fixer.process_epub_file.return_value = fix_run
-                mock_fixer.get_fixes_for_run.return_value = []  # No fixes
-                mock_fixer_class.return_value = mock_fixer
-
-                assert book.id is not None
-                processor.process(
-                    session,  # type: ignore[arg-type]
-                    book.id,
-                    library,
-                    user_id=1,
-                )
+            assert book.id is not None
+            processor.process(
+                session,  # type: ignore[arg-type]
+                book.id,
+                library,
+                user_id=1,
+            )
 
     def test_process_success_no_fix_run_id(
         self,
@@ -649,6 +709,8 @@ class TestEPUBPostIngestProcessor:
         book: Book,
         epub_data: Data,
         tmp_path: Path,
+        mock_calibre_session: MagicMock,
+        mock_path_resolver_class: MagicMock,
     ) -> None:
         """Test process when EPUB fix succeeds but fix_run.id is None.
 
@@ -664,6 +726,10 @@ class TestEPUBPostIngestProcessor:
             EPUB data instance.
         tmp_path : Path
             Temporary directory path.
+        mock_calibre_session : MagicMock
+            Mock Calibre session.
+        mock_path_resolver_class : MagicMock
+            Mock LibraryPathResolver class.
         """
         processor = EPUBPostIngestProcessor(session)  # type: ignore[arg-type]
 
@@ -674,44 +740,39 @@ class TestEPUBPostIngestProcessor:
         epub_config = EPUBFixerConfig(id=1, enabled=True, library_id=1)
         session.add_exec_result([epub_config])
 
-        # EPUB data found
-        session.add_exec_result([(book, epub_data)])
+        # Mock query results
+        mock_calibre_session.exec.return_value.first.return_value = (book, epub_data)
 
         file_path = tmp_path / "book.epub"
         file_path.touch()
 
         # Mock path resolver
+        mock_resolver = MagicMock()
+        mock_resolver.get_book_file_path.return_value = file_path
+        mock_path_resolver_class.return_value = mock_resolver
+
+        # Mock EPUB fixer service
         with patch(
-            "bookcard.services.tasks.post_processors.LibraryPathResolver"
-        ) as mock_resolver_class:
-            mock_resolver = MagicMock()
-            mock_resolver.get_book_file_path.return_value = file_path
-            mock_resolver_class.return_value = mock_resolver
+            "bookcard.services.epub_fixer_service.EPUBFixerService"
+        ) as mock_fixer_class:
+            mock_fixer = MagicMock()
+            fix_run = MagicMock()
+            fix_run.id = None
+            mock_fixer.process_epub_file.return_value = fix_run
+            mock_fixer_class.return_value = mock_fixer
 
-            # Mock EPUB fixer service
-            with patch(
-                "bookcard.services.epub_fixer_service.EPUBFixerService"
-            ) as mock_fixer_class:
-                mock_fixer = MagicMock()
-                fix_run = MagicMock()
-                fix_run.id = None
-                mock_fixer.process_epub_file.return_value = fix_run
-                mock_fixer_class.return_value = mock_fixer
-
-                assert book.id is not None
-                processor.process(
-                    session,  # type: ignore[arg-type]
-                    book.id,
-                    library,
-                    user_id=1,
-                )
+            assert book.id is not None
+            processor.process(
+                session,  # type: ignore[arg-type]
+                book.id,
+                library,
+                user_id=1,
+            )
 
     def test_process_library_none(
         self,
         session: DummySession,
         book: Book,
-        epub_data: Data,
-        tmp_path: Path,
     ) -> None:
         """Test process when library is None.
 
@@ -721,10 +782,6 @@ class TestEPUBPostIngestProcessor:
             Dummy session instance.
         book : Book
             Book instance.
-        epub_data : Data
-            EPUB data instance.
-        tmp_path : Path
-            Temporary directory path.
         """
         processor = EPUBPostIngestProcessor(session)  # type: ignore[arg-type]
 
@@ -739,9 +796,6 @@ class TestEPUBPostIngestProcessor:
             None,  # type: ignore[arg-type]
             user_id=1,
         )
-
-        # When library is None, the policy should return False and process should return early
-        # No EPUB fixer service calls should be made
 
 
 # ============================================================================
@@ -1121,6 +1175,8 @@ class TestConversionPostIngestProcessor:
         self,
         session: DummySession,
         library: Library,
+        mock_calibre_session: MagicMock,
+        mock_create_conversion_service: MagicMock,
     ) -> None:
         """Test process when book is not found.
 
@@ -1130,6 +1186,10 @@ class TestConversionPostIngestProcessor:
             Dummy session instance.
         library : Library
             Library instance.
+        mock_calibre_session : MagicMock
+            Mock Calibre session.
+        mock_create_conversion_service : MagicMock
+            Mock create_conversion_service.
         """
         processor = ConversionPostIngestProcessor(session, user_id=1)  # type: ignore[arg-type]
         processor._uploaded_format = "MOBI"
@@ -1137,8 +1197,8 @@ class TestConversionPostIngestProcessor:
         # Mock policy to return True
         processor._policy.should_auto_convert = MagicMock(return_value=True)  # type: ignore[method-assign]
 
-        # Book not found
-        session.add_exec_result([None])
+        # Mock query result
+        mock_calibre_session.exec.return_value.first.return_value = None
 
         processor.process(
             session,  # type: ignore[arg-type]
@@ -1153,6 +1213,7 @@ class TestConversionPostIngestProcessor:
         library: Library,
         book: Book,
         epub_data: Data,
+        mock_calibre_session: MagicMock,
     ) -> None:
         """Test process when uploaded format is None and falls back to querying.
 
@@ -1166,6 +1227,8 @@ class TestConversionPostIngestProcessor:
             Book instance.
         epub_data : Data
             EPUB data instance.
+        mock_calibre_session : MagicMock
+            Mock Calibre session.
         """
         processor = ConversionPostIngestProcessor(session, user_id=1)  # type: ignore[arg-type]
         processor._uploaded_format = None  # Not set
@@ -1175,8 +1238,10 @@ class TestConversionPostIngestProcessor:
         processor._policy.get_target_format = MagicMock(return_value="epub")  # type: ignore[method-assign]
         processor._policy.get_ignored_formats = MagicMock(return_value=[])  # type: ignore[method-assign]
 
-        # Data found in fallback query (when _uploaded_format is None, it queries Data directly)
-        session.add_exec_result([epub_data])
+        # Mock query results
+        # First query: fallback get original format
+        # Second query: check if target format exists (None means not exists)
+        mock_calibre_session.exec.return_value.first.side_effect = [epub_data, None]
 
         assert book.id is not None
         processor.process(
@@ -1191,6 +1256,7 @@ class TestConversionPostIngestProcessor:
         session: DummySession,
         library: Library,
         book: Book,
+        mock_calibre_session: MagicMock,
     ) -> None:
         """Test process when format data is not found in fallback.
 
@@ -1202,6 +1268,8 @@ class TestConversionPostIngestProcessor:
             Library instance.
         book : Book
             Book instance.
+        mock_calibre_session : MagicMock
+            Mock Calibre session.
         """
         processor = ConversionPostIngestProcessor(session, user_id=1)  # type: ignore[arg-type]
         processor._uploaded_format = None  # Not set
@@ -1209,8 +1277,8 @@ class TestConversionPostIngestProcessor:
         # Mock policy to return True
         processor._policy.should_auto_convert = MagicMock(return_value=True)  # type: ignore[method-assign]
 
-        # Data not found in fallback query (when _uploaded_format is None, it queries Data directly)
-        session.add_exec_result([None])
+        # Data not found in fallback query
+        mock_calibre_session.exec.return_value.first.return_value = None
 
         assert book.id is not None
         processor.process(
@@ -1225,6 +1293,8 @@ class TestConversionPostIngestProcessor:
         session: DummySession,
         library: Library,
         book: Book,
+        mock_calibre_session: MagicMock,
+        mock_create_conversion_service: MagicMock,
     ) -> None:
         """Test process when uploaded format is set but data not found.
 
@@ -1236,6 +1306,10 @@ class TestConversionPostIngestProcessor:
             Library instance.
         book : Book
             Book instance.
+        mock_calibre_session : MagicMock
+            Mock Calibre session.
+        mock_create_conversion_service : MagicMock
+            Mock create_conversion_service.
         """
         processor = ConversionPostIngestProcessor(session, user_id=1)  # type: ignore[arg-type]
         processor._uploaded_format = "MOBI"
@@ -1243,23 +1317,18 @@ class TestConversionPostIngestProcessor:
         # Mock policy to return True
         processor._policy.should_auto_convert = MagicMock(return_value=True)  # type: ignore[method-assign]
 
-        # Data not found for uploaded format (this is the query in _get_original_format)
-        session.add_exec_result([None])
+        # Data not found for uploaded format
+        mock_calibre_session.exec.return_value.first.return_value = None
 
-        # Defensively patch create_conversion_service to prevent it from being called
-        # (it shouldn't be called since original_format will be None, but patch it anyway)
-        with patch(
-            "bookcard.services.conversion.create_conversion_service"
-        ) as mock_create_conversion:
-            assert book.id is not None
-            processor.process(
-                session,  # type: ignore[arg-type]
-                book.id,
-                library,
-                user_id=1,
-            )
-            # Verify that create_conversion_service was not called
-            mock_create_conversion.assert_not_called()
+        assert book.id is not None
+        processor.process(
+            session,  # type: ignore[arg-type]
+            book.id,
+            library,
+            user_id=1,
+        )
+        # Verify that create_conversion_service WAS called because fallback to uploaded format works
+        mock_create_conversion_service.assert_called_once()
 
     @pytest.mark.parametrize(
         ("original_format", "target_format", "ignored_formats", "should_convert"),
@@ -1278,6 +1347,8 @@ class TestConversionPostIngestProcessor:
         target_format: str,
         ignored_formats: list[str],
         should_convert: bool,
+        mock_calibre_session: MagicMock,
+        mock_create_conversion_service: MagicMock,
     ) -> None:
         """Test process when conversion is skipped for various reasons.
 
@@ -1297,6 +1368,10 @@ class TestConversionPostIngestProcessor:
             Ignored formats.
         should_convert : bool
             Whether conversion should happen.
+        mock_calibre_session : MagicMock
+            Mock Calibre session.
+        mock_create_conversion_service : MagicMock
+            Mock create_conversion_service.
         """
         processor = ConversionPostIngestProcessor(session, user_id=1)  # type: ignore[arg-type]
         processor._uploaded_format = original_format
@@ -1311,14 +1386,13 @@ class TestConversionPostIngestProcessor:
         assert book.id is not None
         data = Data(id=1, book=book.id, format=original_format, name="test")
 
-        # Book found
-        session.add_exec_result([book])
-        # Data found
-        session.add_exec_result([data])
+        side_effects = [data]  # First query for original format
 
-        # Check if target format already exists
+        # Check if target format already exists query
         if should_convert:
-            session.add_exec_result([None])  # Target format doesn't exist
+            side_effects.append(None)  # Target format doesn't exist
+
+        mock_calibre_session.exec.return_value.first.side_effect = side_effects
 
         assert book.id is not None
         processor.process(
@@ -1333,6 +1407,7 @@ class TestConversionPostIngestProcessor:
         session: DummySession,
         library: Library,
         book: Book,
+        mock_calibre_session: MagicMock,
     ) -> None:
         """Test process when target format already exists.
 
@@ -1344,6 +1419,8 @@ class TestConversionPostIngestProcessor:
             Library instance.
         book : Book
             Book instance.
+        mock_calibre_session : MagicMock
+            Mock Calibre session.
         """
         processor = ConversionPostIngestProcessor(session, user_id=1)  # type: ignore[arg-type]
         processor._uploaded_format = "MOBI"
@@ -1354,14 +1431,15 @@ class TestConversionPostIngestProcessor:
         processor._policy.get_ignored_formats = MagicMock(return_value=[])  # type: ignore[method-assign]
 
         mobi_data = Data(id=1, book=book.id, format="MOBI", name="test")
-
-        # Book found
-        session.add_exec_result([book])
-        # MOBI data found
-        session.add_exec_result([mobi_data])
-        # EPUB already exists
         epub_data = Data(id=2, book=book.id, format="EPUB", name="test")
-        session.add_exec_result([epub_data])
+
+        # Mock query results
+        # First query: get original format data
+        # Second query: check if target format exists (returns data meaning it exists)
+        mock_calibre_session.exec.return_value.first.side_effect = [
+            mobi_data,
+            epub_data,
+        ]
 
         assert book.id is not None
         processor.process(
@@ -1376,6 +1454,8 @@ class TestConversionPostIngestProcessor:
         session: DummySession,
         library: Library,
         book: Book,
+        mock_calibre_session: MagicMock,
+        mock_create_conversion_service: MagicMock,
     ) -> None:
         """Test process when conversion succeeds.
 
@@ -1387,6 +1467,10 @@ class TestConversionPostIngestProcessor:
             Library instance.
         book : Book
             Book instance.
+        mock_calibre_session : MagicMock
+            Mock Calibre session.
+        mock_create_conversion_service : MagicMock
+            Mock create_conversion_service.
         """
         processor = ConversionPostIngestProcessor(session, user_id=1)  # type: ignore[arg-type]
         processor._uploaded_format = "MOBI"
@@ -1399,34 +1483,31 @@ class TestConversionPostIngestProcessor:
 
         mobi_data = Data(id=1, book=book.id, format="MOBI", name="test")
 
-        # MOBI data found (when _uploaded_format is set, it queries Data directly)
-        session.add_exec_result([mobi_data])
-        # Target format doesn't exist
-        session.add_exec_result([None])
+        # Mock query results
+        # First query: get original format data
+        # Second query: check if target format exists (returns None meaning it doesn't)
+        mock_calibre_session.exec.return_value.first.side_effect = [mobi_data, None]
 
         # Mock conversion service
-        with patch(
-            "bookcard.services.conversion.create_conversion_service"
-        ) as mock_create_conversion:
-            mock_conversion = MagicMock()
-            mock_create_conversion.return_value = mock_conversion
+        mock_conversion = MagicMock()
+        mock_create_conversion_service.return_value = mock_conversion
 
-            assert book.id is not None
-            processor.process(
-                session,  # type: ignore[arg-type]
-                book.id,
-                library,
-                user_id=1,
-            )
+        assert book.id is not None
+        processor.process(
+            session,  # type: ignore[arg-type]
+            book.id,
+            library,
+            user_id=1,
+        )
 
-            mock_conversion.convert_book.assert_called_once_with(
-                book_id=book.id,
-                original_format="MOBI",
-                target_format="EPUB",
-                user_id=1,
-                conversion_method=ConversionMethod.AUTO_IMPORT,
-                backup_original=True,
-            )
+        mock_conversion.convert_book.assert_called_once_with(
+            book_id=book.id,
+            original_format="MOBI",
+            target_format="EPUB",
+            user_id=1,
+            conversion_method=ConversionMethod.AUTO_IMPORT,
+            backup_original=True,
+        )
 
     @pytest.mark.parametrize(
         "exception_type",
@@ -1442,6 +1523,8 @@ class TestConversionPostIngestProcessor:
         library: Library,
         book: Book,
         exception_type: type[Exception],
+        mock_calibre_session: MagicMock,
+        mock_create_conversion_service: MagicMock,
     ) -> None:
         """Test process when conversion raises an error.
 
@@ -1455,6 +1538,10 @@ class TestConversionPostIngestProcessor:
             Book instance.
         exception_type : type[Exception]
             Exception type to raise.
+        mock_calibre_session : MagicMock
+            Mock Calibre session.
+        mock_create_conversion_service : MagicMock
+            Mock create_conversion_service.
         """
         processor = ConversionPostIngestProcessor(session, user_id=1)  # type: ignore[arg-type]
         processor._uploaded_format = "MOBI"
@@ -1467,26 +1554,21 @@ class TestConversionPostIngestProcessor:
 
         mobi_data = Data(id=1, book=book.id, format="MOBI", name="test")
 
-        # Book found
-        session.add_exec_result([book])
-        # MOBI data found
-        session.add_exec_result([mobi_data])
-        # Target format doesn't exist
-        session.add_exec_result([None])
+        # Mock query results
+        # First query: get original format data
+        # Second query: check if target format exists (returns None meaning it doesn't)
+        mock_calibre_session.exec.return_value.first.side_effect = [mobi_data, None]
 
         # Mock conversion service to raise error
-        with patch(
-            "bookcard.services.conversion.create_conversion_service"
-        ) as mock_create_conversion:
-            mock_conversion = MagicMock()
-            mock_conversion.convert_book.side_effect = exception_type("Test error")
-            mock_create_conversion.return_value = mock_conversion
+        mock_conversion = MagicMock()
+        mock_conversion.convert_book.side_effect = exception_type("Test error")
+        mock_create_conversion_service.return_value = mock_conversion
 
-            # Should not raise, just log warning
-            assert book.id is not None
-            processor.process(
-                session,  # type: ignore[arg-type]
-                book.id,
-                library,
-                user_id=1,
-            )
+        # Should not raise, just log warning
+        assert book.id is not None
+        processor.process(
+            session,  # type: ignore[arg-type]
+            book.id,
+            library,
+            user_id=1,
+        )
