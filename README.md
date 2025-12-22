@@ -32,7 +32,7 @@
 
 ## Demo
 
-Try Bookcard online at [https://demo.bookcard.io/](https://demo.bookcard.io/)
+Try Bookcard online at [https://demo.bookcard.io/login](https://demo.bookcard.io/login)
 
 **Demo credentials:**
 - Username: `demo`
