@@ -118,6 +118,48 @@ export function setupRendition(options: RenditionSetupOptions): void {
     });
   };
 
+  // Monkey patch next/prev to debug navigation issues and fallback if stuck
+  const originalNext = rendition.next;
+  rendition.next = function () {
+    // biome-ignore lint/suspicious/noExplicitAny: internal property access
+    const currentLocation = (rendition as any).currentLocation();
+
+    return originalNext.call(this).then(() => {
+      // biome-ignore lint/suspicious/noExplicitAny: internal property access
+      const newLocation = (rendition as any).currentLocation();
+      if (
+        currentLocation &&
+        newLocation &&
+        currentLocation.start.cfi === newLocation.start.cfi
+      ) {
+        // Attempt to find the next linear spine item
+        try {
+          // biome-ignore lint/suspicious/noExplicitAny: internal property access
+          const book = (rendition as any).book;
+          const currentSpineIndex = currentLocation.start.index;
+          const spine = book.spine;
+
+          const nextIndex = currentSpineIndex + 1;
+          const nextSection = spine.get(nextIndex);
+
+          // Skip non-linear items if possible, though specific books might need them
+          // For now, just try the immediate next item to unblock
+          if (nextSection) {
+            return rendition.display(nextSection.href);
+          }
+        } catch (e) {
+          console.error("Error during manual spine navigation fallback:", e);
+        }
+      }
+      return Promise.resolve();
+    });
+  };
+
+  const originalPrev = rendition.prev;
+  rendition.prev = function () {
+    return originalPrev.call(this);
+  };
+
   // Register content hook to ensure styles are applied to all pages
   const contentHook = createContentHook(
     rendition,

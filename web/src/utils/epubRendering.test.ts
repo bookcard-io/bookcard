@@ -394,6 +394,37 @@ describe("epubRendering", () => {
         '"Amazon Ember"',
       );
     });
+
+    it("should catch and log errors during theme application", () => {
+      const rendition = createMockRendition();
+      const pageColorRef = { current: "light" as PageColor };
+      const fontFamilyRef = { current: "Bookerly" as FontFamily };
+      const fontSizeRef = { current: 16 };
+      const document = createMockDocument();
+      // Simulate error by making getElementById throw
+      document.getElementById = vi.fn(() => {
+        throw new Error("Access denied");
+      });
+      const contents = createMockContents(document);
+      const consoleWarnSpy = vi
+        .spyOn(console, "warn")
+        .mockImplementation(() => {});
+
+      const hook = createContentHook(
+        rendition,
+        pageColorRef,
+        fontFamilyRef,
+        fontSizeRef,
+      );
+
+      expect(() => hook(contents)).not.toThrow();
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        "Error applying theme to EPUB content:",
+        expect.any(Error),
+      );
+
+      consoleWarnSpy.mockRestore();
+    });
   });
 
   describe("refreshPageForTheme", () => {
