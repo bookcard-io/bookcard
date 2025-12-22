@@ -105,6 +105,14 @@ from bookcard.api.schemas.epub_fixer import (
     EPUBFixSingleRequest,
     EPUBFixStatisticsRead,
 )
+from bookcard.api.schemas.indexers import (
+    IndexerCreate,
+    IndexerListResponse,
+    IndexerRead,
+    IndexerStatusResponse,
+    IndexerTestResponse,
+    IndexerUpdate,
+)
 from bookcard.api.schemas.kcc import (
     KCCProfileCreate,
     KCCProfileRead,
@@ -197,6 +205,12 @@ __all__ = [
     "EmailServerConfigUpdate",
     "FilterSuggestionsResponse",
     "FormatMetadataResponse",
+    "IndexerCreate",
+    "IndexerListResponse",
+    "IndexerRead",
+    "IndexerStatusResponse",
+    "IndexerTestResponse",
+    "IndexerUpdate",
     "InviteValidationResponse",
     "KCCProfileCreate",
     "KCCProfileRead",
