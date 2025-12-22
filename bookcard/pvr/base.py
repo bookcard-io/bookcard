@@ -379,3 +379,111 @@ class PVRProviderTimeoutError(PVRProviderError):
 
 class PVRProviderAuthenticationError(PVRProviderError):
     """Exception raised when authentication fails."""
+
+
+# Utility functions for raising exceptions
+def raise_authentication_error(message: str) -> None:
+    """Raise PVRProviderAuthenticationError with message.
+
+    Parameters
+    ----------
+    message : str
+        Error message.
+
+    Raises
+    ------
+    PVRProviderAuthenticationError
+        Always raises this exception.
+    """
+    raise PVRProviderAuthenticationError(message)
+
+
+def raise_provider_error(message: str) -> None:
+    """Raise PVRProviderError with message.
+
+    Parameters
+    ----------
+    message : str
+        Error message.
+
+    Raises
+    ------
+    PVRProviderError
+        Always raises this exception.
+    """
+    raise PVRProviderError(message)
+
+
+def raise_network_error(message: str) -> None:
+    """Raise PVRProviderNetworkError with message.
+
+    Parameters
+    ----------
+    message : str
+        Error message.
+
+    Raises
+    ------
+    PVRProviderNetworkError
+        Always raises this exception.
+    """
+    raise PVRProviderNetworkError(message)
+
+
+def handle_api_error_response(
+    error_code: int, description: str, provider_name: str = "Indexer"
+) -> None:
+    """Handle API error response and raise appropriate exception.
+
+    Parameters
+    ----------
+    error_code : int
+        Error code from API response.
+    description : str
+        Error description from API response.
+    provider_name : str
+        Name of the provider (for error messages).
+
+    Raises
+    ------
+    PVRProviderAuthenticationError
+        If error code is 100-199 (authentication errors).
+    PVRProviderError
+        For other API errors.
+    """
+    if 100 <= error_code <= 199:
+        error_msg = f"Invalid API key: {description}"
+        raise_authentication_error(error_msg)
+
+    if description == "Request limit reached":
+        error_msg = f"API limit reached: {description}"
+        raise_provider_error(error_msg)
+
+    error_msg = f"{provider_name} error: {description}"
+    raise_provider_error(error_msg)
+
+
+def handle_http_error_response(status_code: int, response_text: str = "") -> None:
+    """Handle HTTP error response and raise appropriate exception.
+
+    Parameters
+    ----------
+    status_code : int
+        HTTP status code.
+    response_text : str
+        Response text (truncated to 200 chars).
+
+    Raises
+    ------
+    PVRProviderAuthenticationError
+        If status code is 401 or 403.
+    PVRProviderNetworkError
+        For other HTTP errors (>= 400).
+    """
+    if status_code == 401:
+        raise_authentication_error("Unauthorized")
+    if status_code == 403:
+        raise_authentication_error("Forbidden")
+    if status_code >= 400:
+        error_msg = f"HTTP {status_code}: {response_text[:200]}"
+        raise_network_error(error_msg)

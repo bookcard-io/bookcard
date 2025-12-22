@@ -16,6 +16,7 @@
 """Factory for creating PVR indexers and download clients from database definitions."""
 
 import logging
+from collections.abc import Callable
 
 from bookcard.models.pvr import (
     DownloadClientDefinition,
@@ -30,6 +31,9 @@ from bookcard.pvr.base import (
     IndexerSettings,
     PVRProviderError,
 )
+from bookcard.pvr.indexers.newznab import NewznabSettings
+from bookcard.pvr.indexers.torrent_rss import TorrentRssSettings
+from bookcard.pvr.indexers.torznab import TorznabSettings
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +42,11 @@ _indexer_registry: dict[IndexerType, type[BaseIndexer]] = {}
 
 # Registry of download client type to class mapping
 _download_client_registry: dict[DownloadClientType, type[BaseDownloadClient]] = {}
+
+# Registry of indexer type to settings factory function
+_indexer_settings_factories: dict[
+    IndexerType, Callable[[IndexerDefinition], IndexerSettings]
+] = {}
 
 
 def register_indexer(
@@ -94,6 +103,129 @@ def register_download_client(
     )
 
 
+def _create_torznab_settings(indexer_def: IndexerDefinition) -> IndexerSettings:
+    """Create TorznabSettings from indexer definition.
+
+    Parameters
+    ----------
+    indexer_def : IndexerDefinition
+        Indexer definition.
+
+    Returns
+    -------
+    IndexerSettings
+        TorznabSettings instance.
+    """
+    api_path = "/api"
+    if indexer_def.additional_settings:
+        api_path = indexer_def.additional_settings.get("api_path", "/api")
+
+    return TorznabSettings(
+        base_url=indexer_def.base_url,
+        api_key=indexer_def.api_key,
+        timeout_seconds=indexer_def.timeout_seconds,
+        retry_count=indexer_def.retry_count,
+        categories=indexer_def.categories,
+        api_path=str(api_path),
+    )
+
+
+def _create_newznab_settings(indexer_def: IndexerDefinition) -> IndexerSettings:
+    """Create NewznabSettings from indexer definition.
+
+    Parameters
+    ----------
+    indexer_def : IndexerDefinition
+        Indexer definition.
+
+    Returns
+    -------
+    IndexerSettings
+        NewznabSettings instance.
+    """
+    api_path = "/api"
+    if indexer_def.additional_settings:
+        api_path = indexer_def.additional_settings.get("api_path", "/api")
+
+    return NewznabSettings(
+        base_url=indexer_def.base_url,
+        api_key=indexer_def.api_key,
+        timeout_seconds=indexer_def.timeout_seconds,
+        retry_count=indexer_def.retry_count,
+        categories=indexer_def.categories,
+        api_path=str(api_path),
+    )
+
+
+def _create_torrent_rss_settings(indexer_def: IndexerDefinition) -> IndexerSettings:
+    """Create TorrentRssSettings from indexer definition.
+
+    Parameters
+    ----------
+    indexer_def : IndexerDefinition
+        Indexer definition.
+
+    Returns
+    -------
+    IndexerSettings
+        TorrentRssSettings instance.
+    """
+    # Use base_url as feed_url if feed_url not in additional_settings
+    feed_url = indexer_def.base_url
+    if indexer_def.additional_settings:
+        feed_url = indexer_def.additional_settings.get("feed_url", feed_url)
+
+    return TorrentRssSettings(
+        base_url=indexer_def.base_url,
+        api_key=indexer_def.api_key,
+        timeout_seconds=indexer_def.timeout_seconds,
+        retry_count=indexer_def.retry_count,
+        categories=indexer_def.categories,
+        feed_url=str(feed_url),
+    )
+
+
+def _create_default_settings(indexer_def: IndexerDefinition) -> IndexerSettings:
+    """Create default IndexerSettings from indexer definition.
+
+    Parameters
+    ----------
+    indexer_def : IndexerDefinition
+        Indexer definition.
+
+    Returns
+    -------
+    IndexerSettings
+        IndexerSettings instance.
+    """
+    settings = IndexerSettings(
+        base_url=indexer_def.base_url,
+        api_key=indexer_def.api_key,
+        timeout_seconds=indexer_def.timeout_seconds,
+        retry_count=indexer_def.retry_count,
+        categories=indexer_def.categories,
+    )
+
+    # Allow subclasses to extend settings with additional_settings
+    if indexer_def.additional_settings:
+        for key, value in indexer_def.additional_settings.items():
+            if hasattr(settings, key):
+                setattr(settings, key, value)
+
+    return settings
+
+
+def _initialize_settings_factories() -> None:
+    """Initialize the settings factory registry with built-in indexers."""
+    _indexer_settings_factories[IndexerType.TORZNAB] = _create_torznab_settings
+    _indexer_settings_factories[IndexerType.NEWZNAB] = _create_newznab_settings
+    _indexer_settings_factories[IndexerType.TORRENT_RSS] = _create_torrent_rss_settings
+
+
+# Initialize factories on module load
+_initialize_settings_factories()
+
+
 def create_indexer(indexer_def: IndexerDefinition) -> BaseIndexer:
     """Create an indexer instance from a database definition.
 
@@ -117,20 +249,11 @@ def create_indexer(indexer_def: IndexerDefinition) -> BaseIndexer:
         msg = f"Indexer type not registered: {indexer_def.indexer_type}"
         raise PVRProviderError(msg)
 
-    # Create settings from indexer definition
-    settings = IndexerSettings(
-        base_url=indexer_def.base_url,
-        api_key=indexer_def.api_key,
-        timeout_seconds=indexer_def.timeout_seconds,
-        retry_count=indexer_def.retry_count,
-        categories=indexer_def.categories,
+    # Get settings factory for this indexer type, or use default
+    settings_factory = _indexer_settings_factories.get(
+        indexer_def.indexer_type, _create_default_settings
     )
-
-    # Allow subclasses to extend settings with additional_settings
-    if indexer_def.additional_settings:
-        for key, value in indexer_def.additional_settings.items():
-            if hasattr(settings, key):
-                setattr(settings, key, value)
+    settings = settings_factory(indexer_def)
 
     try:
         return indexer_class(settings=settings, enabled=indexer_def.enabled)

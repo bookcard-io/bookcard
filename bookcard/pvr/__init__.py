@@ -15,12 +15,16 @@
 
 """PVR (Personal Video Recorder) system for book tracking and downloading."""
 
+# Import indexers to trigger auto-registration
+import bookcard.pvr.indexers  # noqa: F401
 from bookcard.pvr.base import (
     BaseDownloadClient,
     BaseIndexer,
     DownloadClientSettings,
     IndexerSettings,
     PVRProviderError,
+    handle_api_error_response,
+    handle_http_error_response,
 )
 from bookcard.pvr.factory import (
     create_download_client,
@@ -43,6 +47,8 @@ __all__ = [
     "create_indexer",
     "get_registered_download_client_types",
     "get_registered_indexer_types",
+    "handle_api_error_response",
+    "handle_http_error_response",
     "register_download_client",
     "register_indexer",
 ]
