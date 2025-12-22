@@ -20,7 +20,6 @@ Refactored to follow SOLID principles, DRY, SRP, IoC, and SoC.
 """
 
 import logging
-from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -434,9 +433,16 @@ class BookUploadTask(BaseTask):
         processors = self._get_post_processors(session, library)
         for processor in processors:
             if processor.supports_format(self.file_info.file_format):
-                with suppress(Exception):
+                try:
+                    with session.begin_nested():
+                        processor.process(session, book_id, library, self.user_id)
+                except Exception:
                     # Don't fail the upload if post-processing fails
-                    processor.process(session, book_id, library, self.user_id)
+                    logger.exception(
+                        "Post-processor %s failed for book %s",
+                        processor.__class__.__name__,
+                        book_id,
+                    )
 
     def _validate_metadata_before_completion(self) -> None:
         """Validate required metadata is present before task completion.
