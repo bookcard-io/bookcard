@@ -4,7 +4,6 @@ name: CI Frontend
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
     branches: [main]
     types: [opened, reopened, synchronize, ready_for_review]
