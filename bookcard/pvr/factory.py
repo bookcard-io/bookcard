@@ -16,6 +16,7 @@
 """Factory for creating PVR indexers and download clients from database definitions."""
 
 import logging
+import tempfile
 from collections.abc import Callable
 
 from bookcard.models.pvr import (
@@ -30,6 +31,72 @@ from bookcard.pvr.base import (
     DownloadClientSettings,
     IndexerSettings,
     PVRProviderError,
+)
+from bookcard.pvr.download_clients.aria2 import (
+    Aria2Client,
+    Aria2Settings,
+)
+from bookcard.pvr.download_clients.blackhole import (
+    TorrentBlackholeClient,
+    TorrentBlackholeSettings,
+    UsenetBlackholeClient,
+    UsenetBlackholeSettings,
+)
+from bookcard.pvr.download_clients.deluge import (
+    DelugeClient,
+    DelugeSettings,
+)
+from bookcard.pvr.download_clients.download_station import (
+    DownloadStationClient,
+    DownloadStationSettings,
+)
+from bookcard.pvr.download_clients.flood import (
+    FloodClient,
+    FloodSettings,
+)
+from bookcard.pvr.download_clients.freebox_download import (
+    FreeboxDownloadClient,
+    FreeboxDownloadSettings,
+)
+from bookcard.pvr.download_clients.hadouken import (
+    HadoukenClient,
+    HadoukenSettings,
+)
+from bookcard.pvr.download_clients.nzbget import (
+    NzbgetClient,
+    NzbgetSettings,
+)
+from bookcard.pvr.download_clients.nzbvortex import (
+    NzbvortexClient,
+    NzbvortexSettings,
+)
+from bookcard.pvr.download_clients.pneumatic import (
+    PneumaticClient,
+    PneumaticSettings,
+)
+from bookcard.pvr.download_clients.qbittorrent import (
+    QBittorrentClient,
+    QBittorrentSettings,
+)
+from bookcard.pvr.download_clients.rtorrent import (
+    RTorrentClient,
+    RTorrentSettings,
+)
+from bookcard.pvr.download_clients.sabnzbd import (
+    SabnzbdClient,
+    SabnzbdSettings,
+)
+from bookcard.pvr.download_clients.transmission import (
+    TransmissionClient,
+    TransmissionSettings,
+)
+from bookcard.pvr.download_clients.utorrent import (
+    UTorrentClient,
+    UTorrentSettings,
+)
+from bookcard.pvr.download_clients.vuze import (
+    VuzeClient,
+    VuzeSettings,
 )
 from bookcard.pvr.indexers.newznab import NewznabSettings
 from bookcard.pvr.indexers.torrent_rss import TorrentRssSettings
@@ -46,6 +113,11 @@ _download_client_registry: dict[DownloadClientType, type[BaseDownloadClient]] = 
 # Registry of indexer type to settings factory function
 _indexer_settings_factories: dict[
     IndexerType, Callable[[IndexerDefinition], IndexerSettings]
+] = {}
+
+# Registry of download client type to settings factory function
+_download_client_settings_factories: dict[
+    DownloadClientType, Callable[[DownloadClientDefinition], DownloadClientSettings]
 ] = {}
 
 
@@ -171,9 +243,9 @@ def _create_torrent_rss_settings(indexer_def: IndexerDefinition) -> IndexerSetti
         TorrentRssSettings instance.
     """
     # Use base_url as feed_url if feed_url not in additional_settings
-    feed_url = indexer_def.base_url
+    feed_url: str = indexer_def.base_url
     if indexer_def.additional_settings:
-        feed_url = indexer_def.additional_settings.get("feed_url", feed_url)
+        feed_url = str(indexer_def.additional_settings.get("feed_url", feed_url))
 
     return TorrentRssSettings(
         base_url=indexer_def.base_url,
@@ -215,15 +287,530 @@ def _create_default_settings(indexer_def: IndexerDefinition) -> IndexerSettings:
     return settings
 
 
-def _initialize_settings_factories() -> None:
+def _create_qbittorrent_settings(
+    client_def: DownloadClientDefinition,
+) -> DownloadClientSettings:
+    """Create QBittorrentSettings from client definition.
+
+    Parameters
+    ----------
+    client_def : DownloadClientDefinition
+        Download client definition.
+
+    Returns
+    -------
+    DownloadClientSettings
+        QBittorrentSettings instance.
+    """
+    url_base: str | None = None
+    if client_def.additional_settings:
+        url_base_val = client_def.additional_settings.get("url_base")
+        url_base = str(url_base_val) if url_base_val is not None else None
+
+    return QBittorrentSettings(
+        host=client_def.host,
+        port=client_def.port,
+        username=client_def.username,
+        password=client_def.password,
+        use_ssl=client_def.use_ssl,
+        timeout_seconds=client_def.timeout_seconds,
+        category=client_def.category,
+        download_path=client_def.download_path,
+        url_base=url_base,
+    )
+
+
+def _create_transmission_settings(
+    client_def: DownloadClientDefinition,
+) -> DownloadClientSettings:
+    """Create TransmissionSettings from client definition.
+
+    Parameters
+    ----------
+    client_def : DownloadClientDefinition
+        Download client definition.
+
+    Returns
+    -------
+    DownloadClientSettings
+        TransmissionSettings instance.
+    """
+    url_base: str = "/transmission/"
+    if client_def.additional_settings:
+        url_base = str(client_def.additional_settings.get("url_base", "/transmission/"))
+
+    return TransmissionSettings(
+        host=client_def.host,
+        port=client_def.port,
+        username=client_def.username,
+        password=client_def.password,
+        use_ssl=client_def.use_ssl,
+        timeout_seconds=client_def.timeout_seconds,
+        category=client_def.category,
+        download_path=client_def.download_path,
+        url_base=str(url_base),
+    )
+
+
+def _create_torrent_blackhole_settings(
+    client_def: DownloadClientDefinition,
+) -> DownloadClientSettings:
+    """Create TorrentBlackholeSettings from client definition."""
+    torrent_folder = client_def.download_path or f"{tempfile.gettempdir()}/torrents"
+    watch_folder = client_def.download_path or f"{tempfile.gettempdir()}/watch"
+    if client_def.additional_settings:
+        torrent_folder = str(
+            client_def.additional_settings.get("torrent_folder", torrent_folder)
+        )
+        watch_folder = str(
+            client_def.additional_settings.get("watch_folder", watch_folder)
+        )
+
+    return TorrentBlackholeSettings(
+        host=client_def.host,
+        port=client_def.port,
+        username=client_def.username,
+        password=client_def.password,
+        use_ssl=client_def.use_ssl,
+        timeout_seconds=client_def.timeout_seconds,
+        category=client_def.category,
+        download_path=client_def.download_path,
+        watch_folder=watch_folder,
+        torrent_folder=torrent_folder,
+        save_magnet_files=client_def.additional_settings.get("save_magnet_files", False)
+        if client_def.additional_settings
+        else False,
+        magnet_file_extension=str(
+            client_def.additional_settings.get("magnet_file_extension", ".magnet")
+        )
+        if client_def.additional_settings
+        else ".magnet",
+    )
+
+
+def _create_usenet_blackhole_settings(
+    client_def: DownloadClientDefinition,
+) -> DownloadClientSettings:
+    """Create UsenetBlackholeSettings from client definition."""
+    nzb_folder = client_def.download_path or f"{tempfile.gettempdir()}/nzbs"
+    watch_folder = client_def.download_path or f"{tempfile.gettempdir()}/watch"
+    if client_def.additional_settings:
+        nzb_folder = str(client_def.additional_settings.get("nzb_folder", nzb_folder))
+        watch_folder = str(
+            client_def.additional_settings.get("watch_folder", watch_folder)
+        )
+
+    return UsenetBlackholeSettings(
+        host=client_def.host,
+        port=client_def.port,
+        username=client_def.username,
+        password=client_def.password,
+        use_ssl=client_def.use_ssl,
+        timeout_seconds=client_def.timeout_seconds,
+        category=client_def.category,
+        download_path=client_def.download_path,
+        watch_folder=watch_folder,
+        nzb_folder=nzb_folder,
+    )
+
+
+def _create_sabnzbd_settings(
+    client_def: DownloadClientDefinition,
+) -> DownloadClientSettings:
+    """Create SabnzbdSettings from client definition."""
+    url_base = None
+    api_key = None
+    if client_def.additional_settings:
+        url_base = client_def.additional_settings.get("url_base")
+        api_key = client_def.additional_settings.get("api_key")
+
+    return SabnzbdSettings(
+        host=client_def.host,
+        port=client_def.port,
+        username=client_def.username,
+        password=client_def.password,
+        use_ssl=client_def.use_ssl,
+        timeout_seconds=client_def.timeout_seconds,
+        category=client_def.category,
+        download_path=client_def.download_path,
+        url_base=str(url_base) if url_base else None,
+        api_key=str(api_key) if api_key else None,
+    )
+
+
+def _create_nzbget_settings(
+    client_def: DownloadClientDefinition,
+) -> DownloadClientSettings:
+    """Create NzbgetSettings from client definition."""
+    url_base = None
+    if client_def.additional_settings:
+        url_base = client_def.additional_settings.get("url_base")
+
+    return NzbgetSettings(
+        host=client_def.host,
+        port=client_def.port,
+        username=client_def.username,
+        password=client_def.password,
+        use_ssl=client_def.use_ssl,
+        timeout_seconds=client_def.timeout_seconds,
+        category=client_def.category,
+        download_path=client_def.download_path,
+        url_base=str(url_base) if url_base else None,
+    )
+
+
+def _create_deluge_settings(
+    client_def: DownloadClientDefinition,
+) -> DownloadClientSettings:
+    """Create DelugeSettings from client definition."""
+    url_base = None
+    if client_def.additional_settings:
+        url_base = client_def.additional_settings.get("url_base")
+
+    return DelugeSettings(
+        host=client_def.host,
+        port=client_def.port,
+        username=client_def.username,
+        password=client_def.password,
+        use_ssl=client_def.use_ssl,
+        timeout_seconds=client_def.timeout_seconds,
+        category=client_def.category,
+        download_path=client_def.download_path,
+        url_base=str(url_base) if url_base else None,
+    )
+
+
+def _create_rtorrent_settings(
+    client_def: DownloadClientDefinition,
+) -> DownloadClientSettings:
+    """Create RTorrentSettings from client definition."""
+    url_base = "/RPC2"
+    if client_def.additional_settings:
+        url_base = str(client_def.additional_settings.get("url_base", "/RPC2"))
+
+    return RTorrentSettings(
+        host=client_def.host,
+        port=client_def.port,
+        username=client_def.username,
+        password=client_def.password,
+        use_ssl=client_def.use_ssl,
+        timeout_seconds=client_def.timeout_seconds,
+        category=client_def.category,
+        download_path=client_def.download_path,
+        url_base=str(url_base),
+    )
+
+
+def _create_utorrent_settings(
+    client_def: DownloadClientDefinition,
+) -> DownloadClientSettings:
+    """Create UTorrentSettings from client definition."""
+    url_base = "/gui"
+    if client_def.additional_settings:
+        url_base = str(client_def.additional_settings.get("url_base", "/gui"))
+
+    return UTorrentSettings(
+        host=client_def.host,
+        port=client_def.port,
+        username=client_def.username,
+        password=client_def.password,
+        use_ssl=client_def.use_ssl,
+        timeout_seconds=client_def.timeout_seconds,
+        category=client_def.category,
+        download_path=client_def.download_path,
+        url_base=str(url_base),
+    )
+
+
+def _create_aria2_settings(
+    client_def: DownloadClientDefinition,
+) -> DownloadClientSettings:
+    """Create Aria2Settings from client definition."""
+    url_base = "/jsonrpc"
+    if client_def.additional_settings:
+        url_base = str(client_def.additional_settings.get("url_base", "/jsonrpc"))
+
+    return Aria2Settings(
+        host=client_def.host,
+        port=client_def.port,
+        username=client_def.username,
+        password=client_def.password,
+        use_ssl=client_def.use_ssl,
+        timeout_seconds=client_def.timeout_seconds,
+        category=client_def.category,
+        download_path=client_def.download_path,
+        url_base=str(url_base),
+    )
+
+
+def _create_flood_settings(
+    client_def: DownloadClientDefinition,
+) -> DownloadClientSettings:
+    """Create FloodSettings from client definition."""
+    url_base = None
+    if client_def.additional_settings:
+        url_base = client_def.additional_settings.get("url_base")
+
+    return FloodSettings(
+        host=client_def.host,
+        port=client_def.port,
+        username=client_def.username,
+        password=client_def.password,
+        use_ssl=client_def.use_ssl,
+        timeout_seconds=client_def.timeout_seconds,
+        category=client_def.category,
+        download_path=client_def.download_path,
+        url_base=str(url_base) if url_base else None,
+    )
+
+
+def _create_hadouken_settings(
+    client_def: DownloadClientDefinition,
+) -> DownloadClientSettings:
+    """Create HadoukenSettings from client definition."""
+    url_base = None
+    if client_def.additional_settings:
+        url_base = client_def.additional_settings.get("url_base")
+
+    return HadoukenSettings(
+        host=client_def.host,
+        port=client_def.port,
+        username=client_def.username,
+        password=client_def.password,
+        use_ssl=client_def.use_ssl,
+        timeout_seconds=client_def.timeout_seconds,
+        category=client_def.category,
+        download_path=client_def.download_path,
+        url_base=str(url_base) if url_base else None,
+    )
+
+
+def _create_freebox_download_settings(
+    client_def: DownloadClientDefinition,
+) -> DownloadClientSettings:
+    """Create FreeboxDownloadSettings from client definition."""
+    url_base = None
+    if client_def.additional_settings:
+        url_base = client_def.additional_settings.get("url_base")
+
+    return FreeboxDownloadSettings(
+        host=client_def.host,
+        port=client_def.port,
+        username=client_def.username,
+        password=client_def.password,
+        use_ssl=client_def.use_ssl,
+        timeout_seconds=client_def.timeout_seconds,
+        category=client_def.category,
+        download_path=client_def.download_path,
+        url_base=str(url_base) if url_base else None,
+    )
+
+
+def _create_download_station_settings(
+    client_def: DownloadClientDefinition,
+) -> DownloadClientSettings:
+    """Create DownloadStationSettings from client definition."""
+    url_base = "/webapi"
+    if client_def.additional_settings:
+        url_base = str(client_def.additional_settings.get("url_base", "/webapi"))
+
+    return DownloadStationSettings(
+        host=client_def.host,
+        port=client_def.port,
+        username=client_def.username,
+        password=client_def.password,
+        use_ssl=client_def.use_ssl,
+        timeout_seconds=client_def.timeout_seconds,
+        category=client_def.category,
+        download_path=client_def.download_path,
+        url_base=str(url_base),
+    )
+
+
+def _create_nzbvortex_settings(
+    client_def: DownloadClientDefinition,
+) -> DownloadClientSettings:
+    """Create NzbvortexSettings from client definition."""
+    url_base = None
+    if client_def.additional_settings:
+        url_base = client_def.additional_settings.get("url_base")
+
+    return NzbvortexSettings(
+        host=client_def.host,
+        port=client_def.port,
+        username=client_def.username,
+        password=client_def.password,
+        use_ssl=client_def.use_ssl,
+        timeout_seconds=client_def.timeout_seconds,
+        category=client_def.category,
+        download_path=client_def.download_path,
+        url_base=str(url_base) if url_base else None,
+    )
+
+
+def _create_pneumatic_settings(
+    client_def: DownloadClientDefinition,
+) -> DownloadClientSettings:
+    """Create PneumaticSettings from client definition."""
+    return PneumaticSettings(
+        host=client_def.host,
+        port=client_def.port,
+        username=client_def.username,
+        password=client_def.password,
+        use_ssl=client_def.use_ssl,
+        timeout_seconds=client_def.timeout_seconds,
+        category=client_def.category,
+        download_path=client_def.download_path,
+    )
+
+
+def _create_vuze_settings(
+    client_def: DownloadClientDefinition,
+) -> DownloadClientSettings:
+    """Create VuzeSettings from client definition."""
+    url_base = None
+    if client_def.additional_settings:
+        url_base = client_def.additional_settings.get("url_base")
+
+    return VuzeSettings(
+        host=client_def.host,
+        port=client_def.port,
+        username=client_def.username,
+        password=client_def.password,
+        use_ssl=client_def.use_ssl,
+        timeout_seconds=client_def.timeout_seconds,
+        category=client_def.category,
+        download_path=client_def.download_path,
+        url_base=str(url_base) if url_base else None,
+    )
+
+
+def _create_default_download_client_settings(
+    client_def: DownloadClientDefinition,
+) -> DownloadClientSettings:
+    """Create default DownloadClientSettings from client definition.
+
+    Parameters
+    ----------
+    client_def : DownloadClientDefinition
+        Download client definition.
+
+    Returns
+    -------
+    DownloadClientSettings
+        DownloadClientSettings instance.
+    """
+    settings = DownloadClientSettings(
+        host=client_def.host,
+        port=client_def.port,
+        username=client_def.username,
+        password=client_def.password,
+        use_ssl=client_def.use_ssl,
+        timeout_seconds=client_def.timeout_seconds,
+        category=client_def.category,
+        download_path=client_def.download_path,
+    )
+
+    # Allow subclasses to extend settings with additional_settings
+    if client_def.additional_settings:
+        for key, value in client_def.additional_settings.items():
+            if hasattr(settings, key):
+                setattr(settings, key, value)
+
+    return settings
+
+
+def _initialize_indexer_settings_factories() -> None:
     """Initialize the settings factory registry with built-in indexers."""
     _indexer_settings_factories[IndexerType.TORZNAB] = _create_torznab_settings
     _indexer_settings_factories[IndexerType.NEWZNAB] = _create_newznab_settings
     _indexer_settings_factories[IndexerType.TORRENT_RSS] = _create_torrent_rss_settings
 
 
+def _initialize_download_client_settings_factories() -> None:
+    """Initialize the download client settings factory registry."""
+    # Fully implemented clients
+    _download_client_settings_factories[DownloadClientType.QBITTORRENT] = (
+        _create_qbittorrent_settings
+    )
+    _download_client_settings_factories[DownloadClientType.TRANSMISSION] = (
+        _create_transmission_settings
+    )
+    _download_client_settings_factories[DownloadClientType.TORRENT_BLACKHOLE] = (
+        _create_torrent_blackhole_settings
+    )
+    _download_client_settings_factories[DownloadClientType.USENET_BLACKHOLE] = (
+        _create_usenet_blackhole_settings
+    )
+    _download_client_settings_factories[DownloadClientType.SABNZBD] = (
+        _create_sabnzbd_settings
+    )
+    _download_client_settings_factories[DownloadClientType.NZBGET] = (
+        _create_nzbget_settings
+    )
+    _download_client_settings_factories[DownloadClientType.DELUGE] = (
+        _create_deluge_settings
+    )
+    _download_client_settings_factories[DownloadClientType.RTORRENT] = (
+        _create_rtorrent_settings
+    )
+    # Stub clients (can be extended)
+    _download_client_settings_factories[DownloadClientType.UTORRENT] = (
+        _create_utorrent_settings
+    )
+    _download_client_settings_factories[DownloadClientType.VUZE] = _create_vuze_settings
+    _download_client_settings_factories[DownloadClientType.ARIA2] = (
+        _create_aria2_settings
+    )
+    _download_client_settings_factories[DownloadClientType.FLOOD] = (
+        _create_flood_settings
+    )
+    _download_client_settings_factories[DownloadClientType.HADOUKEN] = (
+        _create_hadouken_settings
+    )
+    _download_client_settings_factories[DownloadClientType.FREEBOX_DOWNLOAD] = (
+        _create_freebox_download_settings
+    )
+    _download_client_settings_factories[DownloadClientType.DOWNLOAD_STATION] = (
+        _create_download_station_settings
+    )
+    _download_client_settings_factories[DownloadClientType.NZBVORTEX] = (
+        _create_nzbvortex_settings
+    )
+    _download_client_settings_factories[DownloadClientType.PNEUMATIC] = (
+        _create_pneumatic_settings
+    )
+
+
+def _initialize_download_client_registry() -> None:
+    """Initialize the download client registry with built-in clients."""
+    # Fully implemented clients
+    register_download_client(DownloadClientType.QBITTORRENT, QBittorrentClient)
+    register_download_client(DownloadClientType.TRANSMISSION, TransmissionClient)
+    register_download_client(
+        DownloadClientType.TORRENT_BLACKHOLE, TorrentBlackholeClient
+    )
+    register_download_client(DownloadClientType.USENET_BLACKHOLE, UsenetBlackholeClient)
+    register_download_client(DownloadClientType.SABNZBD, SabnzbdClient)
+    register_download_client(DownloadClientType.NZBGET, NzbgetClient)
+    register_download_client(DownloadClientType.DELUGE, DelugeClient)
+    register_download_client(DownloadClientType.RTORRENT, RTorrentClient)
+    # Stub clients (can be extended)
+    register_download_client(DownloadClientType.UTORRENT, UTorrentClient)
+    register_download_client(DownloadClientType.VUZE, VuzeClient)
+    register_download_client(DownloadClientType.ARIA2, Aria2Client)
+    register_download_client(DownloadClientType.FLOOD, FloodClient)
+    register_download_client(DownloadClientType.HADOUKEN, HadoukenClient)
+    register_download_client(DownloadClientType.FREEBOX_DOWNLOAD, FreeboxDownloadClient)
+    register_download_client(DownloadClientType.DOWNLOAD_STATION, DownloadStationClient)
+    register_download_client(DownloadClientType.NZBVORTEX, NzbvortexClient)
+    register_download_client(DownloadClientType.PNEUMATIC, PneumaticClient)
+
+
 # Initialize factories on module load
-_initialize_settings_factories()
+_initialize_indexer_settings_factories()
+_initialize_download_client_settings_factories()
+_initialize_download_client_registry()
 
 
 def create_indexer(indexer_def: IndexerDefinition) -> BaseIndexer:
@@ -285,23 +872,11 @@ def create_download_client(client_def: DownloadClientDefinition) -> BaseDownload
         msg = f"Download client type not registered: {client_def.client_type}"
         raise PVRProviderError(msg)
 
-    # Create settings from client definition
-    settings = DownloadClientSettings(
-        host=client_def.host,
-        port=client_def.port,
-        username=client_def.username,
-        password=client_def.password,
-        use_ssl=client_def.use_ssl,
-        timeout_seconds=client_def.timeout_seconds,
-        category=client_def.category,
-        download_path=client_def.download_path,
+    # Get settings factory for this client type, or use default
+    settings_factory = _download_client_settings_factories.get(
+        client_def.client_type, _create_default_download_client_settings
     )
-
-    # Allow subclasses to extend settings with additional_settings
-    if client_def.additional_settings:
-        for key, value in client_def.additional_settings.items():
-            if hasattr(settings, key):
-                setattr(settings, key, value)
+    settings = settings_factory(client_def)
 
     try:
         return client_class(settings=settings, enabled=client_def.enabled)

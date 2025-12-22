@@ -15,7 +15,8 @@
 
 """PVR (Personal Video Recorder) system for book tracking and downloading."""
 
-# Import indexers to trigger auto-registration
+# Import indexers and download clients to trigger auto-registration
+import bookcard.pvr.download_clients  # noqa: F401
 import bookcard.pvr.indexers  # noqa: F401
 from bookcard.pvr.base import (
     BaseDownloadClient,
