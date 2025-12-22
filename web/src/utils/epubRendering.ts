@@ -143,24 +143,30 @@ export function applyDocumentTheme(
     `;
   }
 
-  const iframe = document.querySelector("iframe");
-  if (iframe?.contentDocument?.body) {
-    iframe.contentDocument.body.style.color = colors.textColor;
-    iframe.contentDocument.body.style.backgroundColor = colors.backgroundColor;
-    if (fontFamily) {
-      iframe.contentDocument.body.style.setProperty(
-        "font-family",
-        `"${fontFamily}"`,
-        "important",
-      );
+  try {
+    const iframe = document.querySelector("iframe");
+    if (iframe?.contentDocument?.body) {
+      iframe.contentDocument.body.style.color = colors.textColor;
+      iframe.contentDocument.body.style.backgroundColor =
+        colors.backgroundColor;
+      if (fontFamily) {
+        iframe.contentDocument.body.style.setProperty(
+          "font-family",
+          `"${fontFamily}"`,
+          "important",
+        );
+      }
+      if (fontSize !== undefined) {
+        iframe.contentDocument.body.style.setProperty(
+          "font-size",
+          `${fontSize}px`,
+          "important",
+        );
+      }
     }
-    if (fontSize !== undefined) {
-      iframe.contentDocument.body.style.setProperty(
-        "font-size",
-        `${fontSize}px`,
-        "important",
-      );
-    }
+  } catch (error) {
+    // Ignore errors when accessing iframe content (e.g. cross-origin restrictions)
+    console.debug("Could not apply theme to iframe:", error);
   }
 }
 
@@ -198,30 +204,34 @@ export function createContentHook(
     const currentFontFamily = fontFamilyRef.current;
     const currentFontSize = fontSizeRef.current;
 
-    const document = contents.window.document;
-    if (!document) {
-      return;
+    try {
+      const document = contents.window.document;
+      if (!document) {
+        return;
+      }
+
+      ensureFontFacesInjected(document);
+
+      // Apply current theme settings using latest values from refs
+      const currentColors = getThemeColors(currentPageColor);
+
+      // Apply theme overrides using latest values
+      applyThemeToRendition(
+        rendition,
+        currentPageColor,
+        currentFontFamily,
+        currentFontSize,
+      );
+
+      applyDocumentTheme(
+        document,
+        currentColors,
+        currentFontFamily,
+        currentFontSize,
+      );
+    } catch (error) {
+      console.warn("Error applying theme to EPUB content:", error);
     }
-
-    ensureFontFacesInjected(document);
-
-    // Apply current theme settings using latest values from refs
-    const currentColors = getThemeColors(currentPageColor);
-
-    // Apply theme overrides using latest values
-    applyThemeToRendition(
-      rendition,
-      currentPageColor,
-      currentFontFamily,
-      currentFontSize,
-    );
-
-    applyDocumentTheme(
-      document,
-      currentColors,
-      currentFontFamily,
-      currentFontSize,
-    );
   };
 }
 

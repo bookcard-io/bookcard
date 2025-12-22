@@ -448,4 +448,99 @@ describe("epubRenditionSetup", () => {
       expect(isInitialLoadRef.current).toBe(false);
     });
   });
+
+  describe("monkey patched next()", () => {
+    it("should fallback to manual spine navigation when next() is stuck", async () => {
+      const book = createMockBook(null);
+      // Mock spine
+      book.spine = {
+        get: vi.fn((index) => ({ href: `chapter_${index}.xhtml` })),
+        // biome-ignore lint/suspicious/noExplicitAny: mocking spine internals
+      } as any;
+
+      const rendition = createMockRendition(book);
+      // Mock original next to return resolved promise but do nothing
+      const mockNext = vi.fn().mockResolvedValue(undefined);
+      rendition.next = mockNext;
+
+      // Mock currentLocation to return same location before and after
+      const mockLocation = {
+        start: { cfi: "epubcfi(/6/2)", index: 5 },
+      };
+      // biome-ignore lint/suspicious/noExplicitAny: mocking internal method
+      (rendition as any).currentLocation = vi
+        .fn()
+        .mockReturnValue(mockLocation);
+
+      const mockDisplay = vi.fn().mockResolvedValue(undefined);
+      rendition.display = mockDisplay;
+
+      const options = {
+        rendition,
+        bookRef: { current: null },
+        initialCfi: null,
+        pageColor: "light" as PageColor,
+        fontFamily: "Bookerly" as FontFamily,
+        fontSize: 16,
+        pageColorRef: { current: "light" as PageColor },
+        fontFamilyRef: { current: "Bookerly" as FontFamily },
+        fontSizeRef: { current: 16 },
+        isInitialLoadRef: { current: false },
+      };
+
+      setupRendition(options);
+
+      // Call the monkey-patched next
+      await rendition.next();
+
+      // Should have detected same location and tried to navigate to next spine item (index + 1)
+      expect(book.spine.get).toHaveBeenCalledWith(6);
+
+      // The fallback calls rendition.display(href).
+      // Since rendition.display is monkey-patched, it calls the original (mockDisplay).
+      expect(mockDisplay).toHaveBeenCalledWith("chapter_6.xhtml");
+    });
+
+    it("should not fallback when next() successfully changes location", async () => {
+      const book = createMockBook(null);
+      // biome-ignore lint/suspicious/noExplicitAny: mocking spine internals
+      book.spine = { get: vi.fn() } as any;
+      const rendition = createMockRendition(book);
+      const mockNext = vi.fn().mockResolvedValue(undefined);
+      rendition.next = mockNext;
+
+      const mockDisplay = vi.fn();
+      rendition.display = mockDisplay;
+
+      const loc1 = { start: { cfi: "epubcfi(/6/2)", index: 5 } };
+      const loc2 = { start: { cfi: "epubcfi(/6/4)", index: 5 } };
+
+      // Return different locations on consecutive calls
+      // biome-ignore lint/suspicious/noExplicitAny: mocking internal method
+      (rendition as any).currentLocation = vi
+        .fn()
+        .mockReturnValueOnce(loc1)
+        .mockReturnValueOnce(loc2);
+
+      const options = {
+        rendition,
+        bookRef: { current: null },
+        initialCfi: null,
+        pageColor: "light" as PageColor,
+        fontFamily: "Bookerly" as FontFamily,
+        fontSize: 16,
+        pageColorRef: { current: "light" as PageColor },
+        fontFamilyRef: { current: "Bookerly" as FontFamily },
+        fontSizeRef: { current: 16 },
+        isInitialLoadRef: { current: false },
+      };
+
+      setupRendition(options);
+
+      await rendition.next();
+
+      expect(mockDisplay).not.toHaveBeenCalled();
+      expect(book.spine.get).not.toHaveBeenCalled();
+    });
+  });
 });
