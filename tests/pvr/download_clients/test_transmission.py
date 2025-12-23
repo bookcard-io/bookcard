@@ -241,6 +241,34 @@ class TestTransmissionProxy:
 
     @patch.object(TransmissionProxy, "_authenticate")
     @patch("bookcard.pvr.download_clients.transmission.create_httpx_client")
+    def test_request_with_arguments(
+        self,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        transmission_settings: TransmissionSettings,
+    ) -> None:
+        """Test _request with arguments."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"result": "success", "arguments": {}}
+        mock_response.raise_for_status = Mock()
+        mock_client.post.return_value = mock_response
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = TransmissionProxy(transmission_settings)
+        proxy._session_id = "test-session"
+        result = proxy._request("torrent-add", arguments={"filename": "test.torrent"})
+
+        assert result == {"result": "success", "arguments": {}}
+        # Verify arguments were included in the request
+        call_args = mock_client.post.call_args
+        assert call_args[1]["json"]["arguments"] == {"filename": "test.torrent"}
+
+    @patch.object(TransmissionProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.transmission.create_httpx_client")
     def test_request_session_expired(
         self,
         mock_create_client: MagicMock,
@@ -365,6 +393,20 @@ class TestTransmissionClient:
         )
         assert isinstance(client.settings, TransmissionSettings)
         assert client.enabled is True
+
+    def test_client_name(
+        self,
+        transmission_settings: TransmissionSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test client_name property."""
+        client = TransmissionClient(
+            settings=transmission_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
+        assert client.client_name == "Transmission"
 
     def test_init_with_download_client_settings(
         self,
@@ -508,6 +550,22 @@ class TestTransmissionClient:
         assert items[0]["status"] == "downloading"
         assert items[0]["progress"] == 0.5
 
+    def test_get_items_disabled(
+        self,
+        transmission_settings: TransmissionSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test get_items when disabled."""
+        client = TransmissionClient(
+            settings=transmission_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
+        items = client.get_items()
+        assert items == []
+
     @patch.object(TransmissionProxy, "remove_torrent")
     def test_remove_item(
         self,
@@ -600,6 +658,50 @@ class TestTransmissionClient:
         with pytest.raises(PVRProviderNetworkError):
             proxy._authenticate()
 
+    @patch("bookcard.pvr.download_clients.transmission.create_httpx_client")
+    def test_authenticate_http_error_401(
+        self, mock_create_client: MagicMock, transmission_settings: TransmissionSettings
+    ) -> None:
+        """Test authentication with HTTP 401 error."""
+        import httpx
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = TransmissionProxy(transmission_settings)
+        with pytest.raises(PVRProviderAuthenticationError, match="invalid credentials"):
+            proxy._authenticate()
+
+    @patch("bookcard.pvr.download_clients.transmission.create_httpx_client")
+    def test_authenticate_http_error_403(
+        self, mock_create_client: MagicMock, transmission_settings: TransmissionSettings
+    ) -> None:
+        """Test authentication with HTTP 403 error."""
+        import httpx
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 403
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = TransmissionProxy(transmission_settings)
+        with pytest.raises(PVRProviderAuthenticationError, match="invalid credentials"):
+            proxy._authenticate()
+
     @patch.object(TransmissionProxy, "_authenticate")
     @patch("bookcard.pvr.download_clients.transmission.create_httpx_client")
     def test_request_http_error(
@@ -626,6 +728,130 @@ class TestTransmissionClient:
         proxy = TransmissionProxy(transmission_settings)
         proxy._session_id = "test-session"
         with pytest.raises(PVRProviderNetworkError):
+            proxy._request("session-get")
+
+    @patch.object(TransmissionProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.transmission.create_httpx_client")
+    def test_request_http_error_401(
+        self,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        transmission_settings: TransmissionSettings,
+    ) -> None:
+        """Test _request with HTTP 401 error."""
+        import httpx
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        mock_response.text = "Unauthorized"
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = TransmissionProxy(transmission_settings)
+        proxy._session_id = "test-session"
+        with pytest.raises(
+            PVRProviderAuthenticationError, match="authentication failed"
+        ):
+            proxy._request("session-get")
+
+    @patch.object(TransmissionProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.transmission.create_httpx_client")
+    def test_request_http_error_403(
+        self,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        transmission_settings: TransmissionSettings,
+    ) -> None:
+        """Test _request with HTTP 403 error."""
+        import httpx
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 403
+        mock_response.text = "Forbidden"
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = TransmissionProxy(transmission_settings)
+        proxy._session_id = "test-session"
+        with pytest.raises(
+            PVRProviderAuthenticationError, match="authentication failed"
+        ):
+            proxy._request("session-get")
+
+    @patch.object(TransmissionProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.transmission.create_httpx_client")
+    @patch("bookcard.pvr.download_clients.transmission.handle_http_error_response")
+    def test_request_http_error_other(
+        self,
+        mock_handle_error: MagicMock,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        transmission_settings: TransmissionSettings,
+    ) -> None:
+        """Test _request with other HTTP error (covers raise after handle_http_error_response)."""
+        import httpx
+
+        # Mock handle_http_error_response to not raise (to cover the raise statement)
+        mock_handle_error.return_value = None
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = (
+            "Internal Server Error" * 100
+        )  # Long text to trigger slicing
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = TransmissionProxy(transmission_settings)
+        proxy._session_id = "test-session"
+        # The raise statement will re-raise the original HTTPStatusError
+        with pytest.raises(httpx.HTTPStatusError):
+            proxy._request("session-get")
+
+    @patch.object(TransmissionProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.transmission.create_httpx_client")
+    @patch("bookcard.pvr.download_clients.transmission.handle_httpx_exception")
+    def test_request_request_error(
+        self,
+        mock_handle_exception: MagicMock,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        transmission_settings: TransmissionSettings,
+    ) -> None:
+        """Test _request with RequestError (covers raise after handle_httpx_exception)."""
+        import httpx
+
+        # Mock handle_httpx_exception to not raise (to cover the raise statement)
+        mock_handle_exception.return_value = None
+
+        mock_client = MagicMock()
+        mock_client.post.side_effect = httpx.RequestError("Request error")
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = TransmissionProxy(transmission_settings)
+        proxy._session_id = "test-session"
+        # The raise statement will re-raise the original RequestError
+        with pytest.raises(httpx.RequestError):
             proxy._request("session-get")
 
     @patch.object(TransmissionProxy, "_authenticate")
