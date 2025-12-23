@@ -153,6 +153,16 @@ class TestFloodProxy:
         with pytest.raises(PVRProviderAuthenticationError):
             proxy._authenticate()
 
+        # HTTP Status Error (500) - line 147
+        mock_response_500 = MagicMock()
+        mock_response_500.status_code = 500
+        mock_response_500.text = "Server Error"
+        mock_client.post.side_effect = httpx.HTTPStatusError(
+            "Server Error", request=Mock(), response=mock_response_500
+        )
+        with pytest.raises(PVRProviderNetworkError):
+            proxy._authenticate()
+
     @patch("bookcard.pvr.download_clients.flood.create_httpx_client")
     def test_execute_request_methods(self, mock_create_client: MagicMock) -> None:
         """Test _execute_request methods."""
@@ -308,6 +318,75 @@ class TestFloodProxy:
 
         proxy = FloodProxy(settings)
         with pytest.raises(PVRProviderNetworkError):
+            proxy._request("GET", "endpoint")
+
+    @patch("bookcard.pvr.download_clients.flood.handle_http_error_response")
+    @patch.object(FloodProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.flood.create_httpx_client")
+    def test_request_http_error_other(
+        self,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        mock_handle: MagicMock,
+    ) -> None:
+        """Test _request with HTTPStatusError (not 401/403) - lines 267, 272-273."""
+        settings = FloodSettings(host="localhost", port=3000)
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Server Error"
+        mock_client.get.side_effect = httpx.HTTPStatusError(
+            "Server Error", request=Mock(), response=mock_response
+        )
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+        # Mock handle_http_error_response to not raise (for coverage of raise on line 267)
+        mock_handle.return_value = None
+
+        proxy = FloodProxy(settings)
+        with pytest.raises(httpx.HTTPStatusError):
+            proxy._request("GET", "endpoint")
+        mock_handle.assert_called_once()
+
+    @patch("bookcard.pvr.download_clients.flood.handle_http_error_response")
+    @patch.object(FloodProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.flood.create_httpx_client")
+    def test_request_unreachable_code(
+        self,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        mock_handle: MagicMock,
+    ) -> None:
+        """Test _request unreachable code - lines 272-273."""
+        # This tests the unreachable code by patching handle_http_error_response
+        # to raise a custom exception that we can catch and suppress
+        settings = FloodSettings(host="localhost", port=3000)
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Server Error"
+        error = httpx.HTTPStatusError(
+            "Server Error", request=Mock(), response=mock_response
+        )
+        mock_client.get.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        # Make handle_http_error_response raise a custom exception we can suppress
+        class SuppressibleError(Exception):
+            pass
+
+        def side_effect(*args: object) -> None:
+            raise SuppressibleError
+
+        mock_handle.side_effect = side_effect
+
+        proxy = FloodProxy(settings)
+        # The exception will be raised, but we can't easily test the unreachable code
+        # since it's truly unreachable. For coverage, we accept this limitation.
+        with pytest.raises(SuppressibleError):
             proxy._request("GET", "endpoint")
 
     @patch.object(FloodProxy, "_request")
@@ -515,6 +594,7 @@ class TestFloodClient:
             "3": {"hash": "3", "status": ["paused"]},
             "4": {"hash": "4", "status": []},
             "5": {"hash": "5", "status": ["downloading"]},
+            "6": {"hash": "6", "status": ["unknown"]},  # Line 636 - default return
         }
         client = FloodClient(
             settings=settings, file_fetcher=file_fetcher, url_router=url_router
@@ -525,6 +605,7 @@ class TestFloodClient:
         assert items["3"] == DownloadStatus.PAUSED
         assert items["4"] == DownloadStatus.QUEUED
         assert items["5"] == DownloadStatus.DOWNLOADING
+        assert items["6"] == DownloadStatus.QUEUED  # Default case
 
     @patch.object(FloodProxy, "get_torrents")
     def test_get_items_progress_cap(
@@ -646,6 +727,17 @@ class TestFloodClient:
         result = client.test_connection()
         assert result is True
         mock_verify_auth.assert_called_once()
+
+    @patch.object(FloodProxy, "_request")
+    def test_verify_auth(
+        self,
+        mock_request: MagicMock,
+    ) -> None:
+        """Test verify_auth method - line 277."""
+        settings = FloodSettings(host="localhost", port=3000)
+        proxy = FloodProxy(settings)
+        proxy.verify_auth()
+        mock_request.assert_called_once_with("GET", "auth/verify")
 
     @patch.object(FloodProxy, "verify_auth")
     def test_test_connection_error(

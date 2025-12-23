@@ -128,6 +128,27 @@ class TestDownloadStationProxy:
         with pytest.raises(PVRProviderNetworkError):
             proxy._query_api_info()
 
+    @patch("bookcard.pvr.download_clients.download_station.handle_httpx_exception")
+    @patch("bookcard.pvr.download_clients.download_station.create_httpx_client")
+    def test_query_api_info_unreachable(
+        self,
+        mock_create_client: MagicMock,
+        mock_handle: MagicMock,
+        download_station_settings: DownloadStationSettings,
+    ) -> None:
+        """Test _query_api_info unreachable code path (lines 131-132)."""
+        mock_client = MagicMock()
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+        # Mock handle_httpx_exception to not raise (for coverage of unreachable code)
+        mock_handle.return_value = None
+
+        proxy = DownloadStationProxy(download_station_settings)
+        mock_client.get.side_effect = httpx.TimeoutException("Timeout")
+        with pytest.raises(PVRProviderError, match="Failed to query API info"):
+            proxy._query_api_info()
+
     @patch.object(DownloadStationProxy, "_query_api_info")
     @patch("bookcard.pvr.download_clients.download_station.create_httpx_client")
     def test_authenticate_success(
@@ -391,6 +412,16 @@ class TestDownloadStationProxy:
         with pytest.raises(PVRProviderTimeoutError):
             proxy.authenticate()
 
+        # HTTP Status Error (not 401/403) - line 200
+        mock_response_500 = MagicMock()
+        mock_response_500.status_code = 500
+        mock_response_500.text = "Server Error"
+        mock_client.get.side_effect = httpx.HTTPStatusError(
+            "Server Error", request=Mock(), response=mock_response_500
+        )
+        with pytest.raises(PVRProviderNetworkError):
+            proxy.authenticate()
+
     @patch("bookcard.pvr.download_clients.download_station.create_httpx_client")
     def test_execute_request_with_files(
         self,
@@ -492,6 +523,38 @@ class TestDownloadStationProxy:
         mock_client.get.side_effect = httpx.TimeoutException("Timeout")
         with pytest.raises(PVRProviderTimeoutError):
             proxy._request("API", "method")
+
+    @patch("bookcard.pvr.download_clients.download_station.handle_http_error_response")
+    @patch.object(DownloadStationProxy, "_execute_request")
+    @patch.object(DownloadStationProxy, "authenticate")
+    @patch.object(DownloadStationProxy, "_query_api_info")
+    def test_request_http_error_other(
+        self,
+        mock_query_api: MagicMock,
+        mock_authenticate: MagicMock,
+        mock_execute_request: MagicMock,
+        mock_handle: MagicMock,
+        download_station_settings: DownloadStationSettings,
+    ) -> None:
+        """Test _request with HTTPStatusError (not 401/403) - lines 329-330, 336-337."""
+        mock_query_api.return_value = {}
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Server Error"
+        # _execute_request raises HTTPStatusError
+        mock_execute_request.side_effect = httpx.HTTPStatusError(
+            "Server Error", request=Mock(), response=mock_response
+        )
+        # Mock handle_http_error_response to not raise (for coverage of unreachable code)
+        mock_handle.return_value = None
+
+        proxy = DownloadStationProxy(download_station_settings)
+        proxy._session_id = "test-session"
+        # handle_http_error_response is called, but mocked to not raise
+        # So the exception handler completes and code continues to unreachable section
+        with pytest.raises(PVRProviderError, match="Request failed"):
+            proxy._request("API", "method")
+        mock_handle.assert_called_once()
 
     @patch.object(DownloadStationProxy, "_request")
     def test_add_task_from_url(

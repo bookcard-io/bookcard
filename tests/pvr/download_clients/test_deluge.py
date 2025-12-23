@@ -163,6 +163,29 @@ class TestDelugeProxy:
         with pytest.raises(PVRProviderAuthenticationError):
             proxy._authenticate()
 
+    @patch("bookcard.pvr.download_clients.deluge.create_httpx_client")
+    def test_authenticate_http_error_other(
+        self,
+        mock_create_client: MagicMock,
+        deluge_settings: DelugeSettings,
+    ) -> None:
+        """Test authentication with HTTPStatusError (not 401/403)."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Server Error"
+        mock_client.post.side_effect = httpx.HTTPStatusError(
+            "Server Error", request=Mock(), response=mock_response
+        )
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = DelugeProxy(deluge_settings)
+        # handle_httpx_exception will raise PVRProviderNetworkError
+        with pytest.raises(PVRProviderNetworkError):
+            proxy._authenticate()
+
     @patch.object(DelugeProxy, "_authenticate")
     @patch("bookcard.pvr.download_clients.deluge.create_httpx_client")
     def test_request_success(
@@ -297,6 +320,37 @@ class TestDelugeProxy:
         )
         with pytest.raises(PVRProviderAuthenticationError):
             proxy._request("method")
+
+    @patch("bookcard.pvr.download_clients.deluge.handle_http_error_response")
+    @patch.object(DelugeProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.deluge.create_httpx_client")
+    def test_request_http_error_other(
+        self,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        mock_handle: MagicMock,
+        deluge_settings: DelugeSettings,
+    ) -> None:
+        """Test _request with HTTPStatusError (not 401/403)."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Server Error"
+        mock_client.post.side_effect = httpx.HTTPStatusError(
+            "Server Error", request=Mock(), response=mock_response
+        )
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+        # Mock handle_http_error_response to not raise (for coverage of raise statement on line 297)
+        mock_handle.return_value = None
+
+        proxy = DelugeProxy(deluge_settings)
+        proxy._session_id = "test-session"
+        # handle_http_error_response is called, then raise re-raises the original error
+        with pytest.raises(httpx.HTTPStatusError):
+            proxy._request("method")
+        mock_handle.assert_called_once()
 
     def test_add_torrent_magnet_no_options(
         self, deluge_settings: DelugeSettings

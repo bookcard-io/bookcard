@@ -582,3 +582,19 @@ class TestUsenetBlackholeClient:
 
         with pytest.raises(PVRProviderError, match="Watch folder does not exist"):
             client.test_connection()
+
+    def test_raise_unsupported_url_error(
+        self,
+        usenet_blackhole_settings: UsenetBlackholeSettings,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
+    ) -> None:
+        """Test _raise_unsupported_url_error method."""
+        client = UsenetBlackholeClient(
+            settings=usenet_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
+        long_url = "ftp://example.com/" + "a" * 100
+        with pytest.raises(PVRProviderError, match="Unsupported download URL type"):
+            client._raise_unsupported_url_error(long_url)
