@@ -210,3 +210,20 @@ class TestHandleHttpxException:
         with pytest.raises(PVRProviderNetworkError):
             handle_httpx_exception(error, "Test request")
         mock_handle.assert_called_once_with(500, "Server Error")
+
+    @patch("bookcard.pvr.download_clients._http_client.handle_http_error_response")
+    def test_handle_httpx_exception_return_after_handle_http_error(
+        self, mock_handle: MagicMock
+    ) -> None:
+        """Test return statement after handle_http_error_response (coverage)."""
+        response = MagicMock()
+        response.status_code = 400
+        response.text = "Bad Request"
+        error = httpx.HTTPStatusError(
+            "Bad Request", request=MagicMock(), response=response
+        )
+        # Mock handle_http_error_response to not raise (for coverage of return statement)
+        mock_handle.return_value = None
+        # This should return normally (though in practice it always raises)
+        handle_httpx_exception(error, "Test request")
+        mock_handle.assert_called_once_with(400, "Bad Request")

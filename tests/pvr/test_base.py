@@ -30,6 +30,11 @@ from bookcard.pvr.base import (
     PVRProviderNetworkError,
     PVRProviderParseError,
     PVRProviderTimeoutError,
+    handle_api_error_response,
+    handle_http_error_response,
+    raise_authentication_error,
+    raise_network_error,
+    raise_provider_error,
 )
 from tests.pvr.conftest import MockDownloadClient, MockIndexer
 
@@ -523,3 +528,137 @@ class TestPVRProviderExceptions:
         exc = exception_class(message)
         assert str(exc) == message
         assert isinstance(exc, PVRProviderError)
+
+
+class TestUtilityFunctions:
+    """Test utility functions for raising exceptions and handling errors."""
+
+    @pytest.mark.parametrize(
+        ("message", "expected_message"),
+        [
+            ("Test error", "Test error"),
+            ("Another error", "Another error"),
+        ],
+    )
+    def test_raise_provider_error(self, message: str, expected_message: str) -> None:
+        """Test raise_provider_error function."""
+        with pytest.raises(PVRProviderError, match=expected_message):
+            raise_provider_error(message)
+
+    @pytest.mark.parametrize(
+        ("message", "expected_message"),
+        [
+            ("Auth failed", "Auth failed"),
+            ("Invalid credentials", "Invalid credentials"),
+        ],
+    )
+    def test_raise_authentication_error(
+        self, message: str, expected_message: str
+    ) -> None:
+        """Test raise_authentication_error function."""
+        with pytest.raises(PVRProviderAuthenticationError, match=expected_message):
+            raise_authentication_error(message)
+
+    @pytest.mark.parametrize(
+        ("message", "expected_message"),
+        [
+            ("Network failed", "Network failed"),
+            ("Connection error", "Connection error"),
+        ],
+    )
+    def test_raise_network_error(self, message: str, expected_message: str) -> None:
+        """Test raise_network_error function."""
+        with pytest.raises(PVRProviderNetworkError, match=expected_message):
+            raise_network_error(message)
+
+    @pytest.mark.parametrize(
+        (
+            "error_code",
+            "description",
+            "provider_name",
+            "expected_exception",
+            "expected_message",
+        ),
+        [
+            (
+                100,
+                "Invalid API key",
+                "Indexer",
+                PVRProviderAuthenticationError,
+                "Invalid API key: Invalid API key",
+            ),
+            (
+                150,
+                "Auth error",
+                "Indexer",
+                PVRProviderAuthenticationError,
+                "Invalid API key: Auth error",
+            ),
+            (
+                199,
+                "Token expired",
+                "Indexer",
+                PVRProviderAuthenticationError,
+                "Invalid API key: Token expired",
+            ),
+            (
+                200,
+                "Request limit reached",
+                "Indexer",
+                PVRProviderError,
+                "API limit reached: Request limit reached",
+            ),
+            (
+                200,
+                "Other error",
+                "Indexer",
+                PVRProviderError,
+                "Indexer error: Other error",
+            ),
+            (
+                500,
+                "Server error",
+                "DownloadClient",
+                PVRProviderError,
+                "DownloadClient error: Server error",
+            ),
+        ],
+    )
+    def test_handle_api_error_response(
+        self,
+        error_code: int,
+        description: str,
+        provider_name: str,
+        expected_exception: type[Exception],
+        expected_message: str,
+    ) -> None:
+        """Test handle_api_error_response function."""
+        with pytest.raises(expected_exception, match=expected_message):
+            handle_api_error_response(error_code, description, provider_name)
+
+    @pytest.mark.parametrize(
+        ("status_code", "response_text", "expected_exception", "expected_message"),
+        [
+            (401, "", PVRProviderAuthenticationError, "Unauthorized"),
+            (403, "", PVRProviderAuthenticationError, "Forbidden"),
+            (400, "Bad Request", PVRProviderNetworkError, "HTTP 400: Bad Request"),
+            (404, "Not Found", PVRProviderNetworkError, "HTTP 404: Not Found"),
+            (
+                500,
+                "Internal Server Error",
+                PVRProviderNetworkError,
+                "HTTP 500: Internal Server Error",
+            ),
+            (400, "A" * 300, PVRProviderNetworkError, "HTTP 400: " + "A" * 200),
+        ],
+    )
+    def test_handle_http_error_response(
+        self,
+        status_code: int,
+        response_text: str,
+        expected_exception: type[Exception],
+        expected_message: str,
+    ) -> None:
+        """Test handle_http_error_response function."""
+        with pytest.raises(expected_exception, match=expected_message):
+            handle_http_error_response(status_code, response_text)

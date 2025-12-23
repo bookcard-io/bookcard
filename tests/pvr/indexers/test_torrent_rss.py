@@ -108,6 +108,17 @@ class TestTorrentRssSettings:
         )
         assert settings.feed_url == "https://example.com/feed"
 
+    def test_torrent_rss_settings_missing_feed_url_from_indexer_settings(
+        self,
+    ) -> None:
+        """Test TorrentRssIndexer initialization with IndexerSettings missing feed_url."""
+        # Create IndexerSettings without feed_url and without base_url
+        settings = IndexerSettings(base_url="")
+        # When initializing TorrentRssIndexer with IndexerSettings that has no feed_url,
+        # it should raise ValueError
+        with pytest.raises(ValueError, match="requires feed_url"):
+            TorrentRssIndexer(settings=settings)
+
 
 # ============================================================================
 # TorrentRssParser Tests
@@ -353,6 +364,118 @@ class TestTorrentRssParser:
         item = ET.Element("item")
         size = torrent_rss_parser._get_size(item)
         assert size is None
+
+    def test_parse_response_item_value_error(
+        self, torrent_rss_parser: TorrentRssParser
+    ) -> None:
+        """Test parse_response with ValueError in item parsing."""
+        xml = b"""<?xml version="1.0"?>
+        <rss><channel>
+            <item><title>Valid</title><link>https://example.com</link></item>
+            <item><title>Invalid</title><link>https://example.com</link></item>
+        </channel></rss>"""
+        # Mock _parse_item to raise ValueError for second item
+        with patch.object(
+            torrent_rss_parser,
+            "_parse_item",
+            side_effect=[
+                ReleaseInfo(title="Valid", download_url="https://example.com"),
+                ValueError("Invalid item"),
+            ],
+        ):
+            releases = torrent_rss_parser.parse_response(xml)
+            # Should skip invalid item and return only valid one
+            assert len(releases) == 1
+
+    def test_parse_response_item_type_error(
+        self, torrent_rss_parser: TorrentRssParser
+    ) -> None:
+        """Test parse_response with TypeError in item parsing."""
+        xml = b"""<?xml version="1.0"?>
+        <rss><channel>
+            <item><title>Valid</title><link>https://example.com</link></item>
+            <item><title>Invalid</title><link>https://example.com</link></item>
+        </channel></rss>"""
+        # Mock _parse_item to raise TypeError for second item
+        with patch.object(
+            torrent_rss_parser,
+            "_parse_item",
+            side_effect=[
+                ReleaseInfo(title="Valid", download_url="https://example.com"),
+                TypeError("Invalid type"),
+            ],
+        ):
+            releases = torrent_rss_parser.parse_response(xml)
+            # Should skip invalid item and return only valid one
+            assert len(releases) == 1
+
+    def test_parse_response_item_attribute_error(
+        self, torrent_rss_parser: TorrentRssParser
+    ) -> None:
+        """Test parse_response with AttributeError in item parsing."""
+        xml = b"""<?xml version="1.0"?>
+        <rss><channel>
+            <item><title>Valid</title><link>https://example.com</link></item>
+            <item><title>Invalid</title><link>https://example.com</link></item>
+        </channel></rss>"""
+        # Mock _parse_item to raise AttributeError for second item
+        with patch.object(
+            torrent_rss_parser,
+            "_parse_item",
+            side_effect=[
+                ReleaseInfo(title="Valid", download_url="https://example.com"),
+                AttributeError("Missing attribute"),
+            ],
+        ):
+            releases = torrent_rss_parser.parse_response(xml)
+            # Should skip invalid item and return only valid one
+            assert len(releases) == 1
+
+    def test_parse_response_item_key_error(
+        self, torrent_rss_parser: TorrentRssParser
+    ) -> None:
+        """Test parse_response with KeyError in item parsing."""
+        xml = b"""<?xml version="1.0"?>
+        <rss><channel>
+            <item><title>Valid</title><link>https://example.com</link></item>
+            <item><title>Invalid</title><link>https://example.com</link></item>
+        </channel></rss>"""
+        # Mock _parse_item to raise KeyError for second item
+        with patch.object(
+            torrent_rss_parser,
+            "_parse_item",
+            side_effect=[
+                ReleaseInfo(title="Valid", download_url="https://example.com"),
+                KeyError("Missing key"),
+            ],
+        ):
+            releases = torrent_rss_parser.parse_response(xml)
+            # Should skip invalid item and return only valid one
+            assert len(releases) == 1
+
+    def test_parse_response_unexpected_exception(
+        self, torrent_rss_parser: TorrentRssParser
+    ) -> None:
+        """Test parse_response with unexpected exception."""
+        # Mock ET.fromstring to raise an unexpected exception (not PVRProviderError)
+        with patch(
+            "bookcard.pvr.indexers.torrent_rss.ET.fromstring"
+        ) as mock_fromstring:
+            mock_fromstring.side_effect = RuntimeError("Unexpected error")
+            with pytest.raises(PVRProviderParseError, match="Failed to parse RSS feed"):
+                torrent_rss_parser.parse_response(b"<rss><channel></channel></rss>")
+
+    def test_parse_response_pvr_provider_error(
+        self, torrent_rss_parser: TorrentRssParser
+    ) -> None:
+        """Test parse_response with PVRProviderError (should be re-raised)."""
+        # Mock ET.fromstring to raise a PVRProviderError
+        with patch(
+            "bookcard.pvr.indexers.torrent_rss.ET.fromstring"
+        ) as mock_fromstring:
+            mock_fromstring.side_effect = PVRProviderParseError("Parse error")
+            with pytest.raises(PVRProviderParseError, match="Parse error"):
+                torrent_rss_parser.parse_response(b"<rss><channel></channel></rss>")
 
 
 # ============================================================================
@@ -659,4 +782,83 @@ class TestTorrentRssIndexer:
         mock_client.return_value.__enter__.return_value = mock_client_instance
 
         with pytest.raises(PVRProviderNetworkError):
+            torrent_rss_indexer._make_request("https://example.com")
+
+    @patch("bookcard.pvr.indexers.torrent_rss.httpx.Client")
+    def test_search_unexpected_exception(
+        self, mock_client: MagicMock, torrent_rss_indexer: TorrentRssIndexer
+    ) -> None:
+        """Test search with unexpected exception."""
+        # Mock _make_request to raise an unexpected exception (not PVRProviderError)
+        with (
+            patch.object(
+                torrent_rss_indexer,
+                "_make_request",
+                side_effect=RuntimeError("Unexpected error"),
+            ),
+            pytest.raises(PVRProviderError, match="Unexpected error during search"),
+        ):
+            torrent_rss_indexer.search(query="test")
+
+    @patch("bookcard.pvr.indexers.torrent_rss.httpx.Client")
+    def test_test_connection_unexpected_exception(
+        self, mock_client: MagicMock, torrent_rss_indexer: TorrentRssIndexer
+    ) -> None:
+        """Test test_connection with unexpected exception."""
+        # Mock _make_request to raise an unexpected exception directly
+        with (
+            patch.object(
+                torrent_rss_indexer,
+                "_make_request",
+                side_effect=RuntimeError("Unexpected error"),
+            ),
+            pytest.raises(PVRProviderError, match="Connection test failed"),
+        ):
+            torrent_rss_indexer.test_connection()
+
+    @patch("bookcard.pvr.indexers.torrent_rss.httpx.Client")
+    def test_test_connection_pvr_provider_error(
+        self, mock_client: MagicMock, torrent_rss_indexer: TorrentRssIndexer
+    ) -> None:
+        """Test test_connection with PVRProviderError (should be re-raised)."""
+        # Mock _make_request to raise a PVRProviderError
+        with (
+            patch.object(
+                torrent_rss_indexer,
+                "_make_request",
+                side_effect=PVRProviderNetworkError("Network error"),
+            ),
+            pytest.raises(PVRProviderNetworkError),
+        ):
+            torrent_rss_indexer.test_connection()
+
+    @patch("bookcard.pvr.indexers.torrent_rss.httpx.Client")
+    def test_make_request_http_status_error(
+        self, mock_client: MagicMock, torrent_rss_indexer: TorrentRssIndexer
+    ) -> None:
+        """Test _make_request with HTTPStatusError."""
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error"
+        mock_client_instance = MagicMock()
+        error = httpx.HTTPStatusError(
+            "Server Error", request=MagicMock(), response=mock_response
+        )
+        mock_client_instance.get.side_effect = error
+        mock_client.return_value.__enter__.return_value = mock_client_instance
+
+        with pytest.raises(PVRProviderNetworkError, match="HTTP error"):
+            torrent_rss_indexer._make_request("https://example.com")
+
+    @patch("bookcard.pvr.indexers.torrent_rss.httpx.Client")
+    def test_make_request_unexpected_exception(
+        self, mock_client: MagicMock, torrent_rss_indexer: TorrentRssIndexer
+    ) -> None:
+        """Test _make_request with unexpected exception."""
+        mock_client_instance = MagicMock()
+        # Make get() raise an unexpected exception
+        mock_client_instance.get.side_effect = RuntimeError("Unexpected error")
+        mock_client.return_value.__enter__.return_value = mock_client_instance
+
+        with pytest.raises(PVRProviderError, match="Unexpected error"):
             torrent_rss_indexer._make_request("https://example.com")

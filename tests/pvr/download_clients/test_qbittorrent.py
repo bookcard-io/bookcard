@@ -136,6 +136,82 @@ class TestQBittorrentProxy:
             proxy._authenticate()
 
     @patch("bookcard.pvr.download_clients.qbittorrent.create_httpx_client")
+    @patch("bookcard.pvr.download_clients.qbittorrent.handle_httpx_exception")
+    def test_authenticate_request_error(
+        self,
+        mock_handle: MagicMock,
+        mock_create_client: MagicMock,
+        qbittorrent_settings: QBittorrentSettings,
+    ) -> None:
+        """Test authentication with RequestError."""
+        mock_client = MagicMock()
+        mock_error = httpx.RequestError("Connection failed")
+        mock_client.post.side_effect = mock_error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+        # Mock handle_httpx_exception to not raise (for coverage of raise statement)
+        mock_handle.return_value = None
+
+        proxy = QBittorrentProxy(qbittorrent_settings)
+        # Should raise the original error
+        with pytest.raises(httpx.RequestError):
+            proxy._authenticate()
+        mock_handle.assert_called_once()
+
+    @patch("bookcard.pvr.download_clients.qbittorrent.create_httpx_client")
+    @patch("bookcard.pvr.download_clients.qbittorrent.handle_httpx_exception")
+    def test_authenticate_timeout_exception(
+        self,
+        mock_handle: MagicMock,
+        mock_create_client: MagicMock,
+        qbittorrent_settings: QBittorrentSettings,
+    ) -> None:
+        """Test authentication with TimeoutException."""
+        mock_client = MagicMock()
+        mock_error = httpx.TimeoutException("Timeout")
+        mock_client.post.side_effect = mock_error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+        # Mock handle_httpx_exception to not raise (for coverage of raise statement)
+        mock_handle.return_value = None
+
+        proxy = QBittorrentProxy(qbittorrent_settings)
+        # Should raise the original error
+        with pytest.raises(httpx.TimeoutException):
+            proxy._authenticate()
+        mock_handle.assert_called_once()
+
+    @patch("bookcard.pvr.download_clients.qbittorrent.create_httpx_client")
+    @patch("bookcard.pvr.download_clients.qbittorrent.handle_httpx_exception")
+    def test_authenticate_http_status_error_not_401_403(
+        self,
+        mock_handle: MagicMock,
+        mock_create_client: MagicMock,
+        qbittorrent_settings: QBittorrentSettings,
+    ) -> None:
+        """Test authentication with HTTPStatusError (not 401/403)."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_error = httpx.HTTPStatusError(
+            "Server Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.post.side_effect = mock_error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+        # Mock handle_httpx_exception to not raise (for coverage of raise statement)
+        mock_handle.return_value = None
+
+        proxy = QBittorrentProxy(qbittorrent_settings)
+        # Should raise the original error
+        with pytest.raises(httpx.HTTPStatusError):
+            proxy._authenticate()
+        mock_handle.assert_called_once()
+
+    @patch("bookcard.pvr.download_clients.qbittorrent.create_httpx_client")
     def test_authenticate_force_reauth(
         self, mock_create_client: MagicMock, qbittorrent_settings: QBittorrentSettings
     ) -> None:
@@ -397,6 +473,116 @@ class TestQBittorrentProxy:
         result = proxy.get_torrent_properties("abc123")
         assert result == {"hash": "abc123"}
 
+    @patch.object(QBittorrentProxy, "_request")
+    def test_get_torrent_properties_parse_error(
+        self, mock_request: MagicMock, qbittorrent_settings: QBittorrentSettings
+    ) -> None:
+        """Test get_torrent_properties with invalid JSON."""
+        mock_request.return_value = "invalid json"
+        proxy = QBittorrentProxy(qbittorrent_settings)
+        with pytest.raises(PVRProviderError, match="Failed to parse"):
+            proxy.get_torrent_properties("abc123")
+
+    @patch.object(QBittorrentProxy, "_request")
+    def test_add_torrent_from_file_with_save_path(
+        self, mock_request: MagicMock, qbittorrent_settings: QBittorrentSettings
+    ) -> None:
+        """Test add_torrent_from_file with save_path."""
+        proxy = QBittorrentProxy(qbittorrent_settings)
+        proxy.add_torrent_from_file(
+            b"torrent content", "test.torrent", save_path="/custom/path"
+        )
+        mock_request.assert_called_once()
+        # Check that save_path was passed in data
+        call_args = mock_request.call_args
+        assert call_args[1]["data"]["savepath"] == "/custom/path"
+
+    @patch.object(QBittorrentProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.qbittorrent.create_httpx_client")
+    @patch("bookcard.pvr.download_clients.qbittorrent.handle_http_error_response")
+    def test_execute_request_http_status_error(
+        self,
+        mock_handle: MagicMock,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        qbittorrent_settings: QBittorrentSettings,
+    ) -> None:
+        """Test _request with HTTPStatusError."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Server Error"
+        mock_error = httpx.HTTPStatusError(
+            "Server Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.get.side_effect = mock_error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+        # Mock handle_http_error_response to not raise (for coverage of raise statement)
+        mock_handle.return_value = None
+
+        proxy = QBittorrentProxy(qbittorrent_settings)
+        proxy._auth_cookies = {"SID": "test"}
+        # Should raise the original error
+        with pytest.raises(httpx.HTTPStatusError):
+            proxy._request("GET", "/api/v2/app/version")
+        mock_handle.assert_called_once()
+
+    @patch.object(QBittorrentProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.qbittorrent.create_httpx_client")
+    @patch("bookcard.pvr.download_clients.qbittorrent.handle_httpx_exception")
+    def test_execute_request_request_error(
+        self,
+        mock_handle: MagicMock,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        qbittorrent_settings: QBittorrentSettings,
+    ) -> None:
+        """Test _request with RequestError."""
+        mock_client = MagicMock()
+        mock_error = httpx.RequestError("Connection failed")
+        mock_client.get.side_effect = mock_error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+        # Mock handle_httpx_exception to not raise (for coverage of raise statement)
+        mock_handle.return_value = None
+
+        proxy = QBittorrentProxy(qbittorrent_settings)
+        proxy._auth_cookies = {"SID": "test"}
+        # Should raise the original error
+        with pytest.raises(httpx.RequestError):
+            proxy._request("GET", "/api/v2/app/version")
+        mock_handle.assert_called_once()
+
+    @patch.object(QBittorrentProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.qbittorrent.create_httpx_client")
+    @patch("bookcard.pvr.download_clients.qbittorrent.handle_httpx_exception")
+    def test_execute_request_timeout_exception(
+        self,
+        mock_handle: MagicMock,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        qbittorrent_settings: QBittorrentSettings,
+    ) -> None:
+        """Test _request with TimeoutException."""
+        mock_client = MagicMock()
+        mock_error = httpx.TimeoutException("Timeout")
+        mock_client.get.side_effect = mock_error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+        # Mock handle_httpx_exception to not raise (for coverage of raise statement)
+        mock_handle.return_value = None
+
+        proxy = QBittorrentProxy(qbittorrent_settings)
+        proxy._auth_cookies = {"SID": "test"}
+        # Should raise the original error
+        with pytest.raises(httpx.TimeoutException):
+            proxy._request("GET", "/api/v2/app/version")
+        mock_handle.assert_called_once()
+
 
 class TestQBittorrentClient:
     """Test QBittorrentClient."""
@@ -430,6 +616,16 @@ class TestQBittorrentClient:
         result = client.add_download("magnet:?xt=urn:btih:ABCDEF1234567890&dn=test")
         assert result == "ABCDEF1234567890"
         mock_add.assert_called_once()
+
+    @patch.object(QBittorrentProxy, "add_torrent_from_url")
+    def test_add_download_magnet_exception(
+        self, mock_add: MagicMock, qbittorrent_settings: QBittorrentSettings
+    ) -> None:
+        """Test add_download with magnet link that raises exception during hash extraction."""
+        mock_add.side_effect = RuntimeError("Network error")
+        client = QBittorrentClient(settings=qbittorrent_settings)
+        with pytest.raises(PVRProviderError, match="Failed to add download"):
+            client.add_download("magnet:?xt=urn:btih:ABCDEF1234567890&dn=test")
 
     @patch.object(QBittorrentProxy, "add_torrent_from_url")
     def test_add_download_http_url(
@@ -518,6 +714,16 @@ class TestQBittorrentClient:
         items = client.get_items()
         assert items[0]["progress"] == 1.0
 
+    @patch.object(QBittorrentProxy, "get_torrents")
+    def test_get_items_exception(
+        self, mock_get_torrents: MagicMock, qbittorrent_settings: QBittorrentSettings
+    ) -> None:
+        """Test get_items with exception."""
+        mock_get_torrents.side_effect = RuntimeError("Network error")
+        client = QBittorrentClient(settings=qbittorrent_settings)
+        with pytest.raises(PVRProviderError, match="Failed to get downloads"):
+            client.get_items()
+
     @patch.object(QBittorrentProxy, "remove_torrent")
     def test_remove_item(
         self, mock_remove: MagicMock, qbittorrent_settings: QBittorrentSettings
@@ -537,6 +743,16 @@ class TestQBittorrentClient:
         with pytest.raises(PVRProviderError, match="disabled"):
             client.remove_item("ABC123")
 
+    @patch.object(QBittorrentProxy, "remove_torrent")
+    def test_remove_item_exception(
+        self, mock_remove: MagicMock, qbittorrent_settings: QBittorrentSettings
+    ) -> None:
+        """Test remove_item with exception."""
+        mock_remove.side_effect = RuntimeError("Network error")
+        client = QBittorrentClient(settings=qbittorrent_settings)
+        with pytest.raises(PVRProviderError, match="Failed to remove download"):
+            client.remove_item("ABC123")
+
     @patch.object(QBittorrentProxy, "get_version")
     def test_test_connection(
         self, mock_get_version: MagicMock, qbittorrent_settings: QBittorrentSettings
@@ -546,6 +762,16 @@ class TestQBittorrentClient:
         client = QBittorrentClient(settings=qbittorrent_settings)
         result = client.test_connection()
         assert result is True
+
+    @patch.object(QBittorrentProxy, "get_version")
+    def test_test_connection_exception(
+        self, mock_get_version: MagicMock, qbittorrent_settings: QBittorrentSettings
+    ) -> None:
+        """Test test_connection with exception."""
+        mock_get_version.side_effect = RuntimeError("Network error")
+        client = QBittorrentClient(settings=qbittorrent_settings)
+        with pytest.raises(PVRProviderError, match="Failed to connect"):
+            client.test_connection()
 
     @pytest.mark.parametrize(
         ("state", "expected_status"),

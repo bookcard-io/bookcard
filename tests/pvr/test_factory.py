@@ -15,7 +15,17 @@
 
 """Tests for PVR factory functions."""
 
+from typing import TYPE_CHECKING, cast
+
 import pytest
+
+if TYPE_CHECKING:
+    from bookcard.pvr.download_clients.blackhole import (
+        TorrentBlackholeSettings,
+        UsenetBlackholeSettings,
+    )
+    from bookcard.pvr.download_clients.nzbget import NzbgetSettings
+    from bookcard.pvr.download_clients.sabnzbd import SabnzbdSettings
 
 from bookcard.models.pvr import (
     DownloadClientDefinition,
@@ -325,3 +335,376 @@ class TestGetRegisteredTypes:
         assert DownloadClientType.QBITTORRENT in types
         assert DownloadClientType.TRANSMISSION in types
         assert len(types) == 2
+
+
+class TestIndexerSettingsFactories:
+    """Test indexer settings factory functions."""
+
+    def test_create_torznab_settings_with_additional_settings(
+        self, indexer_definition: IndexerDefinition
+    ) -> None:
+        """Test _create_torznab_settings with additional_settings."""
+        from bookcard.pvr.factory import _create_torznab_settings
+        from bookcard.pvr.indexers.torznab import TorznabSettings
+
+        indexer_definition.indexer_type = IndexerType.TORZNAB
+        indexer_definition.additional_settings = {"api_path": "/custom/api"}
+
+        settings = _create_torznab_settings(indexer_definition)
+        assert isinstance(settings, TorznabSettings)
+        assert settings.api_path == "/custom/api"
+
+    def test_create_torznab_settings_without_additional_settings(
+        self, indexer_definition: IndexerDefinition
+    ) -> None:
+        """Test _create_torznab_settings without additional_settings."""
+        from bookcard.pvr.factory import _create_torznab_settings
+        from bookcard.pvr.indexers.torznab import TorznabSettings
+
+        indexer_definition.indexer_type = IndexerType.TORZNAB
+        indexer_definition.additional_settings = None
+
+        settings = _create_torznab_settings(indexer_definition)
+        assert isinstance(settings, TorznabSettings)
+        assert settings.api_path == "/api"
+
+    def test_create_newznab_settings_with_additional_settings(
+        self, indexer_definition: IndexerDefinition
+    ) -> None:
+        """Test _create_newznab_settings with additional_settings."""
+        from bookcard.pvr.factory import _create_newznab_settings
+        from bookcard.pvr.indexers.newznab import NewznabSettings
+
+        indexer_definition.indexer_type = IndexerType.NEWZNAB
+        indexer_definition.additional_settings = {"api_path": "/custom/api"}
+
+        settings = _create_newznab_settings(indexer_definition)
+        assert isinstance(settings, NewznabSettings)
+        assert settings.api_path == "/custom/api"
+
+    def test_create_newznab_settings_without_additional_settings(
+        self, indexer_definition: IndexerDefinition
+    ) -> None:
+        """Test _create_newznab_settings without additional_settings."""
+        from bookcard.pvr.factory import _create_newznab_settings
+        from bookcard.pvr.indexers.newznab import NewznabSettings
+
+        indexer_definition.indexer_type = IndexerType.NEWZNAB
+        indexer_definition.additional_settings = None
+
+        settings = _create_newznab_settings(indexer_definition)
+        assert isinstance(settings, NewznabSettings)
+        assert settings.api_path == "/api"
+
+    def test_create_torrent_rss_settings_with_additional_settings(
+        self, indexer_definition: IndexerDefinition
+    ) -> None:
+        """Test _create_torrent_rss_settings with additional_settings."""
+        from bookcard.pvr.factory import _create_torrent_rss_settings
+        from bookcard.pvr.indexers.torrent_rss import TorrentRssSettings
+
+        indexer_definition.indexer_type = IndexerType.TORRENT_RSS
+        indexer_definition.additional_settings = {
+            "feed_url": "https://custom.feed.com/rss"
+        }
+
+        settings = _create_torrent_rss_settings(indexer_definition)
+        assert isinstance(settings, TorrentRssSettings)
+        assert settings.feed_url == "https://custom.feed.com/rss"
+
+    def test_create_torrent_rss_settings_without_additional_settings(
+        self, indexer_definition: IndexerDefinition
+    ) -> None:
+        """Test _create_torrent_rss_settings without additional_settings."""
+        from bookcard.pvr.factory import _create_torrent_rss_settings
+        from bookcard.pvr.indexers.torrent_rss import TorrentRssSettings
+
+        indexer_definition.indexer_type = IndexerType.TORRENT_RSS
+        indexer_definition.additional_settings = None
+
+        settings = _create_torrent_rss_settings(indexer_definition)
+        assert isinstance(settings, TorrentRssSettings)
+        assert settings.feed_url == indexer_definition.base_url
+
+    def test_create_default_settings_with_additional_settings(
+        self, indexer_definition: IndexerDefinition
+    ) -> None:
+        """Test _create_default_settings with additional_settings."""
+        from bookcard.pvr.factory import _create_default_settings
+
+        # Test with a field that exists on IndexerSettings
+        indexer_definition.additional_settings = {
+            "timeout_seconds": 60,
+            "retry_count": 5,
+        }
+
+        settings = _create_default_settings(indexer_definition)
+        assert settings.base_url == indexer_definition.base_url
+        # These should be set via setattr
+        assert settings.timeout_seconds == 60
+        assert settings.retry_count == 5
+
+    def test_create_default_settings_without_additional_settings(
+        self, indexer_definition: IndexerDefinition
+    ) -> None:
+        """Test _create_default_settings without additional_settings."""
+        from bookcard.pvr.factory import _create_default_settings
+
+        indexer_definition.additional_settings = None
+
+        settings = _create_default_settings(indexer_definition)
+        assert settings.base_url == indexer_definition.base_url
+
+
+class TestDownloadClientSettingsFactories:
+    """Test download client settings factory functions."""
+
+    @pytest.mark.parametrize(
+        ("client_type", "additional_settings_key", "expected_value"),
+        [
+            (DownloadClientType.QBITTORRENT, "url_base", "/custom/base"),
+            (DownloadClientType.TRANSMISSION, "url_base", "/custom/transmission"),
+            (DownloadClientType.DELUGE, "url_base", "/custom/deluge"),
+            (DownloadClientType.RTORRENT, "url_base", "/custom/rpc"),
+            (DownloadClientType.UTORRENT, "url_base", "/custom/gui"),
+            (DownloadClientType.ARIA2, "url_base", "/custom/jsonrpc"),
+            (DownloadClientType.FLOOD, "url_base", "/custom/flood"),
+            (DownloadClientType.HADOUKEN, "url_base", "/custom/hadouken"),
+            (DownloadClientType.FREEBOX_DOWNLOAD, "url_base", "/custom/freebox"),
+            (DownloadClientType.DOWNLOAD_STATION, "url_base", "/custom/webapi"),
+            (DownloadClientType.NZBVORTEX, "url_base", "/custom/nzbvortex"),
+            (DownloadClientType.VUZE, "url_base", "/custom/vuze"),
+        ],
+    )
+    def test_create_client_settings_with_additional_settings(
+        self,
+        download_client_definition: DownloadClientDefinition,
+        client_type: DownloadClientType,
+        additional_settings_key: str,
+        expected_value: str,
+    ) -> None:
+        """Test download client settings factories with additional_settings."""
+        from bookcard.pvr.factory import (
+            _create_aria2_settings,
+            _create_deluge_settings,
+            _create_download_station_settings,
+            _create_flood_settings,
+            _create_freebox_download_settings,
+            _create_hadouken_settings,
+            _create_nzbvortex_settings,
+            _create_qbittorrent_settings,
+            _create_rtorrent_settings,
+            _create_transmission_settings,
+            _create_utorrent_settings,
+            _create_vuze_settings,
+        )
+
+        download_client_definition.client_type = client_type
+        download_client_definition.additional_settings = {
+            additional_settings_key: expected_value
+        }
+
+        factory_map = {
+            DownloadClientType.QBITTORRENT: _create_qbittorrent_settings,
+            DownloadClientType.TRANSMISSION: _create_transmission_settings,
+            DownloadClientType.DELUGE: _create_deluge_settings,
+            DownloadClientType.RTORRENT: _create_rtorrent_settings,
+            DownloadClientType.UTORRENT: _create_utorrent_settings,
+            DownloadClientType.ARIA2: _create_aria2_settings,
+            DownloadClientType.FLOOD: _create_flood_settings,
+            DownloadClientType.HADOUKEN: _create_hadouken_settings,
+            DownloadClientType.FREEBOX_DOWNLOAD: _create_freebox_download_settings,
+            DownloadClientType.DOWNLOAD_STATION: _create_download_station_settings,
+            DownloadClientType.NZBVORTEX: _create_nzbvortex_settings,
+            DownloadClientType.VUZE: _create_vuze_settings,
+        }
+
+        factory = factory_map[client_type]
+        settings = factory(download_client_definition)
+
+        if hasattr(settings, "url_base") and settings.url_base is not None:
+            assert settings.url_base == expected_value
+
+    def test_create_sabnzbd_settings_with_additional_settings(
+        self, download_client_definition: DownloadClientDefinition
+    ) -> None:
+        """Test _create_sabnzbd_settings with additional_settings."""
+        from bookcard.pvr.factory import _create_sabnzbd_settings
+
+        download_client_definition.client_type = DownloadClientType.SABNZBD
+        download_client_definition.additional_settings = {
+            "url_base": "/custom/sabnzbd",
+            "api_key": "test-api-key",
+        }
+
+        settings = cast(
+            "SabnzbdSettings", _create_sabnzbd_settings(download_client_definition)
+        )
+        assert settings.url_base == "/custom/sabnzbd"
+        assert settings.api_key == "test-api-key"
+
+    def test_create_sabnzbd_settings_without_additional_settings(
+        self, download_client_definition: DownloadClientDefinition
+    ) -> None:
+        """Test _create_sabnzbd_settings without additional_settings."""
+        from bookcard.pvr.factory import _create_sabnzbd_settings
+
+        download_client_definition.client_type = DownloadClientType.SABNZBD
+        download_client_definition.additional_settings = None
+
+        settings = cast(
+            "SabnzbdSettings", _create_sabnzbd_settings(download_client_definition)
+        )
+        assert settings.url_base is None
+        assert settings.api_key is None
+
+    def test_create_nzbget_settings_with_additional_settings(
+        self, download_client_definition: DownloadClientDefinition
+    ) -> None:
+        """Test _create_nzbget_settings with additional_settings."""
+        from bookcard.pvr.factory import _create_nzbget_settings
+
+        download_client_definition.client_type = DownloadClientType.NZBGET
+        download_client_definition.additional_settings = {"url_base": "/custom/nzbget"}
+
+        settings = cast(
+            "NzbgetSettings", _create_nzbget_settings(download_client_definition)
+        )
+        assert settings.url_base == "/custom/nzbget"
+
+    def test_create_nzbget_settings_without_additional_settings(
+        self, download_client_definition: DownloadClientDefinition
+    ) -> None:
+        """Test _create_nzbget_settings without additional_settings."""
+        from bookcard.pvr.factory import _create_nzbget_settings
+
+        download_client_definition.client_type = DownloadClientType.NZBGET
+        download_client_definition.additional_settings = None
+
+        settings = cast(
+            "NzbgetSettings", _create_nzbget_settings(download_client_definition)
+        )
+        assert settings.url_base is None
+
+    def test_create_torrent_blackhole_settings_with_additional_settings(
+        self, download_client_definition: DownloadClientDefinition
+    ) -> None:
+        """Test _create_torrent_blackhole_settings with additional_settings."""
+        from bookcard.pvr.factory import _create_torrent_blackhole_settings
+
+        download_client_definition.client_type = DownloadClientType.TORRENT_BLACKHOLE
+        download_client_definition.additional_settings = {
+            "torrent_folder": "/custom/torrents",
+            "watch_folder": "/custom/watch",
+            "save_magnet_files": True,
+            "magnet_file_extension": ".mag",
+        }
+
+        settings = cast(
+            "TorrentBlackholeSettings",
+            _create_torrent_blackhole_settings(download_client_definition),
+        )
+        assert settings.torrent_folder == "/custom/torrents"
+        assert settings.watch_folder == "/custom/watch"
+        assert settings.save_magnet_files is True
+        assert settings.magnet_file_extension == ".mag"
+
+    def test_create_torrent_blackhole_settings_without_additional_settings(
+        self, download_client_definition: DownloadClientDefinition
+    ) -> None:
+        """Test _create_torrent_blackhole_settings without additional_settings."""
+        import tempfile
+
+        from bookcard.pvr.factory import _create_torrent_blackhole_settings
+
+        download_client_definition.client_type = DownloadClientType.TORRENT_BLACKHOLE
+        download_client_definition.additional_settings = None
+        download_client_definition.download_path = None
+
+        settings = cast(
+            "TorrentBlackholeSettings",
+            _create_torrent_blackhole_settings(download_client_definition),
+        )
+        assert settings.torrent_folder == f"{tempfile.gettempdir()}/torrents"
+        assert settings.watch_folder == f"{tempfile.gettempdir()}/watch"
+        assert settings.save_magnet_files is False
+        assert settings.magnet_file_extension == ".magnet"
+
+    def test_create_usenet_blackhole_settings_with_additional_settings(
+        self, download_client_definition: DownloadClientDefinition
+    ) -> None:
+        """Test _create_usenet_blackhole_settings with additional_settings."""
+        from bookcard.pvr.factory import _create_usenet_blackhole_settings
+
+        download_client_definition.client_type = DownloadClientType.USENET_BLACKHOLE
+        download_client_definition.additional_settings = {
+            "nzb_folder": "/custom/nzbs",
+            "watch_folder": "/custom/watch",
+        }
+
+        settings = cast(
+            "UsenetBlackholeSettings",
+            _create_usenet_blackhole_settings(download_client_definition),
+        )
+        assert settings.nzb_folder == "/custom/nzbs"
+        assert settings.watch_folder == "/custom/watch"
+
+    def test_create_usenet_blackhole_settings_without_additional_settings(
+        self, download_client_definition: DownloadClientDefinition
+    ) -> None:
+        """Test _create_usenet_blackhole_settings without additional_settings."""
+        import tempfile
+
+        from bookcard.pvr.factory import _create_usenet_blackhole_settings
+
+        download_client_definition.client_type = DownloadClientType.USENET_BLACKHOLE
+        download_client_definition.additional_settings = None
+        download_client_definition.download_path = None
+
+        settings = cast(
+            "UsenetBlackholeSettings",
+            _create_usenet_blackhole_settings(download_client_definition),
+        )
+        assert settings.nzb_folder == f"{tempfile.gettempdir()}/nzbs"
+        assert settings.watch_folder == f"{tempfile.gettempdir()}/watch"
+
+    def test_create_pneumatic_settings(
+        self, download_client_definition: DownloadClientDefinition
+    ) -> None:
+        """Test _create_pneumatic_settings."""
+        from bookcard.pvr.factory import _create_pneumatic_settings
+
+        download_client_definition.client_type = DownloadClientType.PNEUMATIC
+
+        settings = _create_pneumatic_settings(download_client_definition)
+        assert settings.host == download_client_definition.host
+        assert settings.port == download_client_definition.port
+
+    def test_create_default_download_client_settings_with_additional_settings(
+        self, download_client_definition: DownloadClientDefinition
+    ) -> None:
+        """Test _create_default_download_client_settings with additional_settings."""
+        from bookcard.pvr.factory import _create_default_download_client_settings
+
+        # Test with fields that exist on DownloadClientSettings
+        download_client_definition.additional_settings = {
+            "timeout_seconds": 60,
+            "use_ssl": True,
+        }
+
+        settings = _create_default_download_client_settings(download_client_definition)
+        assert settings.host == download_client_definition.host
+        # These should be set via setattr
+        assert settings.timeout_seconds == 60
+        assert settings.use_ssl is True
+
+    def test_create_default_download_client_settings_without_additional_settings(
+        self, download_client_definition: DownloadClientDefinition
+    ) -> None:
+        """Test _create_default_download_client_settings without additional_settings."""
+        from bookcard.pvr.factory import _create_default_download_client_settings
+
+        download_client_definition.additional_settings = None
+
+        settings = _create_default_download_client_settings(download_client_definition)
+        assert settings.host == download_client_definition.host

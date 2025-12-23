@@ -25,6 +25,7 @@ import pytest
 from bookcard.pvr.base import (
     IndexerSettings,
     PVRProviderAuthenticationError,
+    PVRProviderError,
     PVRProviderNetworkError,
     PVRProviderParseError,
     PVRProviderTimeoutError,
@@ -36,6 +37,7 @@ from bookcard.pvr.indexers.torznab import (
     TorznabRequestGenerator,
     TorznabSettings,
 )
+from bookcard.pvr.models import ReleaseInfo
 
 # ============================================================================
 # Fixtures
@@ -497,6 +499,137 @@ class TestTorznabParser:
         value = torznab_parser._get_torznab_attribute_int(item, "seeders")
         assert value is None
 
+    def test_parse_response_item_value_error(
+        self, torznab_parser: TorznabParser
+    ) -> None:
+        """Test parse_response with ValueError in item parsing."""
+        xml = b"""<?xml version="1.0"?>
+        <rss><channel>
+            <item><title>Valid</title><link>https://example.com</link></item>
+            <item><title>Invalid</title><link>https://example.com</link></item>
+        </channel></rss>"""
+        # Mock _parse_item to raise ValueError for second item
+        with patch.object(
+            torznab_parser,
+            "_parse_item",
+            side_effect=[
+                ReleaseInfo(title="Valid", download_url="https://example.com"),
+                ValueError("Invalid item"),
+            ],
+        ):
+            releases = torznab_parser.parse_response(xml)
+            # Should skip invalid item and return only valid one
+            assert len(releases) == 1
+
+    def test_parse_response_item_type_error(
+        self, torznab_parser: TorznabParser
+    ) -> None:
+        """Test parse_response with TypeError in item parsing."""
+        xml = b"""<?xml version="1.0"?>
+        <rss><channel>
+            <item><title>Valid</title><link>https://example.com</link></item>
+            <item><title>Invalid</title><link>https://example.com</link></item>
+        </channel></rss>"""
+        # Mock _parse_item to raise TypeError for second item
+        with patch.object(
+            torznab_parser,
+            "_parse_item",
+            side_effect=[
+                ReleaseInfo(title="Valid", download_url="https://example.com"),
+                TypeError("Invalid type"),
+            ],
+        ):
+            releases = torznab_parser.parse_response(xml)
+            # Should skip invalid item and return only valid one
+            assert len(releases) == 1
+
+    def test_parse_response_item_attribute_error(
+        self, torznab_parser: TorznabParser
+    ) -> None:
+        """Test parse_response with AttributeError in item parsing."""
+        xml = b"""<?xml version="1.0"?>
+        <rss><channel>
+            <item><title>Valid</title><link>https://example.com</link></item>
+            <item><title>Invalid</title><link>https://example.com</link></item>
+        </channel></rss>"""
+        # Mock _parse_item to raise AttributeError for second item
+        with patch.object(
+            torznab_parser,
+            "_parse_item",
+            side_effect=[
+                ReleaseInfo(title="Valid", download_url="https://example.com"),
+                AttributeError("Missing attribute"),
+            ],
+        ):
+            releases = torznab_parser.parse_response(xml)
+            # Should skip invalid item and return only valid one
+            assert len(releases) == 1
+
+    def test_parse_response_item_key_error(self, torznab_parser: TorznabParser) -> None:
+        """Test parse_response with KeyError in item parsing."""
+        xml = b"""<?xml version="1.0"?>
+        <rss><channel>
+            <item><title>Valid</title><link>https://example.com</link></item>
+            <item><title>Invalid</title><link>https://example.com</link></item>
+        </channel></rss>"""
+        # Mock _parse_item to raise KeyError for second item
+        with patch.object(
+            torznab_parser,
+            "_parse_item",
+            side_effect=[
+                ReleaseInfo(title="Valid", download_url="https://example.com"),
+                KeyError("Missing key"),
+            ],
+        ):
+            releases = torznab_parser.parse_response(xml)
+            # Should skip invalid item and return only valid one
+            assert len(releases) == 1
+
+    def test_parse_response_unexpected_exception(
+        self, torznab_parser: TorznabParser
+    ) -> None:
+        """Test parse_response with unexpected exception."""
+        # Mock ET.fromstring to raise an unexpected exception (not PVRProviderError)
+        with patch("bookcard.pvr.indexers.torznab.ET.fromstring") as mock_fromstring:
+            mock_fromstring.side_effect = RuntimeError("Unexpected error")
+            with pytest.raises(
+                PVRProviderParseError, match="Unexpected error parsing response"
+            ):
+                torznab_parser.parse_response(b"<rss><channel></channel></rss>")
+
+    def test_parse_response_pvr_provider_error(
+        self, torznab_parser: TorznabParser
+    ) -> None:
+        """Test parse_response with PVRProviderError (should be re-raised)."""
+        # Mock ET.fromstring to raise a PVRProviderError
+        with patch("bookcard.pvr.indexers.torznab.ET.fromstring") as mock_fromstring:
+            mock_fromstring.side_effect = PVRProviderParseError("Parse error")
+            with pytest.raises(PVRProviderParseError, match="Parse error"):
+                torznab_parser.parse_response(b"<rss><channel></channel></rss>")
+
+    def test_get_size_enclosure_length_type_error(
+        self, torznab_parser: TorznabParser
+    ) -> None:
+        """Test _get_size with TypeError in enclosure length parsing."""
+        item = ET.Element("item")
+        enclosure = ET.SubElement(item, "enclosure")
+        # Set length to something that will cause TypeError
+        enclosure.set("length", None)  # type: ignore[arg-type]
+        size = torznab_parser._get_size(item)
+        # Should handle gracefully and return None
+        assert size is None
+
+    def test_get_size_enclosure_length_value_error(
+        self, torznab_parser: TorznabParser
+    ) -> None:
+        """Test _get_size with ValueError in enclosure length parsing."""
+        item = ET.Element("item")
+        enclosure = ET.SubElement(item, "enclosure")
+        enclosure.set("length", "invalid_number")
+        size = torznab_parser._get_size(item)
+        # Should handle gracefully and return None
+        assert size is None
+
 
 # ============================================================================
 # TorznabIndexer Tests
@@ -713,4 +846,83 @@ class TestTorznabIndexer:
         mock_client.return_value.__enter__.return_value = mock_client_instance
 
         with pytest.raises(PVRProviderNetworkError):
+            torznab_indexer._make_request("https://example.com")
+
+    @patch("bookcard.pvr.indexers.torznab.httpx.Client")
+    def test_search_unexpected_exception(
+        self, mock_client: MagicMock, torznab_indexer: TorznabIndexer
+    ) -> None:
+        """Test search with unexpected exception."""
+        # Mock _make_request to raise an unexpected exception (not PVRProviderError)
+        with (
+            patch.object(
+                torznab_indexer,
+                "_make_request",
+                side_effect=RuntimeError("Unexpected error"),
+            ),
+            pytest.raises(PVRProviderError, match="Unexpected error during search"),
+        ):
+            torznab_indexer.search(query="test")
+
+    @patch("bookcard.pvr.indexers.torznab.httpx.Client")
+    def test_test_connection_unexpected_exception(
+        self, mock_client: MagicMock, torznab_indexer: TorznabIndexer
+    ) -> None:
+        """Test test_connection with unexpected exception."""
+        # Mock _make_request to raise an unexpected exception directly
+        with (
+            patch.object(
+                torznab_indexer,
+                "_make_request",
+                side_effect=RuntimeError("Unexpected error"),
+            ),
+            pytest.raises(PVRProviderError, match="Connection test failed"),
+        ):
+            torznab_indexer.test_connection()
+
+    @patch("bookcard.pvr.indexers.torznab.httpx.Client")
+    def test_test_connection_pvr_provider_error(
+        self, mock_client: MagicMock, torznab_indexer: TorznabIndexer
+    ) -> None:
+        """Test test_connection with PVRProviderError (not AuthenticationError)."""
+        # Mock _make_request to raise a PVRProviderError (not AuthenticationError)
+        with (
+            patch.object(
+                torznab_indexer,
+                "_make_request",
+                side_effect=PVRProviderNetworkError("Network error"),
+            ),
+            pytest.raises(PVRProviderNetworkError),
+        ):
+            torznab_indexer.test_connection()
+
+    @patch("bookcard.pvr.indexers.torznab.httpx.Client")
+    def test_make_request_http_status_error(
+        self, mock_client: MagicMock, torznab_indexer: TorznabIndexer
+    ) -> None:
+        """Test _make_request with HTTPStatusError."""
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error"
+        mock_client_instance = MagicMock()
+        error = httpx.HTTPStatusError(
+            "Server Error", request=MagicMock(), response=mock_response
+        )
+        mock_client_instance.get.side_effect = error
+        mock_client.return_value.__enter__.return_value = mock_client_instance
+
+        with pytest.raises(PVRProviderNetworkError, match="HTTP error"):
+            torznab_indexer._make_request("https://example.com")
+
+    @patch("bookcard.pvr.indexers.torznab.httpx.Client")
+    def test_make_request_unexpected_exception(
+        self, mock_client: MagicMock, torznab_indexer: TorznabIndexer
+    ) -> None:
+        """Test _make_request with unexpected exception."""
+        mock_client_instance = MagicMock()
+        # Make get() raise an unexpected exception
+        mock_client_instance.get.side_effect = RuntimeError("Unexpected error")
+        mock_client.return_value.__enter__.return_value = mock_client_instance
+
+        with pytest.raises(PVRProviderError, match="Unexpected error"):
             torznab_indexer._make_request("https://example.com")
