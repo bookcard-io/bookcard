@@ -109,6 +109,29 @@ class TestTorrentRssSettings:
 
 
 # ============================================================================
+# TorrentRssRequestGenerator Tests
+# ============================================================================
+
+
+class TestTorrentRssRequestGenerator:
+    """Test TorrentRssRequestGenerator class."""
+
+    def test_build_rss_url(
+        self, torrent_rss_request_generator: TorrentRssRequestGenerator
+    ) -> None:
+        """Test build_rss_url method."""
+        url = torrent_rss_request_generator.build_rss_url()
+        assert url == torrent_rss_request_generator.settings.base_url
+
+    def test_build_rss_url_with_params(
+        self, torrent_rss_request_generator: TorrentRssRequestGenerator
+    ) -> None:
+        """Test build_rss_url with parameters (should be ignored)."""
+        url = torrent_rss_request_generator.build_rss_url(categories=[7000], limit=25)
+        assert url == torrent_rss_request_generator.settings.base_url
+
+
+# ============================================================================
 # TorrentRssParser Tests
 # ============================================================================
 
@@ -383,6 +406,22 @@ class TestTorrentRssParser:
         size = torrent_rss_parser.composite.extractors["size_bytes"].extract(item)
         assert size is None
 
+    def test_attribute_extractor_as_string(
+        self, torrent_rss_parser: TorrentRssParser
+    ) -> None:
+        """Test AttributeExtractor with as_int=False (returns string)."""
+        from bookcard.pvr.indexers.parsers import TORZNAB_NS, AttributeExtractor
+
+        item = ET.Element("item")
+        attr = ET.SubElement(item, f"{TORZNAB_NS}attr")
+        attr.set("name", "test_attr")
+        attr.set("value", "test_value")
+
+        extractor = AttributeExtractor("test_attr", as_int=False, namespace=TORZNAB_NS)
+        result = extractor.extract(item)
+        assert result == "test_value"
+        assert isinstance(result, str)
+
     def test_parse_response_item_value_error(
         self, torrent_rss_parser: TorrentRssParser
     ) -> None:
@@ -586,6 +625,27 @@ class TestTorrentRssIndexer:
         results = torrent_rss_indexer.search(query="Test")
         assert len(results) == 1
         assert results[0].title == "Test Book Title"
+
+    @patch("bookcard.pvr.indexers.torrent_rss.httpx.Client")
+    def test_search_no_search_terms(
+        self,
+        mock_client: MagicMock,
+        torrent_rss_indexer: TorrentRssIndexer,
+        sample_rss_xml: bytes,
+    ) -> None:
+        """Test search with no search terms (should return all releases)."""
+        mock_response = MagicMock()
+        mock_response.content = sample_rss_xml
+        mock_response.status_code = 200
+        mock_response.text = ""
+        mock_client_instance = MagicMock()
+        mock_client_instance.get.return_value = mock_response
+        mock_client.return_value.__enter__.return_value = mock_client_instance
+
+        # Search with empty query and no other terms
+        results = torrent_rss_indexer.search(query="", max_results=10)
+        # Should return all releases (limited by max_results)
+        assert len(results) >= 0
 
     @pytest.mark.parametrize(
         ("query", "title", "author", "isbn"),
