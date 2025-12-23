@@ -24,7 +24,7 @@ Documentation: https://github.com/hadouken/hadouken
 
 import base64
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
@@ -34,6 +34,11 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
+)
+from bookcard.pvr.base.interfaces import (
+    FileFetcherProtocol,
+    HttpClientProtocol,
+    UrlRouterProtocol,
 )
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
@@ -279,9 +284,26 @@ class HadoukenClient(BaseDownloadClient):
     def __init__(
         self,
         settings: HadoukenSettings | DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+        http_client_factory: Callable[[], HttpClientProtocol] | None = None,
         enabled: bool = True,
     ) -> None:
-        """Initialize Hadouken client."""
+        """Initialize Hadouken client.
+
+        Parameters
+        ----------
+        settings : HadoukenSettings | DownloadClientSettings
+            Client settings. If DownloadClientSettings, converts to HadoukenSettings.
+        file_fetcher : FileFetcherProtocol
+            File fetcher service.
+        url_router : UrlRouterProtocol
+            URL router service.
+        http_client_factory : Callable[[], HttpClientProtocol] | None
+            HTTP client factory.
+        enabled : bool
+            Whether this client is enabled.
+        """
         if isinstance(settings, DownloadClientSettings) and not isinstance(
             settings, HadoukenSettings
         ):
@@ -297,7 +319,9 @@ class HadoukenClient(BaseDownloadClient):
                 url_base=None,
             )
 
-        super().__init__(settings, enabled)
+        super().__init__(
+            settings, file_fetcher, url_router, http_client_factory, enabled
+        )
         self.settings: HadoukenSettings = settings  # type: ignore[assignment]
         self._proxy = HadoukenProxy(self.settings)
 

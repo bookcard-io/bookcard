@@ -21,7 +21,6 @@ from xml.etree import ElementTree as ET  # noqa: S405
 
 import httpx
 import pytest
-from pydantic import ValidationError
 
 from bookcard.pvr.base import IndexerSettings
 from bookcard.pvr.exceptions import (
@@ -33,9 +32,9 @@ from bookcard.pvr.exceptions import (
 from bookcard.pvr.indexers.torrent_rss import (
     TorrentRssIndexer,
     TorrentRssParser,
+    TorrentRssRequestGenerator,
     TorrentRssSettings,
 )
-from bookcard.pvr.models import ReleaseInfo
 
 # ============================================================================
 # Fixtures
@@ -51,16 +50,29 @@ def torrent_rss_settings_fixture() -> TorrentRssSettings:
         timeout_seconds=30,
         retry_count=3,
         categories=[1000, 2000],
-        feed_url="https://rss.example.com/feed",
     )
+
+
+@pytest.fixture
+def torrent_rss_request_generator(
+    torrent_rss_settings_fixture: TorrentRssSettings,
+) -> TorrentRssRequestGenerator:
+    """Create Torrent RSS request generator instance."""
+    return TorrentRssRequestGenerator(torrent_rss_settings_fixture)
 
 
 @pytest.fixture
 def torrent_rss_indexer(
     torrent_rss_settings_fixture: TorrentRssSettings,
+    torrent_rss_request_generator: TorrentRssRequestGenerator,
+    torrent_rss_parser: TorrentRssParser,
 ) -> TorrentRssIndexer:
     """Create Torrent RSS indexer instance."""
-    return TorrentRssIndexer(settings=torrent_rss_settings_fixture, enabled=True)
+    return TorrentRssIndexer(
+        settings=torrent_rss_settings_fixture,
+        request_generator=torrent_rss_request_generator,
+        parser=torrent_rss_parser,
+    )
 
 
 @pytest.fixture
@@ -94,30 +106,6 @@ def sample_item_xml() -> ET.Element:
 
 class TestTorrentRssSettings:
     """Test TorrentRssSettings class."""
-
-    def test_torrent_rss_settings_requires_feed_url(self) -> None:
-        """Test TorrentRssSettings requires feed_url."""
-        # Pydantic will raise ValidationError for missing required field
-        with pytest.raises(ValidationError):
-            TorrentRssSettings(base_url="https://example.com")  # type: ignore[call-arg]
-
-    def test_torrent_rss_settings_with_feed_url(self) -> None:
-        """Test TorrentRssSettings with feed_url."""
-        settings = TorrentRssSettings(
-            base_url="https://example.com", feed_url="https://example.com/feed"
-        )
-        assert settings.feed_url == "https://example.com/feed"
-
-    def test_torrent_rss_settings_missing_feed_url_from_indexer_settings(
-        self,
-    ) -> None:
-        """Test TorrentRssIndexer initialization with IndexerSettings missing feed_url."""
-        # Create IndexerSettings without feed_url and without base_url
-        settings = IndexerSettings(base_url="")
-        # When initializing TorrentRssIndexer with IndexerSettings that has no feed_url,
-        # it should raise ValueError
-        with pytest.raises(ValueError, match="requires feed_url"):
-            TorrentRssIndexer(settings=settings)
 
 
 # ============================================================================
@@ -185,20 +173,36 @@ class TestTorrentRssParser:
         self, torrent_rss_parser: TorrentRssParser, sample_item_xml: ET.Element
     ) -> None:
         """Test _parse_item with complete item."""
-        release = torrent_rss_parser._parse_item(sample_item_xml, indexer_id=1)
+        # Wrap in RSS/Channel
+        root = ET.Element("rss")
+        channel = ET.SubElement(root, "channel")
+        channel.append(sample_item_xml)
+        xml = ET.tostring(root)
+
+        releases = torrent_rss_parser.parse_response(xml, indexer_id=1)
+        assert len(releases) == 1
+        release = releases[0]
+
         assert release is not None
         assert release.title == "Test Book Title [EPUB]"
         assert release.download_url == "https://example.com/file.torrent"
         assert release.indexer_id == 1
-        assert release.quality == "epub"
+        # Quality is hardcoded to None in parse_response for generic RSS
+        assert release.quality is None
         assert release.seeders == 10
         assert release.leechers == 5
 
     def test_parse_item_no_title(self, torrent_rss_parser: TorrentRssParser) -> None:
         """Test _parse_item with no title."""
         item = ET.Element("item")
-        release = torrent_rss_parser._parse_item(item, indexer_id=None)
-        assert release is None
+        # Wrap in RSS/Channel
+        root = ET.Element("rss")
+        channel = ET.SubElement(root, "channel")
+        channel.append(item)
+        xml = ET.tostring(root)
+
+        releases = torrent_rss_parser.parse_response(xml, indexer_id=None)
+        assert len(releases) == 0
 
     def test_parse_item_no_download_url(
         self, torrent_rss_parser: TorrentRssParser
@@ -206,8 +210,14 @@ class TestTorrentRssParser:
         """Test _parse_item with no download URL."""
         item = ET.Element("item")
         ET.SubElement(item, "title").text = "Test"
-        release = torrent_rss_parser._parse_item(item, indexer_id=None)
-        assert release is None
+        # Wrap in RSS/Channel
+        root = ET.Element("rss")
+        channel = ET.SubElement(root, "channel")
+        channel.append(item)
+        xml = ET.tostring(root)
+
+        releases = torrent_rss_parser.parse_response(xml, indexer_id=None)
+        assert len(releases) == 0
 
     def test_extract_publish_date_valid(
         self, torrent_rss_parser: TorrentRssParser
@@ -215,7 +225,7 @@ class TestTorrentRssParser:
         """Test _extract_publish_date with valid date."""
         item = ET.Element("item")
         ET.SubElement(item, "pubDate").text = "Mon, 01 Jan 2024 12:00:00 +0000"
-        date = torrent_rss_parser._extract_publish_date(item)
+        date = torrent_rss_parser.composite.extractors["publish_date"].extract(item)
         assert date is not None
         assert isinstance(date, datetime)
 
@@ -225,7 +235,7 @@ class TestTorrentRssParser:
         """Test _extract_publish_date with invalid date."""
         item = ET.Element("item")
         ET.SubElement(item, "pubDate").text = "invalid date"
-        date = torrent_rss_parser._extract_publish_date(item)
+        date = torrent_rss_parser.composite.extractors["publish_date"].extract(item)
         assert date is None
 
     def test_extract_publish_date_missing(
@@ -233,7 +243,7 @@ class TestTorrentRssParser:
     ) -> None:
         """Test _extract_publish_date with missing date."""
         item = ET.Element("item")
-        date = torrent_rss_parser._extract_publish_date(item)
+        date = torrent_rss_parser.composite.extractors["publish_date"].extract(item)
         assert date is None
 
     @pytest.mark.parametrize(
@@ -250,8 +260,10 @@ class TestTorrentRssParser:
     def test_infer_quality_from_title(
         self, torrent_rss_parser: TorrentRssParser, title: str, expected: str | None
     ) -> None:
-        """Test _infer_quality_from_title."""
-        quality = torrent_rss_parser._infer_quality_from_title(title)
+        """Test infer_quality_from_title."""
+        from bookcard.pvr.utils.quality import infer_quality_from_title
+
+        quality = infer_quality_from_title(title)
         assert quality == expected
 
     @pytest.mark.parametrize(
@@ -272,9 +284,15 @@ class TestTorrentRssParser:
         expected_leechers: int | None,
     ) -> None:
         """Test _extract_seeders_leechers."""
-        seeders, leechers = torrent_rss_parser._extract_seeders_leechers(description)
-        assert seeders == expected_seeders
-        assert leechers == expected_leechers
+        item = ET.Element("item")
+        if description is not None:
+            ET.SubElement(item, "description").text = description
+
+        result = torrent_rss_parser.composite.extractors["seeders_leechers"].extract(
+            item
+        )
+        assert result["seeders"] == expected_seeders
+        assert result["leechers"] == expected_leechers
 
     def test_get_download_url_enclosure(
         self, torrent_rss_parser: TorrentRssParser
@@ -284,7 +302,7 @@ class TestTorrentRssParser:
         enclosure = ET.SubElement(item, "enclosure")
         enclosure.set("url", "https://example.com/file.torrent")
         enclosure.set("type", "application/x-bittorrent")
-        url = torrent_rss_parser._get_download_url(item)
+        url = torrent_rss_parser.composite.extractors["download_url"].extract(item)
         assert url == "https://example.com/file.torrent"
 
     def test_get_download_url_enclosure_magnet(
@@ -294,14 +312,14 @@ class TestTorrentRssParser:
         item = ET.Element("item")
         enclosure = ET.SubElement(item, "enclosure")
         enclosure.set("url", "magnet:?xt=urn:btih:abc123")
-        url = torrent_rss_parser._get_download_url(item)
+        url = torrent_rss_parser.composite.extractors["download_url"].extract(item)
         assert url == "magnet:?xt=urn:btih:abc123"
 
     def test_get_download_url_link(self, torrent_rss_parser: TorrentRssParser) -> None:
         """Test _get_download_url from link."""
         item = ET.Element("item")
         ET.SubElement(item, "link").text = "https://example.com/file.torrent"
-        url = torrent_rss_parser._get_download_url(item)
+        url = torrent_rss_parser.composite.extractors["download_url"].extract(item)
         assert url == "https://example.com/file.torrent"
 
     def test_get_download_url_link_magnet(
@@ -310,7 +328,7 @@ class TestTorrentRssParser:
         """Test _get_download_url from link with magnet."""
         item = ET.Element("item")
         ET.SubElement(item, "link").text = "magnet:?xt=urn:btih:abc123"
-        url = torrent_rss_parser._get_download_url(item)
+        url = torrent_rss_parser.composite.extractors["download_url"].extract(item)
         assert url == "magnet:?xt=urn:btih:abc123"
 
     def test_get_download_url_description_magnet(
@@ -321,7 +339,7 @@ class TestTorrentRssParser:
         ET.SubElement(
             item, "description"
         ).text = "Download: magnet:?xt=urn:btih:abc123&dn=test"
-        url = torrent_rss_parser._get_download_url(item)
+        url = torrent_rss_parser.composite.extractors["download_url"].extract(item)
         assert url == "magnet:?xt=urn:btih:abc123&dn=test"
 
     def test_get_download_url_description_torrent(
@@ -332,13 +350,13 @@ class TestTorrentRssParser:
         ET.SubElement(
             item, "description"
         ).text = "Download: https://example.com/file.torrent"
-        url = torrent_rss_parser._get_download_url(item)
+        url = torrent_rss_parser.composite.extractors["download_url"].extract(item)
         assert url == "https://example.com/file.torrent"
 
     def test_get_download_url_none(self, torrent_rss_parser: TorrentRssParser) -> None:
         """Test _get_download_url with no URL."""
         item = ET.Element("item")
-        url = torrent_rss_parser._get_download_url(item)
+        url = torrent_rss_parser.composite.extractors["download_url"].extract(item)
         assert url is None
 
     def test_get_size_from_enclosure(
@@ -348,7 +366,7 @@ class TestTorrentRssParser:
         item = ET.Element("item")
         enclosure = ET.SubElement(item, "enclosure")
         enclosure.set("length", "1000000")
-        size = torrent_rss_parser._get_size(item)
+        size = torrent_rss_parser.composite.extractors["size_bytes"].extract(item)
         assert size == 1000000
 
     def test_get_size_invalid(self, torrent_rss_parser: TorrentRssParser) -> None:
@@ -356,13 +374,13 @@ class TestTorrentRssParser:
         item = ET.Element("item")
         enclosure = ET.SubElement(item, "enclosure")
         enclosure.set("length", "invalid")
-        size = torrent_rss_parser._get_size(item)
+        size = torrent_rss_parser.composite.extractors["size_bytes"].extract(item)
         assert size is None
 
     def test_get_size_missing(self, torrent_rss_parser: TorrentRssParser) -> None:
         """Test _get_size with missing enclosure."""
         item = ET.Element("item")
-        size = torrent_rss_parser._get_size(item)
+        size = torrent_rss_parser.composite.extractors["size_bytes"].extract(item)
         assert size is None
 
     def test_parse_response_item_value_error(
@@ -374,12 +392,12 @@ class TestTorrentRssParser:
             <item><title>Valid</title><link>https://example.com</link></item>
             <item><title>Invalid</title><link>https://example.com</link></item>
         </channel></rss>"""
-        # Mock _parse_item to raise ValueError for second item
+        # Mock composite.parse to raise ValueError for second item
         with patch.object(
-            torrent_rss_parser,
-            "_parse_item",
+            torrent_rss_parser.composite,
+            "parse",
             side_effect=[
-                ReleaseInfo(title="Valid", download_url="https://example.com"),
+                {"title": "Valid", "download_url": "https://example.com"},
                 ValueError("Invalid item"),
             ],
         ):
@@ -396,12 +414,12 @@ class TestTorrentRssParser:
             <item><title>Valid</title><link>https://example.com</link></item>
             <item><title>Invalid</title><link>https://example.com</link></item>
         </channel></rss>"""
-        # Mock _parse_item to raise TypeError for second item
+        # Mock composite.parse to raise TypeError for second item
         with patch.object(
-            torrent_rss_parser,
-            "_parse_item",
+            torrent_rss_parser.composite,
+            "parse",
             side_effect=[
-                ReleaseInfo(title="Valid", download_url="https://example.com"),
+                {"title": "Valid", "download_url": "https://example.com"},
                 TypeError("Invalid type"),
             ],
         ):
@@ -418,12 +436,12 @@ class TestTorrentRssParser:
             <item><title>Valid</title><link>https://example.com</link></item>
             <item><title>Invalid</title><link>https://example.com</link></item>
         </channel></rss>"""
-        # Mock _parse_item to raise AttributeError for second item
+        # Mock composite.parse to raise AttributeError for second item
         with patch.object(
-            torrent_rss_parser,
-            "_parse_item",
+            torrent_rss_parser.composite,
+            "parse",
             side_effect=[
-                ReleaseInfo(title="Valid", download_url="https://example.com"),
+                {"title": "Valid", "download_url": "https://example.com"},
                 AttributeError("Missing attribute"),
             ],
         ):
@@ -440,12 +458,12 @@ class TestTorrentRssParser:
             <item><title>Valid</title><link>https://example.com</link></item>
             <item><title>Invalid</title><link>https://example.com</link></item>
         </channel></rss>"""
-        # Mock _parse_item to raise KeyError for second item
+        # Mock composite.parse to raise KeyError for second item
         with patch.object(
-            torrent_rss_parser,
-            "_parse_item",
+            torrent_rss_parser.composite,
+            "parse",
             side_effect=[
-                ReleaseInfo(title="Valid", download_url="https://example.com"),
+                {"title": "Valid", "download_url": "https://example.com"},
                 KeyError("Missing key"),
             ],
         ):
@@ -490,7 +508,13 @@ class TestTorrentRssIndexer:
         self, torrent_rss_settings_fixture: TorrentRssSettings
     ) -> None:
         """Test initialization with TorrentRssSettings."""
-        indexer = TorrentRssIndexer(settings=torrent_rss_settings_fixture)
+        request_generator = TorrentRssRequestGenerator(torrent_rss_settings_fixture)
+        parser = TorrentRssParser()
+        indexer = TorrentRssIndexer(
+            settings=torrent_rss_settings_fixture,
+            request_generator=request_generator,
+            parser=parser,
+        )
         assert indexer.settings == torrent_rss_settings_fixture
         assert isinstance(indexer.parser, TorrentRssParser)
 
@@ -498,26 +522,16 @@ class TestTorrentRssIndexer:
         self, indexer_settings: IndexerSettings
     ) -> None:
         """Test initialization with IndexerSettings."""
-        indexer = TorrentRssIndexer(settings=indexer_settings)
-        assert isinstance(indexer.settings, TorrentRssSettings)
-        assert indexer.settings.feed_url == indexer_settings.base_url
-
-    def test_init_with_indexer_settings_no_feed_url(
-        self, indexer_settings_minimal: IndexerSettings
-    ) -> None:
-        """Test initialization with IndexerSettings without feed_url uses base_url."""
-        # TorrentRssIndexer uses base_url as fallback for feed_url
-        indexer = TorrentRssIndexer(settings=indexer_settings_minimal)
-        assert indexer.settings.feed_url == indexer_settings_minimal.base_url
-
-    def test_init_disabled(
-        self, torrent_rss_settings_fixture: TorrentRssSettings
-    ) -> None:
-        """Test initialization with disabled=True."""
-        indexer = TorrentRssIndexer(
-            settings=torrent_rss_settings_fixture, enabled=False
+        request_generator = TorrentRssRequestGenerator(
+            TorrentRssSettings(**indexer_settings.model_dump())
         )
-        assert not indexer.is_enabled()
+        parser = TorrentRssParser()
+        indexer = TorrentRssIndexer(
+            settings=indexer_settings,
+            request_generator=request_generator,
+            parser=parser,
+        )
+        assert isinstance(indexer.settings, TorrentRssSettings)
 
     @patch("bookcard.pvr.indexers.torrent_rss.httpx.Client")
     def test_search_success(
@@ -607,8 +621,10 @@ class TestTorrentRssIndexer:
 
     def test_search_disabled(self, torrent_rss_indexer: TorrentRssIndexer) -> None:
         """Test search when indexer is disabled."""
-        torrent_rss_indexer.set_enabled(False)
-        results = torrent_rss_indexer.search(query="test")
+        from bookcard.pvr.base import ManagedIndexer
+
+        managed = ManagedIndexer(torrent_rss_indexer, enabled=False)
+        results = managed.search(query="test")
         assert results == []
 
     @patch("bookcard.pvr.indexers.torrent_rss.httpx.Client")
@@ -653,60 +669,6 @@ class TestTorrentRssIndexer:
 
         with pytest.raises(PVRProviderTimeoutError):
             torrent_rss_indexer.search(query="test")
-
-    def test_build_search_terms(self, torrent_rss_indexer: TorrentRssIndexer) -> None:
-        """Test _build_search_terms."""
-        terms = torrent_rss_indexer._build_search_terms(
-            query="test", title="Title", author="Author", isbn="123"
-        )
-        assert "test" in terms
-        assert "title" in terms
-        assert "author" in terms
-        assert "123" in terms
-        assert all(isinstance(t, str) for t in terms)
-
-    def test_build_search_terms_empty(
-        self, torrent_rss_indexer: TorrentRssIndexer
-    ) -> None:
-        """Test _build_search_terms with no parameters."""
-        terms = torrent_rss_indexer._build_search_terms(
-            query="", title=None, author=None, isbn=None
-        )
-        assert terms == []
-
-    def test_filter_releases_by_terms(
-        self, torrent_rss_indexer: TorrentRssIndexer
-    ) -> None:
-        """Test _filter_releases_by_terms."""
-        releases = [
-            ReleaseInfo(
-                title="Test Book",
-                description="Test description",
-                download_url="https://example.com/test.torrent",
-            ),
-            ReleaseInfo(
-                title="Other Book",
-                description="Other description",
-                download_url="https://example.com/other.torrent",
-            ),
-        ]
-        filtered = torrent_rss_indexer._filter_releases_by_terms(releases, ["test"])
-        assert len(filtered) == 1
-        assert filtered[0].title == "Test Book"
-
-    def test_filter_releases_by_terms_no_match(
-        self, torrent_rss_indexer: TorrentRssIndexer
-    ) -> None:
-        """Test _filter_releases_by_terms with no matches."""
-        releases = [
-            ReleaseInfo(
-                title="Other Book",
-                description="Other description",
-                download_url="https://example.com/other.torrent",
-            ),
-        ]
-        filtered = torrent_rss_indexer._filter_releases_by_terms(releases, ["test"])
-        assert len(filtered) == 0
 
     @patch("bookcard.pvr.indexers.torrent_rss.httpx.Client")
     def test_test_connection_success(

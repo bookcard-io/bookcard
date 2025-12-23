@@ -21,6 +21,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from bookcard.pvr.base import DownloadClientSettings
+from bookcard.pvr.base.interfaces import FileFetcherProtocol, UrlRouterProtocol
 from bookcard.pvr.download_clients.utorrent import (
     UTorrentClient,
     UTorrentProxy,
@@ -471,7 +472,9 @@ class TestUTorrentProxy:
 class TestUTorrentClient:
     """Test UTorrentClient."""
 
-    def test_init_with_utorrent_settings(self) -> None:
+    def test_init_with_utorrent_settings(
+        self, file_fetcher: FileFetcherProtocol, url_router: UrlRouterProtocol
+    ) -> None:
         """Test initialization with UTorrentSettings."""
         settings = UTorrentSettings(
             host="localhost",
@@ -480,19 +483,33 @@ class TestUTorrentClient:
             password="password",
             timeout_seconds=30,
         )
-        client = UTorrentClient(settings=settings)
+        client = UTorrentClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         assert isinstance(client.settings, UTorrentSettings)
         assert client.enabled is True
 
     def test_init_with_download_client_settings(
-        self, base_download_client_settings: DownloadClientSettings
+        self,
+        sabnzbd_settings: DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with DownloadClientSettings conversion."""
-        client = UTorrentClient(settings=base_download_client_settings)
+        client = UTorrentClient(
+            settings=sabnzbd_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, UTorrentSettings)
 
     @patch.object(UTorrentProxy, "add_torrent_url")
-    def test_add_download_magnet(self, mock_add: MagicMock) -> None:
+    def test_add_download_magnet(
+        self,
+        mock_add: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test add_download with magnet link."""
         settings = UTorrentSettings(
             host="localhost",
@@ -502,12 +519,16 @@ class TestUTorrentClient:
             timeout_seconds=30,
         )
         mock_add.return_value = "ABCDEF1234567890"
-        client = UTorrentClient(settings=settings)
+        client = UTorrentClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.add_download("magnet:?xt=urn:btih:ABCDEF1234567890&dn=test")
         assert result == "ABCDEF1234567890"
         mock_add.assert_called_once()
 
-    def test_add_download_disabled(self) -> None:
+    def test_add_download_disabled(
+        self, file_fetcher: FileFetcherProtocol, url_router: UrlRouterProtocol
+    ) -> None:
         """Test add_download when disabled."""
         settings = UTorrentSettings(
             host="localhost",
@@ -516,14 +537,23 @@ class TestUTorrentClient:
             password="password",
             timeout_seconds=30,
         )
-        client = UTorrentClient(settings=settings, enabled=False)
+        client = UTorrentClient(
+            settings=settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
         with pytest.raises(PVRProviderError, match="disabled"):
             client.add_download("magnet:?xt=urn:btih:test")
 
     @patch.object(UTorrentProxy, "add_torrent_url")
     @patch.object(UTorrentProxy, "set_torrent_label")
     def test_add_download_with_label(
-        self, mock_set_label: MagicMock, mock_add: MagicMock
+        self,
+        mock_set_label: MagicMock,
+        mock_add: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with label."""
         settings = UTorrentSettings(
@@ -535,7 +565,9 @@ class TestUTorrentClient:
             category="test-category",
         )
         mock_add.return_value = "ABCDEF1234567890"
-        client = UTorrentClient(settings=settings)
+        client = UTorrentClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.add_download(
             "magnet:?xt=urn:btih:ABCDEF1234567890", category="custom-label"
         )
@@ -544,7 +576,11 @@ class TestUTorrentClient:
 
     @patch.object(UTorrentProxy, "add_torrent_file")
     def test_add_download_file_path(
-        self, mock_add_file: MagicMock, sample_torrent_file: Path
+        self,
+        mock_add_file: MagicMock,
+        sample_torrent_file: Path,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with file path."""
         settings = UTorrentSettings(
@@ -555,12 +591,16 @@ class TestUTorrentClient:
             timeout_seconds=30,
         )
         mock_add_file.return_value = "ABCDEF1234567890"
-        client = UTorrentClient(settings=settings)
+        client = UTorrentClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.add_download(str(sample_torrent_file))
         assert result == "ABCDEF1234567890"
         mock_add_file.assert_called_once()
 
-    def test_add_download_invalid_url(self) -> None:
+    def test_add_download_invalid_url(
+        self, file_fetcher: FileFetcherProtocol, url_router: UrlRouterProtocol
+    ) -> None:
         """Test add_download with invalid URL."""
         settings = UTorrentSettings(
             host="localhost",
@@ -569,12 +609,19 @@ class TestUTorrentClient:
             password="password",
             timeout_seconds=30,
         )
-        client = UTorrentClient(settings=settings)
+        client = UTorrentClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         with pytest.raises(PVRProviderError, match="Invalid download URL"):
             client.add_download("invalid://url")
 
     @patch.object(UTorrentProxy, "add_torrent_url")
-    def test_add_download_pending_hash(self, mock_add: MagicMock) -> None:
+    def test_add_download_pending_hash(
+        self,
+        mock_add: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test add_download with pending hash."""
         settings = UTorrentSettings(
             host="localhost",
@@ -584,12 +631,19 @@ class TestUTorrentClient:
             timeout_seconds=30,
         )
         mock_add.return_value = "pending"
-        client = UTorrentClient(settings=settings)
+        client = UTorrentClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.add_download("magnet:?xt=urn:btih:test")
         assert result == "PENDING"
 
     @patch.object(UTorrentProxy, "get_torrents")
-    def test_get_items(self, mock_get_torrents: MagicMock) -> None:
+    def test_get_items(
+        self,
+        mock_get_torrents: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test get_items."""
         settings = UTorrentSettings(
             host="localhost",
@@ -606,13 +660,20 @@ class TestUTorrentClient:
                 "progress": 50.0,
             }
         ]
-        client = UTorrentClient(settings=settings)
+        client = UTorrentClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["client_item_id"] == "ABC123"
 
     @patch.object(UTorrentProxy, "get_torrents")
-    def test_get_items_disabled(self, mock_get_torrents: MagicMock) -> None:
+    def test_get_items_disabled(
+        self,
+        mock_get_torrents: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test get_items when disabled."""
         settings = UTorrentSettings(
             host="localhost",
@@ -621,13 +682,23 @@ class TestUTorrentClient:
             password="password",
             timeout_seconds=30,
         )
-        client = UTorrentClient(settings=settings, enabled=False)
+        client = UTorrentClient(
+            settings=settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
         items = client.get_items()
         assert items == []
         mock_get_torrents.assert_not_called()
 
     @patch.object(UTorrentProxy, "get_torrents")
-    def test_get_items_no_hash(self, mock_get_torrents: MagicMock) -> None:
+    def test_get_items_no_hash(
+        self,
+        mock_get_torrents: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test get_items with torrent without hash."""
         settings = UTorrentSettings(
             host="localhost",
@@ -644,12 +715,19 @@ class TestUTorrentClient:
                 "progress": 50.0,
             }
         ]
-        client = UTorrentClient(settings=settings)
+        client = UTorrentClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 0
 
     @patch.object(UTorrentProxy, "get_torrents")
-    def test_get_items_with_category_filter(self, mock_get_torrents: MagicMock) -> None:
+    def test_get_items_with_category_filter(
+        self,
+        mock_get_torrents: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test get_items with category filter."""
         settings = UTorrentSettings(
             host="localhost",
@@ -675,13 +753,20 @@ class TestUTorrentClient:
                 "label": "other-category",
             },
         ]
-        client = UTorrentClient(settings=settings)
+        client = UTorrentClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["client_item_id"] == "ABC123"
 
     @patch.object(UTorrentProxy, "get_torrents")
-    def test_get_items_progress_over_100(self, mock_get_torrents: MagicMock) -> None:
+    def test_get_items_progress_over_100(
+        self,
+        mock_get_torrents: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test get_items with progress over 100%."""
         settings = UTorrentSettings(
             host="localhost",
@@ -698,13 +783,20 @@ class TestUTorrentClient:
                 "progress": 1500,  # Over 1000 (100%)
             }
         ]
-        client = UTorrentClient(settings=settings)
+        client = UTorrentClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["progress"] == 1.0
 
     @patch.object(UTorrentProxy, "get_torrents")
-    def test_get_items_with_eta(self, mock_get_torrents: MagicMock) -> None:
+    def test_get_items_with_eta(
+        self,
+        mock_get_torrents: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test get_items with ETA."""
         settings = UTorrentSettings(
             host="localhost",
@@ -725,14 +817,21 @@ class TestUTorrentClient:
                 "downspeed": 100,
             }
         ]
-        client = UTorrentClient(settings=settings)
+        client = UTorrentClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["eta_seconds"] == 60
         assert items[0]["download_speed_bytes_per_sec"] == 100
 
     @patch.object(UTorrentProxy, "get_torrents")
-    def test_get_items_error(self, mock_get_torrents: MagicMock) -> None:
+    def test_get_items_error(
+        self,
+        mock_get_torrents: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test get_items with error."""
         settings = UTorrentSettings(
             host="localhost",
@@ -742,12 +841,19 @@ class TestUTorrentClient:
             timeout_seconds=30,
         )
         mock_get_torrents.side_effect = Exception("Connection error")
-        client = UTorrentClient(settings=settings)
+        client = UTorrentClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         with pytest.raises(PVRProviderError, match="Failed to get downloads"):
             client.get_items()
 
     @patch.object(UTorrentProxy, "remove_torrent")
-    def test_remove_item(self, mock_remove: MagicMock) -> None:
+    def test_remove_item(
+        self,
+        mock_remove: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test remove_item."""
         settings = UTorrentSettings(
             host="localhost",
@@ -756,12 +862,16 @@ class TestUTorrentClient:
             password="password",
             timeout_seconds=30,
         )
-        client = UTorrentClient(settings=settings)
+        client = UTorrentClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.remove_item("abc123", delete_files=True)
         assert result is True
         mock_remove.assert_called_once()
 
-    def test_remove_item_disabled(self) -> None:
+    def test_remove_item_disabled(
+        self, file_fetcher: FileFetcherProtocol, url_router: UrlRouterProtocol
+    ) -> None:
         """Test remove_item when disabled."""
         settings = UTorrentSettings(
             host="localhost",
@@ -770,12 +880,22 @@ class TestUTorrentClient:
             password="password",
             timeout_seconds=30,
         )
-        client = UTorrentClient(settings=settings, enabled=False)
+        client = UTorrentClient(
+            settings=settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
         with pytest.raises(PVRProviderError, match="disabled"):
             client.remove_item("abc123")
 
     @patch.object(UTorrentProxy, "remove_torrent")
-    def test_remove_item_error(self, mock_remove: MagicMock) -> None:
+    def test_remove_item_error(
+        self,
+        mock_remove: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test remove_item with error."""
         settings = UTorrentSettings(
             host="localhost",
@@ -785,12 +905,19 @@ class TestUTorrentClient:
             timeout_seconds=30,
         )
         mock_remove.side_effect = Exception("Remove error")
-        client = UTorrentClient(settings=settings)
+        client = UTorrentClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         with pytest.raises(PVRProviderError, match="Failed to remove"):
             client.remove_item("abc123")
 
     @patch.object(UTorrentProxy, "get_torrents")
-    def test_test_connection_error(self, mock_get_torrents: MagicMock) -> None:
+    def test_test_connection_error(
+        self,
+        mock_get_torrents: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test test_connection with error."""
         mock_get_torrents.side_effect = Exception("Connection error")
         settings = UTorrentSettings(
@@ -800,12 +927,19 @@ class TestUTorrentClient:
             password="password",
             timeout_seconds=30,
         )
-        client = UTorrentClient(settings=settings)
+        client = UTorrentClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         with pytest.raises(PVRProviderError, match="Failed to connect"):
             client.test_connection()
 
     @patch.object(UTorrentProxy, "get_torrents")
-    def test_test_connection(self, mock_get_torrents: MagicMock) -> None:
+    def test_test_connection(
+        self,
+        mock_get_torrents: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test test_connection."""
         mock_get_torrents.return_value = []
         settings = UTorrentSettings(
@@ -815,7 +949,9 @@ class TestUTorrentClient:
             password="password",
             timeout_seconds=30,
         )
-        client = UTorrentClient(settings=settings)
+        client = UTorrentClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.test_connection()
         assert result is True
         mock_get_torrents.assert_called_once()

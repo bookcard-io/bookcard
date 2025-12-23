@@ -20,6 +20,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from bookcard.pvr.base import DownloadClientSettings
+from bookcard.pvr.base.interfaces import FileFetcherProtocol, UrlRouterProtocol
 from bookcard.pvr.download_clients.flood import (
     FloodClient,
     FloodProxy,
@@ -142,7 +143,9 @@ class TestFloodProxy:
 class TestFloodClient:
     """Test FloodClient."""
 
-    def test_init_with_flood_settings(self) -> None:
+    def test_init_with_flood_settings(
+        self, file_fetcher: FileFetcherProtocol, url_router: UrlRouterProtocol
+    ) -> None:
         """Test initialization with FloodSettings."""
         settings = FloodSettings(
             host="localhost",
@@ -151,19 +154,33 @@ class TestFloodClient:
             password="password",
             timeout_seconds=30,
         )
-        client = FloodClient(settings=settings)
+        client = FloodClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         assert isinstance(client.settings, FloodSettings)
         assert client.enabled is True
 
     def test_init_with_download_client_settings(
-        self, base_download_client_settings: DownloadClientSettings
+        self,
+        sabnzbd_settings: DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with DownloadClientSettings conversion."""
-        client = FloodClient(settings=base_download_client_settings)
+        client = FloodClient(
+            settings=sabnzbd_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, FloodSettings)
 
     @patch.object(FloodProxy, "add_torrent_url")
-    def test_add_download_magnet(self, mock_add: MagicMock) -> None:
+    def test_add_download_magnet(
+        self,
+        mock_add: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test add_download with magnet link."""
         settings = FloodSettings(
             host="localhost",
@@ -172,14 +189,21 @@ class TestFloodClient:
             password="password",
             timeout_seconds=30,
         )
-        client = FloodClient(settings=settings)
+        client = FloodClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         # Flood extracts hash from magnet link - use lowercase hash
         result = client.add_download("magnet:?xt=urn:btih:abcdef1234567890&dn=test")
         assert result == "ABCDEF1234567890"
         mock_add.assert_called_once()
 
     @patch.object(FloodProxy, "get_torrents")
-    def test_get_items(self, mock_get_torrents: MagicMock) -> None:
+    def test_get_items(
+        self,
+        mock_get_torrents: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test get_items."""
         settings = FloodSettings(
             host="localhost",
@@ -198,13 +222,20 @@ class TestFloodClient:
                 "bytesDone": 500000,
             }
         }
-        client = FloodClient(settings=settings)
+        client = FloodClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["client_item_id"] == "ABC123"
 
     @patch.object(FloodProxy, "remove_torrent")
-    def test_remove_item(self, mock_remove: MagicMock) -> None:
+    def test_remove_item(
+        self,
+        mock_remove: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test remove_item."""
         settings = FloodSettings(
             host="localhost",
@@ -213,13 +244,20 @@ class TestFloodClient:
             password="password",
             timeout_seconds=30,
         )
-        client = FloodClient(settings=settings)
+        client = FloodClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.remove_item("abc123", delete_files=True)
         assert result is True
         mock_remove.assert_called_once()
 
     @patch.object(FloodProxy, "verify_auth")
-    def test_test_connection(self, mock_verify_auth: MagicMock) -> None:
+    def test_test_connection(
+        self,
+        mock_verify_auth: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test test_connection."""
         settings = FloodSettings(
             host="localhost",
@@ -228,7 +266,9 @@ class TestFloodClient:
             password="password",
             timeout_seconds=30,
         )
-        client = FloodClient(settings=settings)
+        client = FloodClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.test_connection()
         assert result is True
         mock_verify_auth.assert_called_once()

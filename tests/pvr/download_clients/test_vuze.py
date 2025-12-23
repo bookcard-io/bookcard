@@ -22,6 +22,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from bookcard.pvr.base import DownloadClientSettings
+from bookcard.pvr.base.interfaces import FileFetcherProtocol, UrlRouterProtocol
 from bookcard.pvr.download_clients.vuze import (
     VuzeClient,
     VuzeProxy,
@@ -395,66 +396,114 @@ class TestVuzeProxy:
 class TestVuzeClient:
     """Test VuzeClient."""
 
-    def test_init_with_vuze_settings(self, vuze_settings: VuzeSettings) -> None:
+    def test_init_with_vuze_settings(
+        self,
+        vuze_settings: VuzeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test initialization with VuzeSettings."""
-        client = VuzeClient(settings=vuze_settings)
+        client = VuzeClient(
+            settings=vuze_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         assert isinstance(client.settings, VuzeSettings)
         assert client.enabled is True
 
     def test_init_with_download_client_settings(
-        self, base_download_client_settings: DownloadClientSettings
+        self,
+        sabnzbd_settings: DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with DownloadClientSettings conversion."""
-        client = VuzeClient(settings=base_download_client_settings)
+        client = VuzeClient(
+            settings=sabnzbd_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, VuzeSettings)
 
     @patch.object(VuzeProxy, "add_torrent_from_url")
     def test_add_download_magnet(
-        self, mock_add: MagicMock, vuze_settings: VuzeSettings
+        self,
+        mock_add: MagicMock,
+        vuze_settings: VuzeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with magnet link."""
         mock_add.return_value = {
             "arguments": {"torrent-added": {"hashString": "ABCDEF1234567890"}},
         }
-        client = VuzeClient(settings=vuze_settings)
+        client = VuzeClient(
+            settings=vuze_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.add_download("magnet:?xt=urn:btih:ABCDEF1234567890&dn=test")
         assert result == "ABCDEF1234567890"
 
-    def test_add_download_disabled(self, vuze_settings: VuzeSettings) -> None:
+    def test_add_download_disabled(
+        self,
+        vuze_settings: VuzeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test add_download when disabled."""
-        client = VuzeClient(settings=vuze_settings, enabled=False)
+        client = VuzeClient(
+            settings=vuze_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
         with pytest.raises(PVRProviderError, match="disabled"):
             client.add_download("magnet:?xt=urn:btih:test")
 
     @patch.object(VuzeProxy, "add_torrent_from_url")
     def test_add_download_duplicate(
-        self, mock_add: MagicMock, vuze_settings: VuzeSettings
+        self,
+        mock_add: MagicMock,
+        vuze_settings: VuzeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with duplicate torrent."""
         mock_add.return_value = {
             "arguments": {"torrent-duplicate": {"hashString": "ABCDEF1234567890"}},
         }
-        client = VuzeClient(settings=vuze_settings)
+        client = VuzeClient(
+            settings=vuze_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.add_download("magnet:?xt=urn:btih:ABCDEF1234567890")
         assert result == "ABCDEF1234567890"
 
     @patch.object(VuzeProxy, "add_torrent_from_url")
     def test_add_download_extract_hash_from_magnet(
-        self, mock_add: MagicMock, vuze_settings: VuzeSettings
+        self,
+        mock_add: MagicMock,
+        vuze_settings: VuzeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download extracting hash from magnet when not in response."""
         mock_add.return_value = {"arguments": {}}
-        client = VuzeClient(settings=vuze_settings)
+        client = VuzeClient(
+            settings=vuze_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.add_download("magnet:?xt=urn:btih:ABCDEF1234567890&dn=test")
         assert result == "ABCDEF1234567890"
 
     @patch.object(VuzeProxy, "add_torrent_from_url")
     def test_add_download_no_hash_error(
-        self, mock_add: MagicMock, vuze_settings: VuzeSettings
+        self,
+        mock_add: MagicMock,
+        vuze_settings: VuzeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with no hash in response."""
         mock_add.return_value = {"arguments": {}}
-        client = VuzeClient(settings=vuze_settings)
+        client = VuzeClient(
+            settings=vuze_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         with pytest.raises(PVRProviderError, match="Failed to get torrent hash"):
             client.add_download("http://example.com/torrent.torrent")
 
@@ -464,28 +513,42 @@ class TestVuzeClient:
         mock_add: MagicMock,
         vuze_settings: VuzeSettings,
         sample_torrent_file: Path,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with file path."""
         mock_add.return_value = {
             "arguments": {"torrent-added": {"hashString": "ABCDEF1234567890"}},
         }
-        client = VuzeClient(settings=vuze_settings)
+        client = VuzeClient(
+            settings=vuze_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.add_download(str(sample_torrent_file))
         assert result == "ABCDEF1234567890"
 
     @patch.object(VuzeProxy, "add_torrent_from_file")
     def test_add_download_file_path_error(
-        self, mock_add: MagicMock, vuze_settings: VuzeSettings
+        self,
+        mock_add: MagicMock,
+        vuze_settings: VuzeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with file path error."""
         mock_add.return_value = {"arguments": {}}
-        client = VuzeClient(settings=vuze_settings)
+        client = VuzeClient(
+            settings=vuze_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         with pytest.raises(PVRProviderError, match="Failed to get torrent hash"):
             client.add_download("/path/to/torrent.torrent")
 
     @patch.object(VuzeProxy, "get_torrents")
     def test_get_items(
-        self, mock_get_torrents: MagicMock, vuze_settings: VuzeSettings
+        self,
+        mock_get_torrents: MagicMock,
+        vuze_settings: VuzeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items."""
         mock_get_torrents.return_value = [
@@ -497,24 +560,39 @@ class TestVuzeClient:
                 "leftUntilDone": 500000,
             }
         ]
-        client = VuzeClient(settings=vuze_settings)
+        client = VuzeClient(
+            settings=vuze_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["client_item_id"] == "ABC123"
 
     @patch.object(VuzeProxy, "get_torrents")
     def test_get_items_disabled(
-        self, mock_get_torrents: MagicMock, vuze_settings: VuzeSettings
+        self,
+        mock_get_torrents: MagicMock,
+        vuze_settings: VuzeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items when disabled."""
-        client = VuzeClient(settings=vuze_settings, enabled=False)
+        client = VuzeClient(
+            settings=vuze_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
         items = client.get_items()
         assert items == []
         mock_get_torrents.assert_not_called()
 
     @patch.object(VuzeProxy, "get_torrents")
     def test_get_items_multi_file(
-        self, mock_get_torrents: MagicMock, vuze_settings: VuzeSettings
+        self,
+        mock_get_torrents: MagicMock,
+        vuze_settings: VuzeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items with multi-file torrent."""
         mock_get_torrents.return_value = [
@@ -531,14 +609,20 @@ class TestVuzeClient:
                 ],
             }
         ]
-        client = VuzeClient(settings=vuze_settings)
+        client = VuzeClient(
+            settings=vuze_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["file_path"] == "/downloads"
 
     @patch.object(VuzeProxy, "get_torrents")
     def test_get_items_single_file(
-        self, mock_get_torrents: MagicMock, vuze_settings: VuzeSettings
+        self,
+        mock_get_torrents: MagicMock,
+        vuze_settings: VuzeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items with single-file torrent."""
         mock_get_torrents.return_value = [
@@ -554,14 +638,20 @@ class TestVuzeClient:
                 ],
             }
         ]
-        client = VuzeClient(settings=vuze_settings)
+        client = VuzeClient(
+            settings=vuze_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["file_path"] == "/downloads/test.torrent"
 
     @patch.object(VuzeProxy, "get_torrents")
     def test_get_items_with_eta(
-        self, mock_get_torrents: MagicMock, vuze_settings: VuzeSettings
+        self,
+        mock_get_torrents: MagicMock,
+        vuze_settings: VuzeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items with ETA calculation."""
         mock_get_torrents.return_value = [
@@ -575,7 +665,9 @@ class TestVuzeClient:
                 "downloadDir": "/downloads",
             }
         ]
-        client = VuzeClient(settings=vuze_settings)
+        client = VuzeClient(
+            settings=vuze_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["eta_seconds"] == 10
@@ -583,77 +675,129 @@ class TestVuzeClient:
 
     @patch.object(VuzeProxy, "get_torrents")
     def test_get_items_error(
-        self, mock_get_torrents: MagicMock, vuze_settings: VuzeSettings
+        self,
+        mock_get_torrents: MagicMock,
+        vuze_settings: VuzeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items with error."""
         mock_get_torrents.side_effect = Exception("Connection error")
-        client = VuzeClient(settings=vuze_settings)
+        client = VuzeClient(
+            settings=vuze_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         with pytest.raises(PVRProviderError, match="Failed to get downloads"):
             client.get_items()
 
     @patch.object(VuzeProxy, "remove_torrent")
     def test_remove_item(
-        self, mock_remove: MagicMock, vuze_settings: VuzeSettings
+        self,
+        mock_remove: MagicMock,
+        vuze_settings: VuzeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test remove_item."""
-        client = VuzeClient(settings=vuze_settings)
+        client = VuzeClient(
+            settings=vuze_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.remove_item("ABC123", delete_files=True)
         assert result is True
         mock_remove.assert_called_once()
 
-    def test_remove_item_disabled(self, vuze_settings: VuzeSettings) -> None:
+    def test_remove_item_disabled(
+        self,
+        vuze_settings: VuzeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test remove_item when disabled."""
-        client = VuzeClient(settings=vuze_settings, enabled=False)
+        client = VuzeClient(
+            settings=vuze_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
         with pytest.raises(PVRProviderError, match="disabled"):
             client.remove_item("ABC123")
 
     @patch.object(VuzeProxy, "remove_torrent")
     def test_remove_item_error(
-        self, mock_remove: MagicMock, vuze_settings: VuzeSettings
+        self,
+        mock_remove: MagicMock,
+        vuze_settings: VuzeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test remove_item with error."""
         mock_remove.side_effect = Exception("Remove error")
-        client = VuzeClient(settings=vuze_settings)
+        client = VuzeClient(
+            settings=vuze_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         with pytest.raises(PVRProviderError, match="Failed to remove"):
             client.remove_item("ABC123")
 
     @patch.object(VuzeProxy, "get_protocol_version")
     def test_test_connection(
-        self, mock_get_version: MagicMock, vuze_settings: VuzeSettings
+        self,
+        mock_get_version: MagicMock,
+        vuze_settings: VuzeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test test_connection."""
         # Vuze requires protocol version >= 14
         mock_get_version.return_value = "15"
-        client = VuzeClient(settings=vuze_settings)
+        client = VuzeClient(
+            settings=vuze_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.test_connection()
         assert result is True
 
     @patch.object(VuzeProxy, "get_protocol_version")
     def test_test_connection_version_too_old(
-        self, mock_get_version: MagicMock, vuze_settings: VuzeSettings
+        self,
+        mock_get_version: MagicMock,
+        vuze_settings: VuzeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test test_connection with version too old."""
         mock_get_version.return_value = "13"
-        client = VuzeClient(settings=vuze_settings)
+        client = VuzeClient(
+            settings=vuze_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         with pytest.raises(PVRProviderError, match="too old"):
             client.test_connection()
 
     @patch.object(VuzeProxy, "get_protocol_version")
     def test_test_connection_version_not_digit(
-        self, mock_get_version: MagicMock, vuze_settings: VuzeSettings
+        self,
+        mock_get_version: MagicMock,
+        vuze_settings: VuzeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test test_connection with non-digit version."""
         mock_get_version.return_value = "unknown"
-        client = VuzeClient(settings=vuze_settings)
+        client = VuzeClient(
+            settings=vuze_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         with pytest.raises(PVRProviderError, match="too old"):
             client.test_connection()
 
     @patch.object(VuzeProxy, "get_protocol_version")
     def test_test_connection_error(
-        self, mock_get_version: MagicMock, vuze_settings: VuzeSettings
+        self,
+        mock_get_version: MagicMock,
+        vuze_settings: VuzeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test test_connection with error."""
         mock_get_version.side_effect = Exception("Connection error")
-        client = VuzeClient(settings=vuze_settings)
+        client = VuzeClient(
+            settings=vuze_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         with pytest.raises(PVRProviderError, match="Failed to connect"):
             client.test_connection()

@@ -22,6 +22,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from bookcard.pvr.base import DownloadClientSettings
+from bookcard.pvr.base.interfaces import FileFetcherProtocol, UrlRouterProtocol
 from bookcard.pvr.download_clients.freebox_download import (
     FreeboxDownloadClient,
     FreeboxDownloadProxy,
@@ -207,27 +208,49 @@ class TestFreeboxDownloadClient:
     """Test FreeboxDownloadClient."""
 
     def test_init_with_freebox_download_settings(
-        self, freebox_download_settings: FreeboxDownloadSettings
+        self,
+        freebox_download_settings: FreeboxDownloadSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with FreeboxDownloadSettings."""
-        client = FreeboxDownloadClient(settings=freebox_download_settings)
+        client = FreeboxDownloadClient(
+            settings=freebox_download_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, FreeboxDownloadSettings)
         assert client.enabled is True
 
     def test_init_with_download_client_settings(
-        self, base_download_client_settings: DownloadClientSettings
+        self,
+        sabnzbd_settings: DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with DownloadClientSettings conversion."""
-        client = FreeboxDownloadClient(settings=base_download_client_settings)
+        client = FreeboxDownloadClient(
+            settings=sabnzbd_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, FreeboxDownloadSettings)
 
     @patch.object(FreeboxDownloadProxy, "add_task_from_url")
     def test_add_download_magnet(
-        self, mock_add: MagicMock, freebox_download_settings: FreeboxDownloadSettings
+        self,
+        mock_add: MagicMock,
+        freebox_download_settings: FreeboxDownloadSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with magnet link."""
         mock_add.return_value = "123"
-        client = FreeboxDownloadClient(settings=freebox_download_settings)
+        client = FreeboxDownloadClient(
+            settings=freebox_download_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         result = client.add_download("magnet:?xt=urn:btih:abc123&dn=test")
         assert result == "123"
         mock_add.assert_called_once()
@@ -237,6 +260,8 @@ class TestFreeboxDownloadClient:
         self,
         mock_get_tasks: MagicMock,
         freebox_download_settings: FreeboxDownloadSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items."""
         mock_get_tasks.return_value = [
@@ -248,17 +273,29 @@ class TestFreeboxDownloadClient:
                 "tx_bytes": 500000,
             }
         ]
-        client = FreeboxDownloadClient(settings=freebox_download_settings)
+        client = FreeboxDownloadClient(
+            settings=freebox_download_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["client_item_id"] == "123"
 
     @patch.object(FreeboxDownloadProxy, "delete_task")
     def test_remove_item(
-        self, mock_remove: MagicMock, freebox_download_settings: FreeboxDownloadSettings
+        self,
+        mock_remove: MagicMock,
+        freebox_download_settings: FreeboxDownloadSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test remove_item."""
-        client = FreeboxDownloadClient(settings=freebox_download_settings)
+        client = FreeboxDownloadClient(
+            settings=freebox_download_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         result = client.remove_item("123", delete_files=True)
         assert result is True
         mock_remove.assert_called_once()
@@ -270,10 +307,16 @@ class TestFreeboxDownloadClient:
         mock_authenticate: MagicMock,
         mock_request: MagicMock,
         freebox_download_settings: FreeboxDownloadSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test test_connection."""
         mock_request.return_value = []
-        client = FreeboxDownloadClient(settings=freebox_download_settings)
+        client = FreeboxDownloadClient(
+            settings=freebox_download_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         result = client.test_connection()
         assert result is True
         mock_authenticate.assert_called_once()

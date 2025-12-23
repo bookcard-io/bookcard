@@ -21,7 +21,7 @@ and creates .strm files for XBMC/Kodi integration.
 
 import logging
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import httpx
@@ -29,6 +29,11 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
+)
+from bookcard.pvr.base.interfaces import (
+    FileFetcherProtocol,
+    HttpClientProtocol,
+    UrlRouterProtocol,
 )
 from bookcard.pvr.exceptions import PVRProviderError
 from bookcard.pvr.models import DownloadItem
@@ -62,9 +67,26 @@ class PneumaticClient(BaseDownloadClient):
     def __init__(
         self,
         settings: PneumaticSettings | DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+        http_client_factory: Callable[[], HttpClientProtocol] | None = None,
         enabled: bool = True,
     ) -> None:
-        """Initialize Pneumatic client."""
+        """Initialize Pneumatic client.
+
+        Parameters
+        ----------
+        settings : PneumaticSettings | DownloadClientSettings
+            Client settings. If DownloadClientSettings, converts to PneumaticSettings.
+        file_fetcher : FileFetcherProtocol
+            File fetcher service.
+        url_router : UrlRouterProtocol
+            URL router service.
+        http_client_factory : Callable[[], HttpClientProtocol] | None
+            HTTP client factory.
+        enabled : bool
+            Whether this client is enabled.
+        """
         if isinstance(settings, DownloadClientSettings) and not isinstance(
             settings, PneumaticSettings
         ):
@@ -82,7 +104,9 @@ class PneumaticClient(BaseDownloadClient):
             )
             settings = pneumatic_settings
 
-        super().__init__(settings, enabled)
+        super().__init__(
+            settings, file_fetcher, url_router, http_client_factory, enabled
+        )
         self.settings: PneumaticSettings = settings  # type: ignore[assignment]
 
         # Ensure directories exist

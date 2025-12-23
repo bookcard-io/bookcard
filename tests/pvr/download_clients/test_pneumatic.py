@@ -19,6 +19,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from bookcard.pvr.base import DownloadClientSettings
+from bookcard.pvr.base.interfaces import FileFetcherProtocol, UrlRouterProtocol
 from bookcard.pvr.download_clients.pneumatic import (
     PneumaticClient,
     PneumaticSettings,
@@ -29,24 +30,40 @@ class TestPneumaticClient:
     """Test PneumaticClient."""
 
     def test_init_with_pneumatic_settings(
-        self, pneumatic_settings: PneumaticSettings, temp_dir: Path
+        self,
+        pneumatic_settings: PneumaticSettings,
+        temp_dir: Path,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with PneumaticSettings."""
         pneumatic_settings.nzb_folder = str(temp_dir / "nzb")
         pneumatic_settings.strm_folder = str(temp_dir / "strm")
-        client = PneumaticClient(settings=pneumatic_settings)
+        client = PneumaticClient(
+            settings=pneumatic_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, PneumaticSettings)
         assert client.enabled is True
         assert Path(pneumatic_settings.nzb_folder).exists()
         assert Path(pneumatic_settings.strm_folder).exists()
 
     def test_init_with_download_client_settings(
-        self, base_download_client_settings: DownloadClientSettings, temp_dir: Path
+        self,
+        base_download_client_settings: DownloadClientSettings,
+        temp_dir: Path,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with DownloadClientSettings conversion."""
         # Set download_path to a writable temp directory
         base_download_client_settings.download_path = str(temp_dir / "downloads")
-        client = PneumaticClient(settings=base_download_client_settings)
+        client = PneumaticClient(
+            settings=base_download_client_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, PneumaticSettings)
 
     @patch("bookcard.pvr.download_clients.pneumatic.httpx.Client")
@@ -56,11 +73,17 @@ class TestPneumaticClient:
         pneumatic_settings: PneumaticSettings,
         sample_nzb_file: Path,
         temp_dir: Path,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with NZB file path - Pneumatic only accepts HTTP URLs."""
         pneumatic_settings.nzb_folder = str(temp_dir / "nzb")
         pneumatic_settings.strm_folder = str(temp_dir / "strm")
-        client = PneumaticClient(settings=pneumatic_settings)
+        client = PneumaticClient(
+            settings=pneumatic_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
 
         # Pneumatic only accepts HTTP URLs, not file paths
         # So we need to mock it as if it's downloading from a URL
@@ -90,11 +113,17 @@ class TestPneumaticClient:
         pneumatic_settings: PneumaticSettings,
         sample_nzb_url: str,
         temp_dir: Path,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with NZB URL."""
         pneumatic_settings.nzb_folder = str(temp_dir / "nzb")
         pneumatic_settings.strm_folder = str(temp_dir / "strm")
-        client = PneumaticClient(settings=pneumatic_settings)
+        client = PneumaticClient(
+            settings=pneumatic_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
 
         mock_client = mock_client_class.return_value
         mock_response = mock_client.__enter__.return_value.get.return_value
@@ -106,31 +135,55 @@ class TestPneumaticClient:
         assert result.startswith("pneumatic_")
 
     def test_get_items(
-        self, pneumatic_settings: PneumaticSettings, temp_dir: Path
+        self,
+        pneumatic_settings: PneumaticSettings,
+        temp_dir: Path,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items returns empty list."""
         pneumatic_settings.nzb_folder = str(temp_dir / "nzb")
         pneumatic_settings.strm_folder = str(temp_dir / "strm")
-        client = PneumaticClient(settings=pneumatic_settings)
+        client = PneumaticClient(
+            settings=pneumatic_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         items = client.get_items()
         assert items == []
 
     def test_remove_item(
-        self, pneumatic_settings: PneumaticSettings, temp_dir: Path
+        self,
+        pneumatic_settings: PneumaticSettings,
+        temp_dir: Path,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test remove_item returns False."""
         pneumatic_settings.nzb_folder = str(temp_dir / "nzb")
         pneumatic_settings.strm_folder = str(temp_dir / "strm")
-        client = PneumaticClient(settings=pneumatic_settings)
+        client = PneumaticClient(
+            settings=pneumatic_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         result = client.remove_item("item-id", delete_files=True)
         assert result is False
 
     def test_test_connection_success(
-        self, pneumatic_settings: PneumaticSettings, temp_dir: Path
+        self,
+        pneumatic_settings: PneumaticSettings,
+        temp_dir: Path,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test test_connection when directories are writable."""
         pneumatic_settings.nzb_folder = str(temp_dir / "nzb")
         pneumatic_settings.strm_folder = str(temp_dir / "strm")
-        client = PneumaticClient(settings=pneumatic_settings)
+        client = PneumaticClient(
+            settings=pneumatic_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         result = client.test_connection()
         assert result is True

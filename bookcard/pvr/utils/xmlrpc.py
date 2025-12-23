@@ -25,108 +25,103 @@ from xml.etree import ElementTree as ET  # noqa: S405
 
 from bookcard.pvr.exceptions import PVRProviderError
 
+# Recursive type alias for XML-RPC values
+type XmlRpcValue = (
+    str | int | bytes | bool | float | list[XmlRpcValue] | dict[str, XmlRpcValue]
+)
+
+
+class XmlElementFactory:
+    """Factory for creating XML-RPC elements.
+
+    Follows SRP by handling only low-level XML element creation.
+    """
+
+    def create_value(self, parent: ET.Element) -> ET.Element:
+        """Create a value element."""
+        return ET.SubElement(parent, "value")
+
+    def create_string(self, parent: ET.Element, value: str) -> ET.Element:
+        """Create a string element."""
+        elem = ET.SubElement(parent, "string")
+        elem.text = value
+        return elem
+
+    def create_int(self, parent: ET.Element, value: int) -> ET.Element:
+        """Create an int element."""
+        elem = ET.SubElement(parent, "int")
+        elem.text = str(value)
+        return elem
+
+    def create_base64(self, parent: ET.Element, value: bytes) -> ET.Element:
+        """Create a base64 element."""
+        elem = ET.SubElement(parent, "base64")
+        elem.text = base64.b64encode(value).decode("utf-8")
+        return elem
+
+    def create_array(self, parent: ET.Element) -> ET.Element:
+        """Create an array element (returns the data sub-element)."""
+        array_elem = ET.SubElement(parent, "array")
+        return ET.SubElement(array_elem, "data")
+
+    def create_struct(self, parent: ET.Element) -> ET.Element:
+        """Create a struct element."""
+        return ET.SubElement(parent, "struct")
+
+    def create_member(self, struct_elem: ET.Element, name: str) -> ET.Element:
+        """Create a struct member (returns the value sub-element)."""
+        member = ET.SubElement(struct_elem, "member")
+        name_elem = ET.SubElement(member, "name")
+        name_elem.text = name
+        return ET.SubElement(member, "value")
+
 
 class XmlRpcBuilder:
     """Builder for XML-RPC requests.
 
-    This class provides methods to build XML-RPC requests following
-    the XML-RPC specification.
-
-    Examples
-    --------
-    >>> builder = (
-    ...     XmlRpcBuilder()
-    ... )
-    >>> request = builder.build_request(
-    ...     "method.name",
-    ...     "param1",
-    ...     123,
-    ... )
+    Uses XmlElementFactory to build high-level XML-RPC requests.
     """
 
-    def _add_xmlrpc_array(self, data_elem: ET.Element, param: list[str | int]) -> None:
-        """Add array parameter to XML-RPC request.
+    def __init__(self) -> None:
+        self.factory = XmlElementFactory()
 
-        Parameters
-        ----------
-        data_elem : ET.Element
-            Data element to add items to.
-        param : list[str | int]
-            Array parameter values.
-        """
+    def _add_array(self, data_elem: ET.Element, param: list["XmlRpcValue"]) -> None:
+        """Add array items."""
         for item in param:
-            item_param = ET.SubElement(data_elem, "value")
-            if isinstance(item, str):
-                string_elem = ET.SubElement(item_param, "string")
-                string_elem.text = item
-            elif isinstance(item, int):
-                int_elem = ET.SubElement(item_param, "int")
-                int_elem.text = str(item)
+            item_param = self.factory.create_value(data_elem)
+            self._add_param_value(item_param, item)
 
-    def _add_xmlrpc_struct(
-        self,
-        struct_elem: ET.Element,
-        param: dict[str, str | int | None],
+    def _add_struct(
+        self, struct_elem: ET.Element, param: dict[str, "XmlRpcValue"]
     ) -> None:
-        """Add struct parameter to XML-RPC request.
-
-        Parameters
-        ----------
-        struct_elem : ET.Element
-            Struct element to add members to.
-        param : dict[str, str | int | None]
-            Struct parameter values.
-        """
+        """Add struct members."""
         for key, val in param.items():
-            member = ET.SubElement(struct_elem, "member")
-            name_elem = ET.SubElement(member, "name")
-            name_elem.text = str(key)
-            value_elem2 = ET.SubElement(member, "value")
-            if isinstance(val, str):
-                string_elem = ET.SubElement(value_elem2, "string")
-                string_elem.text = val
-            elif isinstance(val, int):
-                int_elem = ET.SubElement(value_elem2, "int")
-                int_elem.text = str(val)
+            value_elem = self.factory.create_member(struct_elem, str(key))
+            self._add_param_value(value_elem, val)
 
-    def _add_xmlrpc_param(
+    def _add_param_value(
         self,
-        params_elem: ET.Element,
-        param: str | bytes | int | list[str | int] | dict[str, str | int | None],
+        value_elem: ET.Element,
+        param: "XmlRpcValue",
     ) -> None:
-        """Add a parameter to XML-RPC request.
-
-        Parameters
-        ----------
-        params_elem : ET.Element
-            Params element to add parameter to.
-        param : str | bytes | int | list[str | int] | dict[str, str | int | None]
-            Parameter value.
-        """
-        param_elem = ET.SubElement(params_elem, "param")
-        value_elem = ET.SubElement(param_elem, "value")
-
+        """Add parameter value to a value element."""
         if isinstance(param, str):
-            string_elem = ET.SubElement(value_elem, "string")
-            string_elem.text = param
+            self.factory.create_string(value_elem, param)
         elif isinstance(param, bytes):
-            base64_elem = ET.SubElement(value_elem, "base64")
-            base64_elem.text = base64.b64encode(param).decode("utf-8")
+            self.factory.create_base64(value_elem, param)
         elif isinstance(param, int):
-            int_elem = ET.SubElement(value_elem, "int")
-            int_elem.text = str(param)
+            self.factory.create_int(value_elem, param)
         elif isinstance(param, (list, tuple)):
-            array_elem = ET.SubElement(value_elem, "array")
-            data_elem = ET.SubElement(array_elem, "data")
-            self._add_xmlrpc_array(data_elem, param)
+            data_elem = self.factory.create_array(value_elem)
+            self._add_array(data_elem, list(param))
         elif isinstance(param, dict):
-            struct_elem = ET.SubElement(value_elem, "struct")
-            self._add_xmlrpc_struct(struct_elem, param)
+            struct_elem = self.factory.create_struct(value_elem)
+            self._add_struct(struct_elem, param)
 
     def build_request(
         self,
         method: str,
-        *params: str | bytes | int | list[str | int] | dict[str, str | int | None],
+        *params: XmlRpcValue,
         rpc_token: str | None = None,
     ) -> str:
         """Build XML-RPC request.
@@ -135,7 +130,7 @@ class XmlRpcBuilder:
         ----------
         method : str
             RPC method name.
-        *params : str | bytes | int | list[str | int] | dict[str, str | int | None]
+        *params : XmlRpcValue
             Method parameters.
         rpc_token : str | None
             Optional RPC token to prepend as first parameter.
@@ -146,20 +141,20 @@ class XmlRpcBuilder:
             XML-RPC request body.
         """
         root = ET.Element("methodCall")
-        method_name = ET.SubElement(root, "methodName")
-        method_name.text = method
-
+        ET.SubElement(root, "methodName").text = method
         params_elem = ET.SubElement(root, "params")
 
-        # Add token as first parameter if provided
-        if rpc_token:
+        # Helper to add a full parameter wrapper
+        def add_param(value: XmlRpcValue) -> None:
             param_elem = ET.SubElement(params_elem, "param")
-            value_elem = ET.SubElement(param_elem, "value")
-            string_elem = ET.SubElement(value_elem, "string")
-            string_elem.text = rpc_token
+            value_elem = self.factory.create_value(param_elem)
+            self._add_param_value(value_elem, value)
+
+        if rpc_token:
+            add_param(rpc_token)
 
         for param in params:
-            self._add_xmlrpc_param(params_elem, param)
+            add_param(param)
 
         return ET.tostring(root, encoding="utf-8").decode("utf-8")
 

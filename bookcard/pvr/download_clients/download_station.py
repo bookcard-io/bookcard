@@ -24,7 +24,7 @@ Documentation: https://global.download.synology.com/download/Document/Software/D
 """
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
@@ -34,6 +34,11 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
+)
+from bookcard.pvr.base.interfaces import (
+    FileFetcherProtocol,
+    HttpClientProtocol,
+    UrlRouterProtocol,
 )
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
@@ -421,9 +426,26 @@ class DownloadStationClient(BaseDownloadClient):
     def __init__(
         self,
         settings: DownloadStationSettings | DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+        http_client_factory: Callable[[], HttpClientProtocol] | None = None,
         enabled: bool = True,
     ) -> None:
-        """Initialize Download Station client."""
+        """Initialize Download Station client.
+
+        Parameters
+        ----------
+        settings : DownloadStationSettings | DownloadClientSettings
+            Client settings. If DownloadClientSettings, converts to DownloadStationSettings.
+        file_fetcher : FileFetcherProtocol
+            File fetcher service.
+        url_router : UrlRouterProtocol
+            URL router service.
+        http_client_factory : Callable[[], HttpClientProtocol] | None
+            HTTP client factory.
+        enabled : bool
+            Whether this client is enabled.
+        """
         if isinstance(settings, DownloadClientSettings) and not isinstance(
             settings, DownloadStationSettings
         ):
@@ -439,7 +461,9 @@ class DownloadStationClient(BaseDownloadClient):
                 url_base="/webapi",
             )
 
-        super().__init__(settings, enabled)
+        super().__init__(
+            settings, file_fetcher, url_router, http_client_factory, enabled
+        )
         self.settings: DownloadStationSettings = settings  # type: ignore[assignment]
         self._proxy = DownloadStationProxy(self.settings)
         # Download Station status codes: 0=waiting, 1=downloading, 2=paused,

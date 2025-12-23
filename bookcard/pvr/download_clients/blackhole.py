@@ -23,18 +23,20 @@ download clients as they don't require API communication.
 import logging
 import re
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Callable
 from pathlib import Path
 from typing import NoReturn
-
-import httpx
 
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
 )
+from bookcard.pvr.base.interfaces import (
+    FileFetcherProtocol,
+    HttpClientProtocol,
+    UrlRouterProtocol,
+)
 from bookcard.pvr.exceptions import PVRProviderError
-from bookcard.pvr.services.file_fetcher import FileFetcher
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +118,9 @@ class TorrentBlackholeClient(BaseDownloadClient):
     def __init__(
         self,
         settings: TorrentBlackholeSettings | DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+        http_client_factory: Callable[[], HttpClientProtocol] | None = None,
         enabled: bool = True,
     ) -> None:
         """Initialize torrent blackhole client.
@@ -124,6 +129,12 @@ class TorrentBlackholeClient(BaseDownloadClient):
         ----------
         settings : TorrentBlackholeSettings | DownloadClientSettings
             Client settings.
+        file_fetcher : FileFetcherProtocol
+            File fetcher service.
+        url_router : UrlRouterProtocol
+            URL router service.
+        http_client_factory : Callable[[], HttpClientProtocol] | None
+            HTTP client factory.
         enabled : bool
             Whether this client is enabled.
         """
@@ -147,9 +158,10 @@ class TorrentBlackholeClient(BaseDownloadClient):
             )
             settings = torrent_settings
 
-        super().__init__(settings, enabled)
+        super().__init__(
+            settings, file_fetcher, url_router, http_client_factory, enabled
+        )
         self.settings: TorrentBlackholeSettings = settings  # type: ignore[assignment]
-        self._file_fetcher = FileFetcher(timeout=self.settings.timeout_seconds)
 
     @property
     def client_name(self) -> str:
@@ -165,22 +177,6 @@ class TorrentBlackholeClient(BaseDownloadClient):
             Always raises with error message.
         """
         msg = "Magnet links not supported (save_magnet_files is False)"
-        raise PVRProviderError(msg)
-
-    def _raise_unsupported_url_error(self, download_url: str) -> NoReturn:
-        """Raise error for unsupported download URL type.
-
-        Parameters
-        ----------
-        download_url : str
-            Unsupported download URL.
-
-        Raises
-        ------
-        PVRProviderError
-            Always raises with error message.
-        """
-        msg = f"Unsupported download URL type: {download_url[:50]}"
         raise PVRProviderError(msg)
 
     def _raise_watch_folder_error(self, watch_folder: str) -> None:
@@ -199,12 +195,7 @@ class TorrentBlackholeClient(BaseDownloadClient):
         msg = f"Watch folder does not exist: {watch_folder}"
         raise PVRProviderError(msg)
 
-        # Ensure directories exist
-        Path(self.settings.torrent_folder).mkdir(exist_ok=True, parents=True)
-        if self.settings.watch_folder != self.settings.torrent_folder:
-            Path(self.settings.watch_folder).mkdir(exist_ok=True, parents=True)
-
-    def _add_magnet(
+    def add_magnet(
         self,
         magnet_url: str,
         title: str | None,
@@ -224,7 +215,7 @@ class TorrentBlackholeClient(BaseDownloadClient):
         logger.debug("Saved magnet link to: %s", filepath)
         return "magnet_blackhole"
 
-    def _add_url(
+    def add_url(
         self,
         url: str,
         title: str | None,
@@ -243,7 +234,7 @@ class TorrentBlackholeClient(BaseDownloadClient):
         logger.debug("Downloaded and saved torrent to: %s", filepath)
         return "torrent_blackhole"
 
-    def _add_file(
+    def add_file(
         self,
         filepath: str,
         title: str | None,
@@ -261,45 +252,6 @@ class TorrentBlackholeClient(BaseDownloadClient):
             dst.write(src.read())
         logger.debug("Copied torrent file to: %s", dest_filepath)
         return "torrent_blackhole"
-
-    def get_items(self) -> Sequence[dict[str, str | int | float | None]]:
-        """Get list of downloads from watch folder.
-
-        Returns
-        -------
-        Sequence[dict[str, str | int | float | None]]
-            Sequence of download items (empty for blackhole).
-
-        Notes
-        -----
-        Blackhole clients don't track downloads, so this returns an empty list.
-        The external client that picks up files is responsible for tracking.
-        """
-        # Blackhole doesn't track downloads
-        return []
-
-    def remove_item(self, client_item_id: str, delete_files: bool = False) -> bool:
-        """Remove a download (not supported by blackhole).
-
-        Parameters
-        ----------
-        client_item_id : str
-            Item ID (not used).
-        delete_files : bool
-            Whether to delete files (not used).
-
-        Returns
-        -------
-        bool
-            Always returns False (not supported).
-
-        Notes
-        -----
-        Blackhole clients cannot remove downloads as they don't track them.
-        """
-        _ = client_item_id, delete_files  # Unused arguments
-        logger.warning("Blackhole clients cannot remove downloads")
-        return False
 
     def test_connection(self) -> bool:
         """Test connectivity (check if directories are writable).
@@ -345,6 +297,9 @@ class UsenetBlackholeClient(BaseDownloadClient):
     def __init__(
         self,
         settings: UsenetBlackholeSettings | DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+        http_client_factory: Callable[[], HttpClientProtocol] | None = None,
         enabled: bool = True,
     ) -> None:
         """Initialize usenet blackhole client.
@@ -353,6 +308,12 @@ class UsenetBlackholeClient(BaseDownloadClient):
         ----------
         settings : UsenetBlackholeSettings | DownloadClientSettings
             Client settings.
+        file_fetcher : FileFetcherProtocol
+            File fetcher service.
+        url_router : UrlRouterProtocol
+            URL router service.
+        http_client_factory : Callable[[], HttpClientProtocol] | None
+            HTTP client factory.
         enabled : bool
             Whether this client is enabled.
         """
@@ -374,8 +335,15 @@ class UsenetBlackholeClient(BaseDownloadClient):
             )
             settings = usenet_settings
 
-        super().__init__(settings, enabled)
+        super().__init__(
+            settings, file_fetcher, url_router, http_client_factory, enabled
+        )
         self.settings: UsenetBlackholeSettings = settings  # type: ignore[assignment]
+
+    @property
+    def client_name(self) -> str:
+        """Return client name."""
+        return "Usenet Blackhole"
 
     def _raise_unsupported_url_error(self, download_url: str) -> NoReturn:
         """Raise error for unsupported download URL type.
@@ -409,113 +377,53 @@ class UsenetBlackholeClient(BaseDownloadClient):
         msg = f"Watch folder does not exist: {watch_folder}"
         raise PVRProviderError(msg)
 
-        # Ensure directories exist
-        Path(self.settings.nzb_folder).mkdir(exist_ok=True, parents=True)
-        if self.settings.watch_folder != self.settings.nzb_folder:
-            Path(self.settings.watch_folder).mkdir(exist_ok=True, parents=True)
-
-    def add_download(
+    def add_file(
         self,
-        download_url: str,
+        filepath: str,
         title: str | None = None,
         _category: str | None = None,
         _download_path: str | None = None,
     ) -> str:
-        """Add a download by writing NZB file.
+        """Add download from local file."""
+        # Determine filename
+        filename_base = _clean_filename(title) if title else "download"
 
-        Parameters
-        ----------
-        download_url : str
-            URL or file path to NZB file.
-        title : str | None
-            Optional title for the download.
-        _category : str | None
-            Optional category (not used by blackhole).
-        _download_path : str | None
-            Optional download path (not used by blackhole).
+        # Ensure nzb folder exists
+        Path(self.settings.nzb_folder).mkdir(parents=True, exist_ok=True)
 
-        Returns
-        -------
-        str
-            Placeholder ID (blackhole doesn't track downloads).
+        dest_filepath = Path(self.settings.nzb_folder) / f"{filename_base}.nzb"
 
-        Raises
-        ------
-        PVRProviderError
-            If writing the file fails.
-        """
-        if not self.is_enabled():
-            msg = "Usenet blackhole client is disabled"
-            raise PVRProviderError(msg)
+        with (
+            Path(filepath).open("rb") as src,
+            Path(dest_filepath).open("wb") as dst,
+        ):
+            dst.write(src.read())
+        logger.debug("Copied NZB file to: %s", dest_filepath)
+        return "nzb_blackhole"
 
-        try:
-            # Determine filename
-            filename_base = _clean_filename(title) if title else "download"
+    def add_url(
+        self,
+        url: str,
+        title: str | None = None,
+        _category: str | None = None,
+        _download_path: str | None = None,
+    ) -> str:
+        """Add download from URL."""
+        # Determine filename
+        filename_base = _clean_filename(title) if title else "download"
 
-            # Ensure nzb folder exists
-            Path(self.settings.nzb_folder).mkdir(parents=True, exist_ok=True)
+        # Ensure nzb folder exists
+        Path(self.settings.nzb_folder).mkdir(parents=True, exist_ok=True)
 
-            filepath = Path(self.settings.nzb_folder) / f"{filename_base}.nzb"
+        filepath = Path(self.settings.nzb_folder) / f"{filename_base}.nzb"
 
-            # Handle file path
-            if Path(download_url).is_file():
-                with (
-                    Path(download_url).open("rb") as src,
-                    Path(filepath).open("wb") as dst,
-                ):
-                    dst.write(src.read())
-                logger.debug("Copied NZB file to: %s", filepath)
-                return "nzb_blackhole"
+        # Use file_fetcher instead of creating new httpx client
+        content = self._file_fetcher.fetch_content(url)
 
-            # Handle URL (download and save)
-            if download_url.startswith("http"):
-                with httpx.Client() as client:
-                    response = client.get(download_url, timeout=30)
-                    response.raise_for_status()
-
-                with Path(filepath).open("wb") as f:
-                    f.write(response.content)
-                logger.debug("Downloaded and saved NZB to: %s", filepath)
-                return "nzb_blackhole"
-
-            self._raise_unsupported_url_error(download_url)
-
-        except Exception as e:
-            msg = f"Failed to add download to usenet blackhole: {e}"
-            raise PVRProviderError(msg) from e
-
-    def get_items(self) -> Sequence[dict[str, str | int | float | None]]:
-        """Get list of downloads from watch folder.
-
-        Returns
-        -------
-        Sequence[dict[str, str | int | float | None]]
-            Sequence of download items (empty for blackhole).
-
-        Notes
-        -----
-        Blackhole clients don't track downloads, so this returns an empty list.
-        """
-        return []
-
-    def remove_item(self, client_item_id: str, delete_files: bool = False) -> bool:
-        """Remove a download (not supported by blackhole).
-
-        Parameters
-        ----------
-        client_item_id : str
-            Item ID (not used).
-        delete_files : bool
-            Whether to delete files (not used).
-
-        Returns
-        -------
-        bool
-            Always returns False (not supported).
-        """
-        _ = client_item_id, delete_files  # Unused arguments
-        logger.warning("Blackhole clients cannot remove downloads")
-        return False
+        with Path(filepath).open("wb") as f:
+            f.write(content)
+        logger.debug("Downloaded and saved NZB to: %s", filepath)
+        return "nzb_blackhole"
 
     def test_connection(self) -> bool:
         """Test connectivity (check if directories are writable).

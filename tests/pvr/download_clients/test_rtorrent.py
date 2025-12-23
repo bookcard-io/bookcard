@@ -22,6 +22,7 @@ from xml.etree import ElementTree as ET  # noqa: S405
 import pytest
 
 from bookcard.pvr.base import DownloadClientSettings
+from bookcard.pvr.base.interfaces import FileFetcherProtocol, UrlRouterProtocol
 from bookcard.pvr.download_clients.rtorrent import (
     RTorrentClient,
     RTorrentProxy,
@@ -534,26 +535,46 @@ class TestRTorrentClient:
     """Test RTorrentClient."""
 
     def test_init_with_rtorrent_settings(
-        self, rtorrent_settings: RTorrentSettings
+        self,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with RTorrentSettings."""
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, RTorrentSettings)
         assert client.enabled is True
 
     def test_init_with_download_client_settings(
-        self, base_download_client_settings: DownloadClientSettings
+        self,
+        sabnzbd_settings: DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with DownloadClientSettings conversion."""
-        client = RTorrentClient(settings=base_download_client_settings)
+        client = RTorrentClient(
+            settings=sabnzbd_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, RTorrentSettings)
 
     @patch.object(RTorrentProxy, "add_torrent_url")
     def test_add_download_magnet(
-        self, mock_add: MagicMock, rtorrent_settings: RTorrentSettings
+        self,
+        mock_add: MagicMock,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with magnet link."""
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         # rTorrent extracts hash from magnet link - use lowercase
         result = client.add_download("magnet:?xt=urn:btih:abc123&dn=test")
         assert result == "ABC123"
@@ -561,10 +582,16 @@ class TestRTorrentClient:
 
     @patch.object(RTorrentProxy, "add_torrent_url")
     def test_add_download_magnet_no_hash(
-        self, mock_add: MagicMock, rtorrent_settings: RTorrentSettings
+        self,
+        mock_add: MagicMock,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with magnet link without hash."""
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.add_download("magnet:?dn=test")
         assert result == "pending"
         mock_add.assert_called_once()
@@ -576,6 +603,8 @@ class TestRTorrentClient:
         mock_add_file: MagicMock,
         mock_client_class: MagicMock,
         rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with HTTP URL."""
         mock_client = MagicMock()
@@ -587,7 +616,9 @@ class TestRTorrentClient:
         mock_client.__exit__ = Mock(return_value=False)
         mock_client_class.return_value = mock_client
 
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.add_download("http://example.com/torrent.torrent")
         assert result == "pending"
         mock_add_file.assert_called_once()
@@ -598,9 +629,13 @@ class TestRTorrentClient:
         mock_add_file: MagicMock,
         rtorrent_settings: RTorrentSettings,
         sample_torrent_file: Path,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with file path."""
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.add_download(str(sample_torrent_file))
         assert result == "pending"
         mock_add_file.assert_called_once()
@@ -611,9 +646,13 @@ class TestRTorrentClient:
         mock_add_file: MagicMock,
         rtorrent_settings: RTorrentSettings,
         sample_torrent_file: Path,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with file path and title."""
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.add_download(
             str(sample_torrent_file), title="custom-title.torrent"
         )
@@ -621,25 +660,46 @@ class TestRTorrentClient:
         mock_add_file.assert_called_once()
 
     def test_add_download_invalid_url(
-        self, rtorrent_settings: RTorrentSettings
+        self,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with invalid URL."""
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         with pytest.raises(PVRProviderError, match="Invalid download URL"):
             client.add_download("invalid://url")
 
-    def test_add_download_disabled(self, rtorrent_settings: RTorrentSettings) -> None:
+    def test_add_download_disabled(
+        self,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test add_download when disabled."""
-        client = RTorrentClient(settings=rtorrent_settings, enabled=False)
+        client = RTorrentClient(
+            settings=rtorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
         with pytest.raises(PVRProviderError, match="disabled"):
             client.add_download("magnet:?xt=urn:btih:test")
 
     @patch.object(RTorrentProxy, "add_torrent_url")
     def test_add_download_with_category(
-        self, mock_add: MagicMock, rtorrent_settings: RTorrentSettings
+        self,
+        mock_add: MagicMock,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with category."""
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         client.add_download("magnet:?xt=urn:btih:test", category="test-category")
         mock_add.assert_called_once()
         # Check label was passed
@@ -648,10 +708,16 @@ class TestRTorrentClient:
 
     @patch.object(RTorrentProxy, "add_torrent_url")
     def test_add_download_with_download_path(
-        self, mock_add: MagicMock, rtorrent_settings: RTorrentSettings
+        self,
+        mock_add: MagicMock,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with download_path."""
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         client.add_download("magnet:?xt=urn:btih:test", download_path="/custom/path")
         mock_add.assert_called_once()
         # Check directory was passed
@@ -660,49 +726,76 @@ class TestRTorrentClient:
 
     @patch.object(RTorrentProxy, "get_torrents")
     def test_get_items(
-        self, mock_get_torrents: MagicMock, rtorrent_settings: RTorrentSettings
+        self,
+        mock_get_torrents: MagicMock,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items."""
         mock_get_torrents.return_value = [
             {"hash": "hash1", "label": "test", "name": "Test 1"},
             {"hash": "hash2", "label": "test", "name": "Test 2"},
         ]
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 2
 
     @patch.object(RTorrentProxy, "get_torrents")
     def test_get_items_disabled(
-        self, mock_get_torrents: MagicMock, rtorrent_settings: RTorrentSettings
+        self,
+        mock_get_torrents: MagicMock,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items when disabled."""
-        client = RTorrentClient(settings=rtorrent_settings, enabled=False)
+        client = RTorrentClient(
+            settings=rtorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
         items = client.get_items()
         assert items == []
         mock_get_torrents.assert_not_called()
 
     @patch.object(RTorrentProxy, "get_torrents")
     def test_get_items_no_hash(
-        self, mock_get_torrents: MagicMock, rtorrent_settings: RTorrentSettings
+        self,
+        mock_get_torrents: MagicMock,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items with torrent without hash."""
         mock_get_torrents.return_value = [
             {"hash": "", "label": "test", "name": "Test 1"},
         ]
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 0
 
     @patch.object(RTorrentProxy, "get_torrents")
     def test_get_items_with_category_filter(
-        self, mock_get_torrents: MagicMock, rtorrent_settings: RTorrentSettings
+        self,
+        mock_get_torrents: MagicMock,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items with category filter."""
         mock_get_torrents.return_value = [
             {"hash": "hash1", "label": "test", "name": "Test 1"},
             {"hash": "hash2", "label": "other", "name": "Test 2"},
         ]
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         # Only items with matching category should be included
         assert len(items) == 1
@@ -710,7 +803,11 @@ class TestRTorrentClient:
 
     @patch.object(RTorrentProxy, "get_torrents")
     def test_get_items_complete_torrent(
-        self, mock_get_torrents: MagicMock, rtorrent_settings: RTorrentSettings
+        self,
+        mock_get_torrents: MagicMock,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items with completed torrent."""
         mock_get_torrents.return_value = [
@@ -725,7 +822,9 @@ class TestRTorrentClient:
                 "down_rate": 0,
             },
         ]
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["status"] == "completed"
@@ -733,7 +832,11 @@ class TestRTorrentClient:
 
     @patch.object(RTorrentProxy, "get_torrents")
     def test_get_items_downloading_torrent(
-        self, mock_get_torrents: MagicMock, rtorrent_settings: RTorrentSettings
+        self,
+        mock_get_torrents: MagicMock,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items with downloading torrent."""
         mock_get_torrents.return_value = [
@@ -748,7 +851,9 @@ class TestRTorrentClient:
                 "down_rate": 100,
             },
         ]
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["status"] == "downloading"
@@ -756,7 +861,11 @@ class TestRTorrentClient:
 
     @patch.object(RTorrentProxy, "get_torrents")
     def test_get_items_paused_torrent(
-        self, mock_get_torrents: MagicMock, rtorrent_settings: RTorrentSettings
+        self,
+        mock_get_torrents: MagicMock,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items with paused torrent."""
         mock_get_torrents.return_value = [
@@ -771,14 +880,20 @@ class TestRTorrentClient:
                 "down_rate": 0,
             },
         ]
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["status"] == "paused"
 
     @patch.object(RTorrentProxy, "get_torrents")
     def test_get_items_with_eta(
-        self, mock_get_torrents: MagicMock, rtorrent_settings: RTorrentSettings
+        self,
+        mock_get_torrents: MagicMock,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items with ETA calculation."""
         mock_get_torrents.return_value = [
@@ -793,125 +908,213 @@ class TestRTorrentClient:
                 "down_rate": 100,  # 100 bytes/sec
             },
         ]
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["eta_seconds"] == 5  # 500 bytes / 100 bytes/sec
 
     @patch.object(RTorrentProxy, "get_torrents")
     def test_get_items_error(
-        self, mock_get_torrents: MagicMock, rtorrent_settings: RTorrentSettings
+        self,
+        mock_get_torrents: MagicMock,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items with error."""
         mock_get_torrents.side_effect = Exception("Connection error")
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         with pytest.raises(PVRProviderError, match="Failed to get downloads"):
             client.get_items()
 
     @patch.object(RTorrentProxy, "remove_torrent")
     def test_remove_item(
-        self, mock_remove: MagicMock, rtorrent_settings: RTorrentSettings
+        self,
+        mock_remove: MagicMock,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test remove_item."""
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.remove_item("HASH123")
         assert result is True
         mock_remove.assert_called_once_with("hash123")
 
-    def test_remove_item_disabled(self, rtorrent_settings: RTorrentSettings) -> None:
+    def test_remove_item_disabled(
+        self,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test remove_item when disabled."""
-        client = RTorrentClient(settings=rtorrent_settings, enabled=False)
+        client = RTorrentClient(
+            settings=rtorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
         with pytest.raises(PVRProviderError, match="disabled"):
             client.remove_item("HASH123")
 
     @patch.object(RTorrentProxy, "remove_torrent")
     def test_remove_item_error(
-        self, mock_remove: MagicMock, rtorrent_settings: RTorrentSettings
+        self,
+        mock_remove: MagicMock,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test remove_item with error."""
         mock_remove.side_effect = Exception("Remove error")
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         with pytest.raises(PVRProviderError, match="Failed to remove"):
             client.remove_item("HASH123")
 
     @patch.object(RTorrentProxy, "get_version")
     def test_test_connection(
-        self, mock_get_version: MagicMock, rtorrent_settings: RTorrentSettings
+        self,
+        mock_get_version: MagicMock,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test test_connection."""
         mock_get_version.return_value = "0.9.8"
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.test_connection()
         assert result is True
 
     @patch.object(RTorrentProxy, "get_version")
     def test_test_connection_error(
-        self, mock_get_version: MagicMock, rtorrent_settings: RTorrentSettings
+        self,
+        mock_get_version: MagicMock,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test test_connection with error."""
         mock_get_version.side_effect = Exception("Connection error")
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         with pytest.raises(PVRProviderError, match="Failed to connect"):
             client.test_connection()
 
     def test_map_torrent_status_completed(
-        self, rtorrent_settings: RTorrentSettings
+        self,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test _map_torrent_status with completed torrent."""
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         torrent = {"complete": 1, "is_active": 0}
         status = client._map_torrent_status(torrent)
         assert status == "completed"
 
     def test_map_torrent_status_downloading(
-        self, rtorrent_settings: RTorrentSettings
+        self,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test _map_torrent_status with downloading torrent."""
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         torrent = {"complete": 0, "is_active": 1}
         status = client._map_torrent_status(torrent)
         assert status == "downloading"
 
     def test_map_torrent_status_paused(
-        self, rtorrent_settings: RTorrentSettings
+        self,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test _map_torrent_status with paused torrent."""
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         torrent = {"complete": 0, "is_active": 0}
         status = client._map_torrent_status(torrent)
         assert status == "paused"
 
-    def test_calculate_progress(self, rtorrent_settings: RTorrentSettings) -> None:
+    def test_calculate_progress(
+        self,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test _calculate_progress."""
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         progress = client._calculate_progress(1000, 500)
         assert progress == 0.5
 
     def test_calculate_progress_zero_total(
-        self, rtorrent_settings: RTorrentSettings
+        self,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test _calculate_progress with zero total."""
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         progress = client._calculate_progress(0, 0)
         assert progress == 0.0
 
-    def test_calculate_progress_none(self, rtorrent_settings: RTorrentSettings) -> None:
+    def test_calculate_progress_none(
+        self,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test _calculate_progress with None values."""
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         progress = client._calculate_progress(None, None)
         assert progress == 0.0
 
     def test_calculate_progress_over_100(
-        self, rtorrent_settings: RTorrentSettings
+        self,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test _calculate_progress that exceeds 1.0."""
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         progress = client._calculate_progress(1000, -100)
         assert progress == 1.0  # Should be capped at 1.0
 
-    def test_build_download_item(self, rtorrent_settings: RTorrentSettings) -> None:
+    def test_build_download_item(
+        self,
+        rtorrent_settings: RTorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test _build_download_item."""
-        client = RTorrentClient(settings=rtorrent_settings)
+        client = RTorrentClient(
+            settings=rtorrent_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         torrent = {
             "hash": "hash1",
             "name": "Test",

@@ -24,7 +24,7 @@ Documentation: https://github.com/rakshasa/rtorrent/wiki/RPC-Setup-XMLRPC
 
 import base64
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree as ET  # noqa: S405
@@ -34,6 +34,11 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
+)
+from bookcard.pvr.base.interfaces import (
+    FileFetcherProtocol,
+    HttpClientProtocol,
+    UrlRouterProtocol,
 )
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
@@ -46,7 +51,6 @@ from bookcard.pvr.exceptions import (
     PVRProviderError,
 )
 from bookcard.pvr.models import DownloadItem
-from bookcard.pvr.services.file_fetcher import FileFetcher
 from bookcard.pvr.utils.status import DownloadStatus, StatusMapper
 
 logger = logging.getLogger(__name__)
@@ -521,9 +525,26 @@ class RTorrentClient(BaseDownloadClient):
     def __init__(
         self,
         settings: RTorrentSettings | DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+        http_client_factory: Callable[[], HttpClientProtocol] | None = None,
         enabled: bool = True,
     ) -> None:
-        """Initialize rTorrent client."""
+        """Initialize rTorrent client.
+
+        Parameters
+        ----------
+        settings : RTorrentSettings | DownloadClientSettings
+            Client settings. If DownloadClientSettings, converts to RTorrentSettings.
+        file_fetcher : FileFetcherProtocol
+            File fetcher service.
+        url_router : UrlRouterProtocol
+            URL router service.
+        http_client_factory : Callable[[], HttpClientProtocol] | None
+            HTTP client factory.
+        enabled : bool
+            Whether this client is enabled.
+        """
         if isinstance(settings, DownloadClientSettings) and not isinstance(
             settings, RTorrentSettings
         ):
@@ -540,10 +561,11 @@ class RTorrentClient(BaseDownloadClient):
             )
             settings = rtorrent_settings
 
-        super().__init__(settings, enabled)
+        super().__init__(
+            settings, file_fetcher, url_router, http_client_factory, enabled
+        )
         self.settings: RTorrentSettings = settings  # type: ignore[assignment]
         self._proxy = RTorrentProxy(self.settings)
-        self._file_fetcher = FileFetcher(timeout=self.settings.timeout_seconds)
         self._status_mapper = StatusMapper(
             {
                 # Status determined by complete and is_active flags

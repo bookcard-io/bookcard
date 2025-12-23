@@ -25,6 +25,7 @@ from bookcard.pvr.base import (
     BaseIndexer,
     DownloadClientSettings,
     IndexerSettings,
+    ManagedIndexer,
 )
 from bookcard.pvr.error_handlers import (
     handle_api_error_response,
@@ -242,29 +243,32 @@ class TestBaseIndexer:
     ) -> None:
         """Test BaseIndexer initialization."""
         assert mock_indexer.settings == indexer_settings
-        assert mock_indexer.enabled is True
 
-    def test_base_indexer_init_disabled(
+    def test_managed_indexer_enabled(self, indexer_settings: IndexerSettings) -> None:
+        """Test ManagedIndexer enabled functionality."""
+        indexer = MockIndexer(settings=indexer_settings)
+        managed = ManagedIndexer(indexer, enabled=True)
+        assert managed.is_enabled() is True
+
+    def test_managed_indexer_disabled(self, indexer_settings: IndexerSettings) -> None:
+        """Test ManagedIndexer disabled functionality."""
+        indexer = MockIndexer(settings=indexer_settings)
+        managed = ManagedIndexer(indexer, enabled=False)
+        assert managed.is_enabled() is False
+
+    def test_managed_indexer_set_enabled(
         self, indexer_settings: IndexerSettings
     ) -> None:
-        """Test BaseIndexer initialization with disabled=True."""
-        indexer = MockIndexer(settings=indexer_settings, enabled=False)
-        assert indexer.enabled is False
+        """Test ManagedIndexer set_enabled method."""
+        indexer = MockIndexer(settings=indexer_settings)
+        managed = ManagedIndexer(indexer, enabled=True)
+        assert managed.is_enabled() is True
 
-    def test_base_indexer_is_enabled(self, mock_indexer: MockIndexer) -> None:
-        """Test BaseIndexer is_enabled method."""
-        assert mock_indexer.is_enabled() is True
+        managed.set_enabled(False)
+        assert managed.is_enabled() is False
 
-        mock_indexer.set_enabled(False)
-        assert mock_indexer.is_enabled() is False
-
-    def test_base_indexer_set_enabled(self, mock_indexer: MockIndexer) -> None:
-        """Test BaseIndexer set_enabled method."""
-        mock_indexer.set_enabled(False)
-        assert mock_indexer.enabled is False
-
-        mock_indexer.set_enabled(True)
-        assert mock_indexer.enabled is True
+        managed.set_enabled(True)
+        assert managed.is_enabled() is True
 
     def test_base_indexer_search_abstract(self) -> None:
         """Test that BaseIndexer.search is abstract."""
@@ -316,9 +320,16 @@ class TestBaseDownloadClient:
     def test_base_download_client_is_abstract(self) -> None:
         """Test that BaseDownloadClient is abstract and cannot be instantiated."""
         assert issubclass(BaseDownloadClient, ABC)
+        from bookcard.pvr.services.file_fetcher import FileFetcher
+        from bookcard.pvr.utils.url_router import DownloadUrlRouter
+
+        file_fetcher = FileFetcher(timeout=30)
+        url_router = DownloadUrlRouter()
         with pytest.raises(TypeError):
             _ = BaseDownloadClient(
-                settings=DownloadClientSettings(host="localhost", port=8080)
+                settings=DownloadClientSettings(host="localhost", port=8080),
+                file_fetcher=file_fetcher,
+                url_router=url_router,
             )
 
     def test_base_download_client_init(
@@ -334,7 +345,17 @@ class TestBaseDownloadClient:
         self, download_client_settings: DownloadClientSettings
     ) -> None:
         """Test BaseDownloadClient initialization with disabled=True."""
-        client = MockDownloadClient(settings=download_client_settings, enabled=False)
+        from bookcard.pvr.services.file_fetcher import FileFetcher
+        from bookcard.pvr.utils.url_router import DownloadUrlRouter
+
+        file_fetcher = FileFetcher(timeout=30)
+        url_router = DownloadUrlRouter()
+        client = MockDownloadClient(
+            settings=download_client_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
         assert client.enabled is False
 
     def test_base_download_client_is_enabled(
@@ -374,9 +395,16 @@ class TestBaseDownloadClient:
             def test_connection(self) -> bool:  # type: ignore[override]
                 return True
 
+        from bookcard.pvr.services.file_fetcher import FileFetcher
+        from bookcard.pvr.utils.url_router import DownloadUrlRouter
+
+        file_fetcher = FileFetcher(timeout=30)
+        url_router = DownloadUrlRouter()
         with pytest.raises(TypeError):
             _ = IncompleteClient(
-                settings=DownloadClientSettings(host="localhost", port=8080)
+                settings=DownloadClientSettings(host="localhost", port=8080),
+                file_fetcher=file_fetcher,
+                url_router=url_router,
             )
 
     def test_base_download_client_get_items_abstract(self) -> None:
@@ -401,9 +429,16 @@ class TestBaseDownloadClient:
             def test_connection(self) -> bool:
                 return True
 
+        from bookcard.pvr.services.file_fetcher import FileFetcher
+        from bookcard.pvr.utils.url_router import DownloadUrlRouter
+
+        file_fetcher = FileFetcher(timeout=30)
+        url_router = DownloadUrlRouter()
         with pytest.raises(TypeError):
             _ = IncompleteClient(
-                settings=DownloadClientSettings(host="localhost", port=8080)
+                settings=DownloadClientSettings(host="localhost", port=8080),
+                file_fetcher=file_fetcher,
+                url_router=url_router,
             )
 
     def test_base_download_client_remove_item_abstract(self) -> None:
@@ -428,9 +463,16 @@ class TestBaseDownloadClient:
             def test_connection(self) -> bool:
                 return True
 
+        from bookcard.pvr.services.file_fetcher import FileFetcher
+        from bookcard.pvr.utils.url_router import DownloadUrlRouter
+
+        file_fetcher = FileFetcher(timeout=30)
+        url_router = DownloadUrlRouter()
         with pytest.raises(TypeError):
             _ = IncompleteClient(
-                settings=DownloadClientSettings(host="localhost", port=8080)
+                settings=DownloadClientSettings(host="localhost", port=8080),
+                file_fetcher=file_fetcher,
+                url_router=url_router,
             )
 
     def test_base_download_client_test_connection_abstract(self) -> None:
@@ -457,9 +499,16 @@ class TestBaseDownloadClient:
             ) -> bool:  # type: ignore[override]
                 return True
 
+        from bookcard.pvr.services.file_fetcher import FileFetcher
+        from bookcard.pvr.utils.url_router import DownloadUrlRouter
+
+        file_fetcher = FileFetcher(timeout=30)
+        url_router = DownloadUrlRouter()
         with pytest.raises(TypeError):
             _ = IncompleteClient(
-                settings=DownloadClientSettings(host="localhost", port=8080)
+                settings=DownloadClientSettings(host="localhost", port=8080),
+                file_fetcher=file_fetcher,
+                url_router=url_router,
             )
 
     def test_base_download_client_add_download_implementation(

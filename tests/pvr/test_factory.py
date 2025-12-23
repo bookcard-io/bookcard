@@ -172,7 +172,7 @@ class TestCreateIndexer:
         assert indexer.settings.timeout_seconds == indexer_definition.timeout_seconds
         assert indexer.settings.retry_count == indexer_definition.retry_count
         assert indexer.settings.categories == indexer_definition.categories
-        assert indexer.enabled == indexer_definition.enabled
+        assert indexer.is_enabled() == indexer_definition.enabled
 
     def test_create_indexer_not_registered(
         self, indexer_definition: IndexerDefinition
@@ -432,7 +432,7 @@ class TestIndexerSettingsFactories:
 
         settings = _create_torrent_rss_settings(indexer_definition)
         assert isinstance(settings, TorrentRssSettings)
-        assert settings.feed_url == "https://custom.feed.com/rss"
+        assert settings.base_url == "https://custom.feed.com/rss"
 
     def test_create_torrent_rss_settings_without_additional_settings(
         self, indexer_definition: IndexerDefinition
@@ -448,7 +448,7 @@ class TestIndexerSettingsFactories:
 
         settings = _create_torrent_rss_settings(indexer_definition)
         assert isinstance(settings, TorrentRssSettings)
-        assert settings.feed_url == indexer_definition.base_url
+        assert settings.base_url == indexer_definition.base_url
 
     def test_create_default_settings_with_additional_settings(
         self, indexer_definition: IndexerDefinition

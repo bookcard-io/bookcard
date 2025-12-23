@@ -20,6 +20,7 @@ from unittest.mock import MagicMock, Mock, patch
 from bookcard.pvr.base import (
     DownloadClientSettings,
 )
+from bookcard.pvr.base.interfaces import FileFetcherProtocol, UrlRouterProtocol
 from bookcard.pvr.download_clients.aria2 import (
     Aria2Client,
     Aria2Proxy,
@@ -38,7 +39,7 @@ class TestAria2Proxy:
             secret="test-secret",
             timeout_seconds=30,
         )
-        proxy = Aria2Proxy(settings)
+        proxy = Aria2Proxy(settings, Mock())
         assert proxy.settings == settings
         assert proxy.rpc_url.endswith("/jsonrpc")
 
@@ -50,7 +51,7 @@ class TestAria2Proxy:
             secret="test-secret",
             timeout_seconds=30,
         )
-        proxy = Aria2Proxy(settings)
+        proxy = Aria2Proxy(settings, Mock())
         token = proxy._get_token()
         assert token == "token:test-secret"
 
@@ -61,7 +62,7 @@ class TestAria2Proxy:
             port=6800,
             timeout_seconds=30,
         )
-        proxy = Aria2Proxy(settings)
+        proxy = Aria2Proxy(settings, Mock())
         token = proxy._get_token()
         assert token == ""
 
@@ -72,8 +73,9 @@ class TestAria2Proxy:
             port=6800,
             timeout_seconds=30,
         )
-        proxy = Aria2Proxy(settings)
-        request = proxy._build_xmlrpc_request("aria2.addUri", ["http://test.com"])
+        proxy = Aria2Proxy(settings, Mock())
+        # Private method _build_xmlrpc_request accessed via proxy.builder
+        request = proxy.builder.build_request("aria2.addUri", "http://test.com")
         assert "aria2.addUri" in request
         assert "http://test.com" in request
 
@@ -95,7 +97,7 @@ class TestAria2Proxy:
         mock_client.__exit__ = Mock(return_value=False)
         mock_create_client.return_value = mock_client
 
-        proxy = Aria2Proxy(settings)
+        proxy = Aria2Proxy(settings, lambda: mock_client)
         result = proxy._request("aria2.addUri", ["http://test.com"])
 
         assert result == "gid123"
@@ -109,7 +111,7 @@ class TestAria2Proxy:
             timeout_seconds=30,
         )
         mock_request.return_value = "gid123"
-        proxy = Aria2Proxy(settings)
+        proxy = Aria2Proxy(settings, Mock())
         result = proxy.add_magnet("magnet:?xt=urn:btih:test")
         assert result == "gid123"
 
@@ -127,7 +129,7 @@ class TestAria2Proxy:
             [{"gid": "gid2", "status": "waiting"}],
             [{"gid": "gid3", "status": "stopped"}],
         ]
-        proxy = Aria2Proxy(settings)
+        proxy = Aria2Proxy(settings, Mock())
         result = proxy.get_torrents()
         assert len(result) == 3
 
@@ -135,26 +137,42 @@ class TestAria2Proxy:
 class TestAria2Client:
     """Test Aria2Client."""
 
-    def test_init_with_aria2_settings(self) -> None:
+    def test_init_with_aria2_settings(
+        self, file_fetcher: FileFetcherProtocol, url_router: UrlRouterProtocol
+    ) -> None:
         """Test initialization with Aria2Settings."""
         settings = Aria2Settings(
             host="localhost",
             port=6800,
             timeout_seconds=30,
         )
-        client = Aria2Client(settings=settings)
+        client = Aria2Client(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         assert isinstance(client.settings, Aria2Settings)
         assert client.enabled is True
 
     def test_init_with_download_client_settings(
-        self, base_download_client_settings: DownloadClientSettings
+        self,
+        sabnzbd_settings: DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with DownloadClientSettings conversion."""
-        client = Aria2Client(settings=base_download_client_settings)
+        client = Aria2Client(
+            settings=sabnzbd_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, Aria2Settings)
 
     @patch.object(Aria2Proxy, "add_magnet")
-    def test_add_download_magnet(self, mock_add: MagicMock) -> None:
+    def test_add_download_magnet(
+        self,
+        mock_add: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test add_download with magnet link."""
         settings = Aria2Settings(
             host="localhost",
@@ -162,13 +180,20 @@ class TestAria2Client:
             timeout_seconds=30,
         )
         mock_add.return_value = "gid123"
-        client = Aria2Client(settings=settings)
+        client = Aria2Client(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.add_download("magnet:?xt=urn:btih:test")
         assert result == "gid123"
         mock_add.assert_called_once()
 
     @patch.object(Aria2Proxy, "get_torrents")
-    def test_get_items(self, mock_get_torrents: MagicMock) -> None:
+    def test_get_items(
+        self,
+        mock_get_torrents: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test get_items."""
         settings = Aria2Settings(
             host="localhost",
@@ -189,13 +214,20 @@ class TestAria2Client:
                 "totalLength": "1000",
             },
         ]
-        client = Aria2Client(settings=settings)
+        client = Aria2Client(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert isinstance(items, list)
         assert len(items) == 2
 
     @patch.object(Aria2Proxy, "get_version")
-    def test_test_connection(self, mock_get_version: MagicMock) -> None:
+    def test_test_connection(
+        self,
+        mock_get_version: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test test_connection."""
         settings = Aria2Settings(
             host="localhost",
@@ -203,6 +235,8 @@ class TestAria2Client:
             timeout_seconds=30,
         )
         mock_get_version.return_value = "1.36.0"
-        client = Aria2Client(settings=settings)
+        client = Aria2Client(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.test_connection()
         assert result is True

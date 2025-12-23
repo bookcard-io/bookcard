@@ -100,12 +100,11 @@ def _create_torrent_rss_settings(indexer_def: IndexerDefinition) -> IndexerSetti
         feed_url = str(indexer_def.additional_settings.get("feed_url", feed_url))
 
     return TorrentRssSettings(
-        base_url=indexer_def.base_url,
+        base_url=str(feed_url),
         api_key=indexer_def.api_key,
         timeout_seconds=indexer_def.timeout_seconds,
         retry_count=indexer_def.retry_count,
         categories=indexer_def.categories,
-        feed_url=str(feed_url),
     )
 
 

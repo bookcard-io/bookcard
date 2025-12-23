@@ -25,7 +25,7 @@ Documentation: https://www.nzbvortex.com/
 import base64
 import hashlib
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
@@ -35,6 +35,11 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
+)
+from bookcard.pvr.base.interfaces import (
+    FileFetcherProtocol,
+    HttpClientProtocol,
+    UrlRouterProtocol,
 )
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
@@ -47,7 +52,6 @@ from bookcard.pvr.exceptions import (
     PVRProviderError,
 )
 from bookcard.pvr.models import DownloadItem
-from bookcard.pvr.services.file_fetcher import FileFetcher
 from bookcard.pvr.utils.status import DownloadStatus, StatusMapper
 
 logger = logging.getLogger(__name__)
@@ -475,9 +479,26 @@ class NzbvortexClient(BaseDownloadClient):
     def __init__(
         self,
         settings: NzbvortexSettings | DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+        http_client_factory: Callable[[], HttpClientProtocol] | None = None,
         enabled: bool = True,
     ) -> None:
-        """Initialize NZBVortex client."""
+        """Initialize NZBVortex client.
+
+        Parameters
+        ----------
+        settings : NzbvortexSettings | DownloadClientSettings
+            Client settings. If DownloadClientSettings, converts to NzbvortexSettings.
+        file_fetcher : FileFetcherProtocol
+            File fetcher service.
+        url_router : UrlRouterProtocol
+            URL router service.
+        http_client_factory : Callable[[], HttpClientProtocol] | None
+            HTTP client factory.
+        enabled : bool
+            Whether this client is enabled.
+        """
         if isinstance(settings, DownloadClientSettings) and not isinstance(
             settings, NzbvortexSettings
         ):
@@ -495,10 +516,11 @@ class NzbvortexClient(BaseDownloadClient):
             )
             settings = nzbvortex_settings
 
-        super().__init__(settings, enabled)
+        super().__init__(
+            settings, file_fetcher, url_router, http_client_factory, enabled
+        )
         self.settings: NzbvortexSettings = settings  # type: ignore[assignment]
         self._proxy = NzbvortexProxy(self.settings)
-        self._file_fetcher = FileFetcher(timeout=self.settings.timeout_seconds)
         self._status_mapper = StatusMapper(
             {
                 "completed": DownloadStatus.COMPLETED,

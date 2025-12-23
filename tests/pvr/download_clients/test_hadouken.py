@@ -21,6 +21,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from bookcard.pvr.base import DownloadClientSettings
+from bookcard.pvr.base.interfaces import FileFetcherProtocol, UrlRouterProtocol
 from bookcard.pvr.download_clients.hadouken import (
     HadoukenClient,
     HadoukenProxy,
@@ -138,26 +139,44 @@ class TestHadoukenClient:
     """Test HadoukenClient."""
 
     def test_init_with_hadouken_settings(
-        self, hadouken_settings: HadoukenSettings
+        self,
+        hadouken_settings: HadoukenSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with HadoukenSettings."""
-        client = HadoukenClient(settings=hadouken_settings)
+        client = HadoukenClient(
+            settings=hadouken_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         assert isinstance(client.settings, HadoukenSettings)
         assert client.enabled is True
 
     def test_init_with_download_client_settings(
-        self, base_download_client_settings: DownloadClientSettings
+        self,
+        sabnzbd_settings: DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with DownloadClientSettings conversion."""
-        client = HadoukenClient(settings=base_download_client_settings)
+        client = HadoukenClient(
+            settings=sabnzbd_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, HadoukenSettings)
 
     @patch.object(HadoukenProxy, "add_torrent_url")
     def test_add_download_magnet(
-        self, mock_add: MagicMock, hadouken_settings: HadoukenSettings
+        self,
+        mock_add: MagicMock,
+        hadouken_settings: HadoukenSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with magnet link."""
-        client = HadoukenClient(settings=hadouken_settings)
+        client = HadoukenClient(
+            settings=hadouken_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         # Hadouken extracts hash from magnet link - use lowercase hash
         result = client.add_download("magnet:?xt=urn:btih:abcdef1234567890&dn=test")
         assert result == "ABCDEF1234567890"
@@ -165,7 +184,11 @@ class TestHadoukenClient:
 
     @patch.object(HadoukenProxy, "get_torrents")
     def test_get_items(
-        self, mock_get_torrents: MagicMock, hadouken_settings: HadoukenSettings
+        self,
+        mock_get_torrents: MagicMock,
+        hadouken_settings: HadoukenSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items."""
         # Hadouken returns list of lists - need at least 27 elements
@@ -200,27 +223,41 @@ class TestHadoukenClient:
                 "/path",  # 26: save_path
             ]
         ]
-        client = HadoukenClient(settings=hadouken_settings)
+        client = HadoukenClient(
+            settings=hadouken_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["client_item_id"] == "ABC123"
 
     @patch.object(HadoukenProxy, "remove_torrent")
     def test_remove_item(
-        self, mock_remove: MagicMock, hadouken_settings: HadoukenSettings
+        self,
+        mock_remove: MagicMock,
+        hadouken_settings: HadoukenSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test remove_item."""
-        client = HadoukenClient(settings=hadouken_settings)
+        client = HadoukenClient(
+            settings=hadouken_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.remove_item("abc123", delete_files=True)
         assert result is True
         mock_remove.assert_called_once()
 
     @patch.object(HadoukenProxy, "get_system_info")
     def test_test_connection(
-        self, mock_get_system_info: MagicMock, hadouken_settings: HadoukenSettings
+        self,
+        mock_get_system_info: MagicMock,
+        hadouken_settings: HadoukenSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test test_connection."""
         mock_get_system_info.return_value = {"version": "5.0.0"}
-        client = HadoukenClient(settings=hadouken_settings)
+        client = HadoukenClient(
+            settings=hadouken_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.test_connection()
         assert result is True

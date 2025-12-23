@@ -23,13 +23,16 @@ Documentation: https://torznab.github.io/spec-1.3-draft/torznab/
 
 import logging
 from collections.abc import Sequence
-from datetime import datetime
 from urllib.parse import urlencode, urljoin
 from xml.etree import ElementTree as ET  # noqa: S405
 
 import httpx
 
 from bookcard.pvr.base import BaseIndexer, IndexerSettings
+from bookcard.pvr.base.interfaces import (
+    RequestGeneratorProtocol,
+    ResponseParserProtocol,
+)
 from bookcard.pvr.error_handlers import (
     handle_api_error_response,
     handle_http_error_response,
@@ -40,6 +43,18 @@ from bookcard.pvr.exceptions import (
     PVRProviderNetworkError,
     PVRProviderParseError,
     PVRProviderTimeoutError,
+)
+from bookcard.pvr.indexers.parsers import (
+    AdditionalInfoExtractor,
+    AttributeExtractor,
+    CompositeReleaseParser,
+    DownloadUrlExtractor,
+    MetadataExtractor,
+    PublishDateExtractor,
+    ReleaseFieldExtractor,
+    SimpleTextExtractor,
+    SizeExtractor,
+    TitleExtractor,
 )
 from bookcard.pvr.models import ReleaseInfo
 
@@ -212,13 +227,27 @@ class TorznabRequestGenerator:
 class TorznabParser:
     """Parses Torznab XML responses.
 
-    Extracts release information from Torznab XML RSS feeds, including
-    standard RSS elements and Torznab-specific attributes.
+    Extracts release information from Torznab XML RSS feeds using CompositeReleaseParser.
     """
 
     def __init__(self) -> None:
-        """Initialize parser."""
+        """Initialize parser with composite extractors."""
         self.ns = TORZNAB_NS
+
+        extractors: dict[str, ReleaseFieldExtractor] = {
+            "title": TitleExtractor(),
+            "download_url": DownloadUrlExtractor(namespace=self.ns),
+            "size_bytes": SizeExtractor(namespace=self.ns),
+            "publish_date": PublishDateExtractor(),
+            "seeders": AttributeExtractor("seeders", as_int=True, namespace=self.ns),
+            "leechers": AttributeExtractor("leechers", as_int=True, namespace=self.ns),
+            "description": SimpleTextExtractor("description"),
+            "category": SimpleTextExtractor("category"),
+            "metadata": MetadataExtractor(namespace=self.ns),
+            "additional_info": AdditionalInfoExtractor(namespace=self.ns),
+        }
+
+        self.composite = CompositeReleaseParser(extractors)
 
     def parse_response(
         self, xml_content: bytes | str, indexer_id: int | None = None
@@ -261,9 +290,27 @@ class TorznabParser:
 
             for item in items:
                 try:
-                    release = self._parse_item(item, indexer_id)
-                    if release:
-                        releases.append(release)
+                    data = self.composite.parse(item)
+
+                    if not data.get("title") or not data.get("download_url"):
+                        continue
+
+                    release = ReleaseInfo(
+                        indexer_id=indexer_id,
+                        title=data.get("title"),  # type: ignore
+                        download_url=data.get("download_url"),  # type: ignore
+                        size_bytes=data.get("size_bytes"),
+                        publish_date=data.get("publish_date"),
+                        seeders=data.get("seeders"),
+                        leechers=data.get("leechers"),
+                        quality=data.get("quality"),
+                        author=data.get("author"),
+                        isbn=data.get("isbn"),
+                        description=data.get("description"),
+                        category=data.get("category"),
+                        additional_info=data.get("additional_info"),
+                    )
+                    releases.append(release)
                 except (ValueError, TypeError, AttributeError, KeyError) as e:
                     logger.warning("Failed to parse item: %s", e, exc_info=True)
                     continue
@@ -278,276 +325,6 @@ class TorznabParser:
         else:
             return releases
 
-    def _parse_item(
-        self, item: ET.Element, indexer_id: int | None
-    ) -> ReleaseInfo | None:
-        """Parse a single item element into ReleaseInfo.
-
-        Parameters
-        ----------
-        item : ET.Element
-            XML item element.
-        indexer_id : int | None
-            Optional indexer ID.
-
-        Returns
-        -------
-        ReleaseInfo | None
-            Parsed release info, or None if invalid.
-        """
-        # Extract title
-        title_elem = item.find("title")
-        if title_elem is None or title_elem.text is None:
-            return None
-        title = title_elem.text.strip()
-
-        # Extract download URL (enclosure or link)
-        download_url = self._get_download_url(item)
-        if not download_url:
-            return None
-
-        # Extract size
-        size_bytes = self._get_size(item)
-
-        # Extract publish date
-        publish_date = self._extract_publish_date(item)
-
-        # Extract seeders/leechers (Torznab attributes)
-        seeders = self._get_torznab_attribute_int(item, "seeders")
-        leechers = self._get_torznab_attribute_int(item, "leechers")
-
-        # Extract description
-        desc_elem = item.find("description")
-        description = desc_elem.text if desc_elem is not None else None
-
-        # Extract category
-        category_elem = item.find("category")
-        category = category_elem.text if category_elem is not None else None
-
-        # Extract metadata (author, isbn, quality)
-        author, isbn, quality = self._extract_metadata(item, title)
-
-        # Extract additional Torznab attributes
-        additional_info = self._extract_additional_info(item)
-
-        return ReleaseInfo(
-            indexer_id=indexer_id,
-            title=title,
-            download_url=download_url,
-            size_bytes=size_bytes,
-            publish_date=publish_date,
-            seeders=seeders,
-            leechers=leechers,
-            quality=quality,
-            author=author,
-            isbn=isbn,
-            description=description,
-            category=category,
-            additional_info=additional_info if additional_info else None,
-        )
-
-    def _extract_publish_date(self, item: ET.Element) -> datetime | None:
-        """Extract publish date from item.
-
-        Parameters
-        ----------
-        item : ET.Element
-            XML item element.
-
-        Returns
-        -------
-        datetime | None
-            Parsed publish date or None if not found/invalid.
-        """
-        from bookcard.pvr.utils.xml_parser import extract_publish_date_from_xml
-
-        return extract_publish_date_from_xml(item)
-
-    def _extract_metadata(
-        self, item: ET.Element, title: str
-    ) -> tuple[str | None, str | None, str | None]:
-        """Extract metadata (author, isbn, quality) from item.
-
-        Parameters
-        ----------
-        item : ET.Element
-            XML item element.
-        title : str
-            Item title for quality inference.
-
-        Returns
-        -------
-        tuple[str | None, str | None, str | None]
-            Tuple of (author, isbn, quality).
-        """
-        # Try to extract from Torznab attributes
-        author = self._get_torznab_attribute(item, "author") or None
-        isbn = self._get_torznab_attribute(item, "isbn") or None
-
-        # Extract quality/format
-        quality_attr = self._get_torznab_attribute(item, "format")
-        quality = quality_attr or self._infer_quality_from_title(title)
-
-        return (author, isbn, quality)
-
-    def _infer_quality_from_title(self, title: str) -> str | None:
-        """Infer quality/format from title.
-
-        Parameters
-        ----------
-        title : str
-            Item title.
-
-        Returns
-        -------
-        str | None
-            Inferred quality or None.
-        """
-        from bookcard.pvr.utils.quality import infer_quality_from_title
-
-        return infer_quality_from_title(title)
-
-    def _extract_additional_info(
-        self, item: ET.Element
-    ) -> dict[str, str | int | float | None]:
-        """Extract additional Torznab attributes.
-
-        Parameters
-        ----------
-        item : ET.Element
-            XML item element.
-
-        Returns
-        -------
-        dict[str, str | int | float | None]
-            Dictionary of additional info attributes.
-        """
-        additional_info: dict[str, str | int | float | None] = {}
-
-        infohash = self._get_torznab_attribute(item, "infohash")
-        if infohash:
-            additional_info["infohash"] = infohash
-
-        magnet_url = self._get_torznab_attribute(item, "magneturl")
-        if magnet_url:
-            additional_info["magneturl"] = magnet_url
-
-        return additional_info
-
-    def _get_download_url(self, item: ET.Element) -> str | None:
-        """Extract download URL from item.
-
-        Parameters
-        ----------
-        item : ET.Element
-            XML item element.
-
-        Returns
-        -------
-        str | None
-            Download URL or None if not found.
-        """
-        # Try Torznab magneturl attribute first
-        magnet_url = self._get_torznab_attribute(item, "magneturl")
-        if magnet_url:
-            return magnet_url
-
-        # Try enclosure URL
-        enclosure = item.find("enclosure")
-        if enclosure is not None:
-            url_attr = enclosure.get("url")
-            if url_attr:
-                return url_attr
-
-        # Try link element
-        link_elem = item.find("link")
-        if link_elem is not None and link_elem.text:
-            return link_elem.text.strip()
-
-        return None
-
-    def _get_size(self, item: ET.Element) -> int | None:
-        """Extract size from item.
-
-        Parameters
-        ----------
-        item : ET.Element
-            XML item element.
-
-        Returns
-        -------
-        int | None
-            Size in bytes or None if not found.
-        """
-        # Try Torznab size attribute
-        size_str = self._get_torznab_attribute(item, "size")
-        if size_str:
-            try:
-                return int(size_str)
-            except (ValueError, TypeError):
-                pass
-
-        # Try enclosure length
-        enclosure = item.find("enclosure")
-        if enclosure is not None:
-            length_attr = enclosure.get("length")
-            if length_attr:
-                try:
-                    return int(length_attr)
-                except (ValueError, TypeError):
-                    pass
-
-        return None
-
-    def _get_torznab_attribute(
-        self, item: ET.Element, name: str, default: str = ""
-    ) -> str:
-        """Get a Torznab attribute value.
-
-        Parameters
-        ----------
-        item : ET.Element
-            XML item element.
-        name : str
-            Attribute name.
-        default : str
-            Default value if not found.
-
-        Returns
-        -------
-        str
-            Attribute value or default.
-        """
-        attr_elem = item.find(f".//{self.ns}attr[@name='{name}']")
-        if attr_elem is not None:
-            value_attr = attr_elem.get("value")
-            if value_attr:
-                return value_attr
-        return default
-
-    def _get_torznab_attribute_int(self, item: ET.Element, name: str) -> int | None:
-        """Get a Torznab attribute value as integer.
-
-        Parameters
-        ----------
-        item : ET.Element
-            XML item element.
-        name : str
-            Attribute name.
-
-        Returns
-        -------
-        int | None
-            Attribute value as integer or None if not found/invalid.
-        """
-        value_str = self._get_torznab_attribute(item, name)
-        if value_str:
-            try:
-                return int(value_str)
-            except (ValueError, TypeError):
-                pass
-        return None
-
 
 class TorznabIndexer(BaseIndexer):
     """Torznab indexer implementation.
@@ -557,7 +334,10 @@ class TorznabIndexer(BaseIndexer):
     """
 
     def __init__(
-        self, settings: TorznabSettings | IndexerSettings, enabled: bool = True
+        self,
+        settings: TorznabSettings | IndexerSettings,
+        request_generator: RequestGeneratorProtocol,
+        parser: ResponseParserProtocol,
     ) -> None:
         """Initialize Torznab indexer.
 
@@ -565,8 +345,10 @@ class TorznabIndexer(BaseIndexer):
         ----------
         settings : TorznabSettings | IndexerSettings
             Indexer settings. If IndexerSettings, converts to TorznabSettings.
-        enabled : bool
-            Whether this indexer is enabled.
+        request_generator : RequestGeneratorProtocol
+            Request generator service.
+        parser : ResponseParserProtocol
+            Response parser service.
         """
         # Convert IndexerSettings to TorznabSettings if needed
         if isinstance(settings, IndexerSettings) and not isinstance(
@@ -582,10 +364,10 @@ class TorznabIndexer(BaseIndexer):
             )
             settings = torznab_settings
 
-        super().__init__(settings, enabled)
+        super().__init__(settings)
         self.settings: TorznabSettings = settings  # type: ignore[assignment]
-        self.request_generator = TorznabRequestGenerator(self.settings)
-        self.parser = TorznabParser()
+        self.request_generator = request_generator
+        self.parser = parser
 
     def search(
         self,
@@ -614,16 +396,12 @@ class TorznabIndexer(BaseIndexer):
         -------
         Sequence[ReleaseInfo]
             Sequence of release information matching the query.
-            Returns empty sequence if no results or if indexer is disabled.
 
         Raises
         ------
         PVRProviderError
             If the search fails due to network, parsing, or other errors.
         """
-        if not self.is_enabled():
-            return []
-
         # Build search query - prefer specific parameters over general query
         search_query: str | None = None
         if title:

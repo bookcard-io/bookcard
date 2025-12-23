@@ -23,8 +23,12 @@ from collections.abc import Callable
 
 from bookcard.models.pvr import DownloadClientDefinition, DownloadClientType
 from bookcard.pvr.base import BaseDownloadClient, DownloadClientSettings
+from bookcard.pvr.base.interfaces import HttpClientProtocol
 from bookcard.pvr.exceptions import PVRProviderError
+from bookcard.pvr.http.client import HttpxClient
 from bookcard.pvr.registries.download_client_registry import get_download_client_class
+from bookcard.pvr.services.file_fetcher import FileFetcher
+from bookcard.pvr.utils.url_router import DownloadUrlRouter
 
 # Registry of download client type to settings factory function
 _download_client_settings_factories: dict[
@@ -78,7 +82,26 @@ def create_download_client(client_def: DownloadClientDefinition) -> BaseDownload
     settings = settings_factory(client_def)
 
     try:
-        return client_class(settings=settings, enabled=client_def.enabled)
+        # Create dependencies
+        file_fetcher = FileFetcher(timeout=settings.timeout_seconds)
+        url_router = DownloadUrlRouter()
+
+        # Create HTTP client factory using settings
+        def http_client_factory() -> HttpClientProtocol:
+            # We return HttpxClient which satisfies HttpClientProtocol
+            return HttpxClient(
+                timeout=settings.timeout_seconds,
+                verify=True,  # Default verification
+                follow_redirects=True,
+            )
+
+        return client_class(
+            settings=settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            http_client_factory=http_client_factory,
+            enabled=client_def.enabled,
+        )
     except Exception as e:
         msg = f"Failed to create download client {client_def.name}: {e}"
         raise PVRProviderError(msg) from e

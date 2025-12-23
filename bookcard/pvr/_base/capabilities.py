@@ -19,9 +19,10 @@ This module defines Protocol classes for download client capabilities,
 following ISP by allowing clients to implement only the capabilities they support.
 """
 
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 
+@runtime_checkable
 class MagnetSupport(Protocol):
     """Protocol for clients that support magnet links."""
 
@@ -53,6 +54,7 @@ class MagnetSupport(Protocol):
         ...
 
 
+@runtime_checkable
 class FileSupport(Protocol):
     """Protocol for clients that support file uploads."""
 
@@ -84,6 +86,7 @@ class FileSupport(Protocol):
         ...
 
 
+@runtime_checkable
 class UrlSupport(Protocol):
     """Protocol for clients that support URL downloads."""
 

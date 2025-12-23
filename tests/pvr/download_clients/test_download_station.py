@@ -20,6 +20,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from bookcard.pvr.base import DownloadClientSettings
+from bookcard.pvr.base.interfaces import FileFetcherProtocol, UrlRouterProtocol
 from bookcard.pvr.download_clients.download_station import (
     DownloadStationClient,
     DownloadStationProxy,
@@ -198,27 +199,49 @@ class TestDownloadStationClient:
     """Test DownloadStationClient."""
 
     def test_init_with_download_station_settings(
-        self, download_station_settings: DownloadStationSettings
+        self,
+        download_station_settings: DownloadStationSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with DownloadStationSettings."""
-        client = DownloadStationClient(settings=download_station_settings)
+        client = DownloadStationClient(
+            settings=download_station_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, DownloadStationSettings)
         assert client.enabled is True
 
     def test_init_with_download_client_settings(
-        self, base_download_client_settings: DownloadClientSettings
+        self,
+        sabnzbd_settings: DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with DownloadClientSettings conversion."""
-        client = DownloadStationClient(settings=base_download_client_settings)
+        client = DownloadStationClient(
+            settings=sabnzbd_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, DownloadStationSettings)
 
     @patch.object(DownloadStationProxy, "add_task_from_url")
     def test_add_download_magnet(
-        self, mock_add: MagicMock, download_station_settings: DownloadStationSettings
+        self,
+        mock_add: MagicMock,
+        download_station_settings: DownloadStationSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with magnet link."""
         mock_add.return_value = "123"
-        client = DownloadStationClient(settings=download_station_settings)
+        client = DownloadStationClient(
+            settings=download_station_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         result = client.add_download("magnet:?xt=urn:btih:abc123&dn=test")
         assert result == "123"
         mock_add.assert_called_once()
@@ -228,6 +251,8 @@ class TestDownloadStationClient:
         self,
         mock_get_tasks: MagicMock,
         download_station_settings: DownloadStationSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items."""
         mock_get_tasks.return_value = [
@@ -239,17 +264,29 @@ class TestDownloadStationClient:
                 "additional": {"transfer": {"size_downloaded": 500000}},
             }
         ]
-        client = DownloadStationClient(settings=download_station_settings)
+        client = DownloadStationClient(
+            settings=download_station_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["client_item_id"] == "123"
 
     @patch.object(DownloadStationProxy, "remove_task")
     def test_remove_item(
-        self, mock_remove: MagicMock, download_station_settings: DownloadStationSettings
+        self,
+        mock_remove: MagicMock,
+        download_station_settings: DownloadStationSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test remove_item."""
-        client = DownloadStationClient(settings=download_station_settings)
+        client = DownloadStationClient(
+            settings=download_station_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         result = client.remove_item("123", _delete_files=True)
         assert result is True
         mock_remove.assert_called_once()
@@ -261,11 +298,18 @@ class TestDownloadStationClient:
         self,
         mock_authenticate: MagicMock,
         mock_get_tasks: MagicMock,
+        mock_query_api: MagicMock,
         download_station_settings: DownloadStationSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test test_connection."""
         mock_get_tasks.return_value = []
-        client = DownloadStationClient(settings=download_station_settings)
+        client = DownloadStationClient(
+            settings=download_station_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         result = client.test_connection()
         assert result is True
         mock_authenticate.assert_called_once()

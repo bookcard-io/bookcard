@@ -21,6 +21,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from bookcard.pvr.base import DownloadClientSettings
+from bookcard.pvr.base.interfaces import FileFetcherProtocol, UrlRouterProtocol
 from bookcard.pvr.download_clients.deluge import (
     DelugeClient,
     DelugeProxy,
@@ -240,17 +241,31 @@ class TestDelugeProxy:
 class TestDelugeClient:
     """Test DelugeClient."""
 
-    def test_init_with_deluge_settings(self, deluge_settings: DelugeSettings) -> None:
+    def test_init_with_deluge_settings(
+        self,
+        deluge_settings: DelugeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test initialization with DelugeSettings."""
-        client = DelugeClient(settings=deluge_settings)
+        client = DelugeClient(
+            settings=deluge_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         assert isinstance(client.settings, DelugeSettings)
         assert client.enabled is True
 
     def test_init_with_download_client_settings(
-        self, base_download_client_settings: DownloadClientSettings
+        self,
+        sabnzbd_settings: DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with DownloadClientSettings conversion."""
-        client = DelugeClient(settings=base_download_client_settings)
+        client = DelugeClient(
+            settings=sabnzbd_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, DelugeSettings)
 
     @patch.object(DelugeProxy, "_authenticate")
@@ -262,10 +277,14 @@ class TestDelugeClient:
         mock_set_label: MagicMock,
         mock_auth: MagicMock,
         deluge_settings: DelugeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with magnet link."""
         mock_add.return_value = "abc123hash"
-        client = DelugeClient(settings=deluge_settings)
+        client = DelugeClient(
+            settings=deluge_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.add_download("magnet:?xt=urn:btih:abc123&dn=test")
         assert result == "ABC123HASH"
         mock_add.assert_called_once()
@@ -280,10 +299,14 @@ class TestDelugeClient:
         mock_auth: MagicMock,
         deluge_settings: DelugeSettings,
         sample_torrent_file: Path,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with file path."""
         mock_add.return_value = "abc123hash"
-        client = DelugeClient(settings=deluge_settings)
+        client = DelugeClient(
+            settings=deluge_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.add_download(str(sample_torrent_file))
         assert result == "ABC123HASH"
         mock_add.assert_called_once()
@@ -295,6 +318,8 @@ class TestDelugeClient:
         mock_get_torrents: MagicMock,
         mock_get_torrents_by_label: MagicMock,
         deluge_settings: DelugeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items."""
         mock_get_torrents_by_label.return_value = [
@@ -319,7 +344,9 @@ class TestDelugeClient:
                 "save_path": "/downloads",
             }
         ]
-        client = DelugeClient(settings=deluge_settings)
+        client = DelugeClient(
+            settings=deluge_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["client_item_id"] == "ABC123"
@@ -331,10 +358,14 @@ class TestDelugeClient:
         mock_remove: MagicMock,
         mock_auth: MagicMock,
         deluge_settings: DelugeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test remove_item."""
         mock_remove.return_value = True
-        client = DelugeClient(settings=deluge_settings)
+        client = DelugeClient(
+            settings=deluge_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.remove_item("abc123", delete_files=True)
         assert result is True
         # DelugeClient passes delete_files to remove_torrent which maps to remove_data
@@ -342,10 +373,16 @@ class TestDelugeClient:
 
     @patch.object(DelugeProxy, "get_version")
     def test_test_connection(
-        self, mock_get_version: MagicMock, deluge_settings: DelugeSettings
+        self,
+        mock_get_version: MagicMock,
+        deluge_settings: DelugeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test test_connection."""
         mock_get_version.return_value = "2.1.1"
-        client = DelugeClient(settings=deluge_settings)
+        client = DelugeClient(
+            settings=deluge_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.test_connection()
         assert result is True

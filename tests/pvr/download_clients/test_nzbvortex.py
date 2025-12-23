@@ -21,6 +21,7 @@ from unittest.mock import MagicMock, Mock, patch
 from bookcard.pvr.base import (
     DownloadClientSettings,
 )
+from bookcard.pvr.base.interfaces import FileFetcherProtocol, UrlRouterProtocol
 from bookcard.pvr.download_clients.nzbvortex import (
     NzbvortexClient,
     NzbvortexProxy,
@@ -150,7 +151,9 @@ class TestNzbvortexProxy:
 class TestNzbvortexClient:
     """Test NzbvortexClient."""
 
-    def test_init_with_nzbvortex_settings(self) -> None:
+    def test_init_with_nzbvortex_settings(
+        self, file_fetcher: FileFetcherProtocol, url_router: UrlRouterProtocol
+    ) -> None:
         """Test initialization with NzbvortexSettings."""
         settings = NzbvortexSettings(
             host="localhost",
@@ -158,15 +161,24 @@ class TestNzbvortexClient:
             api_key="test-api-key",
             timeout_seconds=30,
         )
-        client = NzbvortexClient(settings=settings)
+        client = NzbvortexClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         assert isinstance(client.settings, NzbvortexSettings)
         assert client.enabled is True
 
     def test_init_with_download_client_settings(
-        self, base_download_client_settings: DownloadClientSettings
+        self,
+        sabnzbd_settings: DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with DownloadClientSettings conversion."""
-        client = NzbvortexClient(settings=base_download_client_settings)
+        client = NzbvortexClient(
+            settings=sabnzbd_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, NzbvortexSettings)
 
     @patch.object(NzbvortexProxy, "add_nzb")
@@ -174,6 +186,8 @@ class TestNzbvortexClient:
         self,
         mock_add_nzb: MagicMock,
         sample_nzb_file: Path,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with NZB file path."""
         settings = NzbvortexSettings(
@@ -183,13 +197,20 @@ class TestNzbvortexClient:
             timeout_seconds=30,
         )
         mock_add_nzb.return_value = 123
-        client = NzbvortexClient(settings=settings)
+        client = NzbvortexClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.add_download(str(sample_nzb_file))
         assert result == "123"
         mock_add_nzb.assert_called_once()
 
     @patch.object(NzbvortexProxy, "get_queue")
-    def test_get_items(self, mock_get_queue: MagicMock) -> None:
+    def test_get_items(
+        self,
+        mock_get_queue: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test get_items."""
         settings = NzbvortexSettings(
             host="localhost",
@@ -206,13 +227,21 @@ class TestNzbvortexClient:
                 "size": 1000000,
             }
         ]
-        client = NzbvortexClient(settings=settings)
+        client = NzbvortexClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) > 0
 
     @patch.object(NzbvortexProxy, "_authenticate")
     @patch.object(NzbvortexProxy, "remove_nzb")
-    def test_remove_item(self, mock_remove: MagicMock, mock_auth: MagicMock) -> None:
+    def test_remove_item(
+        self,
+        mock_remove: MagicMock,
+        mock_auth: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test remove_item."""
         settings = NzbvortexSettings(
             host="localhost",
@@ -220,13 +249,20 @@ class TestNzbvortexClient:
             api_key="test-api-key",
             timeout_seconds=30,
         )
-        client = NzbvortexClient(settings=settings)
+        client = NzbvortexClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.remove_item("123", delete_files=True)
         assert result is True
         mock_remove.assert_called_once_with(123, True)
 
     @patch.object(NzbvortexProxy, "get_queue")
-    def test_test_connection(self, mock_get_queue: MagicMock) -> None:
+    def test_test_connection(
+        self,
+        mock_get_queue: MagicMock,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test test_connection."""
         mock_get_queue.return_value = []
         settings = NzbvortexSettings(
@@ -235,7 +271,9 @@ class TestNzbvortexClient:
             api_key="test-api-key",
             timeout_seconds=30,
         )
-        client = NzbvortexClient(settings=settings)
+        client = NzbvortexClient(
+            settings=settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.test_connection()
         assert result is True
         mock_get_queue.assert_called_once()

@@ -22,6 +22,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from bookcard.pvr.base import DownloadClientSettings
+from bookcard.pvr.base.interfaces import FileFetcherProtocol, UrlRouterProtocol
 from bookcard.pvr.download_clients.sabnzbd import (
     SabnzbdClient,
     SabnzbdProxy,
@@ -269,18 +270,30 @@ class TestSabnzbdClient:
     """Test SabnzbdClient."""
 
     def test_init_with_sabnzbd_settings(
-        self, sabnzbd_settings: SabnzbdSettings
+        self,
+        sabnzbd_settings: SabnzbdSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with SabnzbdSettings."""
-        client = SabnzbdClient(settings=sabnzbd_settings)
+        client = SabnzbdClient(
+            settings=sabnzbd_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         assert isinstance(client.settings, SabnzbdSettings)
         assert client.enabled is True
 
     def test_init_with_download_client_settings(
-        self, base_download_client_settings: DownloadClientSettings
+        self,
+        sabnzbd_settings: DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with DownloadClientSettings conversion."""
-        client = SabnzbdClient(settings=base_download_client_settings)
+        client = SabnzbdClient(
+            settings=sabnzbd_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, SabnzbdSettings)
 
     @patch.object(SabnzbdProxy, "add_nzb")
@@ -289,10 +302,14 @@ class TestSabnzbdClient:
         mock_add_nzb: MagicMock,
         sabnzbd_settings: SabnzbdSettings,
         sample_nzb_file: Path,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with NZB file path."""
         mock_add_nzb.return_value = "test-id-123"
-        client = SabnzbdClient(settings=sabnzbd_settings)
+        client = SabnzbdClient(
+            settings=sabnzbd_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.add_download(str(sample_nzb_file))
         assert result == "test-id-123"
         mock_add_nzb.assert_called_once()
@@ -305,6 +322,8 @@ class TestSabnzbdClient:
         mock_add_nzb: MagicMock,
         sabnzbd_settings: SabnzbdSettings,
         sample_nzb_url: str,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with NZB URL."""
         mock_add_nzb.return_value = "test-id-123"
@@ -317,7 +336,9 @@ class TestSabnzbdClient:
         mock_client.__exit__ = Mock(return_value=False)
         mock_client_class.return_value = mock_client
 
-        client = SabnzbdClient(settings=sabnzbd_settings)
+        client = SabnzbdClient(
+            settings=sabnzbd_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.add_download(sample_nzb_url)
         assert result == "test-id-123"
 
@@ -328,6 +349,8 @@ class TestSabnzbdClient:
         mock_get_history: MagicMock,
         mock_get_queue: MagicMock,
         sabnzbd_settings: SabnzbdSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items."""
         mock_get_queue.return_value = [
@@ -341,27 +364,41 @@ class TestSabnzbdClient:
             }
         ]
         mock_get_history.return_value = []
-        client = SabnzbdClient(settings=sabnzbd_settings)
+        client = SabnzbdClient(
+            settings=sabnzbd_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) > 0
 
     @patch.object(SabnzbdProxy, "remove_from_queue")
     def test_remove_item_from_queue(
-        self, mock_remove: MagicMock, sabnzbd_settings: SabnzbdSettings
+        self,
+        mock_remove: MagicMock,
+        sabnzbd_settings: SabnzbdSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test remove_item from queue."""
-        client = SabnzbdClient(settings=sabnzbd_settings)
+        client = SabnzbdClient(
+            settings=sabnzbd_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.remove_item("test-id", delete_files=True)
         assert result is True
         mock_remove.assert_called_once()
 
     @patch.object(SabnzbdProxy, "get_version")
     def test_test_connection(
-        self, mock_get_version: MagicMock, sabnzbd_settings: SabnzbdSettings
+        self,
+        mock_get_version: MagicMock,
+        sabnzbd_settings: SabnzbdSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test test_connection."""
         mock_get_version.return_value = "3.7.0"
-        client = SabnzbdClient(settings=sabnzbd_settings)
+        client = SabnzbdClient(
+            settings=sabnzbd_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.test_connection()
         assert result is True
 
@@ -485,19 +522,35 @@ class TestSabnzbdClient:
         call_args = mock_request.call_args
         assert call_args[1]["params"]["archive"] == 0
 
-    def test_add_download_disabled(self, sabnzbd_settings: SabnzbdSettings) -> None:
+    def test_add_download_disabled(
+        self,
+        sabnzbd_settings: SabnzbdSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test add_download when disabled."""
-        client = SabnzbdClient(settings=sabnzbd_settings, enabled=False)
+        client = SabnzbdClient(
+            settings=sabnzbd_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
         with pytest.raises(PVRProviderError, match="disabled"):
             client.add_download("http://example.com/file.nzb")
 
     @patch.object(SabnzbdProxy, "add_nzb")
     def test_add_download_with_category(
-        self, mock_add_nzb: MagicMock, sabnzbd_settings: SabnzbdSettings
+        self,
+        mock_add_nzb: MagicMock,
+        sabnzbd_settings: SabnzbdSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with category."""
         mock_add_nzb.return_value = "test-id-123"
-        client = SabnzbdClient(settings=sabnzbd_settings)
+        client = SabnzbdClient(
+            settings=sabnzbd_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.add_download("http://example.com/file.nzb", category="test-cat")
         assert result == "test-id-123"
         mock_add_nzb.assert_called_once()
@@ -511,6 +564,8 @@ class TestSabnzbdClient:
         mock_get_history: MagicMock,
         mock_get_queue: MagicMock,
         sabnzbd_settings: SabnzbdSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items with history items."""
         mock_get_queue.return_value = []
@@ -523,7 +578,9 @@ class TestSabnzbdClient:
                 "storage": "/downloads/test",
             }
         ]
-        client = SabnzbdClient(settings=sabnzbd_settings)
+        client = SabnzbdClient(
+            settings=sabnzbd_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["status"] == "completed"
@@ -536,6 +593,8 @@ class TestSabnzbdClient:
         mock_get_history: MagicMock,
         mock_get_queue: MagicMock,
         sabnzbd_settings: SabnzbdSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items with failed items."""
         mock_get_queue.return_value = []
@@ -547,7 +606,9 @@ class TestSabnzbdClient:
                 "mb": 1000,
             }
         ]
-        client = SabnzbdClient(settings=sabnzbd_settings)
+        client = SabnzbdClient(
+            settings=sabnzbd_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["status"] == "failed"
@@ -559,6 +620,8 @@ class TestSabnzbdClient:
         mock_get_history: MagicMock,
         mock_get_queue: MagicMock,
         sabnzbd_settings: SabnzbdSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items with progress over 100%."""
         mock_get_queue.return_value = [
@@ -571,7 +634,9 @@ class TestSabnzbdClient:
             }
         ]
         mock_get_history.return_value = []
-        client = SabnzbdClient(settings=sabnzbd_settings)
+        client = SabnzbdClient(
+            settings=sabnzbd_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["progress"] == 1.0  # Should be capped
@@ -583,6 +648,8 @@ class TestSabnzbdClient:
         mock_get_history: MagicMock,
         mock_get_queue: MagicMock,
         sabnzbd_settings: SabnzbdSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items with timeleft as int."""
         mock_get_queue.return_value = [
@@ -596,7 +663,9 @@ class TestSabnzbdClient:
             }
         ]
         mock_get_history.return_value = []
-        client = SabnzbdClient(settings=sabnzbd_settings)
+        client = SabnzbdClient(
+            settings=sabnzbd_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["eta_seconds"] == 60
@@ -608,10 +677,14 @@ class TestSabnzbdClient:
         mock_get_history: MagicMock,
         mock_get_queue: MagicMock,
         sabnzbd_settings: SabnzbdSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items with error."""
         mock_get_queue.side_effect = Exception("Connection error")
-        client = SabnzbdClient(settings=sabnzbd_settings)
+        client = SabnzbdClient(
+            settings=sabnzbd_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         with pytest.raises(PVRProviderError, match="Failed to get downloads"):
             client.get_items()
 
@@ -622,12 +695,16 @@ class TestSabnzbdClient:
         mock_remove_history: MagicMock,
         mock_remove_queue: MagicMock,
         sabnzbd_settings: SabnzbdSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test remove_item from history when not in queue."""
         from bookcard.pvr.exceptions import PVRProviderError
 
         mock_remove_queue.side_effect = PVRProviderError("Not in queue")
-        client = SabnzbdClient(settings=sabnzbd_settings)
+        client = SabnzbdClient(
+            settings=sabnzbd_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.remove_item("test-id", delete_files=True)
         assert result is True
         mock_remove_history.assert_called_once()
@@ -639,26 +716,46 @@ class TestSabnzbdClient:
         mock_remove_history: MagicMock,
         mock_remove_queue: MagicMock,
         sabnzbd_settings: SabnzbdSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test remove_item with error."""
         mock_remove_queue.side_effect = Exception("Remove error")
         mock_remove_history.side_effect = Exception("Remove error")
-        client = SabnzbdClient(settings=sabnzbd_settings)
+        client = SabnzbdClient(
+            settings=sabnzbd_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         with pytest.raises(PVRProviderError, match="Failed to remove"):
             client.remove_item("test-id")
 
-    def test_remove_item_disabled(self, sabnzbd_settings: SabnzbdSettings) -> None:
+    def test_remove_item_disabled(
+        self,
+        sabnzbd_settings: SabnzbdSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test remove_item when disabled."""
-        client = SabnzbdClient(settings=sabnzbd_settings, enabled=False)
+        client = SabnzbdClient(
+            settings=sabnzbd_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
         with pytest.raises(PVRProviderError, match="disabled"):
             client.remove_item("test-id")
 
     @patch.object(SabnzbdProxy, "get_version")
     def test_test_connection_error(
-        self, mock_get_version: MagicMock, sabnzbd_settings: SabnzbdSettings
+        self,
+        mock_get_version: MagicMock,
+        sabnzbd_settings: SabnzbdSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test test_connection with error."""
         mock_get_version.side_effect = Exception("Connection error")
-        client = SabnzbdClient(settings=sabnzbd_settings)
+        client = SabnzbdClient(
+            settings=sabnzbd_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         with pytest.raises(PVRProviderError, match="Failed to connect"):
             client.test_connection()

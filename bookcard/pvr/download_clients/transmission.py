@@ -25,7 +25,7 @@ import base64
 import json
 import logging
 import pathlib
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from contextlib import suppress
 from typing import Any
 
@@ -34,6 +34,11 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
+)
+from bookcard.pvr.base.interfaces import (
+    FileFetcherProtocol,
+    HttpClientProtocol,
+    UrlRouterProtocol,
 )
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
@@ -488,6 +493,9 @@ class TransmissionClient(BaseDownloadClient):
     def __init__(
         self,
         settings: TransmissionSettings | DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+        http_client_factory: Callable[[], HttpClientProtocol] | None = None,
         enabled: bool = True,
     ) -> None:
         """Initialize Transmission client.
@@ -496,6 +504,12 @@ class TransmissionClient(BaseDownloadClient):
         ----------
         settings : TransmissionSettings | DownloadClientSettings
             Client settings. If DownloadClientSettings, converts to TransmissionSettings.
+        file_fetcher : FileFetcherProtocol
+            File fetcher service.
+        url_router : UrlRouterProtocol
+            URL router service.
+        http_client_factory : Callable[[], HttpClientProtocol] | None
+            HTTP client factory.
         enabled : bool
             Whether this client is enabled.
         """
@@ -516,7 +530,9 @@ class TransmissionClient(BaseDownloadClient):
             )
             settings = trans_settings
 
-        super().__init__(settings, enabled)
+        super().__init__(
+            settings, file_fetcher, url_router, http_client_factory, enabled
+        )
         self.settings: TransmissionSettings = settings  # type: ignore[assignment]
         self._proxy = TransmissionProxy(self.settings)
         self._status_mapper = StatusMapper(

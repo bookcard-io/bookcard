@@ -24,7 +24,7 @@ Documentation: https://github.com/qbittorrent/qBittorrent/wiki/Web-API-Documenta
 import json
 import logging
 import pathlib
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 from urllib.parse import urljoin
 
@@ -33,6 +33,11 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
+)
+from bookcard.pvr.base.interfaces import (
+    FileFetcherProtocol,
+    HttpClientProtocol,
+    UrlRouterProtocol,
 )
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
@@ -420,6 +425,9 @@ class QBittorrentClient(BaseDownloadClient):
     def __init__(
         self,
         settings: QBittorrentSettings | DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+        http_client_factory: Callable[[], HttpClientProtocol] | None = None,
         enabled: bool = True,
     ) -> None:
         """Initialize qBittorrent client.
@@ -428,6 +436,12 @@ class QBittorrentClient(BaseDownloadClient):
         ----------
         settings : QBittorrentSettings | DownloadClientSettings
             Client settings. If DownloadClientSettings, converts to QBittorrentSettings.
+        file_fetcher : FileFetcherProtocol
+            File fetcher service.
+        url_router : UrlRouterProtocol
+            URL router service.
+        http_client_factory : Callable[[], HttpClientProtocol] | None
+            HTTP client factory.
         enabled : bool
             Whether this client is enabled.
         """
@@ -448,7 +462,9 @@ class QBittorrentClient(BaseDownloadClient):
             )
             settings = qb_settings
 
-        super().__init__(settings, enabled)
+        super().__init__(
+            settings, file_fetcher, url_router, http_client_factory, enabled
+        )
         self.settings: QBittorrentSettings = settings  # type: ignore[assignment]
         self._proxy = QBittorrentProxy(self.settings)
         self._status_mapper = StatusMapper(

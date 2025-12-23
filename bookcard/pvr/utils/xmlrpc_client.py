@@ -31,7 +31,7 @@ from bookcard.pvr.download_clients._http_client import (
 )
 from bookcard.pvr.error_handlers import handle_http_error_response
 from bookcard.pvr.exceptions import PVRProviderError
-from bookcard.pvr.utils.xmlrpc import XmlRpcBuilder, XmlRpcParser
+from bookcard.pvr.utils.xmlrpc import XmlRpcBuilder, XmlRpcParser, XmlRpcValue
 
 
 class XmlRpcClient:
@@ -109,7 +109,7 @@ class XmlRpcClient:
     def call(
         self,
         method: str,
-        *params: str | bytes | int | list[str | int] | dict[str, str | int | None],
+        *params: XmlRpcValue,
     ) -> Any:  # noqa: ANN401
         """Call XML-RPC method.
 
@@ -117,7 +117,7 @@ class XmlRpcClient:
         ----------
         method : str
             RPC method name.
-        *params : str | bytes | int | list[str | int] | dict[str, str | int | None]
+        *params : XmlRpcValue
             Method parameters.
 
         Returns

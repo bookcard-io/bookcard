@@ -22,6 +22,7 @@ import httpx
 import pytest
 
 from bookcard.pvr.base import DownloadClientSettings
+from bookcard.pvr.base.interfaces import FileFetcherProtocol, UrlRouterProtocol
 from bookcard.pvr.download_clients.qbittorrent import (
     QBittorrentClient,
     QBittorrentProxy,
@@ -588,51 +589,99 @@ class TestQBittorrentClient:
     """Test QBittorrentClient."""
 
     def test_init_with_qbittorrent_settings(
-        self, qbittorrent_settings: QBittorrentSettings
+        self,
+        qbittorrent_settings: QBittorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with QBittorrentSettings."""
-        client = QBittorrentClient(settings=qbittorrent_settings)
+        client = QBittorrentClient(
+            settings=qbittorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, QBittorrentSettings)
         assert client.enabled is True
 
     def test_init_with_download_client_settings(
-        self, base_download_client_settings: DownloadClientSettings
+        self,
+        sabnzbd_settings: DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with DownloadClientSettings conversion."""
-        client = QBittorrentClient(settings=base_download_client_settings)
+        client = QBittorrentClient(
+            settings=sabnzbd_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, QBittorrentSettings)
 
-    def test_init_disabled(self, qbittorrent_settings: QBittorrentSettings) -> None:
+    def test_init_disabled(
+        self,
+        qbittorrent_settings: QBittorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test initialization with enabled=False."""
-        client = QBittorrentClient(settings=qbittorrent_settings, enabled=False)
+        client = QBittorrentClient(
+            settings=qbittorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
         assert client.enabled is False
 
     @patch.object(QBittorrentProxy, "add_torrent_from_url")
     def test_add_download_magnet(
-        self, mock_add: MagicMock, qbittorrent_settings: QBittorrentSettings
+        self,
+        mock_add: MagicMock,
+        qbittorrent_settings: QBittorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with magnet link."""
-        client = QBittorrentClient(settings=qbittorrent_settings)
+        client = QBittorrentClient(
+            settings=qbittorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         result = client.add_download("magnet:?xt=urn:btih:ABCDEF1234567890&dn=test")
         assert result == "ABCDEF1234567890"
         mock_add.assert_called_once()
 
     @patch.object(QBittorrentProxy, "add_torrent_from_url")
     def test_add_download_magnet_exception(
-        self, mock_add: MagicMock, qbittorrent_settings: QBittorrentSettings
+        self,
+        mock_add: MagicMock,
+        qbittorrent_settings: QBittorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with magnet link that raises exception during hash extraction."""
         mock_add.side_effect = RuntimeError("Network error")
-        client = QBittorrentClient(settings=qbittorrent_settings)
+        client = QBittorrentClient(
+            settings=qbittorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         with pytest.raises(PVRProviderError, match="Failed to add download"):
             client.add_download("magnet:?xt=urn:btih:ABCDEF1234567890&dn=test")
 
     @patch.object(QBittorrentProxy, "add_torrent_from_url")
     def test_add_download_http_url(
-        self, mock_add: MagicMock, qbittorrent_settings: QBittorrentSettings
+        self,
+        mock_add: MagicMock,
+        qbittorrent_settings: QBittorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with HTTP URL."""
-        client = QBittorrentClient(settings=qbittorrent_settings)
+        client = QBittorrentClient(
+            settings=qbittorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         result = client.add_download("http://example.com/torrent.torrent")
         assert result == "pending"
         mock_add.assert_called_once()
@@ -643,25 +692,44 @@ class TestQBittorrentClient:
         mock_add: MagicMock,
         qbittorrent_settings: QBittorrentSettings,
         sample_torrent_file: Path,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with file path."""
-        client = QBittorrentClient(settings=qbittorrent_settings)
+        client = QBittorrentClient(
+            settings=qbittorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         result = client.add_download(str(sample_torrent_file))
         assert result == "pending"
         mock_add.assert_called_once()
 
     @patch.object(QBittorrentProxy, "add_torrent_from_url")
     def test_add_download_disabled(
-        self, mock_add: MagicMock, qbittorrent_settings: QBittorrentSettings
+        self,
+        mock_add: MagicMock,
+        qbittorrent_settings: QBittorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download when disabled."""
-        client = QBittorrentClient(settings=qbittorrent_settings, enabled=False)
+        client = QBittorrentClient(
+            settings=qbittorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
         with pytest.raises(PVRProviderError, match="disabled"):
             client.add_download("magnet:?xt=urn:btih:test")
 
     @patch.object(QBittorrentProxy, "get_torrents")
     def test_get_items(
-        self, mock_get_torrents: MagicMock, qbittorrent_settings: QBittorrentSettings
+        self,
+        mock_get_torrents: MagicMock,
+        qbittorrent_settings: QBittorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items."""
         mock_get_torrents.return_value = [
@@ -677,7 +745,11 @@ class TestQBittorrentClient:
                 "save_path": "/downloads",
             }
         ]
-        client = QBittorrentClient(settings=qbittorrent_settings)
+        client = QBittorrentClient(
+            settings=qbittorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["client_item_id"] == "ABC123"
@@ -687,16 +759,29 @@ class TestQBittorrentClient:
 
     @patch.object(QBittorrentProxy, "get_torrents")
     def test_get_items_disabled(
-        self, mock_get_torrents: MagicMock, qbittorrent_settings: QBittorrentSettings
+        self,
+        mock_get_torrents: MagicMock,
+        qbittorrent_settings: QBittorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items when disabled."""
-        client = QBittorrentClient(settings=qbittorrent_settings, enabled=False)
+        client = QBittorrentClient(
+            settings=qbittorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
         items = client.get_items()
         assert items == []
 
     @patch.object(QBittorrentProxy, "get_torrents")
     def test_get_items_progress_over_100(
-        self, mock_get_torrents: MagicMock, qbittorrent_settings: QBittorrentSettings
+        self,
+        mock_get_torrents: MagicMock,
+        qbittorrent_settings: QBittorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items with progress over 100%."""
         mock_get_torrents.return_value = [
@@ -710,66 +795,119 @@ class TestQBittorrentClient:
                 "save_path": "/downloads",
             }
         ]
-        client = QBittorrentClient(settings=qbittorrent_settings)
+        client = QBittorrentClient(
+            settings=qbittorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         items = client.get_items()
         assert items[0]["progress"] == 1.0
 
     @patch.object(QBittorrentProxy, "get_torrents")
     def test_get_items_exception(
-        self, mock_get_torrents: MagicMock, qbittorrent_settings: QBittorrentSettings
+        self,
+        mock_get_torrents: MagicMock,
+        qbittorrent_settings: QBittorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items with exception."""
         mock_get_torrents.side_effect = RuntimeError("Network error")
-        client = QBittorrentClient(settings=qbittorrent_settings)
+        client = QBittorrentClient(
+            settings=qbittorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         with pytest.raises(PVRProviderError, match="Failed to get downloads"):
             client.get_items()
 
     @patch.object(QBittorrentProxy, "remove_torrent")
     def test_remove_item(
-        self, mock_remove: MagicMock, qbittorrent_settings: QBittorrentSettings
+        self,
+        mock_remove: MagicMock,
+        qbittorrent_settings: QBittorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test remove_item."""
-        client = QBittorrentClient(settings=qbittorrent_settings)
+        client = QBittorrentClient(
+            settings=qbittorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         result = client.remove_item("ABC123", delete_files=True)
         assert result is True
         mock_remove.assert_called_once_with("abc123", delete_files=True)
 
     @patch.object(QBittorrentProxy, "remove_torrent")
     def test_remove_item_disabled(
-        self, mock_remove: MagicMock, qbittorrent_settings: QBittorrentSettings
+        self,
+        mock_remove: MagicMock,
+        qbittorrent_settings: QBittorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test remove_item when disabled."""
-        client = QBittorrentClient(settings=qbittorrent_settings, enabled=False)
+        client = QBittorrentClient(
+            settings=qbittorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
         with pytest.raises(PVRProviderError, match="disabled"):
             client.remove_item("ABC123")
 
     @patch.object(QBittorrentProxy, "remove_torrent")
     def test_remove_item_exception(
-        self, mock_remove: MagicMock, qbittorrent_settings: QBittorrentSettings
+        self,
+        mock_remove: MagicMock,
+        qbittorrent_settings: QBittorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test remove_item with exception."""
         mock_remove.side_effect = RuntimeError("Network error")
-        client = QBittorrentClient(settings=qbittorrent_settings)
+        client = QBittorrentClient(
+            settings=qbittorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         with pytest.raises(PVRProviderError, match="Failed to remove download"):
             client.remove_item("ABC123")
 
     @patch.object(QBittorrentProxy, "get_version")
     def test_test_connection(
-        self, mock_get_version: MagicMock, qbittorrent_settings: QBittorrentSettings
+        self,
+        mock_get_version: MagicMock,
+        qbittorrent_settings: QBittorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test test_connection."""
         mock_get_version.return_value = "4.5.0"
-        client = QBittorrentClient(settings=qbittorrent_settings)
+        client = QBittorrentClient(
+            settings=qbittorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         result = client.test_connection()
         assert result is True
 
     @patch.object(QBittorrentProxy, "get_version")
     def test_test_connection_exception(
-        self, mock_get_version: MagicMock, qbittorrent_settings: QBittorrentSettings
+        self,
+        mock_get_version: MagicMock,
+        qbittorrent_settings: QBittorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test test_connection with exception."""
         mock_get_version.side_effect = RuntimeError("Network error")
-        client = QBittorrentClient(settings=qbittorrent_settings)
+        client = QBittorrentClient(
+            settings=qbittorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         with pytest.raises(PVRProviderError, match="Failed to connect"):
             client.test_connection()
 
@@ -789,9 +927,15 @@ class TestQBittorrentClient:
         eta: int | None,
         expected: int | None,
         qbittorrent_settings: QBittorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test _calculate_eta with various ETA values."""
-        client = QBittorrentClient(settings=qbittorrent_settings)
+        client = QBittorrentClient(
+            settings=qbittorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         torrent = {"eta": eta}
         result = client._calculate_eta(torrent)
         assert result == expected

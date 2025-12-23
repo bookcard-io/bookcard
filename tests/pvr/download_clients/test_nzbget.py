@@ -21,6 +21,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from bookcard.pvr.base import DownloadClientSettings
+from bookcard.pvr.base.interfaces import FileFetcherProtocol, UrlRouterProtocol
 from bookcard.pvr.download_clients.nzbget import (
     NzbgetClient,
     NzbgetProxy,
@@ -165,17 +166,31 @@ class TestNzbgetProxy:
 class TestNzbgetClient:
     """Test NzbgetClient."""
 
-    def test_init_with_nzbget_settings(self, nzbget_settings: NzbgetSettings) -> None:
+    def test_init_with_nzbget_settings(
+        self,
+        nzbget_settings: NzbgetSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
         """Test initialization with NzbgetSettings."""
-        client = NzbgetClient(settings=nzbget_settings)
+        client = NzbgetClient(
+            settings=nzbget_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         assert isinstance(client.settings, NzbgetSettings)
         assert client.enabled is True
 
     def test_init_with_download_client_settings(
-        self, base_download_client_settings: DownloadClientSettings
+        self,
+        sabnzbd_settings: DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with DownloadClientSettings conversion."""
-        client = NzbgetClient(settings=base_download_client_settings)
+        client = NzbgetClient(
+            settings=sabnzbd_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, NzbgetSettings)
 
     @patch.object(NzbgetProxy, "append_nzb")
@@ -184,10 +199,14 @@ class TestNzbgetClient:
         mock_append: MagicMock,
         nzbget_settings: NzbgetSettings,
         sample_nzb_file: Path,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with NZB file path."""
         mock_append.return_value = 123
-        client = NzbgetClient(settings=nzbget_settings)
+        client = NzbgetClient(
+            settings=nzbget_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.add_download(str(sample_nzb_file))
         assert result == "123"
         mock_append.assert_called_once()
@@ -200,6 +219,8 @@ class TestNzbgetClient:
         mock_append: MagicMock,
         nzbget_settings: NzbgetSettings,
         sample_nzb_url: str,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with NZB URL."""
         mock_append.return_value = 123
@@ -212,7 +233,9 @@ class TestNzbgetClient:
         mock_client.__exit__ = Mock(return_value=False)
         mock_client_class.return_value = mock_client
 
-        client = NzbgetClient(settings=nzbget_settings)
+        client = NzbgetClient(
+            settings=nzbget_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.add_download(sample_nzb_url)
         assert result == "123"
 
@@ -225,6 +248,8 @@ class TestNzbgetClient:
         mock_get_queue: MagicMock,
         mock_get_global_status: MagicMock,
         nzbget_settings: NzbgetSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items."""
         mock_get_global_status.return_value = {"DownloadRate": 1000000}
@@ -239,7 +264,9 @@ class TestNzbgetClient:
             }
         ]
         mock_get_history.return_value = []
-        client = NzbgetClient(settings=nzbget_settings)
+        client = NzbgetClient(
+            settings=nzbget_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         items = client.get_items()
         assert len(items) > 0
 
@@ -248,19 +275,29 @@ class TestNzbgetClient:
         self,
         mock_remove: MagicMock,
         nzbget_settings: NzbgetSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test remove_item."""
-        client = NzbgetClient(settings=nzbget_settings)
+        client = NzbgetClient(
+            settings=nzbget_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.remove_item("123", _delete_files=True)
         assert result is True
         mock_remove.assert_called_once_with(123)
 
     @patch.object(NzbgetProxy, "get_version")
     def test_test_connection(
-        self, mock_get_version: MagicMock, nzbget_settings: NzbgetSettings
+        self,
+        mock_get_version: MagicMock,
+        nzbget_settings: NzbgetSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test test_connection."""
         mock_get_version.return_value = "21.1"
-        client = NzbgetClient(settings=nzbget_settings)
+        client = NzbgetClient(
+            settings=nzbget_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
         result = client.test_connection()
         assert result is True

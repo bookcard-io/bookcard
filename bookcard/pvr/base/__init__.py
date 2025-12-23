@@ -16,16 +16,20 @@
 """Abstract base classes for PVR indexers and download clients."""
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from pydantic import BaseModel, Field
 
 # Import capabilities from _base directory
 from bookcard.pvr._base.capabilities import FileSupport, MagnetSupport, UrlSupport
+from bookcard.pvr.base.interfaces import (
+    FileFetcherProtocol,
+    HttpClientProtocol,
+    UrlRouterProtocol,
+)
+from bookcard.pvr.base.strategies import DownloadStrategyRegistry
 from bookcard.pvr.exceptions import PVRProviderError
 from bookcard.pvr.models import DownloadItem, ReleaseInfo
-from bookcard.pvr.services.file_fetcher import FileFetcher
-from bookcard.pvr.utils.url_router import DownloadType, DownloadUrlRouter
 
 
 class IndexerSettings(BaseModel):
@@ -117,28 +121,22 @@ class BaseIndexer(ABC):
     Subclasses should implement:
     - `search()`: Search for releases matching a query
     - `test_connection()`: Test connectivity to the indexer
-    - Optionally override `is_enabled()` for conditional activation
 
     Attributes
     ----------
-    enabled : bool
-        Whether this indexer is currently enabled.
     settings : IndexerSettings
         Indexer configuration settings.
     """
 
-    def __init__(self, settings: IndexerSettings, enabled: bool = True) -> None:
+    def __init__(self, settings: IndexerSettings) -> None:
         """Initialize the indexer.
 
         Parameters
         ----------
         settings : IndexerSettings
             Indexer configuration settings.
-        enabled : bool
-            Whether this indexer is enabled by default.
         """
         self.settings = settings
-        self.enabled = enabled
 
     @abstractmethod
     def search(
@@ -168,7 +166,6 @@ class BaseIndexer(ABC):
         -------
         Sequence[ReleaseInfo]
             Sequence of release information matching the query.
-            Returns empty sequence if no results or if indexer is disabled.
 
         Raises
         ------
@@ -193,25 +190,58 @@ class BaseIndexer(ABC):
         """
         raise NotImplementedError
 
-    def is_enabled(self) -> bool:
-        """Check if this indexer is enabled.
 
-        Returns
-        -------
-        bool
-            True if indexer is enabled, False otherwise.
-        """
-        return self.enabled
+class ManagedIndexer:
+    """Wrapper for indexers that handles state management.
 
-    def set_enabled(self, enabled: bool) -> None:
-        """Enable or disable this indexer.
+    Follows SRP by separating state (enabled/disabled) from indexer logic.
+    """
+
+    def __init__(self, indexer: BaseIndexer, enabled: bool = True) -> None:
+        """Initialize managed indexer.
 
         Parameters
         ----------
+        indexer : BaseIndexer
+            The underlying indexer implementation.
         enabled : bool
-            Whether to enable the indexer.
+            Whether this indexer is enabled.
         """
-        self.enabled = enabled
+        self._indexer = indexer
+        self._enabled = enabled
+
+    @property
+    def settings(self) -> IndexerSettings:
+        """Get underlying indexer settings."""
+        return self._indexer.settings
+
+    def search(
+        self,
+        query: str,
+        title: str | None = None,
+        author: str | None = None,
+        isbn: str | None = None,
+        max_results: int = 100,
+    ) -> Sequence[ReleaseInfo]:
+        """Search for releases if enabled.
+
+        Returns empty sequence if disabled.
+        """
+        if not self._enabled:
+            return []
+        return self._indexer.search(query, title, author, isbn, max_results)
+
+    def test_connection(self) -> bool:
+        """Test connectivity (delegates to indexer)."""
+        return self._indexer.test_connection()
+
+    def is_enabled(self) -> bool:
+        """Check if indexer is enabled."""
+        return self._enabled
+
+    def set_enabled(self, enabled: bool) -> None:
+        """Set enabled state."""
+        self._enabled = enabled
 
 
 class BaseDownloadClient(ABC):
@@ -222,10 +252,9 @@ class BaseDownloadClient(ABC):
     usenet files.
 
     Subclasses should implement:
-    - `add_download()`: Add a download to the client
-    - `get_items()`: Get list of active downloads
-    - `remove_item()`: Remove a download from the client
+    - `add_download()`: Add a download to the client (handled by strategy)
     - `test_connection()`: Test connectivity to the client
+    - Capability methods (add_magnet, add_url, add_file) if supported
 
     Attributes
     ----------
@@ -233,16 +262,21 @@ class BaseDownloadClient(ABC):
         Whether this download client is currently enabled.
     settings : DownloadClientSettings
         Download client configuration settings.
-    _file_fetcher : FileFetcher
+    _file_fetcher : FileFetcherProtocol
         File fetcher service for downloading files from URLs.
+    _url_router : UrlRouterProtocol
+        URL routing service.
+    _http_client_factory : Callable[[], HttpClientProtocol] | None
+        Factory for creating configured HTTP clients (optional).
     """
 
     def __init__(
         self,
         settings: DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+        http_client_factory: Callable[[], HttpClientProtocol] | None = None,
         enabled: bool = True,
-        file_fetcher: FileFetcher | None = None,
-        url_router: DownloadUrlRouter | None = None,
     ) -> None:
         """Initialize the download client.
 
@@ -250,19 +284,23 @@ class BaseDownloadClient(ABC):
         ----------
         settings : DownloadClientSettings
             Download client configuration settings.
+        file_fetcher : FileFetcherProtocol
+            File fetcher service.
+        url_router : UrlRouterProtocol
+            URL routing service.
+        http_client_factory : Callable[[], HttpClientProtocol] | None
+            Factory for creating configured HTTP clients.
         enabled : bool
             Whether this client is enabled by default.
-        file_fetcher : FileFetcher | None
-            Optional file fetcher service. If None, creates a new instance.
-        url_router : DownloadUrlRouter | None
-            Optional URL router. If None, creates a new instance.
         """
         self.settings = settings
         self.enabled = enabled
-        self._file_fetcher = file_fetcher or FileFetcher(
-            timeout=settings.timeout_seconds
-        )
-        self._url_router = url_router or DownloadUrlRouter()
+        self._file_fetcher = file_fetcher
+        self._url_router = url_router
+        self._http_client_factory = http_client_factory
+
+        # Initialize strategy registry
+        self._strategy_registry = DownloadStrategyRegistry(self._url_router)
 
     @property
     @abstractmethod
@@ -285,8 +323,8 @@ class BaseDownloadClient(ABC):
     ) -> str:
         """Add a download to the client.
 
-        Template method that handles common logic and delegates to
-        client-specific implementations based on capability protocols.
+        Uses strategy pattern to delegate to client-specific implementations
+        based on capability protocols.
 
         Parameters
         ----------
@@ -311,43 +349,13 @@ class BaseDownloadClient(ABC):
         """
         self._ensure_enabled()
 
-        def _raise_invalid_url_error(url: str) -> None:
-            """Raise error for invalid download URL.
-
-            Parameters
-            ----------
-            url : str
-                Invalid download URL.
-
-            Raises
-            ------
-            PVRProviderError
-                Always raises with error message.
-            """
-            msg = f"Invalid download URL: {url}"
-            raise PVRProviderError(msg)
-
         try:
             resolved_category = category or self.settings.category
             resolved_path = download_path or self.settings.download_path
 
-            download_type = self._url_router.route(download_url)
-
-            if download_type == DownloadType.MAGNET:
-                return self._add_magnet(
-                    download_url, title, resolved_category, resolved_path
-                )
-            if download_type == DownloadType.URL:
-                return self._add_url(
-                    download_url, title, resolved_category, resolved_path
-                )
-            if download_type == DownloadType.FILE:
-                return self._add_file(
-                    download_url, title, resolved_category, resolved_path
-                )
-
-            # This should never be reached due to router validation
-            _raise_invalid_url_error(download_url)
+            return self._strategy_registry.handle(
+                self, download_url, title, resolved_category, resolved_path
+            )
 
         except PVRProviderError:
             raise
@@ -366,165 +374,6 @@ class BaseDownloadClient(ABC):
         if not self.is_enabled():
             msg = f"{self.client_name} client is disabled"
             raise PVRProviderError(msg)
-
-    def _add_magnet(
-        self,
-        magnet_url: str,
-        title: str | None,
-        category: str | None,
-        download_path: str | None,
-    ) -> str:
-        """Add download from magnet link.
-
-        Default implementation raises error. Subclasses that support magnets
-        should override this method.
-
-        Parameters
-        ----------
-        magnet_url : str
-            Magnet link URL.
-        title : str | None
-            Optional title.
-        category : str | None
-            Category/tag to assign.
-        download_path : str | None
-            Download path.
-
-        Returns
-        -------
-        str
-            Client-specific item ID.
-
-        Raises
-        ------
-        PVRProviderError
-            If magnet links are not supported.
-        """
-        _ = magnet_url, title, category, download_path  # Unused in default impl
-        msg = f"{self.client_name} does not support magnet links"
-        raise PVRProviderError(msg)
-
-    def _add_url(
-        self,
-        url: str,
-        title: str | None,
-        category: str | None,
-        download_path: str | None,
-    ) -> str:
-        """Add download from HTTP/HTTPS URL.
-
-        Default implementation raises error. Subclasses that support URLs
-        should override this method.
-
-        Parameters
-        ----------
-        url : str
-            HTTP/HTTPS URL.
-        title : str | None
-            Optional title.
-        category : str | None
-            Category/tag to assign.
-        download_path : str | None
-            Download path.
-
-        Returns
-        -------
-        str
-            Client-specific item ID.
-
-        Raises
-        ------
-        PVRProviderError
-            If URL downloads are not supported.
-        """
-        _ = url, title, category, download_path  # Unused in default impl
-        msg = f"{self.client_name} does not support URL downloads"
-        raise PVRProviderError(msg)
-
-    def _add_file(
-        self,
-        filepath: str,
-        title: str | None,
-        category: str | None,
-        download_path: str | None,
-    ) -> str:
-        """Add download from local file.
-
-        Default implementation raises error. Subclasses that support files
-        should override this method.
-
-        Parameters
-        ----------
-        filepath : str
-            Path to local file.
-        title : str | None
-            Optional title.
-        category : str | None
-            Category/tag to assign.
-        download_path : str | None
-            Download path.
-
-        Returns
-        -------
-        str
-            Client-specific item ID.
-
-        Raises
-        ------
-        PVRProviderError
-            If file uploads are not supported.
-        """
-        _ = filepath, title, category, download_path  # Unused in default impl
-        msg = f"{self.client_name} does not support file uploads"
-        raise PVRProviderError(msg)
-
-    @abstractmethod
-    def get_items(self) -> Sequence[DownloadItem]:
-        """Get list of active downloads.
-
-        Returns
-        -------
-        Sequence[DownloadItem]
-            Sequence of download items, each containing:
-            - client_item_id: str - Unique identifier in the client
-            - title: str - Download title
-            - status: str - Current status (downloading, completed, etc.)
-            - progress: float - Progress (0.0 to 1.0)
-            - size_bytes: int | None - Total size in bytes
-            - downloaded_bytes: int | None - Bytes downloaded
-            - download_speed_bytes_per_sec: float | None - Current speed
-            - eta_seconds: int | None - Estimated time to completion
-            - file_path: str | None - Path to downloaded file(s)
-
-        Raises
-        ------
-        PVRProviderError
-            If fetching items fails.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def remove_item(self, client_item_id: str, delete_files: bool = False) -> bool:
-        """Remove a download from the client.
-
-        Parameters
-        ----------
-        client_item_id : str
-            Client-specific item ID.
-        delete_files : bool
-            Whether to delete downloaded files (default: False).
-
-        Returns
-        -------
-        bool
-            True if removal succeeded, False otherwise.
-
-        Raises
-        ------
-        PVRProviderError
-            If removal fails.
-        """
-        raise NotImplementedError
 
     @abstractmethod
     def test_connection(self) -> bool:
@@ -563,6 +412,52 @@ class BaseDownloadClient(ABC):
         self.enabled = enabled
 
 
+class TrackingDownloadClient(BaseDownloadClient):
+    """Base class for download clients that support tracking.
+
+    Adds methods for getting items and removing items.
+    """
+
+    @abstractmethod
+    def get_items(self) -> Sequence[DownloadItem]:
+        """Get list of active downloads.
+
+        Returns
+        -------
+        Sequence[DownloadItem]
+            Sequence of download items.
+
+        Raises
+        ------
+        PVRProviderError
+            If fetching items fails.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def remove_item(self, client_item_id: str, delete_files: bool = False) -> bool:
+        """Remove a download from the client.
+
+        Parameters
+        ----------
+        client_item_id : str
+            Client-specific item ID.
+        delete_files : bool
+            Whether to delete downloaded files (default: False).
+
+        Returns
+        -------
+        bool
+            True if removal succeeded, False otherwise.
+
+        Raises
+        ------
+        PVRProviderError
+            If removal fails.
+        """
+        raise NotImplementedError
+
+
 __all__ = [
     "BaseDownloadClient",
     "BaseIndexer",
@@ -570,5 +465,7 @@ __all__ = [
     "FileSupport",
     "IndexerSettings",
     "MagnetSupport",
+    "ManagedIndexer",
+    "TrackingDownloadClient",
     "UrlSupport",
 ]

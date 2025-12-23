@@ -29,6 +29,20 @@ from bookcard.pvr.download_clients.blackhole import (
     _clean_filename,
 )
 from bookcard.pvr.exceptions import PVRProviderError
+from bookcard.pvr.services.file_fetcher import FileFetcher
+from bookcard.pvr.utils.url_router import DownloadUrlRouter
+
+
+@pytest.fixture
+def file_fetcher() -> FileFetcher:
+    """Create a file fetcher for testing."""
+    return FileFetcher(timeout=30)
+
+
+@pytest.fixture
+def url_router() -> DownloadUrlRouter:
+    """Create a URL router for testing."""
+    return DownloadUrlRouter()
 
 
 class TestCleanFilename:
@@ -63,26 +77,46 @@ class TestTorrentBlackholeClient:
     """Test TorrentBlackholeClient."""
 
     def test_init_with_torrent_blackhole_settings(
-        self, torrent_blackhole_settings: TorrentBlackholeSettings
+        self,
+        torrent_blackhole_settings: TorrentBlackholeSettings,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test initialization with TorrentBlackholeSettings."""
-        client = TorrentBlackholeClient(settings=torrent_blackhole_settings)
+        client = TorrentBlackholeClient(
+            settings=torrent_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, TorrentBlackholeSettings)
         assert client.enabled is True
 
     def test_init_with_download_client_settings(
-        self, base_download_client_settings: DownloadClientSettings
+        self,
+        base_download_client_settings: DownloadClientSettings,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test initialization with DownloadClientSettings conversion."""
-        client = TorrentBlackholeClient(settings=base_download_client_settings)
+        client = TorrentBlackholeClient(
+            settings=base_download_client_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, TorrentBlackholeSettings)
 
     def test_init_disabled(
-        self, torrent_blackhole_settings: TorrentBlackholeSettings
+        self,
+        torrent_blackhole_settings: TorrentBlackholeSettings,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test initialization with enabled=False."""
         client = TorrentBlackholeClient(
-            settings=torrent_blackhole_settings, enabled=False
+            settings=torrent_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
         )
         assert client.enabled is False
 
@@ -90,11 +124,16 @@ class TestTorrentBlackholeClient:
         self,
         torrent_blackhole_settings: TorrentBlackholeSettings,
         sample_magnet_link: str,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test adding magnet link when save_magnet_files is enabled."""
         torrent_blackhole_settings.save_magnet_files = True
         client = TorrentBlackholeClient(
-            settings=torrent_blackhole_settings, enabled=True
+            settings=torrent_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=True,
         )
         Path(client.settings.torrent_folder).mkdir(parents=True, exist_ok=True)
 
@@ -111,10 +150,16 @@ class TestTorrentBlackholeClient:
         self,
         torrent_blackhole_settings: TorrentBlackholeSettings,
         sample_magnet_link: str,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test adding magnet link when save_magnet_files is disabled."""
         torrent_blackhole_settings.save_magnet_files = False
-        client = TorrentBlackholeClient(settings=torrent_blackhole_settings)
+        client = TorrentBlackholeClient(
+            settings=torrent_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
 
         with pytest.raises(PVRProviderError, match="Magnet links not supported"):
             client.add_download(sample_magnet_link)
@@ -123,11 +168,17 @@ class TestTorrentBlackholeClient:
         self,
         torrent_blackhole_settings: TorrentBlackholeSettings,
         sample_magnet_link: str,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test adding magnet link with custom extension."""
         torrent_blackhole_settings.save_magnet_files = True
         torrent_blackhole_settings.magnet_file_extension = ".mag"
-        client = TorrentBlackholeClient(settings=torrent_blackhole_settings)
+        client = TorrentBlackholeClient(
+            settings=torrent_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         Path(client.settings.torrent_folder).mkdir(parents=True, exist_ok=True)
 
         client.add_download(sample_magnet_link, title="Test")
@@ -138,11 +189,17 @@ class TestTorrentBlackholeClient:
         self,
         torrent_blackhole_settings: TorrentBlackholeSettings,
         sample_magnet_link: str,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test adding magnet link with extension that has leading dot."""
         torrent_blackhole_settings.save_magnet_files = True
         torrent_blackhole_settings.magnet_file_extension = ".magnet"
-        client = TorrentBlackholeClient(settings=torrent_blackhole_settings)
+        client = TorrentBlackholeClient(
+            settings=torrent_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         Path(client.settings.torrent_folder).mkdir(parents=True, exist_ok=True)
 
         client.add_download(sample_magnet_link, title="Test")
@@ -153,10 +210,15 @@ class TestTorrentBlackholeClient:
         self,
         torrent_blackhole_settings: TorrentBlackholeSettings,
         sample_torrent_file: Path,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test adding torrent from file path."""
         client = TorrentBlackholeClient(
-            settings=torrent_blackhole_settings, enabled=True
+            settings=torrent_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=True,
         )
         Path(client.settings.torrent_folder).mkdir(parents=True, exist_ok=True)
 
@@ -172,9 +234,15 @@ class TestTorrentBlackholeClient:
         self,
         torrent_blackhole_settings: TorrentBlackholeSettings,
         sample_torrent_file: Path,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test adding torrent from file path without title."""
-        client = TorrentBlackholeClient(settings=torrent_blackhole_settings)
+        client = TorrentBlackholeClient(
+            settings=torrent_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         Path(client.settings.torrent_folder).mkdir(parents=True, exist_ok=True)
 
         result = client.add_download(str(sample_torrent_file))
@@ -190,10 +258,15 @@ class TestTorrentBlackholeClient:
         mock_client_class: MagicMock,
         torrent_blackhole_settings: TorrentBlackholeSettings,
         sample_torrent_url: str,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test adding torrent from URL."""
         client = TorrentBlackholeClient(
-            settings=torrent_blackhole_settings, enabled=True
+            settings=torrent_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=True,
         )
         Path(client.settings.torrent_folder).mkdir(parents=True, exist_ok=True)
 
@@ -219,10 +292,17 @@ class TestTorrentBlackholeClient:
         assert saved_file.read_bytes() == b"torrent content"
 
     def test_add_download_unsupported_url(
-        self, torrent_blackhole_settings: TorrentBlackholeSettings
+        self,
+        torrent_blackhole_settings: TorrentBlackholeSettings,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test adding unsupported URL type."""
-        client = TorrentBlackholeClient(settings=torrent_blackhole_settings)
+        client = TorrentBlackholeClient(
+            settings=torrent_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
 
         with pytest.raises(PVRProviderError, match="Unsupported download URL type"):
             client.add_download("ftp://example.com/file.torrent")
@@ -231,36 +311,32 @@ class TestTorrentBlackholeClient:
         self,
         torrent_blackhole_settings: TorrentBlackholeSettings,
         sample_magnet_link: str,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test adding download when client is disabled."""
         client = TorrentBlackholeClient(
-            settings=torrent_blackhole_settings, enabled=False
+            settings=torrent_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
         )
 
         with pytest.raises(PVRProviderError, match="disabled"):
             client.add_download(sample_magnet_link)
 
-    def test_get_items(
-        self, torrent_blackhole_settings: TorrentBlackholeSettings
-    ) -> None:
-        """Test get_items returns empty list."""
-        client = TorrentBlackholeClient(settings=torrent_blackhole_settings)
-        items = client.get_items()
-        assert items == []
-
-    def test_remove_item(
-        self, torrent_blackhole_settings: TorrentBlackholeSettings
-    ) -> None:
-        """Test remove_item returns False."""
-        client = TorrentBlackholeClient(settings=torrent_blackhole_settings)
-        result = client.remove_item("item-id", delete_files=True)
-        assert result is False
-
     def test_test_connection_success(
-        self, torrent_blackhole_settings: TorrentBlackholeSettings
+        self,
+        torrent_blackhole_settings: TorrentBlackholeSettings,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test test_connection when directories are writable."""
-        client = TorrentBlackholeClient(settings=torrent_blackhole_settings)
+        client = TorrentBlackholeClient(
+            settings=torrent_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         Path(client.settings.torrent_folder).mkdir(parents=True, exist_ok=True)
         Path(client.settings.watch_folder).mkdir(parents=True, exist_ok=True)
 
@@ -268,10 +344,17 @@ class TestTorrentBlackholeClient:
         assert result is True
 
     def test_test_connection_not_writable(
-        self, torrent_blackhole_settings: TorrentBlackholeSettings
+        self,
+        torrent_blackhole_settings: TorrentBlackholeSettings,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test test_connection when torrent folder is not writable."""
-        client = TorrentBlackholeClient(settings=torrent_blackhole_settings)
+        client = TorrentBlackholeClient(
+            settings=torrent_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         # Create a file with the same name as the folder to make it non-writable
         Path(client.settings.torrent_folder).parent.mkdir(parents=True, exist_ok=True)
         Path(client.settings.torrent_folder).touch()
@@ -280,73 +363,85 @@ class TestTorrentBlackholeClient:
             client.test_connection()
 
     def test_test_connection_watch_folder_missing(
-        self, torrent_blackhole_settings: TorrentBlackholeSettings
+        self,
+        torrent_blackhole_settings: TorrentBlackholeSettings,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test test_connection when watch folder doesn't exist."""
-        client = TorrentBlackholeClient(settings=torrent_blackhole_settings)
+        client = TorrentBlackholeClient(
+            settings=torrent_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         Path(client.settings.torrent_folder).mkdir(parents=True, exist_ok=True)
         # Don't create watch folder
 
         with pytest.raises(PVRProviderError, match="Watch folder does not exist"):
             client.test_connection()
 
-    def test_raise_magnet_not_supported_error(
-        self, torrent_blackhole_settings: TorrentBlackholeSettings
-    ) -> None:
-        """Test _raise_magnet_not_supported_error method."""
-        client = TorrentBlackholeClient(settings=torrent_blackhole_settings)
-        with pytest.raises(PVRProviderError, match="Magnet links not supported"):
-            client._raise_magnet_not_supported_error()
-
-    def test_raise_unsupported_url_error(
-        self, torrent_blackhole_settings: TorrentBlackholeSettings
-    ) -> None:
-        """Test _raise_unsupported_url_error method."""
-        client = TorrentBlackholeClient(settings=torrent_blackhole_settings)
-        with pytest.raises(PVRProviderError, match="Unsupported download URL type"):
-            client._raise_unsupported_url_error("ftp://example.com/file")
-
-    def test_raise_watch_folder_error(
-        self, torrent_blackhole_settings: TorrentBlackholeSettings
-    ) -> None:
-        """Test _raise_watch_folder_error method."""
-        client = TorrentBlackholeClient(settings=torrent_blackhole_settings)
-        with pytest.raises(PVRProviderError, match="Watch folder does not exist"):
-            client._raise_watch_folder_error("/nonexistent/path")
-
 
 class TestUsenetBlackholeClient:
     """Test UsenetBlackholeClient."""
 
     def test_init_with_usenet_blackhole_settings(
-        self, usenet_blackhole_settings: UsenetBlackholeSettings
+        self,
+        usenet_blackhole_settings: UsenetBlackholeSettings,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test initialization with UsenetBlackholeSettings."""
-        client = UsenetBlackholeClient(settings=usenet_blackhole_settings)
+        client = UsenetBlackholeClient(
+            settings=usenet_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, UsenetBlackholeSettings)
         assert client.enabled is True
 
     def test_init_with_download_client_settings(
-        self, base_download_client_settings: DownloadClientSettings
+        self,
+        base_download_client_settings: DownloadClientSettings,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test initialization with DownloadClientSettings conversion."""
-        client = UsenetBlackholeClient(settings=base_download_client_settings)
+        client = UsenetBlackholeClient(
+            settings=base_download_client_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, UsenetBlackholeSettings)
 
     def test_init_disabled(
-        self, usenet_blackhole_settings: UsenetBlackholeSettings
+        self,
+        usenet_blackhole_settings: UsenetBlackholeSettings,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test initialization with enabled=False."""
         client = UsenetBlackholeClient(
-            settings=usenet_blackhole_settings, enabled=False
+            settings=usenet_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
         )
         assert client.enabled is False
 
     def test_add_download_nzb_file(
-        self, usenet_blackhole_settings: UsenetBlackholeSettings, sample_nzb_file: Path
+        self,
+        usenet_blackhole_settings: UsenetBlackholeSettings,
+        sample_nzb_file: Path,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test adding NZB from file path."""
-        client = UsenetBlackholeClient(settings=usenet_blackhole_settings, enabled=True)
+        client = UsenetBlackholeClient(
+            settings=usenet_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=True,
+        )
         Path(client.settings.nzb_folder).mkdir(parents=True, exist_ok=True)
 
         result = client.add_download(str(sample_nzb_file), title="Test Book")
@@ -358,10 +453,18 @@ class TestUsenetBlackholeClient:
         assert copied_file.read_bytes() == sample_nzb_file.read_bytes()
 
     def test_add_download_nzb_file_no_title(
-        self, usenet_blackhole_settings: UsenetBlackholeSettings, sample_nzb_file: Path
+        self,
+        usenet_blackhole_settings: UsenetBlackholeSettings,
+        sample_nzb_file: Path,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test adding NZB from file path without title."""
-        client = UsenetBlackholeClient(settings=usenet_blackhole_settings)
+        client = UsenetBlackholeClient(
+            settings=usenet_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         Path(client.settings.nzb_folder).mkdir(parents=True, exist_ok=True)
 
         result = client.add_download(str(sample_nzb_file))
@@ -377,9 +480,16 @@ class TestUsenetBlackholeClient:
         mock_client_class: MagicMock,
         usenet_blackhole_settings: UsenetBlackholeSettings,
         sample_nzb_url: str,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test adding NZB from URL."""
-        client = UsenetBlackholeClient(settings=usenet_blackhole_settings, enabled=True)
+        client = UsenetBlackholeClient(
+            settings=usenet_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=True,
+        )
         Path(client.settings.nzb_folder).mkdir(parents=True, exist_ok=True)
 
         mock_client_instance = MagicMock()
@@ -404,46 +514,51 @@ class TestUsenetBlackholeClient:
         assert saved_file.read_bytes() == b"nzb content"
 
     def test_add_download_unsupported_url(
-        self, usenet_blackhole_settings: UsenetBlackholeSettings
+        self,
+        usenet_blackhole_settings: UsenetBlackholeSettings,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test adding unsupported URL type."""
-        client = UsenetBlackholeClient(settings=usenet_blackhole_settings)
+        client = UsenetBlackholeClient(
+            settings=usenet_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
 
         with pytest.raises(PVRProviderError, match="Unsupported download URL type"):
             client.add_download("ftp://example.com/file.nzb")
 
     def test_add_download_disabled(
-        self, usenet_blackhole_settings: UsenetBlackholeSettings, sample_nzb_url: str
+        self,
+        usenet_blackhole_settings: UsenetBlackholeSettings,
+        sample_nzb_url: str,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test adding download when client is disabled."""
         client = UsenetBlackholeClient(
-            settings=usenet_blackhole_settings, enabled=False
+            settings=usenet_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
         )
 
         with pytest.raises(PVRProviderError, match="disabled"):
             client.add_download(sample_nzb_url)
 
-    def test_get_items(
-        self, usenet_blackhole_settings: UsenetBlackholeSettings
-    ) -> None:
-        """Test get_items returns empty list."""
-        client = UsenetBlackholeClient(settings=usenet_blackhole_settings)
-        items = client.get_items()
-        assert items == []
-
-    def test_remove_item(
-        self, usenet_blackhole_settings: UsenetBlackholeSettings
-    ) -> None:
-        """Test remove_item returns False."""
-        client = UsenetBlackholeClient(settings=usenet_blackhole_settings)
-        result = client.remove_item("item-id", delete_files=True)
-        assert result is False
-
     def test_test_connection_success(
-        self, usenet_blackhole_settings: UsenetBlackholeSettings
+        self,
+        usenet_blackhole_settings: UsenetBlackholeSettings,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test test_connection when directories are writable."""
-        client = UsenetBlackholeClient(settings=usenet_blackhole_settings)
+        client = UsenetBlackholeClient(
+            settings=usenet_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         Path(client.settings.nzb_folder).mkdir(parents=True, exist_ok=True)
         Path(client.settings.watch_folder).mkdir(parents=True, exist_ok=True)
 
@@ -451,10 +566,17 @@ class TestUsenetBlackholeClient:
         assert result is True
 
     def test_test_connection_not_writable(
-        self, usenet_blackhole_settings: UsenetBlackholeSettings
+        self,
+        usenet_blackhole_settings: UsenetBlackholeSettings,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test test_connection when NZB folder is not writable."""
-        client = UsenetBlackholeClient(settings=usenet_blackhole_settings)
+        client = UsenetBlackholeClient(
+            settings=usenet_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         # Create a file with the same name as the folder to make it non-writable
         Path(client.settings.nzb_folder).parent.mkdir(parents=True, exist_ok=True)
         Path(client.settings.nzb_folder).touch()
@@ -463,28 +585,19 @@ class TestUsenetBlackholeClient:
             client.test_connection()
 
     def test_test_connection_watch_folder_missing(
-        self, usenet_blackhole_settings: UsenetBlackholeSettings
+        self,
+        usenet_blackhole_settings: UsenetBlackholeSettings,
+        file_fetcher: FileFetcher,
+        url_router: DownloadUrlRouter,
     ) -> None:
         """Test test_connection when watch folder doesn't exist."""
-        client = UsenetBlackholeClient(settings=usenet_blackhole_settings)
+        client = UsenetBlackholeClient(
+            settings=usenet_blackhole_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         Path(client.settings.nzb_folder).mkdir(parents=True, exist_ok=True)
         # Don't create watch folder
 
         with pytest.raises(PVRProviderError, match="Watch folder does not exist"):
             client.test_connection()
-
-    def test_raise_unsupported_url_error(
-        self, usenet_blackhole_settings: UsenetBlackholeSettings
-    ) -> None:
-        """Test _raise_unsupported_url_error method."""
-        client = UsenetBlackholeClient(settings=usenet_blackhole_settings)
-        with pytest.raises(PVRProviderError, match="Unsupported download URL type"):
-            client._raise_unsupported_url_error("ftp://example.com/file")
-
-    def test_raise_watch_folder_error(
-        self, usenet_blackhole_settings: UsenetBlackholeSettings
-    ) -> None:
-        """Test _raise_watch_folder_error method."""
-        client = UsenetBlackholeClient(settings=usenet_blackhole_settings)
-        with pytest.raises(PVRProviderError, match="Watch folder does not exist"):
-            client._raise_watch_folder_error("/nonexistent/path")

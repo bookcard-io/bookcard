@@ -23,6 +23,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from bookcard.pvr.base import DownloadClientSettings
+from bookcard.pvr.base.interfaces import FileFetcherProtocol, UrlRouterProtocol
 from bookcard.pvr.download_clients.transmission import (
     TransmissionClient,
     TransmissionProxy,
@@ -349,41 +350,71 @@ class TestTransmissionClient:
     """Test TransmissionClient."""
 
     def test_init_with_transmission_settings(
-        self, transmission_settings: TransmissionSettings
+        self,
+        transmission_settings: TransmissionSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with TransmissionSettings."""
-        client = TransmissionClient(settings=transmission_settings)
+        client = TransmissionClient(
+            settings=transmission_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, TransmissionSettings)
         assert client.enabled is True
 
     def test_init_with_download_client_settings(
-        self, base_download_client_settings: DownloadClientSettings
+        self,
+        sabnzbd_settings: DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with DownloadClientSettings conversion."""
-        client = TransmissionClient(settings=base_download_client_settings)
+        client = TransmissionClient(
+            settings=sabnzbd_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         assert isinstance(client.settings, TransmissionSettings)
 
     @patch.object(TransmissionProxy, "add_torrent_from_url")
     def test_add_download_magnet(
-        self, mock_add: MagicMock, transmission_settings: TransmissionSettings
+        self,
+        mock_add: MagicMock,
+        transmission_settings: TransmissionSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with magnet link."""
         mock_add.return_value = {
             "arguments": {"torrent-added": {"hashString": "ABCDEF1234567890"}}
         }
-        client = TransmissionClient(settings=transmission_settings)
+        client = TransmissionClient(
+            settings=transmission_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         result = client.add_download("magnet:?xt=urn:btih:ABCDEF1234567890&dn=test")
         assert result == "ABCDEF1234567890"
 
     @patch.object(TransmissionProxy, "add_torrent_from_url")
     def test_add_download_duplicate(
-        self, mock_add: MagicMock, transmission_settings: TransmissionSettings
+        self,
+        mock_add: MagicMock,
+        transmission_settings: TransmissionSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with duplicate torrent."""
         mock_add.return_value = {
             "arguments": {"torrent-duplicate": {"hashString": "ABCDEF1234567890"}}
         }
-        client = TransmissionClient(settings=transmission_settings)
+        client = TransmissionClient(
+            settings=transmission_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         result = client.add_download("magnet:?xt=urn:btih:ABCDEF1234567890")
         assert result == "ABCDEF1234567890"
 
@@ -393,38 +424,64 @@ class TestTransmissionClient:
         mock_add: MagicMock,
         transmission_settings: TransmissionSettings,
         sample_torrent_file: Path,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with file path."""
         mock_add.return_value = {
             "arguments": {"torrent-added": {"hashString": "ABCDEF1234567890"}}
         }
-        client = TransmissionClient(settings=transmission_settings)
+        client = TransmissionClient(
+            settings=transmission_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         result = client.add_download(str(sample_torrent_file))
         assert result == "ABCDEF1234567890"
 
     @patch.object(TransmissionProxy, "add_torrent_from_url")
     def test_add_download_no_hash_extract_from_magnet(
-        self, mock_add: MagicMock, transmission_settings: TransmissionSettings
+        self,
+        mock_add: MagicMock,
+        transmission_settings: TransmissionSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download extracting hash from magnet when not in response."""
         mock_add.return_value = {"arguments": {}}
-        client = TransmissionClient(settings=transmission_settings)
+        client = TransmissionClient(
+            settings=transmission_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         result = client.add_download("magnet:?xt=urn:btih:ABCDEF1234567890&dn=test")
         assert result == "ABCDEF1234567890"
 
     @patch.object(TransmissionProxy, "add_torrent_from_url")
     def test_add_download_no_hash_error(
-        self, mock_add: MagicMock, transmission_settings: TransmissionSettings
+        self,
+        mock_add: MagicMock,
+        transmission_settings: TransmissionSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with no hash in response."""
         mock_add.return_value = {"arguments": {}}
-        client = TransmissionClient(settings=transmission_settings)
+        client = TransmissionClient(
+            settings=transmission_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         with pytest.raises(PVRProviderError, match="Failed to get torrent hash"):
             client.add_download("http://example.com/torrent.torrent")
 
     @patch.object(TransmissionProxy, "get_torrents")
     def test_get_items(
-        self, mock_get_torrents: MagicMock, transmission_settings: TransmissionSettings
+        self,
+        mock_get_torrents: MagicMock,
+        transmission_settings: TransmissionSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items."""
         mock_get_torrents.return_value = [
@@ -438,7 +495,11 @@ class TestTransmissionClient:
                 "downloadDir": "/downloads",
             }
         ]
-        client = TransmissionClient(settings=transmission_settings)
+        client = TransmissionClient(
+            settings=transmission_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["client_item_id"] == "ABC123"
@@ -447,21 +508,37 @@ class TestTransmissionClient:
 
     @patch.object(TransmissionProxy, "remove_torrent")
     def test_remove_item(
-        self, mock_remove: MagicMock, transmission_settings: TransmissionSettings
+        self,
+        mock_remove: MagicMock,
+        transmission_settings: TransmissionSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test remove_item."""
-        client = TransmissionClient(settings=transmission_settings)
+        client = TransmissionClient(
+            settings=transmission_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         result = client.remove_item("ABC123", delete_files=True)
         assert result is True
         mock_remove.assert_called_once_with("abc123", delete_files=True)
 
     @patch.object(TransmissionProxy, "get_version")
     def test_test_connection(
-        self, mock_get_version: MagicMock, transmission_settings: TransmissionSettings
+        self,
+        mock_get_version: MagicMock,
+        transmission_settings: TransmissionSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test test_connection."""
         mock_get_version.return_value = "3.0.0"
-        client = TransmissionClient(settings=transmission_settings)
+        client = TransmissionClient(
+            settings=transmission_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         result = client.test_connection()
         assert result is True
 
@@ -601,39 +678,67 @@ class TestTransmissionClient:
 
     @patch.object(TransmissionProxy, "add_torrent_from_url")
     def test_add_download_http_url(
-        self, mock_add: MagicMock, transmission_settings: TransmissionSettings
+        self,
+        mock_add: MagicMock,
+        transmission_settings: TransmissionSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with HTTP URL."""
         mock_add.return_value = {
             "arguments": {"torrent-added": {"hashString": "ABCDEF1234567890"}}
         }
-        client = TransmissionClient(settings=transmission_settings)
+        client = TransmissionClient(
+            settings=transmission_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         result = client.add_download("http://example.com/torrent.torrent")
         assert result == "ABCDEF1234567890"
 
     @patch.object(TransmissionProxy, "add_torrent_from_file")
     def test_add_download_file_path_error(
-        self, mock_add: MagicMock, transmission_settings: TransmissionSettings
+        self,
+        mock_add: MagicMock,
+        transmission_settings: TransmissionSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with file path error."""
         mock_add.return_value = {"arguments": {}}
-        client = TransmissionClient(settings=transmission_settings)
+        client = TransmissionClient(
+            settings=transmission_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         with pytest.raises(PVRProviderError, match="Failed to get torrent hash"):
             client.add_download("/path/to/torrent.torrent")
 
     @patch.object(TransmissionProxy, "get_torrents")
     def test_get_items_empty(
-        self, mock_get_torrents: MagicMock, transmission_settings: TransmissionSettings
+        self,
+        mock_get_torrents: MagicMock,
+        transmission_settings: TransmissionSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items with empty result."""
         mock_get_torrents.return_value = []
-        client = TransmissionClient(settings=transmission_settings)
+        client = TransmissionClient(
+            settings=transmission_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         items = client.get_items()
         assert items == []
 
     @patch.object(TransmissionProxy, "get_torrents")
     def test_get_items_with_eta(
-        self, mock_get_torrents: MagicMock, transmission_settings: TransmissionSettings
+        self,
+        mock_get_torrents: MagicMock,
+        transmission_settings: TransmissionSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items with ETA calculation."""
         mock_get_torrents.return_value = [
@@ -647,7 +752,11 @@ class TestTransmissionClient:
                 "downloadDir": "/downloads",
             }
         ]
-        client = TransmissionClient(settings=transmission_settings)
+        client = TransmissionClient(
+            settings=transmission_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["eta_seconds"] == 10
@@ -655,38 +764,70 @@ class TestTransmissionClient:
 
     @patch.object(TransmissionProxy, "get_torrents")
     def test_get_items_error(
-        self, mock_get_torrents: MagicMock, transmission_settings: TransmissionSettings
+        self,
+        mock_get_torrents: MagicMock,
+        transmission_settings: TransmissionSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test get_items with error."""
         mock_get_torrents.side_effect = Exception("Connection error")
-        client = TransmissionClient(settings=transmission_settings)
+        client = TransmissionClient(
+            settings=transmission_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         with pytest.raises(PVRProviderError, match="Failed to get downloads"):
             client.get_items()
 
     def test_remove_item_disabled(
-        self, transmission_settings: TransmissionSettings
+        self,
+        transmission_settings: TransmissionSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test remove_item when disabled."""
-        client = TransmissionClient(settings=transmission_settings, enabled=False)
+        client = TransmissionClient(
+            settings=transmission_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
         with pytest.raises(PVRProviderError, match="disabled"):
             client.remove_item("ABC123")
 
     @patch.object(TransmissionProxy, "remove_torrent")
     def test_remove_item_error(
-        self, mock_remove: MagicMock, transmission_settings: TransmissionSettings
+        self,
+        mock_remove: MagicMock,
+        transmission_settings: TransmissionSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test remove_item with error."""
         mock_remove.side_effect = Exception("Remove error")
-        client = TransmissionClient(settings=transmission_settings)
+        client = TransmissionClient(
+            settings=transmission_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         with pytest.raises(PVRProviderError, match="Failed to remove"):
             client.remove_item("ABC123")
 
     @patch.object(TransmissionProxy, "get_version")
     def test_test_connection_error(
-        self, mock_get_version: MagicMock, transmission_settings: TransmissionSettings
+        self,
+        mock_get_version: MagicMock,
+        transmission_settings: TransmissionSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
     ) -> None:
         """Test test_connection with error."""
         mock_get_version.side_effect = Exception("Connection error")
-        client = TransmissionClient(settings=transmission_settings)
+        client = TransmissionClient(
+            settings=transmission_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
         with pytest.raises(PVRProviderError, match="Failed to connect"):
             client.test_connection()

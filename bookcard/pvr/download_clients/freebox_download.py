@@ -26,7 +26,7 @@ import base64
 import hashlib
 import hmac
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
@@ -36,6 +36,11 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
+)
+from bookcard.pvr.base.interfaces import (
+    FileFetcherProtocol,
+    HttpClientProtocol,
+    UrlRouterProtocol,
 )
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
@@ -490,9 +495,26 @@ class FreeboxDownloadClient(BaseDownloadClient):
     def __init__(
         self,
         settings: FreeboxDownloadSettings | DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+        http_client_factory: Callable[[], HttpClientProtocol] | None = None,
         enabled: bool = True,
     ) -> None:
-        """Initialize Freebox Download client."""
+        """Initialize Freebox Download client.
+
+        Parameters
+        ----------
+        settings : FreeboxDownloadSettings | DownloadClientSettings
+            Client settings. If DownloadClientSettings, converts to FreeboxDownloadSettings.
+        file_fetcher : FileFetcherProtocol
+            File fetcher service.
+        url_router : UrlRouterProtocol
+            URL router service.
+        http_client_factory : Callable[[], HttpClientProtocol] | None
+            HTTP client factory.
+        enabled : bool
+            Whether this client is enabled.
+        """
         if isinstance(settings, DownloadClientSettings) and not isinstance(
             settings, FreeboxDownloadSettings
         ):
@@ -511,7 +533,9 @@ class FreeboxDownloadClient(BaseDownloadClient):
                 app_token=None,
             )
 
-        super().__init__(settings, enabled)
+        super().__init__(
+            settings, file_fetcher, url_router, http_client_factory, enabled
+        )
         self.settings: FreeboxDownloadSettings = settings  # type: ignore[assignment]
         self._proxy = FreeboxDownloadProxy(self.settings)
         self._status_mapper = StatusMapper(

@@ -22,9 +22,8 @@ and managing torrents.
 Documentation: https://aria2.github.io/manual/en/html/aria2c.html#rpc-interface
 """
 
-import base64
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from contextlib import suppress
 from pathlib import Path
 from xml.etree import ElementTree as ET  # noqa: S405
@@ -32,12 +31,16 @@ from xml.etree import ElementTree as ET  # noqa: S405
 import httpx
 
 from bookcard.pvr.base import (
-    BaseDownloadClient,
     DownloadClientSettings,
+    TrackingDownloadClient,
+)
+from bookcard.pvr.base.interfaces import (
+    FileFetcherProtocol,
+    HttpClientProtocol,
+    UrlRouterProtocol,
 )
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
-    create_httpx_client,
     handle_httpx_exception,
 )
 from bookcard.pvr.error_handlers import handle_http_error_response
@@ -47,6 +50,7 @@ from bookcard.pvr.exceptions import (
 )
 from bookcard.pvr.models import DownloadItem
 from bookcard.pvr.utils.status import DownloadStatus, StatusMapper
+from bookcard.pvr.utils.xmlrpc import XmlRpcBuilder, XmlRpcParser, XmlRpcValue
 
 logger = logging.getLogger(__name__)
 
@@ -72,21 +76,20 @@ class Aria2Proxy:
     Handles XML-RPC request building and API communication.
     """
 
-    def __init__(self, settings: Aria2Settings) -> None:
+    def __init__(
+        self,
+        settings: Aria2Settings,
+        http_client_factory: Callable[[], HttpClientProtocol],
+    ) -> None:
         """Initialize Aria2 proxy."""
         self.settings = settings
+        self.http_client_factory = http_client_factory
         self.base_url = build_base_url(
             settings.host, settings.port, settings.use_ssl, settings.url_base
         )
         self.rpc_url = self.base_url.rstrip("/")
-
-    def _get_client(self) -> httpx.Client:
-        """Get configured HTTP client."""
-        return create_httpx_client(
-            timeout=self.settings.timeout_seconds,
-            verify=True,
-            follow_redirects=True,
-        )
+        self.builder = XmlRpcBuilder()
+        self.parser = XmlRpcParser()
 
     def _get_token(self) -> str:
         """Get RPC token (secret).
@@ -100,258 +103,21 @@ class Aria2Proxy:
             return f"token:{self.settings.secret}"
         return ""
 
-    def _add_xmlrpc_array(self, data_elem: ET.Element, param: list[str | int]) -> None:
-        """Add array parameter to XML-RPC request.
-
-        Parameters
-        ----------
-        data_elem : ET.Element
-            Data element to add items to.
-        param : list[str | int]
-            Array parameter values.
-        """
-        for item in param:
-            item_param = ET.SubElement(data_elem, "value")
-            if isinstance(item, str):
-                string_elem = ET.SubElement(item_param, "string")
-                string_elem.text = item
-            elif isinstance(item, int):
-                int_elem = ET.SubElement(item_param, "int")
-                int_elem.text = str(item)
-
-    def _add_xmlrpc_struct(
-        self, struct_elem: ET.Element, param: dict[str, str | int | None]
-    ) -> None:
-        """Add struct parameter to XML-RPC request.
-
-        Parameters
-        ----------
-        struct_elem : ET.Element
-            Struct element to add members to.
-        param : dict[str, str | int]
-            Struct parameter values.
-        """
-        for key, val in param.items():
-            member = ET.SubElement(struct_elem, "member")
-            name_elem = ET.SubElement(member, "name")
-            name_elem.text = str(key)
-            value_elem2 = ET.SubElement(member, "value")
-            if isinstance(val, str):
-                string_elem = ET.SubElement(value_elem2, "string")
-                string_elem.text = val
-            elif isinstance(val, int):
-                int_elem = ET.SubElement(value_elem2, "int")
-                int_elem.text = str(val)
-
-    def _add_xmlrpc_param(
-        self,
-        params_elem: ET.Element,
-        param: str | bytes | int | list[str | int] | dict[str, str | int | None],
-    ) -> None:
-        """Add a parameter to XML-RPC request.
-
-        Parameters
-        ----------
-        params_elem : ET.Element
-            Params element to add parameter to.
-        param : str | bytes | int | list[str | int] | dict[str, str | int]
-            Parameter value.
-        """
-        param_elem = ET.SubElement(params_elem, "param")
-        value_elem = ET.SubElement(param_elem, "value")
-
-        if isinstance(param, str):
-            string_elem = ET.SubElement(value_elem, "string")
-            string_elem.text = param
-        elif isinstance(param, bytes):
-            base64_elem = ET.SubElement(value_elem, "base64")
-            base64_elem.text = base64.b64encode(param).decode("utf-8")
-        elif isinstance(param, int):
-            int_elem = ET.SubElement(value_elem, "int")
-            int_elem.text = str(param)
-        elif isinstance(param, (list, tuple)):
-            array_elem = ET.SubElement(value_elem, "array")
-            data_elem = ET.SubElement(array_elem, "data")
-            self._add_xmlrpc_array(data_elem, param)
-        elif isinstance(param, dict):
-            struct_elem = ET.SubElement(value_elem, "struct")
-            self._add_xmlrpc_struct(struct_elem, param)
-
-    def _build_xmlrpc_request(
-        self,
-        method: str,
-        *params: str | bytes | int | list[str | int] | dict[str, str | int | None],
-    ) -> str:
-        """Build XML-RPC request.
-
-        Parameters
-        ----------
-        method : str
-            RPC method name.
-        *params : str | bytes | int | list[str | int] | dict[str, str | int]
-            Method parameters.
-
-        Returns
-        -------
-        str
-            XML-RPC request body.
-        """
-        root = ET.Element("methodCall")
-        method_name = ET.SubElement(root, "methodName")
-        method_name.text = method
-
-        params_elem = ET.SubElement(root, "params")
-
-        # Add token as first parameter if secret is set
-        token = self._get_token()
-        if token:
-            param_elem = ET.SubElement(params_elem, "param")
-            value_elem = ET.SubElement(param_elem, "value")
-            string_elem = ET.SubElement(value_elem, "string")
-            string_elem.text = token
-
-        for param in params:
-            self._add_xmlrpc_param(params_elem, param)
-
-        return ET.tostring(root, encoding="utf-8").decode("utf-8")
-
-    def _check_xmlrpc_fault(self, root: ET.Element) -> None:
-        """Check for XML-RPC fault and raise if found.
-
-        Parameters
-        ----------
-        root : ET.Element
-            XML root element.
+    def _raise_auth_error(self) -> None:
+        """Raise authentication error.
 
         Raises
         ------
-        PVRProviderError
-            If fault is found.
+        PVRProviderAuthenticationError
+            Always raises with authentication error message.
         """
-        fault = root.find(".//fault")
-        if fault is not None:
-            fault_value = fault.find("value")
-            if fault_value is not None:
-                fault_struct = fault_value.find("struct")
-                if fault_struct is not None:
-                    fault_string = fault_struct.find(".//string")
-                    if fault_string is not None:
-                        error_msg = fault_string.text or "Unknown error"
-                        msg = f"Aria2 XML-RPC fault: {error_msg}"
-                        raise PVRProviderError(msg)
-
-    def _parse_xmlrpc_struct_value(self, value_elem: ET.Element) -> str | int | None:
-        """Parse XML-RPC struct value element.
-
-        Parameters
-        ----------
-        value_elem : ET.Element
-            Value element to parse.
-
-        Returns
-        -------
-        str | int | None
-            Parsed value.
-        """
-        val = None
-        string_elem = value_elem.find("string")
-        if string_elem is not None and string_elem.text is not None:
-            val = string_elem.text
-        else:
-            int_elem = value_elem.find("int")
-            if int_elem is not None and int_elem.text is not None:
-                val = int(int_elem.text)
-            else:
-                i8_elem = value_elem.find("i8")
-                if i8_elem is not None and i8_elem.text is not None:
-                    val = int(i8_elem.text)
-        return val
-
-    def _parse_xmlrpc_array(
-        self, data: ET.Element
-    ) -> list[dict[str, str | int | None]]:
-        """Parse XML-RPC array element.
-
-        Parameters
-        ----------
-        data : ET.Element
-            Data element containing array values.
-
-        Returns
-        -------
-        list[dict[str, str | int | None]]
-            List of parsed struct dictionaries.
-        """
-        results = []
-        for value_elem in data.findall("value"):
-            struct_elem = value_elem.find("struct")
-            if struct_elem is not None:
-                struct_dict: dict[str, str | int | None] = {}
-                for member in struct_elem.findall("member"):
-                    name_elem = member.find("name")
-                    value_elem2 = member.find("value")
-                    if name_elem is not None and value_elem2 is not None:
-                        name = name_elem.text or ""
-                        val = self._parse_xmlrpc_struct_value(value_elem2)
-                        struct_dict[name] = val
-                results.append(struct_dict)
-        return results
-
-    def _parse_xmlrpc_response(
-        self, xml_content: str
-    ) -> str | int | list[dict[str, str | int | None]] | None:
-        """Parse XML-RPC response.
-
-        Parameters
-        ----------
-        xml_content : str
-            XML response content.
-
-        Returns
-        -------
-        Any
-            Parsed response value.
-
-        Raises
-        ------
-        PVRProviderError
-            If parsing fails or response contains fault.
-        """
-        try:
-            root = ET.fromstring(xml_content)  # noqa: S314
-        except ET.ParseError as e:
-            msg = f"Failed to parse Aria2 XML-RPC response: {e}"
-            raise PVRProviderError(msg) from e
-
-        self._check_xmlrpc_fault(root)
-
-        # Extract return value
-        params = root.find(".//params/param/value")
-        if params is None:
-            return None
-
-        # Simple value extraction
-        string_elem = params.find("string")
-        if string_elem is not None:
-            return string_elem.text
-
-        int_elem = params.find("int")
-        if int_elem is not None:
-            return int(int_elem.text or "0")
-
-        # For arrays
-        array_elem = params.find("array")
-        if array_elem is not None:
-            data = array_elem.find("data")
-            if data is not None:
-                return self._parse_xmlrpc_array(data)
-
-        return None
+        auth_error_msg = "Aria2 authentication failed"
+        raise PVRProviderAuthenticationError(auth_error_msg)
 
     def _request(
         self,
         method: str,
-        *params: str | bytes | int | list[str | int] | dict[str, str | int | None],
+        *params: XmlRpcValue,
     ) -> str | int | list[dict[str, str | int | None]] | None:
         """Make XML-RPC request.
 
@@ -359,7 +125,7 @@ class Aria2Proxy:
         ----------
         method : str
             RPC method name.
-        *params : Any
+        *params : XmlRpcValue
             Method parameters.
 
         Returns
@@ -367,34 +133,49 @@ class Aria2Proxy:
         Any
             RPC response result.
         """
-        xml_request = self._build_xmlrpc_request(method, *params)
+        # Build request using shared builder
+        token = self._get_token()
+        xml_request = self.builder.build_request(
+            method, *params, rpc_token=token if token else None
+        )
 
         headers: dict[str, str] = {
             "Content-Type": "text/xml",
             "Content-Length": str(len(xml_request)),
         }
 
-        # Add basic auth if provided
-        if self.settings.username and self.settings.password:
-            credentials = f"{self.settings.username}:{self.settings.password}"
-            auth_bytes = base64.b64encode(credentials.encode("utf-8"))
-            headers["Authorization"] = f"Basic {auth_bytes.decode('utf-8')}"
+        # Add basic auth if provided (Aria2 supports basic auth in headers too)
+        # We rely on httpx auth handling usually, but here we can pass it to client.post
 
-        with self._get_client() as client:
+        auth = None
+        if self.settings.username and self.settings.password:
+            auth = (self.settings.username, self.settings.password)
+
+        # Use injected factory to create client
+        # Note: We rely on the factory to provide a client that supports context manager
+        # and has similar interface to httpx.Client (as defined in HttpClientProtocol)
+        with self.http_client_factory() as client:
             try:
                 response = client.post(
                     self.rpc_url,
                     content=xml_request,
                     headers=headers,
+                    auth=auth,
                     timeout=self.settings.timeout_seconds,
                 )
 
                 if response.status_code == 401:
-                    auth_error_msg = "Aria2 authentication failed"
-                    raise PVRProviderAuthenticationError(auth_error_msg)
+                    self._raise_auth_error()
 
-                response.raise_for_status()
-                results = self._parse_xmlrpc_response(response.text)
+                if hasattr(response, "raise_for_status"):
+                    response.raise_for_status()
+
+                # Parse response using shared parser
+                try:
+                    return self.parser.parse_response(response.text)
+                except ET.ParseError as e:
+                    msg = f"Failed to parse Aria2 XML-RPC response: {e}"
+                    raise PVRProviderError(msg) from e
 
             except httpx.HTTPStatusError as e:
                 if e.response.status_code in (401, 403):
@@ -407,14 +188,19 @@ class Aria2Proxy:
             except (httpx.RequestError, httpx.TimeoutException) as e:
                 handle_httpx_exception(e, f"Aria2 XML-RPC {method}")
                 raise
-            else:
-                return results
+            except Exception as e:
+                # Catch protocol-compliant exceptions if client raises them
+                # Since we use httpx implementation, we catch httpx errors above.
+                if isinstance(e, PVRProviderError):
+                    raise
+                msg = f"Aria2 request failed: {e}"
+                raise PVRProviderError(msg) from e
 
     def get_version(self) -> str:
         """Get Aria2 version."""
         result = self._request("aria2.getVersion")
         if isinstance(result, dict):
-            return result.get("version", "unknown")
+            return str(result.get("version", "unknown"))
         return str(result) if result else "unknown"
 
     def add_magnet(
@@ -438,7 +224,7 @@ class Aria2Proxy:
             options = {}
 
         uris = [magnet_link]
-        result = self._request("aria2.addUri", uris, options)
+        result = self._request("aria2.addUri", uris, options)  # type: ignore[arg-type]
         return str(result) if result else ""
 
     def add_torrent(
@@ -463,7 +249,7 @@ class Aria2Proxy:
 
         # Aria2 requires empty URI list when options are provided
         uris: list[str | int] = []
-        result = self._request("aria2.addTorrent", file_content, uris, options)
+        result = self._request("aria2.addTorrent", file_content, uris, options)  # type: ignore[arg-type]
         return str(result) if result else ""
 
     def get_torrents(self) -> list[dict[str, str | int | None]]:
@@ -479,11 +265,17 @@ class Aria2Proxy:
         stopped = self._request("aria2.tellStopped", 0, 10240) or []
 
         items: list[dict[str, str | int | None]] = []
-        items.extend(active if isinstance(active, list) else [])
-        items.extend(waiting if isinstance(waiting, list) else [])
-        items.extend(stopped if isinstance(stopped, list) else [])
+        # Ensure we only append lists (API should return lists)
+        if isinstance(active, list):
+            items.extend(active)
+        if isinstance(waiting, list):
+            items.extend(waiting)
+        if isinstance(stopped, list):
+            items.extend(stopped)
 
-        return items
+        # Type narrowing for mypy/safety
+        # The parser returns list[str | int | dict] but we expect dicts here
+        return [item for item in items if isinstance(item, dict)]
 
     def remove_torrent(self, gid: str, force: bool = False) -> bool:
         """Remove download.
@@ -521,7 +313,7 @@ class Aria2Proxy:
         return str(result) == "OK"
 
 
-class Aria2Client(BaseDownloadClient):
+class Aria2Client(TrackingDownloadClient):
     """Aria2 download client implementation.
 
     Implements BaseDownloadClient interface for Aria2 XML-RPC API.
@@ -530,6 +322,9 @@ class Aria2Client(BaseDownloadClient):
     def __init__(
         self,
         settings: Aria2Settings | DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+        http_client_factory: Callable[[], HttpClientProtocol] | None = None,
         enabled: bool = True,
     ) -> None:
         """Initialize Aria2 client."""
@@ -550,9 +345,20 @@ class Aria2Client(BaseDownloadClient):
             )
             settings = aria2_settings
 
-        super().__init__(settings, enabled)
+        super().__init__(
+            settings, file_fetcher, url_router, http_client_factory, enabled
+        )
         self.settings: Aria2Settings = settings  # type: ignore[assignment]
-        self._proxy = Aria2Proxy(self.settings)
+
+        if self._http_client_factory is None:
+            # Fallback if not injected (though factory should always inject)
+            from bookcard.pvr.download_clients._http_client import create_httpx_client
+
+            self._http_client_factory = lambda: create_httpx_client(
+                timeout=self.settings.timeout_seconds
+            )
+
+        self._proxy = Aria2Proxy(self.settings, self._http_client_factory)
         self._status_mapper = StatusMapper(
             {
                 "complete": DownloadStatus.COMPLETED,
@@ -615,7 +421,7 @@ class Aria2Client(BaseDownloadClient):
         speed = None
         with suppress(ValueError, TypeError):
             if download_speed:
-                speed = int(download_speed)
+                speed = int(str(download_speed))
         return speed
 
     def _get_eta(self, download: dict[str, str | int | None]) -> int | None:
@@ -635,7 +441,7 @@ class Aria2Client(BaseDownloadClient):
         eta_seconds = None
         if eta:
             with suppress(ValueError, TypeError):
-                eta_seconds = int(eta)
+                eta_seconds = int(str(eta))
         return eta_seconds
 
     def _get_download_title(self, download: dict[str, str | int | None]) -> str:
@@ -693,8 +499,8 @@ class Aria2Client(BaseDownloadClient):
         progress = self._calculate_progress(total_length, completed_length)
 
         try:
-            total = int(total_length) if total_length else 0
-            completed = int(completed_length) if completed_length else 0
+            total = int(str(total_length)) if total_length else 0
+            completed = int(str(completed_length)) if completed_length else 0
         except (ValueError, TypeError):
             total = 0
             completed = 0
@@ -735,7 +541,7 @@ class Aria2Client(BaseDownloadClient):
             options["dir"] = path
         return options
 
-    def _add_magnet(
+    def add_magnet(
         self,
         magnet_url: str,
         _title: str | None,
@@ -746,7 +552,7 @@ class Aria2Client(BaseDownloadClient):
         options = self._build_options(download_path)
         return self._proxy.add_magnet(magnet_url, options)
 
-    def _add_url(
+    def add_url(
         self,
         url: str,
         _title: str | None,
@@ -758,7 +564,7 @@ class Aria2Client(BaseDownloadClient):
         options = self._build_options(download_path)
         return self._proxy.add_magnet(url, options)
 
-    def _add_file(
+    def add_file(
         self,
         filepath: str,
         _title: str | None,
