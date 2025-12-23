@@ -669,6 +669,25 @@ class TestQBittorrentClient:
             client.add_download("magnet:?xt=urn:btih:ABCDEF1234567890&dn=test")
 
     @patch.object(QBittorrentProxy, "add_torrent_from_url")
+    def test_add_download_magnet_no_hash(
+        self,
+        mock_add: MagicMock,
+        qbittorrent_settings: QBittorrentSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test add_download with magnet link that doesn't contain hash (returns 'pending')."""
+        client = QBittorrentClient(
+            settings=qbittorrent_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
+        # Magnet link without hash
+        result = client.add_download("magnet:?dn=test&tr=http://tracker.com")
+        assert result == "pending"
+        mock_add.assert_called_once()
+
+    @patch.object(QBittorrentProxy, "add_torrent_from_url")
     def test_add_download_http_url(
         self,
         mock_add: MagicMock,
