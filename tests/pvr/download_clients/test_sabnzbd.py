@@ -285,17 +285,20 @@ class TestSabnzbdClient:
 
     def test_init_with_download_client_settings(
         self,
-        sabnzbd_settings: DownloadClientSettings,
+        base_download_client_settings: DownloadClientSettings,
         file_fetcher: FileFetcherProtocol,
         url_router: UrlRouterProtocol,
     ) -> None:
         """Test initialization with DownloadClientSettings conversion."""
         client = SabnzbdClient(
-            settings=sabnzbd_settings,
+            settings=base_download_client_settings,
             file_fetcher=file_fetcher,
             url_router=url_router,
         )
         assert isinstance(client.settings, SabnzbdSettings)
+        # Verify conversion sets url_base and api_key to None
+        assert client.settings.url_base is None
+        assert client.settings.api_key is None
 
     @patch.object(SabnzbdProxy, "add_nzb")
     def test_add_download_nzb_file(
@@ -371,6 +374,22 @@ class TestSabnzbdClient:
         items = client.get_items()
         assert len(items) > 0
 
+    def test_get_items_disabled(
+        self,
+        sabnzbd_settings: SabnzbdSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test get_items when disabled."""
+        client = SabnzbdClient(
+            settings=sabnzbd_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
+        items = client.get_items()
+        assert items == []
+
     @patch.object(SabnzbdProxy, "remove_from_queue")
     def test_remove_item_from_queue(
         self,
@@ -412,6 +431,17 @@ class TestSabnzbdClient:
         response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
         response.text = "error: Something went wrong"
         with pytest.raises(PVRProviderError, match="API error"):
+            proxy._parse_response(response)
+
+    def test_parse_response_json_error_no_error_text(
+        self, sabnzbd_settings: SabnzbdSettings
+    ) -> None:
+        """Test _parse_response with JSON decode error but text doesn't start with 'error'."""
+        proxy = SabnzbdProxy(sabnzbd_settings)
+        response = MagicMock()
+        response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
+        response.text = "Some other text that doesn't start with error"
+        with pytest.raises(PVRProviderError, match="Failed to parse"):
             proxy._parse_response(response)
 
     @patch.object(SabnzbdProxy, "_build_request_params")
@@ -472,6 +502,140 @@ class TestSabnzbdClient:
 
         proxy = SabnzbdProxy(sabnzbd_settings)
         with pytest.raises(PVRProviderNetworkError):
+            proxy._request("GET", "queue")
+
+    @patch.object(SabnzbdProxy, "_build_request_params")
+    @patch("bookcard.pvr.download_clients.sabnzbd.create_httpx_client")
+    def test_request_http_error_401(
+        self,
+        mock_create_client: MagicMock,
+        mock_build_params: MagicMock,
+        sabnzbd_settings: SabnzbdSettings,
+    ) -> None:
+        """Test _request with HTTP 401 error."""
+        import httpx
+
+        mock_build_params.return_value = {
+            "mode": "queue",
+            "output": "json",
+            "apikey": "test",
+        }
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        mock_response.text = "Unauthorized"
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.get.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = SabnzbdProxy(sabnzbd_settings)
+        with pytest.raises(
+            PVRProviderAuthenticationError, match="authentication failed"
+        ):
+            proxy._request("GET", "queue")
+
+    @patch.object(SabnzbdProxy, "_build_request_params")
+    @patch("bookcard.pvr.download_clients.sabnzbd.create_httpx_client")
+    def test_request_http_error_403(
+        self,
+        mock_create_client: MagicMock,
+        mock_build_params: MagicMock,
+        sabnzbd_settings: SabnzbdSettings,
+    ) -> None:
+        """Test _request with HTTP 403 error."""
+        import httpx
+
+        mock_build_params.return_value = {
+            "mode": "queue",
+            "output": "json",
+            "apikey": "test",
+        }
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 403
+        mock_response.text = "Forbidden"
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.get.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = SabnzbdProxy(sabnzbd_settings)
+        with pytest.raises(
+            PVRProviderAuthenticationError, match="authentication failed"
+        ):
+            proxy._request("GET", "queue")
+
+    @patch.object(SabnzbdProxy, "_build_request_params")
+    @patch("bookcard.pvr.download_clients.sabnzbd.create_httpx_client")
+    @patch("bookcard.pvr.download_clients.sabnzbd.handle_http_error_response")
+    def test_request_http_error_other(
+        self,
+        mock_handle_error: MagicMock,
+        mock_create_client: MagicMock,
+        mock_build_params: MagicMock,
+        sabnzbd_settings: SabnzbdSettings,
+    ) -> None:
+        """Test _request with other HTTP error (covers raise after handle_http_error_response)."""
+        import httpx
+
+        mock_handle_error.return_value = None
+
+        mock_build_params.return_value = {
+            "mode": "queue",
+            "output": "json",
+            "apikey": "test",
+        }
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error" * 100
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.get.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = SabnzbdProxy(sabnzbd_settings)
+        with pytest.raises(httpx.HTTPStatusError):
+            proxy._request("GET", "queue")
+
+    @patch.object(SabnzbdProxy, "_build_request_params")
+    @patch("bookcard.pvr.download_clients.sabnzbd.create_httpx_client")
+    @patch("bookcard.pvr.download_clients.sabnzbd.handle_httpx_exception")
+    def test_request_request_error(
+        self,
+        mock_handle_exception: MagicMock,
+        mock_create_client: MagicMock,
+        mock_build_params: MagicMock,
+        sabnzbd_settings: SabnzbdSettings,
+    ) -> None:
+        """Test _request with RequestError (covers raise after handle_httpx_exception)."""
+        import httpx
+
+        mock_handle_exception.return_value = None
+
+        mock_build_params.return_value = {
+            "mode": "queue",
+            "output": "json",
+            "apikey": "test",
+        }
+        mock_client = MagicMock()
+        mock_client.get.side_effect = httpx.RequestError("Request error")
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = SabnzbdProxy(sabnzbd_settings)
+        with pytest.raises(httpx.RequestError):
             proxy._request("GET", "queue")
 
     @patch.object(SabnzbdProxy, "_request")
@@ -539,6 +703,21 @@ class TestSabnzbdClient:
         with pytest.raises(PVRProviderError, match="disabled"):
             client.add_download("http://example.com/file.nzb")
 
+    def test_add_magnet(
+        self,
+        sabnzbd_settings: SabnzbdSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test add_magnet (not supported)."""
+        client = SabnzbdClient(
+            settings=sabnzbd_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+        )
+        with pytest.raises(PVRProviderError, match="does not support magnet links"):
+            client.add_magnet("magnet:?xt=urn:btih:test", None, None, None)
+
     @patch.object(SabnzbdProxy, "add_nzb")
     def test_add_download_with_category(
         self,
@@ -591,6 +770,40 @@ class TestSabnzbdClient:
         assert len(items) == 1
         assert items[0]["status"] == "completed"
         assert items[0]["file_path"] == "/downloads/test"
+
+    @patch.object(SabnzbdProxy, "get_queue")
+    @patch.object(SabnzbdProxy, "get_history")
+    def test_get_items_history_skip_non_completed_failed(
+        self,
+        mock_get_history: MagicMock,
+        mock_get_queue: MagicMock,
+        sabnzbd_settings: SabnzbdSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test get_items skips history items that are not Completed or Failed."""
+        mock_get_queue.return_value = []
+        mock_get_history.return_value = [
+            {
+                "nzo_id": "test-1",
+                "name": "Test NZB",
+                "status": "Downloading",  # Should be skipped
+                "mb": 1000,
+            },
+            {
+                "nzo_id": "test-2",
+                "name": "Test NZB 2",
+                "status": "Completed",
+                "mb": 1000,
+            },
+        ]
+        client = SabnzbdClient(
+            settings=sabnzbd_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        items = client.get_items()
+        # Should only include the Completed item
+        assert len(items) == 1
+        assert items[0]["client_item_id"] == "test-2"
 
     @patch.object(SabnzbdProxy, "get_queue")
     @patch.object(SabnzbdProxy, "get_history")
@@ -765,3 +978,87 @@ class TestSabnzbdClient:
         )
         with pytest.raises(PVRProviderError, match="Failed to connect"):
             client.test_connection()
+
+    @patch.object(SabnzbdProxy, "get_queue")
+    @patch.object(SabnzbdProxy, "get_history")
+    def test_map_sabnzbd_status_queue_paused(
+        self,
+        mock_get_history: MagicMock,
+        mock_get_queue: MagicMock,
+        sabnzbd_settings: SabnzbdSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test _map_sabnzbd_status with queue paused status."""
+        mock_get_queue.return_value = [
+            {
+                "nzo_id": "test-1",
+                "filename": "Test NZB",
+                "status": "Paused",
+                "mb": 1000,
+                "mbleft": 500,
+            }
+        ]
+        mock_get_history.return_value = []
+        client = SabnzbdClient(
+            settings=sabnzbd_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        items = client.get_items()
+        assert len(items) == 1
+        assert items[0]["status"] == "paused"
+
+    @patch.object(SabnzbdProxy, "get_queue")
+    @patch.object(SabnzbdProxy, "get_history")
+    def test_map_sabnzbd_status_queue_queued(
+        self,
+        mock_get_history: MagicMock,
+        mock_get_queue: MagicMock,
+        sabnzbd_settings: SabnzbdSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test _map_sabnzbd_status with queue queued status."""
+        mock_get_queue.return_value = [
+            {
+                "nzo_id": "test-1",
+                "filename": "Test NZB",
+                "status": "Queued",
+                "mb": 1000,
+                "mbleft": 500,
+            }
+        ]
+        mock_get_history.return_value = []
+        client = SabnzbdClient(
+            settings=sabnzbd_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        items = client.get_items()
+        assert len(items) == 1
+        assert items[0]["status"] == "queued"
+
+    def test_map_sabnzbd_status_history_default(
+        self,
+        sabnzbd_settings: SabnzbdSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test _map_sabnzbd_status with history status that doesn't match (defaults to downloading)."""
+        # Line 722 is the fallback return for history items. To test it, we need a status
+        # that passes the filter at line 608 but doesn't match the checks at lines 718-721.
+        # The filter checks `status not in ("Completed", "Failed")` (case-sensitive).
+        # The mapping checks for "Completed", "completed", "Failed", "failed".
+        # So if status is exactly "Completed" or "Failed", it passes the filter and matches.
+        # If status has extra characters like "Completed " (with space), it would pass
+        # the filter (since it's not exactly "Completed") but wouldn't match the checks.
+        client = SabnzbdClient(
+            settings=sabnzbd_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        # Test directly by calling the method with a status that would trigger the fallback
+        # We can access private methods in tests
+        status = client._map_sabnzbd_status("Completed ", is_queue=False)
+        # This should return the default (downloading) since "Completed " doesn't match
+        # the exact checks but would pass a lenient filter
+        # Actually, let me test with a status that's definitely not in the checks
+        from bookcard.pvr.utils.status import DownloadStatus
+
+        status = client._map_sabnzbd_status("SomeOtherStatus", is_queue=False)
+        assert status == DownloadStatus.DOWNLOADING
