@@ -587,7 +587,7 @@ class RTorrentClient(BaseDownloadClient):
                 # Extract hash from magnet link
                 hash_str = ""
                 for part in download_url.split("&"):
-                    if part.startswith("xt=urn:btih:"):
+                    if "xt=urn:btih:" in part:
                         hash_str = part.split(":")[-1].upper()
                         break
 

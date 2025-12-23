@@ -133,9 +133,17 @@ class NzbgetProxy:
                 # Check for RPC errors
                 if "error" in rpc_response:
                     error = rpc_response["error"]
-                    error_msg = error.get("message", "Unknown error")
-                    msg = f"NZBGet RPC error: {error_msg}"
-                    raise PVRProviderError(msg)
+                    if error is None:
+                        # No error, continue
+                        pass
+                    elif isinstance(error, dict):
+                        error_msg = error.get("message", "Unknown error")
+                        msg = f"NZBGet RPC error: {error_msg}"
+                        raise PVRProviderError(msg)
+                    else:
+                        error_msg = str(error)
+                        msg = f"NZBGet RPC error: {error_msg}"
+                        raise PVRProviderError(msg)
 
                 return rpc_response.get("result")
 

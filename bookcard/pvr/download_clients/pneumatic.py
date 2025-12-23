@@ -144,6 +144,10 @@ class PneumaticClient(BaseDownloadClient):
             else:
                 filename_base = "download"
 
+            # Ensure directories exist
+            Path(self.settings.nzb_folder).mkdir(parents=True, exist_ok=True)
+            Path(self.settings.strm_folder).mkdir(parents=True, exist_ok=True)
+
             # Save NZB file
             nzb_path = Path(self.settings.nzb_folder) / f"{filename_base}.nzb"
             nzb_path.write_bytes(nzb_data)
@@ -251,8 +255,7 @@ class PneumaticClient(BaseDownloadClient):
             raise PVRProviderError(msg)
 
         # Pneumatic doesn't support removal via API
-        msg = "Pneumatic does not support removing downloads via API"
-        raise PVRProviderError(msg)
+        return False
 
     def test_connection(self) -> bool:
         """Test connectivity to Pneumatic.

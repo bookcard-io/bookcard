@@ -154,9 +154,17 @@ class HadoukenProxy:
                 # Check for JSON-RPC error
                 if "error" in json_response:
                     error = json_response["error"]
-                    error_msg = error.get("message", "Unknown error")
-                    msg = f"Hadouken JSON-RPC error: {error_msg}"
-                    raise PVRProviderError(msg)
+                    if error is None:
+                        # No error, continue
+                        pass
+                    elif isinstance(error, dict):
+                        error_msg = error.get("message", "Unknown error")
+                        msg = f"Hadouken JSON-RPC error: {error_msg}"
+                        raise PVRProviderError(msg)
+                    else:
+                        error_msg = str(error)
+                        msg = f"Hadouken JSON-RPC error: {error_msg}"
+                        raise PVRProviderError(msg)
 
                 return json_response.get("result")
 
@@ -332,7 +340,7 @@ class HadoukenClient(BaseDownloadClient):
                 # Extract hash from magnet if possible
                 if download_url.startswith("magnet:"):
                     for part in download_url.split("&"):
-                        if part.startswith("xt=urn:btih:"):
+                        if "xt=urn:btih:" in part:
                             return part.split(":")[-1].upper()
                 return "pending"
             if Path(download_url).is_file():

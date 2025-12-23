@@ -425,7 +425,7 @@ class FloodClient(BaseDownloadClient):
                 # Extract hash from magnet if possible
                 if download_url.startswith("magnet:"):
                     for part in download_url.split("&"):
-                        if part.startswith("xt=urn:btih:"):
+                        if "xt=urn:btih:" in part:
                             return part.split(":")[-1].upper()
                 return "pending"
             if Path(download_url).is_file():

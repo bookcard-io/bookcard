@@ -198,11 +198,9 @@ class QBittorrentProxy:
         if method_upper == "GET":
             return client.get(url, cookies=cookies, params=params)
         if method_upper == "POST":
-            if files:
-                return client.post(
-                    url, cookies=cookies, data=data, files=files, params=params
-                )
-            return client.post(url, cookies=cookies, data=data, params=params)
+            return client.post(
+                url, cookies=cookies, data=data, files=files, params=params
+            )
         msg = f"Unsupported HTTP method: {method}"
         raise PVRProviderError(msg)
 
@@ -511,7 +509,7 @@ class QBittorrentClient(BaseDownloadClient):
             if download_url.startswith("magnet:"):
                 # Extract hash from magnet link
                 for part in download_url.split("&"):
-                    if part.startswith("xt=urn:btih:"):
+                    if "xt=urn:btih:" in part:
                         return part.split(":")[-1].upper()
         except Exception as e:
             msg = f"Failed to add download to qBittorrent: {e}"

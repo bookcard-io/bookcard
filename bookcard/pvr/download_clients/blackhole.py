@@ -95,8 +95,10 @@ def _clean_filename(filename: str) -> str:
     """
     # Remove or replace invalid characters
     filename = re.sub(r'[<>:"/\\|?*]', "_", filename)
-    # Remove leading/trailing dots and spaces
+    # Remove leading/trailing dots and spaces first
     filename = filename.strip(". ")
+    # Replace remaining spaces with underscores for filesystem safety
+    filename = filename.replace(" ", "_")
     # Limit length
     if len(filename) > 200:
         filename = filename[:200]
@@ -232,6 +234,9 @@ class TorrentBlackholeClient(BaseDownloadClient):
         try:
             # Determine filename
             filename_base = _clean_filename(title) if title else "download"
+
+            # Ensure torrent folder exists
+            Path(self.settings.torrent_folder).mkdir(parents=True, exist_ok=True)
 
             # Handle magnet links
             if download_url.startswith("magnet:"):
@@ -469,6 +474,9 @@ class UsenetBlackholeClient(BaseDownloadClient):
         try:
             # Determine filename
             filename_base = _clean_filename(title) if title else "download"
+
+            # Ensure nzb folder exists
+            Path(self.settings.nzb_folder).mkdir(parents=True, exist_ok=True)
 
             filepath = Path(self.settings.nzb_folder) / f"{filename_base}.nzb"
 

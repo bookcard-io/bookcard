@@ -582,7 +582,7 @@ class TransmissionClient(BaseDownloadClient):
             if not hash_str and download_url.startswith("magnet:"):
                 # Extract hash from magnet link as fallback
                 for part in download_url.split("&"):
-                    if part.startswith("xt=urn:btih:"):
+                    if "xt=urn:btih:" in part:
                         hash_str = part.split(":")[-1].upper()
                         break
 
