@@ -16,6 +16,7 @@
 """PVR data models for search results and release information."""
 
 from datetime import datetime
+from typing import TypedDict
 
 from pydantic import BaseModel, Field
 
@@ -86,3 +87,21 @@ class ReleaseInfo(BaseModel):
     additional_info: dict[str, str | int | float | None] | None = Field(
         default=None, description="Additional indexer-specific metadata"
     )
+
+
+class DownloadItem(TypedDict, total=False):
+    """Typed dictionary for download item information.
+
+    This provides type safety for download item dictionaries returned
+    by download clients, replacing the generic dict[str, str | int | float | None].
+    """
+
+    client_item_id: str
+    title: str
+    status: str
+    progress: float
+    size_bytes: int | None
+    downloaded_bytes: int | None
+    download_speed_bytes_per_sec: float | None
+    eta_seconds: int | None
+    file_path: str | None

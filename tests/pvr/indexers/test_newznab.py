@@ -16,15 +16,17 @@
 """Tests for Newznab indexer implementation."""
 
 from datetime import datetime
+from typing import TYPE_CHECKING, cast
 from unittest.mock import MagicMock, patch
 from xml.etree import ElementTree as ET  # noqa: S405
 
 import httpx
 import pytest
 
-from bookcard.pvr.base import (
-    IndexerSettings,
+from bookcard.pvr.base import IndexerSettings
+from bookcard.pvr.exceptions import (
     PVRProviderAuthenticationError,
+    PVRProviderError,
     PVRProviderNetworkError,
     PVRProviderParseError,
     PVRProviderTimeoutError,
@@ -36,6 +38,9 @@ from bookcard.pvr.indexers.newznab import (
     NewznabRequestGenerator,
     NewznabSettings,
 )
+
+if TYPE_CHECKING:
+    from bookcard.pvr.indexers.parsers import NamespaceAwareExtractor
 
 # ============================================================================
 # Fixtures
@@ -56,9 +61,17 @@ def newznab_settings_fixture() -> NewznabSettings:
 
 
 @pytest.fixture
-def newznab_indexer(newznab_settings_fixture: NewznabSettings) -> NewznabIndexer:
+def newznab_indexer(
+    newznab_settings_fixture: NewznabSettings,
+    newznab_request_generator: NewznabRequestGenerator,
+    newznab_parser: NewznabParser,
+) -> NewznabIndexer:
     """Create Newznab indexer instance."""
-    return NewznabIndexer(settings=newznab_settings_fixture, enabled=True)
+    return NewznabIndexer(
+        settings=newznab_settings_fixture,
+        request_generator=newznab_request_generator,
+        parser=newznab_parser,
+    )
 
 
 @pytest.fixture
@@ -284,7 +297,16 @@ class TestNewznabParser:
         self, newznab_parser: NewznabParser, sample_item_xml: ET.Element
     ) -> None:
         """Test _parse_item with complete item."""
-        release = newznab_parser._parse_item(sample_item_xml, indexer_id=1)
+        # Wrap in RSS/Channel
+        root = ET.Element("rss")
+        channel = ET.SubElement(root, "channel")
+        channel.append(sample_item_xml)
+        xml = ET.tostring(root)
+
+        releases = newznab_parser.parse_response(xml, indexer_id=1)
+        assert len(releases) == 1
+        release = releases[0]
+
         assert release is not None
         assert release.title == "Test Book Title"
         assert release.download_url == "https://example.com/file.nzb"
@@ -293,21 +315,33 @@ class TestNewznabParser:
     def test_parse_item_no_title(self, newznab_parser: NewznabParser) -> None:
         """Test _parse_item with no title."""
         item = ET.Element("item")
-        release = newznab_parser._parse_item(item, indexer_id=None)
-        assert release is None
+        # Wrap in RSS/Channel
+        root = ET.Element("rss")
+        channel = ET.SubElement(root, "channel")
+        channel.append(item)
+        xml = ET.tostring(root)
+
+        releases = newznab_parser.parse_response(xml, indexer_id=None)
+        assert len(releases) == 0
 
     def test_parse_item_no_download_url(self, newznab_parser: NewznabParser) -> None:
         """Test _parse_item with no download URL."""
         item = ET.Element("item")
         ET.SubElement(item, "title").text = "Test"
-        release = newznab_parser._parse_item(item, indexer_id=None)
-        assert release is None
+        # Wrap in RSS/Channel
+        root = ET.Element("rss")
+        channel = ET.SubElement(root, "channel")
+        channel.append(item)
+        xml = ET.tostring(root)
+
+        releases = newznab_parser.parse_response(xml, indexer_id=None)
+        assert len(releases) == 0
 
     def test_extract_publish_date_valid(self, newznab_parser: NewznabParser) -> None:
         """Test _extract_publish_date with valid date."""
         item = ET.Element("item")
         ET.SubElement(item, "pubDate").text = "Mon, 01 Jan 2024 12:00:00 +0000"
-        date = newznab_parser._extract_publish_date(item)
+        date = newznab_parser.composite.extractors["publish_date"].extract(item)
         assert date is not None
         assert isinstance(date, datetime)
 
@@ -315,13 +349,13 @@ class TestNewznabParser:
         """Test _extract_publish_date with invalid date."""
         item = ET.Element("item")
         ET.SubElement(item, "pubDate").text = "invalid date"
-        date = newznab_parser._extract_publish_date(item)
+        date = newznab_parser.composite.extractors["publish_date"].extract(item)
         assert date is None
 
     def test_extract_publish_date_missing(self, newznab_parser: NewznabParser) -> None:
         """Test _extract_publish_date with missing date."""
         item = ET.Element("item")
-        date = newznab_parser._extract_publish_date(item)
+        date = newznab_parser.composite.extractors["publish_date"].extract(item)
         assert date is None
 
     @pytest.mark.parametrize(
@@ -338,8 +372,10 @@ class TestNewznabParser:
     def test_infer_quality_from_title(
         self, newznab_parser: NewznabParser, title: str, expected: str | None
     ) -> None:
-        """Test _infer_quality_from_title."""
-        quality = newznab_parser._infer_quality_from_title(title)
+        """Test infer_quality_from_title."""
+        from bookcard.pvr.utils.quality import infer_quality_from_title
+
+        quality = infer_quality_from_title(title)
         assert quality == expected
 
     def test_extract_metadata_with_attributes(
@@ -356,41 +392,42 @@ class TestNewznabParser:
         attr3 = ET.SubElement(item, f"{NEWZNAB_NS}attr")
         attr3.set("name", "format")
         attr3.set("value", "epub")
+        # Need title for metadata extractor
+        ET.SubElement(item, "title").text = "Test Title"
 
-        author, isbn, quality = newznab_parser._extract_metadata(item, "Test Title")
-        assert author == "Test Author"
-        assert isbn == "1234567890"
-        assert quality == "epub"
+        metadata = newznab_parser.composite.extractors["metadata"].extract(item)
+        assert metadata["author"] == "Test Author"
+        assert metadata["isbn"] == "1234567890"
+        assert metadata["quality"] == "epub"
 
     def test_extract_metadata_infer_quality(
         self, newznab_parser: NewznabParser
     ) -> None:
         """Test _extract_metadata infers quality from title."""
         item = ET.Element("item")
-        _author, _isbn, quality = newznab_parser._extract_metadata(
-            item, "Test Book [EPUB]"
-        )
-        assert quality == "epub"
+        ET.SubElement(item, "title").text = "Test Book [EPUB]"
+        metadata = newznab_parser.composite.extractors["metadata"].extract(item)
+        assert metadata["quality"] == "epub"
 
     def test_get_download_url_enclosure(self, newznab_parser: NewznabParser) -> None:
         """Test _get_download_url from enclosure."""
         item = ET.Element("item")
         enclosure = ET.SubElement(item, "enclosure")
         enclosure.set("url", "https://example.com/file.nzb")
-        url = newznab_parser._get_download_url(item)
+        url = newznab_parser.composite.extractors["download_url"].extract(item)
         assert url == "https://example.com/file.nzb"
 
     def test_get_download_url_link(self, newznab_parser: NewznabParser) -> None:
         """Test _get_download_url from link."""
         item = ET.Element("item")
         ET.SubElement(item, "link").text = "https://example.com/file.nzb"
-        url = newznab_parser._get_download_url(item)
+        url = newznab_parser.composite.extractors["download_url"].extract(item)
         assert url == "https://example.com/file.nzb"
 
     def test_get_download_url_none(self, newznab_parser: NewznabParser) -> None:
         """Test _get_download_url with no URL."""
         item = ET.Element("item")
-        url = newznab_parser._get_download_url(item)
+        url = newznab_parser.composite.extractors["download_url"].extract(item)
         assert url is None
 
     def test_get_size_from_attribute(self, newznab_parser: NewznabParser) -> None:
@@ -399,7 +436,7 @@ class TestNewznabParser:
         attr = ET.SubElement(item, f"{NEWZNAB_NS}attr")
         attr.set("name", "size")
         attr.set("value", "1000000")
-        size = newznab_parser._get_size(item)
+        size = newznab_parser.composite.extractors["size_bytes"].extract(item)
         assert size == 1000000
 
     def test_get_size_from_enclosure(self, newznab_parser: NewznabParser) -> None:
@@ -407,7 +444,7 @@ class TestNewznabParser:
         item = ET.Element("item")
         enclosure = ET.SubElement(item, "enclosure")
         enclosure.set("length", "2000000")
-        size = newznab_parser._get_size(item)
+        size = newznab_parser.composite.extractors["size_bytes"].extract(item)
         assert size == 2000000
 
     def test_get_size_invalid(self, newznab_parser: NewznabParser) -> None:
@@ -416,7 +453,7 @@ class TestNewznabParser:
         attr = ET.SubElement(item, f"{NEWZNAB_NS}attr")
         attr.set("name", "size")
         attr.set("value", "invalid")
-        size = newznab_parser._get_size(item)
+        size = newznab_parser.composite.extractors["size_bytes"].extract(item)
         assert size is None
 
     def test_get_newznab_attribute_found(self, newznab_parser: NewznabParser) -> None:
@@ -425,7 +462,10 @@ class TestNewznabParser:
         attr = ET.SubElement(item, f"{NEWZNAB_NS}attr")
         attr.set("name", "author")
         attr.set("value", "Test Author")
-        value = newznab_parser._get_newznab_attribute(item, "author")
+        extractor = cast(
+            "NamespaceAwareExtractor", newznab_parser.composite.extractors["metadata"]
+        )
+        value = extractor._get_attribute(item, "author")
         assert value == "Test Author"
 
     def test_get_newznab_attribute_not_found(
@@ -433,8 +473,130 @@ class TestNewznabParser:
     ) -> None:
         """Test _get_newznab_attribute when not found."""
         item = ET.Element("item")
-        value = newznab_parser._get_newznab_attribute(item, "author", default="default")
+        extractor = cast(
+            "NamespaceAwareExtractor", newznab_parser.composite.extractors["metadata"]
+        )
+        value = extractor._get_attribute(item, "author", default="default")
         assert value == "default"
+
+    def test_parse_response_unexpected_exception(
+        self, newznab_parser: NewznabParser
+    ) -> None:
+        """Test parse_response with unexpected exception."""
+        # Mock ET.fromstring to raise an unexpected exception
+        with patch("bookcard.pvr.indexers.newznab.ET.fromstring") as mock_fromstring:
+            mock_fromstring.side_effect = RuntimeError("Unexpected error")
+            with pytest.raises(PVRProviderParseError, match="Unexpected error"):
+                newznab_parser.parse_response(b"<rss><channel></channel></rss>")
+
+    def test_get_size_enclosure_length_type_error(
+        self, newznab_parser: NewznabParser
+    ) -> None:
+        """Test _get_size with TypeError in enclosure length parsing."""
+        item = ET.Element("item")
+        enclosure = ET.SubElement(item, "enclosure")
+        # Set length to something that will cause TypeError
+        enclosure.set("length", None)  # type: ignore[arg-type]
+        size = newznab_parser.composite.extractors["size_bytes"].extract(item)
+        # Should handle gracefully and return None
+        assert size is None
+
+    def test_get_size_enclosure_length_value_error(
+        self, newznab_parser: NewznabParser
+    ) -> None:
+        """Test _get_size with ValueError in enclosure length parsing."""
+        item = ET.Element("item")
+        enclosure = ET.SubElement(item, "enclosure")
+        enclosure.set("length", "invalid_number")
+        size = newznab_parser.composite.extractors["size_bytes"].extract(item)
+        # Should handle gracefully and return None
+        assert size is None
+
+    def test_parse_response_item_value_error(
+        self, newznab_parser: NewznabParser
+    ) -> None:
+        """Test parse_response with ValueError in item parsing."""
+        xml = b"""<?xml version="1.0"?>
+        <rss><channel>
+            <item><title>Valid</title><link>https://example.com</link></item>
+            <item><title>Invalid</title><link>https://example.com</link></item>
+        </channel></rss>"""
+        # Mock composite.parse to raise ValueError for second item
+        with patch.object(
+            newznab_parser.composite,
+            "parse",
+            side_effect=[
+                {"title": "Valid", "download_url": "https://example.com"},
+                ValueError("Invalid item"),
+            ],
+        ):
+            releases = newznab_parser.parse_response(xml)
+            # Should skip invalid item and return only valid one
+            assert len(releases) == 1
+
+    def test_parse_response_item_type_error(
+        self, newznab_parser: NewznabParser
+    ) -> None:
+        """Test parse_response with TypeError in item parsing."""
+        xml = b"""<?xml version="1.0"?>
+        <rss><channel>
+            <item><title>Valid</title><link>https://example.com</link></item>
+            <item><title>Invalid</title><link>https://example.com</link></item>
+        </channel></rss>"""
+        # Mock composite.parse to raise TypeError for second item
+        with patch.object(
+            newznab_parser.composite,
+            "parse",
+            side_effect=[
+                {"title": "Valid", "download_url": "https://example.com"},
+                TypeError("Invalid type"),
+            ],
+        ):
+            releases = newznab_parser.parse_response(xml)
+            # Should skip invalid item and return only valid one
+            assert len(releases) == 1
+
+    def test_parse_response_item_attribute_error(
+        self, newznab_parser: NewznabParser
+    ) -> None:
+        """Test parse_response with AttributeError in item parsing."""
+        xml = b"""<?xml version="1.0"?>
+        <rss><channel>
+            <item><title>Valid</title><link>https://example.com</link></item>
+            <item><title>Invalid</title><link>https://example.com</link></item>
+        </channel></rss>"""
+        # Mock composite.parse to raise AttributeError for second item
+        with patch.object(
+            newznab_parser.composite,
+            "parse",
+            side_effect=[
+                {"title": "Valid", "download_url": "https://example.com"},
+                AttributeError("Missing attribute"),
+            ],
+        ):
+            releases = newznab_parser.parse_response(xml)
+            # Should skip invalid item and return only valid one
+            assert len(releases) == 1
+
+    def test_parse_response_item_key_error(self, newznab_parser: NewznabParser) -> None:
+        """Test parse_response with KeyError in item parsing."""
+        xml = b"""<?xml version="1.0"?>
+        <rss><channel>
+            <item><title>Valid</title><link>https://example.com</link></item>
+            <item><title>Invalid</title><link>https://example.com</link></item>
+        </channel></rss>"""
+        # Mock composite.parse to raise KeyError for second item
+        with patch.object(
+            newznab_parser.composite,
+            "parse",
+            side_effect=[
+                {"title": "Valid", "download_url": "https://example.com"},
+                KeyError("Missing key"),
+            ],
+        ):
+            releases = newznab_parser.parse_response(xml)
+            # Should skip invalid item and return only valid one
+            assert len(releases) == 1
 
 
 # ============================================================================
@@ -446,26 +608,35 @@ class TestNewznabIndexer:
     """Test NewznabIndexer class."""
 
     def test_init_with_newznab_settings(
-        self, newznab_settings_fixture: NewznabSettings
+        self,
+        newznab_settings_fixture: NewznabSettings,
+        newznab_request_generator: NewznabRequestGenerator,
+        newznab_parser: NewznabParser,
     ) -> None:
         """Test initialization with NewznabSettings."""
-        indexer = NewznabIndexer(settings=newznab_settings_fixture)
+        indexer = NewznabIndexer(
+            settings=newznab_settings_fixture,
+            request_generator=newznab_request_generator,
+            parser=newznab_parser,
+        )
         assert indexer.settings == newznab_settings_fixture
         assert isinstance(indexer.request_generator, NewznabRequestGenerator)
         assert isinstance(indexer.parser, NewznabParser)
 
     def test_init_with_indexer_settings(
-        self, indexer_settings: IndexerSettings
+        self,
+        indexer_settings: IndexerSettings,
+        newznab_request_generator: NewznabRequestGenerator,
+        newznab_parser: NewznabParser,
     ) -> None:
         """Test initialization with IndexerSettings."""
-        indexer = NewznabIndexer(settings=indexer_settings)
+        indexer = NewznabIndexer(
+            settings=indexer_settings,
+            request_generator=newznab_request_generator,
+            parser=newznab_parser,
+        )
         assert isinstance(indexer.settings, NewznabSettings)
         assert indexer.settings.api_path == "/api"
-
-    def test_init_disabled(self, newznab_settings_fixture: NewznabSettings) -> None:
-        """Test initialization with disabled=True."""
-        indexer = NewznabIndexer(settings=newznab_settings_fixture, enabled=False)
-        assert not indexer.is_enabled()
 
     @patch("bookcard.pvr.indexers.newznab.httpx.Client")
     def test_search_success(
@@ -523,8 +694,10 @@ class TestNewznabIndexer:
 
     def test_search_disabled(self, newznab_indexer: NewznabIndexer) -> None:
         """Test search when indexer is disabled."""
-        newznab_indexer.set_enabled(False)
-        results = newznab_indexer.search(query="test")
+        from bookcard.pvr.base import ManagedIndexer
+
+        managed = ManagedIndexer(newznab_indexer, enabled=False)
+        results = managed.search(query="test")
         assert results == []
 
     def test_search_no_query(self, newznab_indexer: NewznabIndexer) -> None:
@@ -651,4 +824,83 @@ class TestNewznabIndexer:
         mock_client.return_value.__enter__.return_value = mock_client_instance
 
         with pytest.raises(PVRProviderNetworkError):
+            newznab_indexer._make_request("https://example.com")
+
+    @patch("bookcard.pvr.indexers.newznab.httpx.Client")
+    def test_search_unexpected_exception(
+        self, mock_client: MagicMock, newznab_indexer: NewznabIndexer
+    ) -> None:
+        """Test search with unexpected exception."""
+        # Mock _make_request to raise an unexpected exception (not PVRProviderError)
+        with (
+            patch.object(
+                newznab_indexer,
+                "_make_request",
+                side_effect=RuntimeError("Unexpected error"),
+            ),
+            pytest.raises(PVRProviderError, match="Unexpected error during search"),
+        ):
+            newznab_indexer.search(query="test")
+
+    @patch("bookcard.pvr.indexers.newznab.httpx.Client")
+    def test_test_connection_unexpected_exception(
+        self, mock_client: MagicMock, newznab_indexer: NewznabIndexer
+    ) -> None:
+        """Test test_connection with unexpected exception."""
+        # Mock _make_request to raise an unexpected exception directly
+        with (
+            patch.object(
+                newznab_indexer,
+                "_make_request",
+                side_effect=RuntimeError("Unexpected error"),
+            ),
+            pytest.raises(PVRProviderError, match="Connection test failed"),
+        ):
+            newznab_indexer.test_connection()
+
+    @patch("bookcard.pvr.indexers.newznab.httpx.Client")
+    def test_test_connection_pvr_provider_error(
+        self, mock_client: MagicMock, newznab_indexer: NewznabIndexer
+    ) -> None:
+        """Test test_connection with PVRProviderError (not AuthenticationError)."""
+        # Mock _make_request to raise a PVRProviderError (not AuthenticationError)
+        with (
+            patch.object(
+                newznab_indexer,
+                "_make_request",
+                side_effect=PVRProviderNetworkError("Network error"),
+            ),
+            pytest.raises(PVRProviderNetworkError),
+        ):
+            newznab_indexer.test_connection()
+
+    @patch("bookcard.pvr.indexers.newznab.httpx.Client")
+    def test_make_request_http_status_error(
+        self, mock_client: MagicMock, newznab_indexer: NewznabIndexer
+    ) -> None:
+        """Test _make_request with HTTPStatusError."""
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error"
+        mock_client_instance = MagicMock()
+        error = httpx.HTTPStatusError(
+            "Server Error", request=MagicMock(), response=mock_response
+        )
+        mock_client_instance.get.side_effect = error
+        mock_client.return_value.__enter__.return_value = mock_client_instance
+
+        with pytest.raises(PVRProviderNetworkError, match="HTTP error"):
+            newznab_indexer._make_request("https://example.com")
+
+    @patch("bookcard.pvr.indexers.newznab.httpx.Client")
+    def test_make_request_unexpected_exception(
+        self, mock_client: MagicMock, newznab_indexer: NewznabIndexer
+    ) -> None:
+        """Test _make_request with unexpected exception."""
+        mock_client_instance = MagicMock()
+        # Make get() raise an unexpected exception
+        mock_client_instance.get.side_effect = RuntimeError("Unexpected error")
+        mock_client.return_value.__enter__.return_value = mock_client_instance
+
+        with pytest.raises(PVRProviderError, match="Unexpected error"):
             newznab_indexer._make_request("https://example.com")

@@ -16,11 +16,20 @@
 """Abstract base classes for PVR indexers and download clients."""
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from pydantic import BaseModel, Field
 
-from bookcard.pvr.models import ReleaseInfo
+# Import capabilities from _base directory
+from bookcard.pvr._base.capabilities import FileSupport, MagnetSupport, UrlSupport
+from bookcard.pvr.base.interfaces import (
+    FileFetcherProtocol,
+    HttpClientProtocol,
+    UrlRouterProtocol,
+)
+from bookcard.pvr.base.strategies import DownloadStrategyRegistry
+from bookcard.pvr.exceptions import PVRProviderError
+from bookcard.pvr.models import DownloadItem, ReleaseInfo
 
 
 class IndexerSettings(BaseModel):
@@ -112,28 +121,22 @@ class BaseIndexer(ABC):
     Subclasses should implement:
     - `search()`: Search for releases matching a query
     - `test_connection()`: Test connectivity to the indexer
-    - Optionally override `is_enabled()` for conditional activation
 
     Attributes
     ----------
-    enabled : bool
-        Whether this indexer is currently enabled.
     settings : IndexerSettings
         Indexer configuration settings.
     """
 
-    def __init__(self, settings: IndexerSettings, enabled: bool = True) -> None:
+    def __init__(self, settings: IndexerSettings) -> None:
         """Initialize the indexer.
 
         Parameters
         ----------
         settings : IndexerSettings
             Indexer configuration settings.
-        enabled : bool
-            Whether this indexer is enabled by default.
         """
         self.settings = settings
-        self.enabled = enabled
 
     @abstractmethod
     def search(
@@ -163,7 +166,6 @@ class BaseIndexer(ABC):
         -------
         Sequence[ReleaseInfo]
             Sequence of release information matching the query.
-            Returns empty sequence if no results or if indexer is disabled.
 
         Raises
         ------
@@ -188,25 +190,58 @@ class BaseIndexer(ABC):
         """
         raise NotImplementedError
 
-    def is_enabled(self) -> bool:
-        """Check if this indexer is enabled.
 
-        Returns
-        -------
-        bool
-            True if indexer is enabled, False otherwise.
-        """
-        return self.enabled
+class ManagedIndexer:
+    """Wrapper for indexers that handles state management.
 
-    def set_enabled(self, enabled: bool) -> None:
-        """Enable or disable this indexer.
+    Follows SRP by separating state (enabled/disabled) from indexer logic.
+    """
+
+    def __init__(self, indexer: BaseIndexer, enabled: bool = True) -> None:
+        """Initialize managed indexer.
 
         Parameters
         ----------
+        indexer : BaseIndexer
+            The underlying indexer implementation.
         enabled : bool
-            Whether to enable the indexer.
+            Whether this indexer is enabled.
         """
-        self.enabled = enabled
+        self._indexer = indexer
+        self._enabled = enabled
+
+    @property
+    def settings(self) -> IndexerSettings:
+        """Get underlying indexer settings."""
+        return self._indexer.settings
+
+    def search(
+        self,
+        query: str,
+        title: str | None = None,
+        author: str | None = None,
+        isbn: str | None = None,
+        max_results: int = 100,
+    ) -> Sequence[ReleaseInfo]:
+        """Search for releases if enabled.
+
+        Returns empty sequence if disabled.
+        """
+        if not self._enabled:
+            return []
+        return self._indexer.search(query, title, author, isbn, max_results)
+
+    def test_connection(self) -> bool:
+        """Test connectivity (delegates to indexer)."""
+        return self._indexer.test_connection()
+
+    def is_enabled(self) -> bool:
+        """Check if indexer is enabled."""
+        return self._enabled
+
+    def set_enabled(self, enabled: bool) -> None:
+        """Set enabled state."""
+        self._enabled = enabled
 
 
 class BaseDownloadClient(ABC):
@@ -217,10 +252,9 @@ class BaseDownloadClient(ABC):
     usenet files.
 
     Subclasses should implement:
-    - `add_download()`: Add a download to the client
-    - `get_items()`: Get list of active downloads
-    - `remove_item()`: Remove a download from the client
+    - `add_download()`: Add a download to the client (handled by strategy)
     - `test_connection()`: Test connectivity to the client
+    - Capability methods (add_magnet, add_url, add_file) if supported
 
     Attributes
     ----------
@@ -228,22 +262,58 @@ class BaseDownloadClient(ABC):
         Whether this download client is currently enabled.
     settings : DownloadClientSettings
         Download client configuration settings.
+    _file_fetcher : FileFetcherProtocol
+        File fetcher service for downloading files from URLs.
+    _url_router : UrlRouterProtocol
+        URL routing service.
+    _http_client_factory : Callable[[], HttpClientProtocol] | None
+        Factory for creating configured HTTP clients (optional).
     """
 
-    def __init__(self, settings: DownloadClientSettings, enabled: bool = True) -> None:
+    def __init__(
+        self,
+        settings: DownloadClientSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+        http_client_factory: Callable[[], HttpClientProtocol] | None = None,
+        enabled: bool = True,
+    ) -> None:
         """Initialize the download client.
 
         Parameters
         ----------
         settings : DownloadClientSettings
             Download client configuration settings.
+        file_fetcher : FileFetcherProtocol
+            File fetcher service.
+        url_router : UrlRouterProtocol
+            URL routing service.
+        http_client_factory : Callable[[], HttpClientProtocol] | None
+            Factory for creating configured HTTP clients.
         enabled : bool
             Whether this client is enabled by default.
         """
         self.settings = settings
         self.enabled = enabled
+        self._file_fetcher = file_fetcher
+        self._url_router = url_router
+        self._http_client_factory = http_client_factory
 
+        # Initialize strategy registry
+        self._strategy_registry = DownloadStrategyRegistry(self._url_router)
+
+    @property
     @abstractmethod
+    def client_name(self) -> str:
+        """Return client name for error messages.
+
+        Returns
+        -------
+        str
+            Client name (e.g., "qBittorrent", "Transmission").
+        """
+        raise NotImplementedError
+
     def add_download(
         self,
         download_url: str,
@@ -253,10 +323,13 @@ class BaseDownloadClient(ABC):
     ) -> str:
         """Add a download to the client.
 
+        Uses strategy pattern to delegate to client-specific implementations
+        based on capability protocols.
+
         Parameters
         ----------
         download_url : str
-            URL or magnet link for the download.
+            URL, magnet link, or file path for the download.
         title : str | None
             Optional title for the download.
         category : str | None
@@ -272,57 +345,35 @@ class BaseDownloadClient(ABC):
         Raises
         ------
         PVRProviderError
-            If adding the download fails.
+            If adding the download fails, client is disabled, or capability not supported.
         """
-        raise NotImplementedError
+        self._ensure_enabled()
 
-    @abstractmethod
-    def get_items(self) -> Sequence[dict[str, str | int | float | None]]:
-        """Get list of active downloads.
+        try:
+            resolved_category = category or self.settings.category
+            resolved_path = download_path or self.settings.download_path
 
-        Returns
-        -------
-        Sequence[dict[str, str | int | float | None]]
-            Sequence of download items, each containing:
-            - client_item_id: str - Unique identifier in the client
-            - title: str - Download title
-            - status: str - Current status (downloading, completed, etc.)
-            - progress: float - Progress (0.0 to 1.0)
-            - size_bytes: int | None - Total size in bytes
-            - downloaded_bytes: int | None - Bytes downloaded
-            - download_speed_bytes_per_sec: float | None - Current speed
-            - eta_seconds: int | None - Estimated time to completion
-            - file_path: str | None - Path to downloaded file(s)
+            return self._strategy_registry.handle(
+                self, download_url, title, resolved_category, resolved_path
+            )
+
+        except PVRProviderError:
+            raise
+        except Exception as e:
+            msg = f"Failed to add download to {self.client_name}: {e}"
+            raise PVRProviderError(msg) from e
+
+    def _ensure_enabled(self) -> None:
+        """Ensure client is enabled.
 
         Raises
         ------
         PVRProviderError
-            If fetching items fails.
+            If client is disabled.
         """
-        raise NotImplementedError
-
-    @abstractmethod
-    def remove_item(self, client_item_id: str, delete_files: bool = False) -> bool:
-        """Remove a download from the client.
-
-        Parameters
-        ----------
-        client_item_id : str
-            Client-specific item ID.
-        delete_files : bool
-            Whether to delete downloaded files (default: False).
-
-        Returns
-        -------
-        bool
-            True if removal succeeded, False otherwise.
-
-        Raises
-        ------
-        PVRProviderError
-            If removal fails.
-        """
-        raise NotImplementedError
+        if not self.is_enabled():
+            msg = f"{self.client_name} client is disabled"
+            raise PVRProviderError(msg)
 
     @abstractmethod
     def test_connection(self) -> bool:
@@ -361,129 +412,60 @@ class BaseDownloadClient(ABC):
         self.enabled = enabled
 
 
-class PVRProviderError(Exception):
-    """Base exception for PVR provider errors."""
+class TrackingDownloadClient(BaseDownloadClient):
+    """Base class for download clients that support tracking.
 
-
-class PVRProviderNetworkError(PVRProviderError):
-    """Exception raised when network requests fail."""
-
-
-class PVRProviderParseError(PVRProviderError):
-    """Exception raised when parsing response data fails."""
-
-
-class PVRProviderTimeoutError(PVRProviderError):
-    """Exception raised when requests timeout."""
-
-
-class PVRProviderAuthenticationError(PVRProviderError):
-    """Exception raised when authentication fails."""
-
-
-# Utility functions for raising exceptions
-def raise_authentication_error(message: str) -> None:
-    """Raise PVRProviderAuthenticationError with message.
-
-    Parameters
-    ----------
-    message : str
-        Error message.
-
-    Raises
-    ------
-    PVRProviderAuthenticationError
-        Always raises this exception.
+    Adds methods for getting items and removing items.
     """
-    raise PVRProviderAuthenticationError(message)
+
+    @abstractmethod
+    def get_items(self) -> Sequence[DownloadItem]:
+        """Get list of active downloads.
+
+        Returns
+        -------
+        Sequence[DownloadItem]
+            Sequence of download items.
+
+        Raises
+        ------
+        PVRProviderError
+            If fetching items fails.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def remove_item(self, client_item_id: str, delete_files: bool = False) -> bool:
+        """Remove a download from the client.
+
+        Parameters
+        ----------
+        client_item_id : str
+            Client-specific item ID.
+        delete_files : bool
+            Whether to delete downloaded files (default: False).
+
+        Returns
+        -------
+        bool
+            True if removal succeeded, False otherwise.
+
+        Raises
+        ------
+        PVRProviderError
+            If removal fails.
+        """
+        raise NotImplementedError
 
 
-def raise_provider_error(message: str) -> None:
-    """Raise PVRProviderError with message.
-
-    Parameters
-    ----------
-    message : str
-        Error message.
-
-    Raises
-    ------
-    PVRProviderError
-        Always raises this exception.
-    """
-    raise PVRProviderError(message)
-
-
-def raise_network_error(message: str) -> None:
-    """Raise PVRProviderNetworkError with message.
-
-    Parameters
-    ----------
-    message : str
-        Error message.
-
-    Raises
-    ------
-    PVRProviderNetworkError
-        Always raises this exception.
-    """
-    raise PVRProviderNetworkError(message)
-
-
-def handle_api_error_response(
-    error_code: int, description: str, provider_name: str = "Indexer"
-) -> None:
-    """Handle API error response and raise appropriate exception.
-
-    Parameters
-    ----------
-    error_code : int
-        Error code from API response.
-    description : str
-        Error description from API response.
-    provider_name : str
-        Name of the provider (for error messages).
-
-    Raises
-    ------
-    PVRProviderAuthenticationError
-        If error code is 100-199 (authentication errors).
-    PVRProviderError
-        For other API errors.
-    """
-    if 100 <= error_code <= 199:
-        error_msg = f"Invalid API key: {description}"
-        raise_authentication_error(error_msg)
-
-    if description == "Request limit reached":
-        error_msg = f"API limit reached: {description}"
-        raise_provider_error(error_msg)
-
-    error_msg = f"{provider_name} error: {description}"
-    raise_provider_error(error_msg)
-
-
-def handle_http_error_response(status_code: int, response_text: str = "") -> None:
-    """Handle HTTP error response and raise appropriate exception.
-
-    Parameters
-    ----------
-    status_code : int
-        HTTP status code.
-    response_text : str
-        Response text (truncated to 200 chars).
-
-    Raises
-    ------
-    PVRProviderAuthenticationError
-        If status code is 401 or 403.
-    PVRProviderNetworkError
-        For other HTTP errors (>= 400).
-    """
-    if status_code == 401:
-        raise_authentication_error("Unauthorized")
-    if status_code == 403:
-        raise_authentication_error("Forbidden")
-    if status_code >= 400:
-        error_msg = f"HTTP {status_code}: {response_text[:200]}"
-        raise_network_error(error_msg)
+__all__ = [
+    "BaseDownloadClient",
+    "BaseIndexer",
+    "DownloadClientSettings",
+    "FileSupport",
+    "IndexerSettings",
+    "MagnetSupport",
+    "ManagedIndexer",
+    "TrackingDownloadClient",
+    "UrlSupport",
+]

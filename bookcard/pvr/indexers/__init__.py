@@ -26,7 +26,7 @@ __all__ = ["NewznabIndexer", "TorrentRssIndexer", "TorznabIndexer"]
 def _register_builtin_indexers() -> None:
     """Register built-in indexer implementations."""
     from bookcard.models.pvr import IndexerType
-    from bookcard.pvr.factory import register_indexer
+    from bookcard.pvr.registries import register_indexer
 
     register_indexer(IndexerType.TORZNAB, TorznabIndexer)
     register_indexer(IndexerType.NEWZNAB, NewznabIndexer)

@@ -16,7 +16,9 @@
 """Tests for PVR base classes and settings."""
 
 from abc import ABC
+from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 from pydantic import ValidationError
 
@@ -25,12 +27,22 @@ from bookcard.pvr.base import (
     BaseIndexer,
     DownloadClientSettings,
     IndexerSettings,
+    ManagedIndexer,
+)
+from bookcard.pvr.error_handlers import (
+    handle_api_error_response,
+    handle_http_error_response,
+    handle_http_errors,
+)
+from bookcard.pvr.exceptions import (
     PVRProviderAuthenticationError,
     PVRProviderError,
     PVRProviderNetworkError,
     PVRProviderParseError,
     PVRProviderTimeoutError,
 )
+from bookcard.pvr.services.file_fetcher import FileFetcher
+from bookcard.pvr.utils.url_router import DownloadUrlRouter
 from tests.pvr.conftest import MockDownloadClient, MockIndexer
 
 
@@ -236,29 +248,51 @@ class TestBaseIndexer:
     ) -> None:
         """Test BaseIndexer initialization."""
         assert mock_indexer.settings == indexer_settings
-        assert mock_indexer.enabled is True
 
-    def test_base_indexer_init_disabled(
+    def test_managed_indexer_enabled(self, indexer_settings: IndexerSettings) -> None:
+        """Test ManagedIndexer enabled functionality."""
+        indexer = MockIndexer(settings=indexer_settings)
+        managed = ManagedIndexer(indexer, enabled=True)
+        assert managed.is_enabled() is True
+
+    def test_managed_indexer_disabled(self, indexer_settings: IndexerSettings) -> None:
+        """Test ManagedIndexer disabled functionality."""
+        indexer = MockIndexer(settings=indexer_settings)
+        managed = ManagedIndexer(indexer, enabled=False)
+        assert managed.is_enabled() is False
+
+    def test_managed_indexer_set_enabled(
         self, indexer_settings: IndexerSettings
     ) -> None:
-        """Test BaseIndexer initialization with disabled=True."""
-        indexer = MockIndexer(settings=indexer_settings, enabled=False)
-        assert indexer.enabled is False
+        """Test ManagedIndexer set_enabled method."""
+        indexer = MockIndexer(settings=indexer_settings)
+        managed = ManagedIndexer(indexer, enabled=True)
+        assert managed.is_enabled() is True
 
-    def test_base_indexer_is_enabled(self, mock_indexer: MockIndexer) -> None:
-        """Test BaseIndexer is_enabled method."""
-        assert mock_indexer.is_enabled() is True
+        managed.set_enabled(False)
+        assert managed.is_enabled() is False
 
-        mock_indexer.set_enabled(False)
-        assert mock_indexer.is_enabled() is False
+        managed.set_enabled(True)
+        assert managed.is_enabled() is True
 
-    def test_base_indexer_set_enabled(self, mock_indexer: MockIndexer) -> None:
-        """Test BaseIndexer set_enabled method."""
-        mock_indexer.set_enabled(False)
-        assert mock_indexer.enabled is False
+    def test_managed_indexer_search_enabled(
+        self, indexer_settings: IndexerSettings
+    ) -> None:
+        """Test ManagedIndexer search when enabled."""
+        indexer = MockIndexer(settings=indexer_settings)
+        managed = ManagedIndexer(indexer, enabled=True)
+        results = managed.search("test query", title="Test Book", author="Author")
+        assert len(results) == 1
+        assert results[0].title == "Result for test query"
 
-        mock_indexer.set_enabled(True)
-        assert mock_indexer.enabled is True
+    def test_managed_indexer_test_connection(
+        self, indexer_settings: IndexerSettings
+    ) -> None:
+        """Test ManagedIndexer test_connection delegates to indexer."""
+        indexer = MockIndexer(settings=indexer_settings)
+        managed = ManagedIndexer(indexer, enabled=True)
+        result = managed.test_connection()
+        assert result is True
 
     def test_base_indexer_search_abstract(self) -> None:
         """Test that BaseIndexer.search is abstract."""
@@ -310,9 +344,13 @@ class TestBaseDownloadClient:
     def test_base_download_client_is_abstract(self) -> None:
         """Test that BaseDownloadClient is abstract and cannot be instantiated."""
         assert issubclass(BaseDownloadClient, ABC)
+        file_fetcher = FileFetcher(timeout=30)
+        url_router = DownloadUrlRouter()
         with pytest.raises(TypeError):
             _ = BaseDownloadClient(
-                settings=DownloadClientSettings(host="localhost", port=8080)
+                settings=DownloadClientSettings(host="localhost", port=8080),
+                file_fetcher=file_fetcher,
+                url_router=url_router,
             )
 
     def test_base_download_client_init(
@@ -328,7 +366,14 @@ class TestBaseDownloadClient:
         self, download_client_settings: DownloadClientSettings
     ) -> None:
         """Test BaseDownloadClient initialization with disabled=True."""
-        client = MockDownloadClient(settings=download_client_settings, enabled=False)
+        file_fetcher = FileFetcher(timeout=30)
+        url_router = DownloadUrlRouter()
+        client = MockDownloadClient(
+            settings=download_client_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
         assert client.enabled is False
 
     def test_base_download_client_is_enabled(
@@ -368,9 +413,13 @@ class TestBaseDownloadClient:
             def test_connection(self) -> bool:  # type: ignore[override]
                 return True
 
+        file_fetcher = FileFetcher(timeout=30)
+        url_router = DownloadUrlRouter()
         with pytest.raises(TypeError):
             _ = IncompleteClient(
-                settings=DownloadClientSettings(host="localhost", port=8080)
+                settings=DownloadClientSettings(host="localhost", port=8080),
+                file_fetcher=file_fetcher,
+                url_router=url_router,
             )
 
     def test_base_download_client_get_items_abstract(self) -> None:
@@ -395,9 +444,13 @@ class TestBaseDownloadClient:
             def test_connection(self) -> bool:
                 return True
 
+        file_fetcher = FileFetcher(timeout=30)
+        url_router = DownloadUrlRouter()
         with pytest.raises(TypeError):
             _ = IncompleteClient(
-                settings=DownloadClientSettings(host="localhost", port=8080)
+                settings=DownloadClientSettings(host="localhost", port=8080),
+                file_fetcher=file_fetcher,
+                url_router=url_router,
             )
 
     def test_base_download_client_remove_item_abstract(self) -> None:
@@ -422,9 +475,13 @@ class TestBaseDownloadClient:
             def test_connection(self) -> bool:
                 return True
 
+        file_fetcher = FileFetcher(timeout=30)
+        url_router = DownloadUrlRouter()
         with pytest.raises(TypeError):
             _ = IncompleteClient(
-                settings=DownloadClientSettings(host="localhost", port=8080)
+                settings=DownloadClientSettings(host="localhost", port=8080),
+                file_fetcher=file_fetcher,
+                url_router=url_router,
             )
 
     def test_base_download_client_test_connection_abstract(self) -> None:
@@ -451,9 +508,13 @@ class TestBaseDownloadClient:
             ) -> bool:  # type: ignore[override]
                 return True
 
+        file_fetcher = FileFetcher(timeout=30)
+        url_router = DownloadUrlRouter()
         with pytest.raises(TypeError):
             _ = IncompleteClient(
-                settings=DownloadClientSettings(host="localhost", port=8080)
+                settings=DownloadClientSettings(host="localhost", port=8080),
+                file_fetcher=file_fetcher,
+                url_router=url_router,
             )
 
     def test_base_download_client_add_download_implementation(
@@ -523,3 +584,267 @@ class TestPVRProviderExceptions:
         exc = exception_class(message)
         assert str(exc) == message
         assert isinstance(exc, PVRProviderError)
+
+
+class TestUtilityFunctions:
+    """Test utility functions for raising exceptions and handling errors."""
+
+    @pytest.mark.parametrize(
+        (
+            "error_code",
+            "description",
+            "provider_name",
+            "expected_exception",
+            "expected_message",
+        ),
+        [
+            (
+                100,
+                "Invalid API key",
+                "Indexer",
+                PVRProviderAuthenticationError,
+                "Invalid API key: Invalid API key",
+            ),
+            (
+                150,
+                "Auth error",
+                "Indexer",
+                PVRProviderAuthenticationError,
+                "Invalid API key: Auth error",
+            ),
+            (
+                199,
+                "Token expired",
+                "Indexer",
+                PVRProviderAuthenticationError,
+                "Invalid API key: Token expired",
+            ),
+            (
+                200,
+                "Request limit reached",
+                "Indexer",
+                PVRProviderError,
+                "API limit reached: Request limit reached",
+            ),
+            (
+                200,
+                "Other error",
+                "Indexer",
+                PVRProviderError,
+                "Indexer error: Other error",
+            ),
+            (
+                500,
+                "Server error",
+                "DownloadClient",
+                PVRProviderError,
+                "DownloadClient error: Server error",
+            ),
+        ],
+    )
+    def test_handle_api_error_response(
+        self,
+        error_code: int,
+        description: str,
+        provider_name: str,
+        expected_exception: type[Exception],
+        expected_message: str,
+    ) -> None:
+        """Test handle_api_error_response function."""
+        with pytest.raises(expected_exception, match=expected_message):
+            handle_api_error_response(error_code, description, provider_name)
+
+    @pytest.mark.parametrize(
+        ("status_code", "response_text", "expected_exception", "expected_message"),
+        [
+            (401, "", PVRProviderAuthenticationError, "Unauthorized"),
+            (403, "", PVRProviderAuthenticationError, "Forbidden"),
+            (400, "Bad Request", PVRProviderNetworkError, "HTTP 400: Bad Request"),
+            (404, "Not Found", PVRProviderNetworkError, "HTTP 404: Not Found"),
+            (
+                500,
+                "Internal Server Error",
+                PVRProviderNetworkError,
+                "HTTP 500: Internal Server Error",
+            ),
+            (400, "A" * 300, PVRProviderNetworkError, "HTTP 400: " + "A" * 200),
+        ],
+    )
+    def test_handle_http_error_response(
+        self,
+        status_code: int,
+        response_text: str,
+        expected_exception: type[Exception],
+        expected_message: str,
+    ) -> None:
+        """Test handle_http_error_response function."""
+        with pytest.raises(expected_exception, match=expected_message):
+            handle_http_error_response(status_code, response_text)
+
+
+class TestHandleHttpErrors:
+    """Test handle_http_errors context manager."""
+
+    def test_handle_http_errors_success(self) -> None:
+        """Test handle_http_errors with successful execution."""
+        with handle_http_errors("Test context"):
+            result = "success"
+            assert result == "success"
+
+    @pytest.mark.parametrize(
+        ("status_code", "response_text", "expected_message"),
+        [
+            (401, "", "Test context authentication failed"),
+            (401, "Unauthorized", "Test context authentication failed"),
+            (403, "", "Test context authentication failed"),
+            (403, "Forbidden", "Test context authentication failed"),
+        ],
+    )
+    def test_handle_http_errors_http_status_auth(
+        self,
+        status_code: int,
+        response_text: str,
+        expected_message: str,
+    ) -> None:
+        """Test handle_http_errors with HTTPStatusError for auth errors."""
+        mock_response = MagicMock()
+        mock_response.status_code = status_code
+        mock_response.text = response_text
+        error = httpx.HTTPStatusError(
+            "Auth error", request=MagicMock(), response=mock_response
+        )
+
+        with (
+            pytest.raises(
+                PVRProviderAuthenticationError, match=expected_message
+            ) as exc_info,
+            handle_http_errors("Test context"),
+        ):
+            raise error
+
+        assert exc_info.value.__cause__ is error
+
+    @pytest.mark.parametrize(
+        ("status_code", "response_text", "expected_message"),
+        [
+            (400, "Bad Request", "HTTP 400: Bad Request"),
+            (404, "Not Found", "HTTP 404: Not Found"),
+            (500, "Internal Server Error", "HTTP 500: Internal Server Error"),
+            (400, "A" * 300, "HTTP 400: " + "A" * 200),
+        ],
+    )
+    def test_handle_http_errors_http_status_other(
+        self,
+        status_code: int,
+        response_text: str,
+        expected_message: str,
+    ) -> None:
+        """Test handle_http_errors with HTTPStatusError for non-auth errors."""
+        mock_response = MagicMock()
+        mock_response.status_code = status_code
+        mock_response.text = response_text
+        error = httpx.HTTPStatusError(
+            "Server error", request=MagicMock(), response=mock_response
+        )
+
+        with (
+            pytest.raises(PVRProviderNetworkError, match=expected_message),
+            handle_http_errors("Test context"),
+        ):
+            raise error
+
+    def test_handle_http_errors_http_status_no_response_text(self) -> None:
+        """Test handle_http_errors with HTTPStatusError when response.text fails."""
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        # Make accessing .text raise an exception
+        type(mock_response).text = property(
+            lambda self: (_ for _ in ()).throw(ValueError("Cannot read text"))
+        )
+        error = httpx.HTTPStatusError(
+            "Server error", request=MagicMock(), response=mock_response
+        )
+
+        with (
+            pytest.raises(PVRProviderNetworkError, match="HTTP 500: "),
+            handle_http_errors("Test context"),
+        ):
+            raise error
+
+    @patch("bookcard.pvr.error_handlers.handle_http_error_response")
+    def test_handle_http_errors_http_status_raise_after_handler(
+        self, mock_handle: MagicMock
+    ) -> None:
+        """Test handle_http_errors re-raises when handle_http_error_response doesn't raise."""
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Server Error"
+        error = httpx.HTTPStatusError(
+            "Server error", request=MagicMock(), response=mock_response
+        )
+        # Mock handle_http_error_response to not raise (for coverage of raise statement)
+        mock_handle.return_value = None
+
+        with (
+            pytest.raises(httpx.HTTPStatusError, match="Server error"),
+            handle_http_errors("Test context"),
+        ):
+            raise error
+
+        mock_handle.assert_called_once_with(500, "Server Error")
+
+    @pytest.mark.parametrize(
+        ("timeout_message", "expected_message"),
+        [
+            ("Request timed out", "Test context timed out: Request timed out"),
+            ("Connection timeout", "Test context timed out: Connection timeout"),
+        ],
+    )
+    def test_handle_http_errors_timeout_exception(
+        self,
+        timeout_message: str,
+        expected_message: str,
+    ) -> None:
+        """Test handle_http_errors with TimeoutException."""
+        error = httpx.TimeoutException(timeout_message, request=MagicMock())
+
+        with (
+            pytest.raises(PVRProviderTimeoutError, match=expected_message) as exc_info,
+            handle_http_errors("Test context"),
+        ):
+            raise error
+
+        assert exc_info.value.__cause__ is error
+
+    @pytest.mark.parametrize(
+        ("request_message", "expected_message"),
+        [
+            ("Connection failed", "Test context failed: Connection failed"),
+            ("Network error", "Test context failed: Network error"),
+        ],
+    )
+    def test_handle_http_errors_request_error(
+        self,
+        request_message: str,
+        expected_message: str,
+    ) -> None:
+        """Test handle_http_errors with RequestError."""
+        error = httpx.RequestError(request_message, request=MagicMock())
+
+        with (
+            pytest.raises(PVRProviderNetworkError, match=expected_message) as exc_info,
+            handle_http_errors("Test context"),
+        ):
+            raise error
+
+        assert exc_info.value.__cause__ is error
+
+    def test_handle_http_errors_default_context(self) -> None:
+        """Test handle_http_errors with default context."""
+        error = httpx.RequestError("Connection failed", request=MagicMock())
+
+        with (
+            pytest.raises(PVRProviderNetworkError, match="Request failed: "),
+            handle_http_errors(),
+        ):
+            raise error

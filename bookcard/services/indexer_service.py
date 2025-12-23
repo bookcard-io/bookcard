@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING
 from sqlmodel import Session, select
 
 from bookcard.models.pvr import IndexerDefinition, IndexerStatus
-from bookcard.pvr.base import PVRProviderError
+from bookcard.pvr.exceptions import PVRProviderError
 from bookcard.pvr.factory import create_indexer
 from bookcard.repositories.base import Repository
 

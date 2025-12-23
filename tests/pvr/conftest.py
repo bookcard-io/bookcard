@@ -40,6 +40,8 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from bookcard.pvr.models import ReleaseInfo
+    from bookcard.pvr.services.file_fetcher import FileFetcher
+    from bookcard.pvr.utils.url_router import DownloadUrlRouter
 
 
 # ============================================================================
@@ -120,6 +122,11 @@ class MockIndexer(BaseIndexer):
 class MockDownloadClient(BaseDownloadClient):
     """Mock download client implementation for testing."""
 
+    @property
+    def client_name(self) -> str:
+        """Return client name."""
+        return "Mock Client"
+
     def add_download(
         self,
         download_url: str,
@@ -158,7 +165,7 @@ class MockDownloadClient(BaseDownloadClient):
 @pytest.fixture
 def mock_indexer(indexer_settings: IndexerSettings) -> MockIndexer:
     """Create a mock indexer instance."""
-    return MockIndexer(settings=indexer_settings, enabled=True)
+    return MockIndexer(settings=indexer_settings)
 
 
 @pytest.fixture
@@ -166,7 +173,17 @@ def mock_download_client(
     download_client_settings: DownloadClientSettings,
 ) -> MockDownloadClient:
     """Create a mock download client instance."""
-    return MockDownloadClient(settings=download_client_settings, enabled=True)
+    from bookcard.pvr.services.file_fetcher import FileFetcher
+    from bookcard.pvr.utils.url_router import DownloadUrlRouter
+
+    file_fetcher = FileFetcher(timeout=30)
+    url_router = DownloadUrlRouter()
+    return MockDownloadClient(
+        settings=download_client_settings,
+        file_fetcher=file_fetcher,
+        url_router=url_router,
+        enabled=True,
+    )
 
 
 # ============================================================================
@@ -285,12 +302,11 @@ def torrent_rss_settings(indexer_settings: IndexerSettings) -> TorrentRssSetting
     from bookcard.pvr.indexers.torrent_rss import TorrentRssSettings
 
     return TorrentRssSettings(
-        base_url=indexer_settings.base_url,
+        base_url="https://indexer.example.com/rss",
         api_key=indexer_settings.api_key,
         timeout_seconds=indexer_settings.timeout_seconds,
         retry_count=indexer_settings.retry_count,
         categories=indexer_settings.categories,
-        feed_url="https://indexer.example.com/rss",
     )
 
 
@@ -332,6 +348,22 @@ def sample_newznab_xml() -> bytes:
         </item>
     </channel>
 </rss>"""
+
+
+@pytest.fixture
+def file_fetcher() -> "FileFetcher":
+    """Create a file fetcher for testing."""
+    from bookcard.pvr.services.file_fetcher import FileFetcher
+
+    return FileFetcher(timeout=30)
+
+
+@pytest.fixture
+def url_router() -> "DownloadUrlRouter":
+    """Create a URL router for testing."""
+    from bookcard.pvr.utils.url_router import DownloadUrlRouter
+
+    return DownloadUrlRouter()
 
 
 @pytest.fixture

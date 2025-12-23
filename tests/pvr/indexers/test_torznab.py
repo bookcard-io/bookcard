@@ -16,19 +16,24 @@
 """Tests for Torznab indexer implementation."""
 
 from datetime import datetime
+from typing import TYPE_CHECKING, cast
 from unittest.mock import MagicMock, patch
 from xml.etree import ElementTree as ET  # noqa: S405
 
 import httpx
 import pytest
 
-from bookcard.pvr.base import (
-    IndexerSettings,
+from bookcard.pvr.base import IndexerSettings
+from bookcard.pvr.exceptions import (
     PVRProviderAuthenticationError,
+    PVRProviderError,
     PVRProviderNetworkError,
     PVRProviderParseError,
     PVRProviderTimeoutError,
 )
+
+if TYPE_CHECKING:
+    from bookcard.pvr.indexers.parsers import NamespaceAwareExtractor
 from bookcard.pvr.indexers.torznab import (
     TORZNAB_NS,
     TorznabIndexer,
@@ -56,9 +61,17 @@ def torznab_settings_fixture() -> TorznabSettings:
 
 
 @pytest.fixture
-def torznab_indexer(torznab_settings_fixture: TorznabSettings) -> TorznabIndexer:
+def torznab_indexer(
+    torznab_settings_fixture: TorznabSettings,
+    torznab_request_generator: TorznabRequestGenerator,
+    torznab_parser: TorznabParser,
+) -> TorznabIndexer:
     """Create Torznab indexer instance."""
-    return TorznabIndexer(settings=torznab_settings_fixture, enabled=True)
+    return TorznabIndexer(
+        settings=torznab_settings_fixture,
+        request_generator=torznab_request_generator,
+        parser=torznab_parser,
+    )
 
 
 @pytest.fixture
@@ -286,7 +299,16 @@ class TestTorznabParser:
         self, torznab_parser: TorznabParser, sample_item_xml: ET.Element
     ) -> None:
         """Test _parse_item with complete item."""
-        release = torznab_parser._parse_item(sample_item_xml, indexer_id=1)
+        # Wrap in RSS/Channel
+        root = ET.Element("rss")
+        channel = ET.SubElement(root, "channel")
+        channel.append(sample_item_xml)
+        xml = ET.tostring(root)
+
+        releases = torznab_parser.parse_response(xml, indexer_id=1)
+        assert len(releases) == 1
+        release = releases[0]
+
         assert release is not None
         assert release.title == "Test Book Title"
         assert release.download_url == "https://example.com/file.torrent"
@@ -295,21 +317,33 @@ class TestTorznabParser:
     def test_parse_item_no_title(self, torznab_parser: TorznabParser) -> None:
         """Test _parse_item with no title."""
         item = ET.Element("item")
-        release = torznab_parser._parse_item(item, indexer_id=None)
-        assert release is None
+        # Wrap in RSS/Channel
+        root = ET.Element("rss")
+        channel = ET.SubElement(root, "channel")
+        channel.append(item)
+        xml = ET.tostring(root)
+
+        releases = torznab_parser.parse_response(xml, indexer_id=None)
+        assert len(releases) == 0
 
     def test_parse_item_no_download_url(self, torznab_parser: TorznabParser) -> None:
         """Test _parse_item with no download URL."""
         item = ET.Element("item")
         ET.SubElement(item, "title").text = "Test"
-        release = torznab_parser._parse_item(item, indexer_id=None)
-        assert release is None
+        # Wrap in RSS/Channel
+        root = ET.Element("rss")
+        channel = ET.SubElement(root, "channel")
+        channel.append(item)
+        xml = ET.tostring(root)
+
+        releases = torznab_parser.parse_response(xml, indexer_id=None)
+        assert len(releases) == 0
 
     def test_extract_publish_date_valid(self, torznab_parser: TorznabParser) -> None:
         """Test _extract_publish_date with valid date."""
         item = ET.Element("item")
         ET.SubElement(item, "pubDate").text = "Mon, 01 Jan 2024 12:00:00 +0000"
-        date = torznab_parser._extract_publish_date(item)
+        date = torznab_parser.composite.extractors["publish_date"].extract(item)
         assert date is not None
         assert isinstance(date, datetime)
 
@@ -317,13 +351,13 @@ class TestTorznabParser:
         """Test _extract_publish_date with invalid date."""
         item = ET.Element("item")
         ET.SubElement(item, "pubDate").text = "invalid date"
-        date = torznab_parser._extract_publish_date(item)
+        date = torznab_parser.composite.extractors["publish_date"].extract(item)
         assert date is None
 
     def test_extract_publish_date_missing(self, torznab_parser: TorznabParser) -> None:
         """Test _extract_publish_date with missing date."""
         item = ET.Element("item")
-        date = torznab_parser._extract_publish_date(item)
+        date = torznab_parser.composite.extractors["publish_date"].extract(item)
         assert date is None
 
     @pytest.mark.parametrize(
@@ -340,8 +374,10 @@ class TestTorznabParser:
     def test_infer_quality_from_title(
         self, torznab_parser: TorznabParser, title: str, expected: str | None
     ) -> None:
-        """Test _infer_quality_from_title."""
-        quality = torznab_parser._infer_quality_from_title(title)
+        """Test infer_quality_from_title."""
+        from bookcard.pvr.utils.quality import infer_quality_from_title
+
+        quality = infer_quality_from_title(title)
         assert quality == expected
 
     def test_extract_metadata_with_attributes(
@@ -358,21 +394,22 @@ class TestTorznabParser:
         attr3 = ET.SubElement(item, f"{TORZNAB_NS}attr")
         attr3.set("name", "format")
         attr3.set("value", "epub")
+        # Need title for metadata extractor
+        ET.SubElement(item, "title").text = "Test Title"
 
-        author, isbn, quality = torznab_parser._extract_metadata(item, "Test Title")
-        assert author == "Test Author"
-        assert isbn == "1234567890"
-        assert quality == "epub"
+        metadata = torznab_parser.composite.extractors["metadata"].extract(item)
+        assert metadata["author"] == "Test Author"
+        assert metadata["isbn"] == "1234567890"
+        assert metadata["quality"] == "epub"
 
     def test_extract_metadata_infer_quality(
         self, torznab_parser: TorznabParser
     ) -> None:
         """Test _extract_metadata infers quality from title."""
         item = ET.Element("item")
-        _author, _isbn, quality = torznab_parser._extract_metadata(
-            item, "Test Book [EPUB]"
-        )
-        assert quality == "epub"
+        ET.SubElement(item, "title").text = "Test Book [EPUB]"
+        metadata = torznab_parser.composite.extractors["metadata"].extract(item)
+        assert metadata["quality"] == "epub"
 
     def test_extract_additional_info(self, torznab_parser: TorznabParser) -> None:
         """Test _extract_additional_info."""
@@ -384,14 +421,18 @@ class TestTorznabParser:
         attr2.set("name", "magneturl")
         attr2.set("value", "magnet:?xt=urn:btih:abc123")
 
-        additional_info = torznab_parser._extract_additional_info(item)
+        additional_info = torznab_parser.composite.extractors[
+            "additional_info"
+        ].extract(item)
         assert additional_info["infohash"] == "abc123"
         assert additional_info["magneturl"] == "magnet:?xt=urn:btih:abc123"
 
     def test_extract_additional_info_empty(self, torznab_parser: TorznabParser) -> None:
         """Test _extract_additional_info with no attributes."""
         item = ET.Element("item")
-        additional_info = torznab_parser._extract_additional_info(item)
+        additional_info = torznab_parser.composite.extractors[
+            "additional_info"
+        ].extract(item)
         assert additional_info == {}
 
     def test_get_download_url_magneturl(self, torznab_parser: TorznabParser) -> None:
@@ -400,7 +441,7 @@ class TestTorznabParser:
         attr = ET.SubElement(item, f"{TORZNAB_NS}attr")
         attr.set("name", "magneturl")
         attr.set("value", "magnet:?xt=urn:btih:abc123")
-        url = torznab_parser._get_download_url(item)
+        url = torznab_parser.composite.extractors["download_url"].extract(item)
         assert url == "magnet:?xt=urn:btih:abc123"
 
     def test_get_download_url_enclosure(self, torznab_parser: TorznabParser) -> None:
@@ -408,20 +449,20 @@ class TestTorznabParser:
         item = ET.Element("item")
         enclosure = ET.SubElement(item, "enclosure")
         enclosure.set("url", "https://example.com/file.torrent")
-        url = torznab_parser._get_download_url(item)
+        url = torznab_parser.composite.extractors["download_url"].extract(item)
         assert url == "https://example.com/file.torrent"
 
     def test_get_download_url_link(self, torznab_parser: TorznabParser) -> None:
         """Test _get_download_url from link."""
         item = ET.Element("item")
         ET.SubElement(item, "link").text = "https://example.com/file.torrent"
-        url = torznab_parser._get_download_url(item)
+        url = torznab_parser.composite.extractors["download_url"].extract(item)
         assert url == "https://example.com/file.torrent"
 
     def test_get_download_url_none(self, torznab_parser: TorznabParser) -> None:
         """Test _get_download_url with no URL."""
         item = ET.Element("item")
-        url = torznab_parser._get_download_url(item)
+        url = torznab_parser.composite.extractors["download_url"].extract(item)
         assert url is None
 
     def test_get_size_from_attribute(self, torznab_parser: TorznabParser) -> None:
@@ -430,7 +471,7 @@ class TestTorznabParser:
         attr = ET.SubElement(item, f"{TORZNAB_NS}attr")
         attr.set("name", "size")
         attr.set("value", "1000000")
-        size = torznab_parser._get_size(item)
+        size = torznab_parser.composite.extractors["size_bytes"].extract(item)
         assert size == 1000000
 
     def test_get_size_from_enclosure(self, torznab_parser: TorznabParser) -> None:
@@ -438,7 +479,7 @@ class TestTorznabParser:
         item = ET.Element("item")
         enclosure = ET.SubElement(item, "enclosure")
         enclosure.set("length", "2000000")
-        size = torznab_parser._get_size(item)
+        size = torznab_parser.composite.extractors["size_bytes"].extract(item)
         assert size == 2000000
 
     def test_get_size_invalid(self, torznab_parser: TorznabParser) -> None:
@@ -447,7 +488,7 @@ class TestTorznabParser:
         attr = ET.SubElement(item, f"{TORZNAB_NS}attr")
         attr.set("name", "size")
         attr.set("value", "invalid")
-        size = torznab_parser._get_size(item)
+        size = torznab_parser.composite.extractors["size_bytes"].extract(item)
         assert size is None
 
     def test_get_torznab_attribute_found(self, torznab_parser: TorznabParser) -> None:
@@ -456,7 +497,10 @@ class TestTorznabParser:
         attr = ET.SubElement(item, f"{TORZNAB_NS}attr")
         attr.set("name", "author")
         attr.set("value", "Test Author")
-        value = torznab_parser._get_torznab_attribute(item, "author")
+        extractor = cast(
+            "NamespaceAwareExtractor", torznab_parser.composite.extractors["metadata"]
+        )
+        value = extractor._get_attribute(item, "author")
         assert value == "Test Author"
 
     def test_get_torznab_attribute_not_found(
@@ -464,7 +508,10 @@ class TestTorznabParser:
     ) -> None:
         """Test _get_torznab_attribute when not found."""
         item = ET.Element("item")
-        value = torznab_parser._get_torznab_attribute(item, "author", default="default")
+        extractor = cast(
+            "NamespaceAwareExtractor", torznab_parser.composite.extractors["metadata"]
+        )
+        value = extractor._get_attribute(item, "author", default="default")
         assert value == "default"
 
     def test_get_torznab_attribute_int_valid(
@@ -475,7 +522,7 @@ class TestTorznabParser:
         attr = ET.SubElement(item, f"{TORZNAB_NS}attr")
         attr.set("name", "seeders")
         attr.set("value", "10")
-        value = torznab_parser._get_torznab_attribute_int(item, "seeders")
+        value = torznab_parser.composite.extractors["seeders"].extract(item)
         assert value == 10
 
     def test_get_torznab_attribute_int_invalid(
@@ -486,7 +533,7 @@ class TestTorznabParser:
         attr = ET.SubElement(item, f"{TORZNAB_NS}attr")
         attr.set("name", "seeders")
         attr.set("value", "invalid")
-        value = torznab_parser._get_torznab_attribute_int(item, "seeders")
+        value = torznab_parser.composite.extractors["seeders"].extract(item)
         assert value is None
 
     def test_get_torznab_attribute_int_not_found(
@@ -494,8 +541,139 @@ class TestTorznabParser:
     ) -> None:
         """Test _get_torznab_attribute_int when not found."""
         item = ET.Element("item")
-        value = torznab_parser._get_torznab_attribute_int(item, "seeders")
+        value = torznab_parser.composite.extractors["seeders"].extract(item)
         assert value is None
+
+    def test_parse_response_item_value_error(
+        self, torznab_parser: TorznabParser
+    ) -> None:
+        """Test parse_response with ValueError in item parsing."""
+        xml = b"""<?xml version="1.0"?>
+        <rss><channel>
+            <item><title>Valid</title><link>https://example.com</link></item>
+            <item><title>Invalid</title><link>https://example.com</link></item>
+        </channel></rss>"""
+        # Mock composite.parse to raise ValueError for second item
+        with patch.object(
+            torznab_parser.composite,
+            "parse",
+            side_effect=[
+                {"title": "Valid", "download_url": "https://example.com"},
+                ValueError("Invalid item"),
+            ],
+        ):
+            releases = torznab_parser.parse_response(xml)
+            # Should skip invalid item and return only valid one
+            assert len(releases) == 1
+
+    def test_parse_response_item_type_error(
+        self, torznab_parser: TorznabParser
+    ) -> None:
+        """Test parse_response with TypeError in item parsing."""
+        xml = b"""<?xml version="1.0"?>
+        <rss><channel>
+            <item><title>Valid</title><link>https://example.com</link></item>
+            <item><title>Invalid</title><link>https://example.com</link></item>
+        </channel></rss>"""
+        # Mock composite.parse to raise TypeError for second item
+        with patch.object(
+            torznab_parser.composite,
+            "parse",
+            side_effect=[
+                {"title": "Valid", "download_url": "https://example.com"},
+                TypeError("Invalid type"),
+            ],
+        ):
+            releases = torznab_parser.parse_response(xml)
+            # Should skip invalid item and return only valid one
+            assert len(releases) == 1
+
+    def test_parse_response_item_attribute_error(
+        self, torznab_parser: TorznabParser
+    ) -> None:
+        """Test parse_response with AttributeError in item parsing."""
+        xml = b"""<?xml version="1.0"?>
+        <rss><channel>
+            <item><title>Valid</title><link>https://example.com</link></item>
+            <item><title>Invalid</title><link>https://example.com</link></item>
+        </channel></rss>"""
+        # Mock composite.parse to raise AttributeError for second item
+        with patch.object(
+            torznab_parser.composite,
+            "parse",
+            side_effect=[
+                {"title": "Valid", "download_url": "https://example.com"},
+                AttributeError("Missing attribute"),
+            ],
+        ):
+            releases = torznab_parser.parse_response(xml)
+            # Should skip invalid item and return only valid one
+            assert len(releases) == 1
+
+    def test_parse_response_item_key_error(self, torznab_parser: TorznabParser) -> None:
+        """Test parse_response with KeyError in item parsing."""
+        xml = b"""<?xml version="1.0"?>
+        <rss><channel>
+            <item><title>Valid</title><link>https://example.com</link></item>
+            <item><title>Invalid</title><link>https://example.com</link></item>
+        </channel></rss>"""
+        # Mock composite.parse to raise KeyError for second item
+        with patch.object(
+            torznab_parser.composite,
+            "parse",
+            side_effect=[
+                {"title": "Valid", "download_url": "https://example.com"},
+                KeyError("Missing key"),
+            ],
+        ):
+            releases = torznab_parser.parse_response(xml)
+            # Should skip invalid item and return only valid one
+            assert len(releases) == 1
+
+    def test_parse_response_unexpected_exception(
+        self, torznab_parser: TorznabParser
+    ) -> None:
+        """Test parse_response with unexpected exception."""
+        # Mock ET.fromstring to raise an unexpected exception (not PVRProviderError)
+        with patch("bookcard.pvr.indexers.torznab.ET.fromstring") as mock_fromstring:
+            mock_fromstring.side_effect = RuntimeError("Unexpected error")
+            with pytest.raises(
+                PVRProviderParseError, match="Unexpected error parsing response"
+            ):
+                torznab_parser.parse_response(b"<rss><channel></channel></rss>")
+
+    def test_parse_response_pvr_provider_error(
+        self, torznab_parser: TorznabParser
+    ) -> None:
+        """Test parse_response with PVRProviderError (should be re-raised)."""
+        # Mock ET.fromstring to raise a PVRProviderError
+        with patch("bookcard.pvr.indexers.torznab.ET.fromstring") as mock_fromstring:
+            mock_fromstring.side_effect = PVRProviderParseError("Parse error")
+            with pytest.raises(PVRProviderParseError, match="Parse error"):
+                torznab_parser.parse_response(b"<rss><channel></channel></rss>")
+
+    def test_get_size_enclosure_length_type_error(
+        self, torznab_parser: TorznabParser
+    ) -> None:
+        """Test _get_size with TypeError in enclosure length parsing."""
+        item = ET.Element("item")
+        enclosure = ET.SubElement(item, "enclosure")
+        # Set length to something that will cause TypeError
+        enclosure.set("length", None)  # type: ignore[arg-type]
+        size = torznab_parser.composite.extractors["size_bytes"].extract(item)
+        # Should handle gracefully and return None
+        assert size is None
+
+    def test_get_size_enclosure_length_value_error(
+        self, torznab_parser: TorznabParser
+    ) -> None:
+        """Test _get_size with ValueError in enclosure length parsing."""
+        item = ET.Element("item")
+        enclosure = ET.SubElement(item, "enclosure")
+        enclosure.set("length", "invalid_number")
+        size = torznab_parser.composite.extractors["size_bytes"].extract(item)
+        # Should handle gracefully and return None
+        assert size is None
 
 
 # ============================================================================
@@ -507,26 +685,35 @@ class TestTorznabIndexer:
     """Test TorznabIndexer class."""
 
     def test_init_with_torznab_settings(
-        self, torznab_settings_fixture: TorznabSettings
+        self,
+        torznab_settings_fixture: TorznabSettings,
+        torznab_request_generator: TorznabRequestGenerator,
+        torznab_parser: TorznabParser,
     ) -> None:
         """Test initialization with TorznabSettings."""
-        indexer = TorznabIndexer(settings=torznab_settings_fixture)
+        indexer = TorznabIndexer(
+            settings=torznab_settings_fixture,
+            request_generator=torznab_request_generator,
+            parser=torznab_parser,
+        )
         assert indexer.settings == torznab_settings_fixture
         assert isinstance(indexer.request_generator, TorznabRequestGenerator)
         assert isinstance(indexer.parser, TorznabParser)
 
     def test_init_with_indexer_settings(
-        self, indexer_settings: IndexerSettings
+        self,
+        indexer_settings: IndexerSettings,
+        torznab_request_generator: TorznabRequestGenerator,
+        torznab_parser: TorznabParser,
     ) -> None:
         """Test initialization with IndexerSettings."""
-        indexer = TorznabIndexer(settings=indexer_settings)
+        indexer = TorznabIndexer(
+            settings=indexer_settings,
+            request_generator=torznab_request_generator,
+            parser=torznab_parser,
+        )
         assert isinstance(indexer.settings, TorznabSettings)
         assert indexer.settings.api_path == "/api"
-
-    def test_init_disabled(self, torznab_settings_fixture: TorznabSettings) -> None:
-        """Test initialization with disabled=True."""
-        indexer = TorznabIndexer(settings=torznab_settings_fixture, enabled=False)
-        assert not indexer.is_enabled()
 
     @patch("bookcard.pvr.indexers.torznab.httpx.Client")
     def test_search_success(
@@ -585,8 +772,10 @@ class TestTorznabIndexer:
 
     def test_search_disabled(self, torznab_indexer: TorznabIndexer) -> None:
         """Test search when indexer is disabled."""
-        torznab_indexer.set_enabled(False)
-        results = torznab_indexer.search(query="test")
+        from bookcard.pvr.base import ManagedIndexer
+
+        managed = ManagedIndexer(torznab_indexer, enabled=False)
+        results = managed.search(query="test")
         assert results == []
 
     def test_search_no_query(self, torznab_indexer: TorznabIndexer) -> None:
@@ -713,4 +902,83 @@ class TestTorznabIndexer:
         mock_client.return_value.__enter__.return_value = mock_client_instance
 
         with pytest.raises(PVRProviderNetworkError):
+            torznab_indexer._make_request("https://example.com")
+
+    @patch("bookcard.pvr.indexers.torznab.httpx.Client")
+    def test_search_unexpected_exception(
+        self, mock_client: MagicMock, torznab_indexer: TorznabIndexer
+    ) -> None:
+        """Test search with unexpected exception."""
+        # Mock _make_request to raise an unexpected exception (not PVRProviderError)
+        with (
+            patch.object(
+                torznab_indexer,
+                "_make_request",
+                side_effect=RuntimeError("Unexpected error"),
+            ),
+            pytest.raises(PVRProviderError, match="Unexpected error during search"),
+        ):
+            torznab_indexer.search(query="test")
+
+    @patch("bookcard.pvr.indexers.torznab.httpx.Client")
+    def test_test_connection_unexpected_exception(
+        self, mock_client: MagicMock, torznab_indexer: TorznabIndexer
+    ) -> None:
+        """Test test_connection with unexpected exception."""
+        # Mock _make_request to raise an unexpected exception directly
+        with (
+            patch.object(
+                torznab_indexer,
+                "_make_request",
+                side_effect=RuntimeError("Unexpected error"),
+            ),
+            pytest.raises(PVRProviderError, match="Connection test failed"),
+        ):
+            torznab_indexer.test_connection()
+
+    @patch("bookcard.pvr.indexers.torznab.httpx.Client")
+    def test_test_connection_pvr_provider_error(
+        self, mock_client: MagicMock, torznab_indexer: TorznabIndexer
+    ) -> None:
+        """Test test_connection with PVRProviderError (not AuthenticationError)."""
+        # Mock _make_request to raise a PVRProviderError (not AuthenticationError)
+        with (
+            patch.object(
+                torznab_indexer,
+                "_make_request",
+                side_effect=PVRProviderNetworkError("Network error"),
+            ),
+            pytest.raises(PVRProviderNetworkError),
+        ):
+            torznab_indexer.test_connection()
+
+    @patch("bookcard.pvr.indexers.torznab.httpx.Client")
+    def test_make_request_http_status_error(
+        self, mock_client: MagicMock, torznab_indexer: TorznabIndexer
+    ) -> None:
+        """Test _make_request with HTTPStatusError."""
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error"
+        mock_client_instance = MagicMock()
+        error = httpx.HTTPStatusError(
+            "Server Error", request=MagicMock(), response=mock_response
+        )
+        mock_client_instance.get.side_effect = error
+        mock_client.return_value.__enter__.return_value = mock_client_instance
+
+        with pytest.raises(PVRProviderNetworkError, match="HTTP error"):
+            torznab_indexer._make_request("https://example.com")
+
+    @patch("bookcard.pvr.indexers.torznab.httpx.Client")
+    def test_make_request_unexpected_exception(
+        self, mock_client: MagicMock, torznab_indexer: TorznabIndexer
+    ) -> None:
+        """Test _make_request with unexpected exception."""
+        mock_client_instance = MagicMock()
+        # Make get() raise an unexpected exception
+        mock_client_instance.get.side_effect = RuntimeError("Unexpected error")
+        mock_client.return_value.__enter__.return_value = mock_client_instance
+
+        with pytest.raises(PVRProviderError, match="Unexpected error"):
             torznab_indexer._make_request("https://example.com")
