@@ -275,6 +275,25 @@ class TestBaseIndexer:
         managed.set_enabled(True)
         assert managed.is_enabled() is True
 
+    def test_managed_indexer_search_enabled(
+        self, indexer_settings: IndexerSettings
+    ) -> None:
+        """Test ManagedIndexer search when enabled."""
+        indexer = MockIndexer(settings=indexer_settings)
+        managed = ManagedIndexer(indexer, enabled=True)
+        results = managed.search("test query", title="Test Book", author="Author")
+        assert len(results) == 1
+        assert results[0].title == "Result for test query"
+
+    def test_managed_indexer_test_connection(
+        self, indexer_settings: IndexerSettings
+    ) -> None:
+        """Test ManagedIndexer test_connection delegates to indexer."""
+        indexer = MockIndexer(settings=indexer_settings)
+        managed = ManagedIndexer(indexer, enabled=True)
+        result = managed.test_connection()
+        assert result is True
+
     def test_base_indexer_search_abstract(self) -> None:
         """Test that BaseIndexer.search is abstract."""
 
