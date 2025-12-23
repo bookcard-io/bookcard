@@ -121,6 +121,22 @@ class TestVuzeProxy:
         with pytest.raises(PVRProviderAuthenticationError):
             proxy._handle_auth_response(response)
 
+    def test_handle_auth_response_401(self, vuze_settings: VuzeSettings) -> None:
+        """Test _handle_auth_response with 401 status code."""
+        proxy = VuzeProxy(vuze_settings)
+        response = MagicMock()
+        response.status_code = 401
+        with pytest.raises(PVRProviderAuthenticationError, match="invalid credentials"):
+            proxy._handle_auth_response(response)
+
+    def test_handle_auth_response_403(self, vuze_settings: VuzeSettings) -> None:
+        """Test _handle_auth_response with 403 status code."""
+        proxy = VuzeProxy(vuze_settings)
+        response = MagicMock()
+        response.status_code = 403
+        with pytest.raises(PVRProviderAuthenticationError, match="access forbidden"):
+            proxy._handle_auth_response(response)
+
     @patch("bookcard.pvr.download_clients.vuze.create_httpx_client")
     def test_authenticate_http_error(
         self, mock_create_client: MagicMock, vuze_settings: VuzeSettings
@@ -190,6 +206,61 @@ class TestVuzeProxy:
 
         proxy = VuzeProxy(vuze_settings)
         with pytest.raises(PVRProviderNetworkError, match="Value error"):
+            proxy._authenticate()
+
+    @patch("bookcard.pvr.download_clients.vuze.create_httpx_client")
+    def test_authenticate_already_authenticated(
+        self, mock_create_client: MagicMock, vuze_settings: VuzeSettings
+    ) -> None:
+        """Test authentication when already authenticated."""
+        proxy = VuzeProxy(vuze_settings)
+        proxy._session_id = "existing-session"
+        proxy._authenticate()
+        # Should return early without making a request
+        mock_create_client.assert_not_called()
+
+    @patch("bookcard.pvr.download_clients.vuze.create_httpx_client")
+    def test_authenticate_http_error_401(
+        self, mock_create_client: MagicMock, vuze_settings: VuzeSettings
+    ) -> None:
+        """Test authentication with HTTP 401 error."""
+        import httpx
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = VuzeProxy(vuze_settings)
+        with pytest.raises(PVRProviderAuthenticationError, match="invalid credentials"):
+            proxy._authenticate()
+
+    @patch("bookcard.pvr.download_clients.vuze.create_httpx_client")
+    def test_authenticate_http_error_403(
+        self, mock_create_client: MagicMock, vuze_settings: VuzeSettings
+    ) -> None:
+        """Test authentication with HTTP 403 error."""
+        import httpx
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 403
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = VuzeProxy(vuze_settings)
+        with pytest.raises(PVRProviderAuthenticationError, match="invalid credentials"):
             proxy._authenticate()
 
     def test_parse_rpc_response_error(self, vuze_settings: VuzeSettings) -> None:
@@ -367,6 +438,216 @@ class TestVuzeProxy:
         result = proxy._request("session-get")
 
         assert result == {"result": "success", "arguments": {}}
+
+    @patch.object(VuzeProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.vuze.create_httpx_client")
+    def test_request_with_arguments(
+        self,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        vuze_settings: VuzeSettings,
+    ) -> None:
+        """Test _request with arguments."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"result": "success", "arguments": {}}
+        mock_response.raise_for_status = Mock()
+        mock_client.post.return_value = mock_response
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = VuzeProxy(vuze_settings)
+        proxy._session_id = "test-session"
+        arguments = {"ids": ["abc123"]}
+        proxy._request("torrent-get", arguments=arguments)
+
+        # Verify arguments were included in the request
+        call_args = mock_client.post.call_args
+        assert call_args[1]["json"]["arguments"] == arguments
+
+    @patch.object(VuzeProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.vuze.create_httpx_client")
+    def test_request_session_expired_409(
+        self,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        vuze_settings: VuzeSettings,
+    ) -> None:
+        """Test _request with 409 session expired handling."""
+        mock_client = MagicMock()
+        # First response is 409, second is success
+        mock_response_409 = MagicMock()
+        mock_response_409.status_code = 409
+        mock_response_success = MagicMock()
+        mock_response_success.status_code = 200
+        mock_response_success.json.return_value = {
+            "result": "success",
+            "arguments": {},
+        }
+        mock_response_success.raise_for_status = Mock()
+        mock_client.post.side_effect = [mock_response_409, mock_response_success]
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = VuzeProxy(vuze_settings)
+        proxy._session_id = "test-session"
+        result = proxy._request("session-get")
+
+        # Should re-authenticate and retry
+        assert mock_authenticate.call_count == 2
+        # First call is without force, second call is with force=True
+        assert mock_authenticate.call_args_list[1].kwargs["force"] is True
+        assert result == {"result": "success", "arguments": {}}
+
+    @patch.object(VuzeProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.vuze.create_httpx_client")
+    def test_request_http_error_401(
+        self,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        vuze_settings: VuzeSettings,
+    ) -> None:
+        """Test _request with HTTP 401 error."""
+        import httpx
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = VuzeProxy(vuze_settings)
+        proxy._session_id = "test-session"
+        with pytest.raises(
+            PVRProviderAuthenticationError, match="Vuze authentication failed"
+        ):
+            proxy._request("session-get")
+
+    @patch.object(VuzeProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.vuze.create_httpx_client")
+    def test_request_http_error_403(
+        self,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        vuze_settings: VuzeSettings,
+    ) -> None:
+        """Test _request with HTTP 403 error."""
+        import httpx
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 403
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = VuzeProxy(vuze_settings)
+        proxy._session_id = "test-session"
+        with pytest.raises(
+            PVRProviderAuthenticationError, match="Vuze authentication failed"
+        ):
+            proxy._request("session-get")
+
+    @patch.object(VuzeProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.vuze.handle_http_error_response")
+    @patch("bookcard.pvr.download_clients.vuze.create_httpx_client")
+    def test_request_http_error_other(
+        self,
+        mock_create_client: MagicMock,
+        mock_handle_error: MagicMock,
+        mock_authenticate: MagicMock,
+        vuze_settings: VuzeSettings,
+    ) -> None:
+        """Test _request with other HTTP error that calls handle_http_error_response."""
+        import httpx
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error"
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = VuzeProxy(vuze_settings)
+        proxy._session_id = "test-session"
+        with pytest.raises(httpx.HTTPStatusError):
+            proxy._request("session-get")
+
+        # Verify handle_http_error_response was called
+        mock_handle_error.assert_called_once_with(500, "Internal Server Error")
+
+    @patch.object(VuzeProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.vuze.handle_httpx_exception")
+    @patch("bookcard.pvr.download_clients.vuze.create_httpx_client")
+    def test_request_request_error(
+        self,
+        mock_create_client: MagicMock,
+        mock_handle_exception: MagicMock,
+        mock_authenticate: MagicMock,
+        vuze_settings: VuzeSettings,
+    ) -> None:
+        """Test _request with RequestError that calls handle_httpx_exception."""
+        import httpx
+
+        mock_client = MagicMock()
+        error = httpx.RequestError("Request error")
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = VuzeProxy(vuze_settings)
+        proxy._session_id = "test-session"
+        with pytest.raises(httpx.RequestError):
+            proxy._request("session-get")
+
+        # Verify handle_httpx_exception was called
+        mock_handle_exception.assert_called_once_with(error, "Vuze RPC session-get")
+
+    @patch.object(VuzeProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.vuze.handle_httpx_exception")
+    @patch("bookcard.pvr.download_clients.vuze.create_httpx_client")
+    def test_request_timeout_exception(
+        self,
+        mock_create_client: MagicMock,
+        mock_handle_exception: MagicMock,
+        mock_authenticate: MagicMock,
+        vuze_settings: VuzeSettings,
+    ) -> None:
+        """Test _request with TimeoutException that calls handle_httpx_exception."""
+        import httpx
+
+        mock_client = MagicMock()
+        error = httpx.TimeoutException("Timeout")
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = VuzeProxy(vuze_settings)
+        proxy._session_id = "test-session"
+        with pytest.raises(httpx.TimeoutException):
+            proxy._request("session-get")
+
+        # Verify handle_httpx_exception was called
+        mock_handle_exception.assert_called_once_with(error, "Vuze RPC session-get")
 
     @patch.object(VuzeProxy, "_request")
     def test_get_protocol_version(
