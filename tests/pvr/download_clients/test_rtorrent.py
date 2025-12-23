@@ -260,6 +260,16 @@ class TestRTorrentProxy:
         result = proxy._parse_xmlrpc_response(xml)
         assert result == ["test"]
 
+    def test_parse_xmlrpc_response_unknown_type(
+        self, rtorrent_settings: RTorrentSettings
+    ) -> None:
+        """Test _parse_xmlrpc_response with unknown type (returns None)."""
+        proxy = RTorrentProxy(rtorrent_settings)
+        # XML with a value element that doesn't contain string, int, or array
+        xml = '<?xml version="1.0"?><methodResponse><params><param><value><double>3.14</double></value></param></params></methodResponse>'
+        result = proxy._parse_xmlrpc_response(xml)
+        assert result is None
+
     @patch("bookcard.pvr.download_clients.rtorrent.create_httpx_client")
     def test_request_with_auth(
         self, mock_create_client: MagicMock, rtorrent_settings: RTorrentSettings
@@ -308,6 +318,31 @@ class TestRTorrentProxy:
             proxy._request("test.method")
 
     @patch("bookcard.pvr.download_clients.rtorrent.create_httpx_client")
+    def test_request_http_error_403(
+        self, mock_create_client: MagicMock, rtorrent_settings: RTorrentSettings
+    ) -> None:
+        """Test _request with HTTP 403 error."""
+        import httpx
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 403
+        mock_response.text = "Forbidden"
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = RTorrentProxy(rtorrent_settings)
+        with pytest.raises(
+            PVRProviderAuthenticationError, match="authentication failed"
+        ):
+            proxy._request("test.method")
+
+    @patch("bookcard.pvr.download_clients.rtorrent.create_httpx_client")
     def test_request_http_error(
         self, mock_create_client: MagicMock, rtorrent_settings: RTorrentSettings
     ) -> None:
@@ -328,6 +363,58 @@ class TestRTorrentProxy:
 
         proxy = RTorrentProxy(rtorrent_settings)
         with pytest.raises(PVRProviderNetworkError):
+            proxy._request("test.method")
+
+    @patch("bookcard.pvr.download_clients.rtorrent.create_httpx_client")
+    @patch("bookcard.pvr.download_clients.rtorrent.handle_http_error_response")
+    def test_request_http_error_other(
+        self,
+        mock_handle_error: MagicMock,
+        mock_create_client: MagicMock,
+        rtorrent_settings: RTorrentSettings,
+    ) -> None:
+        """Test _request with other HTTP error (covers raise after handle_http_error_response)."""
+        import httpx
+
+        mock_handle_error.return_value = None
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error" * 100
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = RTorrentProxy(rtorrent_settings)
+        with pytest.raises(httpx.HTTPStatusError):
+            proxy._request("test.method")
+
+    @patch("bookcard.pvr.download_clients.rtorrent.create_httpx_client")
+    @patch("bookcard.pvr.download_clients.rtorrent.handle_httpx_exception")
+    def test_request_request_error(
+        self,
+        mock_handle_exception: MagicMock,
+        mock_create_client: MagicMock,
+        rtorrent_settings: RTorrentSettings,
+    ) -> None:
+        """Test _request with RequestError (covers raise after handle_httpx_exception)."""
+        import httpx
+
+        mock_handle_exception.return_value = None
+
+        mock_client = MagicMock()
+        mock_client.post.side_effect = httpx.RequestError("Request error")
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = RTorrentProxy(rtorrent_settings)
+        with pytest.raises(httpx.RequestError):
             proxy._request("test.method")
 
     @patch("bookcard.pvr.download_clients.rtorrent.create_httpx_client")
@@ -406,6 +493,19 @@ class TestRTorrentProxy:
         proxy = RTorrentProxy(rtorrent_settings)
         proxy.add_torrent_file("test.torrent", b"content", label="test-label")
         mock_request.assert_called_once()
+
+    @patch.object(RTorrentProxy, "_request")
+    def test_add_torrent_file_with_directory(
+        self, mock_request: MagicMock, rtorrent_settings: RTorrentSettings
+    ) -> None:
+        """Test add_torrent_file with directory."""
+        mock_request.return_value = 0
+        proxy = RTorrentProxy(rtorrent_settings)
+        proxy.add_torrent_file("test.torrent", b"content", directory="/downloads")
+        mock_request.assert_called_once()
+        # Verify directory command was included
+        call_args = mock_request.call_args[0]
+        assert any('d.directory.set="/downloads"' in str(arg) for arg in call_args[1:])
 
     @patch.object(RTorrentProxy, "_request")
     def test_add_torrent_file_error(
@@ -531,6 +631,16 @@ class TestRTorrentProxy:
         proxy = RTorrentProxy(rtorrent_settings)
         with pytest.raises(PVRProviderError, match="failed to set label"):
             proxy.set_torrent_label("hash123", "test-label")
+
+    @patch.object(RTorrentProxy, "_request")
+    def test_get_version_unknown(
+        self, mock_request: MagicMock, rtorrent_settings: RTorrentSettings
+    ) -> None:
+        """Test get_version when result is None or falsy."""
+        mock_request.return_value = None
+        proxy = RTorrentProxy(rtorrent_settings)
+        result = proxy.get_version()
+        assert result == "unknown"
 
 
 class TestRTorrentClient:
