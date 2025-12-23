@@ -30,7 +30,7 @@ from bookcard.models.pvr import (
     IndexerStatus,
     IndexerType,
 )
-from bookcard.pvr.base import PVRProviderError
+from bookcard.pvr.exceptions import PVRProviderError
 from bookcard.services.indexer_service import IndexerRepository, IndexerService
 
 if TYPE_CHECKING:

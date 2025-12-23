@@ -34,15 +34,20 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
-    PVRProviderAuthenticationError,
-    PVRProviderError,
-    handle_http_error_response,
 )
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
     create_httpx_client,
     handle_httpx_exception,
 )
+from bookcard.pvr.error_handlers import handle_http_error_response
+from bookcard.pvr.exceptions import (
+    PVRProviderAuthenticationError,
+    PVRProviderError,
+)
+from bookcard.pvr.models import DownloadItem
+from bookcard.pvr.services.file_fetcher import FileFetcher
+from bookcard.pvr.utils.status import DownloadStatus, StatusMapper
 
 logger = logging.getLogger(__name__)
 
@@ -538,93 +543,86 @@ class RTorrentClient(BaseDownloadClient):
         super().__init__(settings, enabled)
         self.settings: RTorrentSettings = settings  # type: ignore[assignment]
         self._proxy = RTorrentProxy(self.settings)
+        self._file_fetcher = FileFetcher(timeout=self.settings.timeout_seconds)
+        self._status_mapper = StatusMapper(
+            {
+                # Status determined by complete and is_active flags
+                # We'll map in get_items based on torrent dict
+            },
+            default=DownloadStatus.DOWNLOADING,
+        )
 
-    def add_download(
-        self,
-        download_url: str,
-        title: str | None = None,
-        category: str | None = None,
-        download_path: str | None = None,
-    ) -> str:
-        """Add a download to rTorrent.
+    @property
+    def client_name(self) -> str:
+        """Return client name."""
+        return "rTorrent"
+
+    def _extract_hash_from_magnet(self, magnet_url: str) -> str:
+        """Extract hash from magnet link.
 
         Parameters
         ----------
-        download_url : str
-            URL, magnet link, or file path.
-        title : str | None
-            Optional title.
-        category : str | None
-            Optional category (label in rTorrent).
-        download_path : str | None
-            Optional download path.
+        magnet_url : str
+            Magnet URL.
 
         Returns
         -------
         str
-            Torrent hash (extracted from URL or placeholder).
-
-        Raises
-        ------
-        PVRProviderError
-            If adding the download fails.
+            Extracted hash or empty string.
         """
-        if not self.is_enabled():
-            msg = "rTorrent client is disabled"
-            raise PVRProviderError(msg)
+        for part in magnet_url.split("&"):
+            if "xt=urn:btih:" in part:
+                return part.split(":")[-1].upper()
+        return ""
 
-        def _raise_invalid_url_error() -> None:
-            """Raise error for invalid download URL."""
-            msg = f"Invalid download URL: {download_url}"
-            raise PVRProviderError(msg)
+    def _add_magnet(
+        self,
+        magnet_url: str,
+        _title: str | None,
+        category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from magnet link."""
+        label = category or self.settings.category
+        directory = download_path or self.settings.download_path
+        hash_str = self._extract_hash_from_magnet(magnet_url)
+        self._proxy.add_torrent_url(magnet_url, label=label, directory=directory)
+        return hash_str if hash_str else "pending"
 
-        try:
-            label = category or self.settings.category
-            directory = download_path or self.settings.download_path
+    def _add_url(
+        self,
+        url: str,
+        title: str | None,
+        category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from HTTP/HTTPS URL."""
+        file_content, filename = self._file_fetcher.fetch_with_filename(
+            url, title or "download.torrent"
+        )
+        label = category or self.settings.category
+        directory = download_path or self.settings.download_path
+        self._proxy.add_torrent_file(
+            filename, file_content, label=label, directory=directory
+        )
+        return "pending"
 
-            # Add torrent
-            if download_url.startswith("magnet:"):
-                # Extract hash from magnet link
-                hash_str = ""
-                for part in download_url.split("&"):
-                    if "xt=urn:btih:" in part:
-                        hash_str = part.split(":")[-1].upper()
-                        break
-
-                self._proxy.add_torrent_url(
-                    download_url, label=label, directory=directory
-                )
-                return hash_str if hash_str else "pending"
-            if download_url.startswith("http"):
-                # Download torrent file first
-                import httpx
-
-                with httpx.Client() as client:
-                    response = client.get(download_url, timeout=30)
-                    response.raise_for_status()
-                    file_content = response.content
-                    filename = (
-                        title or download_url.split("/")[-1] or "download.torrent"
-                    )
-                    self._proxy.add_torrent_file(
-                        filename, file_content, label=label, directory=directory
-                    )
-                    # Extract hash from torrent (simplified - would need bencode parsing)
-                    return "pending"
-            elif Path(download_url).is_file():
-                file_content = Path(download_url).read_bytes()
-                filename = title or Path(download_url).name
-                self._proxy.add_torrent_file(
-                    filename, file_content, label=label, directory=directory
-                )
-                return "pending"
-            else:
-                _raise_invalid_url_error()
-                return ""  # Never reached, but satisfies type checker
-
-        except Exception as e:
-            msg = f"Failed to add download to rTorrent: {e}"
-            raise PVRProviderError(msg) from e
+    def _add_file(
+        self,
+        filepath: str,
+        title: str | None,
+        category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from local file."""
+        file_content = Path(filepath).read_bytes()
+        filename = title or Path(filepath).name
+        label = category or self.settings.category
+        directory = download_path or self.settings.download_path
+        self._proxy.add_torrent_file(
+            filename, file_content, label=label, directory=directory
+        )
+        return "pending"
 
     def _map_torrent_status(self, torrent: dict[str, str | int]) -> str:
         """Map rTorrent state to standardized status.
@@ -643,10 +641,10 @@ class RTorrentClient(BaseDownloadClient):
         is_active = torrent.get("is_active", 0) == 1
 
         if is_complete:
-            return "completed"
+            return DownloadStatus.COMPLETED
         if is_active:
-            return "downloading"
-        return "paused"
+            return DownloadStatus.DOWNLOADING
+        return DownloadStatus.PAUSED
 
     def _calculate_progress(
         self, total_bytes: int | None, remaining_bytes: int | None
@@ -703,9 +701,11 @@ class RTorrentClient(BaseDownloadClient):
         if download_speed and download_speed > 0 and remaining_bytes:
             eta_seconds = int(remaining_bytes / download_speed)
 
-        return {
+        name = torrent.get("name", "")
+        base_path = torrent.get("base_path")
+        item: DownloadItem = {
             "client_item_id": str(hash_str).upper(),
-            "title": torrent.get("name", ""),
+            "title": str(name) if name else "",
             "status": status,
             "progress": progress,
             "size_bytes": total_bytes,
@@ -714,10 +714,11 @@ class RTorrentClient(BaseDownloadClient):
             else None,
             "download_speed_bytes_per_sec": download_speed,
             "eta_seconds": eta_seconds,
-            "file_path": torrent.get("base_path"),
+            "file_path": str(base_path) if base_path else None,
         }
+        return item
 
-    def get_items(self) -> Sequence[dict[str, str | int | float | None]]:
+    def get_items(self) -> Sequence[DownloadItem]:
         """Get list of active downloads.
 
         Returns

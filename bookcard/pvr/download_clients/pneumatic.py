@@ -29,8 +29,10 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
-    PVRProviderError,
 )
+from bookcard.pvr.exceptions import PVRProviderError
+from bookcard.pvr.models import DownloadItem
+from bookcard.pvr.utils.status import DownloadStatus
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +169,7 @@ class PneumaticClient(BaseDownloadClient):
             msg = f"Failed to add download to Pneumatic: {e}"
             raise PVRProviderError(msg) from e
 
-    def get_items(self) -> Sequence[dict[str, str | int | float | None]]:
+    def get_items(self) -> Sequence[DownloadItem]:
         """Get list of active downloads.
 
         Returns
@@ -196,7 +198,11 @@ class PneumaticClient(BaseDownloadClient):
                     except OSError:
                         is_locked = True
 
-                    status = "downloading" if is_locked else "completed"
+                    status = (
+                        DownloadStatus.DOWNLOADING
+                        if is_locked
+                        else DownloadStatus.COMPLETED
+                    )
 
                     # Get file size
                     size_bytes = strm_file.stat().st_size
@@ -205,14 +211,14 @@ class PneumaticClient(BaseDownloadClient):
                         f"pneumatic_{strm_file.name}_{int(strm_file.stat().st_mtime)}"
                     )
 
-                    item = {
+                    item: DownloadItem = {
                         "client_item_id": download_id,
                         "title": strm_file.stem,
                         "status": status,
-                        "progress": 1.0 if status == "completed" else 0.5,
+                        "progress": 1.0 if status == DownloadStatus.COMPLETED else 0.5,
                         "size_bytes": size_bytes,
                         "downloaded_bytes": size_bytes
-                        if status == "completed"
+                        if status == DownloadStatus.COMPLETED
                         else None,
                         "download_speed_bytes_per_sec": None,
                         "eta_seconds": None,

@@ -22,15 +22,15 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from bookcard.pvr.base import (
-    DownloadClientSettings,
-    PVRProviderAuthenticationError,
-    PVRProviderError,
-)
+from bookcard.pvr.base import DownloadClientSettings
 from bookcard.pvr.download_clients.transmission import (
     TransmissionClient,
     TransmissionProxy,
     TransmissionSettings,
+)
+from bookcard.pvr.exceptions import (
+    PVRProviderAuthenticationError,
+    PVRProviderError,
 )
 
 
@@ -445,30 +445,6 @@ class TestTransmissionClient:
         assert items[0]["status"] == "downloading"
         assert items[0]["progress"] == 0.5
 
-    @pytest.mark.parametrize(
-        ("status_code", "expected_status"),
-        [
-            (0, "paused"),  # Stopped
-            (1, "queued"),  # Check waiting
-            (2, "queued"),  # Checking
-            (3, "queued"),  # Download waiting
-            (4, "downloading"),  # Downloading
-            (5, "queued"),  # Seed waiting
-            (6, "completed"),  # Seeding
-            (99, "downloading"),  # Unknown
-        ],
-    )
-    def test_map_status_to_status(
-        self,
-        status_code: int,
-        expected_status: str,
-        transmission_settings: TransmissionSettings,
-    ) -> None:
-        """Test _map_status_to_status with various status codes."""
-        client = TransmissionClient(settings=transmission_settings)
-        result = client._map_status_to_status(status_code)
-        assert result == expected_status
-
     @patch.object(TransmissionProxy, "remove_torrent")
     def test_remove_item(
         self, mock_remove: MagicMock, transmission_settings: TransmissionSettings
@@ -488,3 +464,229 @@ class TestTransmissionClient:
         client = TransmissionClient(settings=transmission_settings)
         result = client.test_connection()
         assert result is True
+
+    @patch("bookcard.pvr.download_clients.transmission.create_httpx_client")
+    def test_authenticate_http_error(
+        self, mock_create_client: MagicMock, transmission_settings: TransmissionSettings
+    ) -> None:
+        """Test authentication with HTTP error."""
+        import httpx
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = TransmissionProxy(transmission_settings)
+        with pytest.raises(httpx.HTTPStatusError):
+            proxy._authenticate()
+
+    @patch("bookcard.pvr.download_clients.transmission.create_httpx_client")
+    def test_authenticate_timeout(
+        self, mock_create_client: MagicMock, transmission_settings: TransmissionSettings
+    ) -> None:
+        """Test authentication with timeout."""
+        import httpx
+
+        mock_client = MagicMock()
+        mock_client.post.side_effect = httpx.TimeoutException("Timeout")
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = TransmissionProxy(transmission_settings)
+        with pytest.raises(httpx.TimeoutException):
+            proxy._authenticate()
+
+    @patch("bookcard.pvr.download_clients.transmission.create_httpx_client")
+    def test_authenticate_request_error(
+        self, mock_create_client: MagicMock, transmission_settings: TransmissionSettings
+    ) -> None:
+        """Test authentication with request error."""
+        import httpx
+
+        mock_client = MagicMock()
+        mock_client.post.side_effect = httpx.RequestError("Request error")
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = TransmissionProxy(transmission_settings)
+        with pytest.raises(httpx.RequestError):
+            proxy._authenticate()
+
+    @patch.object(TransmissionProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.transmission.create_httpx_client")
+    def test_request_http_error(
+        self,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        transmission_settings: TransmissionSettings,
+    ) -> None:
+        """Test _request with HTTP error."""
+        import httpx
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error"
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = TransmissionProxy(transmission_settings)
+        proxy._session_id = "test-session"
+        with pytest.raises(httpx.HTTPStatusError):
+            proxy._request("session-get")
+
+    @patch.object(TransmissionProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.transmission.create_httpx_client")
+    def test_request_timeout(
+        self,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        transmission_settings: TransmissionSettings,
+    ) -> None:
+        """Test _request with timeout."""
+        import httpx
+
+        mock_client = MagicMock()
+        mock_client.post.side_effect = httpx.TimeoutException("Timeout")
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = TransmissionProxy(transmission_settings)
+        proxy._session_id = "test-session"
+        with pytest.raises(httpx.TimeoutException):
+            proxy._request("session-get")
+
+    @patch.object(TransmissionProxy, "_request")
+    def test_get_torrents_with_ids(
+        self, mock_request: MagicMock, transmission_settings: TransmissionSettings
+    ) -> None:
+        """Test get_torrents with specific IDs."""
+        mock_request.return_value = {
+            "arguments": {"torrents": [{"id": 1, "name": "test"}]}
+        }
+        proxy = TransmissionProxy(transmission_settings)
+        result = proxy.get_torrents(ids=["abc123"])
+        assert result == [{"id": 1, "name": "test"}]
+        call_args = mock_request.call_args
+        assert call_args[0][1]["ids"] == ["abc123"]
+
+    @patch.object(TransmissionProxy, "_request")
+    def test_get_torrents_with_fields(
+        self, mock_request: MagicMock, transmission_settings: TransmissionSettings
+    ) -> None:
+        """Test get_torrents with specific fields."""
+        mock_request.return_value = {
+            "arguments": {"torrents": [{"id": 1, "name": "test"}]}
+        }
+        proxy = TransmissionProxy(transmission_settings)
+        result = proxy.get_torrents(fields=["id", "name"])
+        assert result == [{"id": 1, "name": "test"}]
+        call_args = mock_request.call_args
+        assert call_args[0][1]["fields"] == ["id", "name"]
+
+    @patch.object(TransmissionProxy, "add_torrent_from_url")
+    def test_add_download_http_url(
+        self, mock_add: MagicMock, transmission_settings: TransmissionSettings
+    ) -> None:
+        """Test add_download with HTTP URL."""
+        mock_add.return_value = {
+            "arguments": {"torrent-added": {"hashString": "ABCDEF1234567890"}}
+        }
+        client = TransmissionClient(settings=transmission_settings)
+        result = client.add_download("http://example.com/torrent.torrent")
+        assert result == "ABCDEF1234567890"
+
+    @patch.object(TransmissionProxy, "add_torrent_from_file")
+    def test_add_download_file_path_error(
+        self, mock_add: MagicMock, transmission_settings: TransmissionSettings
+    ) -> None:
+        """Test add_download with file path error."""
+        mock_add.return_value = {"arguments": {}}
+        client = TransmissionClient(settings=transmission_settings)
+        with pytest.raises(PVRProviderError, match="Failed to get torrent hash"):
+            client.add_download("/path/to/torrent.torrent")
+
+    @patch.object(TransmissionProxy, "get_torrents")
+    def test_get_items_empty(
+        self, mock_get_torrents: MagicMock, transmission_settings: TransmissionSettings
+    ) -> None:
+        """Test get_items with empty result."""
+        mock_get_torrents.return_value = []
+        client = TransmissionClient(settings=transmission_settings)
+        items = client.get_items()
+        assert items == []
+
+    @patch.object(TransmissionProxy, "get_torrents")
+    def test_get_items_with_eta(
+        self, mock_get_torrents: MagicMock, transmission_settings: TransmissionSettings
+    ) -> None:
+        """Test get_items with ETA calculation."""
+        mock_get_torrents.return_value = [
+            {
+                "hashString": "abc123",
+                "name": "Test Torrent",
+                "status": 4,
+                "totalSize": 1000000,
+                "leftUntilDone": 500000,
+                "eta": 10,
+                "downloadDir": "/downloads",
+            }
+        ]
+        client = TransmissionClient(settings=transmission_settings)
+        items = client.get_items()
+        assert len(items) == 1
+        assert items[0]["eta_seconds"] == 10
+        assert items[0]["download_speed_bytes_per_sec"] == 50000  # 500000 / 10
+
+    @patch.object(TransmissionProxy, "get_torrents")
+    def test_get_items_error(
+        self, mock_get_torrents: MagicMock, transmission_settings: TransmissionSettings
+    ) -> None:
+        """Test get_items with error."""
+        mock_get_torrents.side_effect = Exception("Connection error")
+        client = TransmissionClient(settings=transmission_settings)
+        with pytest.raises(PVRProviderError, match="Failed to get downloads"):
+            client.get_items()
+
+    def test_remove_item_disabled(
+        self, transmission_settings: TransmissionSettings
+    ) -> None:
+        """Test remove_item when disabled."""
+        client = TransmissionClient(settings=transmission_settings, enabled=False)
+        with pytest.raises(PVRProviderError, match="disabled"):
+            client.remove_item("ABC123")
+
+    @patch.object(TransmissionProxy, "remove_torrent")
+    def test_remove_item_error(
+        self, mock_remove: MagicMock, transmission_settings: TransmissionSettings
+    ) -> None:
+        """Test remove_item with error."""
+        mock_remove.side_effect = Exception("Remove error")
+        client = TransmissionClient(settings=transmission_settings)
+        with pytest.raises(PVRProviderError, match="Failed to remove"):
+            client.remove_item("ABC123")
+
+    @patch.object(TransmissionProxy, "get_version")
+    def test_test_connection_error(
+        self, mock_get_version: MagicMock, transmission_settings: TransmissionSettings
+    ) -> None:
+        """Test test_connection with error."""
+        mock_get_version.side_effect = Exception("Connection error")
+        client = TransmissionClient(settings=transmission_settings)
+        with pytest.raises(PVRProviderError, match="Failed to connect"):
+            client.test_connection()

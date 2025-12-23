@@ -33,15 +33,19 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
-    PVRProviderAuthenticationError,
-    PVRProviderError,
-    handle_http_error_response,
 )
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
     create_httpx_client,
     handle_httpx_exception,
 )
+from bookcard.pvr.error_handlers import handle_http_error_response
+from bookcard.pvr.exceptions import (
+    PVRProviderAuthenticationError,
+    PVRProviderError,
+)
+from bookcard.pvr.models import DownloadItem
+from bookcard.pvr.utils.status import DownloadStatus, StatusMapper
 
 logger = logging.getLogger(__name__)
 
@@ -430,80 +434,101 @@ class UTorrentClient(BaseDownloadClient):
         super().__init__(settings, enabled)
         self.settings: UTorrentSettings = settings  # type: ignore[assignment]
         self._proxy = UTorrentProxy(self.settings)
+        # uTorrent status flags: bit 0=started, bit 1=checking, bit 2=start_after_check,
+        # bit 3=checked, bit 4=error, bit 5=paused, bit 6=queued, bit 7=loaded
+        # We map based on common patterns
+        self._status_mapper = StatusMapper(
+            {
+                # Status is a bitmask, we check specific bits
+                # This will be handled in _map_utorrent_status
+            },
+            default=DownloadStatus.DOWNLOADING,
+        )
 
-    def _raise_invalid_url_error(self, download_url: str) -> None:
-        """Raise error for invalid download URL.
+    @property
+    def client_name(self) -> str:
+        """Return client name."""
+        return "uTorrent"
 
-        Parameters
-        ----------
-        download_url : str
-            Invalid download URL.
-
-        Raises
-        ------
-        PVRProviderError
-            Always raises with error message.
-        """
-        msg = f"Invalid download URL: {download_url}"
-        raise PVRProviderError(msg)
-
-    def add_download(
-        self,
-        download_url: str,
-        title: str | None = None,
-        _category: str | None = None,
-        _download_path: str | None = None,
-    ) -> str:
-        """Add a download to uTorrent.
+    def _map_utorrent_status(self, status: int) -> str:
+        """Map uTorrent status flags to standardized status.
 
         Parameters
         ----------
-        download_url : str
-            URL, magnet link, or file path.
-        title : str | None
-            Optional title.
-        category : str | None
-            Optional category (label in uTorrent).
-        download_path : str | None
-            Optional download path (not used by uTorrent).
+        status : int
+            uTorrent status flags (bitmask).
 
         Returns
         -------
         str
-            Torrent hash.
-
-        Raises
-        ------
-        PVRProviderError
-            If adding the download fails.
+            Standardized status string.
         """
-        if not self.is_enabled():
-            msg = "uTorrent client is disabled"
-            raise PVRProviderError(msg)
+        # Check error bit (4)
+        if status & (1 << 4):
+            return DownloadStatus.FAILED
+        # Check paused bit (5)
+        if status & (1 << 5):
+            return DownloadStatus.PAUSED
+        # Check queued bit (6)
+        if status & (1 << 6):
+            return DownloadStatus.QUEUED
+        # Check started bit (0) and checked bit (3)
+        if status & (1 << 0) and status & (1 << 3):
+            # If progress is 100%, it's completed
+            return DownloadStatus.COMPLETED
+        # Otherwise downloading
+        if status & (1 << 0):
+            return DownloadStatus.DOWNLOADING
+        return DownloadStatus.QUEUED
 
-        try:
-            # Add torrent
-            if download_url.startswith(("magnet:", "http")):
-                hash_str = self._proxy.add_torrent_url(download_url)
-            elif Path(download_url).is_file():
-                file_content = Path(download_url).read_bytes()
-                filename = title or Path(download_url).name
-                hash_str = self._proxy.add_torrent_file(filename, file_content)
-            else:
-                self._raise_invalid_url_error(download_url)
+    def _add_magnet(
+        self,
+        magnet_url: str,
+        _title: str | None,
+        category: str | None,
+        _download_path: str | None,
+    ) -> str:
+        """Add download from magnet link."""
+        hash_str = self._proxy.add_torrent_url(magnet_url)
+        # Set label if provided
+        label = category or self.settings.category
+        if label and hash_str and hash_str != "pending":
+            self._proxy.set_torrent_label(hash_str, label)
+        return hash_str.upper() if hash_str else "pending"
 
-            # Set label if provided
-            label = _category or self.settings.category
-            if label and hash_str and hash_str != "pending":
-                self._proxy.set_torrent_label(hash_str, label)
+    def _add_url(
+        self,
+        url: str,
+        _title: str | None,
+        category: str | None,
+        _download_path: str | None,
+    ) -> str:
+        """Add download from HTTP/HTTPS URL."""
+        hash_str = self._proxy.add_torrent_url(url)
+        # Set label if provided
+        label = category or self.settings.category
+        if label and hash_str and hash_str != "pending":
+            self._proxy.set_torrent_label(hash_str, label)
+        return hash_str.upper() if hash_str else "pending"
 
-            return hash_str.upper() if hash_str else "pending"
+    def _add_file(
+        self,
+        filepath: str,
+        title: str | None,
+        category: str | None,
+        _download_path: str | None,
+    ) -> str:
+        """Add download from local file."""
+        file_content = Path(filepath).read_bytes()
+        filename = title or Path(filepath).name
+        hash_str = self._proxy.add_torrent_file(filename, file_content)
+        # Set label if provided
+        label = category or self.settings.category
+        if label and hash_str and hash_str != "pending":
+            self._proxy.set_torrent_label(hash_str, label)
+        return hash_str.upper() if hash_str else "pending"
 
-        except Exception as e:
-            msg = f"Failed to add download to uTorrent: {e}"
-            raise PVRProviderError(msg) from e
-
-    def get_items(self) -> Sequence[dict[str, str | int | float | None]]:
+    def get_items(self) -> Sequence[DownloadItem]:
         """Get list of active downloads.
 
         Returns
@@ -536,7 +561,7 @@ class UTorrentClient(BaseDownloadClient):
 
                 # Map uTorrent status to our status
                 status = torrent.get("status", 0)
-                item_status = self._map_status_to_status(status)
+                item_status = self._map_utorrent_status(status)
 
                 # Calculate progress (stored as integer 0-1000)
                 progress_raw = torrent.get("progress", 0)
@@ -555,7 +580,7 @@ class UTorrentClient(BaseDownloadClient):
                 downspeed = torrent.get("downspeed", 0)
                 download_speed = int(downspeed) if downspeed > 0 else None
 
-                item = {
+                item: DownloadItem = {
                     "client_item_id": str(hash_str).upper(),
                     "title": torrent.get("name", ""),
                     "status": item_status,
@@ -627,32 +652,3 @@ class UTorrentClient(BaseDownloadClient):
             raise PVRProviderError(msg) from e
         else:
             return True
-
-    def _map_status_to_status(self, status: int) -> str:
-        """Map uTorrent status flags to standardized status.
-
-        Parameters
-        ----------
-        status : int
-            uTorrent status flags (bitmask).
-
-        Returns
-        -------
-        str
-            Standardized status string.
-        """
-        # uTorrent status flags:
-        # 1 = Started, 2 = Checking, 4 = Start after check, 8 = Checked
-        # 16 = Error, 32 = Paused, 64 = Queued, 128 = Loaded
-
-        if status & 16:  # Error
-            return "failed"
-        if status & 32:  # Paused
-            return "paused"
-        if status & 64:  # Queued
-            return "queued"
-        if status & 1:  # Started
-            return "downloading"
-        if status & 8:  # Checked (completed)
-            return "completed"
-        return "queued"

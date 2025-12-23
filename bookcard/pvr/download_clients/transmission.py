@@ -34,15 +34,19 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
-    PVRProviderAuthenticationError,
-    PVRProviderError,
-    handle_http_error_response,
 )
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
     create_httpx_client,
     handle_httpx_exception,
 )
+from bookcard.pvr.error_handlers import handle_http_error_response
+from bookcard.pvr.exceptions import (
+    PVRProviderAuthenticationError,
+    PVRProviderError,
+)
+from bookcard.pvr.models import DownloadItem
+from bookcard.pvr.utils.status import DownloadStatus, StatusMapper
 
 logger = logging.getLogger(__name__)
 
@@ -515,26 +519,35 @@ class TransmissionClient(BaseDownloadClient):
         super().__init__(settings, enabled)
         self.settings: TransmissionSettings = settings  # type: ignore[assignment]
         self._proxy = TransmissionProxy(self.settings)
+        self._status_mapper = StatusMapper(
+            {
+                6: DownloadStatus.COMPLETED,  # Seeding
+                4: DownloadStatus.DOWNLOADING,  # Downloading
+                1: DownloadStatus.QUEUED,  # Check waiting
+                2: DownloadStatus.CHECKING,  # Checking
+                3: DownloadStatus.QUEUED,  # Download waiting
+                5: DownloadStatus.QUEUED,  # Seed waiting
+                0: DownloadStatus.PAUSED,  # Stopped
+            },
+            default=DownloadStatus.DOWNLOADING,
+        )
 
-    def add_download(
-        self,
-        download_url: str,
-        _title: str | None = None,
-        _category: str | None = None,
-        download_path: str | None = None,
+    @property
+    def client_name(self) -> str:
+        """Return client name."""
+        return "Transmission"
+
+    def _extract_hash_from_response(
+        self, response: dict[str, Any], magnet_url: str | None = None
     ) -> str:
-        """Add a download to Transmission.
+        """Extract hash from Transmission response.
 
         Parameters
         ----------
-        download_url : str
-            URL or magnet link for the download.
-        title : str | None
-            Optional title (not used by Transmission API).
-        category : str | None
-            Optional category/tag (Transmission uses labels).
-        download_path : str | None
-            Optional custom download path.
+        response : dict[str, Any]
+            Transmission API response.
+        magnet_url : str | None
+            Optional magnet URL for fallback extraction.
 
         Returns
         -------
@@ -544,58 +557,66 @@ class TransmissionClient(BaseDownloadClient):
         Raises
         ------
         PVRProviderError
-            If adding the download fails.
+            If hash cannot be extracted.
         """
-        if not self.is_enabled():
-            msg = "Transmission client is disabled"
-            raise PVRProviderError(msg)
+        torrent = response.get("arguments", {}).get("torrent-added", {})
+        if not torrent:
+            torrent = response.get("arguments", {}).get("torrent-duplicate", {})
 
-        def _raise_hash_error() -> None:
-            """Raise error when hash is not found."""
+        hash_str = torrent.get("hashString", "")
+        if not hash_str and magnet_url:
+            # Extract hash from magnet link as fallback
+            for part in magnet_url.split("&"):
+                if "xt=urn:btih:" in part:
+                    hash_str = part.split(":")[-1].upper()
+                    break
+
+        if not hash_str:
             msg = "Failed to get torrent hash from Transmission response"
             raise PVRProviderError(msg)
 
-        try:
-            # Use download_path from settings if not provided
-            path = download_path or self.settings.download_path
+        return hash_str.upper()
 
-            # Add torrent
-            if download_url.startswith(("magnet:", "http")):
-                response = self._proxy.add_torrent_from_url(
-                    download_url, download_dir=path
-                )
-            else:
-                # Assume it's a file path - read and upload
-                with pathlib.Path(download_url).open("rb") as f:
-                    file_content = f.read()
-                response = self._proxy.add_torrent_from_file(
-                    file_content, download_dir=path
-                )
+    def _add_magnet(
+        self,
+        magnet_url: str,
+        _title: str | None,
+        _category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from magnet link."""
+        response = self._proxy.add_torrent_from_url(
+            magnet_url, download_dir=download_path
+        )
+        return self._extract_hash_from_response(response, magnet_url)
 
-            # Extract hash from response
-            torrent = response.get("arguments", {}).get("torrent-added", {})
-            if not torrent:
-                # Try torrent-duplicate
-                torrent = response.get("arguments", {}).get("torrent-duplicate", {})
+    def _add_url(
+        self,
+        url: str,
+        _title: str | None,
+        _category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from HTTP/HTTPS URL."""
+        response = self._proxy.add_torrent_from_url(url, download_dir=download_path)
+        return self._extract_hash_from_response(response)
 
-            hash_str = torrent.get("hashString", "")
-            if not hash_str and download_url.startswith("magnet:"):
-                # Extract hash from magnet link as fallback
-                for part in download_url.split("&"):
-                    if "xt=urn:btih:" in part:
-                        hash_str = part.split(":")[-1].upper()
-                        break
+    def _add_file(
+        self,
+        filepath: str,
+        _title: str | None,
+        _category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from local file."""
+        with pathlib.Path(filepath).open("rb") as f:
+            file_content = f.read()
+        response = self._proxy.add_torrent_from_file(
+            file_content, download_dir=download_path
+        )
+        return self._extract_hash_from_response(response)
 
-            if not hash_str:
-                _raise_hash_error()
-
-            return hash_str.upper()
-
-        except Exception as e:
-            msg = f"Failed to add download to Transmission: {e}"
-            raise PVRProviderError(msg) from e
-
-    def get_items(self) -> Sequence[dict[str, str | int | float | None]]:
+    def get_items(self) -> Sequence[DownloadItem]:
         """Get list of active downloads.
 
         Returns
@@ -618,7 +639,7 @@ class TransmissionClient(BaseDownloadClient):
             for torrent in torrents:
                 # Map Transmission status to our status
                 status_code = torrent.get("status", 0)
-                status = self._map_status_to_status(status_code)
+                status = self._status_mapper.map(status_code)
 
                 # Calculate progress
                 total_size = torrent.get("totalSize", 0)
@@ -634,7 +655,7 @@ class TransmissionClient(BaseDownloadClient):
                 if eta > 0 and left_until_done > 0:
                     download_speed = left_until_done / eta
 
-                item = {
+                item: DownloadItem = {
                     "client_item_id": torrent.get("hashString", "").upper(),
                     "title": torrent.get("name", ""),
                     "status": status,
@@ -707,46 +728,3 @@ class TransmissionClient(BaseDownloadClient):
             raise PVRProviderError(msg) from e
         else:
             return True
-
-    def _map_status_to_status(self, status_code: int) -> str:
-        """Map Transmission status code to standardized status.
-
-        Parameters
-        ----------
-        status_code : int
-            Transmission status code.
-
-        Returns
-        -------
-        str
-            Standardized status string.
-
-        Notes
-        -----
-        Transmission status codes:
-        - 0: Stopped
-        - 1: Check waiting
-        - 2: Checking
-        - 3: Download waiting
-        - 4: Downloading
-        - 5: Seed waiting
-        - 6: Seeding
-        """
-        # Completed states (seeding)
-        if status_code == 6:
-            return "completed"
-
-        # Downloading
-        if status_code == 4:
-            return "downloading"
-
-        # Queued states
-        if status_code in (1, 2, 3, 5):
-            return "queued"
-
-        # Stopped (paused)  # noqa: ERA001
-        if status_code == 0:
-            return "paused"
-
-        # Default to downloading
-        return "downloading"

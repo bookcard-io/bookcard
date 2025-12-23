@@ -24,11 +24,11 @@ from urllib.parse import urljoin
 
 import httpx
 
-from bookcard.pvr.base import (
+from bookcard.pvr.error_handlers import handle_http_error_response
+from bookcard.pvr.exceptions import (
     PVRProviderAuthenticationError,
     PVRProviderNetworkError,
     PVRProviderTimeoutError,
-    handle_http_error_response,
 )
 
 logger = logging.getLogger(__name__)

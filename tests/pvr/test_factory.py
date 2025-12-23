@@ -42,6 +42,8 @@ from bookcard.pvr.base import (
 from bookcard.pvr.factory import (
     create_download_client,
     create_indexer,
+)
+from bookcard.pvr.registries import (
     get_registered_download_client_types,
     get_registered_indexer_types,
     register_download_client,
@@ -60,7 +62,7 @@ class TestRegisterIndexer:
         indexer_type, _ = indexer_type_and_protocol
 
         # Clear any existing registration
-        from bookcard.pvr.factory import _indexer_registry
+        from bookcard.pvr.registries.indexer_registry import _indexer_registry
 
         if indexer_type in _indexer_registry:
             del _indexer_registry[indexer_type]
@@ -83,7 +85,7 @@ class TestRegisterIndexer:
 
     def test_register_indexer_overwrite(self) -> None:
         """Test that register_indexer overwrites existing registration."""
-        from bookcard.pvr.factory import _indexer_registry
+        from bookcard.pvr.registries.indexer_registry import _indexer_registry
 
         # Register first time
         register_indexer(IndexerType.TORZNAB, MockIndexer)
@@ -105,7 +107,9 @@ class TestRegisterDownloadClient:
     ) -> None:
         """Test successful download client registration."""
         # Clear any existing registration
-        from bookcard.pvr.factory import _download_client_registry
+        from bookcard.pvr.registries.download_client_registry import (
+            _download_client_registry,
+        )
 
         if download_client_type in _download_client_registry:
             del _download_client_registry[download_client_type]
@@ -128,7 +132,9 @@ class TestRegisterDownloadClient:
 
     def test_register_download_client_overwrite(self) -> None:
         """Test that register_download_client overwrites existing registration."""
-        from bookcard.pvr.factory import _download_client_registry
+        from bookcard.pvr.registries.download_client_registry import (
+            _download_client_registry,
+        )
 
         # Register first time
         register_download_client(DownloadClientType.QBITTORRENT, MockDownloadClient)
@@ -172,7 +178,7 @@ class TestCreateIndexer:
         self, indexer_definition: IndexerDefinition
     ) -> None:
         """Test create_indexer with unregistered indexer type."""
-        from bookcard.pvr.factory import _indexer_registry
+        from bookcard.pvr.registries.indexer_registry import _indexer_registry
 
         # Remove registration if exists
         if indexer_definition.indexer_type in _indexer_registry:
@@ -244,7 +250,9 @@ class TestCreateDownloadClient:
         self, download_client_definition: DownloadClientDefinition
     ) -> None:
         """Test create_download_client with unregistered client type."""
-        from bookcard.pvr.factory import _download_client_registry
+        from bookcard.pvr.registries.download_client_registry import (
+            _download_client_registry,
+        )
 
         # Remove registration if exists
         if download_client_definition.client_type in _download_client_registry:
@@ -290,7 +298,7 @@ class TestGetRegisteredTypes:
 
     def test_get_registered_indexer_types_empty(self) -> None:
         """Test get_registered_indexer_types with no registrations."""
-        from bookcard.pvr.factory import _indexer_registry
+        from bookcard.pvr.registries.indexer_registry import _indexer_registry
 
         # Clear all registrations
         _indexer_registry.clear()
@@ -300,7 +308,7 @@ class TestGetRegisteredTypes:
 
     def test_get_registered_indexer_types_with_registrations(self) -> None:
         """Test get_registered_indexer_types with registrations."""
-        from bookcard.pvr.factory import _indexer_registry
+        from bookcard.pvr.registries.indexer_registry import _indexer_registry
 
         # Clear and register some types
         _indexer_registry.clear()
@@ -314,7 +322,9 @@ class TestGetRegisteredTypes:
 
     def test_get_registered_download_client_types_empty(self) -> None:
         """Test get_registered_download_client_types with no registrations."""
-        from bookcard.pvr.factory import _download_client_registry
+        from bookcard.pvr.registries.download_client_registry import (
+            _download_client_registry,
+        )
 
         # Clear all registrations
         _download_client_registry.clear()
@@ -324,7 +334,9 @@ class TestGetRegisteredTypes:
 
     def test_get_registered_download_client_types_with_registrations(self) -> None:
         """Test get_registered_download_client_types with registrations."""
-        from bookcard.pvr.factory import _download_client_registry
+        from bookcard.pvr.registries.download_client_registry import (
+            _download_client_registry,
+        )
 
         # Clear and register some types
         _download_client_registry.clear()
@@ -344,7 +356,9 @@ class TestIndexerSettingsFactories:
         self, indexer_definition: IndexerDefinition
     ) -> None:
         """Test _create_torznab_settings with additional_settings."""
-        from bookcard.pvr.factory import _create_torznab_settings
+        from bookcard.pvr.factory.settings_factories.indexer_settings import (
+            _create_torznab_settings,
+        )
         from bookcard.pvr.indexers.torznab import TorznabSettings
 
         indexer_definition.indexer_type = IndexerType.TORZNAB
@@ -358,7 +372,9 @@ class TestIndexerSettingsFactories:
         self, indexer_definition: IndexerDefinition
     ) -> None:
         """Test _create_torznab_settings without additional_settings."""
-        from bookcard.pvr.factory import _create_torznab_settings
+        from bookcard.pvr.factory.settings_factories.indexer_settings import (
+            _create_torznab_settings,
+        )
         from bookcard.pvr.indexers.torznab import TorznabSettings
 
         indexer_definition.indexer_type = IndexerType.TORZNAB
@@ -372,7 +388,9 @@ class TestIndexerSettingsFactories:
         self, indexer_definition: IndexerDefinition
     ) -> None:
         """Test _create_newznab_settings with additional_settings."""
-        from bookcard.pvr.factory import _create_newznab_settings
+        from bookcard.pvr.factory.settings_factories.indexer_settings import (
+            _create_newznab_settings,
+        )
         from bookcard.pvr.indexers.newznab import NewznabSettings
 
         indexer_definition.indexer_type = IndexerType.NEWZNAB
@@ -386,7 +404,9 @@ class TestIndexerSettingsFactories:
         self, indexer_definition: IndexerDefinition
     ) -> None:
         """Test _create_newznab_settings without additional_settings."""
-        from bookcard.pvr.factory import _create_newznab_settings
+        from bookcard.pvr.factory.settings_factories.indexer_settings import (
+            _create_newznab_settings,
+        )
         from bookcard.pvr.indexers.newznab import NewznabSettings
 
         indexer_definition.indexer_type = IndexerType.NEWZNAB
@@ -400,7 +420,9 @@ class TestIndexerSettingsFactories:
         self, indexer_definition: IndexerDefinition
     ) -> None:
         """Test _create_torrent_rss_settings with additional_settings."""
-        from bookcard.pvr.factory import _create_torrent_rss_settings
+        from bookcard.pvr.factory.settings_factories.indexer_settings import (
+            _create_torrent_rss_settings,
+        )
         from bookcard.pvr.indexers.torrent_rss import TorrentRssSettings
 
         indexer_definition.indexer_type = IndexerType.TORRENT_RSS
@@ -416,7 +438,9 @@ class TestIndexerSettingsFactories:
         self, indexer_definition: IndexerDefinition
     ) -> None:
         """Test _create_torrent_rss_settings without additional_settings."""
-        from bookcard.pvr.factory import _create_torrent_rss_settings
+        from bookcard.pvr.factory.settings_factories.indexer_settings import (
+            _create_torrent_rss_settings,
+        )
         from bookcard.pvr.indexers.torrent_rss import TorrentRssSettings
 
         indexer_definition.indexer_type = IndexerType.TORRENT_RSS
@@ -430,7 +454,7 @@ class TestIndexerSettingsFactories:
         self, indexer_definition: IndexerDefinition
     ) -> None:
         """Test _create_default_settings with additional_settings."""
-        from bookcard.pvr.factory import _create_default_settings
+        from bookcard.pvr.factory.indexer_factory import _create_default_settings
 
         # Test with a field that exists on IndexerSettings
         indexer_definition.additional_settings = {
@@ -448,7 +472,7 @@ class TestIndexerSettingsFactories:
         self, indexer_definition: IndexerDefinition
     ) -> None:
         """Test _create_default_settings without additional_settings."""
-        from bookcard.pvr.factory import _create_default_settings
+        from bookcard.pvr.factory.indexer_factory import _create_default_settings
 
         indexer_definition.additional_settings = None
 
@@ -484,7 +508,7 @@ class TestDownloadClientSettingsFactories:
         expected_value: str,
     ) -> None:
         """Test download client settings factories with additional_settings."""
-        from bookcard.pvr.factory import (
+        from bookcard.pvr.factory.settings_factories.download_client_settings import (
             _create_aria2_settings,
             _create_deluge_settings,
             _create_download_station_settings,
@@ -529,7 +553,9 @@ class TestDownloadClientSettingsFactories:
         self, download_client_definition: DownloadClientDefinition
     ) -> None:
         """Test _create_sabnzbd_settings with additional_settings."""
-        from bookcard.pvr.factory import _create_sabnzbd_settings
+        from bookcard.pvr.factory.settings_factories.download_client_settings import (
+            _create_sabnzbd_settings,
+        )
 
         download_client_definition.client_type = DownloadClientType.SABNZBD
         download_client_definition.additional_settings = {
@@ -547,7 +573,9 @@ class TestDownloadClientSettingsFactories:
         self, download_client_definition: DownloadClientDefinition
     ) -> None:
         """Test _create_sabnzbd_settings without additional_settings."""
-        from bookcard.pvr.factory import _create_sabnzbd_settings
+        from bookcard.pvr.factory.settings_factories.download_client_settings import (
+            _create_sabnzbd_settings,
+        )
 
         download_client_definition.client_type = DownloadClientType.SABNZBD
         download_client_definition.additional_settings = None
@@ -562,7 +590,9 @@ class TestDownloadClientSettingsFactories:
         self, download_client_definition: DownloadClientDefinition
     ) -> None:
         """Test _create_nzbget_settings with additional_settings."""
-        from bookcard.pvr.factory import _create_nzbget_settings
+        from bookcard.pvr.factory.settings_factories.download_client_settings import (
+            _create_nzbget_settings,
+        )
 
         download_client_definition.client_type = DownloadClientType.NZBGET
         download_client_definition.additional_settings = {"url_base": "/custom/nzbget"}
@@ -576,7 +606,9 @@ class TestDownloadClientSettingsFactories:
         self, download_client_definition: DownloadClientDefinition
     ) -> None:
         """Test _create_nzbget_settings without additional_settings."""
-        from bookcard.pvr.factory import _create_nzbget_settings
+        from bookcard.pvr.factory.settings_factories.download_client_settings import (
+            _create_nzbget_settings,
+        )
 
         download_client_definition.client_type = DownloadClientType.NZBGET
         download_client_definition.additional_settings = None
@@ -590,7 +622,9 @@ class TestDownloadClientSettingsFactories:
         self, download_client_definition: DownloadClientDefinition
     ) -> None:
         """Test _create_torrent_blackhole_settings with additional_settings."""
-        from bookcard.pvr.factory import _create_torrent_blackhole_settings
+        from bookcard.pvr.factory.settings_factories.download_client_settings import (
+            _create_torrent_blackhole_settings,
+        )
 
         download_client_definition.client_type = DownloadClientType.TORRENT_BLACKHOLE
         download_client_definition.additional_settings = {
@@ -615,7 +649,9 @@ class TestDownloadClientSettingsFactories:
         """Test _create_torrent_blackhole_settings without additional_settings."""
         import tempfile
 
-        from bookcard.pvr.factory import _create_torrent_blackhole_settings
+        from bookcard.pvr.factory.settings_factories.download_client_settings import (
+            _create_torrent_blackhole_settings,
+        )
 
         download_client_definition.client_type = DownloadClientType.TORRENT_BLACKHOLE
         download_client_definition.additional_settings = None
@@ -634,7 +670,9 @@ class TestDownloadClientSettingsFactories:
         self, download_client_definition: DownloadClientDefinition
     ) -> None:
         """Test _create_usenet_blackhole_settings with additional_settings."""
-        from bookcard.pvr.factory import _create_usenet_blackhole_settings
+        from bookcard.pvr.factory.settings_factories.download_client_settings import (
+            _create_usenet_blackhole_settings,
+        )
 
         download_client_definition.client_type = DownloadClientType.USENET_BLACKHOLE
         download_client_definition.additional_settings = {
@@ -655,7 +693,9 @@ class TestDownloadClientSettingsFactories:
         """Test _create_usenet_blackhole_settings without additional_settings."""
         import tempfile
 
-        from bookcard.pvr.factory import _create_usenet_blackhole_settings
+        from bookcard.pvr.factory.settings_factories.download_client_settings import (
+            _create_usenet_blackhole_settings,
+        )
 
         download_client_definition.client_type = DownloadClientType.USENET_BLACKHOLE
         download_client_definition.additional_settings = None
@@ -672,7 +712,9 @@ class TestDownloadClientSettingsFactories:
         self, download_client_definition: DownloadClientDefinition
     ) -> None:
         """Test _create_pneumatic_settings."""
-        from bookcard.pvr.factory import _create_pneumatic_settings
+        from bookcard.pvr.factory.settings_factories.download_client_settings import (
+            _create_pneumatic_settings,
+        )
 
         download_client_definition.client_type = DownloadClientType.PNEUMATIC
 
@@ -684,7 +726,9 @@ class TestDownloadClientSettingsFactories:
         self, download_client_definition: DownloadClientDefinition
     ) -> None:
         """Test _create_default_download_client_settings with additional_settings."""
-        from bookcard.pvr.factory import _create_default_download_client_settings
+        from bookcard.pvr.factory.download_client_factory import (
+            _create_default_download_client_settings,
+        )
 
         # Test with fields that exist on DownloadClientSettings
         download_client_definition.additional_settings = {
@@ -702,7 +746,9 @@ class TestDownloadClientSettingsFactories:
         self, download_client_definition: DownloadClientDefinition
     ) -> None:
         """Test _create_default_download_client_settings without additional_settings."""
-        from bookcard.pvr.factory import _create_default_download_client_settings
+        from bookcard.pvr.factory.download_client_factory import (
+            _create_default_download_client_settings,
+        )
 
         download_client_definition.additional_settings = None
 

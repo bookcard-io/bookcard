@@ -34,15 +34,19 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
-    PVRProviderAuthenticationError,
-    PVRProviderError,
-    handle_http_error_response,
 )
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
     create_httpx_client,
     handle_httpx_exception,
 )
+from bookcard.pvr.error_handlers import handle_http_error_response
+from bookcard.pvr.exceptions import (
+    PVRProviderAuthenticationError,
+    PVRProviderError,
+)
+from bookcard.pvr.models import DownloadItem
+from bookcard.pvr.utils.status import DownloadStatus
 
 logger = logging.getLogger(__name__)
 
@@ -297,64 +301,67 @@ class HadoukenClient(BaseDownloadClient):
         self.settings: HadoukenSettings = settings  # type: ignore[assignment]
         self._proxy = HadoukenProxy(self.settings)
 
-    def add_download(
-        self,
-        download_url: str,
-        _title: str | None = None,
-        category: str | None = None,
-        _download_path: str | None = None,
-    ) -> str:
-        """Add a download to Hadouken.
+    @property
+    def client_name(self) -> str:
+        """Return client name."""
+        return "Hadouken"
+
+    def _extract_hash_from_magnet(self, magnet_url: str) -> str:
+        """Extract hash from magnet link.
 
         Parameters
         ----------
-        download_url : str
-            URL, magnet link, or file path.
-        title : str | None
-            Optional title (not used by Hadouken API).
-        category : str | None
-            Optional category/label.
-        download_path : str | None
-            Optional download path (not used by Hadouken API).
+        magnet_url : str
+            Magnet URL.
 
         Returns
         -------
         str
-            Torrent hash.
-
-        Raises
-        ------
-        PVRProviderError
-            If adding the download fails.
+            Extracted hash or "pending".
         """
-        if not self.is_enabled():
-            msg = "Hadouken client is disabled"
-            raise PVRProviderError(msg)
+        for part in magnet_url.split("&"):
+            if "xt=urn:btih:" in part:
+                return part.split(":")[-1].upper()
+        return "pending"
 
-        try:
-            cat = category or self.settings.category
+    def _add_magnet(
+        self,
+        magnet_url: str,
+        _title: str | None,
+        category: str | None,
+        _download_path: str | None,
+    ) -> str:
+        """Add download from magnet link."""
+        cat = category or self.settings.category
+        self._proxy.add_torrent_url(magnet_url, category=cat)
+        return self._extract_hash_from_magnet(magnet_url)
 
-            # Add torrent
-            if download_url.startswith(("magnet:", "http")):
-                self._proxy.add_torrent_url(download_url, category=cat)
-                # Extract hash from magnet if possible
-                if download_url.startswith("magnet:"):
-                    for part in download_url.split("&"):
-                        if "xt=urn:btih:" in part:
-                            return part.split(":")[-1].upper()
-                return "pending"
-            if Path(download_url).is_file():
-                file_content = Path(download_url).read_bytes()
-                hash_str = self._proxy.add_torrent_file(file_content, category=cat)
-                return hash_str.upper() if hash_str else "pending"
-        except Exception as e:
-            msg = f"Failed to add download to Hadouken: {e}"
-            raise PVRProviderError(msg) from e
-        else:
-            msg = f"Invalid download URL: {download_url}"
-            raise PVRProviderError(msg)
+    def _add_url(
+        self,
+        url: str,
+        _title: str | None,
+        category: str | None,
+        _download_path: str | None,
+    ) -> str:
+        """Add download from HTTP/HTTPS URL."""
+        cat = category or self.settings.category
+        self._proxy.add_torrent_url(url, category=cat)
+        return "pending"
 
-    def get_items(self) -> Sequence[dict[str, str | int | float | None]]:
+    def _add_file(
+        self,
+        filepath: str,
+        _title: str | None,
+        category: str | None,
+        _download_path: str | None,
+    ) -> str:
+        """Add download from local file."""
+        file_content = Path(filepath).read_bytes()
+        cat = category or self.settings.category
+        hash_str = self._proxy.add_torrent_file(file_content, category=cat)
+        return hash_str.upper() if hash_str else "pending"
+
+    def get_items(self) -> Sequence[DownloadItem]:
         """Get list of active downloads.
 
         Returns
@@ -410,7 +417,7 @@ class HadoukenClient(BaseDownloadClient):
                     if remaining > 0:
                         eta_seconds = int(remaining / download_rate)
 
-                item_dict = {
+                item_dict: DownloadItem = {
                     "client_item_id": hash_str.upper(),
                     "title": name,
                     "status": status,
@@ -507,20 +514,20 @@ class HadoukenClient(BaseDownloadClient):
             Standardized status string.
         """
         if error:
-            return "failed"
+            return DownloadStatus.FAILED
 
         # Check bit flags
         if (state_int & 1) == 1:
-            return "downloading"
+            return DownloadStatus.DOWNLOADING
         if (state_int & 2) == 2:
-            return "queued"  # Checking files
+            return DownloadStatus.QUEUED  # Checking files
         if (state_int & 32) == 32:
-            return "paused"
+            return DownloadStatus.PAUSED
         if (state_int & 64) == 64:
-            return "queued"  # Queued for checking
+            return DownloadStatus.QUEUED  # Queued for checking
 
         # Check progress for completion
         if progress >= 1000:
-            return "completed"
+            return DownloadStatus.COMPLETED
 
-        return "queued"
+        return DownloadStatus.QUEUED

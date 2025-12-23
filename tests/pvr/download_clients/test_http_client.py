@@ -21,15 +21,15 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from bookcard.pvr.base import (
-    PVRProviderAuthenticationError,
-    PVRProviderNetworkError,
-    PVRProviderTimeoutError,
-)
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
     create_httpx_client,
     handle_httpx_exception,
+)
+from bookcard.pvr.exceptions import (
+    PVRProviderAuthenticationError,
+    PVRProviderNetworkError,
+    PVRProviderTimeoutError,
 )
 
 

@@ -20,15 +20,13 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from bookcard.pvr.base import (
-    DownloadClientSettings,
-    PVRProviderAuthenticationError,
-)
+from bookcard.pvr.base import DownloadClientSettings
 from bookcard.pvr.download_clients.deluge import (
     DelugeClient,
     DelugeProxy,
     DelugeSettings,
 )
+from bookcard.pvr.exceptions import PVRProviderAuthenticationError
 
 
 class TestDelugeProxy:

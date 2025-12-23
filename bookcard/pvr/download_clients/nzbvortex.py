@@ -35,15 +35,20 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
-    PVRProviderAuthenticationError,
-    PVRProviderError,
-    handle_http_error_response,
 )
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
     create_httpx_client,
     handle_httpx_exception,
 )
+from bookcard.pvr.error_handlers import handle_http_error_response
+from bookcard.pvr.exceptions import (
+    PVRProviderAuthenticationError,
+    PVRProviderError,
+)
+from bookcard.pvr.models import DownloadItem
+from bookcard.pvr.services.file_fetcher import FileFetcher
+from bookcard.pvr.utils.status import DownloadStatus, StatusMapper
 
 logger = logging.getLogger(__name__)
 
@@ -493,73 +498,64 @@ class NzbvortexClient(BaseDownloadClient):
         super().__init__(settings, enabled)
         self.settings: NzbvortexSettings = settings  # type: ignore[assignment]
         self._proxy = NzbvortexProxy(self.settings)
+        self._file_fetcher = FileFetcher(timeout=self.settings.timeout_seconds)
+        self._status_mapper = StatusMapper(
+            {
+                "completed": DownloadStatus.COMPLETED,
+                "failed": DownloadStatus.FAILED,
+                "paused": DownloadStatus.PAUSED,
+                "queued": DownloadStatus.QUEUED,
+                "downloading": DownloadStatus.DOWNLOADING,
+            },
+            default=DownloadStatus.DOWNLOADING,
+        )
 
-    def add_download(
+    @property
+    def client_name(self) -> str:
+        """Return client name."""
+        return "NZBVortex"
+
+    def _add_magnet(
         self,
-        download_url: str,
-        title: str | None = None,
-        category: str | None = None,
-        download_path: str | None = None,  # noqa: ARG002
+        _magnet_url: str,
+        _title: str | None,
+        _category: str | None,
+        _download_path: str | None,
     ) -> str:
-        """Add a download to NZBVortex.
+        """Add download from magnet link (not supported by NZBVortex)."""
+        msg = "NZBVortex does not support magnet links"
+        raise PVRProviderError(msg)
 
-        Parameters
-        ----------
-        download_url : str
-            URL or file path to NZB file.
-        title : str | None
-            Optional title.
-        category : str | None
-            Optional category (group in NZBVortex).
-        download_path : str | None
-            Optional download path (not used by NZBVortex).
+    def _add_url(
+        self,
+        url: str,
+        title: str | None,
+        category: str | None,
+        _download_path: str | None,
+    ) -> str:
+        """Add download from HTTP/HTTPS URL."""
+        nzb_data, filename = self._file_fetcher.fetch_with_filename(
+            url, title or "download.nzb"
+        )
+        groupname = category or self.settings.category
+        nzb_id = self._proxy.add_nzb(nzb_data, filename, groupname=groupname)
+        return str(nzb_id)
 
-        Returns
-        -------
-        str
-            NZB ID.
+    def _add_file(
+        self,
+        filepath: str,
+        title: str | None,
+        category: str | None,
+        _download_path: str | None,
+    ) -> str:
+        """Add download from local file."""
+        nzb_data = Path(filepath).read_bytes()
+        filename = title or Path(filepath).name
+        groupname = category or self.settings.category
+        nzb_id = self._proxy.add_nzb(nzb_data, filename, groupname=groupname)
+        return str(nzb_id)
 
-        Raises
-        ------
-        PVRProviderError
-            If adding the download fails.
-        """
-        if not self.is_enabled():
-            msg = "NZBVortex client is disabled"
-            raise PVRProviderError(msg)
-
-        def _raise_invalid_url_error() -> None:
-            """Raise error for invalid download URL."""
-            msg = f"Invalid download URL: {download_url}"
-            raise PVRProviderError(msg)
-
-        try:
-            groupname = category or self.settings.category
-
-            # Get NZB file content
-            if download_url.startswith("http"):
-                import httpx
-
-                with httpx.Client() as client:
-                    response = client.get(download_url, timeout=30)
-                    response.raise_for_status()
-                    nzb_data = response.content
-                    filename = title or download_url.split("/")[-1] or "download.nzb"
-            elif Path(download_url).is_file():
-                nzb_data = Path(download_url).read_bytes()
-                filename = title or Path(download_url).name
-            else:
-                _raise_invalid_url_error()
-
-            # Add to NZBVortex
-            nzb_id = self._proxy.add_nzb(nzb_data, filename, groupname=groupname)
-            return str(nzb_id)
-
-        except Exception as e:
-            msg = f"Failed to add download to NZBVortex: {e}"
-            raise PVRProviderError(msg) from e
-
-    def get_items(self) -> Sequence[dict[str, str | int | float | None]]:
+    def get_items(self) -> Sequence[DownloadItem]:
         """Get list of active downloads.
 
         Returns
@@ -586,7 +582,7 @@ class NzbvortexClient(BaseDownloadClient):
 
                 # Map NZBVortex status to our status
                 state = item.get("state", "")
-                item_status = self._map_state_to_status(state)
+                item_status = self._status_mapper.map(state)
 
                 # Calculate progress
                 progress = float(item.get("progress", 0.0)) / 100.0
@@ -596,7 +592,7 @@ class NzbvortexClient(BaseDownloadClient):
                 size_bytes = item.get("size", 0)
                 downloaded_bytes = int(size_bytes * progress) if size_bytes else None
 
-                item_dict = {
+                item_dict: DownloadItem = {
                     "client_item_id": str(nzb_id),
                     "title": item.get("name", ""),
                     "status": item_status,
@@ -668,26 +664,3 @@ class NzbvortexClient(BaseDownloadClient):
             raise PVRProviderError(msg) from e
         else:
             return True
-
-    def _map_state_to_status(self, state: str) -> str:
-        """Map NZBVortex state to standardized status.
-
-        Parameters
-        ----------
-        state : str
-            NZBVortex state string.
-
-        Returns
-        -------
-        str
-            Standardized status string.
-        """
-        if state == "completed":
-            return "completed"
-        if state == "failed":
-            return "failed"
-        if state == "paused":
-            return "paused"
-        if state == "downloading":
-            return "downloading"
-        return "queued"

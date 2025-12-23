@@ -22,8 +22,8 @@ from xml.etree import ElementTree as ET  # noqa: S405
 import httpx
 import pytest
 
-from bookcard.pvr.base import (
-    IndexerSettings,
+from bookcard.pvr.base import IndexerSettings
+from bookcard.pvr.exceptions import (
     PVRProviderAuthenticationError,
     PVRProviderError,
     PVRProviderNetworkError,

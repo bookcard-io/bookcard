@@ -33,15 +33,19 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
-    PVRProviderAuthenticationError,
-    PVRProviderError,
-    handle_http_error_response,
 )
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
     create_httpx_client,
     handle_httpx_exception,
 )
+from bookcard.pvr.error_handlers import handle_http_error_response
+from bookcard.pvr.exceptions import (
+    PVRProviderAuthenticationError,
+    PVRProviderError,
+)
+from bookcard.pvr.models import DownloadItem
+from bookcard.pvr.utils.status import DownloadStatus, StatusMapper
 
 logger = logging.getLogger(__name__)
 
@@ -447,79 +451,83 @@ class QBittorrentClient(BaseDownloadClient):
         super().__init__(settings, enabled)
         self.settings: QBittorrentSettings = settings  # type: ignore[assignment]
         self._proxy = QBittorrentProxy(self.settings)
+        self._status_mapper = StatusMapper(
+            {
+                "uploading": DownloadStatus.COMPLETED,
+                "stalledUP": DownloadStatus.COMPLETED,
+                "queuedUP": DownloadStatus.QUEUED,
+                "checkingUP": DownloadStatus.CHECKING,
+                "forcedUP": DownloadStatus.COMPLETED,
+                "allocating": DownloadStatus.DOWNLOADING,
+                "downloading": DownloadStatus.DOWNLOADING,
+                "stalledDL": DownloadStatus.STALLED,
+                "queuedDL": DownloadStatus.QUEUED,
+                "checkingDL": DownloadStatus.CHECKING,
+                "forcedDL": DownloadStatus.DOWNLOADING,
+                "metaDL": DownloadStatus.METADATA,
+                "pausedDL": DownloadStatus.PAUSED,
+                "pausedUP": DownloadStatus.PAUSED,
+                "error": DownloadStatus.FAILED,
+                "missingFiles": DownloadStatus.FAILED,
+            },
+            default=DownloadStatus.DOWNLOADING,
+        )
 
-    def add_download(
+    @property
+    def client_name(self) -> str:
+        """Return client name."""
+        return "qBittorrent"
+
+    def _add_magnet(
         self,
-        download_url: str,
-        _title: str | None = None,
-        category: str | None = None,
-        download_path: str | None = None,
+        magnet_url: str,
+        _title: str | None,
+        category: str | None,
+        download_path: str | None,
     ) -> str:
-        """Add a download to qBittorrent.
+        """Add download from magnet link."""
+        self._proxy.add_torrent_from_url(
+            magnet_url, category=category, save_path=download_path
+        )
+        # Extract hash from magnet link
+        if magnet_url.startswith("magnet:"):
+            for part in magnet_url.split("&"):
+                if "xt=urn:btih:" in part:
+                    return part.split(":")[-1].upper()
+        return "pending"
 
-        Parameters
-        ----------
-        download_url : str
-            URL or magnet link for the download.
-        title : str | None
-            Optional title (not used by qBittorrent API).
-        category : str | None
-            Optional category/tag to assign.
-        download_path : str | None
-            Optional custom download path.
+    def _add_url(
+        self,
+        url: str,
+        _title: str | None,
+        category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from HTTP/HTTPS URL."""
+        self._proxy.add_torrent_from_url(
+            url, category=category, save_path=download_path
+        )
+        # qBittorrent doesn't return hash immediately, return placeholder
+        return "pending"
 
-        Returns
-        -------
-        str
-            Torrent hash (extracted from URL or generated).
+    def _add_file(
+        self,
+        filepath: str,
+        _title: str | None,
+        category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from local file."""
+        with pathlib.Path(filepath).open("rb") as f:
+            file_content = f.read()
+        filename = filepath.split("/")[-1]
+        self._proxy.add_torrent_from_file(
+            file_content, filename, category=category, save_path=download_path
+        )
+        # qBittorrent doesn't return hash immediately, return placeholder
+        return "pending"
 
-        Raises
-        ------
-        PVRProviderError
-            If adding the download fails.
-        """
-        if not self.is_enabled():
-            msg = "qBittorrent client is disabled"
-            raise PVRProviderError(msg)
-
-        try:
-            # Use category from settings if not provided
-            cat = category or self.settings.category
-
-            # Use download_path from settings if not provided
-            path = download_path or self.settings.download_path
-
-            # Add torrent
-            if download_url.startswith(("magnet:", "http")):
-                self._proxy.add_torrent_from_url(
-                    download_url, category=cat, save_path=path
-                )
-            else:
-                # Assume it's a file path - read and upload
-                with pathlib.Path(download_url).open("rb") as f:
-                    file_content = f.read()
-                filename = download_url.split("/")[-1]
-                self._proxy.add_torrent_from_file(
-                    file_content, filename, category=cat, save_path=path
-                )
-
-            # Extract hash from magnet link or return placeholder
-            # qBittorrent doesn't return the hash immediately, so we need to
-            # query for it or use a placeholder
-            if download_url.startswith("magnet:"):
-                # Extract hash from magnet link
-                for part in download_url.split("&"):
-                    if "xt=urn:btih:" in part:
-                        return part.split(":")[-1].upper()
-        except Exception as e:
-            msg = f"Failed to add download to qBittorrent: {e}"
-            raise PVRProviderError(msg) from e
-        else:
-            # For URLs, we can't get the hash immediately
-            # Return a placeholder that will be resolved when we query torrents
-            return "pending"
-
-    def get_items(self) -> Sequence[dict[str, str | int | float | None]]:
+    def get_items(self) -> Sequence[DownloadItem]:
         """Get list of active downloads.
 
         Returns
@@ -543,7 +551,7 @@ class QBittorrentClient(BaseDownloadClient):
             for torrent in torrents:
                 # Map qBittorrent state to our status
                 state = torrent.get("state", "")
-                status = self._map_state_to_status(state)
+                status = self._status_mapper.map(state)
 
                 # Calculate progress
                 progress = float(torrent.get("progress", 0.0)) / 100.0
@@ -553,7 +561,7 @@ class QBittorrentClient(BaseDownloadClient):
                 # Get file path (content path for completed torrents)
                 file_path = torrent.get("content_path") or torrent.get("save_path")
 
-                item = {
+                item: DownloadItem = {
                     "client_item_id": torrent.get("hash", "").upper(),
                     "title": torrent.get("name", ""),
                     "status": status,
@@ -626,56 +634,6 @@ class QBittorrentClient(BaseDownloadClient):
             raise PVRProviderError(msg) from e
         else:
             return True
-
-    def _map_state_to_status(self, state: str) -> str:
-        """Map qBittorrent state to standardized status.
-
-        Parameters
-        ----------
-        state : str
-            qBittorrent state string.
-
-        Returns
-        -------
-        str
-            Standardized status string.
-        """
-        # Completed states
-        if state in (
-            "uploading",
-            "stalledUP",
-            "queuedUP",
-            "forcedUP",
-            "pausedUP",
-            "stoppedUP",
-        ):
-            return "completed"
-
-        # Downloading states
-        if state in ("downloading", "forcedDL", "moving"):
-            return "downloading"
-
-        # Paused states
-        if state in ("pausedDL", "stoppedDL"):
-            return "paused"
-
-        # Queued states
-        if state in (
-            "queuedDL",
-            "checkingDL",
-            "checkingUP",
-            "checkingResumeData",
-            "metaDL",
-            "forcedMetaDL",
-        ):
-            return "queued"
-
-        # Error states
-        if state in ("error", "missingFiles"):
-            return "failed"
-
-        # Default to downloading for unknown states
-        return "downloading"
 
     def _calculate_eta(self, torrent: dict[str, Any]) -> int | None:
         """Calculate ETA in seconds.

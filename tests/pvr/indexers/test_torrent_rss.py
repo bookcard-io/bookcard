@@ -23,8 +23,8 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from bookcard.pvr.base import (
-    IndexerSettings,
+from bookcard.pvr.base import IndexerSettings
+from bookcard.pvr.exceptions import (
     PVRProviderError,
     PVRProviderNetworkError,
     PVRProviderParseError,

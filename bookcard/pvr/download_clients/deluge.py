@@ -26,7 +26,7 @@ import base64
 import logging
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, NoReturn
+from typing import Any
 from urllib.parse import urljoin
 
 import httpx
@@ -34,15 +34,19 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
-    PVRProviderAuthenticationError,
-    PVRProviderError,
-    handle_http_error_response,
 )
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
     create_httpx_client,
     handle_httpx_exception,
 )
+from bookcard.pvr.error_handlers import handle_http_error_response
+from bookcard.pvr.exceptions import (
+    PVRProviderAuthenticationError,
+    PVRProviderError,
+)
+from bookcard.pvr.models import DownloadItem
+from bookcard.pvr.utils.status import DownloadStatus, StatusMapper
 
 logger = logging.getLogger(__name__)
 
@@ -483,105 +487,100 @@ class DelugeClient(BaseDownloadClient):
         super().__init__(settings, enabled)
         self.settings: DelugeSettings = settings  # type: ignore[assignment]
         self._proxy = DelugeProxy(self.settings)
+        self._status_mapper = StatusMapper(
+            {
+                "Seeding": DownloadStatus.COMPLETED,
+                "seeding": DownloadStatus.COMPLETED,
+                "Downloading": DownloadStatus.DOWNLOADING,
+                "downloading": DownloadStatus.DOWNLOADING,
+                "Paused": DownloadStatus.PAUSED,
+                "paused": DownloadStatus.PAUSED,
+                "Queued": DownloadStatus.QUEUED,
+                "queued": DownloadStatus.QUEUED,
+                "Checking": DownloadStatus.CHECKING,
+                "checking": DownloadStatus.CHECKING,
+                "Error": DownloadStatus.FAILED,
+                "error": DownloadStatus.FAILED,
+            },
+            default=DownloadStatus.DOWNLOADING,
+        )
 
-    def _raise_invalid_url_error(self, download_url: str) -> NoReturn:
-        """Raise error for invalid download URL.
+    @property
+    def client_name(self) -> str:
+        """Return client name."""
+        return "Deluge"
+
+    def _build_options(self, download_path: str | None) -> dict[str, Any]:
+        """Build Deluge options dictionary.
 
         Parameters
         ----------
-        download_url : str
-            Invalid download URL.
-
-        Raises
-        ------
-        PVRProviderError
-            Always raises with error message.
-        """
-        msg = f"Invalid download URL: {download_url}"
-        raise PVRProviderError(msg)
-
-    def add_download(
-        self,
-        download_url: str,
-        title: str | None = None,
-        category: str | None = None,
-        download_path: str | None = None,
-    ) -> str:
-        """Add a download to Deluge.
-
-        Parameters
-        ----------
-        download_url : str
-            URL, magnet link, or file path.
-        title : str | None
-            Optional title.
-        category : str | None
-            Optional category (label in Deluge).
         download_path : str | None
-            Optional download path.
+            Download path.
 
         Returns
         -------
-        str
-            Torrent hash.
-
-        Raises
-        ------
-        PVRProviderError
-            If adding the download fails.
+        dict[str, Any]
+            Options dictionary.
         """
-        if not self.is_enabled():
-            msg = "Deluge client is disabled"
-            raise PVRProviderError(msg)
+        options: dict[str, Any] = {
+            "add_paused": False,
+            "remove_at_ratio": False,
+        }
+        if download_path or self.settings.download_path:
+            options["download_location"] = download_path or self.settings.download_path
+        return options
 
-        try:
-            # Build options
-            options: dict[str, Any] = {
-                "add_paused": False,
-                "remove_at_ratio": False,
-            }
+    def _add_magnet(
+        self,
+        magnet_url: str,
+        _title: str | None,
+        _category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from magnet link."""
+        options = self._build_options(download_path)
+        return self._proxy.add_torrent_magnet(magnet_url, options)
 
-            if download_path or self.settings.download_path:
-                options["download_location"] = (
-                    download_path or self.settings.download_path
-                )
+    def _add_url(
+        self,
+        url: str,
+        _title: str | None,
+        _category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from HTTP/HTTPS URL."""
+        from bookcard.pvr.services.file_fetcher import FileFetcher
 
-            # Add torrent
-            if download_url.startswith("magnet:"):
-                hash_str = self._proxy.add_torrent_magnet(download_url, options)
-            elif download_url.startswith("http"):
-                # Download torrent file first
-                import httpx
+        file_fetcher = FileFetcher(timeout=self.settings.timeout_seconds)
+        file_content, filename = file_fetcher.fetch_with_filename(
+            url, _title or "download.torrent"
+        )
+        options = self._build_options(download_path)
+        return self._proxy.add_torrent_file(filename, file_content, options)
 
-                with httpx.Client() as client:
-                    response = client.get(download_url, timeout=30)
-                    response.raise_for_status()
-                    file_content = response.content
-                    filename = (
-                        title or download_url.split("/")[-1] or "download.torrent"
-                    )
-                    hash_str = self._proxy.add_torrent_file(
-                        filename, file_content, options
-                    )
-            elif Path(download_url).is_file():
-                file_content = Path(download_url).read_bytes()
-                filename = title or Path(download_url).name
-                hash_str = self._proxy.add_torrent_file(filename, file_content, options)
-            else:
-                self._raise_invalid_url_error(download_url)
+    def _add_file(
+        self,
+        filepath: str,
+        _title: str | None,
+        _category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from local file."""
+        file_content = Path(filepath).read_bytes()
+        filename = _title or Path(filepath).name
+        options = self._build_options(download_path)
+        hash_str = self._proxy.add_torrent_file(filename, file_content, options)
 
-            # Set label if provided
-            label = category or self.settings.category
+        # Set label if category provided
+        if _category or self.settings.category:
+            label = _category or self.settings.category
             if label:
                 self._proxy.set_torrent_label(hash_str, label)
 
-            return hash_str.upper()
+        return hash_str.upper()
 
-        except Exception as e:
-            msg = f"Failed to add download to Deluge: {e}"
-            raise PVRProviderError(msg) from e
-
-    def get_items(self) -> Sequence[dict[str, str | int | float | None]]:
+    def get_items(self) -> Sequence[DownloadItem]:
         """Get list of active downloads.
 
         Returns
@@ -612,7 +611,7 @@ class DelugeClient(BaseDownloadClient):
 
                 # Map Deluge state to our status
                 state = torrent.get("state", "")
-                status = self._map_state_to_status(state)
+                status = self._status_mapper.map(state)
 
                 # Calculate progress
                 progress = float(torrent.get("progress", 0.0)) / 100.0
@@ -626,7 +625,7 @@ class DelugeClient(BaseDownloadClient):
                 eta = torrent.get("eta", -1)
                 eta_seconds = int(eta) if eta > 0 else None
 
-                item = {
+                item: DownloadItem = {
                     "client_item_id": str(hash_str).upper(),
                     "title": torrent.get("name", ""),
                     "status": status,
@@ -697,29 +696,3 @@ class DelugeClient(BaseDownloadClient):
             raise PVRProviderError(msg) from e
         else:
             return True
-
-    def _map_state_to_status(self, state: str) -> str:
-        """Map Deluge state to standardized status.
-
-        Parameters
-        ----------
-        state : str
-            Deluge state string.
-
-        Returns
-        -------
-        str
-            Standardized status string.
-        """
-        # Deluge states: Downloading, Seeding, Paused, Checking, Queued, Error, etc.
-        if state in ("Seeding", "seeding"):
-            return "completed"
-        if state in ("Downloading", "downloading"):
-            return "downloading"
-        if state in ("Paused", "paused"):
-            return "paused"
-        if state in ("Queued", "queued", "Checking", "checking"):
-            return "queued"
-        if state in ("Error", "error"):
-            return "failed"
-        return "downloading"

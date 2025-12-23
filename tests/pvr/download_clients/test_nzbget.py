@@ -20,15 +20,15 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from bookcard.pvr.base import (
-    DownloadClientSettings,
-    PVRProviderAuthenticationError,
-    PVRProviderError,
-)
+from bookcard.pvr.base import DownloadClientSettings
 from bookcard.pvr.download_clients.nzbget import (
     NzbgetClient,
     NzbgetProxy,
     NzbgetSettings,
+)
+from bookcard.pvr.exceptions import (
+    PVRProviderAuthenticationError,
+    PVRProviderError,
 )
 
 

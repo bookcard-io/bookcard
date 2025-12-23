@@ -34,15 +34,20 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
-    PVRProviderAuthenticationError,
-    PVRProviderError,
-    handle_http_error_response,
 )
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
     create_httpx_client,
     handle_httpx_exception,
 )
+from bookcard.pvr.error_handlers import handle_http_error_response
+from bookcard.pvr.exceptions import (
+    PVRProviderAuthenticationError,
+    PVRProviderError,
+)
+from bookcard.pvr.models import DownloadItem
+from bookcard.pvr.services.file_fetcher import FileFetcher
+from bookcard.pvr.utils.status import DownloadStatus, StatusMapper
 
 logger = logging.getLogger(__name__)
 
@@ -445,86 +450,70 @@ class SabnzbdClient(BaseDownloadClient):
 
         super().__init__(settings, enabled)
         self.settings: SabnzbdSettings = settings  # type: ignore[assignment]
-        self._proxy = SabnzbdProxy(self.settings)
+        self._proxy: SabnzbdProxy = SabnzbdProxy(self.settings)
+        self._file_fetcher = FileFetcher(timeout=self.settings.timeout_seconds)
+        self._status_mapper = StatusMapper(
+            {
+                # Queue statuses
+                "Paused": DownloadStatus.PAUSED,
+                "paused": DownloadStatus.PAUSED,
+                "Queued": DownloadStatus.QUEUED,
+                "queued": DownloadStatus.QUEUED,
+                "Grabbing": DownloadStatus.QUEUED,
+                "grabbing": DownloadStatus.QUEUED,
+                # History statuses
+                "Completed": DownloadStatus.COMPLETED,
+                "completed": DownloadStatus.COMPLETED,
+                "Failed": DownloadStatus.FAILED,
+                "failed": DownloadStatus.FAILED,
+            },
+            default=DownloadStatus.DOWNLOADING,
+        )
 
-    def _raise_invalid_url_error(self, download_url: str) -> None:
-        """Raise error for invalid download URL.
+    @property
+    def client_name(self) -> str:
+        """Return client name."""
+        return "SABnzbd"
 
-        Parameters
-        ----------
-        download_url : str
-            Invalid download URL.
-
-        Raises
-        ------
-        PVRProviderError
-            Always raises with error message.
-        """
-        msg = f"Invalid download URL: {download_url}"
+    def _add_magnet(
+        self,
+        _magnet_url: str,
+        _title: str | None,
+        _category: str | None,
+        _download_path: str | None,
+    ) -> str:
+        """Add download from magnet link (not supported by SABnzbd)."""
+        msg = "SABnzbd does not support magnet links"
         raise PVRProviderError(msg)
 
-    def add_download(
+    def _add_url(
         self,
-        download_url: str,
-        title: str | None = None,
-        category: str | None = None,
-        _download_path: str | None = None,
+        url: str,
+        title: str | None,
+        category: str | None,
+        _download_path: str | None,
     ) -> str:
-        """Add a download to SABnzbd.
+        """Add download from HTTP/HTTPS URL."""
+        nzb_data, filename = self._file_fetcher.fetch_with_filename(
+            url, title or "download.nzb"
+        )
+        cat = category or self.settings.category
+        return self._proxy.add_nzb(nzb_data, filename, category=cat)
 
-        Parameters
-        ----------
-        download_url : str
-            URL or file path to NZB file.
-        title : str | None
-            Optional title.
-        category : str | None
-            Optional category.
-        download_path : str | None
-            Optional download path (not used by SABnzbd).
+    def _add_file(
+        self,
+        filepath: str,
+        title: str | None,
+        category: str | None,
+        _download_path: str | None,
+    ) -> str:
+        """Add download from local file."""
+        nzb_data = Path(filepath).read_bytes()
+        filename = title or Path(filepath).name
+        cat = category or self.settings.category
+        return self._proxy.add_nzb(nzb_data, filename, category=cat)
 
-        Returns
-        -------
-        str
-            Queue ID.
-
-        Raises
-        ------
-        PVRProviderError
-            If adding the download fails.
-        """
-        if not self.is_enabled():
-            msg = "SABnzbd client is disabled"
-            raise PVRProviderError(msg)
-
-        try:
-            # Use category from settings if not provided
-            cat = category or self.settings.category
-
-            # Get NZB file content
-            if download_url.startswith("http"):
-                import httpx
-
-                with httpx.Client() as client:
-                    response = client.get(download_url, timeout=30)
-                    response.raise_for_status()
-                    nzb_data = response.content
-                    filename = title or download_url.split("/")[-1] or "download.nzb"
-            elif Path(download_url).is_file():
-                nzb_data = Path(download_url).read_bytes()
-                filename = title or Path(download_url).name
-            else:
-                self._raise_invalid_url_error(download_url)
-
-            # Add to SABnzbd
-            queue_id = self._proxy.add_nzb(nzb_data, filename, category=cat)
-        except Exception as e:
-            msg = f"Failed to add download to SABnzbd: {e}"
-            raise PVRProviderError(msg) from e
-        else:
-            return queue_id
-
-    def get_items(self) -> Sequence[dict[str, str | int | float | None]]:
+    def get_items(self) -> Sequence[DownloadItem]:
         """Get list of active downloads from queue and history.
 
         Returns
@@ -550,7 +539,7 @@ class SabnzbdClient(BaseDownloadClient):
                 nzo_id = item.get("nzo_id", "")
 
                 # Map SABnzbd status to our status
-                item_status = self._map_status_to_status(status, is_queue=True)
+                item_status = self._map_sabnzbd_status(status, is_queue=True)
 
                 # Calculate progress
                 mb = item.get("mb", 0.0)
@@ -571,7 +560,7 @@ class SabnzbdClient(BaseDownloadClient):
                 if timeleft and isinstance(timeleft, (int, float)):
                     eta_seconds = int(timeleft)
 
-                download_item = {
+                download_item: DownloadItem = {
                     "client_item_id": str(nzo_id),
                     "title": item.get("filename", ""),
                     "status": item_status,
@@ -596,17 +585,17 @@ class SabnzbdClient(BaseDownloadClient):
                 if status not in ("Completed", "Failed"):
                     continue
 
-                item_status = self._map_status_to_status(status, is_queue=False)
+                item_status = self._map_sabnzbd_status(status, is_queue=False)
 
                 storage = item.get("storage", "")
                 mb = item.get("mb", 0.0)
                 total_bytes = int(mb * 1024 * 1024) if mb else None
 
-                history_item = {
+                history_item: DownloadItem = {
                     "client_item_id": str(nzo_id),
                     "title": item.get("name", ""),
                     "status": item_status,
-                    "progress": 1.0 if item_status == "completed" else 0.0,
+                    "progress": 1.0 if item_status == DownloadStatus.COMPLETED else 0.0,
                     "size_bytes": total_bytes,
                     "downloaded_bytes": total_bytes,
                     "download_speed_bytes_per_sec": None,
@@ -681,7 +670,7 @@ class SabnzbdClient(BaseDownloadClient):
         else:
             return True
 
-    def _map_status_to_status(self, status: str, is_queue: bool) -> str:
+    def _map_sabnzbd_status(self, status: str, is_queue: bool) -> str:
         """Map SABnzbd status to standardized status.
 
         Parameters
@@ -699,13 +688,13 @@ class SabnzbdClient(BaseDownloadClient):
         if is_queue:
             # Queue statuses
             if status in ("Paused", "paused"):
-                return "paused"
+                return DownloadStatus.PAUSED
             if status in ("Queued", "queued", "Grabbing", "grabbing"):
-                return "queued"
-            return "downloading"
+                return DownloadStatus.QUEUED
+            return DownloadStatus.DOWNLOADING
         # History statuses
         if status in ("Completed", "completed"):
-            return "completed"
+            return DownloadStatus.COMPLETED
         if status in ("Failed", "failed"):
-            return "failed"
-        return "downloading"
+            return DownloadStatus.FAILED
+        return DownloadStatus.DOWNLOADING

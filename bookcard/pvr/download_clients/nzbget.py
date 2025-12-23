@@ -34,15 +34,20 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
-    PVRProviderAuthenticationError,
-    PVRProviderError,
-    handle_http_error_response,
 )
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
     create_httpx_client,
     handle_httpx_exception,
 )
+from bookcard.pvr.error_handlers import handle_http_error_response
+from bookcard.pvr.exceptions import (
+    PVRProviderAuthenticationError,
+    PVRProviderError,
+)
+from bookcard.pvr.models import DownloadItem
+from bookcard.pvr.services.file_fetcher import FileFetcher
+from bookcard.pvr.utils.status import DownloadStatus, StatusMapper
 
 logger = logging.getLogger(__name__)
 
@@ -326,74 +331,87 @@ class NzbgetClient(BaseDownloadClient):
         super().__init__(settings, enabled)
         self.settings: NzbgetSettings = settings  # type: ignore[assignment]
         self._proxy = NzbgetProxy(self.settings)
+        self._file_fetcher = FileFetcher(timeout=self.settings.timeout_seconds)
+        self._status_mapper = StatusMapper(
+            {
+                # Queue statuses - mapped in _map_nzbget_status
+                # History statuses
+                "SUCCESS": DownloadStatus.COMPLETED,
+                "FAILURE": DownloadStatus.FAILED,
+                "BAD": DownloadStatus.FAILED,
+            },
+            default=DownloadStatus.DOWNLOADING,
+        )
 
-    def add_download(
-        self,
-        download_url: str,
-        title: str | None = None,
-        category: str | None = None,
-        _download_path: str | None = None,
-    ) -> str:
-        """Add a download to NZBGet.
+    @property
+    def client_name(self) -> str:
+        """Return client name."""
+        return "NZBGet"
+
+    def _map_nzbget_status(self, status: str, is_queue: bool) -> str:
+        """Map NZBGet status to standardized status.
 
         Parameters
         ----------
-        download_url : str
-            URL or file path to NZB file.
-        title : str | None
-            Optional title.
-        category : str | None
-            Optional category.
-        download_path : str | None
-            Optional download path (not used by NZBGet).
+        status : str
+            NZBGet status string.
+        is_queue : bool
+            Whether this is a queue item.
 
         Returns
         -------
         str
-            NZB ID as string.
-
-        Raises
-        ------
-        PVRProviderError
-            If adding the download fails.
+            Standardized status string.
         """
-        if not self.is_enabled():
-            msg = "NZBGet client is disabled"
-            raise PVRProviderError(msg)
+        if is_queue:
+            if "PAUSED" in status.upper():
+                return DownloadStatus.PAUSED
+            if "QUEUED" in status.upper() or "FETCHING" in status.upper():
+                return DownloadStatus.QUEUED
+            return DownloadStatus.DOWNLOADING
+        return self._status_mapper.map(status)
 
-        def _raise_invalid_url_error() -> None:
-            """Raise error for invalid download URL."""
-            msg = f"Invalid download URL: {download_url}"
-            raise PVRProviderError(msg)
+    def _add_magnet(
+        self,
+        _magnet_url: str,
+        _title: str | None,
+        _category: str | None,
+        _download_path: str | None,
+    ) -> str:
+        """Add download from magnet link (not supported by NZBGet)."""
+        msg = "NZBGet does not support magnet links"
+        raise PVRProviderError(msg)
 
-        try:
-            # Use category from settings if not provided
-            cat = category or self.settings.category
+    def _add_url(
+        self,
+        url: str,
+        title: str | None,
+        category: str | None,
+        _download_path: str | None,
+    ) -> str:
+        """Add download from HTTP/HTTPS URL."""
+        nzb_data, filename = self._file_fetcher.fetch_with_filename(
+            url, title or "download.nzb"
+        )
+        cat = category or self.settings.category
+        nzb_id = self._proxy.append_nzb(nzb_data, filename, category=cat)
+        return str(nzb_id)
 
-            # Get NZB file content
-            if download_url.startswith("http"):
-                import httpx
+    def _add_file(
+        self,
+        filepath: str,
+        title: str | None,
+        category: str | None,
+        _download_path: str | None,
+    ) -> str:
+        """Add download from local file."""
+        nzb_data = Path(filepath).read_bytes()
+        filename = title or Path(filepath).name
+        cat = category or self.settings.category
+        nzb_id = self._proxy.append_nzb(nzb_data, filename, category=cat)
+        return str(nzb_id)
 
-                with httpx.Client() as client:
-                    response = client.get(download_url, timeout=30)
-                    response.raise_for_status()
-                    nzb_data = response.content
-                    filename = title or download_url.split("/")[-1] or "download.nzb"
-            elif Path(download_url).is_file():
-                nzb_data = Path(download_url).read_bytes()
-                filename = title or Path(download_url).name
-            else:
-                _raise_invalid_url_error()
-
-            # Add to NZBGet
-            nzb_id = self._proxy.append_nzb(nzb_data, filename, category=cat)
-            return str(nzb_id)
-
-        except Exception as e:
-            msg = f"Failed to add download to NZBGet: {e}"
-            raise PVRProviderError(msg) from e
-
-    def get_items(self) -> Sequence[dict[str, str | int | float | None]]:
+    def get_items(self) -> Sequence[DownloadItem]:
         """Get list of active downloads from queue and history.
 
         Returns
@@ -420,7 +438,7 @@ class NzbgetClient(BaseDownloadClient):
                 status = item.get("Status", "")
 
                 # Map NZBGet status to our status
-                item_status = self._map_status_to_status(status, is_queue=True)
+                item_status = self._map_nzbget_status(status, is_queue=True)
 
                 # Calculate progress from file sizes
                 file_size_hi = item.get("FileSizeHi", 0)
@@ -450,7 +468,7 @@ class NzbgetClient(BaseDownloadClient):
                 ):
                     eta_seconds = int(remaining_bytes / download_rate)
 
-                download_item = {
+                download_item: DownloadItem = {
                     "client_item_id": str(nzb_id),
                     "title": item.get("NZBName", ""),
                     "status": item_status,
@@ -480,7 +498,7 @@ class NzbgetClient(BaseDownloadClient):
                 if status not in ("SUCCESS", "FAILURE", "BAD"):
                     continue
 
-                item_status = self._map_status_to_status(status, is_queue=False)
+                item_status = self._map_nzbget_status(status, is_queue=False)
 
                 file_size_hi = item.get("FileSizeHi", 0)
                 file_size_lo = item.get("FileSizeLo", 0)
@@ -490,11 +508,11 @@ class NzbgetClient(BaseDownloadClient):
                 dest_dir = item.get("DestDir", "")
                 file_path = final_dir if final_dir else dest_dir
 
-                history_item = {
+                history_item: DownloadItem = {
                     "client_item_id": str(nzb_id),
                     "title": item.get("Name", ""),
                     "status": item_status,
-                    "progress": 1.0 if item_status == "completed" else 0.0,
+                    "progress": 1.0 if item_status == DownloadStatus.COMPLETED else 0.0,
                     "size_bytes": total_bytes,
                     "downloaded_bytes": total_bytes,
                     "download_speed_bytes_per_sec": None,
@@ -581,32 +599,3 @@ class NzbgetClient(BaseDownloadClient):
         if hi is None or lo is None:
             return None
         return (hi << 32) | (lo & 0xFFFFFFFF)
-
-    def _map_status_to_status(self, status: str, is_queue: bool) -> str:
-        """Map NZBGet status to standardized status.
-
-        Parameters
-        ----------
-        status : str
-            NZBGet status string.
-        is_queue : bool
-            Whether this is a queue item (True) or history item (False).
-
-        Returns
-        -------
-        str
-            Standardized status string.
-        """
-        if is_queue:
-            # Queue statuses
-            if "PAUSED" in status.upper():
-                return "paused"
-            if "QUEUED" in status.upper() or "FETCHING" in status.upper():
-                return "queued"
-            return "downloading"
-        # History statuses
-        if status == "SUCCESS":
-            return "completed"
-        if status in ("FAILURE", "BAD"):
-            return "failed"
-        return "downloading"

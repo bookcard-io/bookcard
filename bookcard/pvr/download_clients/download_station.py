@@ -34,15 +34,19 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
-    PVRProviderAuthenticationError,
-    PVRProviderError,
-    handle_http_error_response,
 )
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
     create_httpx_client,
     handle_httpx_exception,
 )
+from bookcard.pvr.error_handlers import handle_http_error_response
+from bookcard.pvr.exceptions import (
+    PVRProviderAuthenticationError,
+    PVRProviderError,
+)
+from bookcard.pvr.models import DownloadItem
+from bookcard.pvr.utils.status import DownloadStatus, StatusMapper
 
 logger = logging.getLogger(__name__)
 
@@ -438,63 +442,66 @@ class DownloadStationClient(BaseDownloadClient):
         super().__init__(settings, enabled)
         self.settings: DownloadStationSettings = settings  # type: ignore[assignment]
         self._proxy = DownloadStationProxy(self.settings)
+        # Download Station status codes: 0=waiting, 1=downloading, 2=paused,
+        # 3=finished, 4=finished (errors), 5=hash checking, 6=extracting, 7=error, 8=seeding
+        self._status_mapper = StatusMapper(
+            {
+                3: DownloadStatus.COMPLETED,  # Finished
+                8: DownloadStatus.COMPLETED,  # Seeding
+                7: DownloadStatus.FAILED,  # Error
+                4: DownloadStatus.FAILED,  # Finished with errors
+                2: DownloadStatus.PAUSED,  # Paused
+                0: DownloadStatus.QUEUED,  # Waiting
+                5: DownloadStatus.QUEUED,  # Hash checking
+                6: DownloadStatus.QUEUED,  # Extracting
+                1: DownloadStatus.DOWNLOADING,  # Downloading
+            },
+            default=DownloadStatus.DOWNLOADING,
+        )
 
-    def add_download(
+    @property
+    def client_name(self) -> str:
+        """Return client name."""
+        return "Download Station"
+
+    def _add_magnet(
         self,
-        download_url: str,
-        _title: str | None = None,
-        _category: str | None = None,
-        download_path: str | None = None,
+        magnet_url: str,
+        _title: str | None,
+        _category: str | None,
+        download_path: str | None,
     ) -> str:
-        """Add a download to Download Station.
+        """Add download from magnet link."""
+        destination = download_path or self.settings.download_path
+        return self._proxy.add_task_from_url(magnet_url, destination=destination)
 
-        Parameters
-        ----------
-        download_url : str
-            URL, magnet link, or file path.
-        title : str | None
-            Optional title (not used by Download Station API).
-        category : str | None
-            Optional category (not used by Download Station API).
-        download_path : str | None
-            Optional download path.
+    def _add_url(
+        self,
+        url: str,
+        _title: str | None,
+        _category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from HTTP/HTTPS URL."""
+        destination = download_path or self.settings.download_path
+        return self._proxy.add_task_from_url(url, destination=destination)
 
-        Returns
-        -------
-        str
-            Task ID.
+    def _add_file(
+        self,
+        filepath: str,
+        _title: str | None,
+        _category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from local file."""
+        file_content = Path(filepath).read_bytes()
+        filename = Path(filepath).name
+        destination = download_path or self.settings.download_path
+        return self._proxy.add_task_from_file(
+            file_content, filename, destination=destination
+        )
 
-        Raises
-        ------
-        PVRProviderError
-            If adding the download fails.
-        """
-        if not self.is_enabled():
-            msg = "Download Station client is disabled"
-            raise PVRProviderError(msg)
-
-        try:
-            destination = download_path or self.settings.download_path
-
-            # Add torrent
-            if download_url.startswith(("magnet:", "http")):
-                return self._proxy.add_task_from_url(
-                    download_url, destination=destination
-                )
-            if Path(download_url).is_file():
-                file_content = Path(download_url).read_bytes()
-                filename = Path(download_url).name
-                return self._proxy.add_task_from_file(
-                    file_content, filename, destination=destination
-                )
-        except Exception as e:
-            msg = f"Failed to add download to Download Station: {e}"
-            raise PVRProviderError(msg) from e
-        else:
-            msg = f"Invalid download URL: {download_url}"
-            raise PVRProviderError(msg)
-
-    def get_items(self) -> Sequence[dict[str, str | int | float | None]]:
+    def get_items(self) -> Sequence[DownloadItem]:
         """Get list of active downloads.
 
         Returns
@@ -521,7 +528,7 @@ class DownloadStationClient(BaseDownloadClient):
 
                 # Map Download Station status to our status
                 status_code = task.get("status", 0)
-                status = self._map_status_to_status(status_code)
+                status = self._status_mapper.map(status_code)
 
                 # Get additional info
                 additional = task.get("additional", {})
@@ -543,7 +550,7 @@ class DownloadStationClient(BaseDownloadClient):
                 eta = transfer.get("eta", -1)
                 eta_seconds = int(eta) if eta > 0 else None
 
-                item = {
+                item: DownloadItem = {
                     "client_item_id": task_id,
                     "title": task.get("title", ""),
                     "status": status,
@@ -616,54 +623,3 @@ class DownloadStationClient(BaseDownloadClient):
             raise PVRProviderError(msg) from e
         else:
             return True
-
-    def _map_status_to_status(self, status_code: int) -> str:
-        """Map Download Station status code to standardized status.
-
-        Parameters
-        ----------
-        status_code : int
-            Download Station status code.
-
-        Returns
-        -------
-        str
-            Standardized status string.
-
-        Notes
-        -----
-        Download Station status codes:
-        - 0: Waiting
-        - 1: Downloading
-        - 2: Paused
-        - 3: Finishing
-        - 4: Finished
-        - 5: Hash checking
-        - 6: Seeding
-        - 7: File hosting waiting
-        - 8: Extracting
-        - 9: Error
-        - 10: Captcha needed
-        """
-        # Completed states
-        if status_code in (4, 6):
-            return "completed"
-
-        # Downloading
-        if status_code == 1:
-            return "downloading"
-
-        # Paused
-        if status_code == 2:
-            return "paused"
-
-        # Error
-        if status_code == 9:
-            return "failed"
-
-        # Queued states
-        if status_code in (0, 3, 5, 7, 8, 10):
-            return "queued"
-
-        # Default to queued
-        return "queued"

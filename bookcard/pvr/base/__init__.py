@@ -20,7 +20,12 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, Field
 
-from bookcard.pvr.models import ReleaseInfo
+# Import capabilities from _base directory
+from bookcard.pvr._base.capabilities import FileSupport, MagnetSupport, UrlSupport
+from bookcard.pvr.exceptions import PVRProviderError
+from bookcard.pvr.models import DownloadItem, ReleaseInfo
+from bookcard.pvr.services.file_fetcher import FileFetcher
+from bookcard.pvr.utils.url_router import DownloadType, DownloadUrlRouter
 
 
 class IndexerSettings(BaseModel):
@@ -228,9 +233,17 @@ class BaseDownloadClient(ABC):
         Whether this download client is currently enabled.
     settings : DownloadClientSettings
         Download client configuration settings.
+    _file_fetcher : FileFetcher
+        File fetcher service for downloading files from URLs.
     """
 
-    def __init__(self, settings: DownloadClientSettings, enabled: bool = True) -> None:
+    def __init__(
+        self,
+        settings: DownloadClientSettings,
+        enabled: bool = True,
+        file_fetcher: FileFetcher | None = None,
+        url_router: DownloadUrlRouter | None = None,
+    ) -> None:
         """Initialize the download client.
 
         Parameters
@@ -239,11 +252,30 @@ class BaseDownloadClient(ABC):
             Download client configuration settings.
         enabled : bool
             Whether this client is enabled by default.
+        file_fetcher : FileFetcher | None
+            Optional file fetcher service. If None, creates a new instance.
+        url_router : DownloadUrlRouter | None
+            Optional URL router. If None, creates a new instance.
         """
         self.settings = settings
         self.enabled = enabled
+        self._file_fetcher = file_fetcher or FileFetcher(
+            timeout=settings.timeout_seconds
+        )
+        self._url_router = url_router or DownloadUrlRouter()
 
+    @property
     @abstractmethod
+    def client_name(self) -> str:
+        """Return client name for error messages.
+
+        Returns
+        -------
+        str
+            Client name (e.g., "qBittorrent", "Transmission").
+        """
+        raise NotImplementedError
+
     def add_download(
         self,
         download_url: str,
@@ -253,10 +285,13 @@ class BaseDownloadClient(ABC):
     ) -> str:
         """Add a download to the client.
 
+        Template method that handles common logic and delegates to
+        client-specific implementations based on capability protocols.
+
         Parameters
         ----------
         download_url : str
-            URL or magnet link for the download.
+            URL, magnet link, or file path for the download.
         title : str | None
             Optional title for the download.
         category : str | None
@@ -272,17 +307,184 @@ class BaseDownloadClient(ABC):
         Raises
         ------
         PVRProviderError
-            If adding the download fails.
+            If adding the download fails, client is disabled, or capability not supported.
         """
-        raise NotImplementedError
+        self._ensure_enabled()
+
+        def _raise_invalid_url_error(url: str) -> None:
+            """Raise error for invalid download URL.
+
+            Parameters
+            ----------
+            url : str
+                Invalid download URL.
+
+            Raises
+            ------
+            PVRProviderError
+                Always raises with error message.
+            """
+            msg = f"Invalid download URL: {url}"
+            raise PVRProviderError(msg)
+
+        try:
+            resolved_category = category or self.settings.category
+            resolved_path = download_path or self.settings.download_path
+
+            download_type = self._url_router.route(download_url)
+
+            if download_type == DownloadType.MAGNET:
+                return self._add_magnet(
+                    download_url, title, resolved_category, resolved_path
+                )
+            if download_type == DownloadType.URL:
+                return self._add_url(
+                    download_url, title, resolved_category, resolved_path
+                )
+            if download_type == DownloadType.FILE:
+                return self._add_file(
+                    download_url, title, resolved_category, resolved_path
+                )
+
+            # This should never be reached due to router validation
+            _raise_invalid_url_error(download_url)
+
+        except PVRProviderError:
+            raise
+        except Exception as e:
+            msg = f"Failed to add download to {self.client_name}: {e}"
+            raise PVRProviderError(msg) from e
+
+    def _ensure_enabled(self) -> None:
+        """Ensure client is enabled.
+
+        Raises
+        ------
+        PVRProviderError
+            If client is disabled.
+        """
+        if not self.is_enabled():
+            msg = f"{self.client_name} client is disabled"
+            raise PVRProviderError(msg)
+
+    def _add_magnet(
+        self,
+        magnet_url: str,
+        title: str | None,
+        category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from magnet link.
+
+        Default implementation raises error. Subclasses that support magnets
+        should override this method.
+
+        Parameters
+        ----------
+        magnet_url : str
+            Magnet link URL.
+        title : str | None
+            Optional title.
+        category : str | None
+            Category/tag to assign.
+        download_path : str | None
+            Download path.
+
+        Returns
+        -------
+        str
+            Client-specific item ID.
+
+        Raises
+        ------
+        PVRProviderError
+            If magnet links are not supported.
+        """
+        _ = magnet_url, title, category, download_path  # Unused in default impl
+        msg = f"{self.client_name} does not support magnet links"
+        raise PVRProviderError(msg)
+
+    def _add_url(
+        self,
+        url: str,
+        title: str | None,
+        category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from HTTP/HTTPS URL.
+
+        Default implementation raises error. Subclasses that support URLs
+        should override this method.
+
+        Parameters
+        ----------
+        url : str
+            HTTP/HTTPS URL.
+        title : str | None
+            Optional title.
+        category : str | None
+            Category/tag to assign.
+        download_path : str | None
+            Download path.
+
+        Returns
+        -------
+        str
+            Client-specific item ID.
+
+        Raises
+        ------
+        PVRProviderError
+            If URL downloads are not supported.
+        """
+        _ = url, title, category, download_path  # Unused in default impl
+        msg = f"{self.client_name} does not support URL downloads"
+        raise PVRProviderError(msg)
+
+    def _add_file(
+        self,
+        filepath: str,
+        title: str | None,
+        category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from local file.
+
+        Default implementation raises error. Subclasses that support files
+        should override this method.
+
+        Parameters
+        ----------
+        filepath : str
+            Path to local file.
+        title : str | None
+            Optional title.
+        category : str | None
+            Category/tag to assign.
+        download_path : str | None
+            Download path.
+
+        Returns
+        -------
+        str
+            Client-specific item ID.
+
+        Raises
+        ------
+        PVRProviderError
+            If file uploads are not supported.
+        """
+        _ = filepath, title, category, download_path  # Unused in default impl
+        msg = f"{self.client_name} does not support file uploads"
+        raise PVRProviderError(msg)
 
     @abstractmethod
-    def get_items(self) -> Sequence[dict[str, str | int | float | None]]:
+    def get_items(self) -> Sequence[DownloadItem]:
         """Get list of active downloads.
 
         Returns
         -------
-        Sequence[dict[str, str | int | float | None]]
+        Sequence[DownloadItem]
             Sequence of download items, each containing:
             - client_item_id: str - Unique identifier in the client
             - title: str - Download title
@@ -361,129 +563,12 @@ class BaseDownloadClient(ABC):
         self.enabled = enabled
 
 
-class PVRProviderError(Exception):
-    """Base exception for PVR provider errors."""
-
-
-class PVRProviderNetworkError(PVRProviderError):
-    """Exception raised when network requests fail."""
-
-
-class PVRProviderParseError(PVRProviderError):
-    """Exception raised when parsing response data fails."""
-
-
-class PVRProviderTimeoutError(PVRProviderError):
-    """Exception raised when requests timeout."""
-
-
-class PVRProviderAuthenticationError(PVRProviderError):
-    """Exception raised when authentication fails."""
-
-
-# Utility functions for raising exceptions
-def raise_authentication_error(message: str) -> None:
-    """Raise PVRProviderAuthenticationError with message.
-
-    Parameters
-    ----------
-    message : str
-        Error message.
-
-    Raises
-    ------
-    PVRProviderAuthenticationError
-        Always raises this exception.
-    """
-    raise PVRProviderAuthenticationError(message)
-
-
-def raise_provider_error(message: str) -> None:
-    """Raise PVRProviderError with message.
-
-    Parameters
-    ----------
-    message : str
-        Error message.
-
-    Raises
-    ------
-    PVRProviderError
-        Always raises this exception.
-    """
-    raise PVRProviderError(message)
-
-
-def raise_network_error(message: str) -> None:
-    """Raise PVRProviderNetworkError with message.
-
-    Parameters
-    ----------
-    message : str
-        Error message.
-
-    Raises
-    ------
-    PVRProviderNetworkError
-        Always raises this exception.
-    """
-    raise PVRProviderNetworkError(message)
-
-
-def handle_api_error_response(
-    error_code: int, description: str, provider_name: str = "Indexer"
-) -> None:
-    """Handle API error response and raise appropriate exception.
-
-    Parameters
-    ----------
-    error_code : int
-        Error code from API response.
-    description : str
-        Error description from API response.
-    provider_name : str
-        Name of the provider (for error messages).
-
-    Raises
-    ------
-    PVRProviderAuthenticationError
-        If error code is 100-199 (authentication errors).
-    PVRProviderError
-        For other API errors.
-    """
-    if 100 <= error_code <= 199:
-        error_msg = f"Invalid API key: {description}"
-        raise_authentication_error(error_msg)
-
-    if description == "Request limit reached":
-        error_msg = f"API limit reached: {description}"
-        raise_provider_error(error_msg)
-
-    error_msg = f"{provider_name} error: {description}"
-    raise_provider_error(error_msg)
-
-
-def handle_http_error_response(status_code: int, response_text: str = "") -> None:
-    """Handle HTTP error response and raise appropriate exception.
-
-    Parameters
-    ----------
-    status_code : int
-        HTTP status code.
-    response_text : str
-        Response text (truncated to 200 chars).
-
-    Raises
-    ------
-    PVRProviderAuthenticationError
-        If status code is 401 or 403.
-    PVRProviderNetworkError
-        For other HTTP errors (>= 400).
-    """
-    if status_code == 401:
-        raise_authentication_error("Unauthorized")
-    if status_code == 403:
-        raise_authentication_error("Forbidden")
-    if status_code >= 400:
-        error_msg = f"HTTP {status_code}: {response_text[:200]}"
-        raise_network_error(error_msg)
+__all__ = [
+    "BaseDownloadClient",
+    "BaseIndexer",
+    "DownloadClientSettings",
+    "FileSupport",
+    "IndexerSettings",
+    "MagnetSupport",
+    "UrlSupport",
+]

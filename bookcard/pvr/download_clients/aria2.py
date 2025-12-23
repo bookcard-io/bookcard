@@ -34,15 +34,19 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
-    PVRProviderAuthenticationError,
-    PVRProviderError,
-    handle_http_error_response,
 )
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
     create_httpx_client,
     handle_httpx_exception,
 )
+from bookcard.pvr.error_handlers import handle_http_error_response
+from bookcard.pvr.exceptions import (
+    PVRProviderAuthenticationError,
+    PVRProviderError,
+)
+from bookcard.pvr.models import DownloadItem
+from bookcard.pvr.utils.status import DownloadStatus, StatusMapper
 
 logger = logging.getLogger(__name__)
 
@@ -549,22 +553,21 @@ class Aria2Client(BaseDownloadClient):
         super().__init__(settings, enabled)
         self.settings: Aria2Settings = settings  # type: ignore[assignment]
         self._proxy = Aria2Proxy(self.settings)
+        self._status_mapper = StatusMapper(
+            {
+                "complete": DownloadStatus.COMPLETED,
+                "error": DownloadStatus.FAILED,
+                "paused": DownloadStatus.PAUSED,
+                "waiting": DownloadStatus.QUEUED,
+                "active": DownloadStatus.DOWNLOADING,
+            },
+            default=DownloadStatus.DOWNLOADING,
+        )
 
-    def _raise_invalid_url_error(self, download_url: str) -> None:
-        """Raise error for invalid download URL.
-
-        Parameters
-        ----------
-        download_url : str
-            Invalid download URL.
-
-        Raises
-        ------
-        PVRProviderError
-            Always raises with error message.
-        """
-        invalid_url_msg = f"Invalid download URL: {download_url}"
-        raise PVRProviderError(invalid_url_msg)
+    @property
+    def client_name(self) -> str:
+        """Return client name."""
+        return "Aria2"
 
     def _calculate_progress(
         self, total_length: str | int | None, completed_length: str | int | None
@@ -668,7 +671,7 @@ class Aria2Client(BaseDownloadClient):
 
     def _build_download_item(
         self, download: dict[str, str | int | None]
-    ) -> dict[str, str | int | float | None]:
+    ) -> DownloadItem:
         """Build download item dict from download data.
 
         Parameters
@@ -678,12 +681,12 @@ class Aria2Client(BaseDownloadClient):
 
         Returns
         -------
-        dict[str, str | int | float | None]
+        DownloadItem
             Formatted download item.
         """
         gid = download.get("gid", "")
         status = download.get("status", "")
-        item_status = self._map_status_to_status(str(status) if status else "")
+        item_status = self._status_mapper.map(str(status) if status else "")
 
         total_length = download.get("totalLength", "0")
         completed_length = download.get("completedLength", "0")
@@ -700,7 +703,7 @@ class Aria2Client(BaseDownloadClient):
         eta_seconds = self._get_eta(download)
         title = self._get_download_title(download)
 
-        return {
+        item: DownloadItem = {
             "client_item_id": str(gid),
             "title": title,
             "status": item_status,
@@ -709,70 +712,65 @@ class Aria2Client(BaseDownloadClient):
             "downloaded_bytes": completed if completed > 0 else None,
             "download_speed_bytes_per_sec": speed,
             "eta_seconds": eta_seconds,
-            "file_path": download.get("dir", ""),
+            "file_path": str(download.get("dir", "")) if download.get("dir") else None,
         }
+        return item
 
-    def add_download(
-        self,
-        download_url: str,
-        title: str | None = None,  # noqa: ARG002
-        category: str | None = None,  # noqa: ARG002
-        download_path: str | None = None,
-    ) -> str:
-        """Add a download to Aria2.
+    def _build_options(self, download_path: str | None) -> dict[str, str | int | None]:
+        """Build Aria2 options dictionary.
 
         Parameters
         ----------
-        download_url : str
-            URL, magnet link, or file path.
-        title : str | None
-            Optional title.
-        category : str | None
-            Optional category (not used by Aria2).
         download_path : str | None
-            Optional download path.
+            Download path.
 
         Returns
         -------
-        str
-            Download GID.
-
-        Raises
-        ------
-        PVRProviderError
-            If adding the download fails.
+        dict[str, str | int | None]
+            Options dictionary.
         """
-        if not self.is_enabled():
-            msg = "Aria2 client is disabled"
-            raise PVRProviderError(msg)
+        options: dict[str, str | int | None] = {}
+        path = download_path or self.settings.download_path
+        if path:
+            options["dir"] = path
+        return options
 
-        try:
-            # Build options
-            options: dict[str, str | int | None] = {}
-            path = download_path or self.settings.download_path
-            if path:
-                options["dir"] = path
+    def _add_magnet(
+        self,
+        magnet_url: str,
+        _title: str | None,
+        _category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from magnet link."""
+        options = self._build_options(download_path)
+        return self._proxy.add_magnet(magnet_url, options)
 
-            # Add download
-            if download_url.startswith("magnet:"):
-                gid = self._proxy.add_magnet(download_url, options)
-            elif download_url.startswith("http"):
-                # Aria2 can download directly from URL
-                gid = self._proxy.add_magnet(download_url, options)
-            elif Path(download_url).is_file():
-                file_content = Path(download_url).read_bytes()
-                gid = self._proxy.add_torrent(file_content, options)
-            else:
-                self._raise_invalid_url_error(download_url)
-        except PVRProviderError:
-            raise
-        except Exception as e:
-            add_error_msg = f"Failed to add download to Aria2: {e}"
-            raise PVRProviderError(add_error_msg) from e
-        else:
-            return gid
+    def _add_url(
+        self,
+        url: str,
+        _title: str | None,
+        _category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from HTTP/HTTPS URL."""
+        # Aria2 can download directly from URL
+        options = self._build_options(download_path)
+        return self._proxy.add_magnet(url, options)
 
-    def get_items(self) -> Sequence[dict[str, str | int | float | None]]:
+    def _add_file(
+        self,
+        filepath: str,
+        _title: str | None,
+        _category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from local file."""
+        file_content = Path(filepath).read_bytes()
+        options = self._build_options(download_path)
+        return self._proxy.add_torrent(file_content, options)
+
+    def get_items(self) -> Sequence[DownloadItem]:
         """Get list of active downloads.
 
         Returns
@@ -859,29 +857,3 @@ class Aria2Client(BaseDownloadClient):
             raise PVRProviderError(connect_error_msg) from e
         else:
             return True
-
-    def _map_status_to_status(self, status: str) -> str:
-        """Map Aria2 status to standardized status.
-
-        Parameters
-        ----------
-        status : str
-            Aria2 status string.
-
-        Returns
-        -------
-        str
-            Standardized status string.
-        """
-        # Aria2 statuses: active, waiting, paused, error, complete, removed
-        if status == "complete":
-            return "completed"
-        if status == "error":
-            return "failed"
-        if status == "paused":
-            return "paused"
-        if status == "waiting":
-            return "queued"
-        if status == "active":
-            return "downloading"
-        return "downloading"

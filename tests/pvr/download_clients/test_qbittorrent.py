@@ -21,15 +21,15 @@ from unittest.mock import MagicMock, Mock, patch
 import httpx
 import pytest
 
-from bookcard.pvr.base import (
-    DownloadClientSettings,
-    PVRProviderAuthenticationError,
-    PVRProviderError,
-)
+from bookcard.pvr.base import DownloadClientSettings
 from bookcard.pvr.download_clients.qbittorrent import (
     QBittorrentClient,
     QBittorrentProxy,
     QBittorrentSettings,
+)
+from bookcard.pvr.exceptions import (
+    PVRProviderAuthenticationError,
+    PVRProviderError,
 )
 
 
@@ -772,42 +772,6 @@ class TestQBittorrentClient:
         client = QBittorrentClient(settings=qbittorrent_settings)
         with pytest.raises(PVRProviderError, match="Failed to connect"):
             client.test_connection()
-
-    @pytest.mark.parametrize(
-        ("state", "expected_status"),
-        [
-            ("uploading", "completed"),
-            ("stalledUP", "completed"),
-            ("queuedUP", "completed"),
-            ("forcedUP", "completed"),
-            ("pausedUP", "completed"),
-            ("stoppedUP", "completed"),
-            ("downloading", "downloading"),
-            ("forcedDL", "downloading"),
-            ("moving", "downloading"),
-            ("pausedDL", "paused"),
-            ("stoppedDL", "paused"),
-            ("queuedDL", "queued"),
-            ("checkingDL", "queued"),
-            ("checkingUP", "queued"),
-            ("checkingResumeData", "queued"),
-            ("metaDL", "queued"),
-            ("forcedMetaDL", "queued"),
-            ("error", "failed"),
-            ("missingFiles", "failed"),
-            ("unknown", "downloading"),  # Default
-        ],
-    )
-    def test_map_state_to_status(
-        self,
-        state: str,
-        expected_status: str,
-        qbittorrent_settings: QBittorrentSettings,
-    ) -> None:
-        """Test _map_state_to_status with various states."""
-        client = QBittorrentClient(settings=qbittorrent_settings)
-        result = client._map_state_to_status(state)
-        assert result == expected_status
 
     @pytest.mark.parametrize(
         ("eta", "expected"),

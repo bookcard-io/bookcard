@@ -36,15 +36,19 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
-    PVRProviderAuthenticationError,
-    PVRProviderError,
-    handle_http_error_response,
 )
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
     create_httpx_client,
     handle_httpx_exception,
 )
+from bookcard.pvr.error_handlers import handle_http_error_response
+from bookcard.pvr.exceptions import (
+    PVRProviderAuthenticationError,
+    PVRProviderError,
+)
+from bookcard.pvr.models import DownloadItem
+from bookcard.pvr.utils.status import DownloadStatus, StatusMapper
 
 logger = logging.getLogger(__name__)
 
@@ -510,61 +514,60 @@ class FreeboxDownloadClient(BaseDownloadClient):
         super().__init__(settings, enabled)
         self.settings: FreeboxDownloadSettings = settings  # type: ignore[assignment]
         self._proxy = FreeboxDownloadProxy(self.settings)
+        self._status_mapper = StatusMapper(
+            {
+                "done": DownloadStatus.COMPLETED,
+                "error": DownloadStatus.FAILED,
+                "stopped": DownloadStatus.PAUSED,
+                "queued": DownloadStatus.QUEUED,
+                "downloading": DownloadStatus.DOWNLOADING,
+            },
+            default=DownloadStatus.DOWNLOADING,
+        )
 
-    def add_download(
+    @property
+    def client_name(self) -> str:
+        """Return client name."""
+        return "Freebox Download"
+
+    def _add_magnet(
         self,
-        download_url: str,
-        _title: str | None = None,
-        _category: str | None = None,
-        download_path: str | None = None,
+        magnet_url: str,
+        _title: str | None,
+        _category: str | None,
+        download_path: str | None,
     ) -> str:
-        """Add a download to Freebox Download.
+        """Add download from magnet link."""
+        directory = download_path or self.settings.download_path
+        return self._proxy.add_task_from_url(magnet_url, directory=directory)
 
-        Parameters
-        ----------
-        download_url : str
-            URL, magnet link, or file path.
-        title : str | None
-            Optional title (not used by Freebox API).
-        category : str | None
-            Optional category (not used by Freebox API).
-        download_path : str | None
-            Optional download path.
+    def _add_url(
+        self,
+        url: str,
+        _title: str | None,
+        _category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from HTTP/HTTPS URL."""
+        directory = download_path or self.settings.download_path
+        return self._proxy.add_task_from_url(url, directory=directory)
 
-        Returns
-        -------
-        str
-            Task ID.
+    def _add_file(
+        self,
+        filepath: str,
+        _title: str | None,
+        _category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from local file."""
+        file_content = Path(filepath).read_bytes()
+        filename = Path(filepath).name
+        directory = download_path or self.settings.download_path
+        return self._proxy.add_task_from_file(
+            file_content, filename, directory=directory
+        )
 
-        Raises
-        ------
-        PVRProviderError
-            If adding the download fails.
-        """
-        if not self.is_enabled():
-            msg = "Freebox Download client is disabled"
-            raise PVRProviderError(msg)
-
-        try:
-            directory = download_path or self.settings.download_path
-
-            # Add torrent
-            if download_url.startswith(("magnet:", "http")):
-                return self._proxy.add_task_from_url(download_url, directory=directory)
-            if Path(download_url).is_file():
-                file_content = Path(download_url).read_bytes()
-                filename = Path(download_url).name
-                return self._proxy.add_task_from_file(
-                    file_content, filename, directory=directory
-                )
-        except Exception as e:
-            msg = f"Failed to add download to Freebox Download: {e}"
-            raise PVRProviderError(msg) from e
-        else:
-            msg = f"Invalid download URL: {download_url}"
-            raise PVRProviderError(msg)
-
-    def get_items(self) -> Sequence[dict[str, str | int | float | None]]:
+    def get_items(self) -> Sequence[DownloadItem]:
         """Get list of active downloads.
 
         Returns
@@ -591,7 +594,7 @@ class FreeboxDownloadClient(BaseDownloadClient):
 
                 # Map Freebox status to our status
                 status_str = task.get("status", "unknown")
-                status = self._map_status_to_status(status_str)
+                status = self._status_mapper.map(status_str)
 
                 # Calculate progress
                 size = task.get("size", 0)
@@ -622,7 +625,7 @@ class FreeboxDownloadClient(BaseDownloadClient):
                     except (ValueError, UnicodeDecodeError):
                         file_path = download_dir
 
-                item = {
+                item: DownloadItem = {
                     "client_item_id": task_id,
                     "title": task.get("name", ""),
                     "status": status,

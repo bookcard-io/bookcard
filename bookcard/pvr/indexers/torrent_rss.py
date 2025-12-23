@@ -29,14 +29,13 @@ from xml.etree.ElementTree import Element  # noqa: S405
 
 import httpx
 
-from bookcard.pvr.base import (
-    BaseIndexer,
-    IndexerSettings,
+from bookcard.pvr.base import BaseIndexer, IndexerSettings
+from bookcard.pvr.error_handlers import handle_http_error_response
+from bookcard.pvr.exceptions import (
     PVRProviderError,
     PVRProviderNetworkError,
     PVRProviderParseError,
     PVRProviderTimeoutError,
-    handle_http_error_response,
 )
 from bookcard.pvr.models import ReleaseInfo
 
@@ -190,15 +189,9 @@ class TorrentRssParser:
         datetime | None
             Parsed publish date or None if not found/invalid.
         """
-        pub_date_elem = item.find("pubDate")
-        if pub_date_elem is not None and pub_date_elem.text:
-            try:
-                from email.utils import parsedate_to_datetime
+        from bookcard.pvr.utils.xml_parser import extract_publish_date_from_xml
 
-                return parsedate_to_datetime(pub_date_elem.text)
-            except (ValueError, TypeError):
-                pass
-        return None
+        return extract_publish_date_from_xml(item)
 
     def _infer_quality_from_title(self, title: str) -> str | None:
         """Infer quality/format from title.
@@ -213,16 +206,9 @@ class TorrentRssParser:
         str | None
             Inferred quality or None.
         """
-        title_lower = title.lower()
-        if "epub" in title_lower:
-            return "epub"
-        if "pdf" in title_lower:
-            return "pdf"
-        if "mobi" in title_lower:
-            return "mobi"
-        if "azw" in title_lower or "kindle" in title_lower:
-            return "azw"
-        return None
+        from bookcard.pvr.utils.quality import infer_quality_from_title
+
+        return infer_quality_from_title(title)
 
     def _extract_seeders_leechers(
         self, description: str | None

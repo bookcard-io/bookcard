@@ -25,16 +25,17 @@ from bookcard.pvr.base import (
     BaseIndexer,
     DownloadClientSettings,
     IndexerSettings,
+)
+from bookcard.pvr.error_handlers import (
+    handle_api_error_response,
+    handle_http_error_response,
+)
+from bookcard.pvr.exceptions import (
     PVRProviderAuthenticationError,
     PVRProviderError,
     PVRProviderNetworkError,
     PVRProviderParseError,
     PVRProviderTimeoutError,
-    handle_api_error_response,
-    handle_http_error_response,
-    raise_authentication_error,
-    raise_network_error,
-    raise_provider_error,
 )
 from tests.pvr.conftest import MockDownloadClient, MockIndexer
 
@@ -532,44 +533,6 @@ class TestPVRProviderExceptions:
 
 class TestUtilityFunctions:
     """Test utility functions for raising exceptions and handling errors."""
-
-    @pytest.mark.parametrize(
-        ("message", "expected_message"),
-        [
-            ("Test error", "Test error"),
-            ("Another error", "Another error"),
-        ],
-    )
-    def test_raise_provider_error(self, message: str, expected_message: str) -> None:
-        """Test raise_provider_error function."""
-        with pytest.raises(PVRProviderError, match=expected_message):
-            raise_provider_error(message)
-
-    @pytest.mark.parametrize(
-        ("message", "expected_message"),
-        [
-            ("Auth failed", "Auth failed"),
-            ("Invalid credentials", "Invalid credentials"),
-        ],
-    )
-    def test_raise_authentication_error(
-        self, message: str, expected_message: str
-    ) -> None:
-        """Test raise_authentication_error function."""
-        with pytest.raises(PVRProviderAuthenticationError, match=expected_message):
-            raise_authentication_error(message)
-
-    @pytest.mark.parametrize(
-        ("message", "expected_message"),
-        [
-            ("Network failed", "Network failed"),
-            ("Connection error", "Connection error"),
-        ],
-    )
-    def test_raise_network_error(self, message: str, expected_message: str) -> None:
-        """Test raise_network_error function."""
-        with pytest.raises(PVRProviderNetworkError, match=expected_message):
-            raise_network_error(message)
 
     @pytest.mark.parametrize(
         (

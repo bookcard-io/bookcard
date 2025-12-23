@@ -32,8 +32,9 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
-    PVRProviderError,
 )
+from bookcard.pvr.exceptions import PVRProviderError
+from bookcard.pvr.services.file_fetcher import FileFetcher
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +149,12 @@ class TorrentBlackholeClient(BaseDownloadClient):
 
         super().__init__(settings, enabled)
         self.settings: TorrentBlackholeSettings = settings  # type: ignore[assignment]
+        self._file_fetcher = FileFetcher(timeout=self.settings.timeout_seconds)
+
+    @property
+    def client_name(self) -> str:
+        """Return client name."""
+        return "Blackhole"
 
     def _raise_magnet_not_supported_error(self) -> None:
         """Raise error for unsupported magnet links.
@@ -197,93 +204,63 @@ class TorrentBlackholeClient(BaseDownloadClient):
         if self.settings.watch_folder != self.settings.torrent_folder:
             Path(self.settings.watch_folder).mkdir(exist_ok=True, parents=True)
 
-    def add_download(
+    def _add_magnet(
         self,
-        download_url: str,
-        title: str | None = None,
-        _category: str | None = None,
-        _download_path: str | None = None,
+        magnet_url: str,
+        title: str | None,
+        _category: str | None,
+        _download_path: str | None,
     ) -> str:
-        """Add a download by writing torrent file or magnet link.
+        """Add download from magnet link."""
+        if not self.settings.save_magnet_files:
+            self._raise_magnet_not_supported_error()
 
-        Parameters
-        ----------
-        download_url : str
-            URL, magnet link, or file path.
-        title : str | None
-            Optional title for the download.
-        _category : str | None
-            Optional category (not used by blackhole).
-        _download_path : str | None
-            Optional download path (not used by blackhole).
+        filename_base = _clean_filename(title) if title else "download"
+        ext = self.settings.magnet_file_extension.lstrip(".")
+        filepath = Path(self.settings.torrent_folder) / f"{filename_base}.{ext}"
+        Path(self.settings.torrent_folder).mkdir(parents=True, exist_ok=True)
+        with Path(filepath).open("w", encoding="utf-8") as f:
+            f.write(magnet_url)
+        logger.debug("Saved magnet link to: %s", filepath)
+        return "magnet_blackhole"
 
-        Returns
-        -------
-        str
-            Placeholder ID (blackhole doesn't track downloads).
+    def _add_url(
+        self,
+        url: str,
+        title: str | None,
+        _category: str | None,
+        _download_path: str | None,
+    ) -> str:
+        """Add download from HTTP/HTTPS URL."""
+        filename_base = _clean_filename(title) if title else "download"
+        filepath = Path(self.settings.torrent_folder) / f"{filename_base}.torrent"
+        Path(self.settings.torrent_folder).mkdir(parents=True, exist_ok=True)
+        file_content, _ = self._file_fetcher.fetch_with_filename(
+            url, "download.torrent"
+        )
+        with Path(filepath).open("wb") as f:
+            f.write(file_content)
+        logger.debug("Downloaded and saved torrent to: %s", filepath)
+        return "torrent_blackhole"
 
-        Raises
-        ------
-        PVRProviderError
-            If writing the file fails.
-        """
-        if not self.is_enabled():
-            msg = "Torrent blackhole client is disabled"
-            raise PVRProviderError(msg)
-
-        try:
-            # Determine filename
-            filename_base = _clean_filename(title) if title else "download"
-
-            # Ensure torrent folder exists
-            Path(self.settings.torrent_folder).mkdir(parents=True, exist_ok=True)
-
-            # Handle magnet links
-            if download_url.startswith("magnet:"):
-                if not self.settings.save_magnet_files:
-                    self._raise_magnet_not_supported_error()
-
-                ext = self.settings.magnet_file_extension.lstrip(".")
-                filepath = Path(self.settings.torrent_folder) / f"{filename_base}.{ext}"
-                with Path(filepath).open("w", encoding="utf-8") as f:
-                    f.write(download_url)
-                logger.debug("Saved magnet link to: %s", filepath)
-                return "magnet_blackhole"
-
-            # Handle torrent file path
-            if Path(download_url).is_file():
-                filepath = (
-                    Path(self.settings.torrent_folder) / f"{filename_base}.torrent"
-                )
-                with (
-                    Path(download_url).open("rb") as src,
-                    Path(filepath).open("wb") as dst,
-                ):
-                    dst.write(src.read())
-                logger.debug("Copied torrent file to: %s", filepath)
-                return "torrent_blackhole"
-
-            # Handle torrent URL (download and save)
-            if download_url.startswith("http"):
-                import httpx
-
-                with httpx.Client() as client:
-                    response = client.get(download_url, timeout=30)
-                    response.raise_for_status()
-
-                filepath = (
-                    Path(self.settings.torrent_folder) / f"{filename_base}.torrent"
-                )
-                with Path(filepath).open("wb") as f:
-                    f.write(response.content)
-                logger.debug("Downloaded and saved torrent to: %s", filepath)
-                return "torrent_blackhole"
-
-            self._raise_unsupported_url_error(download_url)
-
-        except Exception as e:
-            msg = f"Failed to add download to torrent blackhole: {e}"
-            raise PVRProviderError(msg) from e
+    def _add_file(
+        self,
+        filepath: str,
+        title: str | None,
+        _category: str | None,
+        _download_path: str | None,
+    ) -> str:
+        """Add download from local file."""
+        filename_base = _clean_filename(title) if title else "download"
+        dest_filepath = Path(self.settings.torrent_folder) / f"{filename_base}.torrent"
+        Path(self.settings.torrent_folder).mkdir(parents=True, exist_ok=True)
+        with (
+            Path(filepath).open("rb") as src,
+            Path(dest_filepath).open("wb") as dst,
+        ):
+            dst.write(src.read())
+        logger.debug("Copied torrent file to: %s", dest_filepath)
+        return "torrent_blackhole"
 
     def get_items(self) -> Sequence[dict[str, str | int | float | None]]:
         """Get list of downloads from watch folder.

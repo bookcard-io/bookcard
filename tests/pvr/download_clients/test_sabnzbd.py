@@ -21,15 +21,15 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from bookcard.pvr.base import (
-    DownloadClientSettings,
-    PVRProviderAuthenticationError,
-    PVRProviderError,
-)
+from bookcard.pvr.base import DownloadClientSettings
 from bookcard.pvr.download_clients.sabnzbd import (
     SabnzbdClient,
     SabnzbdProxy,
     SabnzbdSettings,
+)
+from bookcard.pvr.exceptions import (
+    PVRProviderAuthenticationError,
+    PVRProviderError,
 )
 
 
@@ -364,3 +364,301 @@ class TestSabnzbdClient:
         client = SabnzbdClient(settings=sabnzbd_settings)
         result = client.test_connection()
         assert result is True
+
+    def test_parse_response_text_error_lowercase(
+        self, sabnzbd_settings: SabnzbdSettings
+    ) -> None:
+        """Test _parse_response with text error starting with 'error'."""
+        proxy = SabnzbdProxy(sabnzbd_settings)
+        response = MagicMock()
+        response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
+        response.text = "error: Something went wrong"
+        with pytest.raises(PVRProviderError, match="API error"):
+            proxy._parse_response(response)
+
+    @patch.object(SabnzbdProxy, "_build_request_params")
+    @patch("bookcard.pvr.download_clients.sabnzbd.create_httpx_client")
+    def test_request_with_params(
+        self,
+        mock_create_client: MagicMock,
+        mock_build_params: MagicMock,
+        sabnzbd_settings: SabnzbdSettings,
+    ) -> None:
+        """Test _request with additional params."""
+        mock_build_params.return_value = {
+            "mode": "queue",
+            "output": "json",
+            "apikey": "test",
+        }
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"status": True}
+        mock_response.raise_for_status = Mock()
+        mock_client.get.return_value = mock_response
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = SabnzbdProxy(sabnzbd_settings)
+        result = proxy._request("GET", "queue", params={"start": 0, "limit": 10})
+        assert result == {"status": True}
+
+    @patch.object(SabnzbdProxy, "_build_request_params")
+    @patch("bookcard.pvr.download_clients.sabnzbd.create_httpx_client")
+    def test_request_http_error(
+        self,
+        mock_create_client: MagicMock,
+        mock_build_params: MagicMock,
+        sabnzbd_settings: SabnzbdSettings,
+    ) -> None:
+        """Test _request with HTTP error."""
+        import httpx
+
+        mock_build_params.return_value = {
+            "mode": "queue",
+            "output": "json",
+            "apikey": "test",
+        }
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error"
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.get.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = SabnzbdProxy(sabnzbd_settings)
+        with pytest.raises(httpx.HTTPStatusError):
+            proxy._request("GET", "queue")
+
+    @patch.object(SabnzbdProxy, "_request")
+    def test_add_nzb_with_priority(
+        self, mock_request: MagicMock, sabnzbd_settings: SabnzbdSettings
+    ) -> None:
+        """Test add_nzb with priority."""
+        mock_request.return_value = {"nzo_ids": ["test-id-123"]}
+        proxy = SabnzbdProxy(sabnzbd_settings)
+        result = proxy.add_nzb(b"nzb content", "test.nzb", priority=1)
+        assert result == "test-id-123"
+        call_args = mock_request.call_args
+        assert call_args[1]["params"]["priority"] == 1
+
+    @patch.object(SabnzbdProxy, "_request")
+    def test_get_queue_with_params(
+        self, mock_request: MagicMock, sabnzbd_settings: SabnzbdSettings
+    ) -> None:
+        """Test get_queue with start and limit."""
+        mock_request.return_value = {"queue": {"slots": [{"nzo_id": "test"}]}}
+        proxy = SabnzbdProxy(sabnzbd_settings)
+        result = proxy.get_queue(start=10, limit=20)
+        assert result == [{"nzo_id": "test"}]
+        call_args = mock_request.call_args
+        assert call_args[1]["params"]["start"] == 10
+        assert call_args[1]["params"]["limit"] == 20
+
+    @patch.object(SabnzbdProxy, "_request")
+    def test_get_history_with_params(
+        self, mock_request: MagicMock, sabnzbd_settings: SabnzbdSettings
+    ) -> None:
+        """Test get_history with start and limit."""
+        mock_request.return_value = {"history": {"slots": [{"nzo_id": "test"}]}}
+        proxy = SabnzbdProxy(sabnzbd_settings)
+        result = proxy.get_history(start=10, limit=20)
+        assert result == [{"nzo_id": "test"}]
+        call_args = mock_request.call_args
+        assert call_args[1]["params"]["start"] == 10
+        assert call_args[1]["params"]["limit"] == 20
+
+    @patch.object(SabnzbdProxy, "_request")
+    def test_remove_from_history(
+        self, mock_request: MagicMock, sabnzbd_settings: SabnzbdSettings
+    ) -> None:
+        """Test remove_from_history."""
+        proxy = SabnzbdProxy(sabnzbd_settings)
+        proxy.remove_from_history("test-id", delete_files=True, delete_permanently=True)
+        mock_request.assert_called_once()
+        call_args = mock_request.call_args
+        assert call_args[1]["params"]["archive"] == 0
+
+    def test_add_download_disabled(self, sabnzbd_settings: SabnzbdSettings) -> None:
+        """Test add_download when disabled."""
+        client = SabnzbdClient(settings=sabnzbd_settings, enabled=False)
+        with pytest.raises(PVRProviderError, match="disabled"):
+            client.add_download("http://example.com/file.nzb")
+
+    @patch.object(SabnzbdProxy, "add_nzb")
+    def test_add_download_with_category(
+        self, mock_add_nzb: MagicMock, sabnzbd_settings: SabnzbdSettings
+    ) -> None:
+        """Test add_download with category."""
+        mock_add_nzb.return_value = "test-id-123"
+        client = SabnzbdClient(settings=sabnzbd_settings)
+        result = client.add_download("http://example.com/file.nzb", category="test-cat")
+        assert result == "test-id-123"
+        mock_add_nzb.assert_called_once()
+        call_args = mock_add_nzb.call_args
+        assert call_args[1]["category"] == "test-cat"
+
+    @patch.object(SabnzbdProxy, "get_queue")
+    @patch.object(SabnzbdProxy, "get_history")
+    def test_get_items_with_history(
+        self,
+        mock_get_history: MagicMock,
+        mock_get_queue: MagicMock,
+        sabnzbd_settings: SabnzbdSettings,
+    ) -> None:
+        """Test get_items with history items."""
+        mock_get_queue.return_value = []
+        mock_get_history.return_value = [
+            {
+                "nzo_id": "test-1",
+                "name": "Test NZB",
+                "status": "Completed",
+                "mb": 1000,
+                "storage": "/downloads/test",
+            }
+        ]
+        client = SabnzbdClient(settings=sabnzbd_settings)
+        items = client.get_items()
+        assert len(items) == 1
+        assert items[0]["status"] == "completed"
+        assert items[0]["file_path"] == "/downloads/test"
+
+    @patch.object(SabnzbdProxy, "get_queue")
+    @patch.object(SabnzbdProxy, "get_history")
+    def test_get_items_with_failed(
+        self,
+        mock_get_history: MagicMock,
+        mock_get_queue: MagicMock,
+        sabnzbd_settings: SabnzbdSettings,
+    ) -> None:
+        """Test get_items with failed items."""
+        mock_get_queue.return_value = []
+        mock_get_history.return_value = [
+            {
+                "nzo_id": "test-1",
+                "name": "Test NZB",
+                "status": "Failed",
+                "mb": 1000,
+            }
+        ]
+        client = SabnzbdClient(settings=sabnzbd_settings)
+        items = client.get_items()
+        assert len(items) == 1
+        assert items[0]["status"] == "failed"
+
+    @patch.object(SabnzbdProxy, "get_queue")
+    @patch.object(SabnzbdProxy, "get_history")
+    def test_get_items_progress_over_100(
+        self,
+        mock_get_history: MagicMock,
+        mock_get_queue: MagicMock,
+        sabnzbd_settings: SabnzbdSettings,
+    ) -> None:
+        """Test get_items with progress over 100%."""
+        mock_get_queue.return_value = [
+            {
+                "nzo_id": "test-1",
+                "filename": "Test NZB",
+                "status": "Downloading",
+                "mb": 1000,
+                "mbleft": -100,  # Negative remaining
+            }
+        ]
+        mock_get_history.return_value = []
+        client = SabnzbdClient(settings=sabnzbd_settings)
+        items = client.get_items()
+        assert len(items) == 1
+        assert items[0]["progress"] == 1.0  # Should be capped
+
+    @patch.object(SabnzbdProxy, "get_queue")
+    @patch.object(SabnzbdProxy, "get_history")
+    def test_get_items_with_timeleft_int(
+        self,
+        mock_get_history: MagicMock,
+        mock_get_queue: MagicMock,
+        sabnzbd_settings: SabnzbdSettings,
+    ) -> None:
+        """Test get_items with timeleft as int."""
+        mock_get_queue.return_value = [
+            {
+                "nzo_id": "test-1",
+                "filename": "Test NZB",
+                "status": "Downloading",
+                "mb": 1000,
+                "mbleft": 500,
+                "timeleft": 60,
+            }
+        ]
+        mock_get_history.return_value = []
+        client = SabnzbdClient(settings=sabnzbd_settings)
+        items = client.get_items()
+        assert len(items) == 1
+        assert items[0]["eta_seconds"] == 60
+
+    @patch.object(SabnzbdProxy, "get_queue")
+    @patch.object(SabnzbdProxy, "get_history")
+    def test_get_items_error(
+        self,
+        mock_get_history: MagicMock,
+        mock_get_queue: MagicMock,
+        sabnzbd_settings: SabnzbdSettings,
+    ) -> None:
+        """Test get_items with error."""
+        mock_get_queue.side_effect = Exception("Connection error")
+        client = SabnzbdClient(settings=sabnzbd_settings)
+        with pytest.raises(PVRProviderError, match="Failed to get downloads"):
+            client.get_items()
+
+    @patch.object(SabnzbdProxy, "remove_from_queue")
+    @patch.object(SabnzbdProxy, "remove_from_history")
+    def test_remove_item_from_history(
+        self,
+        mock_remove_history: MagicMock,
+        mock_remove_queue: MagicMock,
+        sabnzbd_settings: SabnzbdSettings,
+    ) -> None:
+        """Test remove_item from history when not in queue."""
+        from bookcard.pvr.exceptions import PVRProviderError
+
+        mock_remove_queue.side_effect = PVRProviderError("Not in queue")
+        client = SabnzbdClient(settings=sabnzbd_settings)
+        result = client.remove_item("test-id", delete_files=True)
+        assert result is True
+        mock_remove_history.assert_called_once()
+
+    @patch.object(SabnzbdProxy, "remove_from_queue")
+    @patch.object(SabnzbdProxy, "remove_from_history")
+    def test_remove_item_error(
+        self,
+        mock_remove_history: MagicMock,
+        mock_remove_queue: MagicMock,
+        sabnzbd_settings: SabnzbdSettings,
+    ) -> None:
+        """Test remove_item with error."""
+        mock_remove_queue.side_effect = Exception("Remove error")
+        mock_remove_history.side_effect = Exception("Remove error")
+        client = SabnzbdClient(settings=sabnzbd_settings)
+        with pytest.raises(PVRProviderError, match="Failed to remove"):
+            client.remove_item("test-id")
+
+    def test_remove_item_disabled(self, sabnzbd_settings: SabnzbdSettings) -> None:
+        """Test remove_item when disabled."""
+        client = SabnzbdClient(settings=sabnzbd_settings, enabled=False)
+        with pytest.raises(PVRProviderError, match="disabled"):
+            client.remove_item("test-id")
+
+    @patch.object(SabnzbdProxy, "get_version")
+    def test_test_connection_error(
+        self, mock_get_version: MagicMock, sabnzbd_settings: SabnzbdSettings
+    ) -> None:
+        """Test test_connection with error."""
+        mock_get_version.side_effect = Exception("Connection error")
+        client = SabnzbdClient(settings=sabnzbd_settings)
+        with pytest.raises(PVRProviderError, match="Failed to connect"):
+            client.test_connection()

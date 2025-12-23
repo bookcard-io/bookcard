@@ -20,7 +20,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from bookcard.pvr.base import DownloadClientSettings, PVRProviderError
+from bookcard.pvr.base import DownloadClientSettings
 from bookcard.pvr.download_clients.blackhole import (
     TorrentBlackholeClient,
     TorrentBlackholeSettings,
@@ -28,6 +28,7 @@ from bookcard.pvr.download_clients.blackhole import (
     UsenetBlackholeSettings,
     _clean_filename,
 )
+from bookcard.pvr.exceptions import PVRProviderError
 
 
 class TestCleanFilename:

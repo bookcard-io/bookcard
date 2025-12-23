@@ -34,15 +34,19 @@ import httpx
 from bookcard.pvr.base import (
     BaseDownloadClient,
     DownloadClientSettings,
-    PVRProviderAuthenticationError,
-    PVRProviderError,
-    handle_http_error_response,
 )
 from bookcard.pvr.download_clients._http_client import (
     build_base_url,
     create_httpx_client,
     handle_httpx_exception,
 )
+from bookcard.pvr.error_handlers import handle_http_error_response
+from bookcard.pvr.exceptions import (
+    PVRProviderAuthenticationError,
+    PVRProviderError,
+)
+from bookcard.pvr.models import DownloadItem
+from bookcard.pvr.utils.status import DownloadStatus
 
 logger = logging.getLogger(__name__)
 
@@ -373,76 +377,89 @@ class FloodClient(BaseDownloadClient):
         self.settings: FloodSettings = settings  # type: ignore[assignment]
         self._proxy = FloodProxy(self.settings)
 
-    def add_download(
-        self,
-        download_url: str,
-        title: str | None = None,
-        category: str | None = None,
-        download_path: str | None = None,
-    ) -> str:
-        """Add a download to Flood.
+    @property
+    def client_name(self) -> str:
+        """Return client name."""
+        return "Flood"
+
+    def _extract_hash_from_magnet(self, magnet_url: str) -> str:
+        """Extract hash from magnet link.
 
         Parameters
         ----------
-        download_url : str
-            URL, magnet link, or file path.
-        title : str | None
-            Optional title.
-        category : str | None
-            Optional category (tags in Flood).
-        download_path : str | None
-            Optional download path.
+        magnet_url : str
+            Magnet URL.
 
         Returns
         -------
         str
-            Torrent hash (placeholder, will be available after add).
-
-        Raises
-        ------
-        PVRProviderError
-            If adding the download fails.
+            Extracted hash or "pending".
         """
-        if not self.is_enabled():
-            msg = "Flood client is disabled"
-            raise PVRProviderError(msg)
+        for part in magnet_url.split("&"):
+            if "xt=urn:btih:" in part:
+                return part.split(":")[-1].upper()
+        return "pending"
 
-        def _raise_invalid_url_error() -> None:
-            """Raise error for invalid download URL."""
-            msg = f"Invalid download URL: {download_url}"
-            raise PVRProviderError(msg)
+    def _build_tags(self, category: str | None) -> list[str] | None:
+        """Build tags list from category.
 
-        try:
-            cat = category or self.settings.category
-            tags: list[str] | None = [cat] if cat else None
-            destination = download_path or self.settings.download_path
+        Parameters
+        ----------
+        category : str | None
+            Category string.
 
-            # Add torrent
-            if download_url.startswith(("magnet:", "http")):
-                self._proxy.add_torrent_url(
-                    download_url, tags=tags, destination=destination
-                )
-                # Extract hash from magnet if possible
-                if download_url.startswith("magnet:"):
-                    for part in download_url.split("&"):
-                        if "xt=urn:btih:" in part:
-                            return part.split(":")[-1].upper()
-                return "pending"
-            if Path(download_url).is_file():
-                file_content = Path(download_url).read_bytes()
-                filename = title or Path(download_url).name
-                self._proxy.add_torrent_file(
-                    filename, file_content, tags=tags, destination=destination
-                )
-                return "pending"
-        except Exception as e:
-            msg = f"Failed to add download to Flood: {e}"
-            raise PVRProviderError(msg) from e
-        else:
-            _raise_invalid_url_error()
-            return ""  # Never reached, but satisfies type checker
+        Returns
+        -------
+        list[str] | None
+            Tags list or None.
+        """
+        cat = category or self.settings.category
+        return [cat] if cat else None
 
-    def get_items(self) -> Sequence[dict[str, str | int | float | None]]:
+    def _add_magnet(
+        self,
+        magnet_url: str,
+        _title: str | None,
+        category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from magnet link."""
+        tags = self._build_tags(category)
+        destination = download_path or self.settings.download_path
+        self._proxy.add_torrent_url(magnet_url, tags=tags, destination=destination)
+        return self._extract_hash_from_magnet(magnet_url)
+
+    def _add_url(
+        self,
+        url: str,
+        _title: str | None,
+        category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from HTTP/HTTPS URL."""
+        tags = self._build_tags(category)
+        destination = download_path or self.settings.download_path
+        self._proxy.add_torrent_url(url, tags=tags, destination=destination)
+        return "pending"
+
+    def _add_file(
+        self,
+        filepath: str,
+        title: str | None,
+        category: str | None,
+        download_path: str | None,
+    ) -> str:
+        """Add download from local file."""
+        file_content = Path(filepath).read_bytes()
+        filename = title or Path(filepath).name
+        tags = self._build_tags(category)
+        destination = download_path or self.settings.download_path
+        self._proxy.add_torrent_file(
+            filename, file_content, tags=tags, destination=destination
+        )
+        return "pending"
+
+    def get_items(self) -> Sequence[DownloadItem]:
         """Get list of active downloads.
 
         Returns
@@ -474,7 +491,7 @@ class FloodClient(BaseDownloadClient):
 
                 # Map Flood status to our status
                 status = torrent.get("status", [])
-                item_status = self._map_status_to_status(status)
+                item_status = self._map_status_list_to_status(status)
 
                 # Calculate progress
                 bytes_done = torrent.get("bytesDone", 0)
@@ -494,7 +511,7 @@ class FloodClient(BaseDownloadClient):
                 eta = torrent.get("eta", -1)
                 eta_seconds = int(eta) if eta > 0 else None
 
-                item = {
+                item: DownloadItem = {
                     "client_item_id": str(hash_str).upper(),
                     "title": torrent.get("name", ""),
                     "status": item_status,
@@ -566,7 +583,7 @@ class FloodClient(BaseDownloadClient):
         else:
             return True
 
-    def _map_status_to_status(self, status: list[str]) -> str:
+    def _map_status_list_to_status(self, status: list[str]) -> str:
         """Map Flood status array to standardized status.
 
         Parameters
@@ -580,13 +597,13 @@ class FloodClient(BaseDownloadClient):
             Standardized status string.
         """
         if not status:
-            return "queued"
+            return DownloadStatus.QUEUED
         if "seeding" in status or "complete" in status:
-            return "completed"
+            return DownloadStatus.COMPLETED
         if "error" in status:
-            return "failed"
+            return DownloadStatus.FAILED
         if "paused" in status:
-            return "paused"
+            return DownloadStatus.PAUSED
         if "downloading" in status or "active" in status:
-            return "downloading"
-        return "queued"
+            return DownloadStatus.DOWNLOADING
+        return DownloadStatus.QUEUED
