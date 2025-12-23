@@ -114,11 +114,113 @@ class Aria2Proxy:
         auth_error_msg = "Aria2 authentication failed"
         raise PVRProviderAuthenticationError(auth_error_msg)
 
+    def _prepare_request(
+        self, method: str, *params: XmlRpcValue
+    ) -> tuple[str, dict[str, str], tuple[str, str] | None]:
+        """Prepare XML-RPC request.
+
+        Parameters
+        ----------
+        method : str
+            RPC method name.
+        *params : XmlRpcValue
+            Method parameters.
+
+        Returns
+        -------
+        tuple[str, dict[str, str], tuple[str, str] | None]
+            Tuple of (xml_request, headers, auth).
+        """
+        token = self._get_token()
+        xml_request = self.builder.build_request(
+            method, *params, rpc_token=token if token else None
+        )
+
+        headers: dict[str, str] = {
+            "Content-Type": "text/xml",
+            "Content-Length": str(len(xml_request)),
+        }
+
+        auth = None
+        if self.settings.username and self.settings.password:
+            auth = (self.settings.username, self.settings.password)
+
+        return xml_request, headers, auth
+
+    def _parse_response(
+        self, response_text: str
+    ) -> (
+        str
+        | int
+        | list[str | int | dict[str, str | int | None]]
+        | dict[str, str | int | None]
+        | None
+    ):
+        """Parse XML-RPC response.
+
+        Parameters
+        ----------
+        response_text : str
+            XML response text.
+
+        Returns
+        -------
+        str | int | list[str | int | dict[str, str | int | None]] | dict[str, str | int | None] | None
+            Parsed response result.
+
+        Raises
+        ------
+        PVRProviderError
+            If parsing fails.
+        """
+        try:
+            return self.parser.parse_response(response_text)
+        except ET.ParseError as e:
+            msg = f"Failed to parse Aria2 XML-RPC response: {e}"
+            raise PVRProviderError(msg) from e
+
+    def _handle_request_exceptions(
+        self, error: httpx.HTTPError | PVRProviderError, method: str
+    ) -> None:
+        """Handle exceptions from XML-RPC request.
+
+        Parameters
+        ----------
+        error : httpx.HTTPError | PVRProviderError
+            The exception to handle.
+        method : str
+            RPC method name for error context.
+
+        Raises
+        ------
+        PVRProviderAuthenticationError
+            If authentication failed.
+        PVRProviderError
+            For other errors.
+        """
+        if isinstance(error, httpx.HTTPStatusError):
+            if error.response.status_code in (401, 403):
+                auth_error_msg = "Aria2 authentication failed"
+                raise PVRProviderAuthenticationError(auth_error_msg) from error
+            handle_http_error_response(
+                error.response.status_code, error.response.text[:200]
+            )
+        elif isinstance(error, (httpx.RequestError, httpx.TimeoutException)):
+            handle_httpx_exception(error, f"Aria2 XML-RPC {method}")
+        elif isinstance(error, PVRProviderError):
+            raise
+
     def _request(
         self,
         method: str,
         *params: XmlRpcValue,
-    ) -> str | int | list[dict[str, str | int | None]] | None:
+    ) -> (
+        str
+        | int
+        | list[str | int | dict[str, str | int | None]]
+        | dict[str, str | int | None]
+        | None
+    ):
         """Make XML-RPC request.
 
         Parameters
@@ -130,30 +232,11 @@ class Aria2Proxy:
 
         Returns
         -------
-        Any
+        str | int | list[str | int | dict[str, str | int | None]] | dict[str, str | int | None] | None
             RPC response result.
         """
-        # Build request using shared builder
-        token = self._get_token()
-        xml_request = self.builder.build_request(
-            method, *params, rpc_token=token if token else None
-        )
+        xml_request, headers, auth = self._prepare_request(method, *params)
 
-        headers: dict[str, str] = {
-            "Content-Type": "text/xml",
-            "Content-Length": str(len(xml_request)),
-        }
-
-        # Add basic auth if provided (Aria2 supports basic auth in headers too)
-        # We rely on httpx auth handling usually, but here we can pass it to client.post
-
-        auth = None
-        if self.settings.username and self.settings.password:
-            auth = (self.settings.username, self.settings.password)
-
-        # Use injected factory to create client
-        # Note: We rely on the factory to provide a client that supports context manager
-        # and has similar interface to httpx.Client (as defined in HttpClientProtocol)
         with self.http_client_factory() as client:
             try:
                 response = client.post(
@@ -170,29 +253,13 @@ class Aria2Proxy:
                 if hasattr(response, "raise_for_status"):
                     response.raise_for_status()
 
-                # Parse response using shared parser
-                try:
-                    return self.parser.parse_response(response.text)
-                except ET.ParseError as e:
-                    msg = f"Failed to parse Aria2 XML-RPC response: {e}"
-                    raise PVRProviderError(msg) from e
+                return self._parse_response(response.text)
 
-            except httpx.HTTPStatusError as e:
-                if e.response.status_code in (401, 403):
-                    auth_error_msg = "Aria2 authentication failed"
-                    raise PVRProviderAuthenticationError(auth_error_msg) from e
-                handle_http_error_response(
-                    e.response.status_code, e.response.text[:200]
-                )
-                raise
-            except (httpx.RequestError, httpx.TimeoutException) as e:
-                handle_httpx_exception(e, f"Aria2 XML-RPC {method}")
-                raise
+            except (httpx.HTTPError, PVRProviderError) as e:
+                self._handle_request_exceptions(e, method)
             except Exception as e:
-                # Catch protocol-compliant exceptions if client raises them
-                # Since we use httpx implementation, we catch httpx errors above.
-                if isinstance(e, PVRProviderError):
-                    raise
+                # Defensive fallback for unexpected exceptions from underlying calls
+                # (e.g., AttributeError from response.text, etc.)
                 msg = f"Aria2 request failed: {e}"
                 raise PVRProviderError(msg) from e
 
@@ -267,11 +334,11 @@ class Aria2Proxy:
         items: list[dict[str, str | int | None]] = []
         # Ensure we only append lists (API should return lists)
         if isinstance(active, list):
-            items.extend(active)
+            items.extend(active)  # type: ignore[arg-type]
         if isinstance(waiting, list):
-            items.extend(waiting)
+            items.extend(waiting)  # type: ignore[arg-type]
         if isinstance(stopped, list):
-            items.extend(stopped)
+            items.extend(stopped)  # type: ignore[arg-type]
 
         # Type narrowing for mypy/safety
         # The parser returns list[str | int | dict] but we expect dicts here
