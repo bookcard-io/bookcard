@@ -773,3 +773,68 @@ class TestNzbvortexClient:
         result = client.test_connection()
         assert result is True
         mock_get_queue.assert_called_once()
+
+    @patch("bookcard.pvr.download_clients.nzbvortex.handle_http_error_response")
+    @patch.object(NzbvortexProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.nzbvortex.create_httpx_client")
+    def test_request_http_error_unreachable_raise(
+        self,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        mock_handle_error: MagicMock,
+        nzbvortex_settings: NzbvortexSettings,
+    ) -> None:
+        """Test _request to cover unreachable raise after HTTP error."""
+        proxy = NzbvortexProxy(nzbvortex_settings)
+        proxy._session_id = "test-session"
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Server Error"
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.get.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        # Mock handler to not raise so we can reach the unreachable raise
+        def no_raise_handler(status_code: int, response_text: str = "") -> None:
+            """Mock handler that doesn't raise."""
+
+        mock_handle_error.side_effect = no_raise_handler
+
+        # The raise statement will re-raise the original exception
+        with pytest.raises(httpx.HTTPStatusError):
+            proxy._request("GET", "test")
+
+    @patch("bookcard.pvr.download_clients.nzbvortex.handle_httpx_exception")
+    @patch.object(NzbvortexProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.nzbvortex.create_httpx_client")
+    def test_request_network_error_unreachable_raise(
+        self,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        mock_handle_exception: MagicMock,
+        nzbvortex_settings: NzbvortexSettings,
+    ) -> None:
+        """Test _request to cover unreachable raise after network error."""
+        proxy = NzbvortexProxy(nzbvortex_settings)
+        proxy._session_id = "test-session"
+        mock_client = MagicMock()
+        network_error = httpx.RequestError("Network Error")
+        mock_client.get.side_effect = network_error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        # Mock handler to not raise so we can reach the unreachable raise
+        def no_raise_handler(error: Exception, context: str = "Request") -> None:
+            """Mock handler that doesn't raise."""
+
+        mock_handle_exception.side_effect = no_raise_handler
+
+        # The raise statement will re-raise the original exception
+        with pytest.raises(httpx.RequestError):
+            proxy._request("GET", "test")

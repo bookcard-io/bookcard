@@ -1080,3 +1080,186 @@ class TestFreeboxDownloadClient:
         )
         with pytest.raises(PVRProviderError, match="Failed to connect"):
             client.test_connection()
+
+    @patch("bookcard.pvr.download_clients.freebox_download.handle_http_error_response")
+    @patch("bookcard.pvr.download_clients.freebox_download.create_httpx_client")
+    def test_get_challenge_http_error_unreachable_raise(
+        self,
+        mock_create_client: MagicMock,
+        mock_handle_error: MagicMock,
+        freebox_download_settings: FreeboxDownloadSettings,
+    ) -> None:
+        """Test _get_challenge to cover unreachable raise after HTTP error."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Server Error"
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_response.raise_for_status.side_effect = error
+        mock_client.get.return_value = mock_response
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        # Mock handler to not raise so we can reach the unreachable raise
+        def no_raise_handler(status_code: int, response_text: str = "") -> None:
+            """Mock handler that doesn't raise."""
+
+        mock_handle_error.side_effect = no_raise_handler
+
+        proxy = FreeboxDownloadProxy(freebox_download_settings)
+        # The raise statement will execute, but since it's a bare raise,
+        # it will re-raise the original exception
+        with pytest.raises(httpx.HTTPStatusError):
+            proxy._get_challenge()
+
+    @patch("bookcard.pvr.download_clients.freebox_download.handle_httpx_exception")
+    @patch("bookcard.pvr.download_clients.freebox_download.create_httpx_client")
+    def test_get_challenge_timeout_unreachable_raise(
+        self,
+        mock_create_client: MagicMock,
+        mock_handle_exception: MagicMock,
+        freebox_download_settings: FreeboxDownloadSettings,
+    ) -> None:
+        """Test _get_challenge to cover unreachable raise after timeout."""
+        mock_client = MagicMock()
+        timeout_error = httpx.TimeoutException("Timeout")
+        mock_client.get.side_effect = timeout_error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        # Mock handler to not raise so we can reach the unreachable raise
+        def no_raise_handler(error: Exception, context: str = "Request") -> None:
+            """Mock handler that doesn't raise."""
+
+        mock_handle_exception.side_effect = no_raise_handler
+
+        proxy = FreeboxDownloadProxy(freebox_download_settings)
+        # The raise statement will re-raise the original exception
+        with pytest.raises(httpx.TimeoutException):
+            proxy._get_challenge()
+
+    @patch("bookcard.pvr.download_clients.freebox_download.handle_http_error_response")
+    @patch.object(FreeboxDownloadProxy, "authenticate")
+    @patch("bookcard.pvr.download_clients.freebox_download.create_httpx_client")
+    def test_request_http_error_unreachable_raise(
+        self,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        mock_handle_error: MagicMock,
+        freebox_download_settings: FreeboxDownloadSettings,
+    ) -> None:
+        """Test _request to cover unreachable raise after HTTP error."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Server Error"
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_response.raise_for_status.side_effect = error
+        mock_client.get.return_value = mock_response
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+        # Mock handler to not raise so we can reach the unreachable raise
+        mock_handle_error.side_effect = None
+
+        proxy = FreeboxDownloadProxy(freebox_download_settings)
+        proxy._session_token = "test-session"
+        # The raise statement will re-raise the original exception
+        with pytest.raises(httpx.HTTPStatusError):
+            proxy._request("GET", "endpoint")
+
+    @patch("bookcard.pvr.download_clients.freebox_download.handle_httpx_exception")
+    @patch.object(FreeboxDownloadProxy, "authenticate")
+    @patch("bookcard.pvr.download_clients.freebox_download.create_httpx_client")
+    def test_request_network_error_unreachable_raise(
+        self,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        mock_handle_exception: MagicMock,
+        freebox_download_settings: FreeboxDownloadSettings,
+    ) -> None:
+        """Test _request to cover unreachable raise after network error."""
+        mock_client = MagicMock()
+        network_error = httpx.RequestError("Network Error")
+        mock_client.get.side_effect = network_error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        # Mock handler to not raise so we can reach the unreachable raise
+        def no_raise_handler(error: Exception, context: str = "Request") -> None:
+            """Mock handler that doesn't raise."""
+
+        mock_handle_exception.side_effect = no_raise_handler
+
+        proxy = FreeboxDownloadProxy(freebox_download_settings)
+        proxy._session_token = "test-session"
+        # The raise statement will re-raise the original exception
+        with pytest.raises(httpx.RequestError):
+            proxy._request("GET", "endpoint")
+
+    @patch("bookcard.pvr.download_clients.freebox_download.handle_http_error_response")
+    @patch.object(FreeboxDownloadProxy, "authenticate")
+    @patch("bookcard.pvr.download_clients.freebox_download.create_httpx_client")
+    def test_add_task_from_file_http_error_unreachable_raise(
+        self,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        mock_handle_error: MagicMock,
+        freebox_download_settings: FreeboxDownloadSettings,
+    ) -> None:
+        """Test add_task_from_file to cover unreachable raise after HTTP error."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Server Error"
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_response.raise_for_status.side_effect = error
+        mock_client.post.return_value = mock_response
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+        # Mock handler to not raise so we can reach the unreachable raise
+        mock_handle_error.side_effect = None
+
+        proxy = FreeboxDownloadProxy(freebox_download_settings)
+        # The raise statement will re-raise the original exception
+        with pytest.raises(httpx.HTTPStatusError):
+            proxy.add_task_from_file(b"content", "test.torrent")
+
+    @patch("bookcard.pvr.download_clients.freebox_download.handle_httpx_exception")
+    @patch.object(FreeboxDownloadProxy, "authenticate")
+    @patch("bookcard.pvr.download_clients.freebox_download.create_httpx_client")
+    def test_add_task_from_file_network_error_unreachable_raise(
+        self,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        mock_handle_exception: MagicMock,
+        freebox_download_settings: FreeboxDownloadSettings,
+    ) -> None:
+        """Test add_task_from_file to cover unreachable raise after network error."""
+        mock_client = MagicMock()
+        network_error = httpx.RequestError("Network Error")
+        mock_client.post.side_effect = network_error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        # Mock handler to not raise so we can reach the unreachable raise
+        def no_raise_handler(error: Exception, context: str = "Request") -> None:
+            """Mock handler that doesn't raise."""
+
+        mock_handle_exception.side_effect = no_raise_handler
+
+        proxy = FreeboxDownloadProxy(freebox_download_settings)
+        # The raise statement will re-raise the original exception
+        with pytest.raises(httpx.RequestError):
+            proxy.add_task_from_file(b"content", "test.torrent")

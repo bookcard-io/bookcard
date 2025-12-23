@@ -535,3 +535,182 @@ class TestNzbgetClient:
         )
         with pytest.raises(PVRProviderError, match="Failed to connect"):
             client.test_connection()
+
+    @patch("bookcard.pvr.download_clients.nzbget.create_httpx_client")
+    def test_request_http_status_error_401(
+        self, mock_create_client: MagicMock, nzbget_settings: NzbgetSettings
+    ) -> None:
+        """Test _request with 401 HTTPStatusError."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        error = httpx.HTTPStatusError(
+            "Unauthorized", request=MagicMock(), response=mock_response
+        )
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = NzbgetProxy(nzbget_settings)
+        with pytest.raises(
+            PVRProviderAuthenticationError, match="authentication failed"
+        ):
+            proxy._request("test.method")
+
+    @patch("bookcard.pvr.download_clients.nzbget.create_httpx_client")
+    def test_request_http_status_error_403(
+        self, mock_create_client: MagicMock, nzbget_settings: NzbgetSettings
+    ) -> None:
+        """Test _request with 403 HTTPStatusError."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 403
+        error = httpx.HTTPStatusError(
+            "Forbidden", request=MagicMock(), response=mock_response
+        )
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = NzbgetProxy(nzbget_settings)
+        with pytest.raises(
+            PVRProviderAuthenticationError, match="authentication failed"
+        ):
+            proxy._request("test.method")
+
+    @patch("bookcard.pvr.download_clients.nzbget.handle_http_error_response")
+    @patch("bookcard.pvr.download_clients.nzbget.create_httpx_client")
+    def test_request_http_status_error_other(
+        self,
+        mock_create_client: MagicMock,
+        mock_handle_error: MagicMock,
+        nzbget_settings: NzbgetSettings,
+    ) -> None:
+        """Test _request with other HTTPStatusError to cover raise statement."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Server Error"
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        # Mock handler to not raise so we can reach the unreachable raise
+        def no_raise_handler(status_code: int, response_text: str = "") -> None:
+            """Mock handler that doesn't raise."""
+
+        mock_handle_error.side_effect = no_raise_handler
+
+        proxy = NzbgetProxy(nzbget_settings)
+        # The raise statement will re-raise the original exception
+        with pytest.raises(httpx.HTTPStatusError):
+            proxy._request("test.method")
+
+    @patch("bookcard.pvr.download_clients.nzbget.handle_httpx_exception")
+    @patch("bookcard.pvr.download_clients.nzbget.create_httpx_client")
+    def test_request_request_error_unreachable_raise(
+        self,
+        mock_create_client: MagicMock,
+        mock_handle_exception: MagicMock,
+        nzbget_settings: NzbgetSettings,
+    ) -> None:
+        """Test _request with RequestError to cover unreachable raise."""
+        mock_client = MagicMock()
+        request_error = httpx.RequestError("Network Error")
+        mock_client.post.side_effect = request_error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        # Mock handler to not raise so we can reach the unreachable raise
+        def no_raise_handler(error: Exception, context: str = "Request") -> None:
+            """Mock handler that doesn't raise."""
+
+        mock_handle_exception.side_effect = no_raise_handler
+
+        proxy = NzbgetProxy(nzbget_settings)
+        # The raise statement will re-raise the original exception
+        with pytest.raises(httpx.RequestError):
+            proxy._request("test.method")
+
+    @patch.object(NzbgetProxy, "_request")
+    def test_get_global_status_invalid(
+        self, mock_request: MagicMock, nzbget_settings: NzbgetSettings
+    ) -> None:
+        """Test get_global_status with invalid response."""
+        mock_request.return_value = "invalid"  # Not a dict
+        proxy = NzbgetProxy(nzbget_settings)
+        result = proxy.get_global_status()
+        assert result == {}
+
+    def test_add_magnet_not_supported(
+        self,
+        nzbget_settings: NzbgetSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test add_magnet raises error."""
+        client = NzbgetClient(
+            settings=nzbget_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        with pytest.raises(PVRProviderError, match="does not support magnet links"):
+            client.add_magnet("magnet:?xt=urn:btih:test", None, None, None)
+
+    @patch.object(NzbgetProxy, "get_global_status")
+    @patch.object(NzbgetProxy, "get_queue")
+    @patch.object(NzbgetProxy, "get_history")
+    def test_get_items_progress_cap(
+        self,
+        mock_get_history: MagicMock,
+        mock_get_queue: MagicMock,
+        mock_get_global_status: MagicMock,
+        nzbget_settings: NzbgetSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test get_items progress cap when progress > 1.0."""
+        mock_get_global_status.return_value = {"DownloadRate": 1000000}
+        # Create item where remaining_bytes is None, which makes remaining = 0
+        # total_bytes = 1000000, remaining = 0
+        # downloaded = 1000000 - 0 = 1000000
+        # progress = 1000000 / 1000000 = 1.0
+        # But if we have a case where remaining_bytes calculation results in negative
+        # (edge case), we need to test the cap. Let's use a case where
+        # remaining_bytes is larger than total_bytes (shouldn't happen but tests cap)
+        # We'll patch _make_int64 to return a value that makes progress > 1.0
+        mock_get_queue.return_value = [
+            {
+                "NZBID": 1,
+                "NZBName": "Test NZB",
+                "Status": "DOWNLOADING",
+                "FileSizeHi": 0,
+                "FileSizeLo": 1000000,  # 1MB total
+                "RemainingSizeHi": 0,
+                "RemainingSizeLo": 0,  # 0 remaining
+            }
+        ]
+        mock_get_history.return_value = []
+        client = NzbgetClient(
+            settings=nzbget_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        # Patch _make_int64 to return a negative value for remaining_bytes
+        # This simulates an edge case where remaining > total
+        original_make_int64 = client._make_int64
+
+        def mock_make_int64(hi: int | None, lo: int) -> int | None:
+            """Mock _make_int64 to test progress cap."""
+            if hi == 0 and lo == 0:
+                # For remaining, return a value that makes downloaded > total
+                return -100000  # Negative remaining means downloaded > total
+            return original_make_int64(hi, lo)
+
+        client._make_int64 = mock_make_int64  # type: ignore[assignment]
+        items = client.get_items()
+        # Progress should be capped at 1.0 even if calculation exceeds it
+        assert items[0]["progress"] == 1.0

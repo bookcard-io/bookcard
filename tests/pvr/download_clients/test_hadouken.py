@@ -17,6 +17,7 @@
 
 import base64
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
 import httpx
@@ -573,3 +574,184 @@ class TestHadoukenClient:
         )
         with pytest.raises(PVRProviderError, match="Failed to connect"):
             client.test_connection()
+
+    @patch("bookcard.pvr.download_clients.hadouken.create_httpx_client")
+    def test_request_with_params(
+        self, mock_create_client: MagicMock, hadouken_settings: HadoukenSettings
+    ) -> None:
+        """Test _request with params to cover params assignment."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"result": "success", "error": None}
+        mock_response.raise_for_status = Mock()
+        mock_client.post.return_value = mock_response
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = HadoukenProxy(hadouken_settings)
+        result = proxy._request("test.method", "param1", "param2")
+        assert result == "success"
+        # Verify params were included in request
+        call_args = mock_client.post.call_args
+        json_data = call_args[1]["json"]
+        assert "params" in json_data
+        assert json_data["params"] == ["param1", "param2"]
+
+    @patch("bookcard.pvr.download_clients.hadouken.create_httpx_client")
+    def test_request_http_status_error_401(
+        self, mock_create_client: MagicMock, hadouken_settings: HadoukenSettings
+    ) -> None:
+        """Test _request with 401 HTTPStatusError."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        error = httpx.HTTPStatusError(
+            "Unauthorized", request=MagicMock(), response=mock_response
+        )
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = HadoukenProxy(hadouken_settings)
+        with pytest.raises(
+            PVRProviderAuthenticationError, match="authentication failed"
+        ):
+            proxy._request("test.method")
+
+    @patch("bookcard.pvr.download_clients.hadouken.create_httpx_client")
+    def test_request_http_status_error_403(
+        self, mock_create_client: MagicMock, hadouken_settings: HadoukenSettings
+    ) -> None:
+        """Test _request with 403 HTTPStatusError."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 403
+        error = httpx.HTTPStatusError(
+            "Forbidden", request=MagicMock(), response=mock_response
+        )
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = HadoukenProxy(hadouken_settings)
+        with pytest.raises(
+            PVRProviderAuthenticationError, match="authentication failed"
+        ):
+            proxy._request("test.method")
+
+    @patch("bookcard.pvr.download_clients.hadouken.handle_http_error_response")
+    @patch("bookcard.pvr.download_clients.hadouken.create_httpx_client")
+    def test_request_http_status_error_other(
+        self,
+        mock_create_client: MagicMock,
+        mock_handle_error: MagicMock,
+        hadouken_settings: HadoukenSettings,
+    ) -> None:
+        """Test _request with other HTTPStatusError to cover raise statement."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Server Error"
+        error = httpx.HTTPStatusError(
+            "Error", request=MagicMock(), response=mock_response
+        )
+        mock_client.post.side_effect = error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        # Mock handler to not raise so we can reach the unreachable raise
+        def no_raise_handler(status_code: int, response_text: str = "") -> None:
+            """Mock handler that doesn't raise."""
+
+        mock_handle_error.side_effect = no_raise_handler
+
+        proxy = HadoukenProxy(hadouken_settings)
+        # The raise statement will re-raise the original exception
+        with pytest.raises(httpx.HTTPStatusError):
+            proxy._request("test.method")
+
+    @patch("bookcard.pvr.download_clients.hadouken.handle_httpx_exception")
+    @patch("bookcard.pvr.download_clients.hadouken.create_httpx_client")
+    def test_request_request_error_unreachable_raise(
+        self,
+        mock_create_client: MagicMock,
+        mock_handle_exception: MagicMock,
+        hadouken_settings: HadoukenSettings,
+    ) -> None:
+        """Test _request with RequestError to cover unreachable raise."""
+        mock_client = MagicMock()
+        request_error = httpx.RequestError("Network Error")
+        mock_client.post.side_effect = request_error
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        # Mock handler to not raise so we can reach the unreachable raise
+        def no_raise_handler(error: Exception, context: str = "Request") -> None:
+            """Mock handler that doesn't raise."""
+
+        mock_handle_exception.side_effect = no_raise_handler
+
+        proxy = HadoukenProxy(hadouken_settings)
+        # The raise statement will re-raise the original exception
+        with pytest.raises(httpx.RequestError):
+            proxy._request("test.method")
+
+    @patch.object(HadoukenProxy, "_request")
+    def test_get_torrents_list_response(
+        self, mock_request: MagicMock, hadouken_settings: HadoukenSettings
+    ) -> None:
+        """Test get_torrents with list response."""
+        mock_request.return_value = [["item1"], ["item2"]]
+        proxy = HadoukenProxy(hadouken_settings)
+        result = proxy.get_torrents()
+        assert len(result) == 2
+        assert result[0] == ["item1"]
+        assert result[1] == ["item2"]
+
+    @patch.object(HadoukenProxy, "_request")
+    def test_add_torrent_file_non_string_result(
+        self, mock_request: MagicMock, hadouken_settings: HadoukenSettings
+    ) -> None:
+        """Test add_torrent_file when result is not a string."""
+        mock_request.return_value = 123  # Not a string
+        proxy = HadoukenProxy(hadouken_settings)
+        result = proxy.add_torrent_file(b"content", category="cat")
+        assert result == ""
+
+    @patch.object(HadoukenProxy, "get_torrents")
+    def test_get_items_category_filter(
+        self,
+        mock_get_torrents: MagicMock,
+        hadouken_settings: HadoukenSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test get_items with category filtering."""
+        hadouken_settings.category = "movies"
+        # Hadouken returns list of lists - need at least 27 elements
+        item_with_category: list[Any] = [0] * 27
+        item_with_category[0] = "abc123"  # hash
+        item_with_category[1] = 1  # state
+        item_with_category[2] = "Test Torrent"  # name
+        item_with_category[11] = "movies"  # label - matches category
+
+        item_wrong_category: list[Any] = [0] * 27
+        item_wrong_category[0] = "def456"  # hash
+        item_wrong_category[1] = 1  # state
+        item_wrong_category[2] = "Other Torrent"  # name
+        item_wrong_category[11] = "tv"  # label - doesn't match
+
+        mock_get_torrents.return_value = [item_with_category, item_wrong_category]
+        client = HadoukenClient(
+            settings=hadouken_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        items = client.get_items()
+        # Only item with matching category should be included
+        assert len(items) == 1
+        assert items[0]["client_item_id"] == "ABC123"
