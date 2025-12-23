@@ -466,7 +466,7 @@ class RTorrentProxy:
 
         torrents = []
         for item in result:
-            if not isinstance(item, list) or len(item) < 13:
+            if not isinstance(item, list) or len(item) < 12:
                 continue
 
             torrent = {
@@ -597,7 +597,7 @@ class RTorrentClient(BaseDownloadClient):
                 return part.split(":")[-1].upper()
         return ""
 
-    def _add_magnet(
+    def add_magnet(
         self,
         magnet_url: str,
         _title: str | None,
@@ -611,7 +611,7 @@ class RTorrentClient(BaseDownloadClient):
         self._proxy.add_torrent_url(magnet_url, label=label, directory=directory)
         return hash_str if hash_str else "pending"
 
-    def _add_url(
+    def add_url(
         self,
         url: str,
         title: str | None,
@@ -629,7 +629,7 @@ class RTorrentClient(BaseDownloadClient):
         )
         return "pending"
 
-    def _add_file(
+    def add_file(
         self,
         filepath: str,
         title: str | None,

@@ -37,6 +37,7 @@ from bookcard.models.pvr import (
 from bookcard.pvr.base import (
     BaseDownloadClient,
     BaseIndexer,
+    ManagedIndexer,
     PVRProviderError,
 )
 from bookcard.pvr.factory import (
@@ -160,13 +161,18 @@ class TestCreateIndexer:
         self, indexer_definition: IndexerDefinition
     ) -> None:
         """Test successful indexer creation."""
+        # Use CUSTOM type to trigger generic creation logic that uses registered class
+        indexer_definition.indexer_type = IndexerType.CUSTOM
+
         # Register the indexer type
         register_indexer(indexer_definition.indexer_type, MockIndexer)
 
         indexer = create_indexer(indexer_definition)
 
-        assert isinstance(indexer, MockIndexer)
-        assert isinstance(indexer, BaseIndexer)
+        assert isinstance(indexer, ManagedIndexer)
+        assert isinstance(indexer._indexer, MockIndexer)
+        assert isinstance(indexer._indexer, BaseIndexer)
+        # ManagedIndexer delegates settings access
         assert indexer.settings.base_url == indexer_definition.base_url
         assert indexer.settings.api_key == indexer_definition.api_key
         assert indexer.settings.timeout_seconds == indexer_definition.timeout_seconds
@@ -204,6 +210,8 @@ class TestCreateIndexer:
         self, indexer_definition: IndexerDefinition
     ) -> None:
         """Test create_indexer when indexer creation fails."""
+        # Use CUSTOM type to trigger generic creation logic
+        indexer_definition.indexer_type = IndexerType.CUSTOM
 
         # Create a class that raises an error on instantiation
         class FailingIndexer(MockIndexer):

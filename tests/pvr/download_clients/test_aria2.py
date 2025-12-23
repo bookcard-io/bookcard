@@ -79,8 +79,7 @@ class TestAria2Proxy:
         assert "aria2.addUri" in request
         assert "http://test.com" in request
 
-    @patch("bookcard.pvr.download_clients.aria2.create_httpx_client")
-    def test_request_success(self, mock_create_client: MagicMock) -> None:
+    def test_request_success(self) -> None:
         """Test _request successful call."""
         settings = Aria2Settings(
             host="localhost",
@@ -95,7 +94,6 @@ class TestAria2Proxy:
         mock_client.post.return_value = mock_response
         mock_client.__enter__ = Mock(return_value=mock_client)
         mock_client.__exit__ = Mock(return_value=False)
-        mock_create_client.return_value = mock_client
 
         proxy = Aria2Proxy(settings, lambda: mock_client)
         result = proxy._request("aria2.addUri", ["http://test.com"])

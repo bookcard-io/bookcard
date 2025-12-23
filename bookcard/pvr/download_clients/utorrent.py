@@ -505,7 +505,7 @@ class UTorrentClient(BaseDownloadClient):
             return DownloadStatus.DOWNLOADING
         return DownloadStatus.QUEUED
 
-    def _add_magnet(
+    def add_magnet(
         self,
         magnet_url: str,
         _title: str | None,
@@ -520,7 +520,7 @@ class UTorrentClient(BaseDownloadClient):
             self._proxy.set_torrent_label(hash_str, label)
         return hash_str.upper() if hash_str else "pending"
 
-    def _add_url(
+    def add_url(
         self,
         url: str,
         _title: str | None,
@@ -535,7 +535,7 @@ class UTorrentClient(BaseDownloadClient):
             self._proxy.set_torrent_label(hash_str, label)
         return hash_str.upper() if hash_str else "pending"
 
-    def _add_file(
+    def add_file(
         self,
         filepath: str,
         title: str | None,

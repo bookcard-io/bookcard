@@ -497,7 +497,7 @@ class SabnzbdClient(BaseDownloadClient):
         """Return client name."""
         return "SABnzbd"
 
-    def _add_magnet(
+    def add_magnet(
         self,
         _magnet_url: str,
         _title: str | None,
@@ -508,7 +508,7 @@ class SabnzbdClient(BaseDownloadClient):
         msg = "SABnzbd does not support magnet links"
         raise PVRProviderError(msg)
 
-    def _add_url(
+    def add_url(
         self,
         url: str,
         title: str | None,
@@ -522,7 +522,7 @@ class SabnzbdClient(BaseDownloadClient):
         cat = category or self.settings.category
         return self._proxy.add_nzb(nzb_data, filename, category=cat)
 
-    def _add_file(
+    def add_file(
         self,
         filepath: str,
         title: str | None,

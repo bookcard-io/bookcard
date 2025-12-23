@@ -267,7 +267,10 @@ class FloodProxy:
                 raise
             except (httpx.RequestError, httpx.TimeoutException) as e:
                 handle_httpx_exception(e, f"Flood API {method} {endpoint}")
-                raise
+
+        # Should be unreachable
+        msg = f"Request failed: {method} {endpoint}"
+        raise PVRProviderError(msg)
 
     def verify_auth(self) -> None:
         """Verify authentication."""
@@ -440,7 +443,7 @@ class FloodClient(BaseDownloadClient):
         cat = category or self.settings.category
         return [cat] if cat else None
 
-    def _add_magnet(
+    def add_magnet(
         self,
         magnet_url: str,
         _title: str | None,
@@ -453,7 +456,7 @@ class FloodClient(BaseDownloadClient):
         self._proxy.add_torrent_url(magnet_url, tags=tags, destination=destination)
         return self._extract_hash_from_magnet(magnet_url)
 
-    def _add_url(
+    def add_url(
         self,
         url: str,
         _title: str | None,
@@ -466,7 +469,7 @@ class FloodClient(BaseDownloadClient):
         self._proxy.add_torrent_url(url, tags=tags, destination=destination)
         return "pending"
 
-    def _add_file(
+    def add_file(
         self,
         filepath: str,
         title: str | None,

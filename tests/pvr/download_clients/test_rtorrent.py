@@ -31,6 +31,8 @@ from bookcard.pvr.download_clients.rtorrent import (
 from bookcard.pvr.exceptions import (
     PVRProviderAuthenticationError,
     PVRProviderError,
+    PVRProviderNetworkError,
+    PVRProviderTimeoutError,
 )
 
 
@@ -325,7 +327,7 @@ class TestRTorrentProxy:
         mock_create_client.return_value = mock_client
 
         proxy = RTorrentProxy(rtorrent_settings)
-        with pytest.raises(httpx.HTTPStatusError):
+        with pytest.raises(PVRProviderNetworkError):
             proxy._request("test.method")
 
     @patch("bookcard.pvr.download_clients.rtorrent.create_httpx_client")
@@ -342,7 +344,7 @@ class TestRTorrentProxy:
         mock_create_client.return_value = mock_client
 
         proxy = RTorrentProxy(rtorrent_settings)
-        with pytest.raises(httpx.TimeoutException):
+        with pytest.raises(PVRProviderTimeoutError):
             proxy._request("test.method")
 
     @patch.object(RTorrentProxy, "_request")

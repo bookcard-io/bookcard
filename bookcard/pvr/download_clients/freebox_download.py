@@ -133,10 +133,10 @@ class FreeboxDownloadProxy:
                 handle_http_error_response(
                     e.response.status_code, e.response.text[:200]
                 )
-                raise
+                raise  # Unreachable, but needed for type checker
             except (httpx.RequestError, httpx.TimeoutException) as e:
                 handle_httpx_exception(e, "Freebox challenge")
-                raise
+                raise  # Unreachable, but needed for type checker
 
     def _compute_password(self, challenge: str) -> str:
         """Compute password using HMAC-SHA1.
@@ -228,10 +228,8 @@ class FreeboxDownloadProxy:
                     msg = "Freebox authentication failed"
                     raise PVRProviderAuthenticationError(msg) from e
                 handle_httpx_exception(e, "Freebox authentication")
-                raise
             except (httpx.RequestError, httpx.TimeoutException) as e:
                 handle_httpx_exception(e, "Freebox authentication")
-                raise
 
     def _execute_http_method(
         self,
@@ -359,10 +357,10 @@ class FreeboxDownloadProxy:
                 handle_http_error_response(
                     e.response.status_code, e.response.text[:200]
                 )
-                raise
+                raise  # Unreachable, but needed for type checker
             except (httpx.RequestError, httpx.TimeoutException) as e:
                 handle_httpx_exception(e, f"Freebox API {method} {endpoint}")
-                raise
+                raise  # Unreachable, but needed for type checker
 
     def add_task_from_url(self, url: str, directory: str | None = None) -> str:
         """Add task from URL or magnet link.
@@ -454,10 +452,10 @@ class FreeboxDownloadProxy:
                 handle_http_error_response(
                     e.response.status_code, e.response.text[:200]
                 )
-                raise
+                raise  # Unreachable, but needed for type checker
             except (httpx.RequestError, httpx.TimeoutException) as e:
                 handle_httpx_exception(e, "Freebox API add file")
-                raise
+                raise  # Unreachable, but needed for type checker
 
     def get_tasks(self) -> list[dict[str, Any]]:
         """Get all tasks.
@@ -541,9 +539,15 @@ class FreeboxDownloadClient(BaseDownloadClient):
         self._status_mapper = StatusMapper(
             {
                 "done": DownloadStatus.COMPLETED,
+                "seeding": DownloadStatus.COMPLETED,
                 "error": DownloadStatus.FAILED,
                 "stopped": DownloadStatus.PAUSED,
                 "queued": DownloadStatus.QUEUED,
+                "starting": DownloadStatus.QUEUED,
+                "checking": DownloadStatus.QUEUED,
+                "repairing": DownloadStatus.QUEUED,
+                "extracting": DownloadStatus.QUEUED,
+                "retry": DownloadStatus.QUEUED,
                 "downloading": DownloadStatus.DOWNLOADING,
             },
             default=DownloadStatus.DOWNLOADING,
@@ -554,7 +558,7 @@ class FreeboxDownloadClient(BaseDownloadClient):
         """Return client name."""
         return "Freebox Download"
 
-    def _add_magnet(
+    def add_magnet(
         self,
         magnet_url: str,
         _title: str | None,
@@ -565,7 +569,7 @@ class FreeboxDownloadClient(BaseDownloadClient):
         directory = download_path or self.settings.download_path
         return self._proxy.add_task_from_url(magnet_url, directory=directory)
 
-    def _add_url(
+    def add_url(
         self,
         url: str,
         _title: str | None,
@@ -576,7 +580,7 @@ class FreeboxDownloadClient(BaseDownloadClient):
         directory = download_path or self.settings.download_path
         return self._proxy.add_task_from_url(url, directory=directory)
 
-    def _add_file(
+    def add_file(
         self,
         filepath: str,
         _title: str | None,
@@ -625,7 +629,7 @@ class FreeboxDownloadClient(BaseDownloadClient):
                 received_bytes = task.get("rx_bytes", 0)
                 received_pct = task.get("rx_pct", 0)
                 progress = (
-                    received_pct / 100.0
+                    received_pct / 10000.0
                     if received_pct > 0
                     else (received_bytes / size if size > 0 else 0.0)
                 )
@@ -724,63 +728,3 @@ class FreeboxDownloadClient(BaseDownloadClient):
             raise PVRProviderError(msg) from e
         else:
             return True
-
-    def _map_status_to_status(self, status_str: str) -> str:
-        """Map Freebox status to standardized status.
-
-        Parameters
-        ----------
-        status_str : str
-            Freebox status string.
-
-        Returns
-        -------
-        str
-            Standardized status string.
-
-        Notes
-        -----
-        Freebox status values:
-        - stopped: Stopped
-        - queued: Queued
-        - starting: Starting
-        - downloading: Downloading
-        - stopping: Stopping
-        - error: Error
-        - done: Done
-        - checking: Checking
-        - repairing: Repairing
-        - extracting: Extracting
-        - seeding: Seeding
-        - retry: Retry
-        """
-        status_lower = status_str.lower()
-        # Completed states
-        if status_lower == "done" or status_lower == "seeding":
-            return "completed"
-
-        # Downloading
-        if status_lower == "downloading":
-            return "downloading"
-
-        # Paused/Stopped
-        if status_lower in ("stopped", "stopping"):
-            return "paused"
-
-        # Error
-        if status_lower == "error":
-            return "failed"
-
-        # Queued states
-        if status_lower in (
-            "queued",
-            "starting",
-            "checking",
-            "repairing",
-            "extracting",
-            "retry",
-        ):
-            return "queued"
-
-        # Default to queued
-        return "queued"

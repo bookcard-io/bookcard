@@ -31,6 +31,8 @@ from bookcard.pvr.download_clients.vuze import (
 from bookcard.pvr.exceptions import (
     PVRProviderAuthenticationError,
     PVRProviderError,
+    PVRProviderNetworkError,
+    PVRProviderTimeoutError,
 )
 
 
@@ -116,8 +118,8 @@ class TestVuzeProxy:
         response = MagicMock()
         response.status_code = 200
         response.json.return_value = {"result": "error"}
-        proxy._handle_auth_response(response)
-        # Session ID should remain None
+        with pytest.raises(PVRProviderAuthenticationError):
+            proxy._handle_auth_response(response)
 
     @patch("bookcard.pvr.download_clients.vuze.create_httpx_client")
     def test_authenticate_http_error(
@@ -138,7 +140,7 @@ class TestVuzeProxy:
         mock_create_client.return_value = mock_client
 
         proxy = VuzeProxy(vuze_settings)
-        with pytest.raises(httpx.HTTPStatusError):
+        with pytest.raises(PVRProviderNetworkError):
             proxy._authenticate()
 
     @patch("bookcard.pvr.download_clients.vuze.create_httpx_client")
@@ -155,7 +157,7 @@ class TestVuzeProxy:
         mock_create_client.return_value = mock_client
 
         proxy = VuzeProxy(vuze_settings)
-        with pytest.raises(httpx.TimeoutException):
+        with pytest.raises(PVRProviderTimeoutError):
             proxy._authenticate()
 
     @patch("bookcard.pvr.download_clients.vuze.create_httpx_client")
@@ -172,7 +174,7 @@ class TestVuzeProxy:
         mock_create_client.return_value = mock_client
 
         proxy = VuzeProxy(vuze_settings)
-        with pytest.raises(httpx.RequestError):
+        with pytest.raises(PVRProviderNetworkError):
             proxy._authenticate()
 
     @patch("bookcard.pvr.download_clients.vuze.create_httpx_client")
@@ -187,7 +189,7 @@ class TestVuzeProxy:
         mock_create_client.return_value = mock_client
 
         proxy = VuzeProxy(vuze_settings)
-        with pytest.raises(ValueError, match="Value error"):
+        with pytest.raises(PVRProviderNetworkError, match="Value error"):
             proxy._authenticate()
 
     def test_parse_rpc_response_error(self, vuze_settings: VuzeSettings) -> None:
@@ -234,7 +236,7 @@ class TestVuzeProxy:
 
         proxy = VuzeProxy(vuze_settings)
         proxy._session_id = "test-session"
-        with pytest.raises(httpx.HTTPStatusError):
+        with pytest.raises(PVRProviderNetworkError):
             proxy._request("session-get")
 
     @patch.object(VuzeProxy, "_authenticate")
@@ -256,7 +258,7 @@ class TestVuzeProxy:
 
         proxy = VuzeProxy(vuze_settings)
         proxy._session_id = "test-session"
-        with pytest.raises(httpx.TimeoutException):
+        with pytest.raises(PVRProviderTimeoutError):
             proxy._request("session-get")
 
     @patch.object(VuzeProxy, "_request")
@@ -527,14 +529,20 @@ class TestVuzeClient:
         assert result == "ABCDEF1234567890"
 
     @patch.object(VuzeProxy, "add_torrent_from_file")
+    @patch("pathlib.Path.open")
+    @patch("pathlib.Path.is_file")
     def test_add_download_file_path_error(
         self,
+        mock_is_file: MagicMock,
+        mock_open: MagicMock,
         mock_add: MagicMock,
         vuze_settings: VuzeSettings,
         file_fetcher: FileFetcherProtocol,
         url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with file path error."""
+        mock_is_file.return_value = True
+        mock_open.return_value.__enter__.return_value.read.return_value = b"content"
         mock_add.return_value = {"arguments": {}}
         client = VuzeClient(
             settings=vuze_settings, file_fetcher=file_fetcher, url_router=url_router

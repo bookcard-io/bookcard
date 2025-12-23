@@ -393,7 +393,7 @@ class NzbgetClient(BaseDownloadClient):
             return DownloadStatus.DOWNLOADING
         return self._status_mapper.map(status)
 
-    def _add_magnet(
+    def add_magnet(
         self,
         _magnet_url: str,
         _title: str | None,
@@ -404,7 +404,7 @@ class NzbgetClient(BaseDownloadClient):
         msg = "NZBGet does not support magnet links"
         raise PVRProviderError(msg)
 
-    def _add_url(
+    def add_url(
         self,
         url: str,
         title: str | None,
@@ -419,7 +419,7 @@ class NzbgetClient(BaseDownloadClient):
         nzb_id = self._proxy.append_nzb(nzb_data, filename, category=cat)
         return str(nzb_id)
 
-    def _add_file(
+    def add_file(
         self,
         filepath: str,
         title: str | None,
@@ -603,7 +603,7 @@ class NzbgetClient(BaseDownloadClient):
         else:
             return True
 
-    def _make_int64(self, hi: int, lo: int) -> int | None:
+    def _make_int64(self, hi: int | None, lo: int) -> int | None:
         """Combine high and low 32-bit integers into 64-bit integer.
 
         Parameters

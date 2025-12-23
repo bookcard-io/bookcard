@@ -193,19 +193,14 @@ class TorrentRssParser:
                     if not data.get("title") or not data.get("download_url"):
                         continue
 
-                    seeders_leechers = data.get("seeders_leechers", (None, None))
-                    seeders, leechers = (
-                        seeders_leechers if seeders_leechers else (None, None)
-                    )
-
                     release = ReleaseInfo(
                         indexer_id=indexer_id,
                         title=data.get("title"),  # type: ignore
                         download_url=data.get("download_url"),  # type: ignore
                         size_bytes=data.get("size_bytes"),
                         publish_date=data.get("publish_date"),
-                        seeders=seeders,
-                        leechers=leechers,
+                        seeders=data.get("seeders"),
+                        leechers=data.get("leechers"),
                         quality=None,  # Hard to infer from generic RSS
                         author=None,
                         isbn=None,

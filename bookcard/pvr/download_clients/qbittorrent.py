@@ -494,7 +494,7 @@ class QBittorrentClient(BaseDownloadClient):
         """Return client name."""
         return "qBittorrent"
 
-    def _add_magnet(
+    def add_magnet(
         self,
         magnet_url: str,
         _title: str | None,
@@ -512,7 +512,7 @@ class QBittorrentClient(BaseDownloadClient):
                     return part.split(":")[-1].upper()
         return "pending"
 
-    def _add_url(
+    def add_url(
         self,
         url: str,
         _title: str | None,
@@ -526,7 +526,7 @@ class QBittorrentClient(BaseDownloadClient):
         # qBittorrent doesn't return hash immediately, return placeholder
         return "pending"
 
-    def _add_file(
+    def add_file(
         self,
         filepath: str,
         _title: str | None,

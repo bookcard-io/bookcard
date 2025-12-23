@@ -16,11 +16,12 @@
 """Tests for blackhole download clients."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from bookcard.pvr.base import DownloadClientSettings
+from bookcard.pvr.base.interfaces import FileFetcherProtocol
 from bookcard.pvr.download_clients.blackhole import (
     TorrentBlackholeClient,
     TorrentBlackholeSettings,
@@ -252,39 +253,31 @@ class TestTorrentBlackholeClient:
         copied_file = Path(client.settings.torrent_folder) / "download.torrent"
         assert copied_file.exists()
 
-    @patch("bookcard.pvr.download_clients.blackhole.httpx.Client")
     def test_add_download_torrent_url(
         self,
-        mock_client_class: MagicMock,
         torrent_blackhole_settings: TorrentBlackholeSettings,
         sample_torrent_url: str,
         file_fetcher: FileFetcher,
         url_router: DownloadUrlRouter,
     ) -> None:
         """Test adding torrent from URL."""
+        # Create mock file fetcher
+        mock_file_fetcher = MagicMock(spec=FileFetcherProtocol)
+        mock_file_fetcher.fetch_with_filename.return_value = (
+            b"torrent content",
+            "Test_Book.torrent",
+        )
+
         client = TorrentBlackholeClient(
             settings=torrent_blackhole_settings,
-            file_fetcher=file_fetcher,
+            file_fetcher=mock_file_fetcher,
             url_router=url_router,
             enabled=True,
         )
         Path(client.settings.torrent_folder).mkdir(parents=True, exist_ok=True)
 
-        mock_client_instance = MagicMock()
-        mock_response = MagicMock()
-        mock_response.content = b"torrent content"
-        mock_response.raise_for_status = MagicMock()
-        mock_client_instance.get.return_value = mock_response
-        mock_client_instance.__enter__ = MagicMock(return_value=mock_client_instance)
-        mock_client_instance.__exit__ = MagicMock(return_value=False)
-        mock_client_class.return_value = mock_client_instance
-
         result = client.add_download(sample_torrent_url, title="Test Book")
         assert result == "torrent_blackhole"
-
-        # Verify file was saved
-        saved_file = Path(client.settings.torrent_folder) / "Test_Book.torrent"
-        assert saved_file.exists()
 
         # Verify file was saved
         saved_file = Path(client.settings.torrent_folder) / "Test_Book.torrent"
@@ -304,7 +297,7 @@ class TestTorrentBlackholeClient:
             url_router=url_router,
         )
 
-        with pytest.raises(PVRProviderError, match="Unsupported download URL type"):
+        with pytest.raises(PVRProviderError, match="Invalid download URL"):
             client.add_download("ftp://example.com/file.torrent")
 
     def test_add_download_disabled(
@@ -474,16 +467,17 @@ class TestUsenetBlackholeClient:
         copied_file = Path(client.settings.nzb_folder) / "download.nzb"
         assert copied_file.exists()
 
-    @patch("bookcard.pvr.download_clients.blackhole.httpx.Client")
     def test_add_download_nzb_url(
         self,
-        mock_client_class: MagicMock,
         usenet_blackhole_settings: UsenetBlackholeSettings,
         sample_nzb_url: str,
         file_fetcher: FileFetcher,
         url_router: DownloadUrlRouter,
     ) -> None:
         """Test adding NZB from URL."""
+        # Mock file_fetcher.fetch_content
+        file_fetcher.fetch_content = MagicMock(return_value=b"nzb content")  # type: ignore[assignment]
+
         client = UsenetBlackholeClient(
             settings=usenet_blackhole_settings,
             file_fetcher=file_fetcher,
@@ -492,21 +486,8 @@ class TestUsenetBlackholeClient:
         )
         Path(client.settings.nzb_folder).mkdir(parents=True, exist_ok=True)
 
-        mock_client_instance = MagicMock()
-        mock_response = MagicMock()
-        mock_response.content = b"nzb content"
-        mock_response.raise_for_status = MagicMock()
-        mock_client_instance.get.return_value = mock_response
-        mock_client_instance.__enter__ = MagicMock(return_value=mock_client_instance)
-        mock_client_instance.__exit__ = MagicMock(return_value=False)
-        mock_client_class.return_value = mock_client_instance
-
         result = client.add_download(sample_nzb_url, title="Test Book")
         assert result == "nzb_blackhole"
-
-        # Verify file was saved
-        saved_file = Path(client.settings.nzb_folder) / "Test_Book.nzb"
-        assert saved_file.exists()
 
         # Verify file was saved
         saved_file = Path(client.settings.nzb_folder) / "Test_Book.nzb"
@@ -526,7 +507,7 @@ class TestUsenetBlackholeClient:
             url_router=url_router,
         )
 
-        with pytest.raises(PVRProviderError, match="Unsupported download URL type"):
+        with pytest.raises(PVRProviderError, match="Invalid download URL"):
             client.add_download("ftp://example.com/file.nzb")
 
     def test_add_download_disabled(

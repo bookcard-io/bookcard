@@ -124,10 +124,12 @@ class DownloadStationProxy:
                 handle_http_error_response(
                     e.response.status_code, e.response.text[:200]
                 )
-                raise
             except (httpx.RequestError, httpx.TimeoutException) as e:
                 handle_httpx_exception(e, "Download Station API query")
-                raise
+
+        # Should be unreachable if handle_httpx_exception raises, but for typing:
+        msg = "Failed to query API info"
+        raise PVRProviderError(msg)
 
     def authenticate(self, force: bool = False) -> None:
         """Authenticate with Download Station and get session ID.
@@ -196,10 +198,8 @@ class DownloadStationProxy:
                     msg = "Download Station authentication failed"
                     raise PVRProviderAuthenticationError(msg) from e
                 handle_httpx_exception(e, "Download Station authentication")
-                raise
             except (httpx.RequestError, httpx.TimeoutException) as e:
                 handle_httpx_exception(e, "Download Station authentication")
-                raise
 
     def _execute_request(
         self,
@@ -329,10 +329,12 @@ class DownloadStationProxy:
                 handle_http_error_response(
                     e.response.status_code, e.response.text[:200]
                 )
-                raise
             except (httpx.RequestError, httpx.TimeoutException) as e:
                 handle_httpx_exception(e, f"Download Station API {api}.{method}")
-                raise
+
+        # Should be unreachable
+        msg = f"Request failed: {api}.{method}"
+        raise PVRProviderError(msg)
 
     def add_task_from_url(self, url: str, destination: str | None = None) -> str:
         """Add task from URL or magnet link.
@@ -488,7 +490,7 @@ class DownloadStationClient(BaseDownloadClient):
         """Return client name."""
         return "Download Station"
 
-    def _add_magnet(
+    def add_magnet(
         self,
         magnet_url: str,
         _title: str | None,
@@ -499,7 +501,7 @@ class DownloadStationClient(BaseDownloadClient):
         destination = download_path or self.settings.download_path
         return self._proxy.add_task_from_url(magnet_url, destination=destination)
 
-    def _add_url(
+    def add_url(
         self,
         url: str,
         _title: str | None,
@@ -510,7 +512,7 @@ class DownloadStationClient(BaseDownloadClient):
         destination = download_path or self.settings.download_path
         return self._proxy.add_task_from_url(url, destination=destination)
 
-    def _add_file(
+    def add_file(
         self,
         filepath: str,
         _title: str | None,

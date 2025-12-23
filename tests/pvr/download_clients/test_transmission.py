@@ -32,6 +32,8 @@ from bookcard.pvr.download_clients.transmission import (
 from bookcard.pvr.exceptions import (
     PVRProviderAuthenticationError,
     PVRProviderError,
+    PVRProviderNetworkError,
+    PVRProviderTimeoutError,
 )
 
 
@@ -561,7 +563,7 @@ class TestTransmissionClient:
         mock_create_client.return_value = mock_client
 
         proxy = TransmissionProxy(transmission_settings)
-        with pytest.raises(httpx.HTTPStatusError):
+        with pytest.raises(PVRProviderNetworkError):
             proxy._authenticate()
 
     @patch("bookcard.pvr.download_clients.transmission.create_httpx_client")
@@ -578,7 +580,7 @@ class TestTransmissionClient:
         mock_create_client.return_value = mock_client
 
         proxy = TransmissionProxy(transmission_settings)
-        with pytest.raises(httpx.TimeoutException):
+        with pytest.raises(PVRProviderTimeoutError):
             proxy._authenticate()
 
     @patch("bookcard.pvr.download_clients.transmission.create_httpx_client")
@@ -595,7 +597,7 @@ class TestTransmissionClient:
         mock_create_client.return_value = mock_client
 
         proxy = TransmissionProxy(transmission_settings)
-        with pytest.raises(httpx.RequestError):
+        with pytest.raises(PVRProviderNetworkError):
             proxy._authenticate()
 
     @patch.object(TransmissionProxy, "_authenticate")
@@ -623,7 +625,7 @@ class TestTransmissionClient:
 
         proxy = TransmissionProxy(transmission_settings)
         proxy._session_id = "test-session"
-        with pytest.raises(httpx.HTTPStatusError):
+        with pytest.raises(PVRProviderNetworkError):
             proxy._request("session-get")
 
     @patch.object(TransmissionProxy, "_authenticate")
@@ -645,7 +647,7 @@ class TestTransmissionClient:
 
         proxy = TransmissionProxy(transmission_settings)
         proxy._session_id = "test-session"
-        with pytest.raises(httpx.TimeoutException):
+        with pytest.raises(PVRProviderTimeoutError):
             proxy._request("session-get")
 
     @patch.object(TransmissionProxy, "_request")
@@ -697,14 +699,20 @@ class TestTransmissionClient:
         assert result == "ABCDEF1234567890"
 
     @patch.object(TransmissionProxy, "add_torrent_from_file")
+    @patch("pathlib.Path.open")
+    @patch("pathlib.Path.is_file")
     def test_add_download_file_path_error(
         self,
+        mock_is_file: MagicMock,
+        mock_open: MagicMock,
         mock_add: MagicMock,
         transmission_settings: TransmissionSettings,
         file_fetcher: FileFetcherProtocol,
         url_router: UrlRouterProtocol,
     ) -> None:
         """Test add_download with file path error."""
+        mock_is_file.return_value = True
+        mock_open.return_value.__enter__.return_value.read.return_value = b"content"
         mock_add.return_value = {"arguments": {}}
         client = TransmissionClient(
             settings=transmission_settings,

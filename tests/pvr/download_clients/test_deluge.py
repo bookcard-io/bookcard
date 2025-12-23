@@ -18,6 +18,7 @@
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
+import httpx
 import pytest
 
 from bookcard.pvr.base import DownloadClientSettings
@@ -27,7 +28,12 @@ from bookcard.pvr.download_clients.deluge import (
     DelugeProxy,
     DelugeSettings,
 )
-from bookcard.pvr.exceptions import PVRProviderAuthenticationError
+from bookcard.pvr.exceptions import (
+    PVRProviderAuthenticationError,
+    PVRProviderError,
+    PVRProviderNetworkError,
+    PVRProviderTimeoutError,
+)
 
 
 class TestDelugeProxy:
@@ -58,6 +64,19 @@ class TestDelugeProxy:
         proxy._authenticate()
 
         assert proxy._session_id == "test-session-id"
+
+    def test_authenticate_already_authenticated(
+        self, deluge_settings: DelugeSettings
+    ) -> None:
+        """Test authenticate when already authenticated."""
+        proxy = DelugeProxy(deluge_settings)
+        proxy._session_id = "existing-session"
+        # Should return immediately without making requests
+        with patch(
+            "bookcard.pvr.download_clients.deluge.create_httpx_client"
+        ) as mock_create:
+            proxy._authenticate()
+            mock_create.assert_not_called()
 
     @patch("bookcard.pvr.download_clients.deluge.create_httpx_client")
     def test_authenticate_no_credentials(
@@ -113,6 +132,37 @@ class TestDelugeProxy:
         with pytest.raises(PVRProviderAuthenticationError, match="no session ID"):
             proxy._authenticate()
 
+    @patch("bookcard.pvr.download_clients.deluge.create_httpx_client")
+    def test_authenticate_network_exceptions(
+        self, mock_create_client: MagicMock, deluge_settings: DelugeSettings
+    ) -> None:
+        """Test authentication with network exceptions."""
+        mock_client = MagicMock()
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = DelugeProxy(deluge_settings)
+
+        # Timeout
+        mock_client.post.side_effect = httpx.TimeoutException("Timeout")
+        with pytest.raises(PVRProviderTimeoutError):
+            proxy._authenticate()
+
+        # Request Error
+        mock_client.post.side_effect = httpx.RequestError("Error")
+        with pytest.raises(PVRProviderNetworkError):
+            proxy._authenticate()
+
+        # HTTP Status Error (401)
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        mock_client.post.side_effect = httpx.HTTPStatusError(
+            "Unauthorized", request=Mock(), response=mock_response
+        )
+        with pytest.raises(PVRProviderAuthenticationError):
+            proxy._authenticate()
+
     @patch.object(DelugeProxy, "_authenticate")
     @patch("bookcard.pvr.download_clients.deluge.create_httpx_client")
     def test_request_success(
@@ -166,7 +216,117 @@ class TestDelugeProxy:
         result = proxy._request("test.method")
 
         assert result == "success"
+        # Initial auth + retry auth
         assert mock_authenticate.call_count == 2
+
+    @patch.object(DelugeProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.deluge.create_httpx_client")
+    def test_handle_rpc_error_generic(
+        self,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        deluge_settings: DelugeSettings,
+    ) -> None:
+        """Test _handle_rpc_error with generic error."""
+        proxy = DelugeProxy(deluge_settings)
+        with pytest.raises(PVRProviderError, match="Deluge RPC error: Generic error"):
+            proxy._handle_rpc_error(
+                {"error": {"code": 99, "message": "Generic error"}}, {}, {}, MagicMock()
+            )
+
+    @patch.object(DelugeProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.deluge.create_httpx_client")
+    def test_make_rpc_request_session_expired(
+        self,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        deluge_settings: DelugeSettings,
+    ) -> None:
+        """Test _make_rpc_request handles 403 session expired."""
+        mock_client = MagicMock()
+        mock_response_403 = MagicMock()
+        mock_response_403.status_code = 403
+        mock_response_200 = MagicMock()
+        mock_response_200.status_code = 200
+        mock_client.post.side_effect = [mock_response_403, mock_response_200]
+
+        proxy = DelugeProxy(deluge_settings)
+        proxy._session_id = "old-session"
+
+        response = proxy._make_rpc_request({}, {}, mock_client)
+
+        assert response == mock_response_200
+        mock_authenticate.assert_called_once_with(force=True)
+
+    @patch.object(DelugeProxy, "_authenticate")
+    @patch("bookcard.pvr.download_clients.deluge.create_httpx_client")
+    def test_request_network_exceptions(
+        self,
+        mock_create_client: MagicMock,
+        mock_authenticate: MagicMock,
+        deluge_settings: DelugeSettings,
+    ) -> None:
+        """Test _request network exceptions."""
+        mock_client = MagicMock()
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = DelugeProxy(deluge_settings)
+
+        # Timeout
+        mock_client.post.side_effect = httpx.TimeoutException("Timeout")
+        with pytest.raises(PVRProviderTimeoutError):
+            proxy._request("method")
+
+        # HTTP Status Error (404)
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        mock_response.text = "Not Found"
+        mock_client.post.side_effect = httpx.HTTPStatusError(
+            "Error", request=Mock(), response=mock_response
+        )
+        with pytest.raises(PVRProviderNetworkError):
+            proxy._request("method")
+
+        # HTTP Status Error (401)
+        mock_response_401 = MagicMock()
+        mock_response_401.status_code = 401
+        mock_client.post.side_effect = httpx.HTTPStatusError(
+            "Unauthorized", request=Mock(), response=mock_response_401
+        )
+        with pytest.raises(PVRProviderAuthenticationError):
+            proxy._request("method")
+
+    def test_add_torrent_magnet_no_options(
+        self, deluge_settings: DelugeSettings
+    ) -> None:
+        """Test add_torrent_magnet with no options."""
+        proxy = DelugeProxy(deluge_settings)
+        with patch.object(proxy, "_request") as mock_request:
+            mock_request.return_value = "hash"
+            proxy.add_torrent_magnet("magnet:?")
+            mock_request.assert_called_with("core.add_torrent_magnet", "magnet:?", {})
+
+    def test_add_torrent_file_no_options(self, deluge_settings: DelugeSettings) -> None:
+        """Test add_torrent_file with no options."""
+        proxy = DelugeProxy(deluge_settings)
+        with patch.object(proxy, "_request") as mock_request:
+            mock_request.return_value = "hash"
+            proxy.add_torrent_file("test.torrent", b"content")
+            # Verify called with empty dict options
+            assert mock_request.call_args[0][3] == {}
+
+    @patch.object(DelugeProxy, "_request")
+    def test_get_torrents_by_label_list_response(
+        self, mock_request: MagicMock, deluge_settings: DelugeSettings
+    ) -> None:
+        """Test get_torrents_by_label with list response."""
+        mock_request.return_value = {"torrents": [{"name": "test"}]}
+        proxy = DelugeProxy(deluge_settings)
+        result = proxy.get_torrents_by_label("label")
+        assert len(result) == 1
+        assert result[0]["name"] == "test"
 
     @patch.object(DelugeProxy, "_request")
     def test_get_version(
@@ -229,6 +389,29 @@ class TestDelugeProxy:
         assert result == []
 
     @patch.object(DelugeProxy, "_request")
+    def test_get_torrents_invalid_response(
+        self, mock_request: MagicMock, deluge_settings: DelugeSettings
+    ) -> None:
+        """Test get_torrents with invalid response structure."""
+        # Not a dict
+        mock_request.return_value = "invalid"
+        proxy = DelugeProxy(deluge_settings)
+        assert proxy.get_torrents() == []
+
+        # Missing 'torrents' key
+        mock_request.return_value = {"something": "else"}
+        assert proxy.get_torrents() == []
+
+    @patch.object(DelugeProxy, "_request")
+    def test_get_torrents_by_label_invalid_response(
+        self, mock_request: MagicMock, deluge_settings: DelugeSettings
+    ) -> None:
+        """Test get_torrents_by_label with invalid response structure."""
+        mock_request.return_value = None
+        proxy = DelugeProxy(deluge_settings)
+        assert proxy.get_torrents_by_label("label") == []
+
+    @patch.object(DelugeProxy, "_request")
     def test_remove_torrent(
         self, mock_request: MagicMock, deluge_settings: DelugeSettings
     ) -> None:
@@ -236,6 +419,15 @@ class TestDelugeProxy:
         proxy = DelugeProxy(deluge_settings)
         _ = proxy.remove_torrent("abc123", remove_data=True)
         mock_request.assert_called_once()
+
+    @patch.object(DelugeProxy, "_request")
+    def test_set_torrent_label(
+        self, mock_request: MagicMock, deluge_settings: DelugeSettings
+    ) -> None:
+        """Test set_torrent_label."""
+        proxy = DelugeProxy(deluge_settings)
+        proxy.set_torrent_label("hash", "label")
+        mock_request.assert_called_with("label.set_torrent", "hash", "label")
 
 
 class TestDelugeClient:
@@ -267,6 +459,18 @@ class TestDelugeClient:
             url_router=url_router,
         )
         assert isinstance(client.settings, DelugeSettings)
+
+    def test_client_name(
+        self,
+        deluge_settings: DelugeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test client_name property."""
+        client = DelugeClient(
+            settings=deluge_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        assert client.client_name == "Deluge"
 
     @patch.object(DelugeProxy, "_authenticate")
     @patch.object(DelugeProxy, "set_torrent_label")
@@ -311,6 +515,53 @@ class TestDelugeClient:
         assert result == "ABC123HASH"
         mock_add.assert_called_once()
 
+    @patch.object(DelugeProxy, "add_torrent_file")
+    @patch("bookcard.pvr.services.file_fetcher.FileFetcher")
+    def test_add_url(
+        self,
+        mock_file_fetcher_cls: MagicMock,
+        mock_add: MagicMock,
+        deluge_settings: DelugeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test add_url with configured file fetcher."""
+        mock_add.return_value = "abc123hash"
+
+        # Mock the FileFetcher instance created inside add_url
+        mock_fetcher_instance = MagicMock()
+        mock_fetcher_instance.fetch_with_filename.return_value = (
+            b"content",
+            "test.torrent",
+        )
+        mock_file_fetcher_cls.return_value = mock_fetcher_instance
+
+        client = DelugeClient(
+            settings=deluge_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        result = client.add_url("http://example.com/test.torrent", None, None, None)
+        assert result == "ABC123HASH"
+        mock_add.assert_called_once()
+
+    @patch.object(DelugeProxy, "add_torrent_file")
+    @patch.object(DelugeProxy, "set_torrent_label")
+    def test_add_file_with_category(
+        self,
+        mock_set_label: MagicMock,
+        mock_add: MagicMock,
+        deluge_settings: DelugeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+        sample_torrent_file: Path,
+    ) -> None:
+        """Test add_file with category triggers set_torrent_label."""
+        mock_add.return_value = "abc123hash"
+        client = DelugeClient(
+            settings=deluge_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        client.add_file(str(sample_torrent_file), None, "category", None)
+        mock_set_label.assert_called_once_with("abc123hash", "category")
+
     @patch.object(DelugeProxy, "get_torrents_by_label")
     @patch.object(DelugeProxy, "get_torrents")
     def test_get_items(
@@ -351,6 +602,77 @@ class TestDelugeClient:
         assert len(items) == 1
         assert items[0]["client_item_id"] == "ABC123"
 
+    @patch.object(DelugeProxy, "get_torrents_by_label")
+    @patch.object(DelugeProxy, "get_torrents")
+    def test_get_items_empty_hash(
+        self,
+        mock_get_torrents: MagicMock,
+        mock_get_torrents_by_label: MagicMock,
+        deluge_settings: DelugeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test get_items with empty hash."""
+        mock_get_torrents_by_label.return_value = [{"hash": ""}]
+        client = DelugeClient(
+            settings=deluge_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        assert client.get_items() == []
+
+    @patch.object(DelugeProxy, "get_torrents")
+    def test_get_items_progress_cap(
+        self,
+        mock_get_torrents: MagicMock,
+        deluge_settings: DelugeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test get_items caps progress at 1.0."""
+        deluge_settings.category = None  # Use get_torrents
+        mock_get_torrents.return_value = [
+            {
+                "hash": "abc123",
+                "progress": 150.0,  # > 100%
+            }
+        ]
+        client = DelugeClient(
+            settings=deluge_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        items = client.get_items()
+        assert items[0]["progress"] == 1.0
+
+    @patch.object(DelugeProxy, "get_torrents")
+    def test_get_items_error(
+        self,
+        mock_get_torrents: MagicMock,
+        deluge_settings: DelugeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test get_items with error."""
+        deluge_settings.category = None
+        mock_get_torrents.side_effect = Exception("API Error")
+        client = DelugeClient(
+            settings=deluge_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        with pytest.raises(PVRProviderError, match="Failed to get downloads"):
+            client.get_items()
+
+    def test_get_items_disabled(
+        self,
+        deluge_settings: DelugeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test get_items when disabled."""
+        client = DelugeClient(
+            settings=deluge_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
+        assert client.get_items() == []
+
     @patch.object(DelugeProxy, "_authenticate")
     @patch.object(DelugeProxy, "remove_torrent")
     def test_remove_item(
@@ -371,6 +693,38 @@ class TestDelugeClient:
         # DelugeClient passes delete_files to remove_torrent which maps to remove_data
         mock_remove.assert_called_once()
 
+    def test_remove_item_disabled(
+        self,
+        deluge_settings: DelugeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test remove_item when disabled."""
+        client = DelugeClient(
+            settings=deluge_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
+        with pytest.raises(PVRProviderError, match="disabled"):
+            client.remove_item("abc123")
+
+    @patch.object(DelugeProxy, "remove_torrent")
+    def test_remove_item_error(
+        self,
+        mock_remove: MagicMock,
+        deluge_settings: DelugeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test remove_item with error."""
+        mock_remove.side_effect = Exception("API Error")
+        client = DelugeClient(
+            settings=deluge_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        with pytest.raises(PVRProviderError, match="Failed to remove"):
+            client.remove_item("abc123")
+
     @patch.object(DelugeProxy, "get_version")
     def test_test_connection(
         self,
@@ -386,3 +740,19 @@ class TestDelugeClient:
         )
         result = client.test_connection()
         assert result is True
+
+    @patch.object(DelugeProxy, "get_version")
+    def test_test_connection_error(
+        self,
+        mock_get_version: MagicMock,
+        deluge_settings: DelugeSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test test_connection with error."""
+        mock_get_version.side_effect = Exception("Connect Error")
+        client = DelugeClient(
+            settings=deluge_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        with pytest.raises(PVRProviderError, match="Failed to connect"):
+            client.test_connection()

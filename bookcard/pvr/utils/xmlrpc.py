@@ -345,13 +345,17 @@ class XmlRpcParser:
         root = ET.fromstring(xml_content)  # noqa: S314
         self.check_fault(root)
 
-        # Find methodResponse/params/param/value
-        method_response = root.find("methodResponse")
-        if method_response is None:
-            msg = "Invalid XML-RPC response: missing methodResponse"
-            raise PVRProviderError(msg)
+        # Root element should be methodResponse
+        if root.tag != "methodResponse":
+            # Some implementations might wrap it or have different root
+            # Try to find it as a child just in case
+            method_response = root.find("methodResponse")
+            if method_response is None:
+                msg = "Invalid XML-RPC response: missing methodResponse"
+                raise PVRProviderError(msg)
+            root = method_response
 
-        params = method_response.find("params")
+        params = root.find("params")
         if params is None:
             # No params means void return
             return None

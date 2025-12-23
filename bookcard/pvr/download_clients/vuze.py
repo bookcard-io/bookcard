@@ -535,7 +535,7 @@ class VuzeClient(BaseDownloadClient):
         if not hash_str and magnet_url:
             # Extract hash from magnet link as fallback
             for part in magnet_url.split("&"):
-                if part.startswith("xt=urn:btih:"):
+                if "xt=urn:btih:" in part:
                     hash_str = part.split(":")[-1].upper()
                     break
 
@@ -545,7 +545,7 @@ class VuzeClient(BaseDownloadClient):
 
         return hash_str.upper()
 
-    def _add_magnet(
+    def add_magnet(
         self,
         magnet_url: str,
         _title: str | None,
@@ -557,7 +557,7 @@ class VuzeClient(BaseDownloadClient):
         response = self._proxy.add_torrent_from_url(magnet_url, download_dir=path)
         return self._extract_hash_from_response(response, magnet_url)
 
-    def _add_url(
+    def add_url(
         self,
         url: str,
         _title: str | None,
@@ -569,7 +569,7 @@ class VuzeClient(BaseDownloadClient):
         response = self._proxy.add_torrent_from_url(url, download_dir=path)
         return self._extract_hash_from_response(response)
 
-    def _add_file(
+    def add_file(
         self,
         filepath: str,
         _title: str | None,

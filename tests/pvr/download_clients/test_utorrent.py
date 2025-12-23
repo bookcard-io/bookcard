@@ -30,6 +30,8 @@ from bookcard.pvr.download_clients.utorrent import (
 from bookcard.pvr.exceptions import (
     PVRProviderAuthenticationError,
     PVRProviderError,
+    PVRProviderNetworkError,
+    PVRProviderTimeoutError,
 )
 
 
@@ -187,7 +189,7 @@ class TestUTorrentProxy:
         mock_create_client.return_value = mock_client
 
         proxy = UTorrentProxy(settings)
-        with pytest.raises(httpx.TimeoutException):
+        with pytest.raises(PVRProviderTimeoutError):
             proxy._authenticate()
 
     @patch("bookcard.pvr.download_clients.utorrent.create_httpx_client")
@@ -209,7 +211,7 @@ class TestUTorrentProxy:
         mock_create_client.return_value = mock_client
 
         proxy = UTorrentProxy(settings)
-        with pytest.raises(httpx.RequestError):
+        with pytest.raises(PVRProviderNetworkError):
             proxy._authenticate()
 
     @patch.object(UTorrentProxy, "_authenticate")
@@ -300,7 +302,8 @@ class TestUTorrentProxy:
         result = proxy.get_torrents(cache_id="cache123")
         assert result == []
         call_args = mock_request.call_args
-        assert call_args[1]["params"]["cid"] == "cache123"
+        # params passed as positional argument
+        assert call_args[0][1]["cid"] == "cache123"
 
     @patch.object(UTorrentProxy, "_request")
     def test_get_torrents_short_list(self, mock_request: MagicMock) -> None:
@@ -431,7 +434,7 @@ class TestUTorrentProxy:
 
         proxy = UTorrentProxy(settings)
         proxy._token = "test-token"
-        with pytest.raises(httpx.TimeoutException):
+        with pytest.raises(PVRProviderTimeoutError):
             proxy.add_torrent_file("test.torrent", b"torrent content")
 
     @patch.object(UTorrentProxy, "_request")
@@ -465,8 +468,8 @@ class TestUTorrentProxy:
         mock_request.assert_called_once()
         call_args = mock_request.call_args
         assert call_args[0][0] == "setprops"
-        assert call_args[1]["params"]["s"] == "label"
-        assert call_args[1]["params"]["v"] == "test-label"
+        assert call_args[0][1]["s"] == "label"
+        assert call_args[0][1]["v"] == "test-label"
 
 
 class TestUTorrentClient:

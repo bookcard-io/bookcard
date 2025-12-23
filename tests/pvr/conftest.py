@@ -122,6 +122,11 @@ class MockIndexer(BaseIndexer):
 class MockDownloadClient(BaseDownloadClient):
     """Mock download client implementation for testing."""
 
+    @property
+    def client_name(self) -> str:
+        """Return client name."""
+        return "Mock Client"
+
     def add_download(
         self,
         download_url: str,

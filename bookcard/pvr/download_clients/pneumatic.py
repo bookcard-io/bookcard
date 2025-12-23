@@ -113,6 +113,11 @@ class PneumaticClient(BaseDownloadClient):
         Path(self.settings.nzb_folder).mkdir(parents=True, exist_ok=True)
         Path(self.settings.strm_folder).mkdir(parents=True, exist_ok=True)
 
+    @property
+    def client_name(self) -> str:
+        """Return client name."""
+        return "Pneumatic"
+
     def add_download(
         self,
         download_url: str,

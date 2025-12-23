@@ -593,7 +593,7 @@ class TransmissionClient(BaseDownloadClient):
 
         return hash_str.upper()
 
-    def _add_magnet(
+    def add_magnet(
         self,
         magnet_url: str,
         _title: str | None,
@@ -606,7 +606,7 @@ class TransmissionClient(BaseDownloadClient):
         )
         return self._extract_hash_from_response(response, magnet_url)
 
-    def _add_url(
+    def add_url(
         self,
         url: str,
         _title: str | None,
@@ -617,7 +617,7 @@ class TransmissionClient(BaseDownloadClient):
         response = self._proxy.add_torrent_from_url(url, download_dir=download_path)
         return self._extract_hash_from_response(response)
 
-    def _add_file(
+    def add_file(
         self,
         filepath: str,
         _title: str | None,

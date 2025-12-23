@@ -16,8 +16,10 @@
 """Tests for Hadouken download client."""
 
 import base64
+from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
+import httpx
 import pytest
 
 from bookcard.pvr.base import DownloadClientSettings
@@ -30,7 +32,10 @@ from bookcard.pvr.download_clients.hadouken import (
 from bookcard.pvr.exceptions import (
     PVRProviderAuthenticationError,
     PVRProviderError,
+    PVRProviderNetworkError,
+    PVRProviderTimeoutError,
 )
+from bookcard.pvr.utils.status import DownloadStatus
 
 
 class TestHadoukenProxy:
@@ -124,6 +129,52 @@ class TestHadoukenProxy:
         with pytest.raises(PVRProviderError, match="JSON-RPC error"):
             proxy._request("torrents.list")
 
+    @patch("bookcard.pvr.download_clients.hadouken.create_httpx_client")
+    def test_request_rpc_error_string(
+        self, mock_create_client: MagicMock, hadouken_settings: HadoukenSettings
+    ) -> None:
+        """Test _request with JSON-RPC error as string."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "result": None,
+            "error": "RPC Error String",
+        }
+        mock_client.post.return_value = mock_response
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+
+        proxy = HadoukenProxy(hadouken_settings)
+        with pytest.raises(PVRProviderError, match="JSON-RPC error: RPC Error String"):
+            proxy._request("method")
+
+    @patch("bookcard.pvr.download_clients.hadouken.create_httpx_client")
+    def test_request_network_error(
+        self, mock_create_client: MagicMock, hadouken_settings: HadoukenSettings
+    ) -> None:
+        """Test _request network error."""
+        mock_client = MagicMock()
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_create_client.return_value = mock_client
+        proxy = HadoukenProxy(hadouken_settings)
+
+        # Timeout
+        mock_client.post.side_effect = httpx.TimeoutException("Timeout")
+        with pytest.raises(PVRProviderTimeoutError):
+            proxy._request("method")
+
+        # HTTP Status Error
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_client.post.side_effect = httpx.HTTPStatusError(
+            "Error", request=Mock(), response=mock_response
+        )
+        with pytest.raises(PVRProviderNetworkError):
+            proxy._request("method")
+
     @patch.object(HadoukenProxy, "_request")
     def test_get_torrents(
         self, mock_request: MagicMock, hadouken_settings: HadoukenSettings
@@ -133,6 +184,71 @@ class TestHadoukenProxy:
         proxy = HadoukenProxy(hadouken_settings)
         result = proxy.get_torrents()
         assert len(result) == 1
+
+    @patch.object(HadoukenProxy, "_request")
+    def test_get_torrents_dict_response(
+        self, mock_request: MagicMock, hadouken_settings: HadoukenSettings
+    ) -> None:
+        """Test get_torrents with dict response."""
+        mock_request.return_value = {"torrents": [["item1"], "invalid"]}
+        proxy = HadoukenProxy(hadouken_settings)
+        result = proxy.get_torrents()
+        assert len(result) == 2
+        assert result[0] == ["item1"]
+        assert result[1] == []  # Invalid item replaced by empty list
+
+    @patch.object(HadoukenProxy, "_request")
+    def test_get_system_info(
+        self, mock_request: MagicMock, hadouken_settings: HadoukenSettings
+    ) -> None:
+        """Test get_system_info."""
+        mock_request.return_value = {"version": "1.0"}
+        proxy = HadoukenProxy(hadouken_settings)
+        assert proxy.get_system_info() == {"version": "1.0"}
+
+    @patch.object(HadoukenProxy, "_request")
+    def test_get_system_info_invalid(
+        self, mock_request: MagicMock, hadouken_settings: HadoukenSettings
+    ) -> None:
+        """Test get_system_info invalid response."""
+        mock_request.return_value = "invalid"
+        proxy = HadoukenProxy(hadouken_settings)
+        with pytest.raises(PVRProviderError, match="Unexpected response type"):
+            proxy.get_system_info()
+
+    @patch.object(HadoukenProxy, "_request")
+    def test_add_torrent_url(
+        self, mock_request: MagicMock, hadouken_settings: HadoukenSettings
+    ) -> None:
+        """Test add_torrent_url."""
+        proxy = HadoukenProxy(hadouken_settings)
+        proxy.add_torrent_url("url", category="cat")
+        mock_request.assert_called_with(
+            "webui.addTorrent", {"url": "url", "label": "cat"}
+        )
+
+    @patch.object(HadoukenProxy, "_request")
+    def test_add_torrent_file(
+        self, mock_request: MagicMock, hadouken_settings: HadoukenSettings
+    ) -> None:
+        """Test add_torrent_file."""
+        mock_request.return_value = "hash"
+        proxy = HadoukenProxy(hadouken_settings)
+        assert proxy.add_torrent_file(b"content", category="cat") == "hash"
+
+        call_args = mock_request.call_args
+        assert call_args[0][0] == "webui.addTorrent"
+        assert "file" in call_args[0][1]
+        assert call_args[0][1]["label"] == "cat"
+
+    @patch.object(HadoukenProxy, "_request")
+    def test_remove_torrent(
+        self, mock_request: MagicMock, hadouken_settings: HadoukenSettings
+    ) -> None:
+        """Test remove_torrent."""
+        proxy = HadoukenProxy(hadouken_settings)
+        proxy.remove_torrent("hash", delete_data=True)
+        mock_request.assert_called_with("webui.perform", "removedata", ["hash"])
 
 
 class TestHadoukenClient:
@@ -150,6 +266,7 @@ class TestHadoukenClient:
         )
         assert isinstance(client.settings, HadoukenSettings)
         assert client.enabled is True
+        assert client.client_name == "Hadouken"
 
     def test_init_with_download_client_settings(
         self,
@@ -182,6 +299,55 @@ class TestHadoukenClient:
         assert result == "ABCDEF1234567890"
         mock_add.assert_called_once()
 
+    @patch.object(HadoukenProxy, "add_torrent_url")
+    def test_add_download_magnet_invalid(
+        self,
+        mock_add: MagicMock,
+        hadouken_settings: HadoukenSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test add_download with invalid magnet link."""
+        client = HadoukenClient(
+            settings=hadouken_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        result = client.add_download("magnet:?dn=test")  # No hash
+        assert result == "pending"
+
+    @patch.object(HadoukenProxy, "add_torrent_url")
+    def test_add_url(
+        self,
+        mock_add: MagicMock,
+        hadouken_settings: HadoukenSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test add_url."""
+        client = HadoukenClient(
+            settings=hadouken_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        result = client.add_url("http://example.com/test.torrent", None, "cat", None)
+        assert result == "pending"
+        mock_add.assert_called_with("http://example.com/test.torrent", category="cat")
+
+    @patch.object(HadoukenProxy, "add_torrent_file")
+    def test_add_file(
+        self,
+        mock_add: MagicMock,
+        hadouken_settings: HadoukenSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+        sample_torrent_file: Path,
+    ) -> None:
+        """Test add_file."""
+        mock_add.return_value = "hash"
+        client = HadoukenClient(
+            settings=hadouken_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        result = client.add_file(str(sample_torrent_file), None, "cat", None)
+        assert result == "HASH"
+        mock_add.assert_called_once()
+
     @patch.object(HadoukenProxy, "get_torrents")
     def test_get_items(
         self,
@@ -198,12 +364,12 @@ class TestHadoukenClient:
                 1,  # 1: state
                 "Test Torrent",  # 2: name
                 1000000,  # 3: total_size
-                500000,  # 4: progress
+                500.0,  # 4: progress (0-1000)
                 500000,  # 5: downloaded_bytes
                 0,  # 6: upload_rate
                 0,  # 7: (unused)
                 0,  # 8: (unused)
-                0,  # 9: download_rate
+                1024,  # 9: download_rate
                 0,  # 10: (unused)
                 "test",  # 11: label (must match category)
                 0,  # 12: (unused)
@@ -221,7 +387,8 @@ class TestHadoukenClient:
                 0,  # 24: (unused)
                 0,  # 25: (unused)
                 "/path",  # 26: save_path
-            ]
+            ],
+            [],  # Invalid
         ]
         client = HadoukenClient(
             settings=hadouken_settings, file_fetcher=file_fetcher, url_router=url_router
@@ -229,6 +396,103 @@ class TestHadoukenClient:
         items = client.get_items()
         assert len(items) == 1
         assert items[0]["client_item_id"] == "ABC123"
+        assert items[0]["progress"] == 0.5
+        assert items[0]["download_speed_bytes_per_sec"] == 1024
+        # ETA: 500000 / 1024 approx 488
+        assert items[0]["eta_seconds"] == 488
+
+    @patch.object(HadoukenProxy, "get_torrents")
+    def test_get_items_progress_cap(
+        self,
+        mock_get_torrents: MagicMock,
+        hadouken_settings: HadoukenSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test get_items progress cap."""
+        hadouken_settings.category = None  # Disable filtering
+        item = [0] * 27
+        item[0] = "hash"
+        item[4] = 1500.0  # > 1000
+        mock_get_torrents.return_value = [item]
+        client = HadoukenClient(
+            settings=hadouken_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        items = client.get_items()
+        assert items[0]["progress"] == 1.0
+
+    @patch.object(HadoukenProxy, "get_torrents")
+    def test_get_items_status_mapping(
+        self,
+        mock_get_torrents: MagicMock,
+        hadouken_settings: HadoukenSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test get_items status mapping."""
+        hadouken_settings.category = None  # Disable filtering
+
+        def make_item(
+            state: int, error: str = "", progress: int = 0
+        ) -> list[int | str]:
+            item: list[int | str] = [0] * 27
+            item[0] = "hash"
+            item[1] = state
+            item[4] = progress
+            item[21] = error
+            return item
+
+        mock_get_torrents.return_value = [
+            make_item(0, error="Error"),  # Failed
+            make_item(1),  # Downloading
+            make_item(2),  # Queued (checking)
+            make_item(32),  # Paused
+            make_item(64),  # Queued
+            make_item(0, progress=1000),  # Completed
+            make_item(0),  # Default Queued
+        ]
+        client = HadoukenClient(
+            settings=hadouken_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        items = [item["status"] for item in client.get_items()]
+        assert items[0] == DownloadStatus.FAILED
+        assert items[1] == DownloadStatus.DOWNLOADING
+        assert items[2] == DownloadStatus.QUEUED
+        assert items[3] == DownloadStatus.PAUSED
+        assert items[4] == DownloadStatus.QUEUED
+        assert items[5] == DownloadStatus.COMPLETED
+        assert items[6] == DownloadStatus.QUEUED
+
+    @patch.object(HadoukenProxy, "get_torrents")
+    def test_get_items_error(
+        self,
+        mock_get_torrents: MagicMock,
+        hadouken_settings: HadoukenSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test get_items error."""
+        mock_get_torrents.side_effect = Exception("API Error")
+        client = HadoukenClient(
+            settings=hadouken_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        with pytest.raises(PVRProviderError, match="Failed to get downloads"):
+            client.get_items()
+
+    def test_get_items_disabled(
+        self,
+        hadouken_settings: HadoukenSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test get_items disabled."""
+        client = HadoukenClient(
+            settings=hadouken_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
+        assert client.get_items() == []
 
     @patch.object(HadoukenProxy, "remove_torrent")
     def test_remove_item(
@@ -246,6 +510,38 @@ class TestHadoukenClient:
         assert result is True
         mock_remove.assert_called_once()
 
+    def test_remove_item_disabled(
+        self,
+        hadouken_settings: HadoukenSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test remove_item disabled."""
+        client = HadoukenClient(
+            settings=hadouken_settings,
+            file_fetcher=file_fetcher,
+            url_router=url_router,
+            enabled=False,
+        )
+        with pytest.raises(PVRProviderError, match="disabled"):
+            client.remove_item("abc")
+
+    @patch.object(HadoukenProxy, "remove_torrent")
+    def test_remove_item_error(
+        self,
+        mock_remove: MagicMock,
+        hadouken_settings: HadoukenSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test remove_item error."""
+        mock_remove.side_effect = Exception("API Error")
+        client = HadoukenClient(
+            settings=hadouken_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        with pytest.raises(PVRProviderError, match="Failed to remove"):
+            client.remove_item("abc")
+
     @patch.object(HadoukenProxy, "get_system_info")
     def test_test_connection(
         self,
@@ -261,3 +557,19 @@ class TestHadoukenClient:
         )
         result = client.test_connection()
         assert result is True
+
+    @patch.object(HadoukenProxy, "get_system_info")
+    def test_test_connection_error(
+        self,
+        mock_get_system_info: MagicMock,
+        hadouken_settings: HadoukenSettings,
+        file_fetcher: FileFetcherProtocol,
+        url_router: UrlRouterProtocol,
+    ) -> None:
+        """Test test_connection error."""
+        mock_get_system_info.side_effect = Exception("Connect Error")
+        client = HadoukenClient(
+            settings=hadouken_settings, file_fetcher=file_fetcher, url_router=url_router
+        )
+        with pytest.raises(PVRProviderError, match="Failed to connect"):
+            client.test_connection()

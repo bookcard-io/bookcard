@@ -31,6 +31,7 @@ from bookcard.pvr.download_clients.sabnzbd import (
 from bookcard.pvr.exceptions import (
     PVRProviderAuthenticationError,
     PVRProviderError,
+    PVRProviderNetworkError,
 )
 
 
@@ -470,7 +471,7 @@ class TestSabnzbdClient:
         mock_create_client.return_value = mock_client
 
         proxy = SabnzbdProxy(sabnzbd_settings)
-        with pytest.raises(httpx.HTTPStatusError):
+        with pytest.raises(PVRProviderNetworkError):
             proxy._request("GET", "queue")
 
     @patch.object(SabnzbdProxy, "_request")
@@ -548,8 +549,13 @@ class TestSabnzbdClient:
     ) -> None:
         """Test add_download with category."""
         mock_add_nzb.return_value = "test-id-123"
+        mock_file_fetcher = MagicMock(spec=FileFetcherProtocol)
+        mock_file_fetcher.fetch_with_filename.return_value = (b"content", "file.nzb")
+
         client = SabnzbdClient(
-            settings=sabnzbd_settings, file_fetcher=file_fetcher, url_router=url_router
+            settings=sabnzbd_settings,
+            file_fetcher=mock_file_fetcher,
+            url_router=url_router,
         )
         result = client.add_download("http://example.com/file.nzb", category="test-cat")
         assert result == "test-id-123"

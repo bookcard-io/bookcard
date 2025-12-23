@@ -393,10 +393,10 @@ class NzbvortexProxy:
                 handle_http_error_response(
                     e.response.status_code, e.response.text[:200]
                 )
-                raise
+                raise  # Unreachable, but needed for type checker
             except (httpx.RequestError, httpx.TimeoutException) as e:
                 handle_httpx_exception(e, f"NZBVortex API {method} {endpoint}")
-                raise
+                raise  # Unreachable, but needed for type checker
             else:
                 return result
 
@@ -537,7 +537,7 @@ class NzbvortexClient(BaseDownloadClient):
         """Return client name."""
         return "NZBVortex"
 
-    def _add_magnet(
+    def add_magnet(
         self,
         _magnet_url: str,
         _title: str | None,
@@ -548,7 +548,7 @@ class NzbvortexClient(BaseDownloadClient):
         msg = "NZBVortex does not support magnet links"
         raise PVRProviderError(msg)
 
-    def _add_url(
+    def add_url(
         self,
         url: str,
         title: str | None,
@@ -563,7 +563,7 @@ class NzbvortexClient(BaseDownloadClient):
         nzb_id = self._proxy.add_nzb(nzb_data, filename, groupname=groupname)
         return str(nzb_id)
 
-    def _add_file(
+    def add_file(
         self,
         filepath: str,
         title: str | None,
@@ -629,8 +629,8 @@ class NzbvortexClient(BaseDownloadClient):
         except Exception as e:
             msg = f"Failed to get downloads from NZBVortex: {e}"
             raise PVRProviderError(msg) from e
-        else:
-            return items
+
+        return items
 
     def remove_item(self, client_item_id: str, delete_files: bool = False) -> bool:
         """Remove a download from NZBVortex.
@@ -662,8 +662,8 @@ class NzbvortexClient(BaseDownloadClient):
         except Exception as e:
             msg = f"Failed to remove download from NZBVortex: {e}"
             raise PVRProviderError(msg) from e
-        else:
-            return True
+
+        return True
 
     def test_connection(self) -> bool:
         """Test connectivity to NZBVortex.
@@ -684,5 +684,5 @@ class NzbvortexClient(BaseDownloadClient):
         except Exception as e:
             msg = f"Failed to connect to NZBVortex: {e}"
             raise PVRProviderError(msg) from e
-        else:
-            return True
+
+        return True

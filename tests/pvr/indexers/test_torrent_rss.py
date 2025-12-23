@@ -480,7 +480,9 @@ class TestTorrentRssParser:
             "bookcard.pvr.indexers.torrent_rss.ET.fromstring"
         ) as mock_fromstring:
             mock_fromstring.side_effect = RuntimeError("Unexpected error")
-            with pytest.raises(PVRProviderParseError, match="Failed to parse RSS feed"):
+            with pytest.raises(
+                PVRProviderParseError, match="Unexpected error parsing response"
+            ):
                 torrent_rss_parser.parse_response(b"<rss><channel></channel></rss>")
 
     def test_parse_response_pvr_provider_error(

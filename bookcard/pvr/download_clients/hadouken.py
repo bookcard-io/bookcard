@@ -348,7 +348,7 @@ class HadoukenClient(BaseDownloadClient):
                 return part.split(":")[-1].upper()
         return "pending"
 
-    def _add_magnet(
+    def add_magnet(
         self,
         magnet_url: str,
         _title: str | None,
@@ -360,7 +360,7 @@ class HadoukenClient(BaseDownloadClient):
         self._proxy.add_torrent_url(magnet_url, category=cat)
         return self._extract_hash_from_magnet(magnet_url)
 
-    def _add_url(
+    def add_url(
         self,
         url: str,
         _title: str | None,
@@ -372,7 +372,7 @@ class HadoukenClient(BaseDownloadClient):
         self._proxy.add_torrent_url(url, category=cat)
         return "pending"
 
-    def _add_file(
+    def add_file(
         self,
         filepath: str,
         _title: str | None,

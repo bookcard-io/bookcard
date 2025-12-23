@@ -555,7 +555,7 @@ class DelugeClient(BaseDownloadClient):
             options["download_location"] = download_path or self.settings.download_path
         return options
 
-    def _add_magnet(
+    def add_magnet(
         self,
         magnet_url: str,
         _title: str | None,
@@ -564,9 +564,9 @@ class DelugeClient(BaseDownloadClient):
     ) -> str:
         """Add download from magnet link."""
         options = self._build_options(download_path)
-        return self._proxy.add_torrent_magnet(magnet_url, options)
+        return self._proxy.add_torrent_magnet(magnet_url, options).upper()
 
-    def _add_url(
+    def add_url(
         self,
         url: str,
         _title: str | None,
@@ -581,9 +581,9 @@ class DelugeClient(BaseDownloadClient):
             url, _title or "download.torrent"
         )
         options = self._build_options(download_path)
-        return self._proxy.add_torrent_file(filename, file_content, options)
+        return self._proxy.add_torrent_file(filename, file_content, options).upper()
 
-    def _add_file(
+    def add_file(
         self,
         filepath: str,
         _title: str | None,

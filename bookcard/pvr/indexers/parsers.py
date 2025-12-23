@@ -164,7 +164,11 @@ class MetadataExtractor(NamespaceAwareExtractor, ReleaseFieldExtractor):
 
         # We need title for inference if quality is missing
         title_elem = item.find("title")
-        title = title_elem.text.strip() if title_elem and title_elem.text else ""
+        title = (
+            title_elem.text.strip()
+            if title_elem is not None and title_elem.text
+            else ""
+        )
 
         quality = quality_attr or infer_quality_from_title(title)
 
