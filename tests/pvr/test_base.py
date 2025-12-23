@@ -16,7 +16,9 @@
 """Tests for PVR base classes and settings."""
 
 from abc import ABC
+from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 from pydantic import ValidationError
 
@@ -30,6 +32,7 @@ from bookcard.pvr.base import (
 from bookcard.pvr.error_handlers import (
     handle_api_error_response,
     handle_http_error_response,
+    handle_http_errors,
 )
 from bookcard.pvr.exceptions import (
     PVRProviderAuthenticationError,
@@ -38,6 +41,8 @@ from bookcard.pvr.exceptions import (
     PVRProviderParseError,
     PVRProviderTimeoutError,
 )
+from bookcard.pvr.services.file_fetcher import FileFetcher
+from bookcard.pvr.utils.url_router import DownloadUrlRouter
 from tests.pvr.conftest import MockDownloadClient, MockIndexer
 
 
@@ -320,9 +325,6 @@ class TestBaseDownloadClient:
     def test_base_download_client_is_abstract(self) -> None:
         """Test that BaseDownloadClient is abstract and cannot be instantiated."""
         assert issubclass(BaseDownloadClient, ABC)
-        from bookcard.pvr.services.file_fetcher import FileFetcher
-        from bookcard.pvr.utils.url_router import DownloadUrlRouter
-
         file_fetcher = FileFetcher(timeout=30)
         url_router = DownloadUrlRouter()
         with pytest.raises(TypeError):
@@ -345,9 +347,6 @@ class TestBaseDownloadClient:
         self, download_client_settings: DownloadClientSettings
     ) -> None:
         """Test BaseDownloadClient initialization with disabled=True."""
-        from bookcard.pvr.services.file_fetcher import FileFetcher
-        from bookcard.pvr.utils.url_router import DownloadUrlRouter
-
         file_fetcher = FileFetcher(timeout=30)
         url_router = DownloadUrlRouter()
         client = MockDownloadClient(
@@ -395,9 +394,6 @@ class TestBaseDownloadClient:
             def test_connection(self) -> bool:  # type: ignore[override]
                 return True
 
-        from bookcard.pvr.services.file_fetcher import FileFetcher
-        from bookcard.pvr.utils.url_router import DownloadUrlRouter
-
         file_fetcher = FileFetcher(timeout=30)
         url_router = DownloadUrlRouter()
         with pytest.raises(TypeError):
@@ -429,9 +425,6 @@ class TestBaseDownloadClient:
             def test_connection(self) -> bool:
                 return True
 
-        from bookcard.pvr.services.file_fetcher import FileFetcher
-        from bookcard.pvr.utils.url_router import DownloadUrlRouter
-
         file_fetcher = FileFetcher(timeout=30)
         url_router = DownloadUrlRouter()
         with pytest.raises(TypeError):
@@ -462,9 +455,6 @@ class TestBaseDownloadClient:
 
             def test_connection(self) -> bool:
                 return True
-
-        from bookcard.pvr.services.file_fetcher import FileFetcher
-        from bookcard.pvr.utils.url_router import DownloadUrlRouter
 
         file_fetcher = FileFetcher(timeout=30)
         url_router = DownloadUrlRouter()
@@ -498,9 +488,6 @@ class TestBaseDownloadClient:
                 self, client_item_id: str, delete_files: bool = False
             ) -> bool:  # type: ignore[override]
                 return True
-
-        from bookcard.pvr.services.file_fetcher import FileFetcher
-        from bookcard.pvr.utils.url_router import DownloadUrlRouter
 
         file_fetcher = FileFetcher(timeout=30)
         url_router = DownloadUrlRouter()
@@ -674,3 +661,171 @@ class TestUtilityFunctions:
         """Test handle_http_error_response function."""
         with pytest.raises(expected_exception, match=expected_message):
             handle_http_error_response(status_code, response_text)
+
+
+class TestHandleHttpErrors:
+    """Test handle_http_errors context manager."""
+
+    def test_handle_http_errors_success(self) -> None:
+        """Test handle_http_errors with successful execution."""
+        with handle_http_errors("Test context"):
+            result = "success"
+            assert result == "success"
+
+    @pytest.mark.parametrize(
+        ("status_code", "response_text", "expected_message"),
+        [
+            (401, "", "Test context authentication failed"),
+            (401, "Unauthorized", "Test context authentication failed"),
+            (403, "", "Test context authentication failed"),
+            (403, "Forbidden", "Test context authentication failed"),
+        ],
+    )
+    def test_handle_http_errors_http_status_auth(
+        self,
+        status_code: int,
+        response_text: str,
+        expected_message: str,
+    ) -> None:
+        """Test handle_http_errors with HTTPStatusError for auth errors."""
+        mock_response = MagicMock()
+        mock_response.status_code = status_code
+        mock_response.text = response_text
+        error = httpx.HTTPStatusError(
+            "Auth error", request=MagicMock(), response=mock_response
+        )
+
+        with (
+            pytest.raises(
+                PVRProviderAuthenticationError, match=expected_message
+            ) as exc_info,
+            handle_http_errors("Test context"),
+        ):
+            raise error
+
+        assert exc_info.value.__cause__ is error
+
+    @pytest.mark.parametrize(
+        ("status_code", "response_text", "expected_message"),
+        [
+            (400, "Bad Request", "HTTP 400: Bad Request"),
+            (404, "Not Found", "HTTP 404: Not Found"),
+            (500, "Internal Server Error", "HTTP 500: Internal Server Error"),
+            (400, "A" * 300, "HTTP 400: " + "A" * 200),
+        ],
+    )
+    def test_handle_http_errors_http_status_other(
+        self,
+        status_code: int,
+        response_text: str,
+        expected_message: str,
+    ) -> None:
+        """Test handle_http_errors with HTTPStatusError for non-auth errors."""
+        mock_response = MagicMock()
+        mock_response.status_code = status_code
+        mock_response.text = response_text
+        error = httpx.HTTPStatusError(
+            "Server error", request=MagicMock(), response=mock_response
+        )
+
+        with (
+            pytest.raises(PVRProviderNetworkError, match=expected_message),
+            handle_http_errors("Test context"),
+        ):
+            raise error
+
+    def test_handle_http_errors_http_status_no_response_text(self) -> None:
+        """Test handle_http_errors with HTTPStatusError when response.text fails."""
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        # Make accessing .text raise an exception
+        type(mock_response).text = property(
+            lambda self: (_ for _ in ()).throw(ValueError("Cannot read text"))
+        )
+        error = httpx.HTTPStatusError(
+            "Server error", request=MagicMock(), response=mock_response
+        )
+
+        with (
+            pytest.raises(PVRProviderNetworkError, match="HTTP 500: "),
+            handle_http_errors("Test context"),
+        ):
+            raise error
+
+    @patch("bookcard.pvr.error_handlers.handle_http_error_response")
+    def test_handle_http_errors_http_status_raise_after_handler(
+        self, mock_handle: MagicMock
+    ) -> None:
+        """Test handle_http_errors re-raises when handle_http_error_response doesn't raise."""
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Server Error"
+        error = httpx.HTTPStatusError(
+            "Server error", request=MagicMock(), response=mock_response
+        )
+        # Mock handle_http_error_response to not raise (for coverage of raise statement)
+        mock_handle.return_value = None
+
+        with (
+            pytest.raises(httpx.HTTPStatusError, match="Server error"),
+            handle_http_errors("Test context"),
+        ):
+            raise error
+
+        mock_handle.assert_called_once_with(500, "Server Error")
+
+    @pytest.mark.parametrize(
+        ("timeout_message", "expected_message"),
+        [
+            ("Request timed out", "Test context timed out: Request timed out"),
+            ("Connection timeout", "Test context timed out: Connection timeout"),
+        ],
+    )
+    def test_handle_http_errors_timeout_exception(
+        self,
+        timeout_message: str,
+        expected_message: str,
+    ) -> None:
+        """Test handle_http_errors with TimeoutException."""
+        error = httpx.TimeoutException(timeout_message, request=MagicMock())
+
+        with (
+            pytest.raises(PVRProviderTimeoutError, match=expected_message) as exc_info,
+            handle_http_errors("Test context"),
+        ):
+            raise error
+
+        assert exc_info.value.__cause__ is error
+
+    @pytest.mark.parametrize(
+        ("request_message", "expected_message"),
+        [
+            ("Connection failed", "Test context failed: Connection failed"),
+            ("Network error", "Test context failed: Network error"),
+        ],
+    )
+    def test_handle_http_errors_request_error(
+        self,
+        request_message: str,
+        expected_message: str,
+    ) -> None:
+        """Test handle_http_errors with RequestError."""
+        error = httpx.RequestError(request_message, request=MagicMock())
+
+        with (
+            pytest.raises(PVRProviderNetworkError, match=expected_message) as exc_info,
+            handle_http_errors("Test context"),
+        ):
+            raise error
+
+        assert exc_info.value.__cause__ is error
+
+    def test_handle_http_errors_default_context(self) -> None:
+        """Test handle_http_errors with default context."""
+        error = httpx.RequestError("Connection failed", request=MagicMock())
+
+        with (
+            pytest.raises(PVRProviderNetworkError, match="Request failed: "),
+            handle_http_errors(),
+        ):
+            raise error
