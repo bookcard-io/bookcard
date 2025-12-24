@@ -43,6 +43,7 @@ from bookcard.api.routes.plugins import router as plugins_router
 from bookcard.api.routes.reading import router as reading_router
 from bookcard.api.routes.shelves import router as shelves_router
 from bookcard.api.routes.tasks import router as tasks_router
+from bookcard.api.routes.tracked_books import router as tracked_books_router
 
 # Registry of all routers to be registered with the application
 ROUTERS: list[APIRouter] = [
@@ -67,6 +68,7 @@ ROUTERS: list[APIRouter] = [
     reading_router,
     shelves_router,
     tasks_router,
+    tracked_books_router,
 ]
 
 

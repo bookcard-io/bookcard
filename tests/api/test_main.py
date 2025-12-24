@@ -15,15 +15,14 @@
 
 """Tests for FastAPI application factory."""
 
-from __future__ import annotations
-
 import logging
 import os
-from typing import TYPE_CHECKING
+from collections.abc import Callable
 from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
+from fastapi.routing import APIRouter
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
@@ -32,6 +31,9 @@ from bookcard.api.main import configure_app, create_app
 from bookcard.api.routers import register_routers
 from bookcard.api.routes.admin import router as admin_router
 from bookcard.api.routes.auth import router as auth_router
+from bookcard.api.routes.download_clients import router as download_clients_router
+from bookcard.api.routes.indexers import router as indexers_router
+from bookcard.api.routes.tracked_books import router as tracked_books_router
 from bookcard.api.services.bootstrap import (
     initialize_services,
     start_background_services,
@@ -46,9 +48,6 @@ from bookcard.services.ingest.exceptions import (
     IngestHistoryNotFoundError,
 )
 from tests.conftest import TEST_ENCRYPTION_KEY
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
 
 @pytest.mark.parametrize(
@@ -256,14 +255,17 @@ def fastapi_app() -> FastAPI:
         ("/authors", "authors_router"),
         ("/books", "books_router"),
         ("/devices", "devices_router"),
+        ("/download-clients", "download_clients_router"),
         ("/epub-fixer", "epub_fixer_router"),
         ("/fs", "fs_router"),
+        ("/indexers", "indexers_router"),
         ("/ingest", "ingest_router"),
         ("/library-scanning", "library_scanning_router"),
         ("/metadata", "metadata_router"),
         ("/reading", "reading_router"),
         ("/shelves", "shelves_router"),
         ("/tasks", "tasks_router"),
+        ("/tracked-books", "tracked_books_router"),
     ],
 )
 def test_register_routers(
@@ -308,13 +310,65 @@ def test_register_routers_calls_include_router(
     """
     with patch.object(fastapi_app, "include_router") as mock_include:
         register_routers(fastapi_app)
-        # Verify include_router was called at least for auth and admin routers
-        assert mock_include.call_count == 21
+        # Verify include_router was called for all 22 routers
+        assert mock_include.call_count == 22
         # Verify first two calls are for auth_router and admin_router
         call_args_list = [call[0][0] for call in mock_include.call_args_list]
 
         assert call_args_list[0] == auth_router
         assert call_args_list[1] == admin_router
+
+
+@pytest.mark.parametrize(
+    ("router", "expected_index"),
+    [
+        (auth_router, 0),
+        (admin_router, 1),
+        (download_clients_router, 6),
+        (indexers_router, 9),
+        (tracked_books_router, 21),
+    ],
+)
+def test_register_routers_includes_new_routers(
+    fastapi_app: FastAPI,
+    router: APIRouter,
+    expected_index: int,
+) -> None:
+    """Test that new routers are included in registration.
+
+    Parameters
+    ----------
+    fastapi_app : FastAPI
+        FastAPI application instance fixture.
+    router : APIRouter
+        Router instance to verify.
+    expected_index : int
+        Expected index in the registration order.
+    """
+    with patch.object(fastapi_app, "include_router") as mock_include:
+        register_routers(fastapi_app)
+        call_args_list = [call[0][0] for call in mock_include.call_args_list]
+        assert call_args_list[expected_index] == router
+
+
+def test_register_routers_includes_all_new_pvr_routers(
+    fastapi_app: FastAPI,
+) -> None:
+    """Test that all new PVR-related routers are registered.
+
+    Parameters
+    ----------
+    fastapi_app : FastAPI
+        FastAPI application instance fixture.
+    """
+    with patch.object(fastapi_app, "include_router") as mock_include:
+        register_routers(fastapi_app)
+        call_args_list = [call[0][0] for call in mock_include.call_args_list]
+
+        # Verify all three new routers are included
+        assert download_clients_router in call_args_list
+        assert indexers_router in call_args_list
+        assert tracked_books_router in call_args_list
 
 
 @pytest.mark.parametrize(
