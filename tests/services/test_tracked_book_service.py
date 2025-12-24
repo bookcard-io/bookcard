@@ -167,6 +167,23 @@ class TestTrackedBookService:
         assert service._session == session
         assert service._repository == repo
 
+    def test_service_init_with_library_service(self, session: DummySession) -> None:
+        """Test service initialization with library_service (covers line 134).
+
+        Parameters
+        ----------
+        session : DummySession
+            Database session fixture.
+        """
+        from bookcard.services.config_service import LibraryService
+
+        mock_library_service = MagicMock(spec=LibraryService)
+        service = TrackedBookService(
+            cast("Session", session), library_service=mock_library_service
+        )
+        assert service._session == session
+        assert service._library_service == mock_library_service
+
     def test_create_tracked_book_success(
         self,
         session: DummySession,
@@ -353,7 +370,7 @@ class TestTrackedBookService:
             mock_refresh.assert_called_once()
 
     def test_update_tracked_book_not_found(self, session: DummySession) -> None:
-        """Test update_tracked_book returns None if not found.
+        """Test update_tracked_book returns None if not found (covers line 325).
 
         Parameters
         ----------
@@ -363,7 +380,9 @@ class TestTrackedBookService:
         service = TrackedBookService(cast("Session", session))
         update_data = TrackedBookUpdate(status=TrackedBookStatus.SEARCHING)
 
-        result = service.update_tracked_book(999, update_data)
+        # Mock repository.get to return None for non-existent book
+        with patch.object(service._repository, "get", return_value=None):
+            result = service.update_tracked_book(999, update_data)
 
         assert result is None
 
@@ -407,6 +426,21 @@ class TestTrackedBookService:
         result = service.delete_tracked_book(999)
 
         assert result is False
+
+    def test_check_status_not_found(self, session: DummySession) -> None:
+        """Test check_status returns None when tracked book not found (covers line 325).
+
+        Parameters
+        ----------
+        session : DummySession
+            Database session fixture.
+        """
+        service = TrackedBookService(cast("Session", session))
+
+        with patch.object(service._repository, "get", return_value=None):
+            result = service.check_status(999)
+
+        assert result is None
 
     def test_check_status_no_change(
         self,
@@ -570,3 +604,49 @@ class TestTrackedBookService:
             assert book_id is None
             assert has_files is False
             mock_repo.dispose.assert_called_once()
+
+    def test_find_library_match_with_active_library(
+        self,
+        session: DummySession,
+        library_config: Library,
+    ) -> None:
+        """Test _find_library_match uses active library when library_id is None (covers line 368).
+
+        Parameters
+        ----------
+        session : DummySession
+            Database session fixture.
+        library_config : Library
+            Library configuration fixture.
+        """
+        service = TrackedBookService(cast("Session", session))
+
+        # Mock dependencies
+        mock_repo = MagicMock()
+        mock_book = MagicMock()
+        mock_book.book.title = "Target Title"
+        mock_book.book.id = 100
+        mock_book.authors = ["Target Author"]
+        mock_book.formats = ["EPUB"]
+
+        with (
+            patch.object(
+                service._library_service,
+                "get_active_library",
+                return_value=library_config,
+                new_callable=MagicMock,
+            ) as mock_get_active,
+            patch(
+                "bookcard.services.tracked_book_service.CalibreBookRepository"
+            ) as mock_repo_cls,
+        ):
+            mock_repo_cls.return_value = mock_repo
+            mock_repo.list_books.return_value = [mock_book]
+
+            # Call with library_id=None to trigger get_active_library path
+            book_id, has_files = service._find_library_match(
+                "Target Title", "Target Author", None
+            )
+            assert book_id == 100
+            assert has_files is True
+            mock_get_active.assert_called_once()
