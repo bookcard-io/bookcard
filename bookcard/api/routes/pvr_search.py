@@ -466,6 +466,9 @@ def trigger_download(
             message=f"Download initiated for '{release.title}'",
         )
 
+    except HTTPException:
+        # Re-raise HTTPException (e.g., from _raise_download_client_not_found)
+        raise
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
