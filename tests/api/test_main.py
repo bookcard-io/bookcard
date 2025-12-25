@@ -33,6 +33,7 @@ from bookcard.api.routes.admin import router as admin_router
 from bookcard.api.routes.auth import router as auth_router
 from bookcard.api.routes.download_clients import router as download_clients_router
 from bookcard.api.routes.indexers import router as indexers_router
+from bookcard.api.routes.pvr_search import router as pvr_search_router
 from bookcard.api.routes.tracked_books import router as tracked_books_router
 from bookcard.api.services.bootstrap import (
     initialize_services,
@@ -266,6 +267,7 @@ def fastapi_app() -> FastAPI:
         ("/shelves", "shelves_router"),
         ("/tasks", "tasks_router"),
         ("/tracked-books", "tracked_books_router"),
+        ("/pvr/search", "pvr_search_router"),
     ],
 )
 def test_register_routers(
@@ -311,7 +313,7 @@ def test_register_routers_calls_include_router(
     with patch.object(fastapi_app, "include_router") as mock_include:
         register_routers(fastapi_app)
         # Verify include_router was called for all 22 routers
-        assert mock_include.call_count == 22
+        assert mock_include.call_count == 23
         # Verify first two calls are for auth_router and admin_router
         call_args_list = [call[0][0] for call in mock_include.call_args_list]
 
@@ -326,7 +328,8 @@ def test_register_routers_calls_include_router(
         (admin_router, 1),
         (download_clients_router, 6),
         (indexers_router, 9),
-        (tracked_books_router, 21),
+        (pvr_search_router, 18),
+        (tracked_books_router, 22),
     ],
 )
 def test_register_routers_includes_new_routers(

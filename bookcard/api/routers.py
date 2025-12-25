@@ -40,6 +40,7 @@ from bookcard.api.routes.library_scanning import router as library_scanning_rout
 from bookcard.api.routes.metadata import router as metadata_router
 from bookcard.api.routes.opds import router as opds_router
 from bookcard.api.routes.plugins import router as plugins_router
+from bookcard.api.routes.pvr_search import router as pvr_search_router
 from bookcard.api.routes.reading import router as reading_router
 from bookcard.api.routes.shelves import router as shelves_router
 from bookcard.api.routes.tasks import router as tasks_router
@@ -65,6 +66,7 @@ ROUTERS: list[APIRouter] = [
     metadata_router,
     opds_router,
     plugins_router,
+    pvr_search_router,
     reading_router,
     shelves_router,
     tasks_router,
