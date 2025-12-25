@@ -230,6 +230,75 @@ class DownloadItemStatus(StrEnum):
     REMOVED = "removed"
 
 
+class RejectionType(StrEnum):
+    """Type of rejection for download decisions.
+
+    Attributes
+    ----------
+    PERMANENT : str
+        Permanent rejection - release will never be accepted.
+    TEMPORARY : str
+        Temporary rejection - release may be accepted later.
+    """
+
+    PERMANENT = "permanent"
+    TEMPORARY = "temporary"
+
+
+class DownloadRejectionReason(StrEnum):
+    """Reasons for rejecting a download.
+
+    Attributes
+    ----------
+    UNKNOWN : str
+        Unknown reason.
+    WRONG_FORMAT : str
+        Release format is not in preferred formats.
+    LOW_QUALITY : str
+        Release quality is below minimum threshold.
+    BELOW_MINIMUM_SIZE : str
+        Release size is below minimum required size.
+    ABOVE_MAXIMUM_SIZE : str
+        Release size exceeds maximum allowed size.
+    INSUFFICIENT_SEEDERS : str
+        Torrent has insufficient seeders.
+    TOO_OLD : str
+        Release is too old (exceeds maximum age).
+    TOO_NEW : str
+        Release is too new (below minimum age delay).
+    EXCLUDED_KEYWORD : str
+        Release contains excluded keywords.
+    MISSING_REQUIRED_KEYWORD : str
+        Release is missing required keywords.
+    INDEXER_DISABLED : str
+        Indexer is disabled.
+    BLOCKLISTED : str
+        Release is blocklisted.
+    ALREADY_DOWNLOADED : str
+        Release has already been downloaded.
+    INVALID_URL : str
+        Download URL is invalid or missing.
+    MISSING_METADATA : str
+        Release is missing required metadata (title, author, etc.).
+    """
+
+    UNKNOWN = "unknown"
+    WRONG_FORMAT = "wrong_format"
+    LOW_QUALITY = "low_quality"
+    BELOW_MINIMUM_SIZE = "below_minimum_size"
+    ABOVE_MAXIMUM_SIZE = "above_maximum_size"
+    INSUFFICIENT_SEEDERS = "insufficient_seeders"
+    TOO_OLD = "too_old"
+    TOO_NEW = "too_new"
+    EXCLUDED_KEYWORD = "excluded_keyword"
+    MISSING_REQUIRED_KEYWORD = "missing_required_keyword"
+    INDEXER_DISABLED = "indexer_disabled"
+    BLOCKLISTED = "blocklisted"
+    ALREADY_DOWNLOADED = "already_downloaded"
+    INVALID_URL = "invalid_url"
+    MISSING_METADATA = "missing_metadata"
+
+
 class TrackedBook(SQLModel, table=True):
     """Tracked book model for books to be downloaded.
 
@@ -304,6 +373,28 @@ class TrackedBook(SQLModel, table=True):
     preferred_formats: list[str] | None = Field(
         default=None,
         sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        description="Preferred file formats for this book (e.g., ['epub', 'pdf'])",
+    )
+    exclude_keywords: list[str] | None = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        description="Keywords to exclude from release title/description for this book",
+    )
+    require_keywords: list[str] | None = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        description="Keywords that must appear in release title/description for this book",
+    )
+    require_title_match: bool = Field(
+        default=True,
+        description="Whether title must match search criteria for this book",
+    )
+    require_author_match: bool = Field(
+        default=True,
+        description="Whether author must match search criteria for this book",
+    )
+    require_isbn_match: bool = Field(
+        default=False, description="Whether ISBN must match if provided for this book"
     )
     last_searched_at: datetime | None = Field(default=None, index=True)
     last_downloaded_at: datetime | None = Field(default=None)
@@ -683,4 +774,141 @@ class DownloadItem(SQLModel, table=True):
         Index(
             "idx_download_items_client_item_id", "download_client_id", "client_item_id"
         ),
+    )
+
+
+class DownloadDecisionDefaults(SQLModel, table=True):
+    """System-wide default preferences for download decisions.
+
+    Stores global defaults that apply to all tracked books unless overridden
+    by per-book preferences in TrackedBook.
+
+    Attributes
+    ----------
+    id : int | None
+        Primary key identifier. Only one record should exist (singleton).
+    preferred_formats : list[str] | None
+        Default preferred file formats (e.g., ['epub', 'pdf', 'mobi']).
+    min_size_bytes : int | None
+        Default minimum file size in bytes.
+    max_size_bytes : int | None
+        Default maximum file size in bytes.
+    min_seeders : int | None
+        Default minimum number of seeders for torrents.
+    min_leechers : int | None
+        Default minimum number of leechers for torrents.
+    max_age_days : int | None
+        Default maximum age in days for releases.
+    min_age_days : int | None
+        Default minimum age in days (delay) for releases.
+    exclude_keywords : list[str] | None
+        Default keywords to exclude from release title/description.
+    require_keywords : list[str] | None
+        Default keywords that must appear in release title/description.
+    require_title_match : bool
+        Default whether title must match search criteria.
+    require_author_match : bool
+        Default whether author must match search criteria.
+    require_isbn_match : bool
+        Default whether ISBN must match if provided.
+    created_at : datetime
+        Timestamp when defaults were created.
+    updated_at : datetime
+        Last update timestamp.
+    """
+
+    __tablename__ = "download_decision_defaults"
+
+    id: int | None = Field(default=None, primary_key=True)
+    preferred_formats: list[str] | None = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+    )
+    min_size_bytes: int | None = Field(default=None)
+    max_size_bytes: int | None = Field(default=None)
+    min_seeders: int | None = Field(default=None)
+    min_leechers: int | None = Field(default=None)
+    max_age_days: int | None = Field(default=None)
+    min_age_days: int | None = Field(default=None)
+    exclude_keywords: list[str] | None = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+    )
+    require_keywords: list[str] | None = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+    )
+    require_title_match: bool = Field(default=True)
+    require_author_match: bool = Field(default=True)
+    require_isbn_match: bool = Field(default=False)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        index=True,
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column_kwargs={"onupdate": lambda: datetime.now(UTC)},
+    )
+
+
+class DownloadBlocklist(SQLModel, table=True):
+    """Blocklist for download URLs.
+
+    Tracks download URLs that should be rejected, such as:
+    - URLs that have already been downloaded
+    - URLs that were manually rejected
+    - URLs that failed to download multiple times
+
+    Attributes
+    ----------
+    id : int | None
+        Primary key identifier.
+    download_url : str
+        Blocklisted download URL (unique).
+    reason : str | None
+        Reason for blocklisting (e.g., 'already_downloaded', 'manual_reject').
+    tracked_book_id : int | None
+        Foreign key to tracked book if blocklist is book-specific.
+    indexer_id : int | None
+        Foreign key to indexer that provided this release.
+    created_at : datetime
+        Timestamp when URL was blocklisted.
+    """
+
+    __tablename__ = "download_blocklist"
+
+    id: int | None = Field(default=None, primary_key=True)
+    download_url: str = Field(max_length=2000, unique=True, index=True)
+    reason: str | None = Field(default=None, max_length=255)
+    tracked_book_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer,
+            ForeignKey("tracked_books.id", ondelete="CASCADE"),
+            nullable=True,
+            index=True,
+        ),
+    )
+    indexer_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer,
+            ForeignKey("indexer_definitions.id", ondelete="SET NULL"),
+            nullable=True,
+            index=True,
+        ),
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        index=True,
+    )
+
+    # Relationships
+    tracked_book: TrackedBook | None = Relationship()
+    indexer: IndexerDefinition | None = Relationship()
+
+    __table_args__ = (
+        Index("idx_blocklist_tracked_book", "tracked_book_id"),
+        Index("idx_blocklist_indexer", "indexer_id"),
+        Index("idx_blocklist_created", "created_at"),
     )
