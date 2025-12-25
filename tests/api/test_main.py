@@ -311,7 +311,7 @@ def test_register_routers_calls_include_router(
     with patch.object(fastapi_app, "include_router") as mock_include:
         register_routers(fastapi_app)
         # Verify include_router was called for all 22 routers
-        assert mock_include.call_count == 22
+        assert mock_include.call_count == 23
         # Verify first two calls are for auth_router and admin_router
         call_args_list = [call[0][0] for call in mock_include.call_args_list]
 
