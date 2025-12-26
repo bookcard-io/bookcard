@@ -711,6 +711,8 @@ def test_initialize_scheduler_redis_disabled(
 ) -> None:
     """Test _initialize_scheduler when Redis is disabled.
 
+    Scheduler should still be initialized as it uses in-memory store by default.
+
     Parameters
     ----------
     fastapi_app : FastAPI
@@ -731,9 +733,39 @@ def test_initialize_scheduler_redis_disabled(
         redis_url=test_config.redis_url,
     )
     container = ServiceContainer(config_no_redis, mock_engine)
-    with patch("bookcard.database.get_session"):
+
+    # We need to mock create_task_runner to ensure it returns something valid
+    # because initialize_scheduler checks if task_runner is present.
+    # However, initialize_services calls container.create_task_runner() internally
+    # and sets app.state.task_runner.
+
+    # In initialize_services implementation:
+    # app.state.task_runner = container.create_task_runner()  # noqa: ERA001
+    # ...
+    # _initialize_scheduler(app, container) -> calls container.create_scheduler(app.state.task_runner)
+
+    # So we need to ensure create_task_runner returns a mock.
+    # We should also patch APSchedulerService to avoid real instantiation.
+
+    with (
+        patch("bookcard.database.get_session"),
+        patch(
+            "bookcard.api.services.container.APSchedulerService"
+        ) as mock_scheduler_cls,
+        patch(
+            "bookcard.api.services.container.create_task_runner"
+        ) as mock_create_runner,
+    ):
+        mock_runner = MagicMock()
+        mock_create_runner.return_value = mock_runner
+
+        mock_scheduler = MagicMock()
+        mock_scheduler_cls.return_value = mock_scheduler
+
         initialize_services(fastapi_app, container)
-    assert fastapi_app.state.scheduler is None
+
+    assert fastapi_app.state.scheduler is not None
+    assert fastapi_app.state.scheduler == mock_scheduler
 
 
 def test_initialize_scheduler_task_runner_none(

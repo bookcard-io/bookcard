@@ -30,6 +30,7 @@ from bookcard.services.tasks.base import BaseTask
 from bookcard.services.tasks.book_convert_task import BookConvertTask
 from bookcard.services.tasks.book_strip_drm_task import BookStripDrmTask
 from bookcard.services.tasks.book_upload_task import BookUploadTask
+from bookcard.services.tasks.download_monitor_task import DownloadMonitorTask
 from bookcard.services.tasks.email_send_task import EmailSendTask
 from bookcard.services.tasks.epub_fix_daily_scan_task import (
     EPUBFixDailyScanTask,
@@ -249,3 +250,4 @@ _registry.register(TaskType.EPUB_FIX_BATCH, EPUBFixBatchTask)
 _registry.register(TaskType.EPUB_FIX_DAILY_SCAN, EPUBFixDailyScanTask)
 _registry.register(TaskType.INGEST_DISCOVERY, IngestDiscoveryTask)
 _registry.register(TaskType.INGEST_BOOK, IngestBookTask)
+_registry.register(TaskType.PVR_DOWNLOAD_MONITOR, DownloadMonitorTask)

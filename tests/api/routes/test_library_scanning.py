@@ -62,35 +62,35 @@ class TestScanLibrary:
         mock_request: Request,
     ) -> None:
         """Test scan_library succeeds (covers lines 95-130)."""
-        mock_broker = MagicMock()
-        mock_request.app.state.scan_worker_broker = mock_broker
+        mock_task_runner = MagicMock()
+        mock_request.app.state.task_runner = mock_task_runner
+        mock_task_runner.enqueue.return_value = 123
 
-        with patch(
-            "bookcard.api.routes.library_scanning.LibraryScanningService"
-        ) as mock_service_class:
-            mock_service = MagicMock()
-            mock_service.scan_library.return_value = 123
-            mock_service_class.return_value = mock_service
+        request_data = library_scanning.ScanRequest(
+            library_id=1,
+            data_source_config={"name": "openlibrary", "kwargs": {}},
+        )
 
-            request_data = library_scanning.ScanRequest(
-                library_id=1,
-                data_source_config={"name": "openlibrary", "kwargs": {}},
-            )
+        result = library_scanning.scan_library(
+            request=request_data,
+            http_request=mock_request,
+            session=session,
+            current_user=admin_user,
+        )
 
-            result = library_scanning.scan_library(
-                request=request_data,
-                http_request=mock_request,
-                session=session,
-                current_user=admin_user,
-            )
+        assert result.task_id == 123
+        assert "Library scan job for library 1" in result.message
 
-            assert result.task_id == 123
-            assert "Library scan job for library 1" in result.message
-            mock_service.scan_library.assert_called_once_with(
-                library_id=1,
-                user_id=1,
-                data_source_config={"name": "openlibrary", "kwargs": {}},
-            )
+        # Verify call to task runner
+        mock_task_runner.enqueue.assert_called_once()
+        call_kwargs = mock_task_runner.enqueue.call_args[1]
+        assert call_kwargs["user_id"] == 1
+        assert call_kwargs["metadata"]["library_id"] == 1
+        assert call_kwargs["metadata"]["data_source_config"] == {
+            "name": "openlibrary",
+            "kwargs": {},
+        }
+        assert call_kwargs["metadata"]["task_type"] == "library_scan"
 
     def test_scan_library_without_data_source_config(
         self,
@@ -99,40 +99,45 @@ class TestScanLibrary:
         mock_request: Request,
     ) -> None:
         """Test scan_library without data_source_config."""
-        mock_broker = MagicMock()
-        mock_request.app.state.scan_worker_broker = mock_broker
+        mock_task_runner = MagicMock()
+        mock_request.app.state.task_runner = mock_task_runner
+        mock_task_runner.enqueue.return_value = 123
 
-        with patch(
-            "bookcard.api.routes.library_scanning.LibraryScanningService"
-        ) as mock_service_class:
-            mock_service = MagicMock()
-            mock_service.scan_library.return_value = 123
-            mock_service_class.return_value = mock_service
+        request_data = library_scanning.ScanRequest(library_id=1)
 
-            request_data = library_scanning.ScanRequest(library_id=1)
+        result = library_scanning.scan_library(
+            request=request_data,
+            http_request=mock_request,
+            session=session,
+            current_user=admin_user,
+        )
 
-            result = library_scanning.scan_library(
-                request=request_data,
-                http_request=mock_request,
-                session=session,
-                current_user=admin_user,
-            )
+        assert result.task_id == 123
 
-            assert result.task_id == 123
-            mock_service.scan_library.assert_called_once_with(
-                library_id=1,
-                user_id=1,
-                data_source_config=None,
-            )
+        # Verify default config usage
+        mock_task_runner.enqueue.assert_called_once()
+        call_kwargs = mock_task_runner.enqueue.call_args[1]
+        assert call_kwargs["metadata"]["data_source_config"] == {
+            "name": "openlibrary",
+            "kwargs": {},
+        }
 
-    def test_scan_library_broker_not_available(
+    def test_scan_library_task_runner_not_available(
         self,
         session: DummySession,
         admin_user: User,
         mock_request: Request,
     ) -> None:
-        """Test scan_library raises 500 when broker not available (HTTPException is caught by generic handler)."""
-        mock_request.app.state.scan_worker_broker = None
+        """Test scan_library raises 503 when task runner not available."""
+        # Ensure task_runner is not present or None
+        mock_request.app.state.task_runner = None
+        # Or if getattr defaults to None, simply not setting it might work depending on how mock_request is set up
+        # The fixture sets app.state = MagicMock(), so getattr(..., "task_runner", None) will return the MagicMock attribute if accessed,
+        # unless we explicitly delete it or set it to None.
+
+        # Since app.state is a MagicMock, accessing .task_runner creates a new MagicMock by default.
+        # We must explicitly set it to None to simulate missing service.
+        del mock_request.app.state.task_runner
 
         request_data = library_scanning.ScanRequest(library_id=1)
 
@@ -144,12 +149,10 @@ class TestScanLibrary:
                 current_user=admin_user,
             )
 
-        # The HTTPException from _raise_broker_error is caught by the generic Exception handler
-        # which converts it to 500
         assert isinstance(exc_info.value, HTTPException)
         exc = exc_info.value
-        assert exc.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-        assert "Message broker not available" in exc.detail
+        assert exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert "Task runner not available" in exc.detail
 
     def test_scan_library_value_error(
         self,
@@ -157,31 +160,25 @@ class TestScanLibrary:
         admin_user: User,
         mock_request: Request,
     ) -> None:
-        """Test scan_library handles ValueError (library not found)."""
-        mock_broker = MagicMock()
-        mock_request.app.state.scan_worker_broker = mock_broker
+        """Test scan_library handles ValueError."""
+        mock_task_runner = MagicMock()
+        mock_request.app.state.task_runner = mock_task_runner
+        mock_task_runner.enqueue.side_effect = ValueError("Invalid library")
 
-        with patch(
-            "bookcard.api.routes.library_scanning.LibraryScanningService"
-        ) as mock_service_class:
-            mock_service = MagicMock()
-            mock_service.scan_library.side_effect = ValueError("Library not found")
-            mock_service_class.return_value = mock_service
+        request_data = library_scanning.ScanRequest(library_id=999)
 
-            request_data = library_scanning.ScanRequest(library_id=999)
+        with pytest.raises(HTTPException) as exc_info:
+            library_scanning.scan_library(
+                request=request_data,
+                http_request=mock_request,
+                session=session,
+                current_user=admin_user,
+            )
 
-            with pytest.raises(HTTPException) as exc_info:
-                library_scanning.scan_library(
-                    request=request_data,
-                    http_request=mock_request,
-                    session=session,
-                    current_user=admin_user,
-                )
-
-            assert isinstance(exc_info.value, HTTPException)
-            exc = exc_info.value
-            assert exc.status_code == status.HTTP_404_NOT_FOUND
-            assert exc.detail == "Library not found"
+        assert isinstance(exc_info.value, HTTPException)
+        exc = exc_info.value
+        assert exc.status_code == status.HTTP_404_NOT_FOUND
+        assert exc.detail == "Invalid library"
 
     def test_scan_library_generic_exception(
         self,
@@ -190,30 +187,24 @@ class TestScanLibrary:
         mock_request: Request,
     ) -> None:
         """Test scan_library handles generic exceptions."""
-        mock_broker = MagicMock()
-        mock_request.app.state.scan_worker_broker = mock_broker
+        mock_task_runner = MagicMock()
+        mock_request.app.state.task_runner = mock_task_runner
+        mock_task_runner.enqueue.side_effect = RuntimeError("Unexpected error")
 
-        with patch(
-            "bookcard.api.routes.library_scanning.LibraryScanningService"
-        ) as mock_service_class:
-            mock_service = MagicMock()
-            mock_service.scan_library.side_effect = RuntimeError("Unexpected error")
-            mock_service_class.return_value = mock_service
+        request_data = library_scanning.ScanRequest(library_id=1)
 
-            request_data = library_scanning.ScanRequest(library_id=1)
+        with pytest.raises(HTTPException) as exc_info:
+            library_scanning.scan_library(
+                request=request_data,
+                http_request=mock_request,
+                session=session,
+                current_user=admin_user,
+            )
 
-            with pytest.raises(HTTPException) as exc_info:
-                library_scanning.scan_library(
-                    request=request_data,
-                    http_request=mock_request,
-                    session=session,
-                    current_user=admin_user,
-                )
-
-            assert isinstance(exc_info.value, HTTPException)
-            exc = exc_info.value
-            assert exc.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-            assert "Failed to initiate scan" in exc.detail
+        assert isinstance(exc_info.value, HTTPException)
+        exc = exc_info.value
+        assert exc.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert "Failed to initiate scan" in exc.detail
 
 
 class TestGetScanState:

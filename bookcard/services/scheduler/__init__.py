@@ -13,16 +13,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Scheduler services for periodic task execution."""
+"""Task scheduling service using APScheduler."""
 
-from bookcard.services.scheduler.base import (
-    BaseScheduler,
-    ScheduledTaskDefinition,
-)
-from bookcard.services.scheduler.task_scheduler import TaskScheduler
+from bookcard.services.scheduler.service import APSchedulerService
 
-__all__ = [
-    "BaseScheduler",
-    "ScheduledTaskDefinition",
-    "TaskScheduler",
-]
+__all__ = ["APSchedulerService"]

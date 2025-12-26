@@ -313,7 +313,7 @@ class TestCreateScheduler:
         """
         mock_task_runner = MagicMock()
         with patch(
-            "bookcard.api.services.container.TaskScheduler"
+            "bookcard.api.services.container.APSchedulerService"
         ) as mock_scheduler_class:
             mock_scheduler = MagicMock()
             mock_scheduler_class.return_value = mock_scheduler
@@ -323,10 +323,12 @@ class TestCreateScheduler:
             assert result == mock_scheduler
             mock_scheduler_class.assert_called_once_with(mock_engine, mock_task_runner)
 
-    def test_create_scheduler_disabled(
+    def test_create_scheduler_with_redis_disabled(
         self, test_config_no_redis: AppConfig, mock_engine: MagicMock
     ) -> None:
         """Test scheduler creation when Redis is disabled.
+
+        Scheduler should still be created as it uses in-memory store by default.
 
         Parameters
         ----------
@@ -337,9 +339,22 @@ class TestCreateScheduler:
         """
         container = ServiceContainer(test_config_no_redis, mock_engine)
         mock_task_runner = MagicMock()
-        result = container.create_scheduler(mock_task_runner)
 
-        assert result is None
+        # Patch APSchedulerService to avoid actual instantiation during test if needed,
+        # but here we just want to ensure it calls the constructor and returns it.
+        # The create_scheduler method instantiates APSchedulerService directly.
+        # We need to patch the class in the module to intercept it.
+
+        with patch(
+            "bookcard.api.services.container.APSchedulerService"
+        ) as mock_scheduler_class:
+            mock_scheduler = MagicMock()
+            mock_scheduler_class.return_value = mock_scheduler
+
+            result = container.create_scheduler(mock_task_runner)
+
+            assert result == mock_scheduler
+            mock_scheduler_class.assert_called_once_with(mock_engine, mock_task_runner)
 
     def test_create_scheduler_no_task_runner(self, container: ServiceContainer) -> None:
         """Test scheduler creation when task runner is None.
@@ -379,7 +394,7 @@ class TestCreateScheduler:
         """
         mock_task_runner = MagicMock()
         with patch(
-            "bookcard.api.services.container.TaskScheduler"
+            "bookcard.api.services.container.APSchedulerService"
         ) as mock_scheduler_class:
             mock_scheduler_class.side_effect = exception_type("Test error")
 

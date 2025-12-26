@@ -23,6 +23,7 @@ from sqlmodel import Session
 
 from bookcard.api.deps import get_admin_user, get_db_session
 from bookcard.models.auth import User
+from bookcard.models.tasks import TaskType
 from bookcard.services.library_scanning_service import LibraryScanningService
 
 SessionDep = Annotated[Session, Depends(get_db_session)]
@@ -54,6 +55,14 @@ class ScanStateResponse(BaseModel):
     authors_scanned: int
 
 
+def _raise_service_unavailable(detail: str) -> None:
+    """Raise HTTPException for service unavailability."""
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail=detail,
+    )
+
+
 @router.post(
     "/scan",
     response_model=ScanResponse,
@@ -63,7 +72,7 @@ class ScanStateResponse(BaseModel):
 def scan_library(
     request: ScanRequest,
     http_request: Request,
-    session: SessionDep,
+    session: SessionDep,  # noqa: ARG001
     current_user: Annotated[User, Depends(get_admin_user)],
 ) -> ScanResponse:
     """Initiate a library scan.
@@ -91,34 +100,38 @@ def scan_library(
     HTTPException
         If library is not found or scan cannot be initiated.
     """
-
-    def _raise_broker_error() -> None:
-        """Raise HTTPException for missing message broker."""
-        error_msg = "Message broker not available"
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=error_msg,
-        )
-
     try:
-        # Get message broker from app state
-        message_broker = getattr(http_request.app.state, "scan_worker_broker", None)
-        if message_broker is None:
-            _raise_broker_error()
+        # Get task runner from app state
+        task_runner = getattr(http_request.app.state, "task_runner", None)
+        if task_runner is None:
+            _raise_service_unavailable("Task runner not available")
 
-        # Create scanning service
-        scanning_service = LibraryScanningService(session, message_broker)
+        # Initiate scan via TaskRunner
+        # Note: We rely on the unified TaskRunner which will dispatch a LibraryScanTask.
+        # This simplifies the flow and ensures we use the same task infrastructure for everything.
 
-        # Initiate scan
-        task_id = scanning_service.scan_library(
-            library_id=request.library_id,
-            user_id=current_user.id,  # type: ignore[arg-type]
-            data_source_config=request.data_source_config,
+        # Default data source config
+        data_source_config = request.data_source_config or {
+            "name": "openlibrary",
+            "kwargs": {},
+        }
+
+        task_metadata = {
+            "library_id": request.library_id,
+            "data_source_config": data_source_config,
+            "task_type": "library_scan",  # Required for factory to know type
+        }
+
+        task_id = task_runner.enqueue(  # type: ignore[union-attr]
+            task_type=TaskType.LIBRARY_SCAN,
+            payload={},  # No specific payload, everything is in metadata
+            user_id=current_user.id,
+            metadata=task_metadata,
         )
 
         return ScanResponse(
-            task_id=task_id,  # service.scan_library() now returns task_id
-            message=f"Library scan job for library {request.library_id} published to queue",
+            task_id=task_id,
+            message=f"Library scan job for library {request.library_id} queued via TaskRunner",
         )
 
     except ValueError as e:
@@ -126,6 +139,8 @@ def scan_library(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         ) from e
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
