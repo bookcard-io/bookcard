@@ -15,169 +15,199 @@
 
 """Library scan task implementation.
 
-Handles scanning Calibre libraries, matching authors/books to external
-data sources, and ingesting metadata.
-
-This task only handles task-specific concerns and delegates
-the actual scanning to the orchestrator.
+Invokes the legacy ScanWorkerManager to perform the actual scan,
+but allows the scan to be tracked and managed via the unified TaskRunner.
 """
 
 import logging
+import time
+from datetime import UTC, datetime
 from typing import Any
 
-from sqlmodel import Session
+from sqlmodel import select
 
+from bookcard.config import AppConfig
+from bookcard.models.library_scanning import LibraryScanState
 from bookcard.repositories.library_repository import LibraryRepository
-from bookcard.services.library_scanning.scan_configuration import (
-    DatabaseScanConfigurationProvider,
-)
-from bookcard.services.library_scanning.scan_factories import (
-    PipelineContextFactory,
-    RegistryDataSourceFactory,
-    StandardPipelineFactory,
-)
-from bookcard.services.library_scanning.scan_orchestrator import (
-    LibraryScanOrchestrator,
-)
+from bookcard.services.library_scanning.workers.manager import ScanWorkerManager
+from bookcard.services.library_scanning.workers.progress import JobProgressTracker
 from bookcard.services.tasks.base import BaseTask
+from bookcard.services.tasks.context import WorkerContext
 
 logger = logging.getLogger(__name__)
 
 
 class LibraryScanTask(BaseTask):
-    """Task for scanning a Calibre library.
+    """Task for executing a library scan.
 
-    This task only handles task-specific concerns and delegates
-    the actual scanning to the orchestrator.
+    This task acts as a bridge to the specialized ScanWorkerManager pipeline.
+    It takes the scan configuration from metadata and triggers the distributed
+    workers via Redis.
     """
 
-    def __init__(
-        self,
-        task_id: int,
-        user_id: int,
-        metadata: dict[str, Any],
-        orchestrator: LibraryScanOrchestrator | None = None,
-    ) -> None:
-        """Initialize library scan task.
+    def run(self, worker_context: dict[str, Any] | WorkerContext) -> None:
+        """Execute library scan task.
 
         Parameters
         ----------
-        task_id : int
-            Database task ID.
-        user_id : int
-            User ID creating the task.
-        metadata : dict[str, Any]
-            Task metadata containing library_id and optional data_source_config.
-        orchestrator : LibraryScanOrchestrator | None
-            Scan orchestrator (will be created if not provided).
+        worker_context : dict[str, Any] | WorkerContext
+            Worker context.
         """
-        super().__init__(task_id, user_id, metadata)
-
-        # Validate required metadata
-        self.library_id = metadata.get("library_id")
-        if not self.library_id:
+        # 1. Get library_id and data_source_config from metadata
+        library_id = self.metadata.get("library_id")
+        if not library_id:
             msg = "library_id is required in task metadata"
             raise ValueError(msg)
 
-        # Extract data source configuration
-        data_source_config = metadata.get("data_source_config", {})
-        if isinstance(data_source_config, dict):
-            self.data_source_name = data_source_config.get("name", "openlibrary")
-            self.data_source_kwargs = data_source_config.get("kwargs", {})
-        else:
-            self.data_source_name = "openlibrary"
-            self.data_source_kwargs = {}
+        data_source_config = self.metadata.get("data_source_config")
+        if not data_source_config:
+            # Should have been set by the service, but fallback if missing
+            data_source_config = {"name": "openlibrary", "kwargs": {}}
 
-        self.orchestrator = orchestrator
+        redis_url = self._get_redis_url(worker_context)
+        if not redis_url:
+            logger.warning(
+                "Redis URL not found in worker context. Library scan requires Redis."
+            )
+            msg = "Library scan requires Redis but Redis URL is not available."
+            raise RuntimeError(msg)
 
-    def run(self, worker_context: dict[str, Any]) -> None:
-        """Execute the library scan task.
+        logger.info(
+            "Starting library scan task %s for library %s via ScanWorkerManager",
+            self.task_id,
+            library_id,
+        )
 
-        Parameters
-        ----------
-        worker_context : dict[str, Any]
-            Worker context containing database session and task service.
-        """
-        session = worker_context["session"]
-        update_progress = worker_context.get("update_progress")
+        # 3. Instantiate Manager (or use injected one)
+        manager = ScanWorkerManager(redis_url)
 
-        def progress_callback(
-            progress: float,
-            metadata: dict[str, Any] | None = None,
-        ) -> None:
-            """Update task progress with optional metadata.
+        # 4. Trigger the scan (publish to Redis)
+        # We assume the workers are ALREADY running (managed by bootstrap).
+        # We just need to publish the job.
 
-            Parameters
-            ----------
-            progress : float
-                Progress value between 0.0 and 1.0.
-            metadata : dict[str, Any] | None
-                Optional metadata (stage, current_item, counts, etc.).
-            """
-            if update_progress:
-                update_progress(progress, metadata)
-
-        def _raise_library_id_required() -> None:
-            """Raise ValueError for missing library_id."""
-            msg = "library_id is required"
+        # Get library details
+        session = (
+            worker_context.session
+            if isinstance(worker_context, WorkerContext)
+            else worker_context["session"]
+        )
+        library_repo = LibraryRepository(session)
+        library = library_repo.get(library_id)
+        if not library:
+            msg = f"Library {library_id} not found"
             raise ValueError(msg)
 
-        try:
-            # Validate library_id is present
-            if not self.library_id:
-                _raise_library_id_required()
+        # Clear old job data
+        tracker = JobProgressTracker(manager.broker)
+        tracker.clear_job(library_id)
 
-            # Create orchestrator if not injected
-            if not hasattr(self, "orchestrator") or not self.orchestrator:
-                self.orchestrator = self._create_orchestrator(session)
+        # Create/Update scan state to pending
+        # This ensures the monitoring loop has a record to track immediately
+        stmt = select(LibraryScanState).where(LibraryScanState.library_id == library_id)
+        scan_state = session.exec(stmt).first()
 
-            # Execute scan
-            # Type assertion: library_id is guaranteed to be int after validation
-            library_id = int(self.library_id)
-            result = self.orchestrator.scan_library(
+        if scan_state:
+            scan_state.scan_status = "pending"
+            scan_state.updated_at = datetime.now(UTC)
+        else:
+            scan_state = LibraryScanState(
                 library_id=library_id,
-                metadata=self.metadata,
-                session=session,
-                progress_callback=progress_callback,
+                scan_status="pending",
+                updated_at=datetime.now(UTC),
             )
+            session.add(scan_state)
+        session.commit()
 
-            # Handle result if needed
-            if not result["success"]:
-                logger.error(
-                    "Scan failed for library %d: %s",
-                    self.library_id,
-                    result.get("message", "Unknown error"),
-                )
+        # Create payload
+        payload = {
+            "task_id": self.task_id,  # Important: Link specialized workers to this Task
+            "library_id": library_id,
+            "calibre_db_path": library.calibre_db_path,
+            "calibre_db_file": library.calibre_db_file or "metadata.db",
+            "data_source_config": data_source_config,
+        }
 
-        except Exception:
-            logger.exception("Error executing library scan task")
-            raise
+        # Publish
+        manager.broker.publish("scan_jobs", payload)
 
-    def _create_orchestrator(
-        self,
-        session: Session,
-    ) -> LibraryScanOrchestrator:
-        """Create default orchestrator with standard dependencies.
+        self._monitor_scan_progress(tracker, library_id, session)
+
+    def _get_redis_url(
+        self, worker_context: dict[str, Any] | WorkerContext
+    ) -> str | None:
+        """Try to retrieve Redis URL from context or environment.
 
         Parameters
         ----------
-        session : Session
-            Database session.
+        worker_context : dict[str, Any] | WorkerContext
+            Worker context.
 
         Returns
         -------
-        LibraryScanOrchestrator
-            Configured scan orchestrator.
+        str | None
+            Redis URL or None.
         """
-        library_repo = LibraryRepository(session)
-        config_provider = DatabaseScanConfigurationProvider(session)
-        data_source_factory = RegistryDataSourceFactory()
-        pipeline_factory = StandardPipelineFactory()
-        context_factory = PipelineContextFactory(library_repo)
+        # 1. Try context (if injected)
+        if isinstance(worker_context, dict) and "redis_url" in worker_context:
+            return str(worker_context["redis_url"])
 
-        return LibraryScanOrchestrator(
-            config_provider=config_provider,
-            data_source_factory=data_source_factory,
-            pipeline_factory=pipeline_factory,
-            context_factory=context_factory,
-        )
+        # 2. Fallback to Config/Env
+        # This is robust for a task execution
+        try:
+            return AppConfig._get_redis_url()  # noqa: SLF001
+        except ValueError:
+            return None
+
+    def _raise_scan_failed(self) -> None:
+        """Raise RuntimeError for failed scan."""
+        msg = "Library scan failed (marked in ScanState)"
+        raise RuntimeError(msg)
+
+    def _monitor_scan_progress(
+        self,
+        tracker: JobProgressTracker,  # noqa: ARG002
+        library_id: int,
+        session: Any,  # noqa: ANN401
+    ) -> None:
+        """Monitor the scan progress until completion."""
+        logger.info("Monitoring scan progress for library %s...", library_id)
+
+        missing_state_retries = 0
+        max_missing_state_retries = 12
+
+        while True:
+            # Check for cancellation
+            if self.check_cancelled():
+                # We should signal the distributed workers to stop?
+                # tracker.cancel_job(library_id)? (Not implemented yet)
+                logger.info("Task cancelled, stopping monitor.")
+                return
+
+            # Check scan state from DB
+            try:
+                # We need to expire cached objects to see updates from other transactions
+                session.expire_all()
+
+                state = session.get(LibraryScanState, library_id)
+                if state:
+                    missing_state_retries = 0
+                    if state.scan_status == "completed":
+                        logger.info("Scan completed successfully.")
+                        self.update_progress(1.0)
+                        return
+                    if state.scan_status == "failed":
+                        self._raise_scan_failed()
+                else:
+                    missing_state_retries += 1
+
+            except Exception:  # noqa: BLE001
+                # Catching generic Exception is intentional here to prevent loop crash
+                # monitoring should be resilient
+                logger.warning("Error checking scan state, retrying...", exc_info=True)
+                missing_state_retries += 1
+
+            if missing_state_retries > max_missing_state_retries:
+                msg = f"Scan state for library {library_id} disappeared or cannot be retrieved after multiple attempts."
+                raise RuntimeError(msg)
+
+            time.sleep(5)

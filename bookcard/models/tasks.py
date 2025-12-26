@@ -86,6 +86,7 @@ class TaskType(StrEnum):
     EPUB_FIX_DAILY_SCAN = "epub_fix_daily_scan"
     INGEST_DISCOVERY = "ingest_discovery"
     INGEST_BOOK = "ingest_book"
+    PVR_DOWNLOAD_MONITOR = "pvr_download_monitor"
 
 
 class Task(SQLModel, table=True):

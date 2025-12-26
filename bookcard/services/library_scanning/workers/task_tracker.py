@@ -26,7 +26,6 @@ from sqlalchemy.exc import OperationalError
 from sqlmodel import Session
 
 from bookcard.database import create_db_engine, get_session
-from bookcard.services.task_service import TaskService
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +56,8 @@ class ScanTaskTracker:
         task_id : int
             Task ID to start.
         """
+        from bookcard.services.task_service import TaskService
+
         self._with_retry(
             lambda session: TaskService(session).start_task(task_id),
             f"start task {task_id}",
@@ -83,6 +84,8 @@ class ScanTaskTracker:
         metadata : dict[str, Any] | None
             Optional metadata to include.
         """
+        from bookcard.services.task_service import TaskService
+
         stage_base = self.STAGE_PROGRESS.get(stage, 0.0)
         stage_range = self._get_stage_range(stage)
 
@@ -126,6 +129,8 @@ class ScanTaskTracker:
         metadata : dict[str, Any] | None
             Optional metadata to include.
         """
+        from bookcard.services.task_service import TaskService
+
         self._with_retry(
             lambda session: TaskService(session).complete_task(
                 task_id, metadata=metadata, normalize_metadata=False
@@ -149,6 +154,8 @@ class ScanTaskTracker:
         error_message : str
             Error message to store.
         """
+        from bookcard.services.task_service import TaskService
+
         self._with_retry(
             lambda session: TaskService(session).fail_task(task_id, error_message),
             f"fail task {task_id}",

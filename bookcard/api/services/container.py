@@ -28,7 +28,7 @@ from bookcard.services.ingest.ingest_config_service import IngestConfigService
 from bookcard.services.ingest.ingest_watcher_service import IngestWatcherService
 from bookcard.services.library_scanning.workers.manager import ScanWorkerManager
 from bookcard.services.messaging.redis_broker import RedisBroker
-from bookcard.services.scheduler import TaskScheduler
+from bookcard.services.scheduler.service import APSchedulerService
 from bookcard.services.tasks.runner_factory import create_task_runner
 
 if TYPE_CHECKING:
@@ -139,7 +139,7 @@ class ServiceContainer:
 
     def create_scheduler(
         self, task_runner: "TaskRunner | None"
-    ) -> TaskScheduler | None:
+    ) -> APSchedulerService | None:
         """Create task scheduler instance.
 
         Parameters
@@ -149,20 +149,21 @@ class ServiceContainer:
 
         Returns
         -------
-        TaskScheduler | None
+        APSchedulerService | None
             Task scheduler instance, or None if dependencies are not available.
         """
-        if not self.config.redis_enabled:
-            logger.info("Scheduler not initialized: Redis is disabled")
-            return None
+        # Note: APScheduler doesn't strictly depend on Redis, but we check config consistency
+        # Assuming we still want to respect the 'redis_enabled' flag if it was used as a master switch
+        # But APSchedulerService itself is independent of Redis (unless using RedisJobStore).
+        # We'll relax the Redis check here since we use MemoryJobStore/ThreadPool.
 
         if task_runner is None:
             logger.info("Scheduler not initialized: Task runner is not available")
             return None
 
         try:
-            scheduler = TaskScheduler(self.engine, task_runner)
-            logger.info("Initialized TaskScheduler for periodic tasks")
+            scheduler = APSchedulerService(self.engine, task_runner)
+            logger.info("Initialized APSchedulerService for periodic tasks")
         except INFRASTRUCTURE_EXCEPTIONS as exc:
             logger.warning(
                 "Failed to initialize scheduler: %s.",

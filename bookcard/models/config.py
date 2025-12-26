@@ -24,10 +24,13 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Any
 
-from sqlalchemy import JSON, Column
+from sqlalchemy import JSON, Column, ForeignKey, Integer
 from sqlalchemy import Enum as SQLEnum
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Index, SQLModel
+
+from bookcard.models.tasks import TaskType
 
 # Default supported file formats for ingest
 # Matches Calibre-supported formats: 30 formats total
@@ -435,6 +438,7 @@ class ScheduledTasksConfig(SQLModel, table=True):
     reconnect_database: bool = Field(default=False)
     metadata_backup: bool = Field(default=False)
     epub_fixer_daily_scan: bool = Field(default=False)
+    pvr_download_monitor_enabled: bool = Field(default=True)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         index=True,
@@ -442,6 +446,86 @@ class ScheduledTasksConfig(SQLModel, table=True):
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         sa_column_kwargs={"onupdate": lambda: datetime.now(UTC)},
+    )
+
+
+class ScheduledJobDefinition(SQLModel, table=True):
+    """Scheduled job definition model.
+
+    Stores individual scheduled job definitions that can be enabled/disabled
+    and configured with custom cron expressions. This replaces the boolean flags
+    in ScheduledTasksConfig with a more flexible, persistent job registry.
+
+    Attributes
+    ----------
+    id : int | None
+        Primary key identifier.
+    job_name : str
+        Unique identifier for the job (e.g., 'pvr_download_monitor').
+    description : str | None
+        Human-readable description of what the job does.
+    task_type : TaskType
+        Type of task to execute when the job runs.
+    cron_expression : str
+        Cron expression defining when the job should run (e.g., '*/5 * * * *').
+    enabled : bool
+        Whether this job is currently enabled (default: False).
+    arguments : dict[str, Any] | None
+        JSON object with optional task payload arguments.
+    metadata : dict[str, Any] | None
+        JSON object with optional task metadata.
+    user_id : int | None
+        ID of user to run the task as (None = use system user).
+    created_at : datetime
+        Timestamp when job definition was created.
+    updated_at : datetime
+        Last update timestamp.
+    """
+
+    __tablename__ = "scheduled_job_definitions"
+
+    id: int | None = Field(default=None, primary_key=True)
+    job_name: str = Field(max_length=255, unique=True, index=True)
+    description: str | None = Field(default=None, max_length=1000)
+    task_type: TaskType = Field(
+        sa_column=Column(
+            SQLEnum(TaskType, native_enum=False), nullable=False, index=True
+        ),  # type: ignore[call-overload]
+    )
+    cron_expression: str = Field(max_length=100, index=True)
+    enabled: bool = Field(default=False, index=True)
+    arguments: dict[str, Any] | None = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        description="Optional task payload arguments",
+    )
+    job_metadata: dict[str, Any] | None = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        description="Optional task metadata",
+    )
+    user_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer,
+            ForeignKey("users.id", ondelete="SET NULL"),
+            nullable=True,
+            index=True,
+        ),
+        description="User ID to run task as (None = system user)",
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        index=True,
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column_kwargs={"onupdate": lambda: datetime.now(UTC)},
+    )
+
+    __table_args__ = (
+        Index("idx_scheduled_jobs_enabled_name", "enabled", "job_name"),
+        Index("idx_scheduled_jobs_task_type", "task_type"),
     )
 
 
