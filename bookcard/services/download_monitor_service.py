@@ -250,11 +250,9 @@ class DownloadMonitorService:
         if db_item.status == DownloadItemStatus.COMPLETED and not db_item.completed_at:
             db_item.completed_at = datetime.now(UTC)
 
-            # Update TrackedBook status if linked
-            if db_item.tracked_book:
-                db_item.tracked_book.status = TrackedBookStatus.COMPLETED
-                db_item.tracked_book.last_downloaded_at = datetime.now(UTC)
-                self.session.add(db_item.tracked_book)
+            # Note: We do NOT update the TrackedBook status here.
+            # That is now handled by the PVRImportService which will pick up
+            # this completed download item and perform the import.
 
         # Check for failure
         if db_item.status == DownloadItemStatus.FAILED and not db_item.error_message:
