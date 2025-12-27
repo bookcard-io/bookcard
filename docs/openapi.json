@@ -4594,6 +4594,349 @@
         }
       }
     },
+    "/download-clients": {
+      "get": {
+        "tags": [
+          "download-clients"
+        ],
+        "summary": "List Download Clients",
+        "description": "List all download clients.\n\nParameters\n----------\nsession : SessionDep\n    Database session dependency.\nenabled_only : bool\n    If True, only return enabled download clients.\n\nReturns\n-------\nDownloadClientListResponse\n    List of download clients.",
+        "operationId": "list_download_clients_download_clients_get",
+        "parameters": [
+          {
+            "name": "enabled_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Only return enabled download clients",
+              "default": false,
+              "title": "Enabled Only"
+            },
+            "description": "Only return enabled download clients"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadClientListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "download-clients"
+        ],
+        "summary": "Create Download Client",
+        "description": "Create a new download client.\n\nParameters\n----------\ndata : DownloadClientCreate\n    Download client creation data.\nsession : SessionDep\n    Database session dependency.\n\nReturns\n-------\nDownloadClientRead\n    Created download client.\n\nRaises\n------\nHTTPException\n    If download client creation fails.",
+        "operationId": "create_download_client_download_clients_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DownloadClientCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadClientRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/download-clients/{client_id}": {
+      "get": {
+        "tags": [
+          "download-clients"
+        ],
+        "summary": "Get Download Client",
+        "description": "Get a download client by ID.\n\nParameters\n----------\nclient_id : int\n    Download client ID.\nsession : SessionDep\n    Database session dependency.\n\nReturns\n-------\nDownloadClientRead\n    Download client data.\n\nRaises\n------\nHTTPException\n    If download client not found.",
+        "operationId": "get_download_client_download_clients__client_id__get",
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Client Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadClientRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "download-clients"
+        ],
+        "summary": "Update Download Client",
+        "description": "Update a download client.\n\nParameters\n----------\nclient_id : int\n    Download client ID.\ndata : DownloadClientUpdate\n    Update data (partial).\nsession : SessionDep\n    Database session dependency.\n\nReturns\n-------\nDownloadClientRead\n    Updated download client.\n\nRaises\n------\nHTTPException\n    If download client not found or update fails.",
+        "operationId": "update_download_client_download_clients__client_id__put",
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Client Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DownloadClientUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadClientRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "download-clients"
+        ],
+        "summary": "Delete Download Client",
+        "description": "Delete a download client.\n\nParameters\n----------\nclient_id : int\n    Download client ID.\nsession : SessionDep\n    Database session dependency.\n\nRaises\n------\nHTTPException\n    If download client not found.",
+        "operationId": "delete_download_client_download_clients__client_id__delete",
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Client Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/download-clients/{client_id}/test": {
+      "post": {
+        "tags": [
+          "download-clients"
+        ],
+        "summary": "Test Download Client Connection",
+        "description": "Test connection to a download client.\n\nParameters\n----------\nclient_id : int\n    Download client ID.\nsession : SessionDep\n    Database session dependency.\n\nReturns\n-------\nDownloadClientTestResponse\n    Test result.\n\nRaises\n------\nHTTPException\n    If download client not found or test fails.",
+        "operationId": "test_download_client_connection_download_clients__client_id__test_post",
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Client Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadClientTestResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/download-clients/{client_id}/status": {
+      "get": {
+        "tags": [
+          "download-clients"
+        ],
+        "summary": "Get Download Client Status",
+        "description": "Get download client status information.\n\nParameters\n----------\nclient_id : int\n    Download client ID.\nsession : SessionDep\n    Database session dependency.\n\nReturns\n-------\nDownloadClientStatusResponse\n    Download client status information.\n\nRaises\n------\nHTTPException\n    If download client not found.",
+        "operationId": "get_download_client_status_download_clients__client_id__status_get",
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Client Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadClientStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/download-clients/{client_id}/items": {
+      "get": {
+        "tags": [
+          "download-clients"
+        ],
+        "summary": "Get Download Client Items",
+        "description": "Get active downloads from a download client.\n\nParameters\n----------\nclient_id : int\n    Download client ID.\nsession : SessionDep\n    Database session dependency.\n\nReturns\n-------\nDownloadItemsResponse\n    List of active download items.\n\nRaises\n------\nHTTPException\n    If download client not found or fetching items fails.",
+        "operationId": "get_download_client_items_download_clients__client_id__items_get",
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Client Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadItemsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/epub-fixer/fix-single": {
       "post": {
         "tags": [
@@ -4948,6 +5291,306 @@
                     }
                   },
                   "title": "Response Suggest Dirs Fs Suggest Dirs Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/indexers": {
+      "get": {
+        "tags": [
+          "indexers"
+        ],
+        "summary": "List Indexers",
+        "description": "List all indexers.\n\nParameters\n----------\nsession : SessionDep\n    Database session dependency.\nenabled_only : bool\n    If True, only return enabled indexers.\n\nReturns\n-------\nIndexerListResponse\n    List of indexers.",
+        "operationId": "list_indexers_indexers_get",
+        "parameters": [
+          {
+            "name": "enabled_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Only return enabled indexers",
+              "default": false,
+              "title": "Enabled Only"
+            },
+            "description": "Only return enabled indexers"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexerListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "indexers"
+        ],
+        "summary": "Create Indexer",
+        "description": "Create a new indexer.\n\nParameters\n----------\ndata : IndexerCreate\n    Indexer creation data.\nsession : SessionDep\n    Database session dependency.\n\nReturns\n-------\nIndexerRead\n    Created indexer.\n\nRaises\n------\nHTTPException\n    If indexer creation fails.",
+        "operationId": "create_indexer_indexers_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexerCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexerRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/indexers/{indexer_id}": {
+      "get": {
+        "tags": [
+          "indexers"
+        ],
+        "summary": "Get Indexer",
+        "description": "Get an indexer by ID.\n\nParameters\n----------\nindexer_id : int\n    Indexer ID.\nsession : SessionDep\n    Database session dependency.\n\nReturns\n-------\nIndexerRead\n    Indexer data.\n\nRaises\n------\nHTTPException\n    If indexer not found.",
+        "operationId": "get_indexer_indexers__indexer_id__get",
+        "parameters": [
+          {
+            "name": "indexer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Indexer Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexerRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "indexers"
+        ],
+        "summary": "Update Indexer",
+        "description": "Update an indexer.\n\nParameters\n----------\nindexer_id : int\n    Indexer ID.\ndata : IndexerUpdate\n    Update data (partial).\nsession : SessionDep\n    Database session dependency.\n\nReturns\n-------\nIndexerRead\n    Updated indexer.\n\nRaises\n------\nHTTPException\n    If indexer not found or update fails.",
+        "operationId": "update_indexer_indexers__indexer_id__put",
+        "parameters": [
+          {
+            "name": "indexer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Indexer Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexerUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexerRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "indexers"
+        ],
+        "summary": "Delete Indexer",
+        "description": "Delete an indexer.\n\nParameters\n----------\nindexer_id : int\n    Indexer ID.\nsession : SessionDep\n    Database session dependency.\n\nRaises\n------\nHTTPException\n    If indexer not found.",
+        "operationId": "delete_indexer_indexers__indexer_id__delete",
+        "parameters": [
+          {
+            "name": "indexer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Indexer Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/indexers/{indexer_id}/test": {
+      "post": {
+        "tags": [
+          "indexers"
+        ],
+        "summary": "Test Indexer Connection",
+        "description": "Test connection to an indexer.\n\nParameters\n----------\nindexer_id : int\n    Indexer ID.\nsession : SessionDep\n    Database session dependency.\n\nReturns\n-------\nIndexerTestResponse\n    Test result.\n\nRaises\n------\nHTTPException\n    If indexer not found or test fails.",
+        "operationId": "test_indexer_connection_indexers__indexer_id__test_post",
+        "parameters": [
+          {
+            "name": "indexer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Indexer Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexerTestResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/indexers/{indexer_id}/status": {
+      "get": {
+        "tags": [
+          "indexers"
+        ],
+        "summary": "Get Indexer Status",
+        "description": "Get indexer status information.\n\nParameters\n----------\nindexer_id : int\n    Indexer ID.\nsession : SessionDep\n    Database session dependency.\n\nReturns\n-------\nIndexerStatusResponse\n    Indexer status information.\n\nRaises\n------\nHTTPException\n    If indexer not found.",
+        "operationId": "get_indexer_status_indexers__indexer_id__status_get",
+        "parameters": [
+          {
+            "name": "indexer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Indexer Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexerStatusResponse"
                 }
               }
             }
@@ -8284,6 +8927,144 @@
         }
       }
     },
+    "/pvr/search": {
+      "post": {
+        "tags": [
+          "pvr-search"
+        ],
+        "summary": "Search Tracked Book",
+        "description": "Initiate manual search for a tracked book.\n\nSearches all enabled indexers (or specified indexers) for the tracked book\nand stores results in cache for later retrieval.\n\nParameters\n----------\nrequest : PVRSearchRequest\n    Search request with tracked book ID and optional filters.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : UserDep\n    Current authenticated user.\npermission_helper : PermissionHelperDep\n    Permission helper instance.\n\nReturns\n-------\nPVRSearchResponse\n    Search initiation response.\n\nRaises\n------\nHTTPException\n    If tracked book not found (404) or search fails (500).\nPermissionError\n    If user does not have read permission.",
+        "operationId": "search_tracked_book_pvr_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PVRSearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PVRSearchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pvr/search/{tracked_book_id}/results": {
+      "get": {
+        "tags": [
+          "pvr-search"
+        ],
+        "summary": "Get Search Results",
+        "description": "Get search results for a tracked book.\n\nRetrieves cached search results from the most recent search.\n\nParameters\n----------\ntracked_book_id : int\n    Tracked book ID.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : UserDep\n    Current authenticated user.\npermission_helper : PermissionHelperDep\n    Permission helper instance.\n\nReturns\n-------\nPVRSearchResultsResponse\n    Search results response.\n\nRaises\n------\nHTTPException\n    If tracked book not found (404) or no results available (404).\nPermissionError\n    If user does not have read permission.",
+        "operationId": "get_search_results_pvr_search__tracked_book_id__results_get",
+        "parameters": [
+          {
+            "name": "tracked_book_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tracked Book Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PVRSearchResultsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pvr/search/{tracked_book_id}/download": {
+      "post": {
+        "tags": [
+          "pvr-search"
+        ],
+        "summary": "Trigger Download",
+        "description": "Trigger download for a specific release from search results.\n\nInitiates download of the release at the specified index in the search results.\n\nParameters\n----------\ntracked_book_id : int\n    Tracked book ID.\nrequest : PVRDownloadRequest\n    Download request with release index.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : UserDep\n    Current authenticated user.\npermission_helper : PermissionHelperDep\n    Permission helper instance.\n\nReturns\n-------\nPVRDownloadResponse\n    Download initiation response.\n\nRaises\n------\nHTTPException\n    If tracked book not found (404), no results available (404),\n    invalid release index (400), or download fails (500).\nPermissionError\n    If user does not have write permission.",
+        "operationId": "trigger_download_pvr_search__tracked_book_id__download_post",
+        "parameters": [
+          {
+            "name": "tracked_book_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tracked Book Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PVRDownloadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PVRDownloadResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/reading/progress": {
       "put": {
         "tags": [
@@ -9603,6 +10384,269 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TaskTypesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tracked-books": {
+      "get": {
+        "tags": [
+          "tracked-books"
+        ],
+        "summary": "List Tracked Books",
+        "description": "List tracked books.\n\nParameters\n----------\nsession : SessionDep\n    Database session dependency.\nstatus_filter : TrackedBookStatus | None\n    Optional status filter.\n\nReturns\n-------\nTrackedBookListResponse\n    List of tracked books.",
+        "operationId": "list_tracked_books_tracked_books_get",
+        "parameters": [
+          {
+            "name": "status_filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TrackedBookStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by status",
+              "title": "Status Filter"
+            },
+            "description": "Filter by status"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedBookListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "tracked-books"
+        ],
+        "summary": "Create Tracked Book",
+        "description": "Add a book to track.\n\nParameters\n----------\ndata : TrackedBookCreate\n    Tracked book creation data.\nsession : SessionDep\n    Database session dependency.\n\nReturns\n-------\nTrackedBookRead\n    Created tracked book.\n\nRaises\n------\nHTTPException\n    If book creation fails (e.g. already tracked).",
+        "operationId": "create_tracked_book_tracked_books_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrackedBookCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedBookRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tracked-books/{tracked_book_id}": {
+      "get": {
+        "tags": [
+          "tracked-books"
+        ],
+        "summary": "Get Tracked Book",
+        "description": "Get a tracked book by ID.\n\nParameters\n----------\ntracked_book_id : int\n    Tracked book ID.\nsession : SessionDep\n    Database session dependency.\n\nReturns\n-------\nTrackedBookRead\n    Tracked book data.\n\nRaises\n------\nHTTPException\n    If tracked book not found.",
+        "operationId": "get_tracked_book_tracked_books__tracked_book_id__get",
+        "parameters": [
+          {
+            "name": "tracked_book_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tracked Book Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedBookRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "tracked-books"
+        ],
+        "summary": "Update Tracked Book",
+        "description": "Update a tracked book.\n\nParameters\n----------\ntracked_book_id : int\n    Tracked book ID.\ndata : TrackedBookUpdate\n    Update data.\nsession : SessionDep\n    Database session dependency.\n\nReturns\n-------\nTrackedBookRead\n    Updated tracked book.\n\nRaises\n------\nHTTPException\n    If tracked book not found.",
+        "operationId": "update_tracked_book_tracked_books__tracked_book_id__put",
+        "parameters": [
+          {
+            "name": "tracked_book_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tracked Book Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrackedBookUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedBookRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "tracked-books"
+        ],
+        "summary": "Delete Tracked Book",
+        "description": "Stop tracking a book (delete tracked book entry).\n\nParameters\n----------\ntracked_book_id : int\n    Tracked book ID.\nsession : SessionDep\n    Database session dependency.\n\nRaises\n------\nHTTPException\n    If tracked book not found.",
+        "operationId": "delete_tracked_book_tracked_books__tracked_book_id__delete",
+        "parameters": [
+          {
+            "name": "tracked_book_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tracked Book Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tracked-books/{tracked_book_id}/status": {
+      "get": {
+        "tags": [
+          "tracked-books"
+        ],
+        "summary": "Get Tracked Book Status",
+        "description": "Get tracking status (and trigger re-check of library match).\n\nParameters\n----------\ntracked_book_id : int\n    Tracked book ID.\nsession : SessionDep\n    Database session dependency.\n\nReturns\n-------\nTrackedBookStatusResponse\n    Status information.\n\nRaises\n------\nHTTPException\n    If tracked book not found.",
+        "operationId": "get_tracked_book_status_tracked_books__tracked_book_id__status_get",
+        "parameters": [
+          {
+            "name": "tracked_book_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tracked Book Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedBookStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -11510,6 +12554,578 @@
         "title": "CoverFromUrlResponse",
         "description": "Response containing temporary cover image URL.\n\nAttributes\n----------\ntemp_url : str\n    Temporary URL to access the downloaded cover image."
       },
+      "DownloadClientCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Name",
+            "description": "User-friendly name for the download client"
+          },
+          "client_type": {
+            "$ref": "#/components/schemas/DownloadClientType",
+            "description": "Type of download client"
+          },
+          "host": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Host",
+            "description": "Hostname or IP address of the client"
+          },
+          "port": {
+            "type": "integer",
+            "maximum": 65535.0,
+            "minimum": 1.0,
+            "title": "Port",
+            "description": "Port number for the client API",
+            "default": 8080
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username",
+            "description": "Username for authentication"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password",
+            "description": "Password for authentication"
+          },
+          "use_ssl": {
+            "type": "boolean",
+            "title": "Use Ssl",
+            "description": "Whether to use SSL/TLS",
+            "default": false
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "description": "Whether this client is enabled",
+            "default": true
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Priority",
+            "description": "Priority for download assignment (lower = higher priority)",
+            "default": 0
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "maximum": 300.0,
+            "minimum": 1.0,
+            "title": "Timeout Seconds",
+            "description": "Request timeout in seconds",
+            "default": 30
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category",
+            "description": "Category/tag to assign to downloads"
+          },
+          "download_path": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Download Path",
+            "description": "Path where client should save downloads"
+          },
+          "additional_settings": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Additional Settings",
+            "description": "Client-specific settings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "client_type",
+          "host"
+        ],
+        "title": "DownloadClientCreate",
+        "description": "Request schema for creating a download client.\n\nAttributes\n----------\nname : str\n    User-friendly name for the download client.\nclient_type : DownloadClientType\n    Type of download client (qBittorrent, Transmission, etc.).\nhost : str\n    Hostname or IP address of the client.\nport : int\n    Port number for the client API.\nusername : str | None\n    Username for authentication.\npassword : str | None\n    Password for authentication.\nuse_ssl : bool\n    Whether to use SSL/TLS (default False).\nenabled : bool\n    Whether this client is enabled (default True).\npriority : int\n    Priority for download assignment (lower = higher priority, default 0).\ntimeout_seconds : int\n    Request timeout in seconds (default 30).\ncategory : str | None\n    Category/tag to assign to downloads (e.g., 'bookcard').\ndownload_path : str | None\n    Path where client should save downloads.\nadditional_settings : dict[str, Any] | None\n    Client-specific settings."
+      },
+      "DownloadClientListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DownloadClientRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "DownloadClientListResponse",
+        "description": "Response schema for listing download clients.\n\nAttributes\n----------\nitems : list[DownloadClientRead]\n    List of download clients.\ntotal : int\n    Total number of download clients."
+      },
+      "DownloadClientRead": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "client_type": {
+            "$ref": "#/components/schemas/DownloadClientType"
+          },
+          "host": {
+            "type": "string",
+            "title": "Host"
+          },
+          "port": {
+            "type": "integer",
+            "title": "Port"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "priority": {
+            "type": "integer",
+            "title": "Priority"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "title": "Timeout Seconds"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "download_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Download Path"
+          },
+          "additional_settings": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Additional Settings"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DownloadClientStatus"
+          },
+          "last_checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Checked At"
+          },
+          "last_successful_connection_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Successful Connection At"
+          },
+          "error_count": {
+            "type": "integer",
+            "title": "Error Count"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "client_type",
+          "host",
+          "port",
+          "enabled",
+          "priority",
+          "timeout_seconds",
+          "category",
+          "download_path",
+          "additional_settings",
+          "status",
+          "last_checked_at",
+          "last_successful_connection_at",
+          "error_count",
+          "error_message",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DownloadClientRead",
+        "description": "Response schema for download client data.\n\nAttributes\n----------\nid : int\n    Primary key identifier.\nname : str\n    User-friendly name for the download client.\nclient_type : DownloadClientType\n    Type of download client.\nhost : str\n    Hostname or IP address of the client.\nport : int\n    Port number for the client API.\nenabled : bool\n    Whether this client is enabled.\npriority : int\n    Priority for download assignment.\ntimeout_seconds : int\n    Request timeout in seconds.\ncategory : str | None\n    Category/tag to assign to downloads.\ndownload_path : str | None\n    Path where client should save downloads.\nadditional_settings : dict[str, Any] | None\n    Client-specific settings.\nstatus : DownloadClientStatus\n    Current health status.\nlast_checked_at : datetime | None\n    Timestamp of last health check.\nlast_successful_connection_at : datetime | None\n    Timestamp of last successful connection.\nerror_count : int\n    Number of consecutive errors.\nerror_message : str | None\n    Last error message if status is unhealthy.\ncreated_at : datetime\n    Timestamp when client was added.\nupdated_at : datetime\n    Last update timestamp."
+      },
+      "DownloadClientStatus": {
+        "type": "string",
+        "enum": [
+          "healthy",
+          "degraded",
+          "unhealthy",
+          "disabled"
+        ],
+        "title": "DownloadClientStatus",
+        "description": "Download client status enumeration.\n\nAttributes\n----------\nHEALTHY : str\n    Download client is healthy and responding.\nDEGRADED : str\n    Download client is responding but with errors.\nUNHEALTHY : str\n    Download client is not responding or has critical errors.\nDISABLED : str\n    Download client is disabled by user."
+      },
+      "DownloadClientStatusResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DownloadClientStatus"
+          },
+          "last_checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Checked At"
+          },
+          "last_successful_connection_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Successful Connection At"
+          },
+          "error_count": {
+            "type": "integer",
+            "title": "Error Count"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "last_checked_at",
+          "last_successful_connection_at",
+          "error_count",
+          "error_message"
+        ],
+        "title": "DownloadClientStatusResponse",
+        "description": "Response schema for download client status.\n\nAttributes\n----------\nid : int\n    Download client ID.\nstatus : DownloadClientStatus\n    Current health status.\nlast_checked_at : datetime | None\n    Timestamp of last health check.\nlast_successful_connection_at : datetime | None\n    Timestamp of last successful connection.\nerror_count : int\n    Number of consecutive errors.\nerror_message : str | None\n    Last error message if status is unhealthy."
+      },
+      "DownloadClientTestResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "message"
+        ],
+        "title": "DownloadClientTestResponse",
+        "description": "Response schema for download client connection test.\n\nAttributes\n----------\nsuccess : bool\n    Whether the connection test succeeded.\nmessage : str\n    Test result message."
+      },
+      "DownloadClientType": {
+        "type": "string",
+        "enum": [
+          "qbittorrent",
+          "transmission",
+          "deluge",
+          "rtorrent",
+          "utorrent",
+          "vuze",
+          "aria2",
+          "flood",
+          "hadouken",
+          "freebox_download",
+          "download_station",
+          "sabnzbd",
+          "nzbget",
+          "nzbvortex",
+          "pneumatic",
+          "torrent_blackhole",
+          "usenet_blackhole"
+        ],
+        "title": "DownloadClientType",
+        "description": "Download client type enumeration.\n\nAttributes\n----------\nQBITTORRENT : str\n    qBittorrent client (torrent).\nTRANSMISSION : str\n    Transmission client (torrent).\nDELUGE : str\n    Deluge client (torrent).\nRTORRENT : str\n    rTorrent client (torrent).\nUTORRENT : str\n    uTorrent client (torrent).\nVUZE : str\n    Vuze client (torrent).\nARIA2 : str\n    Aria2 client (torrent).\nFLOOD : str\n    Flood client (torrent).\nHADOUKEN : str\n    Hadouken client (torrent).\nFREEBOX_DOWNLOAD : str\n    Freebox Download client (torrent).\nDOWNLOAD_STATION : str\n    Synology Download Station (supports both torrent and usenet).\nSABNZBD : str\n    SABnzbd client (usenet).\nNZBGET : str\n    NZBGet client (usenet).\nNZBVORTEX : str\n    NZBVortex client (usenet).\nPNEUMATIC : str\n    Pneumatic client (usenet).\nTORRENT_BLACKHOLE : str\n    Torrent blackhole (writes .torrent files to directory).\nUSENET_BLACKHOLE : str\n    Usenet blackhole (writes .nzb files to directory)."
+      },
+      "DownloadClientUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "User-friendly name for the download client"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host",
+            "description": "Hostname or IP address of the client"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 65535.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port",
+            "description": "Port number for the client API"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username",
+            "description": "Username for authentication"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password",
+            "description": "Password for authentication"
+          },
+          "use_ssl": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Use Ssl",
+            "description": "Whether to use SSL/TLS"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled",
+            "description": "Whether this client is enabled"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority",
+            "description": "Priority for download assignment (lower = higher priority)"
+          },
+          "timeout_seconds": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 300.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout Seconds",
+            "description": "Request timeout in seconds"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category",
+            "description": "Category/tag to assign to downloads"
+          },
+          "download_path": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Download Path",
+            "description": "Path where client should save downloads"
+          },
+          "additional_settings": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Additional Settings",
+            "description": "Client-specific settings"
+          }
+        },
+        "type": "object",
+        "title": "DownloadClientUpdate",
+        "description": "Request schema for updating a download client.\n\nAll fields are optional for partial updates.\n\nAttributes\n----------\nname : str | None\n    User-friendly name for the download client.\nhost : str | None\n    Hostname or IP address of the client.\nport : int | None\n    Port number for the client API.\nusername : str | None\n    Username for authentication.\npassword : str | None\n    Password for authentication.\nuse_ssl : bool | None\n    Whether to use SSL/TLS.\nenabled : bool | None\n    Whether this client is enabled.\npriority : int | None\n    Priority for download assignment (lower = higher priority).\ntimeout_seconds : int | None\n    Request timeout in seconds.\ncategory : str | None\n    Category/tag to assign to downloads.\ndownload_path : str | None\n    Path where client should save downloads.\nadditional_settings : dict[str, Any] | None\n    Client-specific settings."
+      },
       "DownloadFilesRequest": {
         "properties": {
           "urls": {
@@ -11561,6 +13177,117 @@
         ],
         "title": "DownloadFilesResponse",
         "description": "Response model for file download operation.\n\nAttributes\n----------\nmessage : str\n    Success message.\ntask_id : int\n    Task ID for tracking the download progress.\ndownloaded_files : list[str]\n    List of successfully downloaded file paths (empty until task completes).\nfailed_files : list[str]\n    List of URLs that failed to download (empty until task completes)."
+      },
+      "DownloadItemResponse": {
+        "properties": {
+          "client_item_id": {
+            "type": "string",
+            "title": "Client Item Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "progress": {
+            "type": "number",
+            "title": "Progress"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "downloaded_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Downloaded Bytes"
+          },
+          "download_speed_bytes_per_sec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Download Speed Bytes Per Sec"
+          },
+          "eta_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta Seconds"
+          },
+          "file_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_item_id",
+          "title",
+          "status",
+          "progress",
+          "size_bytes",
+          "downloaded_bytes",
+          "download_speed_bytes_per_sec",
+          "eta_seconds",
+          "file_path"
+        ],
+        "title": "DownloadItemResponse",
+        "description": "Response schema for download item.\n\nAttributes\n----------\nclient_item_id : str\n    Unique identifier for the item in the download client.\ntitle : str\n    Title of the release being downloaded.\nstatus : str\n    Current download status.\nprogress : float\n    Download progress (0.0 to 1.0).\nsize_bytes : int | None\n    Total size of download in bytes.\ndownloaded_bytes : int | None\n    Bytes downloaded so far.\ndownload_speed_bytes_per_sec : float | None\n    Current download speed.\neta_seconds : int | None\n    Estimated time to completion in seconds.\nfile_path : str | None\n    Path to downloaded file(s) when complete."
+      },
+      "DownloadItemsResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DownloadItemResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "DownloadItemsResponse",
+        "description": "Response schema for listing download items.\n\nAttributes\n----------\nitems : list[DownloadItemResponse]\n    List of download items.\ntotal : int\n    Total number of download items."
       },
       "EPUBFixBatchRequest": {
         "properties": {
@@ -12679,6 +14406,509 @@
         ],
         "title": "ImportResultSchema",
         "description": "Response schema for read list import result.\n\nAttributes\n----------\ntotal_books : int\n    Total number of books in the read list.\nmatched : list[BookMatch]\n    Successfully matched books.\nunmatched : list[BookReferenceSchema]\n    Books that could not be matched.\nerrors : list[str]\n    List of error messages encountered during import."
+      },
+      "IndexerCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Name",
+            "description": "User-friendly name for the indexer"
+          },
+          "indexer_type": {
+            "$ref": "#/components/schemas/IndexerType",
+            "description": "Type of indexer"
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/IndexerProtocol",
+            "description": "Protocol used (Torrent or Usenet)"
+          },
+          "base_url": {
+            "type": "string",
+            "maxLength": 1000,
+            "title": "Base Url",
+            "description": "Base URL of the indexer API"
+          },
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key",
+            "description": "API key for authentication"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "description": "Whether this indexer is enabled",
+            "default": true
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Priority",
+            "description": "Priority for search order (lower = higher priority)",
+            "default": 0
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "maximum": 300.0,
+            "minimum": 1.0,
+            "title": "Timeout Seconds",
+            "description": "Request timeout in seconds",
+            "default": 30
+          },
+          "retry_count": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Retry Count",
+            "description": "Number of retries on failure",
+            "default": 3
+          },
+          "categories": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Categories",
+            "description": "List of category IDs to search (None = all categories)"
+          },
+          "additional_settings": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Additional Settings",
+            "description": "Indexer-specific settings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "indexer_type",
+          "protocol",
+          "base_url"
+        ],
+        "title": "IndexerCreate",
+        "description": "Request schema for creating an indexer.\n\nAttributes\n----------\nname : str\n    User-friendly name for the indexer.\nindexer_type : IndexerType\n    Type of indexer (Torznab, Newznab, RSS, etc.).\nprotocol : IndexerProtocol\n    Protocol used (Torrent or Usenet).\nbase_url : str\n    Base URL of the indexer API.\napi_key : str | None\n    API key for authentication.\nenabled : bool\n    Whether this indexer is enabled (default True).\npriority : int\n    Priority for search order (lower = higher priority, default 0).\ntimeout_seconds : int\n    Request timeout in seconds (default 30).\nretry_count : int\n    Number of retries on failure (default 3).\ncategories : list[int] | None\n    List of category IDs to search (None = all categories).\nadditional_settings : dict[str, Any] | None\n    Indexer-specific settings."
+      },
+      "IndexerListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/IndexerRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "IndexerListResponse",
+        "description": "Response schema for listing indexers.\n\nAttributes\n----------\nitems : list[IndexerRead]\n    List of indexers.\ntotal : int\n    Total number of indexers."
+      },
+      "IndexerProtocol": {
+        "type": "string",
+        "enum": [
+          "torrent",
+          "usenet"
+        ],
+        "title": "IndexerProtocol",
+        "description": "Indexer protocol enumeration.\n\nAttributes\n----------\nTORRENT : str\n    Torrent-based indexer (BitTorrent).\nUSENET : str\n    Usenet-based indexer (NNTP)."
+      },
+      "IndexerRead": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "indexer_type": {
+            "$ref": "#/components/schemas/IndexerType"
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/IndexerProtocol"
+          },
+          "base_url": {
+            "type": "string",
+            "title": "Base Url"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "priority": {
+            "type": "integer",
+            "title": "Priority"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "title": "Timeout Seconds"
+          },
+          "retry_count": {
+            "type": "integer",
+            "title": "Retry Count"
+          },
+          "categories": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Categories"
+          },
+          "additional_settings": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Additional Settings"
+          },
+          "status": {
+            "$ref": "#/components/schemas/IndexerStatus"
+          },
+          "last_checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Checked At"
+          },
+          "last_successful_query_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Successful Query At"
+          },
+          "error_count": {
+            "type": "integer",
+            "title": "Error Count"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "indexer_type",
+          "protocol",
+          "base_url",
+          "enabled",
+          "priority",
+          "timeout_seconds",
+          "retry_count",
+          "categories",
+          "additional_settings",
+          "status",
+          "last_checked_at",
+          "last_successful_query_at",
+          "error_count",
+          "error_message",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "IndexerRead",
+        "description": "Response schema for indexer data.\n\nAttributes\n----------\nid : int\n    Primary key identifier.\nname : str\n    User-friendly name for the indexer.\nindexer_type : IndexerType\n    Type of indexer.\nprotocol : IndexerProtocol\n    Protocol used.\nbase_url : str\n    Base URL of the indexer API.\nenabled : bool\n    Whether this indexer is enabled.\npriority : int\n    Priority for search order.\ntimeout_seconds : int\n    Request timeout in seconds.\nretry_count : int\n    Number of retries on failure.\ncategories : list[int] | None\n    List of category IDs to search.\nadditional_settings : dict[str, Any] | None\n    Indexer-specific settings.\nstatus : IndexerStatus\n    Current health status.\nlast_checked_at : datetime | None\n    Timestamp of last health check.\nlast_successful_query_at : datetime | None\n    Timestamp of last successful query.\nerror_count : int\n    Number of consecutive errors.\nerror_message : str | None\n    Last error message if status is unhealthy.\ncreated_at : datetime\n    Timestamp when indexer was added.\nupdated_at : datetime\n    Last update timestamp."
+      },
+      "IndexerStatus": {
+        "type": "string",
+        "enum": [
+          "healthy",
+          "degraded",
+          "unhealthy",
+          "disabled"
+        ],
+        "title": "IndexerStatus",
+        "description": "Indexer status enumeration.\n\nAttributes\n----------\nHEALTHY : str\n    Indexer is healthy and responding.\nDEGRADED : str\n    Indexer is responding but with errors.\nUNHEALTHY : str\n    Indexer is not responding or has critical errors.\nDISABLED : str\n    Indexer is disabled by user."
+      },
+      "IndexerStatusResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/IndexerStatus"
+          },
+          "last_checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Checked At"
+          },
+          "last_successful_query_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Successful Query At"
+          },
+          "error_count": {
+            "type": "integer",
+            "title": "Error Count"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "last_checked_at",
+          "last_successful_query_at",
+          "error_count",
+          "error_message"
+        ],
+        "title": "IndexerStatusResponse",
+        "description": "Response schema for indexer status.\n\nAttributes\n----------\nid : int\n    Indexer ID.\nstatus : IndexerStatus\n    Current health status.\nlast_checked_at : datetime | None\n    Timestamp of last health check.\nlast_successful_query_at : datetime | None\n    Timestamp of last successful query.\nerror_count : int\n    Number of consecutive errors.\nerror_message : str | None\n    Last error message if status is unhealthy."
+      },
+      "IndexerTestResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "message"
+        ],
+        "title": "IndexerTestResponse",
+        "description": "Response schema for indexer connection test.\n\nAttributes\n----------\nsuccess : bool\n    Whether the connection test succeeded.\nmessage : str\n    Test result message."
+      },
+      "IndexerType": {
+        "type": "string",
+        "enum": [
+          "torznab",
+          "newznab",
+          "torrent_rss",
+          "usenet_rss",
+          "custom"
+        ],
+        "title": "IndexerType",
+        "description": "Indexer type enumeration.\n\nAttributes\n----------\nTORZNAB : str\n    Torznab API indexer (torrent-based, generic API).\nNEWZNAB : str\n    Newznab API indexer (usenet-based, generic API).\nTORRENT_RSS : str\n    Generic torrent RSS feed.\nUSENET_RSS : str\n    Generic usenet RSS feed.\nCUSTOM : str\n    Custom indexer implementation with specific API (e.g., BroadcastheNet,\n    FileList, HDBits, IPTorrents, Nyaa, TorrentLeech)."
+      },
+      "IndexerUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "User-friendly name for the indexer"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url",
+            "description": "Base URL of the indexer API"
+          },
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key",
+            "description": "API key for authentication"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled",
+            "description": "Whether this indexer is enabled"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority",
+            "description": "Priority for search order (lower = higher priority)"
+          },
+          "timeout_seconds": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 300.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout Seconds",
+            "description": "Request timeout in seconds"
+          },
+          "retry_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry Count",
+            "description": "Number of retries on failure"
+          },
+          "categories": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Categories",
+            "description": "List of category IDs to search (None = all categories)"
+          },
+          "additional_settings": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Additional Settings",
+            "description": "Indexer-specific settings"
+          }
+        },
+        "type": "object",
+        "title": "IndexerUpdate",
+        "description": "Request schema for updating an indexer.\n\nAll fields are optional for partial updates.\n\nAttributes\n----------\nname : str | None\n    User-friendly name for the indexer.\nbase_url : str | None\n    Base URL of the indexer API.\napi_key : str | None\n    API key for authentication.\nenabled : bool | None\n    Whether this indexer is enabled.\npriority : int | None\n    Priority for search order (lower = higher priority).\ntimeout_seconds : int | None\n    Request timeout in seconds.\nretry_count : int | None\n    Number of retries on failure.\ncategories : list[int] | None\n    List of category IDs to search (None = all categories).\nadditional_settings : dict[str, Any] | None\n    Indexer-specific settings."
       },
       "IngestConfigResponse": {
         "properties": {
@@ -15011,6 +17241,162 @@
         "title": "OpenLibraryDumpConfigUpdate",
         "description": "Payload to create or update OpenLibrary dump configuration."
       },
+      "PVRDownloadRequest": {
+        "properties": {
+          "release_index": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Release Index",
+            "description": "Index of the release in search results (0-based)"
+          },
+          "download_client_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Download Client Id",
+            "description": "Optional specific download client ID"
+          }
+        },
+        "type": "object",
+        "required": [
+          "release_index"
+        ],
+        "title": "PVRDownloadRequest",
+        "description": "Request schema for triggering download of a release.\n\nAttributes\n----------\nrelease_index : int\n    Index of the release in the search results (0-based).\ndownload_client_id : int | None\n    Optional specific download client ID to use. If None, selects automatically."
+      },
+      "PVRDownloadResponse": {
+        "properties": {
+          "tracked_book_id": {
+            "type": "integer",
+            "title": "Tracked Book Id",
+            "description": "ID of the tracked book"
+          },
+          "download_item_id": {
+            "type": "integer",
+            "title": "Download Item Id",
+            "description": "ID of the download item"
+          },
+          "release_title": {
+            "type": "string",
+            "title": "Release Title",
+            "description": "Title of the release"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Status message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tracked_book_id",
+          "download_item_id",
+          "release_title",
+          "message"
+        ],
+        "title": "PVRDownloadResponse",
+        "description": "Response schema for download initiation.\n\nAttributes\n----------\ntracked_book_id : int\n    ID of the tracked book.\ndownload_item_id : int\n    ID of the created download item.\nrelease_title : str\n    Title of the release being downloaded.\nmessage : str\n    Status message."
+      },
+      "PVRSearchRequest": {
+        "properties": {
+          "tracked_book_id": {
+            "type": "integer",
+            "title": "Tracked Book Id",
+            "description": "ID of the tracked book to search for"
+          },
+          "indexer_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Indexer Ids",
+            "description": "Optional list of specific indexer IDs to search"
+          },
+          "max_results_per_indexer": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Max Results Per Indexer",
+            "description": "Maximum results per indexer",
+            "default": 100
+          }
+        },
+        "type": "object",
+        "required": [
+          "tracked_book_id"
+        ],
+        "title": "PVRSearchRequest",
+        "description": "Request schema for manual search for a tracked book.\n\nAttributes\n----------\ntracked_book_id : int\n    ID of the tracked book to search for.\nindexer_ids : list[int] | None\n    Optional list of specific indexer IDs to search. If None, searches all enabled indexers.\nmax_results_per_indexer : int\n    Maximum results per indexer (default: 100)."
+      },
+      "PVRSearchResponse": {
+        "properties": {
+          "tracked_book_id": {
+            "type": "integer",
+            "title": "Tracked Book Id",
+            "description": "ID of the tracked book"
+          },
+          "search_initiated": {
+            "type": "boolean",
+            "title": "Search Initiated",
+            "description": "Whether search was initiated"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Status message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tracked_book_id",
+          "search_initiated",
+          "message"
+        ],
+        "title": "PVRSearchResponse",
+        "description": "Response schema for search initiation.\n\nAttributes\n----------\ntracked_book_id : int\n    ID of the tracked book that was searched.\nsearch_initiated : bool\n    Whether the search was successfully initiated.\nmessage : str\n    Status message."
+      },
+      "PVRSearchResultsResponse": {
+        "properties": {
+          "tracked_book_id": {
+            "type": "integer",
+            "title": "Tracked Book Id",
+            "description": "ID of the tracked book"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SearchResultRead"
+            },
+            "type": "array",
+            "title": "Results",
+            "description": "List of search results"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Total number of results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tracked_book_id",
+          "results",
+          "total"
+        ],
+        "title": "PVRSearchResultsResponse",
+        "description": "Response schema for search results.\n\nAttributes\n----------\ntracked_book_id : int\n    ID of the tracked book.\nresults : list[SearchResultRead]\n    List of search results, sorted by score (highest first).\ntotal : int\n    Total number of results."
+      },
       "PasswordChangeRequest": {
         "properties": {
           "current_password": {
@@ -16034,6 +18420,163 @@
         "title": "RecentReadsResponse",
         "description": "Response schema for recent reads list.\n\nAttributes\n----------\nreads : list[ReadingProgressRead]\n    List of recent reading progress records.\ntotal : int\n    Total number of recent reads."
       },
+      "ReleaseInfoRead": {
+        "properties": {
+          "indexer_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Indexer Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "download_url": {
+            "type": "string",
+            "title": "Download Url"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "publish_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publish Date"
+          },
+          "seeders": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seeders"
+          },
+          "leechers": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leechers"
+          },
+          "quality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quality"
+          },
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author"
+          },
+          "isbn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isbn"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "additional_info": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Additional Info"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "download_url"
+        ],
+        "title": "ReleaseInfoRead",
+        "description": "Response schema for release information.\n\nAttributes\n----------\nindexer_id : int | None\n    ID of the indexer that provided this release.\ntitle : str\n    Release title/name.\ndownload_url : str\n    URL or magnet link for downloading.\nsize_bytes : int | None\n    Size of the release in bytes.\npublish_date : datetime | None\n    Date when the release was published.\nseeders : int | None\n    Number of seeders (for torrents).\nleechers : int | None\n    Number of leechers (for torrents).\nquality : str | None\n    Quality/format indicator (e.g., 'epub', 'pdf').\nauthor : str | None\n    Author name if available.\nisbn : str | None\n    ISBN if available.\ndescription : str | None\n    Release description/details.\ncategory : str | None\n    Category name or ID.\nadditional_info : dict[str, str | int | float | None] | None\n    Additional indexer-specific metadata."
+      },
       "RoleCreate": {
         "properties": {
           "name": {
@@ -16497,6 +19040,45 @@
         "type": "object",
         "title": "ScheduledTasksConfigUpdate",
         "description": "Payload to create or update scheduled tasks configuration."
+      },
+      "SearchResultRead": {
+        "properties": {
+          "release": {
+            "$ref": "#/components/schemas/ReleaseInfoRead"
+          },
+          "score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Score",
+            "description": "Quality/relevance score"
+          },
+          "indexer_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Indexer Name",
+            "description": "Indexer name"
+          },
+          "indexer_priority": {
+            "type": "integer",
+            "title": "Indexer Priority",
+            "description": "Indexer priority",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "release",
+          "score"
+        ],
+        "title": "SearchResultRead",
+        "description": "Response schema for a single search result.\n\nAttributes\n----------\nrelease : ReleaseInfoRead\n    The release information.\nscore : float\n    Quality/relevance score (0.0-1.0, higher is better).\nindexer_name : str | None\n    Name of the indexer that provided this result.\nindexer_priority : int\n    Priority of the indexer (lower = higher priority)."
       },
       "SearchSuggestionItem": {
         "properties": {
@@ -17203,7 +19785,8 @@
           "epub_fix_batch",
           "epub_fix_daily_scan",
           "ingest_discovery",
-          "ingest_book"
+          "ingest_book",
+          "pvr_download_monitor"
         ],
         "title": "TaskType",
         "description": "Task type enumeration.\n\nAttributes\n----------\nBOOK_UPLOAD : str\n    Single book file upload task.\nMULTI_BOOK_UPLOAD : str\n    Multiple book files upload task.\nBOOK_CONVERT : str\n    Book format conversion task.\nEMAIL_SEND : str\n    Email sending task.\nMETADATA_BACKUP : str\n    Metadata backup task.\nTHUMBNAIL_GENERATE : str\n    Thumbnail generation task.\nLIBRARY_SCAN : str\n    Library scan task (scans authors, genres, series, and publishers)."
@@ -17243,6 +19826,428 @@
         ],
         "title": "TokenResponse",
         "description": "Bearer token response."
+      },
+      "TrackedBookCreate": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Title",
+            "description": "Book title to track"
+          },
+          "author": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Author",
+            "description": "Author name to track"
+          },
+          "isbn": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isbn",
+            "description": "Optional ISBN for precise matching"
+          },
+          "library_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Library Id",
+            "description": "Target library ID (None uses active library)"
+          },
+          "metadata_source_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata Source Id",
+            "description": "Metadata provider source ID"
+          },
+          "metadata_external_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata External Id",
+            "description": "Metadata provider external ID"
+          },
+          "auto_search_enabled": {
+            "type": "boolean",
+            "title": "Auto Search Enabled",
+            "description": "Whether to automatically search for this book",
+            "default": true
+          },
+          "auto_download_enabled": {
+            "type": "boolean",
+            "title": "Auto Download Enabled",
+            "description": "Whether to automatically download when found",
+            "default": false
+          },
+          "preferred_formats": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Formats",
+            "description": "List of preferred formats"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "author"
+        ],
+        "title": "TrackedBookCreate",
+        "description": "Request schema for adding a book to tracking.\n\nAttributes\n----------\ntitle : str\n    Book title to track.\nauthor : str\n    Author name to track.\nisbn : str | None\n    Optional ISBN for more precise matching.\nlibrary_id : int | None\n    Target library ID (None uses active library).\nmetadata_source_id : str | None\n    Source ID of the metadata provider (e.g., 'google').\nmetadata_external_id : str | None\n    External ID from the metadata provider.\nauto_search_enabled : bool\n    Whether to automatically search for this book.\nauto_download_enabled : bool\n    Whether to automatically download when found.\npreferred_formats : list[str] | None\n    List of preferred formats (e.g., ['epub', 'pdf'])."
+      },
+      "TrackedBookListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TrackedBookRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "TrackedBookListResponse",
+        "description": "Response schema for listing tracked books.\n\nAttributes\n----------\nitems : list[TrackedBookRead]\n    List of tracked books.\ntotal : int\n    Total number of tracked books."
+      },
+      "TrackedBookRead": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "author": {
+            "type": "string",
+            "title": "Author"
+          },
+          "isbn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isbn"
+          },
+          "library_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Library Id"
+          },
+          "metadata_source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata Source Id"
+          },
+          "metadata_external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata External Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TrackedBookStatus"
+          },
+          "auto_search_enabled": {
+            "type": "boolean",
+            "title": "Auto Search Enabled"
+          },
+          "auto_download_enabled": {
+            "type": "boolean",
+            "title": "Auto Download Enabled"
+          },
+          "preferred_formats": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Formats"
+          },
+          "last_searched_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Searched At"
+          },
+          "last_downloaded_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Downloaded At"
+          },
+          "matched_book_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Book Id"
+          },
+          "matched_library_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Library Id"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "author",
+          "isbn",
+          "library_id",
+          "metadata_source_id",
+          "metadata_external_id",
+          "status",
+          "auto_search_enabled",
+          "auto_download_enabled",
+          "preferred_formats",
+          "last_searched_at",
+          "last_downloaded_at",
+          "matched_book_id",
+          "matched_library_id",
+          "error_message",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TrackedBookRead",
+        "description": "Response schema for tracked book data.\n\nAttributes\n----------\nid : int\n    Primary key identifier.\ntitle : str\n    Book title.\nauthor : str\n    Author name.\nisbn : str | None\n    ISBN.\nlibrary_id : int | None\n    Target library ID.\nmetadata_source_id : str | None\n    Metadata source ID.\nmetadata_external_id : str | None\n    Metadata external ID.\nstatus : TrackedBookStatus\n    Current status.\nauto_search_enabled : bool\n    Auto-search setting.\nauto_download_enabled : bool\n    Auto-download setting.\npreferred_formats : list[str] | None\n    Preferred formats.\nlast_searched_at : datetime | None\n    Timestamp of last search.\nlast_downloaded_at : datetime | None\n    Timestamp of last download.\nmatched_book_id : int | None\n    ID of matched book in Calibre library.\nmatched_library_id : int | None\n    Library ID where match was found.\nerror_message : str | None\n    Error message if failed.\ncreated_at : datetime\n    Creation timestamp.\nupdated_at : datetime\n    Update timestamp."
+      },
+      "TrackedBookStatus": {
+        "type": "string",
+        "enum": [
+          "wanted",
+          "searching",
+          "downloading",
+          "completed",
+          "failed",
+          "ignored"
+        ],
+        "title": "TrackedBookStatus",
+        "description": "Tracked book status enumeration.\n\nAttributes\n----------\nWANTED : str\n    Book is wanted but not yet searched.\nSEARCHING : str\n    Currently searching indexers for the book.\nDOWNLOADING : str\n    Book is being downloaded.\nCOMPLETED : str\n    Book download completed and imported.\nFAILED : str\n    Download or import failed.\nIGNORED : str\n    Book tracking is ignored (user disabled)."
+      },
+      "TrackedBookStatusResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TrackedBookStatus"
+          },
+          "matched_book_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Book Id"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "matched_book_id",
+          "error_message"
+        ],
+        "title": "TrackedBookStatusResponse",
+        "description": "Response schema for tracked book status.\n\nAttributes\n----------\nid : int\n    Tracked book ID.\nstatus : TrackedBookStatus\n    Current status.\nmatched_book_id : int | None\n    ID of matched book in Calibre library.\nerror_message : str | None\n    Error message if failed."
+      },
+      "TrackedBookUpdate": {
+        "properties": {
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrackedBookStatus"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "New tracking status"
+          },
+          "auto_search_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Search Enabled",
+            "description": "Whether to automatically search for this book"
+          },
+          "auto_download_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Download Enabled",
+            "description": "Whether to automatically download when found"
+          },
+          "preferred_formats": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Formats",
+            "description": "List of preferred formats"
+          },
+          "library_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Library Id",
+            "description": "Target library ID"
+          }
+        },
+        "type": "object",
+        "title": "TrackedBookUpdate",
+        "description": "Request schema for updating a tracked book.\n\nAll fields are optional for partial updates.\n\nAttributes\n----------\nstatus : TrackedBookStatus | None\n    New tracking status.\nauto_search_enabled : bool | None\n    Whether to automatically search for this book.\nauto_download_enabled : bool | None\n    Whether to automatically download when found.\npreferred_formats : list[str] | None\n    List of preferred formats.\nlibrary_id : int | None\n    Target library ID."
       },
       "UserCreate": {
         "properties": {

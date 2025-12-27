@@ -18,14 +18,11 @@
 Pydantic models for request/response validation for tracked book operations.
 """
 
-from typing import TYPE_CHECKING
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from bookcard.models.pvr import TrackedBookStatus
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 class TrackedBookCreate(BaseModel):
@@ -164,17 +161,17 @@ class TrackedBookRead(BaseModel):
     library_id: int | None
     metadata_source_id: str | None
     metadata_external_id: str | None
-    status: "TrackedBookStatus"
+    status: TrackedBookStatus
     auto_search_enabled: bool
     auto_download_enabled: bool
     preferred_formats: list[str] | None
-    last_searched_at: "datetime | None"
-    last_downloaded_at: "datetime | None"
+    last_searched_at: datetime | None
+    last_downloaded_at: datetime | None
     matched_book_id: int | None
     matched_library_id: int | None
     error_message: str | None
-    created_at: "datetime"
-    updated_at: "datetime"
+    created_at: datetime
+    updated_at: datetime
 
 
 class TrackedBookListResponse(BaseModel):
@@ -210,6 +207,6 @@ class TrackedBookStatusResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    status: "TrackedBookStatus"
+    status: TrackedBookStatus
     matched_book_id: int | None
     error_message: str | None

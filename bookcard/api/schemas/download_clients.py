@@ -18,14 +18,12 @@
 Pydantic models for request/response validation for download client operations.
 """
 
-from typing import TYPE_CHECKING, Any
+from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from bookcard.models.pvr import DownloadClientStatus, DownloadClientType
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 class DownloadClientCreate(BaseModel):
@@ -222,7 +220,7 @@ class DownloadClientRead(BaseModel):
 
     id: int
     name: str
-    client_type: "DownloadClientType"
+    client_type: DownloadClientType
     host: str
     port: int
     enabled: bool
@@ -231,13 +229,13 @@ class DownloadClientRead(BaseModel):
     category: str | None
     download_path: str | None
     additional_settings: dict[str, Any] | None
-    status: "DownloadClientStatus"
-    last_checked_at: "datetime | None"
-    last_successful_connection_at: "datetime | None"
+    status: DownloadClientStatus
+    last_checked_at: datetime | None
+    last_successful_connection_at: datetime | None
     error_count: int
     error_message: str | None
-    created_at: "datetime"
-    updated_at: "datetime"
+    created_at: datetime
+    updated_at: datetime
 
 
 class DownloadClientListResponse(BaseModel):
@@ -292,9 +290,9 @@ class DownloadClientStatusResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    status: "DownloadClientStatus"
-    last_checked_at: "datetime | None"
-    last_successful_connection_at: "datetime | None"
+    status: DownloadClientStatus
+    last_checked_at: datetime | None
+    last_successful_connection_at: datetime | None
     error_count: int
     error_message: str | None
 
