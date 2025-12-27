@@ -18,14 +18,12 @@
 Pydantic models for request/response validation for indexer operations.
 """
 
-from typing import TYPE_CHECKING, Any
+from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from bookcard.models.pvr import IndexerProtocol, IndexerStatus, IndexerType
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 class IndexerCreate(BaseModel):
@@ -191,8 +189,8 @@ class IndexerRead(BaseModel):
 
     id: int
     name: str
-    indexer_type: "IndexerType"
-    protocol: "IndexerProtocol"
+    indexer_type: IndexerType
+    protocol: IndexerProtocol
     base_url: str
     enabled: bool
     priority: int
@@ -200,13 +198,13 @@ class IndexerRead(BaseModel):
     retry_count: int
     categories: list[int] | None
     additional_settings: dict[str, Any] | None
-    status: "IndexerStatus"
-    last_checked_at: "datetime | None"
-    last_successful_query_at: "datetime | None"
+    status: IndexerStatus
+    last_checked_at: datetime | None
+    last_successful_query_at: datetime | None
     error_count: int
     error_message: str | None
-    created_at: "datetime"
-    updated_at: "datetime"
+    created_at: datetime
+    updated_at: datetime
 
 
 class IndexerListResponse(BaseModel):
@@ -261,8 +259,8 @@ class IndexerStatusResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    status: "IndexerStatus"
-    last_checked_at: "datetime | None"
-    last_successful_query_at: "datetime | None"
+    status: IndexerStatus
+    last_checked_at: datetime | None
+    last_successful_query_at: datetime | None
     error_count: int
     error_message: str | None
