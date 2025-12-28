@@ -134,6 +134,60 @@ class DownloadClientType(StrEnum):
     USENET_BLACKHOLE = "usenet_blackhole"
 
 
+class ProwlarrConfig(SQLModel, table=True):
+    """Prowlarr configuration settings.
+
+    Singleton configuration for Prowlarr integration.
+    Prowlarr is an indexer manager/proxy built on the popular *arr stack
+    to integrate with various PVR apps.
+
+    Attributes
+    ----------
+    id : int | None
+        Primary key identifier. Only one record should exist (singleton).
+    url : str
+        Prowlarr server URL (e.g., http://localhost:9696).
+    api_key : str | None
+        Prowlarr API key.
+    enabled : bool
+        Whether Prowlarr integration is enabled (default: False).
+    sync_categories : list[int] | None
+        JSON array of Prowlarr category IDs to sync (e.g., [3030, 7000, 8000]).
+    sync_app_profiles : list[int] | None
+        JSON array of Prowlarr app profile IDs to sync.
+    sync_interval_minutes : int
+        Interval in minutes for automatic sync (default: 60).
+    created_at : datetime
+        Configuration creation timestamp.
+    updated_at : datetime
+        Last update timestamp.
+    """
+
+    __tablename__ = "prowlarr_config"
+
+    id: int | None = Field(default=None, primary_key=True)
+    url: str = Field(default="http://localhost:9696", max_length=255)
+    api_key: str | None = Field(default=None, max_length=500)
+    enabled: bool = Field(default=False, index=True)
+    sync_categories: list[int] | None = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+    )
+    sync_app_profiles: list[int] | None = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+    )
+    sync_interval_minutes: int = Field(default=60)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        index=True,
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column_kwargs={"onupdate": lambda: datetime.now(UTC)},
+    )
+
+
 class TrackedBookStatus(StrEnum):
     """Tracked book status enumeration.
 
