@@ -34,6 +34,7 @@ from bookcard.api.routes.auth import router as auth_router
 from bookcard.api.routes.download_clients import router as download_clients_router
 from bookcard.api.routes.downloads import router as downloads_router
 from bookcard.api.routes.indexers import router as indexers_router
+from bookcard.api.routes.prowlarr import router as prowlarr_router
 from bookcard.api.routes.pvr_search import router as pvr_search_router
 from bookcard.api.routes.tracked_books import router as tracked_books_router
 from bookcard.api.services.bootstrap import (
@@ -268,6 +269,7 @@ def fastapi_app() -> FastAPI:
         ("/shelves", "shelves_router"),
         ("/tasks", "tasks_router"),
         ("/tracked-books", "tracked_books_router"),
+        ("/prowlarr", "prowlarr_router"),
         ("/pvr/search", "pvr_search_router"),
     ],
 )
@@ -313,8 +315,8 @@ def test_register_routers_calls_include_router(
     """
     with patch.object(fastapi_app, "include_router") as mock_include:
         register_routers(fastapi_app)
-        # Verify include_router was called for all 25 routers
-        assert mock_include.call_count == 24
+        # Verify include_router was called for all 26 routers
+        assert mock_include.call_count == 25
         # Verify first two calls are for auth_router and admin_router
         call_args_list = [call[0][0] for call in mock_include.call_args_list]
 
@@ -330,8 +332,9 @@ def test_register_routers_calls_include_router(
         (download_clients_router, 6),
         (downloads_router, 7),
         (indexers_router, 10),
-        (pvr_search_router, 19),
-        (tracked_books_router, 23),
+        (prowlarr_router, 19),
+        (pvr_search_router, 20),
+        (tracked_books_router, 24),
     ],
 )
 def test_register_routers_includes_new_routers(
@@ -374,6 +377,7 @@ def test_register_routers_includes_all_new_pvr_routers(
         assert download_clients_router in call_args_list
         assert indexers_router in call_args_list
         assert tracked_books_router in call_args_list
+        assert prowlarr_router in call_args_list
 
 
 @pytest.mark.parametrize(

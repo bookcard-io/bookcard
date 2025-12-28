@@ -87,6 +87,7 @@ class TaskType(StrEnum):
     INGEST_DISCOVERY = "ingest_discovery"
     INGEST_BOOK = "ingest_book"
     PVR_DOWNLOAD_MONITOR = "pvr_download_monitor"
+    PROWLARR_SYNC = "prowlarr_sync"
 
 
 class Task(SQLModel, table=True):

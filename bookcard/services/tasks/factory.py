@@ -47,6 +47,7 @@ from bookcard.services.tasks.openlibrary import OpenLibraryDumpIngestTask
 from bookcard.services.tasks.openlibrary_dump_download_task import (
     OpenLibraryDumpDownloadTask,
 )
+from bookcard.services.tasks.prowlarr_sync_task import ProwlarrSyncTask
 
 T = TypeVar("T", bound=BaseTask)
 
@@ -251,3 +252,4 @@ _registry.register(TaskType.EPUB_FIX_DAILY_SCAN, EPUBFixDailyScanTask)
 _registry.register(TaskType.INGEST_DISCOVERY, IngestDiscoveryTask)
 _registry.register(TaskType.INGEST_BOOK, IngestBookTask)
 _registry.register(TaskType.PVR_DOWNLOAD_MONITOR, DownloadMonitorTask)
+_registry.register(TaskType.PROWLARR_SYNC, ProwlarrSyncTask)
