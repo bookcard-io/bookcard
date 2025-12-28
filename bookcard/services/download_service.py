@@ -41,6 +41,7 @@ from bookcard.models.pvr import (
     DownloadItem as DBDownloadItem,
 )
 from bookcard.pvr.base import TrackingDownloadClient
+from bookcard.pvr.base.interfaces import DownloadManager
 from bookcard.pvr.exceptions import PVRProviderError
 from bookcard.pvr.models import DownloadItem, ReleaseInfo
 from bookcard.services.download.client_selector import (
@@ -326,3 +327,91 @@ class DownloadService:
             if item.get("client_item_id") == download_item.client_item_id:
                 return item
         return None
+
+    def cancel_download(self, download_item_id: int) -> DBDownloadItem:
+        """Cancel a download.
+
+        Removes from client and updates DB status to REMOVED.
+
+        Parameters
+        ----------
+        download_item_id : int
+            ID of the download item to cancel.
+
+        Returns
+        -------
+        DBDownloadItem
+            Updated download item.
+
+        Raises
+        ------
+        ValueError
+            If download item not found.
+        """
+        download_item = self._download_item_repo.get(download_item_id)
+        if not download_item:
+            msg = f"Download item {download_item_id} not found"
+            raise ValueError(msg)
+
+        if not DownloadStatusMapper.is_terminal(download_item.status):
+            client = self._client_service.get_download_client(
+                download_item.download_client_id
+            )
+            if client:
+                try:
+                    client_instance = self._client_factory.create(client)
+                    if isinstance(client_instance, DownloadManager):
+                        client_instance.remove_item(
+                            download_item.client_item_id, delete_files=True
+                        )
+                except (PVRProviderError, ValueError) as e:
+                    logger.warning(
+                        "Failed to remove item %s from client %s: %s",
+                        download_item.client_item_id,
+                        client.name,
+                        e,
+                    )
+                except Exception as e:  # noqa: BLE001
+                    logger.warning(
+                        "Unexpected error removing item %s from client %s: %s",
+                        download_item.client_item_id,
+                        client.name,
+                        e,
+                    )
+
+        download_item.status = DownloadItemStatus.REMOVED
+        download_item.error_message = "Cancelled by user"
+        download_item.updated_at = datetime.now(UTC)
+        self._download_item_repo.update(download_item)
+        self._download_item_repo.commit()
+        self._download_item_repo.refresh(download_item)
+        return download_item
+
+    def get_active_downloads(self) -> Sequence[DBDownloadItem]:
+        """Get active download items (queue).
+
+        Returns
+        -------
+        Sequence[DBDownloadItem]
+            List of active download items.
+        """
+        return self._download_item_repo.get_active()
+
+    def get_download_history(
+        self, limit: int = 100, offset: int = 0
+    ) -> Sequence[DBDownloadItem]:
+        """Get historical download items.
+
+        Parameters
+        ----------
+        limit : int
+            Maximum number of items to return.
+        offset : int
+            Number of items to skip.
+
+        Returns
+        -------
+        Sequence[DBDownloadItem]
+            List of historical download items.
+        """
+        return self._download_item_repo.get_history(limit, offset)

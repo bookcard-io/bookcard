@@ -912,3 +912,35 @@ class DownloadBlocklist(SQLModel, table=True):
         Index("idx_blocklist_indexer", "indexer_id"),
         Index("idx_blocklist_created", "created_at"),
     )
+
+
+class DownloadQueue(SQLModel):
+    """
+    Represents the queue of active downloads.
+
+    Attributes
+    ----------
+    items : list[DownloadItem]
+        List of active download items.
+    total_count : int
+        Total number of items in queue.
+    """
+
+    items: list[DownloadItem]
+    total_count: int
+
+
+class DownloadHistory(SQLModel):
+    """
+    Represents the history of completed/failed downloads.
+
+    Attributes
+    ----------
+    items : list[DownloadItem]
+        List of historical download items.
+    total_count : int
+        Total number of items in history.
+    """
+
+    items: list[DownloadItem]
+    total_count: int

@@ -19,9 +19,12 @@ Follows DIP by abstracting persistence operations.
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from bookcard.models.pvr import DownloadItem
+from sqlmodel import Session, desc, select
+
+from bookcard.models.pvr import DownloadItem, DownloadItemStatus
 
 if TYPE_CHECKING:
     from sqlmodel import Session
@@ -57,6 +60,35 @@ class DownloadItemRepository(ABC):
         -------
         DownloadItem | None
             Download item if found, None otherwise.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_active(self) -> Sequence[DownloadItem]:
+        """Get active download items (queue).
+
+        Returns
+        -------
+        Sequence[DownloadItem]
+            List of active download items.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_history(self, limit: int = 100, offset: int = 0) -> Sequence[DownloadItem]:
+        """Get historical download items.
+
+        Parameters
+        ----------
+        limit : int
+            Maximum number of items to return.
+        offset : int
+            Number of items to skip.
+
+        Returns
+        -------
+        Sequence[DownloadItem]
+            List of historical download items.
         """
         raise NotImplementedError
 
@@ -108,6 +140,38 @@ class SQLModelDownloadItemRepository(DownloadItemRepository):
     def get(self, item_id: int) -> DownloadItem | None:
         """Get a download item by ID."""
         return self._session.get(DownloadItem, item_id)
+
+    def get_active(self) -> Sequence[DownloadItem]:
+        """Get active download items (queue)."""
+        stmt = (
+            select(DownloadItem)
+            .where(
+                DownloadItem.status.in_([  # type: ignore[attr-defined]
+                    DownloadItemStatus.QUEUED,
+                    DownloadItemStatus.DOWNLOADING,
+                    DownloadItemStatus.PAUSED,
+                ])
+            )
+            .order_by(desc(DownloadItem.created_at))
+        )
+        return self._session.exec(stmt).all()
+
+    def get_history(self, limit: int = 100, offset: int = 0) -> Sequence[DownloadItem]:
+        """Get historical download items."""
+        stmt = (
+            select(DownloadItem)
+            .where(
+                DownloadItem.status.in_([  # type: ignore[attr-defined]
+                    DownloadItemStatus.COMPLETED,
+                    DownloadItemStatus.FAILED,
+                    DownloadItemStatus.REMOVED,
+                ])
+            )
+            .order_by(desc(DownloadItem.completed_at), desc(DownloadItem.updated_at))
+            .offset(offset)
+            .limit(limit)
+        )
+        return self._session.exec(stmt).all()
 
     def update(self, item: DownloadItem) -> None:
         """Update an existing download item."""
