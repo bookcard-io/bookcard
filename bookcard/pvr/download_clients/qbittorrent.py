@@ -88,6 +88,7 @@ class QBittorrentProxy:
         self.base_url = build_base_url(
             settings.host, settings.port, settings.use_ssl, settings.url_base
         )
+        logger.debug("Initialized qBittorrent proxy with base URL: %s", self.base_url)
         self._auth_cookies: dict[str, str] | None = None
 
     def _get_client(self) -> httpx.Client:

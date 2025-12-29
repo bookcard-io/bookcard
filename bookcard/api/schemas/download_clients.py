@@ -223,6 +223,8 @@ class DownloadClientRead(BaseModel):
     client_type: DownloadClientType
     host: str
     port: int
+    username: str | None
+    use_ssl: bool
     enabled: bool
     priority: int
     timeout_seconds: int

@@ -322,6 +322,50 @@ def test_download_client_connection(
         ) from e
 
 
+@router.post(
+    "/test",
+    response_model=DownloadClientTestResponse,
+    dependencies=[Depends(get_admin_user)],
+)
+def test_download_client_settings(
+    data: DownloadClientCreate,
+    session: SessionDep,
+) -> DownloadClientTestResponse:
+    """Test connection with provided settings.
+
+    Parameters
+    ----------
+    data : DownloadClientCreate
+        Download client settings.
+    session : SessionDep
+        Database session dependency.
+
+    Returns
+    -------
+    DownloadClientTestResponse
+        Test result.
+
+    Raises
+    ------
+    HTTPException
+        If test fails.
+    """
+    service = _get_download_client_service(session)
+    try:
+        success, message = service.test_connection_with_settings(data)
+        return DownloadClientTestResponse(success=success, message=message)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to test download client connection: {e}",
+        ) from e
+
+
 @router.get(
     "/{client_id}/status",
     response_model=DownloadClientStatusResponse,
