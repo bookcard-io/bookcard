@@ -23,7 +23,7 @@ Documentation: https://torznab.github.io/spec-1.3-draft/torznab/
 
 import logging
 from collections.abc import Sequence
-from urllib.parse import urlencode, urljoin
+from urllib.parse import urlencode
 from xml.etree import ElementTree as ET  # noqa: S405
 
 import httpx
@@ -65,6 +65,22 @@ TORZNAB_NS = "{http://torznab.com/schemas/2015/feed}"
 
 # Default book categories for Torznab (ebooks)
 DEFAULT_BOOK_CATEGORIES = [7000, 7020]  # Books: 7000, E-Books: 7020
+
+
+def _build_api_url(base_url: str, api_path: str) -> str:
+    """Build API URL handling paths correctly.
+
+    Ensures that api_path is appended to base_url correctly, avoiding
+    duplication if base_url already contains the path, and handling
+    slashes properly.
+    """
+    base_url = base_url.rstrip("/")
+    api_path = api_path.strip("/")
+
+    if base_url.endswith(f"/{api_path}"):
+        return base_url
+
+    return f"{base_url}/{api_path}"
 
 
 class TorznabSettings(IndexerSettings):
@@ -133,9 +149,7 @@ class TorznabRequestGenerator:
             Complete Torznab API URL.
         """
         # Build base URL
-        base_url = self.settings.base_url.rstrip("/")
-        api_path = self.settings.api_path.rstrip("/")
-        url = urljoin(base_url, api_path)
+        url = _build_api_url(self.settings.base_url, self.settings.api_path)
 
         # Build query parameters
         params: dict[str, str | int] = {
@@ -194,9 +208,7 @@ class TorznabRequestGenerator:
             Complete Torznab RSS URL.
         """
         # Build base URL
-        base_url = self.settings.base_url.rstrip("/")
-        api_path = self.settings.api_path.rstrip("/")
-        url = urljoin(base_url, api_path)
+        url = _build_api_url(self.settings.base_url, self.settings.api_path)
 
         # Build query parameters
         params: dict[str, str | int] = {
@@ -455,9 +467,7 @@ class TorznabIndexer(BaseIndexer):
             If the connection test fails with a specific error.
         """
         # Build capabilities URL
-        base_url = self.settings.base_url.rstrip("/")
-        api_path = self.settings.api_path.rstrip("/")
-        url = urljoin(base_url, api_path)
+        url = _build_api_url(self.settings.base_url, self.settings.api_path)
 
         params: dict[str, str] = {"t": "caps"}
         if self.settings.api_key:

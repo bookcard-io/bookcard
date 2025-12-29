@@ -24,10 +24,10 @@ import threading
 from datetime import UTC, datetime
 from typing import Annotated, NoReturn
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session
 
-from bookcard.api.deps import get_current_user, get_db_session
+from bookcard.api.deps import get_current_user, get_data_encryptor, get_db_session
 from bookcard.api.schemas.pvr_search import (
     PVRDownloadRequest,
     PVRDownloadResponse,
@@ -100,20 +100,25 @@ def _get_tracked_book_service(session: SessionDep) -> TrackedBookService:
     return TrackedBookService(session)
 
 
-def _get_indexer_search_service(session: SessionDep) -> IndexerSearchService:
+def _get_indexer_search_service(
+    session: SessionDep, request: Request
+) -> IndexerSearchService:
     """Create IndexerSearchService instance for routes.
 
     Parameters
     ----------
     session : SessionDep
         Database session dependency.
+    request : Request
+        FastAPI request object.
 
     Returns
     -------
     IndexerSearchService
         Indexer search service instance.
     """
-    indexer_service = IndexerService(session)
+    encryptor = get_data_encryptor(request)
+    indexer_service = IndexerService(session, encryptor=encryptor)
     return IndexerSearchService(indexer_service)
 
 
@@ -186,6 +191,7 @@ def search_tracked_book(
     session: SessionDep,
     current_user: UserDep,
     permission_helper: PermissionHelperDep,
+    fastapi_request: Request,
 ) -> PVRSearchResponse:
     """Initiate manual search for a tracked book.
 
@@ -202,6 +208,8 @@ def search_tracked_book(
         Current authenticated user.
     permission_helper : PermissionHelperDep
         Permission helper instance.
+    fastapi_request : Request
+        FastAPI request object.
 
     Returns
     -------
@@ -236,7 +244,7 @@ def search_tracked_book(
 
     try:
         # Perform search
-        search_service = _get_indexer_search_service(session)
+        search_service = _get_indexer_search_service(session, fastapi_request)
         results = search_service.search_all_indexers(
             query=query,
             title=book.title,  # type: ignore[union-attr]

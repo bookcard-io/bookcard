@@ -19,6 +19,7 @@ import logging
 from typing import Any
 
 from bookcard.pvr.sync.service import ProwlarrSyncService
+from bookcard.services.security import DataEncryptor
 from bookcard.services.tasks.base import BaseTask
 
 logger = logging.getLogger(__name__)
@@ -40,7 +41,13 @@ class ProwlarrSyncTask(BaseTask):
         # worker_context is expected to have a session attribute
         # based on usage in other tasks
         session = worker_context.session
-        service = ProwlarrSyncService(session)
+
+        import os
+
+        encryption_key = os.environ.get("BOOKCARD_FERNET_KEY", "")
+        encryptor = DataEncryptor(encryption_key) if encryption_key else None
+
+        service = ProwlarrSyncService(session, encryptor=encryptor)
 
         try:
             stats = service.sync_indexers()

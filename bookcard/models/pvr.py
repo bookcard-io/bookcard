@@ -228,12 +228,15 @@ class IndexerStatus(StrEnum):
         Indexer is not responding or has critical errors.
     DISABLED : str
         Indexer is disabled by user.
+    UNKNOWN : str
+        Indexer status is unknown.
     """
 
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
     DISABLED = "disabled"
+    UNKNOWN = "unknown"
 
 
 class DownloadClientStatus(StrEnum):
