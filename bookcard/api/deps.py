@@ -41,7 +41,29 @@ from bookcard.services.kobo.auth_service import KoboAuthService
 from bookcard.services.oidc_auth_service import OIDCAuthError, OIDCAuthService
 from bookcard.services.opds.auth_service import OpdsAuthService
 from bookcard.services.permission_service import PermissionService
-from bookcard.services.security import JWTManager, PasswordHasher, SecurityTokenError
+from bookcard.services.security import (
+    DataEncryptor,
+    JWTManager,
+    PasswordHasher,
+    SecurityTokenError,
+)
+
+
+def get_data_encryptor(request: Request) -> DataEncryptor:
+    """Get request-scoped DataEncryptor instance.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request object.
+
+    Returns
+    -------
+    DataEncryptor
+        Configured data encryptor.
+    """
+    return DataEncryptor(request.app.state.config.encryption_key)
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator

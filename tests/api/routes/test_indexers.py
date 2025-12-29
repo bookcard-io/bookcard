@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
+from cryptography.fernet import Fernet
 from fastapi import HTTPException, status
 
 import bookcard.api.routes.indexers as indexers
@@ -123,18 +124,36 @@ def indexer_definition_disabled() -> IndexerDefinition:
     )
 
 
+@pytest.fixture
+def valid_fernet_key() -> str:
+    """Generate a valid Fernet key.
+
+    Returns
+    -------
+    str
+        Base64-encoded Fernet key.
+    """
+    return Fernet.generate_key().decode()
+
+
 class TestGetIndexerService:
     """Test _get_indexer_service function."""
 
-    def test_get_indexer_service(self, session: DummySession) -> None:
+    def test_get_indexer_service(
+        self, session: DummySession, valid_fernet_key: str
+    ) -> None:
         """Test _get_indexer_service creates IndexerService instance (covers line 58).
 
         Parameters
         ----------
         session : DummySession
             Database session fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
-        service = indexers._get_indexer_service(session)
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
+        service = indexers._get_indexer_service(session, request)
         assert service is not None
         assert hasattr(service, "_session")
         assert service._session == session
@@ -171,6 +190,7 @@ class TestListIndexers:
         indexer_definition: IndexerDefinition,
         indexer_definition_disabled: IndexerDefinition,
         enabled_only: bool,
+        valid_fernet_key: str,
     ) -> None:
         """Test list_indexers returns all or enabled indexers (covers lines 105-107).
 
@@ -184,7 +204,12 @@ class TestListIndexers:
             Disabled indexer definition fixture.
         enabled_only : bool
             Whether to return only enabled indexers.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
+
         with patch("bookcard.api.routes.indexers.IndexerService") as mock_service_class:
             mock_service = MagicMock()
             if enabled_only:
@@ -198,6 +223,7 @@ class TestListIndexers:
 
             result = indexers.list_indexers(
                 session=session,
+                request=request,
                 enabled_only=enabled_only,
             )
 
@@ -220,6 +246,7 @@ class TestGetIndexer:
         self,
         session: DummySession,
         indexer_definition: IndexerDefinition,
+        valid_fernet_key: str,
     ) -> None:
         """Test get_indexer returns indexer when found (covers lines 141-142).
 
@@ -229,7 +256,12 @@ class TestGetIndexer:
             Database session fixture.
         indexer_definition : IndexerDefinition
             Indexer definition fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
+
         with patch("bookcard.api.routes.indexers.IndexerService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.get_indexer.return_value = indexer_definition
@@ -238,6 +270,7 @@ class TestGetIndexer:
             result = indexers.get_indexer(
                 indexer_id=1,
                 session=session,
+                request=request,
             )
 
             assert isinstance(result, IndexerRead)
@@ -248,6 +281,7 @@ class TestGetIndexer:
     def test_get_indexer_not_found(
         self,
         session: DummySession,
+        valid_fernet_key: str,
     ) -> None:
         """Test get_indexer raises 404 when indexer not found (covers lines 143-147).
 
@@ -255,7 +289,12 @@ class TestGetIndexer:
         ----------
         session : DummySession
             Database session fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
+
         with patch("bookcard.api.routes.indexers.IndexerService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.get_indexer.return_value = None
@@ -265,6 +304,7 @@ class TestGetIndexer:
                 indexers.get_indexer(
                     indexer_id=999,
                     session=session,
+                    request=request,
                 )
 
             exc = exc_info.value
@@ -280,6 +320,7 @@ class TestCreateIndexer:
         self,
         session: DummySession,
         indexer_definition: IndexerDefinition,
+        valid_fernet_key: str,
     ) -> None:
         """Test create_indexer creates indexer successfully (covers lines 180-183).
 
@@ -289,7 +330,12 @@ class TestCreateIndexer:
             Database session fixture.
         indexer_definition : IndexerDefinition
             Indexer definition fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
+
         create_data = IndexerCreate(
             name="New Indexer",
             indexer_type=IndexerType.TORZNAB,
@@ -310,6 +356,7 @@ class TestCreateIndexer:
             result = indexers.create_indexer(
                 data=create_data,
                 session=session,
+                request=request,
             )
 
             assert isinstance(result, IndexerRead)
@@ -319,6 +366,7 @@ class TestCreateIndexer:
     def test_create_indexer_value_error(
         self,
         session: DummySession,
+        valid_fernet_key: str,
     ) -> None:
         """Test create_indexer handles ValueError (covers lines 184-188).
 
@@ -326,7 +374,12 @@ class TestCreateIndexer:
         ----------
         session : DummySession
             Database session fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
+
         create_data = IndexerCreate(
             name="Invalid Indexer",
             indexer_type=IndexerType.TORZNAB,
@@ -345,6 +398,7 @@ class TestCreateIndexer:
                 indexers.create_indexer(
                     data=create_data,
                     session=session,
+                    request=request,
                 )
 
             exc = exc_info.value
@@ -355,6 +409,7 @@ class TestCreateIndexer:
     def test_create_indexer_generic_exception(
         self,
         session: DummySession,
+        valid_fernet_key: str,
     ) -> None:
         """Test create_indexer handles generic Exception (covers lines 189-193).
 
@@ -362,7 +417,12 @@ class TestCreateIndexer:
         ----------
         session : DummySession
             Database session fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
+
         create_data = IndexerCreate(
             name="Error Indexer",
             indexer_type=IndexerType.TORZNAB,
@@ -379,6 +439,7 @@ class TestCreateIndexer:
                 indexers.create_indexer(
                     data=create_data,
                     session=session,
+                    request=request,
                 )
 
             exc = exc_info.value
@@ -394,6 +455,7 @@ class TestUpdateIndexer:
         self,
         session: DummySession,
         indexer_definition: IndexerDefinition,
+        valid_fernet_key: str,
     ) -> None:
         """Test update_indexer updates indexer successfully (covers lines 227-232).
 
@@ -403,7 +465,12 @@ class TestUpdateIndexer:
             Database session fixture.
         indexer_definition : IndexerDefinition
             Indexer definition fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
+
         update_data = IndexerUpdate(name="Updated Name")
 
         with patch("bookcard.api.routes.indexers.IndexerService") as mock_service_class:
@@ -419,6 +486,7 @@ class TestUpdateIndexer:
                 indexer_id=1,
                 data=update_data,
                 session=session,
+                request=request,
             )
 
             assert isinstance(result, IndexerRead)
@@ -428,6 +496,7 @@ class TestUpdateIndexer:
     def test_update_indexer_not_found(
         self,
         session: DummySession,
+        valid_fernet_key: str,
     ) -> None:
         """Test update_indexer raises 404 when indexer not found (covers line 231).
 
@@ -435,7 +504,12 @@ class TestUpdateIndexer:
         ----------
         session : DummySession
             Database session fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
+
         update_data = IndexerUpdate(name="Updated Name")
 
         with patch("bookcard.api.routes.indexers.IndexerService") as mock_service_class:
@@ -448,6 +522,7 @@ class TestUpdateIndexer:
                     indexer_id=999,
                     data=update_data,
                     session=session,
+                    request=request,
                 )
 
             exc = exc_info.value
@@ -460,6 +535,7 @@ class TestUpdateIndexer:
     def test_update_indexer_value_error(
         self,
         session: DummySession,
+        valid_fernet_key: str,
     ) -> None:
         """Test update_indexer handles ValueError (covers lines 233-237).
 
@@ -467,7 +543,12 @@ class TestUpdateIndexer:
         ----------
         session : DummySession
             Database session fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
+
         update_data = IndexerUpdate(name="Invalid Name")
 
         with patch("bookcard.api.routes.indexers.IndexerService") as mock_service_class:
@@ -480,6 +561,7 @@ class TestUpdateIndexer:
                     indexer_id=1,
                     data=update_data,
                     session=session,
+                    request=request,
                 )
 
             exc = exc_info.value
@@ -490,6 +572,7 @@ class TestUpdateIndexer:
     def test_update_indexer_generic_exception(
         self,
         session: DummySession,
+        valid_fernet_key: str,
     ) -> None:
         """Test update_indexer handles generic Exception (covers lines 238-242).
 
@@ -497,7 +580,12 @@ class TestUpdateIndexer:
         ----------
         session : DummySession
             Database session fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
+
         update_data = IndexerUpdate(name="Error Name")
 
         with patch("bookcard.api.routes.indexers.IndexerService") as mock_service_class:
@@ -510,6 +598,7 @@ class TestUpdateIndexer:
                     indexer_id=1,
                     data=update_data,
                     session=session,
+                    request=request,
                 )
 
             exc = exc_info.value
@@ -524,6 +613,7 @@ class TestDeleteIndexer:
     def test_delete_indexer_success(
         self,
         session: DummySession,
+        valid_fernet_key: str,
     ) -> None:
         """Test delete_indexer deletes indexer successfully (covers line 269).
 
@@ -531,7 +621,12 @@ class TestDeleteIndexer:
         ----------
         session : DummySession
             Database session fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
+
         with patch("bookcard.api.routes.indexers.IndexerService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.delete_indexer.return_value = True
@@ -540,6 +635,7 @@ class TestDeleteIndexer:
             result = indexers.delete_indexer(
                 indexer_id=1,
                 session=session,
+                request=request,
             )
 
             assert result is None
@@ -548,6 +644,7 @@ class TestDeleteIndexer:
     def test_delete_indexer_not_found(
         self,
         session: DummySession,
+        valid_fernet_key: str,
     ) -> None:
         """Test delete_indexer raises 404 when indexer not found (covers lines 270-274).
 
@@ -555,7 +652,12 @@ class TestDeleteIndexer:
         ----------
         session : DummySession
             Database session fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
+
         with patch("bookcard.api.routes.indexers.IndexerService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.delete_indexer.return_value = False
@@ -565,6 +667,7 @@ class TestDeleteIndexer:
                 indexers.delete_indexer(
                     indexer_id=999,
                     session=session,
+                    request=request,
                 )
 
             exc = exc_info.value
@@ -579,6 +682,7 @@ class TestTestIndexerConnection:
     def test_test_indexer_connection_success(
         self,
         session: DummySession,
+        valid_fernet_key: str,
     ) -> None:
         """Test test_indexer_connection returns success (covers lines 305-308).
 
@@ -586,7 +690,12 @@ class TestTestIndexerConnection:
         ----------
         session : DummySession
             Database session fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
+
         with patch("bookcard.api.routes.indexers.IndexerService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.test_connection.return_value = (
@@ -598,6 +707,7 @@ class TestTestIndexerConnection:
             result = indexers.test_indexer_connection(
                 indexer_id=1,
                 session=session,
+                request=request,
             )
 
             assert isinstance(result, IndexerTestResponse)
@@ -608,6 +718,7 @@ class TestTestIndexerConnection:
     def test_test_indexer_connection_value_error(
         self,
         session: DummySession,
+        valid_fernet_key: str,
     ) -> None:
         """Test test_indexer_connection handles ValueError (covers lines 309-313).
 
@@ -615,7 +726,12 @@ class TestTestIndexerConnection:
         ----------
         session : DummySession
             Database session fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
+
         with patch("bookcard.api.routes.indexers.IndexerService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.test_connection.side_effect = ValueError(
@@ -627,6 +743,7 @@ class TestTestIndexerConnection:
                 indexers.test_indexer_connection(
                     indexer_id=999,
                     session=session,
+                    request=request,
                 )
 
             exc = exc_info.value
@@ -637,6 +754,7 @@ class TestTestIndexerConnection:
     def test_test_indexer_connection_generic_exception(
         self,
         session: DummySession,
+        valid_fernet_key: str,
     ) -> None:
         """Test test_indexer_connection handles generic Exception (covers lines 314-318).
 
@@ -644,7 +762,12 @@ class TestTestIndexerConnection:
         ----------
         session : DummySession
             Database session fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
+
         with patch("bookcard.api.routes.indexers.IndexerService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.test_connection.side_effect = RuntimeError("Connection error")
@@ -654,6 +777,7 @@ class TestTestIndexerConnection:
                 indexers.test_indexer_connection(
                     indexer_id=1,
                     session=session,
+                    request=request,
                 )
 
             exc = exc_info.value
@@ -669,6 +793,7 @@ class TestGetIndexerStatus:
         self,
         session: DummySession,
         indexer_definition: IndexerDefinition,
+        valid_fernet_key: str,
     ) -> None:
         """Test get_indexer_status returns status successfully (covers lines 349-350).
 
@@ -678,7 +803,12 @@ class TestGetIndexerStatus:
             Database session fixture.
         indexer_definition : IndexerDefinition
             Indexer definition fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
+
         with patch("bookcard.api.routes.indexers.IndexerService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.get_indexer_status.return_value = indexer_definition
@@ -687,6 +817,7 @@ class TestGetIndexerStatus:
             result = indexers.get_indexer_status(
                 indexer_id=1,
                 session=session,
+                request=request,
             )
 
             assert isinstance(result, IndexerStatusResponse)
@@ -697,6 +828,7 @@ class TestGetIndexerStatus:
     def test_get_indexer_status_not_found(
         self,
         session: DummySession,
+        valid_fernet_key: str,
     ) -> None:
         """Test get_indexer_status raises 404 when indexer not found (covers lines 351-355).
 
@@ -704,7 +836,12 @@ class TestGetIndexerStatus:
         ----------
         session : DummySession
             Database session fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
+
         with patch("bookcard.api.routes.indexers.IndexerService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.get_indexer_status.return_value = None
@@ -714,6 +851,7 @@ class TestGetIndexerStatus:
                 indexers.get_indexer_status(
                     indexer_id=999,
                     session=session,
+                    request=request,
                 )
 
             exc = exc_info.value

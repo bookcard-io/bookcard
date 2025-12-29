@@ -39,6 +39,9 @@ from bookcard.services.tasks.epub_fix_task import (
     EPUBFixBatchTask,
     EPUBFixTask,
 )
+from bookcard.services.tasks.indexer_health_check_task import (
+    IndexerHealthCheckTask,
+)
 from bookcard.services.tasks.ingest_book_task import IngestBookTask
 from bookcard.services.tasks.ingest_discovery_task import IngestDiscoveryTask
 from bookcard.services.tasks.library_scan_task import LibraryScanTask
@@ -253,3 +256,4 @@ _registry.register(TaskType.INGEST_DISCOVERY, IngestDiscoveryTask)
 _registry.register(TaskType.INGEST_BOOK, IngestBookTask)
 _registry.register(TaskType.PVR_DOWNLOAD_MONITOR, DownloadMonitorTask)
 _registry.register(TaskType.PROWLARR_SYNC, ProwlarrSyncTask)
+_registry.register(TaskType.INDEXER_HEALTH_CHECK, IndexerHealthCheckTask)

@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
+from cryptography.fernet import Fernet
 from fastapi import HTTPException, status
 
 import bookcard.api.routes.pvr_search as pvr_search_routes
@@ -200,6 +201,18 @@ def download_client() -> DownloadClientDefinition:
     )
 
 
+@pytest.fixture
+def valid_fernet_key() -> str:
+    """Generate a valid Fernet key.
+
+    Returns
+    -------
+    str
+        Base64-encoded Fernet key.
+    """
+    return Fernet.generate_key().decode()
+
+
 class TestGetTrackedBookService:
     """Test _get_tracked_book_service function."""
 
@@ -220,15 +233,21 @@ class TestGetTrackedBookService:
 class TestGetIndexerSearchService:
     """Test _get_indexer_search_service function."""
 
-    def test_get_indexer_search_service(self, session: DummySession) -> None:
+    def test_get_indexer_search_service(
+        self, session: DummySession, valid_fernet_key: str
+    ) -> None:
         """Test _get_indexer_search_service creates IndexerSearchService instance.
 
         Parameters
         ----------
         session : DummySession
             Database session fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
-        service = pvr_search_routes._get_indexer_search_service(session)
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
+        service = pvr_search_routes._get_indexer_search_service(session, request)
         assert service is not None
         assert hasattr(service, "_indexer_service")
 
@@ -317,6 +336,7 @@ class TestSearchTrackedBook:
         user: User,
         tracked_book: TrackedBook,
         indexer_search_result: IndexerSearchResult,
+        valid_fernet_key: str,
     ) -> None:
         """Test search_tracked_book initiates search successfully.
 
@@ -330,11 +350,15 @@ class TestSearchTrackedBook:
             Tracked book fixture.
         indexer_search_result : IndexerSearchResult
             Indexer search result fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
-        request = PVRSearchRequest(
+        request_data = PVRSearchRequest(
             tracked_book_id=1,
             max_results_per_indexer=100,
         )
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
 
         with (
             patch(
@@ -365,10 +389,11 @@ class TestSearchTrackedBook:
             mock_search_class.return_value = mock_search_service
 
             result = pvr_search_routes.search_tracked_book(
-                request=request,
+                request=request_data,
                 session=session,
                 current_user=user,
                 permission_helper=mock_permission_helper,
+                fastapi_request=request,
             )
 
             assert isinstance(result, PVRSearchResponse)
@@ -383,6 +408,7 @@ class TestSearchTrackedBook:
         self,
         session: DummySession,
         user: User,
+        valid_fernet_key: str,
     ) -> None:
         """Test search_tracked_book raises 404 when tracked book not found.
 
@@ -392,11 +418,15 @@ class TestSearchTrackedBook:
             Database session fixture.
         user : User
             User fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
-        request = PVRSearchRequest(
+        request_data = PVRSearchRequest(
             tracked_book_id=999,
             max_results_per_indexer=100,
         )
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
 
         with (
             patch(
@@ -418,10 +448,11 @@ class TestSearchTrackedBook:
 
             with pytest.raises(HTTPException) as exc_info:
                 pvr_search_routes.search_tracked_book(
-                    request=request,
+                    request=request_data,
                     session=session,
                     current_user=user,
                     permission_helper=mock_permission_helper,
+                    fastapi_request=request,
                 )
 
             assert isinstance(exc_info.value, HTTPException)
@@ -432,6 +463,7 @@ class TestSearchTrackedBook:
         session: DummySession,
         user: User,
         tracked_book: TrackedBook,
+        valid_fernet_key: str,
     ) -> None:
         """Test search_tracked_book raises 400 when book has no title or author.
 
@@ -443,6 +475,8 @@ class TestSearchTrackedBook:
             User fixture.
         tracked_book : TrackedBook
             Tracked book fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
         # Create tracked book with empty title and author
         empty_book = TrackedBook(
@@ -454,10 +488,12 @@ class TestSearchTrackedBook:
             updated_at=datetime.now(UTC),
         )
 
-        request = PVRSearchRequest(
+        request_data = PVRSearchRequest(
             tracked_book_id=2,
             max_results_per_indexer=100,
         )
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
 
         with (
             patch(
@@ -479,10 +515,11 @@ class TestSearchTrackedBook:
 
             with pytest.raises(HTTPException) as exc_info:
                 pvr_search_routes.search_tracked_book(
-                    request=request,
+                    request=request_data,
                     session=session,
                     current_user=user,
                     permission_helper=mock_permission_helper,
+                    fastapi_request=request,
                 )
 
             assert isinstance(exc_info.value, HTTPException)
@@ -494,6 +531,7 @@ class TestSearchTrackedBook:
         session: DummySession,
         user: User,
         tracked_book: TrackedBook,
+        valid_fernet_key: str,
     ) -> None:
         """Test search_tracked_book handles search exceptions.
 
@@ -505,11 +543,15 @@ class TestSearchTrackedBook:
             User fixture.
         tracked_book : TrackedBook
             Tracked book fixture.
+        valid_fernet_key : str
+            Valid Fernet key fixture.
         """
-        request = PVRSearchRequest(
+        request_data = PVRSearchRequest(
             tracked_book_id=1,
             max_results_per_indexer=100,
         )
+        request = MagicMock()
+        request.app.state.config.encryption_key = valid_fernet_key
 
         with (
             patch(
@@ -541,10 +583,11 @@ class TestSearchTrackedBook:
 
             with pytest.raises(HTTPException) as exc_info:
                 pvr_search_routes.search_tracked_book(
-                    request=request,
+                    request=request_data,
                     session=session,
                     current_user=user,
                     permission_helper=mock_permission_helper,
+                    fastapi_request=request,
                 )
 
             assert isinstance(exc_info.value, HTTPException)

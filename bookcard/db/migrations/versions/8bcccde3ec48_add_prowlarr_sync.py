@@ -60,6 +60,7 @@ def upgrade() -> None:
         "INGEST_BOOK",
         "PVR_DOWNLOAD_MONITOR",
         "PROWLARR_SYNC",
+        "INDEXER_HEALTH_CHECK",
         name="tasktype",
         native_enum=False,
     )

@@ -31,6 +31,7 @@ from bookcard.models.pvr import IndexerDefinition, IndexerStatus
 from bookcard.pvr.exceptions import PVRProviderError
 from bookcard.pvr.factory import create_indexer
 from bookcard.repositories.base import Repository
+from bookcard.services.security import DataEncryptor
 
 if TYPE_CHECKING:
     from bookcard.api.schemas.indexers import IndexerCreate, IndexerUpdate
@@ -105,6 +106,7 @@ class IndexerService:
         self,
         session: Session,  # type: ignore[type-arg]
         repository: IndexerRepository | None = None,
+        encryptor: DataEncryptor | None = None,
     ) -> None:
         """Initialize indexer service.
 
@@ -114,9 +116,12 @@ class IndexerService:
             Database session.
         repository : IndexerRepository | None
             Indexer repository. If None, creates a new instance.
+        encryptor : DataEncryptor | None
+            Data encryptor for securing API keys.
         """
         self._session = session
         self._repository = repository or IndexerRepository(session)
+        self._encryptor = encryptor
 
     def create_indexer(self, data: "IndexerCreate") -> IndexerDefinition:
         """Create a new indexer.
@@ -136,12 +141,16 @@ class IndexerService:
         ValueError
             If indexer type is invalid or configuration is invalid.
         """
+        api_key = data.api_key
+        if api_key and self._encryptor:
+            api_key = self._encryptor.encrypt(api_key)
+
         indexer = IndexerDefinition(
             name=data.name,
             indexer_type=data.indexer_type,
             protocol=data.protocol,
             base_url=data.base_url,
-            api_key=data.api_key,
+            api_key=api_key,
             enabled=data.enabled,
             priority=data.priority,
             timeout_seconds=data.timeout_seconds,
@@ -246,6 +255,9 @@ class IndexerService:
             "additional_settings": data.additional_settings,
         }
 
+        if data.api_key and self._encryptor:
+            update_mapping["api_key"] = self._encryptor.encrypt(data.api_key)
+
         for field_name, value in update_mapping.items():
             if value is not None:
                 setattr(indexer, field_name, value)
@@ -290,14 +302,41 @@ class IndexerService:
         ValueError
             If indexer not found.
         """
+        logger.info("Testing connection for indexer %s", indexer_id)
         indexer = self._repository.get(indexer_id)
         if indexer is None:
             msg = f"Indexer {indexer_id} not found"
+            logger.error(msg)
             raise ValueError(msg)
 
         try:
-            indexer_instance = create_indexer(indexer)
+            # Create a detached copy with decrypted API key for connection testing
+            # We don't want to modify the attached session object or expose the key
+            # in memory longer than necessary.
+            test_indexer = IndexerDefinition.model_validate(indexer)
+            if test_indexer.api_key and self._encryptor:
+                try:
+                    test_indexer.api_key = self._encryptor.decrypt(test_indexer.api_key)
+                except ValueError:
+                    # If decryption fails, it might be an old plain text key
+                    # or actually invalid. We try to use it as is, or we could
+                    # choose to fail fast here.
+                    logger.warning(
+                        "Failed to decrypt API key for indexer %s. Using as-is.",
+                        indexer.id,
+                    )
+
+            logger.info(
+                "Creating indexer instance for %s (url=%s, type=%s)",
+                indexer.name,
+                indexer.base_url,
+                indexer.indexer_type,
+            )
+            indexer_instance = create_indexer(test_indexer)
+            logger.info("Running test_connection on instance")
             success = indexer_instance.test_connection()
+            logger.info("Connection test result: %s", success)
+
             if success:
                 message = "Connection test successful"
                 # Update status on success
@@ -309,6 +348,7 @@ class IndexerService:
                 )
         except PVRProviderError as e:
             error_msg = str(e)
+            logger.info("PVRProviderError during connection test: %s", error_msg)
             self._update_indexer_status(
                 indexer, IndexerStatus.UNHEALTHY, error_msg, False
             )
@@ -322,6 +362,59 @@ class IndexerService:
             return (False, error_msg)
         else:
             return (success, message)
+
+    def test_connection_with_settings(self, data: "IndexerCreate") -> tuple[bool, str]:
+        """Test connection using provided settings without saving.
+
+        Parameters
+        ----------
+        data : IndexerCreate
+            Indexer settings.
+
+        Returns
+        -------
+        tuple[bool, str]
+            Tuple of (success, message).
+        """
+        try:
+            # Create temporary indexer definition
+            indexer_def = IndexerDefinition(
+                name=data.name,
+                indexer_type=data.indexer_type,
+                protocol=data.protocol,
+                base_url=data.base_url,
+                api_key=data.api_key,  # Use raw API key for testing
+                enabled=True,
+                priority=0,
+                timeout_seconds=data.timeout_seconds,
+                retry_count=data.retry_count,
+                categories=data.categories,
+                additional_settings=data.additional_settings,
+                status=IndexerStatus.UNKNOWN,
+            )
+
+            logger.info(
+                "Testing connection with settings (url=%s, type=%s)",
+                indexer_def.base_url,
+                indexer_def.indexer_type,
+            )
+
+            indexer_instance = create_indexer(indexer_def)
+            success = indexer_instance.test_connection()
+            logger.info("Connection test result: %s", success)
+
+            if success:
+                return (True, "Connection test successful")
+        except PVRProviderError as e:
+            error_msg = str(e)
+            logger.info("PVRProviderError during connection test: %s", error_msg)
+            return (False, f"Connection test failed: {error_msg}")
+        except Exception as e:
+            error_msg = f"Unexpected error: {e}"
+            logger.exception("Unexpected error testing indexer connection")
+            return (False, error_msg)
+        else:
+            return (False, "Connection test failed")
 
     def get_indexer_status(self, indexer_id: int) -> IndexerDefinition | None:
         """Get indexer status information.
@@ -365,7 +458,18 @@ class IndexerService:
             return
 
         try:
-            indexer_instance = create_indexer(indexer)
+            # Create a detached copy with decrypted API key for connection testing
+            test_indexer = IndexerDefinition.model_validate(indexer)
+            if test_indexer.api_key and self._encryptor:
+                try:
+                    test_indexer.api_key = self._encryptor.decrypt(test_indexer.api_key)
+                except ValueError:
+                    logger.warning(
+                        "Failed to decrypt API key for indexer %s. Using as-is.",
+                        indexer.id,
+                    )
+
+            indexer_instance = create_indexer(test_indexer)
             success = indexer_instance.test_connection()
             if success:
                 self._update_indexer_status(indexer, IndexerStatus.HEALTHY, None, True)

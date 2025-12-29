@@ -18,15 +18,12 @@
 Business logic for managing system configuration settings.
 """
 
-from __future__ import annotations
-
 import logging
 import os
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-from sqlmodel import select
+from sqlmodel import Session, select
 
 from bookcard.config import AppConfig
 from bookcard.models.config import (
@@ -34,8 +31,10 @@ from bookcard.models.config import (
     EPUBFixerConfig,
     FileHandlingConfig,
     Library,
+    ScheduledJobDefinition,
     ScheduledTasksConfig,
 )
+from bookcard.models.tasks import TaskType
 from bookcard.repositories.calibre_book_repository import (
     CalibreBookRepository,
 )
@@ -44,9 +43,6 @@ from bookcard.repositories.shelf_repository import ShelfRepository
 from bookcard.services.calibre_db_initializer import (
     CalibreDatabaseInitializer,
 )
-
-if TYPE_CHECKING:
-    from sqlmodel import Session
 
 logger = logging.getLogger(__name__)
 
@@ -985,6 +981,80 @@ class ScheduledTasksConfigService:
             self._session.commit()
             self._session.refresh(config)
         return config
+
+    def register_job(
+        self,
+        task_type: TaskType,
+        cron_expression: str,
+        enabled: bool,
+        job_name: str,
+        arguments: dict | None = None,
+    ) -> ScheduledJobDefinition:
+        """Register or update a scheduled job.
+
+        Parameters
+        ----------
+        task_type : TaskType
+            Type of task to execute.
+        cron_expression : str
+            Cron expression for scheduling.
+        enabled : bool
+            Whether the job is enabled.
+        job_name : str
+            Unique identifier for the job.
+        arguments : dict | None
+            Optional arguments for the task.
+
+        Returns
+        -------
+        ScheduledJobDefinition
+            Registered job definition.
+        """
+        stmt = select(ScheduledJobDefinition).where(
+            ScheduledJobDefinition.job_name == job_name
+        )
+        job = self._session.exec(stmt).first()
+
+        if not job:
+            job = ScheduledJobDefinition(
+                job_name=job_name,
+                task_type=task_type,
+                cron_expression=cron_expression,
+                enabled=enabled,
+                arguments=arguments or {},
+            )
+            self._session.add(job)
+        else:
+            job.task_type = task_type
+            job.cron_expression = cron_expression
+            job.enabled = enabled
+            job.arguments = arguments or {}
+            self._session.add(job)
+
+        self._session.commit()
+        self._session.refresh(job)
+
+        # Notify scheduler of job update via update timestamp or explicit trigger
+        # Currently the scheduler polls or relies on application restart/refresh
+        # In a real system we might want to signal the scheduler service
+        return job
+
+    def unregister_job(self, job_name: str) -> None:
+        """Unregister (delete) a scheduled job.
+
+        Parameters
+        ----------
+        job_name : str
+            Unique identifier for the job.
+        """
+        stmt = select(ScheduledJobDefinition).where(
+            ScheduledJobDefinition.job_name == job_name
+        )
+        job = self._session.exec(stmt).first()
+
+        if job:
+            self._session.delete(job)
+            self._session.commit()
 
     def update_scheduled_tasks_config(
         self,

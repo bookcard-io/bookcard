@@ -151,8 +151,8 @@ class ProwlarrConfig(SQLModel, table=True):
         Prowlarr API key.
     enabled : bool
         Whether Prowlarr integration is enabled (default: False).
-    sync_categories : list[int] | None
-        JSON array of Prowlarr category IDs to sync (e.g., [3030, 7000, 8000]).
+    sync_categories : list[str] | None
+        JSON array of Prowlarr category names to sync (e.g., ["Audio", "Books"]).
     sync_app_profiles : list[int] | None
         JSON array of Prowlarr app profile IDs to sync.
     sync_interval_minutes : int
@@ -169,7 +169,7 @@ class ProwlarrConfig(SQLModel, table=True):
     url: str = Field(default="http://localhost:9696", max_length=255)
     api_key: str | None = Field(default=None, max_length=500)
     enabled: bool = Field(default=False, index=True)
-    sync_categories: list[int] | None = Field(
+    sync_categories: list[str] | None = Field(
         default=None,
         sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
     )
@@ -228,12 +228,15 @@ class IndexerStatus(StrEnum):
         Indexer is not responding or has critical errors.
     DISABLED : str
         Indexer is disabled by user.
+    UNKNOWN : str
+        Indexer status is unknown.
     """
 
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
     DISABLED = "disabled"
+    UNKNOWN = "unknown"
 
 
 class DownloadClientStatus(StrEnum):

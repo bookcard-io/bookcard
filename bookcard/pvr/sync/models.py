@@ -48,6 +48,7 @@ class ProwlarrIndexerResponse(BaseModel):
     enable: bool = Field(default=False, alias="enable")
     priority: int = 0
     urls: dict[str, str] | None = None  # Some versions might expose urls
+    capabilities: dict | None = None
 
     class Config:
         """Pydantic config."""

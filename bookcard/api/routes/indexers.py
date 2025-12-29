@@ -21,10 +21,10 @@ Business logic is delegated to services following SOLID principles.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlmodel import Session
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlmodel import Session, select
 
-from bookcard.api.deps import get_admin_user, get_db_session
+from bookcard.api.deps import get_admin_user, get_data_encryptor, get_db_session
 from bookcard.api.schemas.indexers import (
     IndexerCreate,
     IndexerListResponse,
@@ -34,6 +34,9 @@ from bookcard.api.schemas.indexers import (
     IndexerUpdate,
 )
 from bookcard.models.auth import User
+from bookcard.models.config import ScheduledJobDefinition
+from bookcard.models.tasks import TaskType
+from bookcard.services.config_service import ScheduledTasksConfigService
 from bookcard.services.indexer_service import IndexerService
 
 router = APIRouter(prefix="/indexers", tags=["indexers"])
@@ -42,20 +45,23 @@ SessionDep = Annotated[Session, Depends(get_db_session)]
 AdminUserDep = Annotated[User, Depends(get_admin_user)]
 
 
-def _get_indexer_service(session: SessionDep) -> IndexerService:
+def _get_indexer_service(session: SessionDep, request: Request) -> IndexerService:
     """Create IndexerService instance for routes.
 
     Parameters
     ----------
     session : SessionDep
         Database session dependency.
+    request : Request
+        FastAPI request object.
 
     Returns
     -------
     IndexerService
         Indexer service instance.
     """
-    return IndexerService(session)
+    encryptor = get_data_encryptor(request)
+    return IndexerService(session, encryptor=encryptor)
 
 
 def _raise_not_found(indexer_id: int) -> None:
@@ -84,6 +90,7 @@ def _raise_not_found(indexer_id: int) -> None:
 )
 def list_indexers(
     session: SessionDep,
+    request: Request,
     enabled_only: bool = Query(
         default=False, description="Only return enabled indexers"
     ),
@@ -94,6 +101,8 @@ def list_indexers(
     ----------
     session : SessionDep
         Database session dependency.
+    request : Request
+        FastAPI request object.
     enabled_only : bool
         If True, only return enabled indexers.
 
@@ -102,7 +111,7 @@ def list_indexers(
     IndexerListResponse
         List of indexers.
     """
-    service = _get_indexer_service(session)
+    service = _get_indexer_service(session, request)
     indexers = service.list_indexers(enabled_only=enabled_only)
     return IndexerListResponse(
         items=[IndexerRead.model_validate(indexer) for indexer in indexers],
@@ -118,6 +127,7 @@ def list_indexers(
 def get_indexer(
     indexer_id: int,
     session: SessionDep,
+    request: Request,
 ) -> IndexerRead:
     """Get an indexer by ID.
 
@@ -127,6 +137,8 @@ def get_indexer(
         Indexer ID.
     session : SessionDep
         Database session dependency.
+    request : Request
+        FastAPI request object.
 
     Returns
     -------
@@ -138,7 +150,7 @@ def get_indexer(
     HTTPException
         If indexer not found.
     """
-    service = _get_indexer_service(session)
+    service = _get_indexer_service(session, request)
     indexer = service.get_indexer(indexer_id)
     if indexer is None:
         raise HTTPException(
@@ -157,6 +169,7 @@ def get_indexer(
 def create_indexer(
     data: IndexerCreate,
     session: SessionDep,
+    request: Request,
 ) -> IndexerRead:
     """Create a new indexer.
 
@@ -166,6 +179,8 @@ def create_indexer(
         Indexer creation data.
     session : SessionDep
         Database session dependency.
+    request : Request
+        FastAPI request object.
 
     Returns
     -------
@@ -177,9 +192,26 @@ def create_indexer(
     HTTPException
         If indexer creation fails.
     """
-    service = _get_indexer_service(session)
+    service = _get_indexer_service(session, request)
     try:
         indexer = service.create_indexer(data)
+
+        # Register health check task if it doesn't exist
+        stmt = select(ScheduledJobDefinition).where(
+            ScheduledJobDefinition.job_name == "indexer_health_check"
+        )
+        job = session.exec(stmt).first()
+        if not job:
+            scheduled_tasks_service = ScheduledTasksConfigService(session)
+            scheduled_tasks_service.register_job(
+                task_type=TaskType.INDEXER_HEALTH_CHECK,
+                cron_expression="0 4 * * *",  # Daily at 4 AM
+                enabled=True,
+                job_name="indexer_health_check",
+            )
+            if hasattr(request.app.state, "scheduler") and request.app.state.scheduler:
+                request.app.state.scheduler.refresh_jobs()
+
         return IndexerRead.model_validate(indexer)
     except ValueError as e:
         raise HTTPException(
@@ -202,6 +234,7 @@ def update_indexer(
     indexer_id: int,
     data: IndexerUpdate,
     session: SessionDep,
+    request: Request,
 ) -> IndexerRead:
     """Update an indexer.
 
@@ -213,6 +246,8 @@ def update_indexer(
         Update data (partial).
     session : SessionDep
         Database session dependency.
+    request : Request
+        FastAPI request object.
 
     Returns
     -------
@@ -224,11 +259,28 @@ def update_indexer(
     HTTPException
         If indexer not found or update fails.
     """
-    service = _get_indexer_service(session)
+    service = _get_indexer_service(session, request)
     try:
         indexer = service.update_indexer(indexer_id, data)
         if indexer is None:
             _raise_not_found(indexer_id)
+
+        # Register health check task if it doesn't exist
+        stmt = select(ScheduledJobDefinition).where(
+            ScheduledJobDefinition.job_name == "indexer_health_check"
+        )
+        job = session.exec(stmt).first()
+        if not job:
+            scheduled_tasks_service = ScheduledTasksConfigService(session)
+            scheduled_tasks_service.register_job(
+                task_type=TaskType.INDEXER_HEALTH_CHECK,
+                cron_expression="0 4 * * *",  # Daily at 4 AM
+                enabled=True,
+                job_name="indexer_health_check",
+            )
+            if hasattr(request.app.state, "scheduler") and request.app.state.scheduler:
+                request.app.state.scheduler.refresh_jobs()
+
         return IndexerRead.model_validate(indexer)
     except ValueError as e:
         raise HTTPException(
@@ -250,6 +302,7 @@ def update_indexer(
 def delete_indexer(
     indexer_id: int,
     session: SessionDep,
+    request: Request,
 ) -> None:
     """Delete an indexer.
 
@@ -259,19 +312,68 @@ def delete_indexer(
         Indexer ID.
     session : SessionDep
         Database session dependency.
+    request : Request
+        FastAPI request object.
 
     Raises
     ------
     HTTPException
         If indexer not found.
     """
-    service = _get_indexer_service(session)
+    service = _get_indexer_service(session, request)
     deleted = service.delete_indexer(indexer_id)
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Indexer {indexer_id} not found",
         )
+
+
+@router.post(
+    "/test",
+    response_model=IndexerTestResponse,
+    dependencies=[Depends(get_admin_user)],
+)
+def test_indexer_settings(
+    data: IndexerCreate,
+    session: SessionDep,
+    request: Request,
+) -> IndexerTestResponse:
+    """Test connection with provided settings.
+
+    Parameters
+    ----------
+    data : IndexerCreate
+        Indexer settings.
+    session : SessionDep
+        Database session dependency.
+    request : Request
+        FastAPI request object.
+
+    Returns
+    -------
+    IndexerTestResponse
+        Test result.
+
+    Raises
+    ------
+    HTTPException
+        If test fails.
+    """
+    service = _get_indexer_service(session, request)
+    try:
+        success, message = service.test_connection_with_settings(data)
+        return IndexerTestResponse(success=success, message=message)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to test indexer connection: {e}",
+        ) from e
 
 
 @router.post(
@@ -282,6 +384,7 @@ def delete_indexer(
 def test_indexer_connection(
     indexer_id: int,
     session: SessionDep,
+    request: Request,
 ) -> IndexerTestResponse:
     """Test connection to an indexer.
 
@@ -291,6 +394,8 @@ def test_indexer_connection(
         Indexer ID.
     session : SessionDep
         Database session dependency.
+    request : Request
+        FastAPI request object.
 
     Returns
     -------
@@ -302,7 +407,7 @@ def test_indexer_connection(
     HTTPException
         If indexer not found or test fails.
     """
-    service = _get_indexer_service(session)
+    service = _get_indexer_service(session, request)
     try:
         success, message = service.test_connection(indexer_id)
         return IndexerTestResponse(success=success, message=message)
@@ -326,6 +431,7 @@ def test_indexer_connection(
 def get_indexer_status(
     indexer_id: int,
     session: SessionDep,
+    request: Request,
 ) -> IndexerStatusResponse:
     """Get indexer status information.
 
@@ -335,6 +441,8 @@ def get_indexer_status(
         Indexer ID.
     session : SessionDep
         Database session dependency.
+    request : Request
+        FastAPI request object.
 
     Returns
     -------
@@ -346,7 +454,7 @@ def get_indexer_status(
     HTTPException
         If indexer not found.
     """
-    service = _get_indexer_service(session)
+    service = _get_indexer_service(session, request)
     indexer = service.get_indexer_status(indexer_id)
     if indexer is None:
         raise HTTPException(

@@ -28,6 +28,7 @@ from bookcard.pvr.sync.exceptions import (
 )
 from bookcard.pvr.sync.mappers import IndexerUrlBuilder, ProtocolMapper
 from bookcard.pvr.sync.models import ProwlarrIndexerResponse, SyncStatistics
+from bookcard.services.security import DataEncryptor
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ class ProwlarrSyncService:
         self,
         session: Session,
         client_factory: Callable[[str, str], ProwlarrClientInterface] = ProwlarrClient,
+        encryptor: DataEncryptor | None = None,
     ) -> None:
         """Initialize sync service.
 
@@ -48,9 +50,12 @@ class ProwlarrSyncService:
             Database session.
         client_factory : Callable[[str, str], ProwlarrClientInterface]
             Factory function to create Prowlarr client.
+        encryptor : DataEncryptor | None
+            Data encryptor for securing API keys.
         """
         self.session = session
         self._client_factory = client_factory
+        self._encryptor = encryptor
 
     def sync_indexers(self) -> dict[str, int]:
         """Sync indexers from Prowlarr.
@@ -166,6 +171,29 @@ class ProwlarrSyncService:
         if not p_indexer.enable:
             return
 
+        # Filter by category
+        # Use configured sync_categories from config
+        # If sync_categories is None or empty, sync all categories (no filtering)
+        # Otherwise, only sync indexers matching the configured categories
+        if config.sync_categories:
+            target_categories = set(config.sync_categories)
+            should_sync = False
+
+            if p_indexer.capabilities and "categories" in p_indexer.capabilities:
+                categories = p_indexer.capabilities["categories"]
+                # Check if any category matches configured categories
+                for category in categories:
+                    if (
+                        isinstance(category, dict)
+                        and category.get("name") in target_categories
+                    ):
+                        should_sync = True
+                        break
+
+            # If no matching categories found, skip
+            if not should_sync:
+                return
+
         mapping = ProtocolMapper.map_protocol(p_indexer.protocol)
         if not mapping:
             logger.warning(
@@ -218,8 +246,12 @@ class ProwlarrSyncService:
         p_indexer : ProwlarrIndexerResponse
             Prowlarr indexer data.
         """
+        api_key = config.api_key
+        if api_key and self._encryptor:
+            api_key = self._encryptor.encrypt(api_key)
+
         existing.base_url = indexer_url
-        existing.api_key = config.api_key
+        existing.api_key = api_key
         existing.protocol = protocol  # type: ignore[assignment]
         existing.indexer_type = indexer_type  # type: ignore[assignment]
 
@@ -252,12 +284,16 @@ class ProwlarrSyncService:
         indexer_type : str
             Mapped indexer type.
         """
+        api_key = config.api_key
+        if api_key and self._encryptor:
+            api_key = self._encryptor.encrypt(api_key)
+
         new_indexer = IndexerDefinition(
             name=p_indexer.name,
             indexer_type=indexer_type,  # type: ignore[arg-type]
             protocol=protocol,  # type: ignore[arg-type]
             base_url=indexer_url,
-            api_key=config.api_key,
+            api_key=api_key,
             enabled=True,
             priority=p_indexer.priority,
             additional_settings={"prowlarr_id": p_indexer.id},

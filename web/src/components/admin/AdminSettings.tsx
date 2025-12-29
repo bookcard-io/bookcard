@@ -20,6 +20,7 @@ import { useEffect, useState } from "react";
 import { BlurAfterClickProvider } from "@/components/profile/BlurAfterClickContext";
 import { cn } from "@/libs/utils";
 import { ConfigurationTab } from "./tabs/ConfigurationTab";
+import { IndexersTab } from "./tabs/IndexersTab";
 import { PluginsTab } from "./tabs/PluginsTab";
 import { ScheduledTasksTab } from "./tabs/ScheduledTasksTab";
 import { SystemTab } from "./tabs/SystemTab";
@@ -30,7 +31,8 @@ type TabId =
   | "configuration"
   | "system"
   | "scheduled-tasks"
-  | "plugins";
+  | "plugins"
+  | "indexers";
 
 const validTabs: Record<string, TabId> = {
   users: "users",
@@ -38,6 +40,7 @@ const validTabs: Record<string, TabId> = {
   system: "system",
   "scheduled-tasks": "scheduled-tasks",
   plugins: "plugins",
+  indexers: "indexers",
 };
 
 export function AdminSettings() {
@@ -64,6 +67,7 @@ export function AdminSettings() {
     { id: "system", label: "System" },
     { id: "scheduled-tasks", label: "Scheduled Tasks" },
     { id: "plugins", label: "Plugins" },
+    { id: "indexers", label: "Indexers" },
   ];
 
   return (
@@ -91,6 +95,7 @@ export function AdminSettings() {
           <div className="px-0 py-3.5">
             {activeTab === "users" && <UsersAndRolesTab />}
             {activeTab === "configuration" && <ConfigurationTab />}
+            {activeTab === "indexers" && <IndexersTab />}
             {activeTab === "system" && <SystemTab />}
             {activeTab === "scheduled-tasks" && <ScheduledTasksTab />}
             {activeTab === "plugins" && <PluginsTab />}
