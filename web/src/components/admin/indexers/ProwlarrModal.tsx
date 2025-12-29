@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { FaSync } from "react-icons/fa";
 import { Button } from "@/components/forms/Button";
+import { MultiTextInput } from "@/components/forms/MultiTextInput";
 import { NumberInput } from "@/components/forms/NumberInput";
 import { TextInput } from "@/components/forms/TextInput";
 import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
@@ -36,7 +37,7 @@ export function ProwlarrModal({
     api_key: "",
     enabled: false,
     sync_interval_minutes: 60,
-    sync_categories: [],
+    sync_categories: ["Audio", "Books"],
     sync_app_profiles: [],
   });
 
@@ -49,7 +50,10 @@ export function ProwlarrModal({
         api_key: config.api_key || "",
         enabled: config.enabled,
         sync_interval_minutes: config.sync_interval_minutes,
-        sync_categories: config.sync_categories || [],
+        sync_categories:
+          config.sync_categories && config.sync_categories.length > 0
+            ? config.sync_categories
+            : ["Audio", "Books"],
         sync_app_profiles: config.sync_app_profiles || [],
       });
     }
@@ -198,7 +202,17 @@ export function ProwlarrModal({
                 />
               </div>
 
-              {/* Note: sync_categories and sync_app_profiles could be added here as MultiSelects in the future */}
+              <MultiTextInput
+                id="sync_categories"
+                label="Sync Categories"
+                values={formData.sync_categories || []}
+                onChange={(values) => handleChange("sync_categories", values)}
+                placeholder="Add category names (e.g., Audio, Books)"
+                helperText="Enter category names to filter which indexers to sync. Leave empty to sync all categories."
+                disabled={!formData.enabled}
+              />
+
+              {/* Note: sync_app_profiles could be added here as MultiSelect in the future */}
             </div>
 
             <div className="modal-footer-between flex-shrink-0">

@@ -24,7 +24,7 @@ class ProwlarrConfigBase(BaseModel):
     url: str = "http://localhost:9696"
     api_key: str | None = None
     enabled: bool = False
-    sync_categories: list[int] | None = None
+    sync_categories: list[str] | None = None
     sync_app_profiles: list[int] | None = None
     sync_interval_minutes: int = 60
 

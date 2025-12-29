@@ -36,6 +36,52 @@ from bookcard.services.config_service import ScheduledTasksConfigService
 router = APIRouter(prefix="/prowlarr", tags=["prowlarr"])
 
 
+def minutes_to_cron(minutes: int) -> str:
+    """Convert minutes to a valid cron expression.
+
+    Parameters
+    ----------
+    minutes : int
+        Interval in minutes.
+
+    Returns
+    -------
+    str
+        Valid cron expression.
+
+    Examples
+    --------
+    >>> minutes_to_cron(15)
+    '*/15 * * * *'
+    >>> minutes_to_cron(60)
+    '0 * * * *'
+    >>> minutes_to_cron(120)
+    '0 */2 * * *'
+    >>> minutes_to_cron(90)
+    '0 */1 * * *'
+    """
+    # Ensure minimum of 1 minute
+    if minutes < 1:
+        minutes = 1
+
+    if minutes < 60:
+        # For intervals < 60 minutes, use minute field
+        return f"*/{minutes} * * * *"
+    if minutes == 60:
+        # Exactly 60 minutes = every hour
+        return "0 * * * *"
+    if minutes % 60 == 0:
+        # Multiple of 60 minutes, convert to hours
+        hours = minutes // 60
+        return f"0 */{hours} * * *"
+    # Not a multiple of 60, round down to nearest hour
+    # Cron doesn't easily support non-hour intervals > 60 minutes
+    hours = minutes // 60
+    if hours == 0:
+        hours = 1
+    return f"0 */{hours} * * *"
+
+
 @router.get(
     "/config",
     response_model=ProwlarrConfigRead,
@@ -101,7 +147,7 @@ def update_prowlarr_config(
     if config.enabled:
         scheduled_tasks_service.register_job(
             task_type=TaskType.PROWLARR_SYNC,
-            cron_expression=f"*/{config.sync_interval_minutes} * * * *",
+            cron_expression=minutes_to_cron(config.sync_interval_minutes),
             enabled=True,
             job_name="prowlarr_sync",
         )

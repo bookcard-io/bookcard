@@ -3,7 +3,7 @@ export interface ProwlarrConfig {
   url: string;
   api_key: string | null;
   enabled: boolean;
-  sync_categories: number[] | null;
+  sync_categories: string[] | null;
   sync_app_profiles: number[] | null;
   sync_interval_minutes: number;
   created_at: string;
@@ -14,7 +14,7 @@ export interface ProwlarrConfigUpdate {
   url: string;
   api_key?: string | null;
   enabled: boolean;
-  sync_categories?: number[] | null;
+  sync_categories?: string[] | null;
   sync_app_profiles?: number[] | null;
   sync_interval_minutes: number;
 }

@@ -32,8 +32,6 @@ from bookcard.services.security import DataEncryptor
 
 logger = logging.getLogger(__name__)
 
-TARGET_CATEGORIES = {"Audio", "Books"}
-
 
 class ProwlarrSyncService:
     """Service for syncing Prowlarr indexers."""
@@ -174,23 +172,27 @@ class ProwlarrSyncService:
             return
 
         # Filter by category
-        # Target only Audio or Books categories
-        should_sync = False
+        # Use configured sync_categories from config
+        # If sync_categories is None or empty, sync all categories (no filtering)
+        # Otherwise, only sync indexers matching the configured categories
+        if config.sync_categories:
+            target_categories = set(config.sync_categories)
+            should_sync = False
 
-        if p_indexer.capabilities and "categories" in p_indexer.capabilities:
-            categories = p_indexer.capabilities["categories"]
-            # Check if any category matches "Audio" or "Books"
-            for category in categories:
-                if (
-                    isinstance(category, dict)
-                    and category.get("name") in TARGET_CATEGORIES
-                ):
-                    should_sync = True
-                    break
+            if p_indexer.capabilities and "categories" in p_indexer.capabilities:
+                categories = p_indexer.capabilities["categories"]
+                # Check if any category matches configured categories
+                for category in categories:
+                    if (
+                        isinstance(category, dict)
+                        and category.get("name") in target_categories
+                    ):
+                        should_sync = True
+                        break
 
-        # If no matching categories found, skip
-        if not should_sync:
-            return
+            # If no matching categories found, skip
+            if not should_sync:
+                return
 
         mapping = ProtocolMapper.map_protocol(p_indexer.protocol)
         if not mapping:
