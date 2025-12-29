@@ -104,9 +104,8 @@ export function IndexersTab() {
       <div className="rounded-md border border-[var(--color-primary-a20)] bg-[var(--color-surface-tonal-a0)] p-4">
         <p className="text-sm text-text-a0">
           Bookcard supports generic Torznab (Torrent) and Newznab (Usenet)
-          indexers directly. For indexers with custom APIs (like MyAnonamouse or
-          AvistaZ), please use <strong>Prowlarr</strong> to manage them and sync
-          them here.
+          indexers directly. For indexers with custom APIs, please use
+          <strong>Prowlarr</strong> to manage them and sync them here.
         </p>
       </div>
 
