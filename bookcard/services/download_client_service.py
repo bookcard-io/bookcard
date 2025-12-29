@@ -361,8 +361,65 @@ class DownloadClientService:
                 client, DownloadClientStatus.UNHEALTHY, error_msg, False
             )
             return (False, error_msg)
+
+        return (success, message)
+
+    def test_connection_with_settings(
+        self, data: "DownloadClientCreate"
+    ) -> tuple[bool, str]:
+        """Test connection using provided settings without saving.
+
+        Parameters
+        ----------
+        data : DownloadClientCreate
+            Download client settings.
+
+        Returns
+        -------
+        tuple[bool, str]
+            Tuple of (success, message).
+        """
+        try:
+            # Create temporary download client definition
+            client_def = DownloadClientDefinition(
+                name=data.name,
+                client_type=data.client_type,
+                host=data.host,
+                port=data.port,
+                username=data.username,
+                password=data.password,
+                use_ssl=data.use_ssl,
+                enabled=data.enabled,
+                priority=data.priority,
+                timeout_seconds=data.timeout_seconds,
+                category=data.category,
+                download_path=data.download_path,
+                additional_settings=data.additional_settings,
+                status=DownloadClientStatus.UNHEALTHY,
+            )
+
+            logger.info(
+                "Testing connection with settings (host=%s, type=%s)",
+                client_def.host,
+                client_def.client_type,
+            )
+
+            client_instance = create_download_client(client_def)
+            success = client_instance.test_connection()
+            logger.info("Connection test result: %s", success)
+
+            if success:
+                return (True, "Connection test successful")
+        except PVRProviderError as e:
+            error_msg = str(e)
+            logger.info("PVRProviderError during connection test: %s", error_msg)
+            return (False, f"Connection test failed: {error_msg}")
+        except Exception as e:
+            error_msg = f"Unexpected error: {e}"
+            logger.exception("Unexpected error testing download client connection")
+            return (False, error_msg)
         else:
-            return (success, message)
+            return (False, "Connection test failed")
 
     def get_download_client_status(
         self, client_id: int

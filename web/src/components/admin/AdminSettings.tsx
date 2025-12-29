@@ -20,6 +20,7 @@ import { useEffect, useState } from "react";
 import { BlurAfterClickProvider } from "@/components/profile/BlurAfterClickContext";
 import { cn } from "@/libs/utils";
 import { ConfigurationTab } from "./tabs/ConfigurationTab";
+import { DownloadClientsTab } from "./tabs/DownloadClientsTab";
 import { IndexersTab } from "./tabs/IndexersTab";
 import { PluginsTab } from "./tabs/PluginsTab";
 import { ScheduledTasksTab } from "./tabs/ScheduledTasksTab";
@@ -32,7 +33,8 @@ type TabId =
   | "system"
   | "scheduled-tasks"
   | "plugins"
-  | "indexers";
+  | "indexers"
+  | "download-clients";
 
 const validTabs: Record<string, TabId> = {
   users: "users",
@@ -41,6 +43,7 @@ const validTabs: Record<string, TabId> = {
   "scheduled-tasks": "scheduled-tasks",
   plugins: "plugins",
   indexers: "indexers",
+  "download-clients": "download-clients",
 };
 
 export function AdminSettings() {
@@ -68,6 +71,7 @@ export function AdminSettings() {
     { id: "scheduled-tasks", label: "Scheduled Tasks" },
     { id: "plugins", label: "Plugins" },
     { id: "indexers", label: "Indexers" },
+    { id: "download-clients", label: "Download Clients" },
   ];
 
   return (
@@ -96,6 +100,7 @@ export function AdminSettings() {
             {activeTab === "users" && <UsersAndRolesTab />}
             {activeTab === "configuration" && <ConfigurationTab />}
             {activeTab === "indexers" && <IndexersTab />}
+            {activeTab === "download-clients" && <DownloadClientsTab />}
             {activeTab === "system" && <SystemTab />}
             {activeTab === "scheduled-tasks" && <ScheduledTasksTab />}
             {activeTab === "plugins" && <PluginsTab />}

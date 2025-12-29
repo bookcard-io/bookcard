@@ -55,6 +55,17 @@ def build_base_url(
     str
         Base URL string.
     """
+    host = host.strip()
+
+    # Strip protocol if user included it in the host field
+    if host.lower().startswith("http://"):
+        host = host[7:]
+    elif host.lower().startswith("https://"):
+        host = host[8:]
+
+    # Strip trailing slashes
+    host = host.rstrip("/")
+
     scheme = "https" if use_ssl else "http"
     base = f"{scheme}://{host}:{port}"
     if url_base:
