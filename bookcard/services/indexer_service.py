@@ -459,15 +459,7 @@ class IndexerService:
 
         try:
             # Create a detached copy with decrypted API key for connection testing
-            test_indexer = IndexerDefinition.model_validate(indexer)
-            if test_indexer.api_key and self._encryptor:
-                try:
-                    test_indexer.api_key = self._encryptor.decrypt(test_indexer.api_key)
-                except ValueError:
-                    logger.warning(
-                        "Failed to decrypt API key for indexer %s. Using as-is.",
-                        indexer.id,
-                    )
+            test_indexer = self._decrypt_indexer(indexer)
 
             indexer_instance = create_indexer(test_indexer)
             success = indexer_instance.test_connection()
@@ -484,6 +476,80 @@ class IndexerService:
             self._update_indexer_status(
                 indexer, IndexerStatus.UNHEALTHY, f"Unexpected error: {e}", False
             )
+
+    def get_decrypted_indexer(self, indexer_id: int) -> IndexerDefinition | None:
+        """Get an indexer with decrypted API key.
+
+        Returns a detached copy of the indexer definition with the API key decrypted.
+        Safe to use for making requests without exposing the key in the database session.
+
+        Parameters
+        ----------
+        indexer_id : int
+            Indexer ID.
+
+        Returns
+        -------
+        IndexerDefinition | None
+            Decrypted indexer definition if found, None otherwise.
+        """
+        indexer = self.get_indexer(indexer_id)
+        if indexer is None:
+            return None
+        return self._decrypt_indexer(indexer)
+
+    def list_decrypted_indexers(
+        self, enabled_only: bool = False
+    ) -> list[IndexerDefinition]:
+        """List all indexers with decrypted API keys.
+
+        Returns detached copies of indexer definitions with API keys decrypted.
+
+        Parameters
+        ----------
+        enabled_only : bool
+            If True, only return enabled indexers.
+
+        Returns
+        -------
+        list[IndexerDefinition]
+            List of decrypted indexer definitions.
+        """
+        indexers = self.list_indexers(enabled_only=enabled_only)
+        return [self._decrypt_indexer(idx) for idx in indexers]
+
+    def _decrypt_indexer(self, indexer: IndexerDefinition) -> IndexerDefinition:
+        """Create a detached copy of an indexer with decrypted API key.
+
+        Parameters
+        ----------
+        indexer : IndexerDefinition
+            Original indexer definition.
+
+        Returns
+        -------
+        IndexerDefinition
+            Detached copy with decrypted key.
+        """
+        # Create a detached copy with decrypted API key
+        # We don't want to modify the attached session object or expose the key
+        # in memory longer than necessary.
+        decrypted_indexer = IndexerDefinition.model_validate(indexer)
+
+        if decrypted_indexer.api_key and self._encryptor:
+            try:
+                decrypted_indexer.api_key = self._encryptor.decrypt(
+                    decrypted_indexer.api_key
+                )
+            except ValueError:
+                # If decryption fails, it might be an old plain text key
+                # or actually invalid. We try to use it as is.
+                logger.warning(
+                    "Failed to decrypt API key for indexer %s. Using as-is.",
+                    indexer.id,
+                )
+
+        return decrypted_indexer
 
     def _update_indexer_status(
         self,

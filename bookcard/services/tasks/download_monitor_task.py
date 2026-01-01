@@ -19,9 +19,11 @@ Task for monitoring active downloads via the DownloadMonitorService.
 """
 
 import logging
+import os
 from typing import Any
 
 from bookcard.services.download_monitor_service import DownloadMonitorService
+from bookcard.services.security import DataEncryptor
 from bookcard.services.tasks.base import BaseTask
 
 logger = logging.getLogger(__name__)
@@ -41,7 +43,9 @@ class DownloadMonitorTask(BaseTask):
         session = worker_context["session"]
 
         try:
-            service = DownloadMonitorService(session)
+            encryption_key = os.environ.get("BOOKCARD_FERNET_KEY", "")
+            encryptor = DataEncryptor(encryption_key) if encryption_key else None
+            service = DownloadMonitorService(session, encryptor=encryptor)
             service.check_downloads()
 
             # Since this is a periodic check, we mark it as 100% complete when done

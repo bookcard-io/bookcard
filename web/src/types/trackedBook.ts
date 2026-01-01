@@ -49,6 +49,7 @@ export interface MetadataSearchResult {
   isbn?: string;
   identifiers?: { isbn?: string }; // Sometimes returned in identifiers object
   year?: string;
+  publisher?: string;
   published_date?: string;
   cover_url?: string;
   description?: string;

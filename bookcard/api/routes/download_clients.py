@@ -21,10 +21,10 @@ Business logic is delegated to services following SOLID principles.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlmodel import Session
 
-from bookcard.api.deps import get_admin_user, get_db_session
+from bookcard.api.deps import get_admin_user, get_data_encryptor, get_db_session
 from bookcard.api.schemas.download_clients import (
     DownloadClientCreate,
     DownloadClientListResponse,
@@ -45,7 +45,7 @@ AdminUserDep = Annotated[User, Depends(get_admin_user)]
 
 
 def _get_download_client_service(
-    session: SessionDep,
+    session: SessionDep, request: Request
 ) -> DownloadClientService:
     """Create DownloadClientService instance for routes.
 
@@ -53,13 +53,16 @@ def _get_download_client_service(
     ----------
     session : SessionDep
         Database session dependency.
+    request : Request
+        FastAPI request.
 
     Returns
     -------
     DownloadClientService
         Download client service instance.
     """
-    return DownloadClientService(session)
+    encryptor = get_data_encryptor(request)
+    return DownloadClientService(session, encryptor=encryptor)
 
 
 def _raise_not_found(client_id: int) -> None:
@@ -88,6 +91,7 @@ def _raise_not_found(client_id: int) -> None:
 )
 def list_download_clients(
     session: SessionDep,
+    request: Request,
     enabled_only: bool = Query(
         default=False, description="Only return enabled download clients"
     ),
@@ -100,13 +104,15 @@ def list_download_clients(
         Database session dependency.
     enabled_only : bool
         If True, only return enabled download clients.
+    request : Request
+        FastAPI request.
 
     Returns
     -------
     DownloadClientListResponse
         List of download clients.
     """
-    service = _get_download_client_service(session)
+    service = _get_download_client_service(session, request)
     clients = service.list_download_clients(enabled_only=enabled_only)
     return DownloadClientListResponse(
         items=[DownloadClientRead.model_validate(client) for client in clients],
@@ -122,6 +128,7 @@ def list_download_clients(
 def get_download_client(
     client_id: int,
     session: SessionDep,
+    request: Request,
 ) -> DownloadClientRead:
     """Get a download client by ID.
 
@@ -131,6 +138,8 @@ def get_download_client(
         Download client ID.
     session : SessionDep
         Database session dependency.
+    request : Request
+        FastAPI request.
 
     Returns
     -------
@@ -142,7 +151,7 @@ def get_download_client(
     HTTPException
         If download client not found.
     """
-    service = _get_download_client_service(session)
+    service = _get_download_client_service(session, request)
     client = service.get_download_client(client_id)
     if client is None:
         raise HTTPException(
@@ -161,6 +170,7 @@ def get_download_client(
 def create_download_client(
     data: DownloadClientCreate,
     session: SessionDep,
+    request: Request,
 ) -> DownloadClientRead:
     """Create a new download client.
 
@@ -170,6 +180,8 @@ def create_download_client(
         Download client creation data.
     session : SessionDep
         Database session dependency.
+    request : Request
+        FastAPI request.
 
     Returns
     -------
@@ -181,7 +193,7 @@ def create_download_client(
     HTTPException
         If download client creation fails.
     """
-    service = _get_download_client_service(session)
+    service = _get_download_client_service(session, request)
     try:
         client = service.create_download_client(data)
         return DownloadClientRead.model_validate(client)
@@ -206,6 +218,7 @@ def update_download_client(
     client_id: int,
     data: DownloadClientUpdate,
     session: SessionDep,
+    request: Request,
 ) -> DownloadClientRead:
     """Update a download client.
 
@@ -217,6 +230,8 @@ def update_download_client(
         Update data (partial).
     session : SessionDep
         Database session dependency.
+    request : Request
+        FastAPI request.
 
     Returns
     -------
@@ -228,7 +243,7 @@ def update_download_client(
     HTTPException
         If download client not found or update fails.
     """
-    service = _get_download_client_service(session)
+    service = _get_download_client_service(session, request)
     try:
         client = service.update_download_client(client_id, data)
         if client is None:
@@ -254,6 +269,7 @@ def update_download_client(
 def delete_download_client(
     client_id: int,
     session: SessionDep,
+    request: Request,
 ) -> None:
     """Delete a download client.
 
@@ -263,13 +279,15 @@ def delete_download_client(
         Download client ID.
     session : SessionDep
         Database session dependency.
+    request : Request
+        FastAPI request.
 
     Raises
     ------
     HTTPException
         If download client not found.
     """
-    service = _get_download_client_service(session)
+    service = _get_download_client_service(session, request)
     deleted = service.delete_download_client(client_id)
     if not deleted:
         raise HTTPException(
@@ -286,6 +304,7 @@ def delete_download_client(
 def test_download_client_connection(
     client_id: int,
     session: SessionDep,
+    request: Request,
 ) -> DownloadClientTestResponse:
     """Test connection to a download client.
 
@@ -295,6 +314,8 @@ def test_download_client_connection(
         Download client ID.
     session : SessionDep
         Database session dependency.
+    request : Request
+        FastAPI request.
 
     Returns
     -------
@@ -306,7 +327,7 @@ def test_download_client_connection(
     HTTPException
         If download client not found or test fails.
     """
-    service = _get_download_client_service(session)
+    service = _get_download_client_service(session, request)
     try:
         success, message = service.test_connection(client_id)
         return DownloadClientTestResponse(success=success, message=message)
@@ -330,6 +351,7 @@ def test_download_client_connection(
 def test_download_client_settings(
     data: DownloadClientCreate,
     session: SessionDep,
+    request: Request,
 ) -> DownloadClientTestResponse:
     """Test connection with provided settings.
 
@@ -339,6 +361,8 @@ def test_download_client_settings(
         Download client settings.
     session : SessionDep
         Database session dependency.
+    request : Request
+        FastAPI request.
 
     Returns
     -------
@@ -350,7 +374,7 @@ def test_download_client_settings(
     HTTPException
         If test fails.
     """
-    service = _get_download_client_service(session)
+    service = _get_download_client_service(session, request)
     try:
         success, message = service.test_connection_with_settings(data)
         return DownloadClientTestResponse(success=success, message=message)
@@ -374,6 +398,7 @@ def test_download_client_settings(
 def get_download_client_status(
     client_id: int,
     session: SessionDep,
+    request: Request,
 ) -> DownloadClientStatusResponse:
     """Get download client status information.
 
@@ -383,6 +408,8 @@ def get_download_client_status(
         Download client ID.
     session : SessionDep
         Database session dependency.
+    request : Request
+        FastAPI request.
 
     Returns
     -------
@@ -394,7 +421,7 @@ def get_download_client_status(
     HTTPException
         If download client not found.
     """
-    service = _get_download_client_service(session)
+    service = _get_download_client_service(session, request)
     client = service.get_download_client_status(client_id)
     if client is None:
         raise HTTPException(
@@ -412,6 +439,7 @@ def get_download_client_status(
 def get_download_client_items(
     client_id: int,
     session: SessionDep,
+    request: Request,
 ) -> DownloadItemsResponse:
     """Get active downloads from a download client.
 
@@ -421,6 +449,8 @@ def get_download_client_items(
         Download client ID.
     session : SessionDep
         Database session dependency.
+    request : Request
+        FastAPI request.
 
     Returns
     -------
@@ -434,7 +464,7 @@ def get_download_client_items(
     """
     from bookcard.pvr.exceptions import PVRProviderError
 
-    service = _get_download_client_service(session)
+    service = _get_download_client_service(session, request)
     try:
         items = service.get_download_items(client_id)
         return DownloadItemsResponse(

@@ -150,7 +150,7 @@ class TestDownloadService:
         sample_client_definition: DownloadClientDefinition,
     ) -> None:
         """Test auto-selection of download client."""
-        mock_client_service.list_download_clients.return_value = [
+        mock_client_service.list_decrypted_download_clients.return_value = [
             sample_client_definition
         ]
 
@@ -161,7 +161,7 @@ class TestDownloadService:
 
             download_service.initiate_download(sample_release, sample_tracked_book)
 
-            mock_client_service.list_download_clients.assert_called_once_with(
+            mock_client_service.list_decrypted_download_clients.assert_called_once_with(
                 enabled_only=True
             )
 
@@ -173,7 +173,7 @@ class TestDownloadService:
         sample_tracked_book: TrackedBook,
     ) -> None:
         """Test error when no client available."""
-        mock_client_service.list_download_clients.return_value = []
+        mock_client_service.list_decrypted_download_clients.return_value = []
 
         with pytest.raises(ValueError, match="No suitable download client found"):
             download_service.initiate_download(sample_release, sample_tracked_book)

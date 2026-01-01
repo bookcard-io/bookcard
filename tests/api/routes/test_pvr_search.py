@@ -255,15 +255,19 @@ class TestGetIndexerSearchService:
 class TestGetDownloadService:
     """Test _get_download_service function."""
 
-    def test_get_download_service(self, session: DummySession) -> None:
+    def test_get_download_service(
+        self, session: DummySession, mock_request: MagicMock
+    ) -> None:
         """Test _get_download_service creates DownloadService instance.
 
         Parameters
         ----------
         session : DummySession
             Database session fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
-        service = pvr_search_routes._get_download_service(session)
+        service = pvr_search_routes._get_download_service(session, mock_request)
         assert service is not None
         assert hasattr(service, "_download_item_repo")
         assert hasattr(service, "_client_service")
@@ -769,6 +773,7 @@ class TestTriggerDownload:
         tracked_book: TrackedBook,
         indexer_search_result: IndexerSearchResult,
         download_item: DBDownloadItem,
+        mock_request: MagicMock,
     ) -> None:
         """Test trigger_download initiates download successfully.
 
@@ -784,6 +789,8 @@ class TestTriggerDownload:
             Indexer search result fixture.
         download_item : DBDownloadItem
             Download item fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         request = PVRDownloadRequest(release_index=0)
 
@@ -823,6 +830,7 @@ class TestTriggerDownload:
                     request=request,
                     session=session,
                     current_user=user,
+                    fastapi_request=mock_request,
                 )
 
                 assert isinstance(result, PVRDownloadResponse)
@@ -846,6 +854,7 @@ class TestTriggerDownload:
         indexer_search_result: IndexerSearchResult,
         download_item: DBDownloadItem,
         download_client: DownloadClientDefinition,
+        mock_request: MagicMock,
     ) -> None:
         """Test trigger_download with specific download client ID.
 
@@ -863,6 +872,8 @@ class TestTriggerDownload:
             Download item fixture.
         download_client : DownloadClientDefinition
             Download client fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         request = PVRDownloadRequest(release_index=0, download_client_id=1)
 
@@ -897,7 +908,9 @@ class TestTriggerDownload:
 
                 # Mock download client service
                 mock_client_service = MagicMock()
-                mock_client_service.get_download_client.return_value = download_client
+                mock_client_service.get_decrypted_download_client.return_value = (
+                    download_client
+                )
                 mock_client_class.return_value = mock_client_service
 
                 # Mock download service
@@ -910,10 +923,13 @@ class TestTriggerDownload:
                     request=request,
                     session=session,
                     current_user=user,
+                    fastapi_request=mock_request,
                 )
 
                 assert isinstance(result, PVRDownloadResponse)
-                mock_client_service.get_download_client.assert_called_once_with(1)
+                mock_client_service.get_decrypted_download_client.assert_called_once_with(
+                    1
+                )
                 mock_download_service.initiate_download.assert_called_once()
         finally:
             # Clean up cache
@@ -924,6 +940,7 @@ class TestTriggerDownload:
         self,
         session: DummySession,
         user: User,
+        mock_request: MagicMock,
     ) -> None:
         """Test trigger_download raises 404 when tracked book not found.
 
@@ -933,6 +950,8 @@ class TestTriggerDownload:
             Database session fixture.
         user : User
             User fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         request = PVRDownloadRequest(release_index=0)
 
@@ -960,6 +979,7 @@ class TestTriggerDownload:
                     request=request,
                     session=session,
                     current_user=user,
+                    fastapi_request=mock_request,
                 )
 
             assert isinstance(exc_info.value, HTTPException)
@@ -970,6 +990,7 @@ class TestTriggerDownload:
         session: DummySession,
         user: User,
         tracked_book: TrackedBook,
+        mock_request: MagicMock,
     ) -> None:
         """Test trigger_download raises 404 when no cached results available.
 
@@ -981,6 +1002,8 @@ class TestTriggerDownload:
             User fixture.
         tracked_book : TrackedBook
             Tracked book fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         request = PVRDownloadRequest(release_index=0)
 
@@ -1012,6 +1035,7 @@ class TestTriggerDownload:
                     request=request,
                     session=session,
                     current_user=user,
+                    fastapi_request=mock_request,
                 )
 
             assert isinstance(exc_info.value, HTTPException)
@@ -1024,6 +1048,7 @@ class TestTriggerDownload:
         user: User,
         tracked_book: TrackedBook,
         indexer_search_result: IndexerSearchResult,
+        mock_request: MagicMock,
     ) -> None:
         """Test trigger_download raises 400 when release index is invalid.
 
@@ -1037,6 +1062,8 @@ class TestTriggerDownload:
             Tracked book fixture.
         indexer_search_result : IndexerSearchResult
             Indexer search result fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         request = PVRDownloadRequest(release_index=999)  # Invalid index
 
@@ -1069,6 +1096,7 @@ class TestTriggerDownload:
                         request=request,
                         session=session,
                         current_user=user,
+                        fastapi_request=mock_request,
                     )
 
                 assert isinstance(exc_info.value, HTTPException)
@@ -1085,6 +1113,7 @@ class TestTriggerDownload:
         user: User,
         tracked_book: TrackedBook,
         indexer_search_result: IndexerSearchResult,
+        mock_request: MagicMock,
     ) -> None:
         """Test trigger_download raises 404 when download client not found.
 
@@ -1098,6 +1127,8 @@ class TestTriggerDownload:
             Tracked book fixture.
         indexer_search_result : IndexerSearchResult
             Indexer search result fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         request = PVRDownloadRequest(release_index=0, download_client_id=999)
 
@@ -1129,7 +1160,7 @@ class TestTriggerDownload:
 
                 # Mock download client service to return None
                 mock_client_service = MagicMock()
-                mock_client_service.get_download_client.return_value = None
+                mock_client_service.get_decrypted_download_client.return_value = None
                 mock_client_class.return_value = mock_client_service
 
                 with pytest.raises(HTTPException) as exc_info:
@@ -1138,6 +1169,7 @@ class TestTriggerDownload:
                         request=request,
                         session=session,
                         current_user=user,
+                        fastapi_request=mock_request,
                     )
 
                 assert isinstance(exc_info.value, HTTPException)
@@ -1154,6 +1186,7 @@ class TestTriggerDownload:
         user: User,
         tracked_book: TrackedBook,
         indexer_search_result: IndexerSearchResult,
+        mock_request: MagicMock,
     ) -> None:
         """Test trigger_download handles ValueError from download service.
 
@@ -1167,6 +1200,8 @@ class TestTriggerDownload:
             Tracked book fixture.
         indexer_search_result : IndexerSearchResult
             Indexer search result fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         request = PVRDownloadRequest(release_index=0)
 
@@ -1209,6 +1244,7 @@ class TestTriggerDownload:
                         request=request,
                         session=session,
                         current_user=user,
+                        fastapi_request=mock_request,
                     )
 
                 assert isinstance(exc_info.value, HTTPException)
@@ -1225,6 +1261,7 @@ class TestTriggerDownload:
         user: User,
         tracked_book: TrackedBook,
         indexer_search_result: IndexerSearchResult,
+        mock_request: MagicMock,
     ) -> None:
         """Test trigger_download handles PVRProviderError from download service.
 
@@ -1238,6 +1275,8 @@ class TestTriggerDownload:
             Tracked book fixture.
         indexer_search_result : IndexerSearchResult
             Indexer search result fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         request = PVRDownloadRequest(release_index=0)
 
@@ -1280,6 +1319,7 @@ class TestTriggerDownload:
                         request=request,
                         session=session,
                         current_user=user,
+                        fastapi_request=mock_request,
                     )
 
                 assert isinstance(exc_info.value, HTTPException)
@@ -1298,6 +1338,7 @@ class TestTriggerDownload:
         user: User,
         tracked_book: TrackedBook,
         indexer_search_result: IndexerSearchResult,
+        mock_request: MagicMock,
     ) -> None:
         """Test trigger_download handles generic exceptions.
 
@@ -1311,6 +1352,8 @@ class TestTriggerDownload:
             Tracked book fixture.
         indexer_search_result : IndexerSearchResult
             Indexer search result fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         request = PVRDownloadRequest(release_index=0)
 
@@ -1353,6 +1396,7 @@ class TestTriggerDownload:
                         request=request,
                         session=session,
                         current_user=user,
+                        fastapi_request=mock_request,
                     )
 
                 assert isinstance(exc_info.value, HTTPException)

@@ -37,6 +37,7 @@ from bookcard.models.pvr import (
 from bookcard.pvr.base.interfaces import DownloadTracker
 from bookcard.pvr.factory.download_client_factory import create_download_client
 from bookcard.pvr.models import DownloadItem as ClientDownloadItem
+from bookcard.services.security import DataEncryptor
 
 logger = logging.getLogger(__name__)
 
@@ -49,15 +50,20 @@ class DownloadMonitorService:
     and updates the corresponding DownloadItem records in the database.
     """
 
-    def __init__(self, session: Session) -> None:
+    def __init__(
+        self, session: Session, encryptor: DataEncryptor | None = None
+    ) -> None:
         """Initialize service.
 
         Parameters
         ----------
         session : Session
             Database session.
+        encryptor : DataEncryptor | None
+            Data encryptor for decrypting passwords.
         """
         self.session = session
+        self._encryptor = encryptor
 
     def check_downloads(self) -> None:
         """Check all enabled download clients for updates.
@@ -104,7 +110,19 @@ class DownloadMonitorService:
         client_def : DownloadClientDefinition
             Download client definition to check.
         """
-        client = create_download_client(client_def)
+        # Create a detached copy with decrypted password for connection
+        test_client = DownloadClientDefinition.model_validate(client_def)
+        if test_client.password and self._encryptor:
+            try:
+                test_client.password = self._encryptor.decrypt(test_client.password)
+            except ValueError:
+                logger.warning(
+                    "Failed to decrypt password for client %s (id=%d). Using as-is.",
+                    client_def.name,
+                    client_def.id,
+                )
+
+        client = create_download_client(test_client)
 
         # Check if client supports tracking
         if not isinstance(client, DownloadTracker):

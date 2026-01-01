@@ -23,10 +23,10 @@ Provides endpoints for:
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlmodel import Session
 
-from bookcard.api.deps import get_db_session
+from bookcard.api.deps import get_data_encryptor, get_db_session
 from bookcard.models.pvr import DownloadHistory, DownloadItem, DownloadQueue
 from bookcard.services.download.repository import SQLModelDownloadItemRepository
 from bookcard.services.download_client_service import DownloadClientService
@@ -38,10 +38,12 @@ router = APIRouter(prefix="/downloads", tags=["downloads"])
 
 def get_download_service(
     session: Annotated[Session, Depends(get_db_session)],
+    request: Request,
 ) -> DownloadService:
     """Get download service instance."""
+    encryptor = get_data_encryptor(request)
     repo = SQLModelDownloadItemRepository(session)
-    client_service = DownloadClientService(session)
+    client_service = DownloadClientService(session, encryptor=encryptor)
     return DownloadService(repo, client_service)
 
 
