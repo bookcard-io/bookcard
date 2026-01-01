@@ -18,8 +18,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
+from cryptography.fernet import Fernet
+from fastapi import Request
 
 # Test constants
 TEST_ENCRYPTION_KEY = "EifxhGYj-u0JolSrDhBLqyIZSnoZCVKOAFQbuv70T08="
@@ -315,3 +318,29 @@ def user_factory() -> Callable[..., InMemoryUser]:
         )
 
     return _make
+
+
+@pytest.fixture
+def valid_fernet_key() -> str:
+    """Return a valid Fernet key."""
+    return Fernet.generate_key().decode()
+
+
+@pytest.fixture
+def mock_request(valid_fernet_key: str) -> MagicMock:
+    """Create a mock request with valid encryption key.
+
+    Returns
+    -------
+    MagicMock
+        Mocked request object.
+    """
+    config = MagicMock()
+    config.encryption_key = valid_fernet_key
+    state = MagicMock()
+    state.config = config
+    app = MagicMock()
+    app.state = state
+    request = MagicMock(spec=Request)
+    request.app = app
+    return request

@@ -122,21 +122,24 @@ def _get_indexer_search_service(
     return IndexerSearchService(indexer_service)
 
 
-def _get_download_service(session: SessionDep) -> DownloadService:
+def _get_download_service(session: SessionDep, request: Request) -> DownloadService:
     """Create DownloadService instance for routes.
 
     Parameters
     ----------
     session : SessionDep
         Database session dependency.
+    request : Request
+        FastAPI request object.
 
     Returns
     -------
     DownloadService
         Download service instance.
     """
+    encryptor = get_data_encryptor(request)
     download_item_repo = SQLModelDownloadItemRepository(session)
-    download_client_service = DownloadClientService(session)
+    download_client_service = DownloadClientService(session, encryptor=encryptor)
     return DownloadService(
         download_item_repo=download_item_repo,
         download_client_service=download_client_service,
@@ -351,6 +354,7 @@ def get_search_results(
             score=result.score,
             indexer_name=result.indexer_name,
             indexer_priority=result.indexer_priority,
+            indexer_protocol=result.indexer_protocol,
         )
         for result in results
     ]
@@ -372,6 +376,7 @@ def trigger_download(
     request: PVRDownloadRequest,
     session: SessionDep,
     current_user: UserDep,
+    fastapi_request: Request,
 ) -> PVRDownloadResponse:
     """Trigger download for a specific release from search results.
 
@@ -445,15 +450,18 @@ def trigger_download(
         # Get download client if specified
         download_client = None
         if request.download_client_id:
-            download_client_service = DownloadClientService(session)
-            download_client = download_client_service.get_download_client(
+            encryptor = get_data_encryptor(fastapi_request)
+            download_client_service = DownloadClientService(
+                session, encryptor=encryptor
+            )
+            download_client = download_client_service.get_decrypted_download_client(
                 request.download_client_id
             )
             if download_client is None:
                 _raise_download_client_not_found(request.download_client_id)
 
         # Initiate download
-        download_service = _get_download_service(session)
+        download_service = _get_download_service(session, fastapi_request)
         download_item = download_service.initiate_download(
             release=release,
             tracked_book=book,  # type: ignore[arg-type]

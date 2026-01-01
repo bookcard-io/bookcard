@@ -40,3 +40,4 @@ class IndexerSearchResult:
     score: float
     indexer_name: str | None = None
     indexer_priority: int = 0
+    indexer_protocol: str | None = None

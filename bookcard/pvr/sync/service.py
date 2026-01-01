@@ -76,7 +76,8 @@ class ProwlarrSyncService:
             logger.warning("Prowlarr sync skipped: %s", e)
             return SyncStatistics().to_dict()
 
-        client = self._client_factory(config.url, config.api_key)  # type: ignore[arg-type]
+        prowlarr_api_key = self._get_decrypted_api_key(config)
+        client = self._client_factory(config.url, prowlarr_api_key)
 
         try:
             prowlarr_indexers = client.get_indexers()
@@ -87,7 +88,7 @@ class ProwlarrSyncService:
             logger.exception("Unexpected error during Prowlarr sync")
             raise ProwlarrSyncError(msg) from e
 
-        return self._process_indexers(prowlarr_indexers, config)
+        return self._process_indexers(prowlarr_indexers, config, prowlarr_api_key)
 
     def _get_validated_config(self) -> ProwlarrConfig:
         """Get and validate Prowlarr configuration.
@@ -117,8 +118,37 @@ class ProwlarrSyncService:
 
         return config
 
+    def _get_decrypted_api_key(self, config: ProwlarrConfig) -> str:
+        """Get decrypted API key from config.
+
+        Parameters
+        ----------
+        config : ProwlarrConfig
+            Prowlarr configuration.
+
+        Returns
+        -------
+        str
+            Decrypted API key.
+        """
+        if not config.api_key:
+            return ""
+
+        if self._encryptor:
+            try:
+                return self._encryptor.decrypt(config.api_key)
+            except ValueError:
+                # Fallback to as-is if decryption fails
+                logger.warning("Failed to decrypt Prowlarr API key. Using as-is.")
+                return config.api_key
+
+        return config.api_key
+
     def _process_indexers(
-        self, indexers: list[ProwlarrIndexerResponse], config: ProwlarrConfig
+        self,
+        indexers: list[ProwlarrIndexerResponse],
+        config: ProwlarrConfig,
+        prowlarr_api_key: str,
     ) -> dict[str, int]:
         """Process indexers and update database.
 
@@ -128,6 +158,8 @@ class ProwlarrSyncService:
             List of indexers from Prowlarr.
         config : ProwlarrConfig
             Current configuration.
+        prowlarr_api_key : str
+            Decrypted Prowlarr API key.
 
         Returns
         -------
@@ -138,7 +170,7 @@ class ProwlarrSyncService:
 
         for p_indexer in indexers:
             try:
-                self._sync_single_indexer(p_indexer, config, stats)
+                self._sync_single_indexer(p_indexer, config, prowlarr_api_key, stats)
                 # Commit per indexer to avoid partial failures rolling back everything
                 # In a production environment with strict consistency requirements,
                 # we might want to do this differently, but for sync, partial success is better.
@@ -155,6 +187,7 @@ class ProwlarrSyncService:
         self,
         p_indexer: ProwlarrIndexerResponse,
         config: ProwlarrConfig,
+        prowlarr_api_key: str,
         stats: SyncStatistics,
     ) -> None:
         """Sync a single indexer.
@@ -165,6 +198,8 @@ class ProwlarrSyncService:
             Prowlarr indexer data.
         config : ProwlarrConfig
             Configuration.
+        prowlarr_api_key : str
+            Decrypted Prowlarr API key.
         stats : SyncStatistics
             Statistics object to update.
         """
@@ -217,7 +252,9 @@ class ProwlarrSyncService:
             )
             stats.updated += 1
         else:
-            self._create_indexer(p_indexer, indexer_url, config, protocol, indexer_type)
+            self._create_indexer(
+                p_indexer, indexer_url, prowlarr_api_key, protocol, indexer_type
+            )
             stats.added += 1
 
     def _update_indexer(
@@ -265,7 +302,7 @@ class ProwlarrSyncService:
         self,
         p_indexer: ProwlarrIndexerResponse,
         indexer_url: str,
-        config: ProwlarrConfig,
+        prowlarr_api_key: str,
         protocol: str,
         indexer_type: str,
     ) -> None:
@@ -277,14 +314,14 @@ class ProwlarrSyncService:
             Prowlarr indexer data.
         indexer_url : str
             Constructed URL for the indexer.
-        config : ProwlarrConfig
-            Prowlarr configuration.
+        prowlarr_api_key : str
+            Decrypted Prowlarr API key.
         protocol : str
             Mapped protocol.
         indexer_type : str
             Mapped indexer type.
         """
-        api_key = config.api_key
+        api_key = prowlarr_api_key
         if api_key and self._encryptor:
             api_key = self._encryptor.encrypt(api_key)
 

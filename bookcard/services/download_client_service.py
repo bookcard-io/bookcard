@@ -32,6 +32,7 @@ from bookcard.pvr.base import TrackingDownloadClient
 from bookcard.pvr.exceptions import PVRProviderError
 from bookcard.pvr.factory.download_client_factory import create_download_client
 from bookcard.repositories.base import Repository
+from bookcard.services.security import DataEncryptor
 
 if TYPE_CHECKING:
     from bookcard.api.schemas.download_clients import (
@@ -133,6 +134,7 @@ class DownloadClientService:
         self,
         session: Session,  # type: ignore[type-arg]
         repository: DownloadClientRepository | None = None,
+        encryptor: DataEncryptor | None = None,
     ) -> None:
         """Initialize download client service.
 
@@ -142,9 +144,12 @@ class DownloadClientService:
             Database session.
         repository : DownloadClientRepository | None
             Download client repository. If None, creates a new instance.
+        encryptor : DataEncryptor | None
+            Data encryptor for securing passwords.
         """
         self._session = session
         self._repository = repository or DownloadClientRepository(session)
+        self._encryptor = encryptor
 
     def create_download_client(
         self, data: "DownloadClientCreate"
@@ -166,13 +171,17 @@ class DownloadClientService:
         ValueError
             If download client type is invalid or configuration is invalid.
         """
+        password = data.password
+        if password and self._encryptor:
+            password = self._encryptor.encrypt(password)
+
         client = DownloadClientDefinition(
             name=data.name,
             client_type=data.client_type,
             host=data.host,
             port=data.port,
             username=data.username,
-            password=data.password,
+            password=password,
             use_ssl=data.use_ssl,
             enabled=data.enabled,
             priority=data.priority,
@@ -285,6 +294,9 @@ class DownloadClientService:
             "additional_settings": data.additional_settings,
         }
 
+        if data.password and self._encryptor:
+            update_mapping["password"] = self._encryptor.encrypt(data.password)
+
         for field_name, value in update_mapping.items():
             if value is not None:
                 setattr(client, field_name, value)
@@ -335,7 +347,9 @@ class DownloadClientService:
             raise ValueError(msg)
 
         try:
-            client_instance = create_download_client(client)
+            # Decrypt password for connection testing
+            test_client = self._decrypt_download_client(client)
+            client_instance = create_download_client(test_client)
             success = client_instance.test_connection()
             if success:
                 message = "Connection test successful"
@@ -516,7 +530,9 @@ class DownloadClientService:
             raise ValueError(msg)
 
         try:
-            client_instance = create_download_client(client)
+            # Decrypt password for getting items
+            test_client = self._decrypt_download_client(client)
+            client_instance = create_download_client(test_client)
             if not isinstance(client_instance, TrackingDownloadClient):
                 _raise_tracking_not_supported_error(client.name)
 
@@ -532,6 +548,85 @@ class DownloadClientService:
             error_msg = f"Unexpected error getting download items: {e}"
             logger.exception("Unexpected error getting download items")
             raise PVRProviderError(error_msg) from e
+
+    def get_decrypted_download_client(
+        self, client_id: int
+    ) -> DownloadClientDefinition | None:
+        """Get a download client with decrypted password.
+
+        Returns a detached copy of the download client definition with the password
+        decrypted. Safe to use for making requests without exposing the password
+        in the database session.
+
+        Parameters
+        ----------
+        client_id : int
+            Download client ID.
+
+        Returns
+        -------
+        DownloadClientDefinition | None
+            Decrypted download client definition if found, None otherwise.
+        """
+        client = self.get_download_client(client_id)
+        if client is None:
+            return None
+        return self._decrypt_download_client(client)
+
+    def list_decrypted_download_clients(
+        self, enabled_only: bool = False
+    ) -> list[DownloadClientDefinition]:
+        """List all download clients with decrypted passwords.
+
+        Returns detached copies of download client definitions with passwords decrypted.
+
+        Parameters
+        ----------
+        enabled_only : bool
+            If True, only return enabled download clients.
+
+        Returns
+        -------
+        list[DownloadClientDefinition]
+            List of decrypted download client definitions.
+        """
+        clients = self.list_download_clients(enabled_only=enabled_only)
+        return [self._decrypt_download_client(client) for client in clients]
+
+    def _decrypt_download_client(
+        self, client: DownloadClientDefinition
+    ) -> DownloadClientDefinition:
+        """Create a detached copy of a download client with decrypted password.
+
+        Parameters
+        ----------
+        client : DownloadClientDefinition
+            Original download client definition.
+
+        Returns
+        -------
+        DownloadClientDefinition
+            Detached copy with decrypted password.
+        """
+        # Create a detached copy with decrypted password
+        # We don't want to modify the attached session object or expose the password
+        # in memory longer than necessary.
+        decrypted_client = DownloadClientDefinition.model_validate(client)
+
+        if decrypted_client.password and self._encryptor:
+            try:
+                decrypted_client.password = self._encryptor.decrypt(
+                    decrypted_client.password
+                )
+            except ValueError:
+                # If decryption fails, it might be an old plain text password
+                # or actually invalid. We try to use it as is.
+                logger.warning(
+                    "Failed to decrypt password for download client %s. Using as-is.",
+                    client.id,
+                )
+
+        return decrypted_client
 
     def _update_client_status(
         self,

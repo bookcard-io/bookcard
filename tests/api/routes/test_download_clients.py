@@ -132,15 +132,19 @@ def download_client_definition_disabled() -> DownloadClientDefinition:
 class TestGetDownloadClientService:
     """Test _get_download_client_service function."""
 
-    def test_get_download_client_service(self, session: DummySession) -> None:
+    def test_get_download_client_service(
+        self, session: DummySession, mock_request: MagicMock
+    ) -> None:
         """Test _get_download_client_service creates DownloadClientService instance (covers line 62).
 
         Parameters
         ----------
         session : DummySession
             Database session fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
-        service = download_clients._get_download_client_service(session)
+        service = download_clients._get_download_client_service(session, mock_request)
         assert service is not None
         assert hasattr(service, "_session")
         assert service._session == session
@@ -177,6 +181,7 @@ class TestListDownloadClients:
         download_client_definition: DownloadClientDefinition,
         download_client_definition_disabled: DownloadClientDefinition,
         enabled_only: bool,
+        mock_request: MagicMock,
     ) -> None:
         """Test list_download_clients returns all or enabled clients (covers lines 109-111).
 
@@ -190,6 +195,8 @@ class TestListDownloadClients:
             Disabled download client definition fixture.
         enabled_only : bool
             Whether to return only enabled clients.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         with patch(
             "bookcard.api.routes.download_clients.DownloadClientService"
@@ -209,6 +216,7 @@ class TestListDownloadClients:
             result = download_clients.list_download_clients(
                 session=session,
                 enabled_only=enabled_only,
+                request=mock_request,
             )
 
             assert isinstance(result, DownloadClientListResponse)
@@ -230,6 +238,7 @@ class TestGetDownloadClient:
         self,
         session: DummySession,
         download_client_definition: DownloadClientDefinition,
+        mock_request: MagicMock,
     ) -> None:
         """Test get_download_client returns client when found (covers lines 145-146).
 
@@ -239,6 +248,8 @@ class TestGetDownloadClient:
             Database session fixture.
         download_client_definition : DownloadClientDefinition
             Download client definition fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         with patch(
             "bookcard.api.routes.download_clients.DownloadClientService"
@@ -250,6 +261,7 @@ class TestGetDownloadClient:
             result = download_clients.get_download_client(
                 client_id=1,
                 session=session,
+                request=mock_request,
             )
 
             assert isinstance(result, DownloadClientRead)
@@ -260,6 +272,7 @@ class TestGetDownloadClient:
     def test_get_download_client_not_found(
         self,
         session: DummySession,
+        mock_request: MagicMock,
     ) -> None:
         """Test get_download_client raises 404 when client not found (covers lines 147-151).
 
@@ -267,6 +280,8 @@ class TestGetDownloadClient:
         ----------
         session : DummySession
             Database session fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         with patch(
             "bookcard.api.routes.download_clients.DownloadClientService"
@@ -279,6 +294,7 @@ class TestGetDownloadClient:
                 download_clients.get_download_client(
                     client_id=999,
                     session=session,
+                    request=mock_request,
                 )
 
             exc = exc_info.value
@@ -294,6 +310,7 @@ class TestCreateDownloadClient:
         self,
         session: DummySession,
         download_client_definition: DownloadClientDefinition,
+        mock_request: MagicMock,
     ) -> None:
         """Test create_download_client creates client successfully (covers lines 184-187).
 
@@ -303,6 +320,8 @@ class TestCreateDownloadClient:
             Database session fixture.
         download_client_definition : DownloadClientDefinition
             Download client definition fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         create_data = DownloadClientCreate(
             name="New Client",
@@ -329,6 +348,7 @@ class TestCreateDownloadClient:
             result = download_clients.create_download_client(
                 data=create_data,
                 session=session,
+                request=mock_request,
             )
 
             assert isinstance(result, DownloadClientRead)
@@ -338,6 +358,7 @@ class TestCreateDownloadClient:
     def test_create_download_client_value_error(
         self,
         session: DummySession,
+        mock_request: MagicMock,
     ) -> None:
         """Test create_download_client handles ValueError (covers lines 188-192).
 
@@ -345,6 +366,8 @@ class TestCreateDownloadClient:
         ----------
         session : DummySession
             Database session fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         create_data = DownloadClientCreate(
             name="Invalid Client",
@@ -366,6 +389,7 @@ class TestCreateDownloadClient:
                 download_clients.create_download_client(
                     data=create_data,
                     session=session,
+                    request=mock_request,
                 )
 
             exc = exc_info.value
@@ -376,6 +400,7 @@ class TestCreateDownloadClient:
     def test_create_download_client_generic_exception(
         self,
         session: DummySession,
+        mock_request: MagicMock,
     ) -> None:
         """Test create_download_client handles generic Exception (covers lines 193-197).
 
@@ -383,6 +408,8 @@ class TestCreateDownloadClient:
         ----------
         session : DummySession
             Database session fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         create_data = DownloadClientCreate(
             name="Error Client",
@@ -404,6 +431,7 @@ class TestCreateDownloadClient:
                 download_clients.create_download_client(
                     data=create_data,
                     session=session,
+                    request=mock_request,
                 )
 
             exc = exc_info.value
@@ -419,6 +447,7 @@ class TestUpdateDownloadClient:
         self,
         session: DummySession,
         download_client_definition: DownloadClientDefinition,
+        mock_request: MagicMock,
     ) -> None:
         """Test update_download_client updates client successfully (covers lines 231-236).
 
@@ -428,6 +457,8 @@ class TestUpdateDownloadClient:
             Database session fixture.
         download_client_definition : DownloadClientDefinition
             Download client definition fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         update_data = DownloadClientUpdate(name="Updated Name")
 
@@ -446,6 +477,7 @@ class TestUpdateDownloadClient:
                 client_id=1,
                 data=update_data,
                 session=session,
+                request=mock_request,
             )
 
             assert isinstance(result, DownloadClientRead)
@@ -455,6 +487,7 @@ class TestUpdateDownloadClient:
     def test_update_download_client_not_found(
         self,
         session: DummySession,
+        mock_request: MagicMock,
     ) -> None:
         """Test update_download_client raises 404 when client not found (covers line 235).
 
@@ -462,6 +495,8 @@ class TestUpdateDownloadClient:
         ----------
         session : DummySession
             Database session fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         update_data = DownloadClientUpdate(name="Updated Name")
 
@@ -477,6 +512,7 @@ class TestUpdateDownloadClient:
                     client_id=999,
                     data=update_data,
                     session=session,
+                    request=mock_request,
                 )
 
             exc = exc_info.value
@@ -489,6 +525,7 @@ class TestUpdateDownloadClient:
     def test_update_download_client_value_error(
         self,
         session: DummySession,
+        mock_request: MagicMock,
     ) -> None:
         """Test update_download_client handles ValueError (covers lines 237-241).
 
@@ -496,6 +533,8 @@ class TestUpdateDownloadClient:
         ----------
         session : DummySession
             Database session fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         update_data = DownloadClientUpdate(name="Invalid Name")
 
@@ -513,6 +552,7 @@ class TestUpdateDownloadClient:
                     client_id=1,
                     data=update_data,
                     session=session,
+                    request=mock_request,
                 )
 
             exc = exc_info.value
@@ -523,6 +563,7 @@ class TestUpdateDownloadClient:
     def test_update_download_client_generic_exception(
         self,
         session: DummySession,
+        mock_request: MagicMock,
     ) -> None:
         """Test update_download_client handles generic Exception (covers lines 242-246).
 
@@ -530,6 +571,8 @@ class TestUpdateDownloadClient:
         ----------
         session : DummySession
             Database session fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         update_data = DownloadClientUpdate(name="Error Name")
 
@@ -547,6 +590,7 @@ class TestUpdateDownloadClient:
                     client_id=1,
                     data=update_data,
                     session=session,
+                    request=mock_request,
                 )
 
             exc = exc_info.value
@@ -561,6 +605,7 @@ class TestDeleteDownloadClient:
     def test_delete_download_client_success(
         self,
         session: DummySession,
+        mock_request: MagicMock,
     ) -> None:
         """Test delete_download_client deletes client successfully (covers line 273).
 
@@ -568,6 +613,8 @@ class TestDeleteDownloadClient:
         ----------
         session : DummySession
             Database session fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         with patch(
             "bookcard.api.routes.download_clients.DownloadClientService"
@@ -579,6 +626,7 @@ class TestDeleteDownloadClient:
             result = download_clients.delete_download_client(
                 client_id=1,
                 session=session,
+                request=mock_request,
             )
 
             assert result is None
@@ -587,6 +635,7 @@ class TestDeleteDownloadClient:
     def test_delete_download_client_not_found(
         self,
         session: DummySession,
+        mock_request: MagicMock,
     ) -> None:
         """Test delete_download_client raises 404 when client not found (covers lines 274-278).
 
@@ -594,6 +643,8 @@ class TestDeleteDownloadClient:
         ----------
         session : DummySession
             Database session fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         with patch(
             "bookcard.api.routes.download_clients.DownloadClientService"
@@ -606,6 +657,7 @@ class TestDeleteDownloadClient:
                 download_clients.delete_download_client(
                     client_id=999,
                     session=session,
+                    request=mock_request,
                 )
 
             exc = exc_info.value
@@ -620,6 +672,7 @@ class TestTestDownloadClientConnection:
     def test_test_download_client_connection_success(
         self,
         session: DummySession,
+        mock_request: MagicMock,
     ) -> None:
         """Test test_download_client_connection returns success (covers lines 309-312).
 
@@ -627,6 +680,8 @@ class TestTestDownloadClientConnection:
         ----------
         session : DummySession
             Database session fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         with patch(
             "bookcard.api.routes.download_clients.DownloadClientService"
@@ -641,6 +696,7 @@ class TestTestDownloadClientConnection:
             result = download_clients.test_download_client_connection(
                 client_id=1,
                 session=session,
+                request=mock_request,
             )
 
             assert isinstance(result, DownloadClientTestResponse)
@@ -651,6 +707,7 @@ class TestTestDownloadClientConnection:
     def test_test_download_client_connection_value_error(
         self,
         session: DummySession,
+        mock_request: MagicMock,
     ) -> None:
         """Test test_download_client_connection handles ValueError (covers lines 313-317).
 
@@ -658,6 +715,8 @@ class TestTestDownloadClientConnection:
         ----------
         session : DummySession
             Database session fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         with patch(
             "bookcard.api.routes.download_clients.DownloadClientService"
@@ -672,6 +731,7 @@ class TestTestDownloadClientConnection:
                 download_clients.test_download_client_connection(
                     client_id=999,
                     session=session,
+                    request=mock_request,
                 )
 
             exc = exc_info.value
@@ -682,6 +742,7 @@ class TestTestDownloadClientConnection:
     def test_test_download_client_connection_generic_exception(
         self,
         session: DummySession,
+        mock_request: MagicMock,
     ) -> None:
         """Test test_download_client_connection handles generic Exception (covers lines 318-322).
 
@@ -689,6 +750,8 @@ class TestTestDownloadClientConnection:
         ----------
         session : DummySession
             Database session fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         with patch(
             "bookcard.api.routes.download_clients.DownloadClientService"
@@ -701,6 +764,7 @@ class TestTestDownloadClientConnection:
                 download_clients.test_download_client_connection(
                     client_id=1,
                     session=session,
+                    request=mock_request,
                 )
 
             exc = exc_info.value
@@ -716,6 +780,7 @@ class TestGetDownloadClientStatus:
         self,
         session: DummySession,
         download_client_definition: DownloadClientDefinition,
+        mock_request: MagicMock,
     ) -> None:
         """Test get_download_client_status returns status successfully (covers lines 353-360).
 
@@ -725,6 +790,8 @@ class TestGetDownloadClientStatus:
             Database session fixture.
         download_client_definition : DownloadClientDefinition
             Download client definition fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         with patch(
             "bookcard.api.routes.download_clients.DownloadClientService"
@@ -738,6 +805,7 @@ class TestGetDownloadClientStatus:
             result = download_clients.get_download_client_status(
                 client_id=1,
                 session=session,
+                request=mock_request,
             )
 
             assert isinstance(result, DownloadClientStatusResponse)
@@ -748,6 +816,7 @@ class TestGetDownloadClientStatus:
     def test_get_download_client_status_not_found(
         self,
         session: DummySession,
+        mock_request: MagicMock,
     ) -> None:
         """Test get_download_client_status raises 404 when client not found (covers lines 355-359).
 
@@ -755,6 +824,8 @@ class TestGetDownloadClientStatus:
         ----------
         session : DummySession
             Database session fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         with patch(
             "bookcard.api.routes.download_clients.DownloadClientService"
@@ -767,6 +838,7 @@ class TestGetDownloadClientStatus:
                 download_clients.get_download_client_status(
                     client_id=999,
                     session=session,
+                    request=mock_request,
                 )
 
             exc = exc_info.value
@@ -781,6 +853,7 @@ class TestGetDownloadClientItems:
     def test_get_download_client_items_success(
         self,
         session: DummySession,
+        mock_request: MagicMock,
     ) -> None:
         """Test get_download_client_items returns items successfully (covers lines 391-399).
 
@@ -788,6 +861,8 @@ class TestGetDownloadClientItems:
         ----------
         session : DummySession
             Database session fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         mock_items = [
             {
@@ -813,6 +888,7 @@ class TestGetDownloadClientItems:
             result = download_clients.get_download_client_items(
                 client_id=1,
                 session=session,
+                request=mock_request,
             )
 
             assert isinstance(result, DownloadItemsResponse)
@@ -825,6 +901,7 @@ class TestGetDownloadClientItems:
     def test_get_download_client_items_value_error(
         self,
         session: DummySession,
+        mock_request: MagicMock,
     ) -> None:
         """Test get_download_client_items handles ValueError (covers lines 400-404).
 
@@ -832,6 +909,8 @@ class TestGetDownloadClientItems:
         ----------
         session : DummySession
             Database session fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         with patch(
             "bookcard.api.routes.download_clients.DownloadClientService"
@@ -846,6 +925,7 @@ class TestGetDownloadClientItems:
                 download_clients.get_download_client_items(
                     client_id=999,
                     session=session,
+                    request=mock_request,
                 )
 
             exc = exc_info.value
@@ -856,6 +936,7 @@ class TestGetDownloadClientItems:
     def test_get_download_client_items_pvr_provider_error(
         self,
         session: DummySession,
+        mock_request: MagicMock,
     ) -> None:
         """Test get_download_client_items handles PVRProviderError (covers lines 405-409).
 
@@ -863,6 +944,8 @@ class TestGetDownloadClientItems:
         ----------
         session : DummySession
             Database session fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         from bookcard.pvr.exceptions import PVRProviderError
 
@@ -879,6 +962,7 @@ class TestGetDownloadClientItems:
                 download_clients.get_download_client_items(
                     client_id=1,
                     session=session,
+                    request=mock_request,
                 )
 
             exc = exc_info.value
@@ -889,6 +973,7 @@ class TestGetDownloadClientItems:
     def test_get_download_client_items_generic_exception(
         self,
         session: DummySession,
+        mock_request: MagicMock,
     ) -> None:
         """Test get_download_client_items handles generic Exception (covers lines 410-414).
 
@@ -896,6 +981,8 @@ class TestGetDownloadClientItems:
         ----------
         session : DummySession
             Database session fixture.
+        mock_request : MagicMock
+            Mocked request fixture.
         """
         with patch(
             "bookcard.api.routes.download_clients.DownloadClientService"
@@ -910,6 +997,7 @@ class TestGetDownloadClientItems:
                 download_clients.get_download_client_items(
                     client_id=1,
                     session=session,
+                    request=mock_request,
                 )
 
             exc = exc_info.value

@@ -50,6 +50,7 @@ function toMetadataSearchResult(record: MetadataRecord): MetadataSearchResult {
     isbn: record.identifiers?.isbn,
     identifiers: record.identifiers,
     year: record.published_date?.substring(0, 4),
+    publisher: record.publisher || undefined,
     published_date: record.published_date || undefined,
     cover_url: record.cover_url || undefined,
     description: record.description || undefined,
@@ -165,8 +166,8 @@ function AddBookContent() {
       isbn: book.isbn,
       cover_url: book.cover_url,
       description: book.description,
-      publisher: "", // Default empty string as it's not in MetadataSearchResult
-      published_date: "", // Default empty string as it's not in MetadataSearchResult
+      publisher: book.publisher || "",
+      published_date: book.published_date || "",
       rating: book.score,
 
       // Settings from modal

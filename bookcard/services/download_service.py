@@ -124,7 +124,10 @@ class DownloadService:
         self._validate_initiate_download(release, tracked_book)
 
         if client is None:
-            clients = self._client_service.list_download_clients(enabled_only=True)
+            # Use decrypted clients for selection to ensure we can connect if needed
+            clients = self._client_service.list_decrypted_download_clients(
+                enabled_only=True
+            )
             client = self._client_selector.select(release, clients)
             if client is None:
                 msg = f"No suitable download client found for release: {release.title}"
@@ -354,7 +357,8 @@ class DownloadService:
             raise ValueError(msg)
 
         if not DownloadStatusMapper.is_terminal(download_item.status):
-            client = self._client_service.get_download_client(
+            # Get decrypted client for connection
+            client = self._client_service.get_decrypted_download_client(
                 download_item.download_client_id
             )
             if client:

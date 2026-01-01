@@ -177,6 +177,7 @@ class IndexerSearchService:
                     score=score,
                     indexer_name=indexer.name,
                     indexer_priority=indexer.priority,
+                    indexer_protocol=indexer.protocol,
                 )
                 all_results.append(result)
 
@@ -240,7 +241,8 @@ class IndexerSearchService:
         ValueError
             If indexer not found.
         """
-        indexer = self._indexer_service.get_indexer(indexer_id)
+        # Get decrypted indexer to ensure we have the actual API key for the request
+        indexer = self._indexer_service.get_decrypted_indexer(indexer_id)
         if indexer is None:
             msg = f"Indexer {indexer_id} not found"
             raise ValueError(msg)
@@ -265,6 +267,7 @@ class IndexerSearchService:
                 score=score,
                 indexer_name=indexer.name,
                 indexer_priority=indexer.priority,
+                indexer_protocol=indexer.protocol,
             )
             results.append(result)
 
@@ -291,16 +294,17 @@ class IndexerSearchService:
         -------
         list[IndexerDefinition]
             List of enabled indexers, sorted by priority.
+            Returns detached copies with decrypted API keys.
         """
         if indexer_ids is not None:
             indexers = [
-                self._indexer_service.get_indexer(idx_id)
+                self._indexer_service.get_decrypted_indexer(idx_id)
                 for idx_id in indexer_ids
                 if self._indexer_service.get_indexer(idx_id) is not None
             ]
             indexers = [idx for idx in indexers if idx is not None and idx.enabled]
         else:
-            indexers = self._indexer_service.list_indexers(enabled_only=True)
+            indexers = self._indexer_service.list_decrypted_indexers(enabled_only=True)
 
         # Sort by priority (lower = higher priority)
         indexers.sort(key=lambda x: (x.priority, x.id or 0))

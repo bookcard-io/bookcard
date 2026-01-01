@@ -166,6 +166,9 @@ class SearchResultRead(BaseModel):
     score: float = Field(..., ge=0.0, le=1.0, description="Quality/relevance score")
     indexer_name: str | None = Field(default=None, description="Indexer name")
     indexer_priority: int = Field(default=0, description="Indexer priority")
+    indexer_protocol: str | None = Field(
+        default=None, description="Indexer protocol (torrent/usenet)"
+    )
 
 
 class PVRSearchResultsResponse(BaseModel):
