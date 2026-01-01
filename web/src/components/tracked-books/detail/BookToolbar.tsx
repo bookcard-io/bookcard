@@ -15,12 +15,19 @@
 
 "use client";
 
-import { FaHistory, FaPenFancy, FaSearch, FaTrash } from "react-icons/fa";
+import {
+  FaHistory,
+  FaPenFancy,
+  FaRobot,
+  FaSearch,
+  FaTrash,
+} from "react-icons/fa";
 import { IconButton } from "@/components/common/IconButton";
 import { Button } from "@/components/forms/Button";
 
 interface BookToolbarProps {
   onSearchClick: () => void;
+  onAutomatedSearchClick: () => void;
   onEditClick: () => void;
   onManualImportClick: () => void;
   onDeleteClick: () => void;
@@ -28,6 +35,7 @@ interface BookToolbarProps {
 
 export function BookToolbar({
   onSearchClick,
+  onAutomatedSearchClick,
   onEditClick,
   onManualImportClick,
   onDeleteClick,
@@ -36,16 +44,21 @@ export function BookToolbar({
     <div className="mt-6 flex flex-wrap items-center gap-4">
       <Button variant="primary" size="small" onClick={onSearchClick}>
         <FaSearch />
-        Interactive Search
+        Interactive search
       </Button>
 
       <div className="flex items-center gap-2">
-        <IconButton icon={FaPenFancy} tooltip="Edit" onClick={onEditClick} />
+        <IconButton
+          icon={FaRobot}
+          tooltip="Automated search"
+          onClick={onAutomatedSearchClick}
+        />
         <IconButton
           icon={FaHistory}
-          tooltip="Manual Import"
+          tooltip="Manual import"
           onClick={onManualImportClick}
         />
+        <IconButton icon={FaPenFancy} tooltip="Edit" onClick={onEditClick} />
         <IconButton
           icon={FaTrash}
           tooltip="Delete"

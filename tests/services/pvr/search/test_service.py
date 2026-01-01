@@ -130,7 +130,7 @@ class TestIndexerSearchService:
         mock_indexer_service : MagicMock
             Mock indexer service.
         """
-        mock_indexer_service.list_indexers.return_value = []
+        mock_indexer_service.list_decrypted_indexers.return_value = []
 
         results = search_service.search_all_indexers(query="test")
 
@@ -157,7 +157,7 @@ class TestIndexerSearchService:
         sample_indexer : IndexerDefinition
             Sample indexer.
         """
-        mock_indexer_service.list_indexers.return_value = [sample_indexer]
+        mock_indexer_service.list_decrypted_indexers.return_value = [sample_indexer]
 
         mock_indexer = MagicMock()
         release = ReleaseInfo(
@@ -184,7 +184,7 @@ class TestIndexerSearchService:
         mock_indexer_service : MagicMock
             Mock indexer service.
         """
-        mock_indexer_service.get_indexer.return_value = None
+        mock_indexer_service.get_decrypted_indexer.return_value = None
 
         with pytest.raises(ValueError, match="not found"):
             search_service.search_indexer(indexer_id=999, query="test")
@@ -207,7 +207,7 @@ class TestIndexerSearchService:
             Sample indexer.
         """
         sample_indexer.enabled = False
-        mock_indexer_service.get_indexer.return_value = sample_indexer
+        mock_indexer_service.get_decrypted_indexer.return_value = sample_indexer
 
         results = search_service.search_indexer(indexer_id=1, query="test")
 
@@ -234,7 +234,7 @@ class TestIndexerSearchService:
         sample_indexer : IndexerDefinition
             Sample indexer.
         """
-        mock_indexer_service.get_indexer.return_value = sample_indexer
+        mock_indexer_service.get_decrypted_indexer.return_value = sample_indexer
 
         mock_indexer = MagicMock()
         release = ReleaseInfo(
@@ -266,7 +266,7 @@ class TestIndexerSearchService:
         sample_indexer : IndexerDefinition
             Sample indexer.
         """
-        mock_indexer_service.get_indexer.return_value = sample_indexer
+        mock_indexer_service.get_decrypted_indexer.return_value = sample_indexer
 
         with patch(
             "bookcard.services.pvr.search.service.create_indexer"
@@ -312,7 +312,7 @@ class TestIndexerSearchService:
         sample_indexer : IndexerDefinition
             Sample indexer.
         """
-        mock_indexer_service.get_indexer.return_value = sample_indexer
+        mock_indexer_service.get_decrypted_indexer.return_value = sample_indexer
 
         indexers = search_service._get_indexers_to_search([1, 2])
 
@@ -335,7 +335,7 @@ class TestIndexerSearchService:
         sample_indexer : IndexerDefinition
             Sample indexer.
         """
-        mock_indexer_service.list_indexers.return_value = [sample_indexer]
+        mock_indexer_service.list_decrypted_indexers.return_value = [sample_indexer]
 
         indexers = search_service._get_indexers_to_search(None)
 

@@ -72,7 +72,7 @@ export function SearchModalView({
         )}
         role="dialog"
         aria-modal="true"
-        aria-label="Interactive Search"
+        aria-label="Interactive search"
         onMouseDown={onModalClick}
       >
         <div className="flex items-center justify-between gap-4 border-surface-a20 border-b p-4">

@@ -15,6 +15,7 @@
 
 "use client";
 
+import { useState } from "react";
 import {
   FaBarcode,
   FaBook,
@@ -35,7 +36,13 @@ interface BookHeaderProps {
   onSearchClick: () => void;
 }
 
+const MAX_TAGS = 10;
+
 export function BookHeader({ book, onSearchClick }: BookHeaderProps) {
+  const [tagsExpanded, setTagsExpanded] = useState(false);
+  const uniqueTags = Array.from(new Set(book.tags || []));
+  const visibleTags = tagsExpanded ? uniqueTags : uniqueTags.slice(0, MAX_TAGS);
+
   return (
     <div className="relative z-10 flex flex-col gap-6 border-surface-a20 p-6 md:flex-row md:p-8">
       {/* Poster */}
@@ -122,7 +129,7 @@ export function BookHeader({ book, onSearchClick }: BookHeaderProps) {
                 {book.rating}%
               </span>
             )}
-            {book.tags?.map((tag) => (
+            {visibleTags.map((tag) => (
               <span
                 key={tag}
                 className="flex items-center gap-1 rounded-md bg-surface-a20 px-3 py-1 text-text-a20 text-xs transition-colors hover:bg-surface-a30"
@@ -131,11 +138,21 @@ export function BookHeader({ book, onSearchClick }: BookHeaderProps) {
                 {tag}
               </span>
             ))}
+            {uniqueTags.length > MAX_TAGS && (
+              <button
+                type="button"
+                onClick={() => setTagsExpanded(!tagsExpanded)}
+                className="ml-1 cursor-pointer font-bold text-primary-a0 text-xs hover:text-primary-a10"
+              >
+                {tagsExpanded ? "Less" : "More"}
+              </button>
+            )}
           </div>
 
           {/* Toolbar */}
           <BookToolbar
             onSearchClick={onSearchClick}
+            onAutomatedSearchClick={() => {}} // Placeholder
             onEditClick={() => {}} // Placeholder
             onManualImportClick={() => {}} // Placeholder
             onDeleteClick={() => {}} // Placeholder
