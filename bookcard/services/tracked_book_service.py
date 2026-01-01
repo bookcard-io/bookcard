@@ -204,6 +204,12 @@ class TrackedBookService:
             preferred_formats=data.preferred_formats,
             matched_book_id=matched_book_id,
             matched_library_id=data.library_id,  # Assume match is in target library
+            cover_url=data.cover_url,
+            description=data.description,
+            publisher=data.publisher,
+            published_date=data.published_date,
+            rating=data.rating,
+            tags=data.tags,
         )
 
         self._repository.add(tracked_book)

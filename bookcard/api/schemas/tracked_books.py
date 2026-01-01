@@ -73,6 +73,20 @@ class TrackedBookCreate(BaseModel):
     preferred_formats: list[str] | None = Field(
         default=None, description="List of preferred formats"
     )
+    cover_url: str | None = Field(
+        default=None, max_length=2000, description="Book cover URL"
+    )
+    description: str | None = Field(
+        default=None, description="Book description/synopsis"
+    )
+    publisher: str | None = Field(
+        default=None, max_length=500, description="Publisher name"
+    )
+    published_date: str | None = Field(
+        default=None, max_length=50, description="Publication date"
+    )
+    rating: float | None = Field(default=None, description="Average rating")
+    tags: list[str] | None = Field(default=None, description="List of tags/genres")
 
 
 class TrackedBookUpdate(BaseModel):
@@ -170,6 +184,12 @@ class TrackedBookRead(BaseModel):
     matched_book_id: int | None
     matched_library_id: int | None
     error_message: str | None
+    cover_url: str | None
+    description: str | None
+    publisher: str | None
+    published_date: str | None
+    rating: float | None
+    tags: list[str] | None
     created_at: datetime
     updated_at: datetime
 

@@ -22,6 +22,13 @@
 export const COMIC_FORMATS = ["CBZ", "CBR", "CB7", "CBC"] as const;
 
 /**
+ * Supported audiobook formats.
+ *
+ * Single source of truth for audiobook format detection.
+ */
+export const AUDIOBOOK_FORMATS = ["MP3", "M4B", "M4A", "WAV", "FLAC"] as const;
+
+/**
  * All supported readable formats in priority order.
  *
  * EPUB is preferred, then PDF, then comics.

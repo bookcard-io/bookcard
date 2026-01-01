@@ -948,16 +948,23 @@ export function useMetadataSearchStream(
           abortControllerRef.current = null;
         });
     },
+    // Removed 'options' from dependencies to prevent infinite loops if 'options' object is unstable
     [
       query,
       locale,
       requestId,
-      options,
+      // options, // CAUSE OF INFINITE LOOP: If options is a new object on every render
       cancelSearch,
       reset,
       processEvent,
       clearAllTimeouts,
       maxBufferSize,
+      // Individual option properties used in buildSearchUrl should be dependencies instead if they can change
+      options.locale,
+      options.maxResultsPerProvider,
+      options.providerIds,
+      options.enableProviders,
+      options,
     ],
   );
 

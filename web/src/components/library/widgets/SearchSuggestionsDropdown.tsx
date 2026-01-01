@@ -13,6 +13,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import Link from "next/link";
+import { FaPlus } from "react-icons/fa";
 import type { SearchSuggestion } from "@/types/search";
 import { SearchSuggestionItem } from "./SearchSuggestionItem";
 
@@ -47,33 +49,56 @@ export function SearchSuggestionsDropdown({
   isLoading,
   onSuggestionClick,
 }: SearchSuggestionsDropdownProps) {
-  if (isLoading) {
-    return (
-      <div className="absolute top-[calc(100%+4px)] right-0 left-0 z-[1000] mt-1 max-h-[400px] min-w-[400px] overflow-y-auto rounded-md border border-surface-a20 bg-surface-tonal-a10 shadow-[0_4px_12px_rgba(0,0,0,0.15)]">
-        <div className="flex w-full cursor-pointer items-center gap-3 border-none bg-transparent px-4 py-2.5 text-left transition-colors duration-150">
-          Loading...
-        </div>
-      </div>
-    );
-  }
-
-  if (suggestions.length === 0) {
+  // Only hide if there are no suggestions AND no query to search for AND not loading
+  if (suggestions.length === 0 && !query && !isLoading) {
     return null;
   }
 
   return (
     <div className="absolute top-[calc(100%+4px)] right-0 left-0 z-[1000] mt-1 max-h-[400px] min-w-[400px] overflow-y-auto rounded-md border border-surface-a20 bg-surface-tonal-a10 shadow-[0_4px_12px_rgba(0,0,0,0.15)]">
-      <div className="border-surface-a20 border-b px-4 py-3 text-[13px] text-text-a30">
-        All books containing {query}
-      </div>
-      {suggestions.map((suggestion) => (
-        <SearchSuggestionItem
-          key={`${suggestion.type}-${suggestion.id}`}
-          suggestion={suggestion}
-          query={query}
-          onClick={onSuggestionClick}
-        />
-      ))}
+      {isLoading ? (
+        <div className="flex w-full cursor-pointer items-center gap-3 border-none bg-transparent px-4 py-2.5 text-left transition-colors duration-150">
+          Loading...
+        </div>
+      ) : (
+        suggestions.length > 0 && (
+          <>
+            <div className="border-surface-a20 border-b px-4 py-3 text-[13px] text-text-a30">
+              All books containing "{query}"
+            </div>
+            {suggestions.map((suggestion) => (
+              <SearchSuggestionItem
+                key={`${suggestion.type}-${suggestion.id}`}
+                suggestion={suggestion}
+                query={query}
+                onClick={onSuggestionClick}
+              />
+            ))}
+          </>
+        )
+      )}
+
+      {query && (
+        <>
+          <div className="border-surface-a20 border-b px-4 py-2 text-[13px] text-text-a30">
+            Add new books
+          </div>
+          <Link
+            href={`/tracked-books/add?q=${encodeURIComponent(query)}`}
+            className="flex w-full cursor-pointer items-center gap-3 border-none bg-transparent px-4 py-3 text-left text-text-a0 no-underline transition-colors duration-150 hover:bg-surface-tonal-a20"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-a10 text-primary-a0">
+              <FaPlus className="text-sm" />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-medium text-sm">Search for "{query}"</span>
+              <span className="text-text-a30 text-xs">
+                Search metadata providers
+              </span>
+            </div>
+          </Link>
+        </>
+      )}
     </div>
   );
 }

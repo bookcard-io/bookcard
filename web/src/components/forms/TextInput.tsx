@@ -50,8 +50,8 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(
           ref={ref}
           type="text"
           className={cn(
-            "w-full rounded-md border border-surface-a20 bg-surface-a0 px-4 py-3",
-            "font-inherit text-base text-text-a0 leading-normal",
+            "h-11 w-full rounded-md border border-surface-a20 bg-surface-a0 px-3 py-2",
+            "font-inherit text-sm text-text-a0",
             "transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s]",
             "placeholder:text-text-a40",
             "focus:border-primary-a0 focus:bg-surface-a10 focus:outline-none",
