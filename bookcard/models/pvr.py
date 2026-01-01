@@ -419,6 +419,12 @@ class TrackedBook(SQLModel, table=True):
     )
     metadata_source_id: str | None = Field(default=None, max_length=100)
     metadata_external_id: str | None = Field(default=None, max_length=255)
+    cover_url: str | None = Field(default=None, max_length=2000)
+    description: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    publisher: str | None = Field(default=None, max_length=500)
+    published_date: str | None = Field(default=None, max_length=50)
+    rating: float | None = Field(default=None)
+    tags: list[str] | None = Field(default=None, sa_column=Column(JSON, nullable=True))  # type: ignore[call-overload]
     status: TrackedBookStatus = Field(
         default=TrackedBookStatus.WANTED,
         sa_column=Column(

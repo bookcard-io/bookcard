@@ -17,7 +17,6 @@
 
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
-import { useClickOutside } from "@/hooks/useClickOutside";
 import { useSearchSuggestions } from "@/hooks/useSearchSuggestions";
 import { Search } from "@/icons/Search";
 import type { SearchSuggestion } from "@/types/search";
@@ -65,7 +64,6 @@ export function SearchInput({
   onSuggestionClick,
 }: SearchInputProps) {
   const [query, setQuery] = useState(value);
-  const [showSuggestions, setShowSuggestions] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -80,24 +78,6 @@ export function SearchInput({
     enabled: query.trim().length > 0,
   });
 
-  // Show suggestions when they arrive or when query changes (only if input is focused)
-  useEffect(() => {
-    if (
-      isInputFocused &&
-      query.trim().length > 0 &&
-      (suggestions.length > 0 || isLoading)
-    ) {
-      setShowSuggestions(true);
-    } else if (query.trim().length === 0) {
-      setShowSuggestions(false);
-    }
-  }, [query, suggestions.length, isLoading, isInputFocused]);
-
-  // Handle click outside to close suggestions
-  const containerRef = useClickOutside<HTMLDivElement>(() => {
-    setShowSuggestions(false);
-  }, showSuggestions);
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setQuery(newValue);
@@ -106,14 +86,13 @@ export function SearchInput({
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setShowSuggestions(false);
+    inputRef.current?.blur();
     onSubmit?.(query);
   };
 
   const handleSuggestionClick = (suggestion: SearchSuggestion) => {
     setQuery(suggestion.name);
     onChange?.(suggestion.name);
-    setShowSuggestions(false);
     setIsInputFocused(false); // Remove focus to prevent dropdown from reopening
 
     // If custom handler provided, use it; otherwise fall back to default behavior
@@ -130,9 +109,6 @@ export function SearchInput({
     // Select all text if there's content when focusing
     if (inputRef.current && query.trim().length > 0) {
       inputRef.current.select();
-      setShowSuggestions(true);
-    } else if (query.trim().length > 0) {
-      setShowSuggestions(true);
     }
   };
 
@@ -143,11 +119,10 @@ export function SearchInput({
     }, 200);
   };
 
-  const shouldShowDropdown =
-    showSuggestions && (suggestions.length > 0 || isLoading);
+  const shouldShowDropdown = isInputFocused && query.trim().length > 0;
 
   return (
-    <div className="relative min-w-0 flex-1" ref={containerRef}>
+    <div className="relative min-w-0 flex-1">
       <form className="min-w-0 flex-1" onSubmit={handleSubmit}>
         <div className="relative flex w-full items-center">
           <Search
