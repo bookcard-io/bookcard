@@ -14,19 +14,24 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { useState } from "react";
+import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { pvrSearchService } from "@/services/pvrSearchService";
 
 export function useDownloadManager(trackedBookId: number, onClose: () => void) {
   const [downloadingIndex, setDownloadingIndex] = useState<number | null>(null);
+  const { showDanger, showSuccess } = useGlobalMessages();
 
   const handleDownload = async (index: number) => {
     setDownloadingIndex(index);
     try {
       await pvrSearchService.download(trackedBookId, { release_index: index });
+      showSuccess("Download initiated successfully");
       onClose();
     } catch (err) {
       console.error(err);
-      // Ideally show a toast
+      showDanger(
+        err instanceof Error ? err.message : "Failed to initiate download",
+      );
     } finally {
       setDownloadingIndex(null);
     }

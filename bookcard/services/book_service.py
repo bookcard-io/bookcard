@@ -91,6 +91,17 @@ class BookService:
             calibre_db_file=library.calibre_db_file,
         )
 
+    @property
+    def library(self) -> Library:
+        """Get the active library configuration.
+
+        Returns
+        -------
+        Library
+            Active library configuration.
+        """
+        return self._library
+
     def list_books(
         self,
         page: int = 1,

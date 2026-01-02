@@ -139,6 +139,17 @@ class DownloadService:
             client.name,
         )
 
+        # Get attached client for DB operations to avoid SAWarning
+        # The 'client' variable might be a detached copy with decrypted password
+        if client.id is None:
+            msg = "Download client has no ID"
+            raise ValueError(msg)
+
+        attached_client = self._client_service.get_download_client(client.id)
+        if attached_client is None:
+            msg = f"Download client {client.id} not found"
+            raise ValueError(msg)
+
         try:
             # Create client instance and start download
             client_instance = self._client_factory.create(client)
@@ -151,7 +162,7 @@ class DownloadService:
 
             # Create download item record
             download_item = self._create_download_item(
-                release, tracked_book, client, client_item_id
+                release, tracked_book, attached_client, client_item_id
             )
             self._download_item_repo.add(download_item)
 

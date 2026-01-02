@@ -22,7 +22,7 @@ Follows SOLID principles:
 
 import logging
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlmodel import Session, select
 
@@ -199,6 +199,7 @@ class TrackedBookService:
             metadata_source_id=data.metadata_source_id,
             metadata_external_id=data.metadata_external_id,
             status=status,
+            monitor_mode=data.monitor_mode,
             auto_search_enabled=data.auto_search_enabled,
             auto_download_enabled=data.auto_download_enabled,
             preferred_formats=data.preferred_formats,
@@ -347,6 +348,78 @@ class TrackedBookService:
             self._session.refresh(tracked_book)
 
         return tracked_book
+
+    def get_book_files(self, book: TrackedBook) -> list[dict[str, Any]]:
+        """Get files for a tracked book.
+
+        Prioritizes persisted TrackedBookFile records.
+        Falls back to querying Calibre if matched_book_id is present.
+
+        Parameters
+        ----------
+        book : TrackedBook
+            The tracked book instance.
+
+        Returns
+        -------
+        list[dict[str, Any]]
+            List of file dictionaries with keys: name, format, size, path.
+        """
+        # 1. Use persisted files if available
+        if book.files:
+            return [
+                {
+                    "name": f.filename,
+                    "format": f.file_type,
+                    "size": f.size_bytes,
+                    "path": f.path,
+                }
+                for f in book.files
+            ]
+
+        # 2. Fallback to Calibre
+        if book.matched_book_id:
+            try:
+                # Import here to avoid circular dependencies
+                from bookcard.services.book_service import BookService
+
+                if book.matched_library_id:
+                    library = self._library_service.get_library(book.matched_library_id)
+                else:
+                    library = self._library_service.get_active_library()
+
+                if library:
+                    book_service = BookService(library, self._session)
+                    full_book = book_service.get_book_full(book.matched_book_id)
+
+                    if full_book and full_book.formats:
+                        files = []
+                        for fmt in full_book.formats:
+                            file_format = str(fmt.get("format", "")).upper()
+                            try:
+                                path = book_service.get_format_file_path(
+                                    book.matched_book_id, file_format
+                                )
+                                files.append({
+                                    "name": str(path.name),
+                                    "format": file_format,
+                                    "size": int(fmt.get("uncompressed_size", 0)),
+                                    "path": str(path),
+                                })
+                            except (ValueError, RuntimeError) as e:
+                                logger.debug(
+                                    "Failed to get file info for format %s: %s",
+                                    file_format,
+                                    e,
+                                )
+                                continue
+                        return files
+            except (ValueError, RuntimeError, OSError) as e:
+                logger.warning(
+                    "Failed to fetch files for tracked book %d: %s", book.id, e
+                )
+
+        return []
 
     def _find_library_match(
         self, title: str, author: str, library_id: int | None

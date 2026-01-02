@@ -39,6 +39,7 @@ export interface ReleaseInfoRead {
   description?: string;
   category?: string;
   additional_info?: Record<string, string | number | null>;
+  warning?: string;
 }
 
 export interface SearchResultRead {

@@ -87,6 +87,10 @@ class ReleaseInfo(BaseModel):
     additional_info: dict[str, str | int | float | None] | None = Field(
         default=None, description="Additional indexer-specific metadata"
     )
+    warning: str | None = Field(
+        default=None,
+        description="Warning message for the release (e.g. multiple seasons)",
+    )
 
 
 class DownloadItem(TypedDict, total=False):

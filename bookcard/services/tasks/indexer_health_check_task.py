@@ -16,6 +16,7 @@
 """Task for checking indexer health."""
 
 import logging
+from typing import Any, cast
 
 from sqlmodel import Session, select
 
@@ -31,15 +32,16 @@ logger = logging.getLogger(__name__)
 class IndexerHealthCheckTask(BaseTask):
     """Task to check health of all enabled indexers."""
 
-    def run(self, session: Session) -> None:
+    def run(self, worker_context: dict[str, Any]) -> None:
         """Execute task logic.
 
         Parameters
         ----------
-        session : Session
-            Database session.
+        worker_context : dict[str, Any]
+            Worker context containing the database session.
         """
         logger.info("Starting indexer health check task")
+        session = cast("Session", worker_context["session"])
 
         # We need a request object to get the encryptor, but in a task context
         # we don't have one. We need to construct the encryptor directly or

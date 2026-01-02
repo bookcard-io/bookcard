@@ -54,7 +54,7 @@ export function BookDetailView({ book }: BookDetailViewProps) {
         onSearchClick={() => setIsSearchModalOpen(true)}
       />
 
-      <BookFiles />
+      <BookFiles files={book.files} />
 
       {/* Tabs & Content */}
       <div className="flex flex-col">

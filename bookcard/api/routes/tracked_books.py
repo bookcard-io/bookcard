@@ -19,13 +19,15 @@ Routes handle only HTTP concerns: request/response, status codes, exceptions.
 Business logic is delegated to services following SOLID principles.
 """
 
-from typing import Annotated
+import logging
+from typing import Annotated, NoReturn, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session
 
 from bookcard.api.deps import get_current_user, get_db_session
 from bookcard.api.schemas.tracked_books import (
+    BookFileRead,
     TrackedBookCreate,
     TrackedBookListResponse,
     TrackedBookRead,
@@ -33,8 +35,10 @@ from bookcard.api.schemas.tracked_books import (
     TrackedBookUpdate,
 )
 from bookcard.models.auth import User
-from bookcard.models.pvr import TrackedBookStatus
+from bookcard.models.pvr import TrackedBook, TrackedBookStatus
 from bookcard.services.tracked_book_service import TrackedBookService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/tracked-books", tags=["tracked-books"])
 
@@ -62,7 +66,7 @@ def _get_tracked_book_service(
     return TrackedBookService(session)
 
 
-def _raise_not_found(tracked_book_id: int) -> None:
+def _raise_not_found(tracked_book_id: int) -> NoReturn:
     """Raise HTTPException for tracked book not found.
 
     Parameters
@@ -144,7 +148,18 @@ def get_tracked_book(
     book = service.get_tracked_book(tracked_book_id)
     if book is None:
         _raise_not_found(tracked_book_id)
-    return TrackedBookRead.model_validate(book)
+
+    # _raise_not_found raises an exception, so book is not None here.
+    # We cast to satisfy type checkers that might not infer NoReturn behavior fully across functions.
+    book = cast("TrackedBook", book)
+    response = TrackedBookRead.model_validate(book)
+
+    # Populate files using service logic to keep route clean
+    files_data = service.get_book_files(book)
+    if files_data:
+        response.files = [BookFileRead(**f) for f in files_data]
+
+    return response
 
 
 @router.post(

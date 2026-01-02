@@ -15,6 +15,7 @@
 
 import {
   FaCloudDownloadAlt,
+  FaExclamationTriangle,
   FaSort,
   FaSortDown,
   FaSortUp,
@@ -117,6 +118,12 @@ export function SearchResultsTable({
               className="break-words font-medium"
               title={result.release.title}
             >
+              {result.release.warning && (
+                <FaExclamationTriangle
+                  className="mr-2 inline text-warning-a10"
+                  title={result.release.warning}
+                />
+              )}
               {result.release.title}
             </div>
             <div className="truncate text-text-a30">

@@ -1,3 +1,18 @@
+// Copyright (C) 2025 knguyen and others
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 "use client";
 
 import { useState } from "react";
@@ -21,6 +36,7 @@ import {
   useDownloadClientConfig,
 } from "./DownloadClientConfigContext";
 import { FieldGroup } from "./DownloadClientFields";
+import { PathMappings } from "./PathMappings";
 import { useConnectionTest } from "./useConnectionTest";
 import { useDownloadClientForm } from "./useDownloadClientForm";
 
@@ -90,7 +106,7 @@ function DownloadClientModalContent({
     >
       <div
         className={cn(
-          "modal-container modal-container-shadow-default w-full max-w-2xl flex-col",
+          "modal-container modal-container-shadow-default w-full max-w-4xl flex-col",
           "max-h-[90vh] overflow-hidden",
         )}
         role="dialog"
@@ -122,14 +138,28 @@ function DownloadClientModalContent({
               "flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-6",
             )}
           >
-            <TextInput
-              id="name"
-              label="Name"
-              value={formData.name || ""}
-              onChange={(e) => handleChange("name", e.target.value)}
-              placeholder={`e.g. ${formData.client_type} (Optional)`}
-              autoFocus
-            />
+            <div className="grid grid-cols-2 gap-4">
+              <TextInput
+                id="name"
+                label="Name"
+                value={formData.name || ""}
+                onChange={(e) => handleChange("name", e.target.value)}
+                placeholder={`e.g. ${formData.client_type} (Optional)`}
+                autoFocus
+              />
+              <div className="flex items-center gap-2 pt-7">
+                <input
+                  type="checkbox"
+                  id="enabled"
+                  checked={formData.enabled}
+                  onChange={(e) => handleChange("enabled", e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary-a0)] focus:ring-[var(--color-primary-a0)]"
+                />
+                <label htmlFor="enabled" className="text-sm text-text-a0">
+                  Enabled
+                </label>
+              </div>
+            </div>
 
             <div className="flex flex-col gap-1">
               <label
@@ -170,23 +200,18 @@ function DownloadClientModalContent({
               requiredFields={["host", "port"]}
             />
 
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="enabled"
-                checked={formData.enabled}
-                onChange={(e) => handleChange("enabled", e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary-a0)] focus:ring-[var(--color-primary-a0)]"
+            {/* Path Mappings */}
+            <div className="border-surface-a20 border-t pt-4">
+              <PathMappings
+                mappings={formData.path_mappings || []}
+                onChange={(mappings) => handleChange("path_mappings", mappings)}
               />
-              <label htmlFor="enabled" className="text-sm text-text-a0">
-                Enabled
-              </label>
             </div>
 
             {/* Advanced Settings Toggle */}
             {currentConfig.advancedFields &&
               currentConfig.advancedFields.length > 0 && (
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-4 border-surface-a20 border-t pt-4">
                   <button
                     type="button"
                     onClick={() => setShowAdvanced(!showAdvanced)}

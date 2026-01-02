@@ -23,6 +23,7 @@ import os
 from typing import Any
 
 from bookcard.services.download_monitor_service import DownloadMonitorService
+from bookcard.services.pvr_import_service import PVRImportService
 from bookcard.services.security import DataEncryptor
 from bookcard.services.tasks.base import BaseTask
 
@@ -47,6 +48,12 @@ class DownloadMonitorTask(BaseTask):
             encryptor = DataEncryptor(encryption_key) if encryption_key else None
             service = DownloadMonitorService(session, encryptor=encryptor)
             service.check_downloads()
+
+            # Process any completed downloads
+            import_service = PVRImportService(session)
+            imported_count = import_service.import_pending_downloads()
+            if imported_count > 0:
+                logger.info("Imported %d pending downloads", imported_count)
 
             # Since this is a periodic check, we mark it as 100% complete when done
             # The next run will be a new task instance

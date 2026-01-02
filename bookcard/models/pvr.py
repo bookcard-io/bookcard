@@ -199,6 +199,12 @@ class TrackedBookStatus(StrEnum):
         Currently searching indexers for the book.
     DOWNLOADING : str
         Book is being downloaded.
+    PAUSED : str
+        Download is paused.
+    STALLED : str
+        Download is stalled (no peers/seeds).
+    SEEDING : str
+        Download completed and is seeding.
     COMPLETED : str
         Book download completed and imported.
     FAILED : str
@@ -210,9 +216,30 @@ class TrackedBookStatus(StrEnum):
     WANTED = "wanted"
     SEARCHING = "searching"
     DOWNLOADING = "downloading"
+    PAUSED = "paused"
+    STALLED = "stalled"
+    SEEDING = "seeding"
     COMPLETED = "completed"
     FAILED = "failed"
     IGNORED = "ignored"
+
+
+class MonitorMode(StrEnum):
+    """Monitor mode for tracked books.
+
+    Attributes
+    ----------
+    BOOK_ONLY : str
+        Monitor only this specific book.
+    SERIES : str
+        Monitor the series this book belongs to.
+    AUTHOR : str
+        Monitor all books by this author.
+    """
+
+    BOOK_ONLY = "book_only"
+    SERIES = "series"
+    AUTHOR = "author"
 
 
 class IndexerStatus(StrEnum):
@@ -271,6 +298,10 @@ class DownloadItemStatus(StrEnum):
         Download is in progress.
     PAUSED : str
         Download is paused.
+    STALLED : str
+        Download is stalled.
+    SEEDING : str
+        Download is seeding.
     COMPLETED : str
         Download completed successfully.
     FAILED : str
@@ -282,6 +313,8 @@ class DownloadItemStatus(StrEnum):
     QUEUED = "queued"
     DOWNLOADING = "downloading"
     PAUSED = "paused"
+    STALLED = "stalled"
+    SEEDING = "seeding"
     COMPLETED = "completed"
     FAILED = "failed"
     REMOVED = "removed"
@@ -354,6 +387,54 @@ class DownloadRejectionReason(StrEnum):
     ALREADY_DOWNLOADED = "already_downloaded"
     INVALID_URL = "invalid_url"
     MISSING_METADATA = "missing_metadata"
+
+
+class TrackedBookFile(SQLModel, table=True):
+    """File associated with a tracked book.
+
+    Tracks files that were downloaded/imported for a tracked book,
+    including main book files, extra formats, covers, and other artifacts.
+
+    Attributes
+    ----------
+    id : int | None
+        Primary key identifier.
+    tracked_book_id : int
+        Foreign key to tracked book.
+    path : str
+        Absolute path to the file.
+    filename : str
+        Name of the file.
+    size_bytes : int
+        Size of the file in bytes.
+    file_type : str
+        Type of file (e.g., 'main', 'format', 'cover', 'playlist', 'artifact').
+    created_at : datetime
+        Timestamp when file was recorded.
+    """
+
+    __tablename__ = "tracked_book_files"
+
+    id: int | None = Field(default=None, primary_key=True)
+    tracked_book_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("tracked_books.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
+    )
+    path: str = Field(max_length=2000)
+    filename: str = Field(max_length=500)
+    size_bytes: int = Field(default=0)
+    file_type: str = Field(default="artifact", max_length=50)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        index=True,
+    )
+
+    # Relationships
+    tracked_book: "TrackedBook" = Relationship(back_populates="files")
 
 
 class TrackedBook(SQLModel, table=True):
@@ -431,6 +512,14 @@ class TrackedBook(SQLModel, table=True):
             SQLEnum(TrackedBookStatus, native_enum=False), nullable=False, index=True
         ),  # type: ignore[call-overload]
     )
+    monitor_mode: MonitorMode = Field(
+        default=MonitorMode.BOOK_ONLY,
+        sa_column=Column(
+            SQLEnum(MonitorMode, native_enum=False),
+            nullable=False,
+            default=MonitorMode.BOOK_ONLY,
+        ),  # type: ignore[call-overload]
+    )
     auto_search_enabled: bool = Field(default=True, index=True)
     auto_download_enabled: bool = Field(default=False)
     preferred_formats: list[str] | None = Field(
@@ -491,6 +580,7 @@ class TrackedBook(SQLModel, table=True):
         sa_relationship_kwargs={"foreign_keys": "[TrackedBook.matched_library_id]"}
     )
     download_items: list["DownloadItem"] = Relationship(back_populates="tracked_book")
+    files: list["TrackedBookFile"] = Relationship(back_populates="tracked_book")
 
     __table_args__ = (
         Index("idx_tracked_books_title_author", "title", "author"),

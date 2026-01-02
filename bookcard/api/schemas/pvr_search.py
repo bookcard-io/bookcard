@@ -115,6 +115,7 @@ class ReleaseInfoRead(BaseModel):
     description: str | None = None
     category: str | None = None
     additional_info: dict[str, str | int | float | None] | None = None
+    warning: str | None = None
 
     @classmethod
     def from_release_info(cls, release: "ReleaseInfo") -> "ReleaseInfoRead":
@@ -144,6 +145,7 @@ class ReleaseInfoRead(BaseModel):
             description=release.description,
             category=release.category,
             additional_info=release.additional_info,
+            warning=release.warning,
         )
 
 

@@ -22,7 +22,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from bookcard.models.pvr import TrackedBookStatus
+from bookcard.models.pvr import MonitorMode, TrackedBookStatus
 
 
 class TrackedBookCreate(BaseModel):
@@ -70,6 +70,9 @@ class TrackedBookCreate(BaseModel):
     auto_download_enabled: bool = Field(
         default=False, description="Whether to automatically download when found"
     )
+    monitor_mode: MonitorMode = Field(
+        default=MonitorMode.BOOK_ONLY, description="Monitor mode"
+    )
     preferred_formats: list[str] | None = Field(
         default=None, description="List of preferred formats"
     )
@@ -111,6 +114,9 @@ class TrackedBookUpdate(BaseModel):
     status: TrackedBookStatus | None = Field(
         default=None, description="New tracking status"
     )
+    monitor_mode: MonitorMode | None = Field(
+        default=None, description="New monitor mode"
+    )
     auto_search_enabled: bool | None = Field(
         default=None, description="Whether to automatically search for this book"
     )
@@ -121,6 +127,15 @@ class TrackedBookUpdate(BaseModel):
         default=None, description="List of preferred formats"
     )
     library_id: int | None = Field(default=None, description="Target library ID")
+
+
+class BookFileRead(BaseModel):
+    """Schema for book file details."""
+
+    name: str
+    format: str
+    size: int
+    path: str
 
 
 class TrackedBookRead(BaseModel):
@@ -176,6 +191,7 @@ class TrackedBookRead(BaseModel):
     metadata_source_id: str | None
     metadata_external_id: str | None
     status: TrackedBookStatus
+    monitor_mode: MonitorMode
     auto_search_enabled: bool
     auto_download_enabled: bool
     preferred_formats: list[str] | None
@@ -192,6 +208,7 @@ class TrackedBookRead(BaseModel):
     tags: list[str] | None
     created_at: datetime
     updated_at: datetime
+    files: list[BookFileRead] | None = None
 
 
 class TrackedBookListResponse(BaseModel):

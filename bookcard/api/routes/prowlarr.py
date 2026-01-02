@@ -91,7 +91,7 @@ def minutes_to_cron(minutes: int) -> str:
 def get_prowlarr_config(
     session: Annotated[Session, Depends(get_db_session)],
     request: Request,
-) -> ProwlarrConfig:
+) -> ProwlarrConfigRead:
     """Get Prowlarr configuration.
 
     Returns the current Prowlarr configuration. If none exists, creates
@@ -109,18 +109,17 @@ def get_prowlarr_config(
         session.refresh(config)
 
     # Decrypt API key for display
+    decrypted_key = config.api_key
     if config.api_key:
         with contextlib.suppress(Exception):
-            get_data_encryptor(request)
-            # We return a copy/modified object effectively by Pydantic validation
-            # But here we modify the object. Ideally we shouldn't modify the attached object.
-            # But ProwlarrConfig is small.
-            # Safe way: decrypt to a variable, but we return ProwlarrConfig model.
-            # Let's verify if ProwlarrConfigRead can handle this.
-            # We can modify the api_key on the object temporarily?
-            # Or better, create a ProwlarrConfigRead directly.
+            encryptor = get_data_encryptor(request)
+            decrypted_key = encryptor.decrypt(config.api_key)
 
-    return config
+    # Convert to Pydantic model to avoid side effects on the DB object
+    # This prevents the decrypted key from being saved back to the DB
+    response = ProwlarrConfigRead.model_validate(config)
+    response.api_key = decrypted_key
+    return response
 
 
 @router.put(

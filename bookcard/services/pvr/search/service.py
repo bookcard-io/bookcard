@@ -19,6 +19,7 @@ Facade that coordinates search components following SRP and DIP.
 """
 
 import logging
+import re
 import threading
 from functools import partial
 
@@ -169,6 +170,8 @@ class IndexerSearchService:
         for indexer, releases in indexer_results:
             for release in releases:
                 release.indexer_id = indexer.id
+                release.warning = self._detect_warning(release)
+
                 score = self._scorer.score_release(
                     release, query, title, author, isbn, indexer
                 )
@@ -259,6 +262,8 @@ class IndexerSearchService:
         results: list[IndexerSearchResult] = []
         for release in releases:
             release.indexer_id = indexer.id
+            release.warning = self._detect_warning(release)
+
             score = self._scorer.score_release(
                 release, query, title, author, isbn, indexer
             )
@@ -367,3 +372,55 @@ class IndexerSearchService:
         except Exception as e:
             msg = f"Unexpected error searching indexer {indexer.name}: {e}"
             raise PVRProviderError(msg) from e
+
+    def _detect_warning(self, release: ReleaseInfo) -> str | None:
+        """Detect potential issues with the release.
+
+        Checks for:
+        - Multiple seasons/packs
+        - Multiple files (if inferred from title)
+
+        Parameters
+        ----------
+        release : ReleaseInfo
+            Release info to check.
+
+        Returns
+        -------
+        str | None
+            Warning message if issues detected, None otherwise.
+        """
+        title = release.title
+
+        # Regex patterns for multi-season/packs
+        multi_season_patterns = [
+            r"S\d+\s*-\s*S\d+",  # S01-S02
+            r"Season\s*\d+\s*-\s*\d+",  # Season 1-2
+            r"Seasons?\s*\d+\s*(?:to|thru|through)\s*\d+",  # Seasons 1 to 3
+            r"\bComplete\b",  # Complete
+            r"\bPack\b",  # Pack
+            r"\bCollection\b",  # Collection
+            r"\bTrilogy\b",  # Trilogy
+            r"\bAnthology\b",  # Anthology
+            r"\bBox\s*Set\b",  # Box Set
+            r"\bDiscography\b",  # Discography
+            r"\d+\s*Books?",  # 10 Books
+        ]
+
+        for pattern in multi_season_patterns:
+            if re.search(pattern, title, re.IGNORECASE):
+                return "May contain multiple files/seasons. Auto-matching is flaky."
+
+        # Check for multiple formats in title (e.g. "epub mobi azw3")
+        formats = ["epub", "mobi", "azw3", "pdf", "cbz", "cbr"]
+        found_formats = 0
+        title_lower = title.lower()
+        for fmt in formats:
+            # Check for format as a distinct word
+            if re.search(r"\b" + re.escape(fmt) + r"\b", title_lower):
+                found_formats += 1
+
+        if found_formats > 1:
+            return "May contain multiple formats. Auto-matching is flaky and may need manual importing."
+
+        return None
