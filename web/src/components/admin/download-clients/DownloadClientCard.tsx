@@ -1,3 +1,18 @@
+// Copyright (C) 2025 knguyen and others
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 "use client";
 
 import {
@@ -56,7 +71,7 @@ export function DownloadClientCard({
             variant="ghost"
             size="small"
             onClick={() => onViewItems(client)}
-            title="View Active Downloads"
+            title="View active downloads"
           >
             <FaDownload className="h-4 w-4" />
           </Button>
@@ -65,7 +80,7 @@ export function DownloadClientCard({
           variant="ghost"
           size="small"
           onClick={() => onEdit(client)}
-          title="Edit"
+          title="Edit download client"
         >
           <FaCog className="h-4 w-4" />
         </Button>
@@ -74,7 +89,7 @@ export function DownloadClientCard({
           size="small"
           onClick={() => onDelete(client)}
           className="text-[var(--color-danger-a0)] hover:text-[var(--color-danger-a10)]"
-          title="Delete"
+          title="Delete download client"
         >
           <FaTrash className="h-4 w-4" />
         </Button>

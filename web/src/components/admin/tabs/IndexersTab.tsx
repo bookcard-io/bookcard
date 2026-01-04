@@ -1,3 +1,18 @@
+// Copyright (C) 2025 knguyen and others
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 "use client";
 
 import { useCallback, useState } from "react";
@@ -17,7 +32,6 @@ export function IndexersTab() {
     isLoading,
     createIndexer,
     updateIndexer,
-    deleteIndexer,
     testConnection,
     testNewConnection,
     refresh,
@@ -38,24 +52,9 @@ export function IndexersTab() {
     setIsModalOpen(true);
   }, []);
 
-  const handleDelete = useCallback(
-    async (indexer: Indexer) => {
-      if (
-        !confirm(`Are you sure you want to delete indexer "${indexer.name}"?`)
-      ) {
-        return;
-      }
-      try {
-        await deleteIndexer(indexer.id);
-        showSuccess(`Indexer "${indexer.name}" deleted successfully.`);
-      } catch (error) {
-        showDanger(
-          `Failed to delete indexer: ${error instanceof Error ? error.message : "Unknown error"}`,
-        );
-      }
-    },
-    [deleteIndexer, showSuccess, showDanger],
-  );
+  const handleRefresh = useCallback(() => {
+    void refresh({ silent: true });
+  }, [refresh]);
 
   const handleSave = useCallback(
     async (data: IndexerCreate | IndexerUpdate) => {
@@ -70,7 +69,9 @@ export function IndexersTab() {
         setIsModalOpen(false);
       } catch (error) {
         showDanger(
-          `Failed to save indexer: ${error instanceof Error ? error.message : "Unknown error"}`,
+          `Failed to save indexer: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
         );
       }
     },
@@ -113,7 +114,7 @@ export function IndexersTab() {
         indexers={indexers}
         isLoading={isLoading}
         onEdit={handleEdit}
-        onDelete={handleDelete}
+        onRefresh={handleRefresh}
       />
 
       {isModalOpen && (
@@ -133,7 +134,7 @@ export function IndexersTab() {
           onClose={() => setIsProwlarrModalOpen(false)}
           onSuccess={() => {
             // Refresh indexers list after Prowlarr changes
-            refresh();
+            void refresh({ silent: true });
           }}
         />
       )}

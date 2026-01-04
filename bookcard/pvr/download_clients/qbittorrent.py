@@ -31,8 +31,8 @@ from urllib.parse import urljoin
 import httpx
 
 from bookcard.pvr.base import (
-    BaseDownloadClient,
     DownloadClientSettings,
+    TrackingDownloadClient,
 )
 from bookcard.pvr.base.interfaces import (
     FileFetcherProtocol,
@@ -443,7 +443,7 @@ class QBittorrentProxy:
             raise PVRProviderError(msg) from e
 
 
-class QBittorrentClient(BaseDownloadClient):
+class QBittorrentClient(TrackingDownloadClient):
     """qBittorrent download client implementation.
 
     Implements BaseDownloadClient interface for qBittorrent Web API v2.

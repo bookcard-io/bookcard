@@ -64,7 +64,7 @@ export default function TrackedBookDetailPage({
     <PageLayout>
       <div className="flex h-full flex-col">
         <PageHeader title="Tracked Book" />
-        <BookDetailView book={book} />ß
+        <BookDetailView book={book} />
       </div>
     </PageLayout>
   );

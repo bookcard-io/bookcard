@@ -100,9 +100,7 @@ class TestDownloadMonitorService:
         }
 
         # Execute
-        download_monitor_service._update_download_item(
-            sample_download_item, client_item
-        )
+        download_monitor_service._update_item(sample_download_item, client_item)
 
         # Verify DownloadItem updated
         assert sample_download_item.status == DownloadItemStatus.COMPLETED
@@ -152,9 +150,7 @@ class TestDownloadMonitorService:
         }
 
         # Execute
-        download_monitor_service._update_download_item(
-            sample_download_item, client_item
-        )
+        download_monitor_service._update_item(sample_download_item, client_item)
 
         # Verify DownloadItem updated
         assert sample_download_item.status == DownloadItemStatus.FAILED

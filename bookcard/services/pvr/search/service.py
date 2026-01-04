@@ -409,7 +409,7 @@ class IndexerSearchService:
 
         for pattern in multi_season_patterns:
             if re.search(pattern, title, re.IGNORECASE):
-                return "May contain multiple files/seasons. Auto-matching is flaky."
+                return "May contain multiple formats."
 
         # Check for multiple formats in title (e.g. "epub mobi azw3")
         formats = ["epub", "mobi", "azw3", "pdf", "cbz", "cbr"]
@@ -421,6 +421,6 @@ class IndexerSearchService:
                 found_formats += 1
 
         if found_formats > 1:
-            return "May contain multiple formats. Auto-matching is flaky and may need manual importing."
+            return "May contain multiple formats."
 
         return None

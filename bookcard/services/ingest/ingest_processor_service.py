@@ -51,6 +51,9 @@ from bookcard.services.ingest.metadata_query import MetadataQuery
 
 logger = logging.getLogger(__name__)
 
+# Set to True to enable DeDRM processing on ingest
+ENABLE_DEDRM_ON_INGEST = False
+
 
 class IngestProcessorService:
     """Service for processing file groups during ingest.
@@ -351,6 +354,9 @@ class IngestProcessorService:
         Path
             Processed file path (may be same as original).
         """
+        if not ENABLE_DEDRM_ON_INGEST:
+            return file_path
+
         processed_file_path = file_path
         try:
             processed_file_path = self._dedrm_service.strip_drm(file_path)

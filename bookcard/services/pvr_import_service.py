@@ -142,6 +142,15 @@ class PVRImportService:
         FileNotFoundError
             If the downloaded file/directory does not exist.
         """
+        # FIX: Check if tracked book is already completed to avoid duplicate imports
+        if download_item.tracked_book.status == TrackedBookStatus.COMPLETED:
+            logger.info(
+                "Tracked book %d is already completed. Skipping import of download %d.",
+                download_item.tracked_book.id,
+                download_item.id,
+            )
+            return
+
         if download_item.status != DownloadItemStatus.COMPLETED:
             msg = f"Download item {download_item.id} is not completed (status: {download_item.status})"
             raise ValueError(msg)

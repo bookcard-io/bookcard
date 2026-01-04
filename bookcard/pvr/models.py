@@ -87,6 +87,10 @@ class ReleaseInfo(BaseModel):
     additional_info: dict[str, str | int | float | None] | None = Field(
         default=None, description="Additional indexer-specific metadata"
     )
+    guid: str | None = Field(
+        default=None,
+        description="Unique identifier for the release (e.g., from RSS guid)",
+    )
     warning: str | None = Field(
         default=None,
         description="Warning message for the release (e.g. multiple seasons)",
@@ -101,6 +105,7 @@ class DownloadItem(TypedDict, total=False):
     """
 
     client_item_id: str
+    guid: str | None
     title: str
     status: str
     progress: float

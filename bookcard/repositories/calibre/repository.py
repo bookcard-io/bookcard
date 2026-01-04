@@ -109,7 +109,7 @@ class CalibreBookRepository(IBookRepository):
         self._retry = SQLiteRetryPolicy(max_retries=3)
         self._unwrapper = ResultUnwrapper()
         self._queries = BookQueryBuilder()
-        self._enrichment = BookEnrichmentService()
+        self._enrichment = BookEnrichmentService(calibre_db_path=self._calibre_db_path)
         self._pathing = BookPathService()
 
         self._reads = BookReadOperations(
@@ -120,6 +120,8 @@ class CalibreBookRepository(IBookRepository):
             enrichment=self._enrichment,
             search_service=self._search_service,
             statistics_service=self._statistics_service,
+            pathing=self._pathing,
+            calibre_db_path=self._calibre_db_path,
         )
         self._formats = BookFormatOperations(
             session_manager=self._session_manager,

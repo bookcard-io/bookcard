@@ -32,8 +32,8 @@ from typing import Any
 import httpx
 
 from bookcard.pvr.base import (
-    BaseDownloadClient,
     DownloadClientSettings,
+    TrackingDownloadClient,
 )
 from bookcard.pvr.base.interfaces import (
     FileFetcherProtocol,
@@ -484,7 +484,7 @@ class TransmissionProxy:
         self._request("torrent-remove", arguments)
 
 
-class TransmissionClient(BaseDownloadClient):
+class TransmissionClient(TrackingDownloadClient):
     """Transmission download client implementation.
 
     Implements BaseDownloadClient interface for Transmission RPC API.

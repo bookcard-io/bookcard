@@ -579,8 +579,14 @@ class TrackedBook(SQLModel, table=True):
     matched_library: Library | None = Relationship(
         sa_relationship_kwargs={"foreign_keys": "[TrackedBook.matched_library_id]"}
     )
-    download_items: list["DownloadItem"] = Relationship(back_populates="tracked_book")
-    files: list["TrackedBookFile"] = Relationship(back_populates="tracked_book")
+    download_items: list["DownloadItem"] = Relationship(
+        back_populates="tracked_book",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    files: list["TrackedBookFile"] = Relationship(
+        back_populates="tracked_book",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
     __table_args__ = (
         Index("idx_tracked_books_title_author", "title", "author"),
@@ -880,6 +886,12 @@ class DownloadItem(SQLModel, table=True):
         ),
     )
     client_item_id: str = Field(max_length=255, index=True)
+    guid: str | None = Field(
+        default=None,
+        max_length=255,
+        index=True,
+        description="Unique identifier from indexer",
+    )
     title: str = Field(max_length=500, index=True)
     download_url: str = Field(max_length=2000)
     file_path: str | None = Field(default=None, max_length=2000)

@@ -349,6 +349,28 @@ class TrackedBookService:
 
         return tracked_book
 
+    def update_search_status(
+        self, tracked_book_id: int, searched_at: datetime, status: TrackedBookStatus
+    ) -> None:
+        """Update search status of a tracked book.
+
+        Parameters
+        ----------
+        tracked_book_id : int
+            Tracked book ID.
+        searched_at : datetime
+            Timestamp of search.
+        status : TrackedBookStatus
+            New status.
+        """
+        tracked_book = self._repository.get(tracked_book_id)
+        if tracked_book:
+            tracked_book.last_searched_at = searched_at
+            tracked_book.status = status
+            tracked_book.updated_at = datetime.now(UTC)
+            self._session.add(tracked_book)
+            self._session.commit()
+
     def get_book_files(self, book: TrackedBook) -> list[dict[str, Any]]:
         """Get files for a tracked book.
 
@@ -403,7 +425,7 @@ class TrackedBookService:
                                 files.append({
                                     "name": str(path.name),
                                     "format": file_format,
-                                    "size": int(fmt.get("uncompressed_size", 0)),
+                                    "size": int(fmt.get("size", 0)),
                                     "path": str(path),
                                 })
                             except (ValueError, RuntimeError) as e:

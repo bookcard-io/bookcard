@@ -38,6 +38,7 @@ from bookcard.repositories.suggestions import FilterSuggestionFactory
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from pathlib import Path
 
     from bookcard.repositories.interfaces import (
         IBookSearchService,
@@ -46,6 +47,7 @@ if TYPE_CHECKING:
     )
 
     from .enrichment import BookEnrichmentService
+    from .pathing import BookPathService
     from .queries import BookQueryBuilder
     from .retry import SQLiteRetryPolicy
     from .unwrapping import ResultUnwrapper
@@ -66,6 +68,8 @@ class BookReadOperations:
         enrichment: BookEnrichmentService,
         search_service: IBookSearchService,
         statistics_service: ILibraryStatisticsService,
+        pathing: BookPathService,
+        calibre_db_path: Path,
     ) -> None:
         self._session_manager: ISessionManager = session_manager
         self._retry: SQLiteRetryPolicy = retry_policy
@@ -74,6 +78,8 @@ class BookReadOperations:
         self._enrichment: BookEnrichmentService = enrichment
         self._search_service = search_service
         self._statistics_service = statistics_service
+        self._pathing = pathing
+        self._calibre_db_path = calibre_db_path
 
     def count_books(
         self,
@@ -361,7 +367,7 @@ class BookReadOperations:
 
             series_name = self._unwrapper.unwrap_series_name(result)
             authors = self._fetch_author_names(session, book_id=book_id)
-            formats = self._fetch_formats_for_book(session, book_id=book_id)
+            formats = self._fetch_formats_for_book(session, book=book)
             base = BookWithRelations(
                 book=book,
                 authors=authors,
@@ -461,7 +467,7 @@ class BookReadOperations:
 
         series_name = self._unwrapper.unwrap_series_name(result)
         authors = self._fetch_author_names(session, book_id=book.id)
-        formats = self._fetch_formats_for_book(session, book_id=book.id)
+        formats = self._fetch_formats_for_book(session, book=book)
         return BookWithRelations(
             book=book, authors=authors, series=series_name, formats=formats
         )
@@ -477,14 +483,51 @@ class BookReadOperations:
         return [row[0] if isinstance(row, tuple) else row for row in author_rows]
 
     def _fetch_formats_for_book(
-        self, session: Session, *, book_id: int
+        self, session: Session, *, book: Book
     ) -> list[dict[str, str | int]]:
         formats_stmt = (
             select(Data.format, Data.uncompressed_size, Data.name)
-            .where(Data.book == book_id)
+            .where(Data.book == book.id)
             .order_by(Data.format)
         )
-        return [
-            {"format": fmt, "size": size, "name": name or ""}
-            for fmt, size, name in session.exec(formats_stmt).all()
-        ]
+
+        # Determine library root path
+        if self._calibre_db_path.is_dir():
+            library_root = self._calibre_db_path
+        else:
+            library_root = self._calibre_db_path.parent
+
+        book_dir = library_root / book.path
+
+        results = []
+        for fmt, size, name in session.exec(formats_stmt).all():
+            # Validate file existence to avoid stale data
+            exists = False
+            format_lower = fmt.lower()
+
+            # 1. Check with stored name
+            file_name = name or f"{book.id}"
+            candidate = book_dir / f"{file_name}.{format_lower}"
+            if candidate.exists():
+                exists = True
+
+            # 2. Check with book ID
+            if not exists:
+                candidate = book_dir / f"{book.id}.{format_lower}"
+                if candidate.exists():
+                    exists = True
+
+            # 3. Check directory scan
+            if not exists and book_dir.exists():
+                for file_in_dir in book_dir.iterdir():
+                    if (
+                        file_in_dir.is_file()
+                        and file_in_dir.suffix.lower() == f".{format_lower}"
+                    ):
+                        exists = True
+                        break
+
+            if exists:
+                results.append({"format": fmt, "size": size, "name": name or ""})
+
+        return results

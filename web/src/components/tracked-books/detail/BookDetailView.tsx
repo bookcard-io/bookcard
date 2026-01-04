@@ -15,9 +15,11 @@
 
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { FaHistory } from "react-icons/fa";
 import { InteractiveSearchModal } from "@/components/pvr/InteractiveSearchModal";
+import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { cn } from "@/libs/utils";
 import type { TrackedBook } from "@/types/trackedBook";
 import { extractYear } from "@/utils/dateFormatters";
@@ -34,8 +36,40 @@ interface BookDetailViewProps {
 type Tab = "overview" | "history";
 
 export function BookDetailView({ book }: BookDetailViewProps) {
+  const router = useRouter();
+  const { showDanger } = useGlobalMessages();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [_isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (
+      !confirm(
+        "Are you sure you want to delete this book from tracking? This will remove all download history and files associated with the tracked record, but will NOT remove the book from your Calibre library.",
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      const response = await fetch(`/api/tracked-books/${book.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete tracked book");
+      }
+
+      router.push("/tracked-books");
+      router.refresh();
+    } catch (error) {
+      console.error("Error deleting book:", error);
+      showDanger("Failed to delete book");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="relative flex min-h-full flex-col bg-surface-a0">
@@ -52,6 +86,7 @@ export function BookDetailView({ book }: BookDetailViewProps) {
       <BookHeader
         book={book}
         onSearchClick={() => setIsSearchModalOpen(true)}
+        onDeleteClick={handleDelete}
       />
 
       <BookFiles files={book.files} />

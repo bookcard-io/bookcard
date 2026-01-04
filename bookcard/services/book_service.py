@@ -38,6 +38,7 @@ from bookcard.models.kobo import (
     KoboSyncedBook,
 )
 from bookcard.models.metadata_enforcement import MetadataEnforcementOperation
+from bookcard.models.pvr import TrackedBook, TrackedBookFile, TrackedBookStatus
 from bookcard.models.reading import (
     Annotation,
     AnnotationDirtied,
@@ -788,7 +789,9 @@ class BookService:
         """
         # Delete Bookcard database associations first (before Calibre deletion)
         if self._session is not None:
-            self._delete_bookcard_associations(book_id)
+            self._delete_bookcard_associations(
+                book_id, delete_files_from_drive=delete_files_from_drive
+            )
 
         # Determine library path (prefer library_root if set)
         library_path = None
@@ -1420,7 +1423,9 @@ class BookService:
             # Re-raise to let caller handle
             raise
 
-    def _delete_bookcard_associations(self, book_id: int) -> None:
+    def _delete_bookcard_associations(
+        self, book_id: int, delete_files_from_drive: bool = False
+    ) -> None:
         """Delete all Bookcard database associations for a book.
 
         Deletes all non-Calibre associations including:
@@ -1433,11 +1438,14 @@ class BookService:
         - EPUB fixes (EPUBFix)
         - Metadata enforcement operations (MetadataEnforcementOperation)
         - Ingest history (IngestHistory)
+        - TrackedBook associations (updates TrackedBook, deletes TrackedBookFile)
 
         Parameters
         ----------
         book_id : int
             Calibre book ID to delete associations for.
+        delete_files_from_drive : bool
+            Whether files are being deleted from drive.
 
         Notes
         -----
@@ -1454,6 +1462,32 @@ class BookService:
         logger.info("Deleting Bookcard database associations for book_id=%d", book_id)
 
         try:
+            # Handle TrackedBook associations first
+            # Find tracked books matched to this book
+            tracked_books = self._session.exec(
+                select(TrackedBook).where(TrackedBook.matched_book_id == book_id)
+            ).all()
+
+            for tracked_book in tracked_books:
+                if delete_files_from_drive:
+                    # Delete associated files records as they are likely stale
+                    files = self._session.exec(
+                        select(TrackedBookFile).where(
+                            TrackedBookFile.tracked_book_id == tracked_book.id
+                        )
+                    ).all()
+                    for file in files:
+                        self._session.delete(file)
+
+                    # If files are deleted, reset status if it was completed
+                    if tracked_book.status == TrackedBookStatus.COMPLETED:
+                        tracked_book.status = TrackedBookStatus.WANTED
+
+                # Unlink tracked book
+                tracked_book.matched_book_id = None
+                tracked_book.matched_library_id = None
+                self._session.add(tracked_book)
+
             # Define all models that reference books by book_id
             models_to_delete = [
                 (BookConversion, "conversion"),

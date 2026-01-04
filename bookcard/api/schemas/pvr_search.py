@@ -115,6 +115,7 @@ class ReleaseInfoRead(BaseModel):
     description: str | None = None
     category: str | None = None
     additional_info: dict[str, str | int | float | None] | None = None
+    guid: str | None = None
     warning: str | None = None
 
     @classmethod
@@ -145,6 +146,7 @@ class ReleaseInfoRead(BaseModel):
             description=release.description,
             category=release.category,
             additional_info=release.additional_info,
+            guid=release.guid,
             warning=release.warning,
         )
 
@@ -170,6 +172,12 @@ class SearchResultRead(BaseModel):
     indexer_priority: int = Field(default=0, description="Indexer priority")
     indexer_protocol: str | None = Field(
         default=None, description="Indexer protocol (torrent/usenet)"
+    )
+    download_status: str | None = Field(
+        default=None, description="Current download status if already downloaded"
+    )
+    download_item_id: int | None = Field(
+        default=None, description="ID of the download item if already downloaded"
     )
 
 

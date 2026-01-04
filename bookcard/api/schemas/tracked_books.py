@@ -20,7 +20,7 @@ Pydantic models for request/response validation for tracked book operations.
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from bookcard.models.pvr import MonitorMode, TrackedBookStatus
 
@@ -132,9 +132,11 @@ class TrackedBookUpdate(BaseModel):
 class BookFileRead(BaseModel):
     """Schema for book file details."""
 
-    name: str
-    format: str
-    size: int
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str = Field(validation_alias=AliasChoices("name", "filename"))
+    format: str = Field(validation_alias=AliasChoices("format", "file_type"))
+    size: int = Field(validation_alias=AliasChoices("size", "size_bytes"))
     path: str
 
 
@@ -208,7 +210,7 @@ class TrackedBookRead(BaseModel):
     tags: list[str] | None
     created_at: datetime
     updated_at: datetime
-    files: list[BookFileRead] | None = None
+    files: list[BookFileRead] | None = Field(default=None)
 
 
 class TrackedBookListResponse(BaseModel):
