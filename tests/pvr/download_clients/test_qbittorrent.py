@@ -103,6 +103,8 @@ class TestQBittorrentProxy:
         self, mock_create_client: MagicMock, qbittorrent_settings: QBittorrentSettings
     ) -> None:
         """Test authentication failure."""
+        # Clear cache to ensure authentication runs
+        QBittorrentProxy._cookie_cache.clear()
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.text = "Fails."
@@ -121,6 +123,8 @@ class TestQBittorrentProxy:
         self, mock_create_client: MagicMock, qbittorrent_settings: QBittorrentSettings
     ) -> None:
         """Test authentication with HTTP 401 error."""
+        # Clear cache to ensure authentication runs
+        QBittorrentProxy._cookie_cache.clear()
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.status_code = 401
@@ -145,6 +149,8 @@ class TestQBittorrentProxy:
         qbittorrent_settings: QBittorrentSettings,
     ) -> None:
         """Test authentication with RequestError."""
+        # Clear cache to ensure authentication runs
+        QBittorrentProxy._cookie_cache.clear()
         mock_client = MagicMock()
         mock_error = httpx.RequestError("Connection failed")
         mock_client.post.side_effect = mock_error
@@ -169,6 +175,8 @@ class TestQBittorrentProxy:
         qbittorrent_settings: QBittorrentSettings,
     ) -> None:
         """Test authentication with TimeoutException."""
+        # Clear cache to ensure authentication runs
+        QBittorrentProxy._cookie_cache.clear()
         mock_client = MagicMock()
         mock_error = httpx.TimeoutException("Timeout")
         mock_client.post.side_effect = mock_error
@@ -193,6 +201,8 @@ class TestQBittorrentProxy:
         qbittorrent_settings: QBittorrentSettings,
     ) -> None:
         """Test authentication with HTTPStatusError (not 401/403)."""
+        # Clear cache to ensure authentication runs
+        QBittorrentProxy._cookie_cache.clear()
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.status_code = 500
