@@ -73,7 +73,7 @@ jobs:
 
       - name: Deploy to GitHub Pages
         run: |
-          uv run --frozen mike deploy \
+          uv run --frozen mike deploy --update-aliases \
             ${{ steps.version.outputs.version }} latest
           uv run --frozen mike set-default latest
 
