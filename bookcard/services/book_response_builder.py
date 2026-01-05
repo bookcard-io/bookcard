@@ -87,6 +87,9 @@ class BookResponseBuilder:
             thumbnail_url=thumbnail_url,
             has_cover=book.has_cover,
             formats=book_with_rels.formats,
+            tracking_status=getattr(book_with_rels, "tracking_status", None),
+            is_virtual=getattr(book_with_rels, "is_virtual", False),
+            tracking_id=getattr(book_with_rels, "tracking_id", None),
         )
 
         # Add full details if requested and available

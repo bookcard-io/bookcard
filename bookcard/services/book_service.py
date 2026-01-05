@@ -22,8 +22,9 @@ from __future__ import annotations
 
 import logging
 import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from sqlalchemy import func, or_
 from sqlmodel import select
@@ -59,10 +60,9 @@ from bookcard.services.config_service import (
 )
 from bookcard.services.conversion import create_conversion_service
 from bookcard.services.conversion_utils import raise_conversion_error
+from bookcard.services.tracked_book_service import TrackedBookService
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from sqlmodel import Session
 
     from bookcard.models.auth import EReaderDevice
@@ -161,6 +161,49 @@ class BookService:
             pubdate_month=pubdate_month,
             pubdate_day=pubdate_day,
         )
+
+        # Merge tracked books if session is available and on first page (or searching)
+        # We only show tracked books on page 1 to simulate "pinned" status
+        # and avoid complex pagination across two data sources.
+        if self._session and page == 1 and not author_id:
+            try:
+                tracked_service = TrackedBookService(self._session)
+                all_tracked = tracked_service.list_tracked_books()
+
+                virtual_books = []
+                for tb in all_tracked:
+                    # Skip if matched to a library book (already in library)
+                    if tb.matched_book_id:
+                        continue
+                    # Skip completed (should be matched, but double check)
+                    if tb.status == TrackedBookStatus.COMPLETED:
+                        continue
+
+                    # Filter by search query if present
+                    if search_query:
+                        q = search_query.lower()
+                        if (
+                            q not in tb.title.lower()
+                            and q not in (tb.author or "").lower()
+                        ):
+                            continue
+
+                    virtual_book = self._create_virtual_book(tb, full=full)
+                    virtual_books.append(virtual_book)
+
+                # Sort virtual books by created_at desc (timestamp)
+                virtual_books.sort(
+                    key=lambda x: x.book.timestamp or datetime.min.replace(tzinfo=UTC),
+                    reverse=True,
+                )
+
+                # Prepend virtual books to library books
+                books = virtual_books + books
+                total += len(virtual_books)
+
+            except (ImportError, RuntimeError, ValueError) as e:
+                logger.warning("Failed to fetch tracked books: %s", e)
+
         return books, total
 
     def get_book(self, book_id: int) -> BookWithRelations | None:
@@ -176,6 +219,21 @@ class BookService:
         BookWithRelations | None
             Book with relations if found, None otherwise.
         """
+        # Handle virtual books (negative IDs)
+        if book_id < 0 and self._session:
+            try:
+                from bookcard.services.tracked_book_service import TrackedBookService
+
+                tracked_service = TrackedBookService(self._session)
+                tb = tracked_service.get_tracked_book(-book_id)
+                if tb:
+                    return cast(
+                        "BookWithRelations", self._create_virtual_book(tb, full=False)
+                    )
+            except (ImportError, RuntimeError, ValueError) as e:
+                logger.warning("Failed to fetch tracked book %d: %s", -book_id, e)
+            return None
+
         return self._book_repo.get_book(book_id)
 
     def get_book_full(self, book_id: int) -> BookWithFullRelations | None:
@@ -191,7 +249,122 @@ class BookService:
         BookWithFullRelations | None
             Book with all related metadata if found, None otherwise.
         """
+        # Handle virtual books (negative IDs)
+        if book_id < 0 and self._session:
+            try:
+                from bookcard.services.tracked_book_service import TrackedBookService
+
+                tracked_service = TrackedBookService(self._session)
+                tb = tracked_service.get_tracked_book(-book_id)
+                if tb:
+                    return cast(
+                        "BookWithFullRelations",
+                        self._create_virtual_book(tb, full=True),
+                    )
+            except (ImportError, RuntimeError, ValueError) as e:
+                logger.warning("Failed to fetch tracked book %d: %s", -book_id, e)
+            return None
+
         return self._book_repo.get_book_full(book_id)
+
+    def _create_virtual_book(
+        self, tracked_book: TrackedBook, full: bool = False
+    ) -> BookWithRelations | BookWithFullRelations:
+        """Create a virtual book object from a TrackedBook.
+
+        Parameters
+        ----------
+        tracked_book : TrackedBook
+            Tracked book instance.
+        full : bool
+            Whether to return full relations object.
+
+        Returns
+        -------
+        BookWithRelations | BookWithFullRelations
+            Virtual book object.
+        """
+        # Create minimal Book model
+        # Use negative ID to distinguish from Calibre IDs
+        # We need to ensure we don't clash with any potential Calibre logic,
+        # but usually IDs are positive.
+
+        # Parse timestamp
+        timestamp = tracked_book.created_at
+        pubdate = None
+        if tracked_book.published_date:
+            # Try to parse partial date if possible, or leave None
+            # TrackedBook.published_date is string.
+            pass
+
+        book = Book(
+            id=-tracked_book.id if tracked_book.id else -1,  # Should always have ID
+            title=tracked_book.title,
+            sort=tracked_book.title,  # Simple sort
+            timestamp=timestamp,
+            pubdate=pubdate,
+            series_index=1.0,  # Default
+            author_sort=tracked_book.author,
+            isbn=tracked_book.isbn,
+            lccn="",
+            path="",  # No path
+            flags=0,
+            uuid=f"tracked-{tracked_book.id}",
+            has_cover=bool(tracked_book.cover_url),
+            last_modified=tracked_book.updated_at,
+        )
+
+        # If has cover_url, we might need to handle thumbnail generation differently.
+        # But for now, BookRead.thumbnail_url will be populated from book.thumbnail_url if we set it?
+        # Book model doesn't have thumbnail_url attribute (it's computed).
+        # But BookRead uses `thumbnail_url`.
+        # The ResponseBuilder calls `book_service.get_thumbnail_url`.
+        # I need to update `get_thumbnail_url` to handle virtual books if they have external URLs.
+
+        authors = [tracked_book.author] if tracked_book.author else ["Unknown"]
+
+        # Virtual formats
+        formats = [
+            {
+                "format": f.file_type,
+                "size": f.size_bytes,
+                "name": f.filename,
+            }
+            for f in (tracked_book.files or [])
+        ]
+
+        if full:
+            return BookWithFullRelations(
+                book=book,
+                authors=authors,
+                series=None,
+                series_id=None,
+                tags=tracked_book.tags or [],
+                identifiers=[],  # could parse metadata IDs
+                description=tracked_book.description,
+                publisher=tracked_book.publisher,
+                publisher_id=None,
+                languages=[],
+                language_ids=[],
+                rating=int(tracked_book.rating) if tracked_book.rating else None,
+                rating_id=None,
+                formats=formats,
+                tracking_status=tracked_book.status.value,
+                is_virtual=True,
+                tracking_id=tracked_book.id,
+                cover_url=tracked_book.cover_url,
+            )
+
+        return BookWithRelations(
+            book=book,
+            authors=authors,
+            series=None,
+            formats=formats,
+            tracking_status=tracked_book.status.value,
+            is_virtual=True,
+            tracking_id=tracked_book.id,
+            cover_url=tracked_book.cover_url,
+        )
 
     def update_book(
         self,
@@ -296,6 +469,18 @@ class BookService:
         str | None
             Thumbnail URL if book has a cover, None otherwise.
         """
+        # Handle virtual books
+        is_virtual = False
+        cover_url = None
+        if isinstance(book, (BookWithRelations, BookWithFullRelations)):
+            is_virtual = getattr(book, "is_virtual", False)
+            cover_url = getattr(book, "cover_url", None)
+        elif isinstance(book, Book):
+            is_virtual = (book.id or 0) < 0
+
+        if is_virtual and cover_url:
+            return cover_url
+
         book_id = book.id if isinstance(book, Book) else book.book.id
         has_cover = book.has_cover if isinstance(book, Book) else book.book.has_cover
 

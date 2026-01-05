@@ -83,6 +83,12 @@ export interface Book {
   formats?: Array<{ format: string; size: number }>;
   /** Optional denormalized reading summary (status + max progress). */
   reading_summary?: BookReadingSummary | null;
+  /** Tracking status for virtual books (e.g., 'wanted', 'downloading'). */
+  tracking_status?: string | null;
+  /** Whether this is a virtual book (tracked but not in library). */
+  is_virtual?: boolean;
+  /** ID of the tracked book record if this is a virtual book. */
+  tracking_id?: number | null;
 }
 
 export interface BookUpdate {
