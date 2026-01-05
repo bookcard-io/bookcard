@@ -249,6 +249,13 @@ class PVRImportService:
                 with import_transaction(session) as tx:
                     result = self._workflow.execute(item, download_path, tx)
 
+                    # Update tracked book status if successful (even if no new book created)
+                    if item.tracked_book:
+                        item.tracked_book.status = TrackedBookStatus.COMPLETED
+                        if result.book_id:
+                            item.tracked_book.matched_book_id = result.book_id
+                        tx.add(item.tracked_book)
+
                     if self._metrics:
                         self._metrics.increment(
                             "pvr.import.success",

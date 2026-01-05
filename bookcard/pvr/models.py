@@ -114,3 +114,4 @@ class DownloadItem(TypedDict, total=False):
     download_speed_bytes_per_sec: float | None
     eta_seconds: int | None
     file_path: str | None
+    comment: str | None

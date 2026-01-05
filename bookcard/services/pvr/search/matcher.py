@@ -15,6 +15,7 @@
 
 """Matchers for search results to download items."""
 
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -133,6 +134,50 @@ class UrlMatchStrategy(DownloadItemMatchStrategy):
         return maps.url_map.get(result.release.download_url)
 
 
+class CommentMatchStrategy(DownloadItemMatchStrategy):
+    """Match by Comment (MID extraction)."""
+
+    def match(
+        self, result: IndexerSearchResult, maps: DownloadItemMaps
+    ) -> DownloadItem | None:
+        """Match result to download item by Comment.
+
+        Extracts MID from comment (MID=...) and matches against GUID.
+
+        Parameters
+        ----------
+        result : IndexerSearchResult
+            Search result to match.
+        maps : DownloadItemMaps
+            Lookup maps of existing download items.
+
+        Returns
+        -------
+        DownloadItem | None
+            Matching download item if found, None otherwise.
+        """
+        if not result.release.additional_info:
+            return None
+
+        comment = result.release.additional_info.get("comment")
+        if not comment or not isinstance(comment, str):
+            return None
+
+        match = re.search(r"MID=(\d+)", comment)
+        if not match:
+            return None
+
+        mid = match.group(1)
+
+        # Iterate guid_map to find match
+        # Since we don't have a map for mid -> item, we have to iterate
+        for guid, item in maps.guid_map.items():
+            if mid in guid:
+                return item
+
+        return None
+
+
 class MetaMatchStrategy(DownloadItemMatchStrategy):
     """Match by Metadata (Indexer ID, Title, Size)."""
 
@@ -209,6 +254,7 @@ class DownloadItemMatcher:
             GuidMatchStrategy(),
             InfohashMatchStrategy(),
             UrlMatchStrategy(),
+            CommentMatchStrategy(),
             MetaMatchStrategy(),
         ]
 

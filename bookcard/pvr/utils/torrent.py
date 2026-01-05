@@ -49,8 +49,14 @@ def extract_hash_from_magnet(magnet_url: str) -> str | None:
     'ABC123'
     """
     for part in magnet_url.split("&"):
-        if part.startswith("xt=urn:btih:"):
-            return part.split(":")[-1].upper()
+        if "xt=urn:btih:" in part:
+            # Handle both "xt=urn:btih:hash" and "magnet:?xt=urn:btih:hash"
+            if part.startswith("xt=urn:btih:"):
+                return part.split(":")[-1].upper()
+            # Handle "magnet:?xt=urn:btih:hash" format
+            idx = part.find("xt=urn:btih:")
+            if idx != -1:
+                return part[idx + len("xt=urn:btih:") :].upper()
     return None
 
 

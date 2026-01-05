@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from bookcard.models.core import Book
 from bookcard.repositories.calibre.queries import BookQueryBuilder
@@ -108,7 +108,9 @@ def test_facade_get_book_uses_injected_session_manager() -> None:
     exec_obj.first.return_value = row
     exec_obj.all.side_effect = [
         ["Author 1"],  # authors query
-        [(1, "EPUB", 123, "name")],  # formats query (book_id, format, size, name)
+        [
+            (1, "EPUB", 123, "name", "Author/Test Book (1)")
+        ],  # formats query (book_id, format, size, name, book_path)
     ]
     session.exec.return_value = exec_obj
 
@@ -117,10 +119,12 @@ def test_facade_get_book_uses_injected_session_manager() -> None:
         session_manager=FakeSessionManager(session),
     )
 
-    result = repo.get_book(1)
+    # Mock file existence check to return True
+    with patch.object(repo._enrichment, "_validate_format_exists", return_value=True):
+        result = repo.get_book(1)
 
-    assert result is not None
-    assert result.book.id == 1
-    assert result.authors == ["Author 1"]
-    assert result.series == "Series X"
-    assert result.formats == [{"format": "EPUB", "size": 123, "name": "name"}]
+        assert result is not None
+        assert result.book.id == 1
+        assert result.authors == ["Author 1"]
+        assert result.series == "Series X"
+        assert result.formats == [{"format": "EPUB", "size": 123, "name": "name"}]

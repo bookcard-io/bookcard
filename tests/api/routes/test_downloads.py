@@ -120,9 +120,7 @@ def test_get_history(
     assert result.total_count == 1
     assert len(result.items) == 1
     assert result.items[0].id == 3
-    mock_download_service.get_download_history.assert_called_once_with(
-        limit=50, offset=10
-    )
+    mock_download_service.get_download_history.assert_called_once_with(50, 10)
 
 
 def test_cancel_download_success(

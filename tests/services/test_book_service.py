@@ -864,7 +864,9 @@ def test_delete_book_deletes_bookcard_associations_with_session() -> None:
             service.delete_book(book_id=123, delete_files_from_drive=False)
 
             # Verify Bookcard associations are deleted before Calibre deletion
-            mock_delete_associations.assert_called_once_with(123)
+            mock_delete_associations.assert_called_once_with(
+                123, delete_files_from_drive=False
+            )
             mock_repo.delete_book.assert_called_once()
 
 

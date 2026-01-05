@@ -619,7 +619,11 @@ class QBittorrentClient(TrackingDownloadClient):
 
                 # Calculate progress
                 # qBittorrent API returns progress as float 0.0-1.0
+                # But some versions may return 0-100, so normalize
                 progress = float(torrent.get("progress", 0.0))
+                if progress > 1.0:
+                    # Assume it's 0-100 scale, convert to 0-1
+                    progress = progress / 100.0
                 if progress > 1.0:
                     progress = 1.0
 
@@ -636,6 +640,7 @@ class QBittorrentClient(TrackingDownloadClient):
                     "download_speed_bytes_per_sec": torrent.get("dlspeed"),
                     "eta_seconds": self._calculate_eta(torrent),
                     "file_path": file_path,
+                    "comment": torrent.get("comment"),
                 }
                 items.append(item)
         except Exception as e:

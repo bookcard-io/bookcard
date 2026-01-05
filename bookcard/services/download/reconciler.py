@@ -149,6 +149,9 @@ class DownloadReconciler:
         if client_item.get("client_item_id"):
             additional_info["infohash"] = client_item["client_item_id"]
 
+        if client_item.get("comment"):
+            additional_info["comment"] = client_item["comment"]
+
         release = ReleaseInfo(
             title=client_item["title"],
             download_url="",

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import tempfile
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
@@ -26,6 +27,9 @@ from bookcard.models.pvr import (
     DownloadItem,
     TrackedBook,
     TrackedBookStatus,
+)
+from bookcard.services.duplicate_detection.book_duplicate_handler import (
+    BookDuplicateHandler,
 )
 from bookcard.services.pvr.importing.book_matching import (
     BookMatchingService,
@@ -97,12 +101,43 @@ class BookIngestCommand:
 
         tracked_book = self._download_item.tracked_book
         file_format = main_file.suffix.lstrip(".").lower()
+
+        # Prepare metadata from tracked book
+        identifiers = []
+        if tracked_book.isbn:
+            identifiers.append({"type": "isbn", "val": tracked_book.isbn})
+        if tracked_book.metadata_source_id and tracked_book.metadata_external_id:
+            identifiers.append({
+                "type": tracked_book.metadata_source_id,
+                "val": tracked_book.metadata_external_id,
+            })
+
+        pubdate = None
+        if tracked_book.published_date:
+            try:
+                # Remove Z if present for simple parsing
+                date_str = tracked_book.published_date.replace("Z", "+00:00")
+                pubdate = datetime.fromisoformat(date_str)
+            except ValueError:
+                logger.debug("Failed to parse pubdate: %s", tracked_book.published_date)
+
+        rating = None
+        if tracked_book.rating is not None:
+            rating = int(max(0, min(5, tracked_book.rating)))
+
         self._book_id = self._ingest.add_book_to_library(
             history_id=self._history_id,
             file_path=main_file,
             file_format=file_format,
             title=tracked_book.title,
             author_name=tracked_book.author,
+            description=tracked_book.description,
+            publisher=tracked_book.publisher,
+            identifiers=identifiers,
+            tags=tracked_book.tags,
+            rating=rating,
+            cover_url=tracked_book.cover_url,
+            pubdate=pubdate,
         )
         return self
 
@@ -247,6 +282,42 @@ class DefaultBookIngestionOrchestrator:
             if not main_file:
                 logger.warning("No valid file found in group %s", file_group.book_key)
                 return result
+
+            # Check for duplicates
+            file_format = main_file.suffix.lstrip(".").lower()
+            duplicate_handler = BookDuplicateHandler()
+            dup_result = duplicate_handler.check_duplicate(
+                library=self._library,
+                file_path=main_file,
+                title=tracked_book.title,
+                author_name=tracked_book.author,
+                file_format=file_format,
+            )
+
+            if dup_result.should_skip:
+                logger.info(
+                    "Duplicate book found (book_id=%s) and mode is IGNORE. Skipping.",
+                    dup_result.duplicate_book_id,
+                )
+                result.book_id = dup_result.duplicate_book_id
+                return result
+
+            if dup_result.should_overwrite and dup_result.duplicate_book_id:
+                logger.info(
+                    "Duplicate book found (book_id=%s) and mode is OVERWRITE. "
+                    "Updating existing book.",
+                    dup_result.duplicate_book_id,
+                )
+                book_id = self._update_existing_book_files(
+                    file_group,
+                    download_item,
+                    dup_result.duplicate_book_id,
+                    book_service,
+                    tx,
+                )
+                if book_id:
+                    result.book_id = book_id
+                    return result
 
             other_files = [f for f in file_group.files if f != main_file]
 
@@ -465,8 +536,10 @@ class PVRImportWorkflow:
                 file_groups, download_item, tx
             )
             if not ingested_book_ids:
-                msg = "All file ingestions failed"
-                raise RuntimeError(msg)
+                logger.warning(
+                    "No files ingested for download %s (likely duplicates or skipped)",
+                    download_item.id,
+                )
 
             # 4. Link best match
             book_service = self._book_service_factory.create(self._library)

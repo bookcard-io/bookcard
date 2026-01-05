@@ -190,6 +190,13 @@ class IngestServiceProtocol(Protocol):
         title: str | None = None,
         author_name: str | None = None,
         pubdate: datetime | None = None,
+        description: str | None = None,
+        publisher: str | None = None,
+        identifiers: list[dict[str, str]] | None = None,
+        language_codes: list[str] | None = None,
+        tags: list[str] | None = None,
+        rating: int | None = None,
+        cover_url: str | None = None,
     ) -> int:
         """
         Add book to library.
@@ -208,6 +215,20 @@ class IngestServiceProtocol(Protocol):
             The name of the author, by default None.
         pubdate : datetime | None, optional
             The publication date, by default None.
+        description : str | None, optional
+            The book description.
+        publisher : str | None, optional
+            The publisher name.
+        identifiers : list[dict[str, str]] | None, optional
+            List of identifiers.
+        language_codes : list[str] | None, optional
+            List of language codes.
+        tags : list[str] | None, optional
+            List of tags.
+        rating : int | None, optional
+            Rating value (0-10).
+        cover_url : str | None, optional
+            Cover URL.
 
         Returns
         -------

@@ -225,6 +225,13 @@ class IngestProcessorService:
         title: str | None = None,
         author_name: str | None = None,
         pubdate: datetime | None = None,
+        description: str | None = None,
+        publisher: str | None = None,
+        identifiers: list[dict[str, str]] | None = None,
+        language_codes: list[str] | None = None,
+        tags: list[str] | None = None,
+        rating: int | None = None,
+        cover_url: str | None = None,
     ) -> int:
         """Add a book file to the library.
 
@@ -242,6 +249,20 @@ class IngestProcessorService:
             Optional author name.
         pubdate : datetime | None
             Optional publication date.
+        description : str | None
+            Optional book description.
+        publisher : str | None
+            Optional publisher name.
+        identifiers : list[dict[str, str]] | None
+            Optional list of identifiers (e.g. [{'type': 'isbn', 'val': '...'}]).
+        language_codes : list[str] | None
+            Optional list of language codes.
+        tags : list[str] | None
+            Optional list of tags.
+        rating : int | None
+            Optional rating (0-10).
+        cover_url : str | None
+            Optional cover URL to set.
 
         Returns
         -------
@@ -281,6 +302,27 @@ class IngestProcessorService:
             )
         finally:
             self._cleanup_processed_file(file_path, processed_file_path)
+
+        # Update additional metadata if provided
+        if any([description, publisher, identifiers, language_codes, tags, rating]):
+            try:
+                book_service.update_book(
+                    book_id=book_id,
+                    description=description,
+                    publisher_name=publisher,
+                    identifiers=identifiers,
+                    language_codes=language_codes,
+                    tag_names=tags,
+                    rating_value=rating,
+                )
+            except (ValueError, RuntimeError, OSError) as e:
+                logger.warning(
+                    "Failed to update additional metadata for book %d: %s", book_id, e
+                )
+
+        # Set cover if provided
+        if cover_url:
+            self.set_book_cover(book_id, cover_url)
 
         # Update history with book ID
         if history.book_id is None:
