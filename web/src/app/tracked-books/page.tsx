@@ -15,35 +15,40 @@
 
 "use client";
 
-import { FaPlus } from "react-icons/fa";
+import { useState } from "react";
 import { ErrorState } from "@/components/common/ErrorState";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
-import { PrimaryButton } from "@/components/common/PrimaryButton";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { EmptyBookState } from "@/components/tracked-books/EmptyBookState";
 import { TrackedBookCard } from "@/components/tracked-books/TrackedBookCard";
-import { ROUTES } from "@/constants/routes";
+import { TrackedBooksHeader } from "@/components/tracked-books/TrackedBooksHeader";
 import { useTrackedBooks } from "@/hooks/useTrackedBooks";
 import type { TrackedBook } from "@/types/trackedBook";
 
 export default function TrackedBooksPage() {
   const { trackedBooks, loading, error, refetch } = useTrackedBooks();
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredBooks = trackedBooks.filter((book) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      book.title.toLowerCase().includes(query) ||
+      book.author?.toLowerCase().includes(query)
+    );
+  });
 
   return (
     <PageLayout>
       <div className="flex h-full flex-col">
-        <PageHeader title="Tracked Books">
-          <PrimaryButton href={ROUTES.TRACKED_BOOKS_ADD}>
-            <FaPlus />
-            <span className="hidden sm:inline">Add new</span>
-          </PrimaryButton>
-        </PageHeader>
+        <TrackedBooksHeader
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+        ></TrackedBooksHeader>
 
         <div className="flex flex-1 flex-col p-4 md:p-8">
           <PageDescription />
           <BookListContent
-            books={trackedBooks}
+            books={filteredBooks}
             loading={loading}
             error={error}
             onRetry={refetch}

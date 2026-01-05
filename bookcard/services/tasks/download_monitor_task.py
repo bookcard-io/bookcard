@@ -22,6 +22,9 @@ import logging
 import os
 from typing import Any
 
+from bookcard.database import EngineSessionFactory
+from bookcard.repositories.config_repository import LibraryRepository
+from bookcard.services.config_service import LibraryService
 from bookcard.services.download_monitor_service import DownloadMonitorService
 from bookcard.services.pvr_import_service import PVRImportService
 from bookcard.services.security import DataEncryptor
@@ -50,10 +53,35 @@ class DownloadMonitorTask(BaseTask):
             service.check_downloads()
 
             # Process any completed downloads
-            import_service = PVRImportService(session)
-            imported_count = import_service.import_pending_downloads()
-            if imported_count > 0:
-                logger.info("Imported %d pending downloads", imported_count)
+            # We need the active library
+            library_repo = LibraryRepository(session)
+            library_service = LibraryService(session, library_repo)
+            active_library = library_service.get_active_library()
+
+            if active_library:
+                # We need to construct a session factory from the session's engine
+                # The session in worker_context should be bound to an engine
+                engine = session.bind
+                if not engine:
+                    logger.warning(
+                        "Session has no bound engine, cannot create session factory"
+                    )
+                else:
+                    session_factory = EngineSessionFactory(engine)
+                    import_service = PVRImportService(
+                        session, session_factory, active_library
+                    )
+                    results = import_service.import_pending_downloads()
+                    if results.successful > 0:
+                        logger.info("Imported %d pending downloads", results.successful)
+                    if results.failed > 0:
+                        logger.warning(
+                            "Failed to import %d pending downloads", results.failed
+                        )
+            else:
+                logger.info(
+                    "No active library found. Skipping pending downloads import."
+                )
 
             # Since this is a periodic check, we mark it as 100% complete when done
             # The next run will be a new task instance

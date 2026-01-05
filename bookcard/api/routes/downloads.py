@@ -27,7 +27,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlmodel import Session
 
 from bookcard.api.deps import get_data_encryptor, get_db_session
+from bookcard.database import EngineSessionFactory
 from bookcard.models.pvr import DownloadHistory, DownloadItem, DownloadQueue
+from bookcard.repositories.config_repository import LibraryRepository
+from bookcard.services.config_service import LibraryService
 from bookcard.services.download.repository import SQLModelDownloadItemRepository
 from bookcard.services.download_client_service import DownloadClientService
 from bookcard.services.download_service import DownloadService
@@ -44,21 +47,42 @@ def get_download_service(
     encryptor = get_data_encryptor(request)
     repo = SQLModelDownloadItemRepository(session)
     client_service = DownloadClientService(session, encryptor=encryptor)
+
     return DownloadService(repo, client_service)
 
 
 def get_import_service(
     session: Annotated[Session, Depends(get_db_session)],
+    request: Request,
 ) -> PVRImportService:
     """Get PVR import service instance."""
-    return PVRImportService(session)
+    library_repo = LibraryRepository(session)
+    library_service = LibraryService(session, library_repo)
+    active_library = library_service.get_active_library()
+
+    if not active_library:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No active library configured. Cannot import downloads.",
+        )
+
+    # Create session factory using the app's engine
+    session_factory = EngineSessionFactory(request.app.state.engine)
+
+    return PVRImportService(session, session_factory, active_library)
 
 
 @router.get("/queue", response_model=DownloadQueue)
 def get_queue(
     service: Annotated[DownloadService, Depends(get_download_service)],
 ) -> DownloadQueue:
-    """Get active downloads (queue)."""
+    """Get current download queue.
+
+    Returns
+    -------
+    DownloadQueue
+        Active downloads.
+    """
     items = service.get_active_downloads()
     return DownloadQueue(items=list(items), total_count=len(items))
 
@@ -66,51 +90,130 @@ def get_queue(
 @router.get("/history", response_model=DownloadHistory)
 def get_history(
     service: Annotated[DownloadService, Depends(get_download_service)],
-    limit: int = Query(default=100, ge=1, le=1000),
-    offset: int = Query(default=0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
 ) -> DownloadHistory:
-    """Get download history."""
-    items = service.get_download_history(limit=limit, offset=offset)
+    """Get download history.
+
+    Parameters
+    ----------
+    service : DownloadService
+        Download service.
+    limit : int
+        Maximum number of items to return.
+    offset : int
+        Number of items to skip.
+
+    Returns
+    -------
+    DownloadHistory
+        Completed/failed downloads.
+    """
+    items = service.get_download_history(limit, offset)
     return DownloadHistory(items=list(items), total_count=len(items))
 
 
-@router.delete("/{download_id}", response_model=DownloadItem)
+@router.post("/{item_id}/cancel", status_code=status.HTTP_204_NO_CONTENT)
 def cancel_download(
-    download_id: int,
+    item_id: int,
     service: Annotated[DownloadService, Depends(get_download_service)],
-) -> DownloadItem:
-    """Cancel a download.
+) -> None:
+    """Cancel an active download.
 
-    Removes the download from the client and marks it as REMOVED in the database.
+    Parameters
+    ----------
+    item_id : int
+        ID of the download item.
+    service : DownloadService
+        Download service.
     """
     try:
-        return service.cancel_download(download_id)
+        service.cancel_download(item_id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-
-
-@router.post("/{download_id}/import")
-def force_import(
-    download_id: int,
-    session: Annotated[Session, Depends(get_db_session)],
-    import_service: Annotated[PVRImportService, Depends(get_import_service)],
-) -> dict[str, str]:
-    """Force retry import for a download item.
-
-    Useful if an import failed due to temporary issues or manual intervention
-    is required (e.g., fixing a corrupt archive).
-    """
-    item = session.get(DownloadItem, download_id)
-    if not item:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Download item not found"
-        )
-
-    try:
-        import_service.process_completed_download(item)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Import failed: {e}"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Download item not found or cannot be cancelled",
         ) from e
 
-    return {"status": "imported", "message": "Download imported successfully"}
+
+@router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_download(
+    item_id: int,
+    service: Annotated[DownloadService, Depends(get_download_service)],
+) -> None:
+    """Remove a download item (history or queue).
+
+    Parameters
+    ----------
+    item_id : int
+        ID of the download item.
+    service : DownloadService
+        Download service.
+    """
+    # Use cancel_download to remove item (it handles removal from client and DB update)
+    # If explicit deletion is needed, DownloadService should be updated.
+    try:
+        service.cancel_download(item_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Download item not found",
+        ) from e
+
+
+@router.post("/import-pending", status_code=status.HTTP_200_OK)
+def import_pending_downloads(
+    service: Annotated[PVRImportService, Depends(get_import_service)],
+) -> dict[str, int]:
+    """Trigger import of pending completed downloads.
+
+    Returns
+    -------
+    dict[str, int]
+        Number of imported items.
+    """
+    results = service.import_pending_downloads()
+    return {
+        "processed": results.total_processed,
+        "successful": results.successful,
+        "failed": results.failed,
+    }
+
+
+@router.post("/{item_id}/retry", status_code=status.HTTP_200_OK)
+def retry_download(
+    item_id: int,
+    session: Annotated[Session, Depends(get_db_session)],
+    service: Annotated[PVRImportService, Depends(get_import_service)],
+) -> dict[str, str]:
+    """Retry importing a specific download item.
+
+    Parameters
+    ----------
+    item_id : int
+        ID of the download item.
+    session : Session
+        Database session.
+    service : PVRImportService
+        Import service.
+
+    Returns
+    -------
+    dict[str, str]
+        Result message.
+    """
+    item = session.get(DownloadItem, item_id)
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Download item not found",
+        )
+
+    result = service.process_completed_download(item)
+    if result.is_success:
+        return {"status": "success", "message": "Download imported successfully"}
+
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=f"Import failed: {result.error_message}",
+    )

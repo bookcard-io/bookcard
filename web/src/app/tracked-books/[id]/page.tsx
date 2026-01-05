@@ -17,9 +17,9 @@
 
 import { useRouter } from "next/navigation";
 import { use } from "react";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { BookDetailView } from "@/components/tracked-books/detail/BookDetailView";
+import { TrackedBooksHeader } from "@/components/tracked-books/TrackedBooksHeader";
 import { useTrackedBook } from "@/hooks/useTrackedBook";
 
 interface TrackedBookDetailPageProps {
@@ -63,7 +63,7 @@ export default function TrackedBookDetailPage({
   return (
     <PageLayout>
       <div className="flex h-full flex-col">
-        <PageHeader title="Tracked Book" />
+        <TrackedBooksHeader></TrackedBooksHeader>
         <BookDetailView book={book} />
       </div>
     </PageLayout>
