@@ -24,7 +24,7 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, or_, select
 
 from bookcard.models.pvr import TrackedBook, TrackedBookStatus
 from bookcard.repositories.base import Repository
@@ -92,6 +92,27 @@ class TrackedBookRepository(Repository[TrackedBook]):
             TrackedBook.metadata_external_id == external_id,
         )
         return self._session.exec(stmt).first()
+
+    def search(self, query: str) -> list[TrackedBook]:
+        """Search tracked books by title or author.
+
+        Parameters
+        ----------
+        query : str
+            Search query.
+
+        Returns
+        -------
+        list[TrackedBook]
+            List of matching tracked books.
+        """
+        stmt = select(TrackedBook).where(
+            or_(
+                col(TrackedBook.title).ilike(f"%{query}%"),
+                col(TrackedBook.author).ilike(f"%{query}%"),
+            )
+        )
+        return list(self._session.exec(stmt).all())
 
 
 class TrackedBookService:
@@ -257,6 +278,65 @@ class TrackedBookService:
         if status:
             return self._repository.list_by_status(status)
         return list(self._repository.list())
+
+    def search_tracked_books(self, query: str) -> list[TrackedBook]:
+        """Search tracked books.
+
+        Parameters
+        ----------
+        query : str
+            Search query.
+
+        Returns
+        -------
+        list[TrackedBook]
+            List of matching tracked books.
+        """
+        return self._repository.search(query)
+
+    def get_search_suggestions(self, query: str) -> dict[str, Any]:
+        """Get search suggestions from tracked books.
+
+        Parameters
+        ----------
+        query : str
+            Search query.
+
+        Returns
+        -------
+        dict[str, Any]
+             Suggestions response.
+        """
+        books = self.search_tracked_books(query)
+
+        book_suggestions = [
+            {"id": b.id, "title": b.title, "author": b.author} for b in books
+        ]
+
+        # Extract authors
+        seen_authors = set()
+        author_suggestions = []
+        for b in books:
+            if b.author and b.author not in seen_authors:
+                seen_authors.add(b.author)
+                author_suggestions.append({"name": b.author})
+
+        # Extract tags
+        seen_tags = set()
+        tag_suggestions = []
+        for b in books:
+            if b.tags:
+                for tag in b.tags:
+                    if tag.lower().startswith(query.lower()) and tag not in seen_tags:
+                        seen_tags.add(tag)
+                        tag_suggestions.append({"name": tag})
+
+        return {
+            "books": book_suggestions,
+            "authors": author_suggestions,
+            "tags": tag_suggestions,
+            "series": [],
+        }
 
     def update_tracked_book(
         self, tracked_book_id: int, data: "TrackedBookUpdate"

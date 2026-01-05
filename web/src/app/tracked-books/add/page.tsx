@@ -25,11 +25,11 @@ import {
   FaGlobe,
   FaPlus,
 } from "react-icons/fa";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { PageLayout } from "@/components/layout/PageLayout";
-import { SearchInput } from "@/components/library/widgets/SearchInput";
 import { MetadataSearchProgress } from "@/components/metadata/MetadataSearchProgress";
 import { AddBookModal } from "@/components/tracked-books/AddBookModal";
+import { TrackedBooksHeader } from "@/components/tracked-books/TrackedBooksHeader";
+import { useAutoSearch } from "@/hooks/useAutoSearch";
 import {
   type MetadataRecord,
   useMetadataSearchStream,
@@ -81,6 +81,14 @@ function AddBookContent() {
     enabled: false, // Manual trigger
   });
 
+  // Auto-start search when page opens with initial query
+  useAutoSearch({
+    initialQuery,
+    startSearch,
+    setSearchQuery: setSearchTerm,
+    enabled: true,
+  });
+
   // Fetch tracked books on mount
   useEffect(() => {
     trackedBookService.getAll().then(setTrackedBooks).catch(console.error);
@@ -119,24 +127,6 @@ function AddBookContent() {
     },
     [startSearch],
   );
-
-  // Effect to trigger search when initialQuery is available
-  useEffect(() => {
-    if (
-      initialQuery &&
-      !state.isSearching &&
-      state.results.length === 0 &&
-      !state.error
-    ) {
-      handleSearch(initialQuery);
-    }
-  }, [
-    initialQuery,
-    handleSearch,
-    state.error,
-    state.isSearching,
-    state.results.length,
-  ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAddClick = (book: MetadataSearchResult) => {
     setSelectedBook(book);
@@ -199,7 +189,11 @@ function AddBookContent() {
 
   return (
     <div className="flex h-full w-full flex-col">
-      <PageHeader title="Add New Book" />
+      <TrackedBooksHeader
+        searchQuery={searchTerm}
+        onSearchChange={setSearchTerm}
+        onSubmit={handleSearch}
+      />
       <div className="flex flex-1 flex-col p-4 md:p-8">
         {selectedBook && (
           <AddBookModal
@@ -210,14 +204,6 @@ function AddBookContent() {
             isAdding={isAdding}
           />
         )}
-        <div className="mb-8">
-          <SearchInput
-            value={searchTerm}
-            onChange={setSearchTerm}
-            onSubmit={handleSearch}
-            placeholder="Search for books by title or author..."
-          />
-        </div>
 
         {state.totalProviders > 0 && <MetadataSearchProgress state={state} />}
 

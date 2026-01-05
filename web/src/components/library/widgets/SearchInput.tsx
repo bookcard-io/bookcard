@@ -19,6 +19,7 @@ import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { useSearchSuggestions } from "@/hooks/useSearchSuggestions";
 import { Search } from "@/icons/Search";
+import type { SearchSuggestionsService } from "@/services/searchSuggestionsService";
 import type { SearchSuggestion } from "@/types/search";
 import { SearchSuggestionsDropdown } from "./SearchSuggestionsDropdown";
 
@@ -44,6 +45,11 @@ export interface SearchInputProps {
    * Receives the suggestion object to allow type-specific handling.
    */
   onSuggestionClick?: (suggestion: SearchSuggestion) => void;
+  /**
+   * Service to fetch search suggestions.
+   * If not provided, uses the default service.
+   */
+  suggestionsService?: SearchSuggestionsService;
 }
 
 /**
@@ -62,6 +68,7 @@ export function SearchInput({
   onChange,
   onSubmit,
   onSuggestionClick,
+  suggestionsService,
 }: SearchInputProps) {
   const [query, setQuery] = useState(value);
   const [isInputFocused, setIsInputFocused] = useState(false);
@@ -76,6 +83,7 @@ export function SearchInput({
   const { suggestions, isLoading } = useSearchSuggestions({
     query,
     enabled: query.trim().length > 0,
+    service: suggestionsService,
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

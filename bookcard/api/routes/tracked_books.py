@@ -20,7 +20,7 @@ Business logic is delegated to services following SOLID principles.
 """
 
 import logging
-from typing import Annotated, NoReturn, cast
+from typing import Annotated, Any, NoReturn, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session
@@ -83,6 +83,32 @@ def _raise_not_found(tracked_book_id: int) -> NoReturn:
         status_code=status.HTTP_404_NOT_FOUND,
         detail=f"Tracked book {tracked_book_id} not found",
     )
+
+
+@router.get(
+    "/search/suggestions",
+    dependencies=[Depends(get_current_user)],
+)
+def search_tracked_book_suggestions(
+    q: str,
+    session: SessionDep,
+) -> dict[str, Any]:
+    """Get search suggestions for tracked books.
+
+    Parameters
+    ----------
+    q : str
+        Search query.
+    session : SessionDep
+        Database session dependency.
+
+    Returns
+    -------
+    dict[str, Any]
+        Search suggestions.
+    """
+    service = _get_tracked_book_service(session)
+    return service.get_search_suggestions(q)
 
 
 @router.get(
