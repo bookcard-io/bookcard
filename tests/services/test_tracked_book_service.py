@@ -690,7 +690,7 @@ class TestTrackedBookService:
                 service._library_service, "get_library", return_value=library_config
             ),
             patch(
-                "bookcard.services.tracked_book_service.BookService",
+                "bookcard.services.book_service.BookService",
                 return_value=mock_book_service,
             ),
         ):
