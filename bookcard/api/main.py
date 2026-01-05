@@ -74,7 +74,7 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
     # Create FastAPI app with lifespan
     app = FastAPI(
         title="Bookcard",
-        version="0.1.0",
+        version="0.2.0",
         summary="Self-hosted ebook management and reading API",
         lifespan=create_lifespan(cfg, engine),
     )
