@@ -3,7 +3,7 @@
   "info": {
     "title": "Bookcard",
     "summary": "Self-hosted ebook management and reading API",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "paths": {
     "/auth/config": {

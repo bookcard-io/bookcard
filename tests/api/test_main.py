@@ -413,7 +413,7 @@ def test_create_app_with_config(config_provided: bool, use_env: bool) -> None:
             app = create_app()
     assert isinstance(app, FastAPI)
     assert app.title == "Bookcard"
-    assert app.version == "0.1.0"
+    assert app.version == "0.2.0"
     assert app.summary == "Self-hosted ebook management and reading API"
 
 

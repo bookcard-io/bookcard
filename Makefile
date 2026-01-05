@@ -186,7 +186,7 @@ docs-deploy:
 		fi; \
 		if [ -z "$$VERSION" ]; then \
 			echo "Error: VERSION environment variable is required and could not be detected from pyproject.toml or web/package.json."; \
-			echo "Usage: VERSION=0.1.0 make docs-deploy"; \
+			echo "Usage: VERSION=0.2.0 make docs-deploy"; \
 			exit 1; \
 		fi; \
 		echo "Detected version: $$VERSION"; \
