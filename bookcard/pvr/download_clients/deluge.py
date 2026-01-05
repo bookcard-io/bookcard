@@ -32,8 +32,8 @@ from urllib.parse import urljoin
 import httpx
 
 from bookcard.pvr.base import (
-    BaseDownloadClient,
     DownloadClientSettings,
+    TrackingDownloadClient,
 )
 from bookcard.pvr.base.interfaces import (
     FileFetcherProtocol,
@@ -461,7 +461,7 @@ class DelugeProxy:
         self._request("label.set_torrent", hash_str, label)
 
 
-class DelugeClient(BaseDownloadClient):
+class DelugeClient(TrackingDownloadClient):
     """Deluge download client implementation.
 
     Implements BaseDownloadClient interface for Deluge JSON-RPC API.

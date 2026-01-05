@@ -248,7 +248,12 @@ class ProwlarrSyncService:
 
         if existing:
             self._update_indexer(
-                existing, indexer_url, config, protocol, indexer_type, p_indexer
+                existing,
+                indexer_url,
+                prowlarr_api_key,
+                protocol,
+                indexer_type,
+                p_indexer,
             )
             stats.updated += 1
         else:
@@ -261,7 +266,7 @@ class ProwlarrSyncService:
         self,
         existing: IndexerDefinition,
         indexer_url: str,
-        config: ProwlarrConfig,
+        prowlarr_api_key: str,
         protocol: str,
         indexer_type: str,
         p_indexer: ProwlarrIndexerResponse,
@@ -274,8 +279,8 @@ class ProwlarrSyncService:
             Existing indexer to update.
         indexer_url : str
             Constructed URL for the indexer.
-        config : ProwlarrConfig
-            Prowlarr configuration.
+        prowlarr_api_key : str
+            Decrypted Prowlarr API key.
         protocol : str
             Mapped protocol.
         indexer_type : str
@@ -283,7 +288,7 @@ class ProwlarrSyncService:
         p_indexer : ProwlarrIndexerResponse
             Prowlarr indexer data.
         """
-        api_key = config.api_key
+        api_key = prowlarr_api_key
         if api_key and self._encryptor:
             api_key = self._encryptor.encrypt(api_key)
 

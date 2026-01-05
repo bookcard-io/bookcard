@@ -11,7 +11,7 @@ export interface UseIndexersResult {
   indexers: Indexer[];
   isLoading: boolean;
   error: string | null;
-  refresh: () => Promise<void>;
+  refresh: (options?: { silent?: boolean }) => Promise<void>;
   createIndexer: (data: IndexerCreate) => Promise<Indexer>;
   updateIndexer: (id: number, data: IndexerUpdate) => Promise<Indexer>;
   deleteIndexer: (id: number) => Promise<void>;
@@ -24,35 +24,42 @@ export function useIndexers(enabled = true): UseIndexersResult {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchIndexers = useCallback(async () => {
-    if (!enabled) {
-      return;
-    }
+  const fetchIndexers = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (!enabled) {
+        return;
+      }
 
-    setIsLoading(true);
-    setError(null);
+      if (!options?.silent) {
+        setIsLoading(true);
+      }
+      setError(null);
 
-    try {
-      const url = "/api/indexers";
-      const fetchKey = generateFetchKey(url, { method: "GET" });
+      try {
+        const url = "/api/indexers";
+        const fetchKey = generateFetchKey(url, { method: "GET" });
 
-      const result = await deduplicateFetch(fetchKey, async () => {
-        const response = await fetch(url);
-        if (!response.ok) {
-          const errorData = (await response.json()) as { detail?: string };
-          throw new Error(errorData.detail || "Failed to fetch indexers");
+        const result = await deduplicateFetch(fetchKey, async () => {
+          const response = await fetch(url);
+          if (!response.ok) {
+            const errorData = (await response.json()) as { detail?: string };
+            throw new Error(errorData.detail || "Failed to fetch indexers");
+          }
+          return (await response.json()) as { items: Indexer[]; total: number };
+        });
+
+        setIndexers(result.items);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        setError(message);
+      } finally {
+        if (!options?.silent) {
+          setIsLoading(false);
         }
-        return (await response.json()) as { items: Indexer[]; total: number };
-      });
-
-      setIndexers(result.items);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown error";
-      setError(message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [enabled]);
+      }
+    },
+    [enabled],
+  );
 
   useEffect(() => {
     void fetchIndexers();
@@ -111,27 +118,18 @@ export function useIndexers(enabled = true): UseIndexersResult {
     setIndexers((prev) => prev.filter((indexer) => indexer.id !== id));
   }, []);
 
-  const testConnection = useCallback(
-    async (id: number) => {
-      const response = await fetch(`/api/indexers/${id}/test`, {
-        method: "POST",
-      });
+  const testConnection = useCallback(async (id: number) => {
+    const response = await fetch(`/api/indexers/${id}/test`, {
+      method: "POST",
+    });
 
-      if (!response.ok) {
-        const errorData = (await response.json()) as { detail?: string };
-        throw new Error(errorData.detail || "Failed to test connection");
-      }
+    if (!response.ok) {
+      const errorData = (await response.json()) as { detail?: string };
+      throw new Error(errorData.detail || "Failed to test connection");
+    }
 
-      const result = (await response.json()) as IndexerTestResponse;
-
-      if (result.success) {
-        void fetchIndexers();
-      }
-
-      return result;
-    },
-    [fetchIndexers],
-  );
+    return (await response.json()) as IndexerTestResponse;
+  }, []);
 
   const testNewConnection = useCallback(async (data: IndexerCreate) => {
     const response = await fetch("/api/indexers/test", {

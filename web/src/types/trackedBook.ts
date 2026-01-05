@@ -13,11 +13,26 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+export interface BookFile {
+  name: string;
+  format: string;
+  size: number;
+  path: string;
+}
+
 export interface TrackedBook {
   id: number;
   title: string;
   author: string;
-  status: "wanted" | "searching" | "downloading" | "completed" | "failed";
+  status:
+    | "wanted"
+    | "searching"
+    | "downloading"
+    | "paused"
+    | "stalled"
+    | "seeding"
+    | "completed"
+    | "failed";
   library_id?: number;
   cover_url?: string;
   created_at?: string;
@@ -33,6 +48,7 @@ export interface TrackedBook {
   auto_download_enabled?: boolean;
   preferred_formats?: string[];
   monitor_mode?: MonitorMode;
+  files?: BookFile[];
 }
 
 export enum MonitorMode {

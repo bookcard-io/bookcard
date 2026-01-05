@@ -650,3 +650,55 @@ class TestTrackedBookService:
             assert book_id == 100
             assert has_files is True
             mock_get_active.assert_called_once()
+
+    def test_get_book_files_with_calibre_match(
+        self,
+        session: DummySession,
+        tracked_book: TrackedBook,
+        library_config: Library,
+    ) -> None:
+        """Test get_book_files retrieves files from Calibre match.
+
+        Parameters
+        ----------
+        session : DummySession
+            Database session fixture.
+        tracked_book : TrackedBook
+            Tracked book fixture.
+        library_config : Library
+            Library configuration fixture.
+        """
+        service = TrackedBookService(cast("Session", session))
+        tracked_book.matched_book_id = 100
+        tracked_book.matched_library_id = 1
+
+        # Mock dependencies
+        mock_book_service = MagicMock()
+        mock_full_book = MagicMock()
+        # Simulate what _fetch_formats_for_book returns: dict with 'size' key
+        mock_full_book.formats = [{"format": "EPUB", "size": 1024, "name": "test"}]
+        mock_book_service.get_book_full.return_value = mock_full_book
+
+        # Mock path return
+        mock_path = MagicMock()
+        mock_path.name = "test.epub"
+        mock_path.__str__.return_value = "/tmp/test.epub"
+        mock_book_service.get_format_file_path.return_value = mock_path
+
+        with (
+            patch.object(
+                service._library_service, "get_library", return_value=library_config
+            ),
+            patch(
+                "bookcard.services.book_service.BookService",
+                return_value=mock_book_service,
+            ),
+        ):
+            files = service.get_book_files(tracked_book)
+
+            assert len(files) == 1
+            assert files[0]["format"] == "EPUB"
+            assert (
+                files[0]["size"] == 1024
+            )  # This confirms the fix works (reading 'size' key)
+            assert files[0]["name"] == "test.epub"

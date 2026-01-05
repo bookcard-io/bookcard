@@ -16,6 +16,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import { BookEditModal } from "@/components/books/BookEditModal";
 import { BookViewModal } from "@/components/books/BookViewModal";
@@ -32,6 +33,7 @@ import { useShelvesContext } from "@/contexts/ShelvesContext";
 import { useUser } from "@/contexts/UserContext";
 import { useMainContent } from "@/hooks/useMainContent";
 import { deleteShelf } from "@/services/shelfService";
+import type { Book } from "@/types/book";
 
 // Lazily load views to ensure only the active one mounts and fetches on first paint
 const BooksGrid = dynamic(
@@ -83,6 +85,7 @@ export function MainContent() {
   const shelvesGridSelectionControlRef = useRef<{
     clearSelection: () => void;
   } | null>(null);
+  const router = useRouter();
 
   // Handle shelf card click (navigate to library tab and filter)
   const handleShelfClick = useCallback(
@@ -114,6 +117,17 @@ export function MainContent() {
   const handleDeselectAll = useCallback(() => {
     shelvesGridSelectionControlRef.current?.clearSelection();
   }, []);
+
+  const handleBookClick = useCallback(
+    (book: Book) => {
+      if (book.is_virtual && book.tracking_id) {
+        router.push(`/tracked-books/${book.tracking_id}`);
+      } else {
+        bookModal.handleBookClick(book);
+      }
+    },
+    [bookModal, router],
+  );
 
   return (
     <>
@@ -179,7 +193,7 @@ export function MainContent() {
                 shelfId={selectedShelfId}
                 sortBy={sorting.sortBy}
                 sortOrder={sorting.sortOrder}
-                onBookClick={bookModal.handleBookClick}
+                onBookClick={handleBookClick}
                 onBookEdit={isGuest ? undefined : bookEditModal.handleEditBook}
                 bookDataUpdateRef={booksGridBookDataUpdateRef}
                 onBooksDataChange={setBooksNavigationData}
@@ -192,7 +206,7 @@ export function MainContent() {
                 shelfId={selectedShelfId}
                 sortBy={sorting.sortBy}
                 sortOrder={sorting.sortOrder}
-                onBookClick={bookModal.handleBookClick}
+                onBookClick={handleBookClick}
                 onBookEdit={isGuest ? undefined : bookEditModal.handleEditBook}
                 bookDataUpdateRef={booksGridBookDataUpdateRef}
                 onBooksDataChange={setBooksNavigationData}
@@ -209,7 +223,7 @@ export function MainContent() {
         )}
         {activeTab === "discovery" && (
           <DiscoveryTab
-            onBookClick={bookModal.handleBookClick}
+            onBookClick={handleBookClick}
             onBookEdit={bookEditModal.handleEditBook}
             onBooksDataChange={setBooksNavigationData}
           />

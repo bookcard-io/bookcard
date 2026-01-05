@@ -16,7 +16,15 @@
 "use client";
 
 import type { IconType } from "react-icons";
-import { FaCheck, FaDownload, FaSearch } from "react-icons/fa";
+import {
+  FaCheck,
+  FaDownload,
+  FaExclamation,
+  FaExclamationCircle,
+  FaPause,
+  FaSearch,
+  FaUpload,
+} from "react-icons/fa";
 import { cn } from "@/libs/utils";
 
 interface StatusConfig {
@@ -46,6 +54,22 @@ const STATUS_CONFIGS: Record<string, StatusConfig> = {
     colorClass: "bg-warning-a10/20 text-warning-a10 border-warning-a10/30",
     icon: FaSearch,
     animate: true,
+  },
+  paused: {
+    colorClass: "bg-warning-a10/20 text-warning-a10 border-warning-a10/30",
+    icon: FaPause,
+  },
+  stalled: {
+    colorClass: "bg-warning-a10/20 text-warning-a10 border-warning-a10/30",
+    icon: FaExclamation,
+  },
+  seeding: {
+    colorClass: "bg-success-a10/20 text-success-a10 border-success-a10/30",
+    icon: FaUpload,
+  },
+  failed: {
+    colorClass: "bg-danger-a10/20 text-danger-a10 border-danger-a10/30",
+    icon: FaExclamationCircle,
   },
 };
 

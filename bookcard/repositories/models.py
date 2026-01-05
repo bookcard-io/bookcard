@@ -50,6 +50,10 @@ class BookWithRelations:
     authors: list[str]
     series: str | None
     formats: list[dict[str, str | int]]
+    tracking_status: str | None = None
+    is_virtual: bool = False
+    tracking_id: int | None = None
+    cover_url: str | None = None
 
 
 @dataclass
@@ -102,6 +106,10 @@ class BookWithFullRelations:
     rating: int | None
     rating_id: int | None
     formats: list[dict[str, str | int]]
+    tracking_status: str | None = None
+    is_virtual: bool = False
+    tracking_id: int | None = None
+    cover_url: str | None = None
 
 
 @dataclass

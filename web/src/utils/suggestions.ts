@@ -37,7 +37,11 @@ export function flattenSuggestions(
   const suggestions: SearchSuggestion[] = [];
 
   response.books.forEach((item) => {
-    suggestions.push({ type: "BOOK", id: item.id, name: item.name });
+    suggestions.push({
+      type: "BOOK",
+      id: item.id,
+      name: item.title || item.name,
+    });
   });
 
   response.authors.forEach((item) => {

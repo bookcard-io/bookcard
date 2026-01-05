@@ -23,6 +23,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, TypeVar
 
+from bookcard.common.clock import Clock, UTCClock
 from bookcard.models.pvr import DownloadItemStatus
 from bookcard.pvr.models import DownloadItem
 from bookcard.services.download.status_mapper import (
@@ -44,15 +45,22 @@ class DownloadItemUpdater:
     Follows SRP by focusing solely on item update logic.
     """
 
-    def __init__(self, status_mapper: ClientStatusMapper | None = None) -> None:
+    def __init__(
+        self,
+        status_mapper: ClientStatusMapper | None = None,
+        clock: Clock | None = None,
+    ) -> None:
         """Initialize updater.
 
         Parameters
         ----------
         status_mapper : ClientStatusMapper | None
             Status mapper to use. If None, uses DefaultStatusMapper.
+        clock : Clock | None
+            Time provider.
         """
         self._status_mapper = status_mapper or DefaultStatusMapper()
+        self._clock = clock or UTCClock()
 
     def update(self, db_item: "DBDownloadItem", client_item: DownloadItem) -> None:
         """Update database item with client information.
@@ -68,6 +76,7 @@ class DownloadItemUpdater:
         self._update_status(db_item, client_item)
         self._update_metadata(db_item, client_item)
         self._handle_completion(db_item)
+        self._handle_failure(db_item)
 
     def _update_progress(
         self, db_item: "DBDownloadItem", client_item: DownloadItem
@@ -135,7 +144,18 @@ class DownloadItemUpdater:
             Database item to check.
         """
         if db_item.status == DownloadItemStatus.COMPLETED and not db_item.completed_at:
-            db_item.completed_at = datetime.now(UTC)
+            db_item.completed_at = self._clock.now()
+
+    def _handle_failure(self, db_item: "DBDownloadItem") -> None:
+        """Handle download failure.
+
+        Parameters
+        ----------
+        db_item : DownloadItem
+            Database item to check.
+        """
+        if db_item.status == DownloadItemStatus.FAILED and not db_item.error_message:
+            db_item.error_message = "Download failed reported by client"
 
     def _safe_extract(
         self,
@@ -175,11 +195,5 @@ class DownloadItemUpdater:
 
     @staticmethod
     def utc_now() -> datetime:
-        """Get current UTC datetime.
-
-        Returns
-        -------
-        datetime
-            Current UTC datetime.
-        """
+        """Get current UTC datetime."""
         return datetime.now(UTC)

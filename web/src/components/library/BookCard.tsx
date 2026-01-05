@@ -111,6 +111,28 @@ export function BookCard({
 
   const handleKeyDown = createEnterSpaceHandler(handleClick);
 
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "wanted":
+        return "bg-surface-tonal-a40/50 text-text-a0 backdrop-blur-md";
+      case "searching":
+        return "bg-info-a0/50 text-white backdrop-blur-md";
+      case "downloading":
+        return "bg-info-a0/50 text-white backdrop-blur-md";
+      case "seeding":
+        return "bg-success-a0/50 text-white backdrop-blur-md";
+      case "paused":
+      case "stalled":
+        return "bg-warning-a0/50 text-white backdrop-blur-md";
+      case "failed":
+        return "bg-danger-a0/50 text-white backdrop-blur-md";
+      case "completed":
+        return "bg-success-a0/50 text-white backdrop-blur-md";
+      default:
+        return "bg-surface-tonal-a40/50 text-text-a0 backdrop-blur-md";
+    }
+  };
+
   return (
     <>
       <Layout
@@ -124,11 +146,20 @@ export function BookCard({
               title={book.title}
               thumbnailUrl={book.thumbnail_url}
             />
-            <BookCardReadingCorner
-              bookId={book.id}
-              readingSummary={book.reading_summary ?? null}
-            />
-            {showActions && variant === "default" && (
+            {book.is_virtual && book.tracking_status && (
+              <div
+                className={`absolute top-2 right-2 z-10 rounded px-2 py-0.5 font-medium text-[0.725rem] uppercase tracking-wider shadow-sm ${getStatusColor(book.tracking_status)}`}
+              >
+                {book.tracking_status}
+              </div>
+            )}
+            {book.is_virtual ? null : (
+              <BookCardReadingCorner
+                bookId={book.id}
+                readingSummary={book.reading_summary ?? null}
+              />
+            )}
+            {showActions && variant === "default" && !book.is_virtual && (
               <div className="hidden md:block">
                 <BookCardOverlay selected={selected}>
                   {!selected && <BookCardCenterActions book={book} />}
@@ -155,7 +186,8 @@ export function BookCard({
           <BookCardMetadata title={book.title} authors={book.authors} />
         }
         actions={
-          showActions && (
+          showActions &&
+          !book.is_virtual && (
             <BookCardActions
               book={book}
               allBooks={allBooks}
@@ -175,7 +207,7 @@ export function BookCard({
         }
       />
 
-      {showActions && (
+      {showActions && !book.is_virtual && (
         <>
           <BookCardMenu
             isOpen={menu.isMenuOpen}

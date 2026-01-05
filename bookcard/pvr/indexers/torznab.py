@@ -49,6 +49,7 @@ from bookcard.pvr.indexers.parsers import (
     AttributeExtractor,
     CompositeReleaseParser,
     DownloadUrlExtractor,
+    GuidExtractor,
     MetadataExtractor,
     PublishDateExtractor,
     ReleaseFieldExtractor,
@@ -248,6 +249,7 @@ class TorznabParser:
 
         extractors: dict[str, ReleaseFieldExtractor] = {
             "title": TitleExtractor(),
+            "guid": GuidExtractor(),
             "download_url": DownloadUrlExtractor(namespace=self.ns),
             "size_bytes": SizeExtractor(namespace=self.ns),
             "publish_date": PublishDateExtractor(),
@@ -310,6 +312,7 @@ class TorznabParser:
                     release = ReleaseInfo(
                         indexer_id=indexer_id,
                         title=data.get("title"),  # type: ignore
+                        guid=data.get("guid"),
                         download_url=data.get("download_url"),  # type: ignore
                         size_bytes=data.get("size_bytes"),
                         publish_date=data.get("publish_date"),

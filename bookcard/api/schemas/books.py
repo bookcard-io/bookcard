@@ -141,6 +141,18 @@ class BookRead(BaseModel):
     rating_id: int | None = None
     formats: list[dict[str, str | int]] = Field(default_factory=list)
     reading_summary: BookReadingSummary | None = None
+    tracking_status: str | None = Field(
+        default=None,
+        description="Tracking status for virtual books (e.g., 'wanted', 'downloading')",
+    )
+    is_virtual: bool = Field(
+        default=False,
+        description="Whether this is a virtual book (tracked but not in library)",
+    )
+    tracking_id: int | None = Field(
+        default=None,
+        description="ID of the tracked book record if this is a virtual book",
+    )
 
 
 class BookUpdate(BaseModel):

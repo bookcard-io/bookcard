@@ -34,11 +34,16 @@ import { StatusBadge } from "./StatusBadge";
 interface BookHeaderProps {
   book: TrackedBook;
   onSearchClick: () => void;
+  onDeleteClick: () => void;
 }
 
 const MAX_TAGS = 10;
 
-export function BookHeader({ book, onSearchClick }: BookHeaderProps) {
+export function BookHeader({
+  book,
+  onSearchClick,
+  onDeleteClick,
+}: BookHeaderProps) {
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const uniqueTags = Array.from(new Set(book.tags || []));
   const visibleTags = tagsExpanded ? uniqueTags : uniqueTags.slice(0, MAX_TAGS);
@@ -155,7 +160,7 @@ export function BookHeader({ book, onSearchClick }: BookHeaderProps) {
             onAutomatedSearchClick={() => {}} // Placeholder
             onEditClick={() => {}} // Placeholder
             onManualImportClick={() => {}} // Placeholder
-            onDeleteClick={() => {}} // Placeholder
+            onDeleteClick={onDeleteClick}
           />
         </div>
 

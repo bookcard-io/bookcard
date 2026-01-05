@@ -14,7 +14,10 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import {
+  FaCheckCircle,
+  FaClock,
   FaCloudDownloadAlt,
+  FaExclamationTriangle,
   FaSort,
   FaSortDown,
   FaSortUp,
@@ -117,6 +120,12 @@ export function SearchResultsTable({
               className="break-words font-medium"
               title={result.release.title}
             >
+              {result.release.warning && (
+                <FaExclamationTriangle
+                  className="mr-2 inline text-warning-a10"
+                  title={result.release.warning}
+                />
+              )}
               {result.release.title}
             </div>
             <div className="truncate text-text-a30">
@@ -150,19 +159,51 @@ export function SearchResultsTable({
               </span>
             </div>
             <div className="flex justify-center">
-              <Button
-                size="xsmall"
-                variant="neutral"
-                onClick={() => onDownload(idx)}
-                disabled={downloadingIndex === idx}
-                title="Download"
-              >
-                {downloadingIndex === idx ? (
-                  <FaSpinner className="animate-spin text-lg" />
-                ) : (
-                  <FaCloudDownloadAlt className="text-lg" />
-                )}
-              </Button>
+              {(() => {
+                const status = result.download_status?.toLowerCase();
+                const isActiveOrCompleted =
+                  status &&
+                  [
+                    "queued",
+                    "downloading",
+                    "paused",
+                    "stalled",
+                    "seeding",
+                    "completed",
+                  ].includes(status);
+
+                if (isActiveOrCompleted) {
+                  const isCompleted =
+                    status === "completed" || status === "seeding";
+                  return (
+                    <div
+                      className={`flex items-center gap-1.5 font-medium text-xs ${
+                        isCompleted ? "text-success-a10" : "text-primary-a10"
+                      }`}
+                      title={`Status: ${result.download_status}`}
+                    >
+                      {isCompleted ? <FaCheckCircle /> : <FaClock />}
+                      <span className="capitalize">{status}</span>
+                    </div>
+                  );
+                }
+
+                return (
+                  <Button
+                    size="xsmall"
+                    variant={status === "failed" ? "danger" : "neutral"}
+                    onClick={() => onDownload(idx)}
+                    disabled={downloadingIndex === idx}
+                    title={status === "failed" ? "Retry Download" : "Download"}
+                  >
+                    {downloadingIndex === idx ? (
+                      <FaSpinner className="animate-spin text-lg" />
+                    ) : (
+                      <FaCloudDownloadAlt className="text-lg" />
+                    )}
+                  </Button>
+                );
+              })()}
             </div>
           </div>
         ))

@@ -288,6 +288,9 @@ def upgrade() -> None:
                 "WANTED",
                 "SEARCHING",
                 "DOWNLOADING",
+                "PAUSED",
+                "STALLED",
+                "SEEDING",
                 "COMPLETED",
                 "FAILED",
                 "IGNORED",
@@ -395,6 +398,11 @@ def upgrade() -> None:
             sqlmodel.AutoString(length=255),
             nullable=False,
         ),
+        sa.Column(
+            "guid",
+            sqlmodel.AutoString(length=255),
+            nullable=True,
+        ),
         sa.Column("title", sqlmodel.AutoString(length=500), nullable=False),
         sa.Column(
             "download_url",
@@ -408,6 +416,8 @@ def upgrade() -> None:
                 "QUEUED",
                 "DOWNLOADING",
                 "PAUSED",
+                "STALLED",
+                "SEEDING",
                 "COMPLETED",
                 "FAILED",
                 "REMOVED",
@@ -463,6 +473,12 @@ def upgrade() -> None:
         op.f("ix_download_items_client_item_id"),
         "download_items",
         ["client_item_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_download_items_guid"),
+        "download_items",
+        ["guid"],
         unique=False,
     )
     op.create_index(
@@ -534,6 +550,7 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_download_items_created_at"), table_name="download_items")
     op.drop_index(op.f("ix_download_items_completed_at"), table_name="download_items")
     op.drop_index(op.f("ix_download_items_client_item_id"), table_name="download_items")
+    op.drop_index(op.f("ix_download_items_guid"), table_name="download_items")
     op.drop_index("idx_download_items_tracked_book_status", table_name="download_items")
     op.drop_index("idx_download_items_status_created", table_name="download_items")
     op.drop_index("idx_download_items_client_item_id", table_name="download_items")

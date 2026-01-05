@@ -127,6 +127,17 @@ class PublishDateExtractor(ReleaseFieldExtractor):
         return extract_publish_date_from_xml(item)
 
 
+class GuidExtractor(ReleaseFieldExtractor):
+    """Extracts GUID."""
+
+    def extract(self, item: ET.Element) -> str | None:
+        """Extract GUID from item."""
+        guid_elem = item.find("guid")
+        if guid_elem is not None and guid_elem.text:
+            return guid_elem.text.strip()
+        return None
+
+
 class AttributeExtractor(NamespaceAwareExtractor, ReleaseFieldExtractor):
     """Extracts a generic attribute from the namespace."""
 

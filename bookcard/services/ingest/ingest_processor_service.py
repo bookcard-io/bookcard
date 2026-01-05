@@ -51,6 +51,9 @@ from bookcard.services.ingest.metadata_query import MetadataQuery
 
 logger = logging.getLogger(__name__)
 
+# Set to True to enable DeDRM processing on ingest
+ENABLE_DEDRM_ON_INGEST = False
+
 
 class IngestProcessorService:
     """Service for processing file groups during ingest.
@@ -222,6 +225,13 @@ class IngestProcessorService:
         title: str | None = None,
         author_name: str | None = None,
         pubdate: datetime | None = None,
+        description: str | None = None,
+        publisher: str | None = None,
+        identifiers: list[dict[str, str]] | None = None,
+        language_codes: list[str] | None = None,
+        tags: list[str] | None = None,
+        rating: int | None = None,
+        cover_url: str | None = None,
     ) -> int:
         """Add a book file to the library.
 
@@ -239,6 +249,20 @@ class IngestProcessorService:
             Optional author name.
         pubdate : datetime | None
             Optional publication date.
+        description : str | None
+            Optional book description.
+        publisher : str | None
+            Optional publisher name.
+        identifiers : list[dict[str, str]] | None
+            Optional list of identifiers (e.g. [{'type': 'isbn', 'val': '...'}]).
+        language_codes : list[str] | None
+            Optional list of language codes.
+        tags : list[str] | None
+            Optional list of tags.
+        rating : int | None
+            Optional rating (0-10).
+        cover_url : str | None
+            Optional cover URL to set.
 
         Returns
         -------
@@ -266,19 +290,7 @@ class IngestProcessorService:
         book_service = self._book_service_factory(library)
 
         # Attempt to strip DRM
-        processed_file_path = file_path
-        try:
-            processed_file_path = self._dedrm_service.strip_drm(file_path)
-            if processed_file_path != file_path:
-                logger.info(
-                    "DeDRM processed file: %s -> %s", file_path, processed_file_path
-                )
-        except (RuntimeError, FileNotFoundError, OSError) as e:
-            logger.warning(
-                "DeDRM failed for %s: %s. Proceeding with original file.", file_path, e
-            )
-            # Proceed with original file path
-            processed_file_path = file_path
+        processed_file_path = self._process_file_drm(file_path)
 
         try:
             book_id = book_service.add_book(
@@ -289,15 +301,28 @@ class IngestProcessorService:
                 pubdate=pubdate,
             )
         finally:
-            # Clean up processed file if it's different from original and exists
-            # (DeDRMService returns a temp file that should be cleaned up)
-            if processed_file_path != file_path and processed_file_path.exists():
-                try:
-                    processed_file_path.unlink()
-                except OSError:
-                    logger.warning(
-                        "Failed to delete temp file: %s", processed_file_path
-                    )
+            self._cleanup_processed_file(file_path, processed_file_path)
+
+        # Update additional metadata if provided
+        if any([description, publisher, identifiers, language_codes, tags, rating]):
+            try:
+                book_service.update_book(
+                    book_id=book_id,
+                    description=description,
+                    publisher_name=publisher,
+                    identifiers=identifiers,
+                    language_codes=language_codes,
+                    tag_names=tags,
+                    rating_value=rating,
+                )
+            except (ValueError, RuntimeError, OSError) as e:
+                logger.warning(
+                    "Failed to update additional metadata for book %d: %s", book_id, e
+                )
+
+        # Set cover if provided
+        if cover_url:
+            self.set_book_cover(book_id, cover_url)
 
         # Update history with book ID
         if history.book_id is None:
@@ -319,6 +344,93 @@ class IngestProcessorService:
         )
 
         return book_id
+
+    def add_format_to_book(
+        self,
+        book_id: int,
+        file_path: Path,
+        file_format: str,
+    ) -> None:
+        """Add a format to an existing book.
+
+        Parameters
+        ----------
+        book_id : int
+            Book ID.
+        file_path : Path
+            Path to format file.
+        file_format : str
+            File format extension.
+        """
+        library = self._get_active_library_or_raise()
+        book_service = self._book_service_factory(library)
+
+        # Attempt to strip DRM
+        processed_file_path = self._process_file_drm(file_path)
+
+        try:
+            book_service.add_format(
+                book_id=book_id,
+                file_path=processed_file_path,
+                file_format=file_format,
+            )
+            logger.info("Added format %s to book %d", file_format, book_id)
+        except Exception:
+            logger.exception("Failed to add format %s to book %d", file_format, book_id)
+            # We don't re-raise here to allow partial success (main book + some formats)
+            # or maybe we should? The caller iterates.
+            raise
+        finally:
+            self._cleanup_processed_file(file_path, processed_file_path)
+
+    def _process_file_drm(self, file_path: Path) -> Path:
+        """Process file for DRM removal.
+
+        Parameters
+        ----------
+        file_path : Path
+            Original file path.
+
+        Returns
+        -------
+        Path
+            Processed file path (may be same as original).
+        """
+        if not ENABLE_DEDRM_ON_INGEST:
+            return file_path
+
+        processed_file_path = file_path
+        try:
+            processed_file_path = self._dedrm_service.strip_drm(file_path)
+            if processed_file_path != file_path:
+                logger.info(
+                    "DeDRM processed file: %s -> %s", file_path, processed_file_path
+                )
+        except (RuntimeError, FileNotFoundError, OSError) as e:
+            logger.warning(
+                "DeDRM failed for %s: %s. Proceeding with original file.", file_path, e
+            )
+            # Proceed with original file path
+            processed_file_path = file_path
+        return processed_file_path
+
+    def _cleanup_processed_file(
+        self, original_path: Path, processed_path: Path
+    ) -> None:
+        """Clean up processed file if it's a temporary copy.
+
+        Parameters
+        ----------
+        original_path : Path
+            Original file path.
+        processed_path : Path
+            Processed file path.
+        """
+        if processed_path != original_path and processed_path.exists():
+            try:
+                processed_path.unlink()
+            except OSError:
+                logger.warning("Failed to delete temp file: %s", processed_path)
 
     def set_book_cover(self, book_id: int, cover_url: str) -> None:
         """Set book cover from URL.
@@ -488,6 +600,21 @@ class IngestProcessorService:
         if history is None:
             raise IngestHistoryNotFoundError(history_id)
         return history
+
+    def create_book_service(self, library: Library) -> BookService:
+        """Create a BookService instance for the given library.
+
+        Parameters
+        ----------
+        library : Library
+            Library configuration.
+
+        Returns
+        -------
+        BookService
+            BookService instance.
+        """
+        return self._book_service_factory(library)
 
     def _get_active_library_or_raise(self) -> Library:
         """Get active library or raise exception if none exists.

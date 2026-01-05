@@ -36,6 +36,7 @@ from bookcard.models.kobo import (
 from bookcard.models.metadata_enforcement import (
     MetadataEnforcementOperation,
 )
+from bookcard.models.pvr import TrackedBook
 from bookcard.models.reading import (
     Annotation,
     AnnotationDirtied,
@@ -864,7 +865,9 @@ def test_delete_book_deletes_bookcard_associations_with_session() -> None:
             service.delete_book(book_id=123, delete_files_from_drive=False)
 
             # Verify Bookcard associations are deleted before Calibre deletion
-            mock_delete_associations.assert_called_once_with(123)
+            mock_delete_associations.assert_called_once_with(
+                123, delete_files_from_drive=False
+            )
             mock_repo.delete_book.assert_called_once()
 
 
@@ -922,8 +925,11 @@ def test_delete_bookcard_associations_deletes_all_model_types() -> None:
     mock_ingest_history = MagicMock(spec=IngestHistory)
 
     # Configure mock_session.exec to return different results for each model
-    # We'll return one record per call to simulate different model types
+    # First call is for TrackedBook query (returns empty list)
+    # Then 12 calls for the model types
+    mock_tracked_book = MagicMock(spec=TrackedBook)
     mock_records = [
+        [mock_tracked_book],  # TrackedBook query (first call)
         [mock_conversion],
         [mock_reading_progress],
         [mock_reading_session],
@@ -957,10 +963,12 @@ def test_delete_bookcard_associations_deletes_all_model_types() -> None:
     # Call the method
     service._delete_bookcard_associations(book_id)
 
-    # Verify session.exec was called for each model type (12 models)
-    assert mock_session.exec.call_count == 12
+    # Verify session.exec was called for TrackedBook + 12 model types = 13 calls
+    assert mock_session.exec.call_count == 13
 
-    # Verify session.delete was called for each record (12 records)
+    # Verify session.delete was called for each record (1 TrackedBook update + 12 model deletes = 13)
+    # Note: TrackedBook is updated (not deleted), but session.add is called, and session.delete
+    # is called for the 12 model records
     assert mock_session.delete.call_count == 12
 
     # Verify commit was called
@@ -985,8 +993,8 @@ def test_delete_bookcard_associations_handles_empty_results() -> None:
     # Call the method
     service._delete_bookcard_associations(123)
 
-    # Verify session.exec was called for each model type
-    assert mock_session.exec.call_count == 12
+    # Verify session.exec was called for TrackedBook + 12 model types = 13 calls
+    assert mock_session.exec.call_count == 13
 
     # Verify session.delete was never called (no records to delete)
     mock_session.delete.assert_not_called()

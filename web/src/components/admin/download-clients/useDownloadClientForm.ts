@@ -1,3 +1,18 @@
+// Copyright (C) 2025 knguyen and others
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import { useCallback, useEffect, useState } from "react";
 import {
   type DownloadClient,
@@ -6,7 +21,10 @@ import {
 } from "@/types/downloadClient";
 import { useDownloadClientConfig } from "./DownloadClientConfigContext";
 import { buildDownloadClientPayload } from "./DownloadClientPayloadBuilder";
-import type { DownloadClientFormDataRelaxed as DownloadClientFormData } from "./types";
+import type {
+  DownloadClientFormDataRelaxed as DownloadClientFormData,
+  PathMapping,
+} from "./types";
 
 // Re-export for consumers
 export type { DownloadClientFormData };
@@ -39,6 +57,7 @@ const DEFAULT_FORM_DATA: DownloadClientFormData = {
   magnet_file_extension: "",
   directory: "",
   download_path: "",
+  path_mappings: [],
 };
 
 export function useDownloadClientForm(initialData?: DownloadClient) {
@@ -81,6 +100,7 @@ export function useDownloadClientForm(initialData?: DownloadClient) {
         magnet_file_extension:
           (additional.magnet_file_extension as string) || "",
         directory: (additional.directory as string) || "",
+        path_mappings: (additional.path_mappings as PathMapping[]) || [],
       });
     } else {
       // Reset to defaults when opening fresh or when client type changes if needed
@@ -92,6 +112,7 @@ export function useDownloadClientForm(initialData?: DownloadClient) {
         port: config.defaultPort,
         url_base: config.defaultUrlBase || "",
         rpc_path: config.defaultRpcPath || "",
+        path_mappings: [],
       }));
     }
   }, [initialData, configs, formData.client_type]); // Depend on initialData and configs

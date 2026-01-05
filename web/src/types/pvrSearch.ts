@@ -39,6 +39,7 @@ export interface ReleaseInfoRead {
   description?: string;
   category?: string;
   additional_info?: Record<string, string | number | null>;
+  warning?: string;
 }
 
 export interface SearchResultRead {
@@ -47,6 +48,8 @@ export interface SearchResultRead {
   indexer_name?: string;
   indexer_priority: number;
   indexer_protocol?: string;
+  download_status?: string | null;
+  download_item_id?: number | null;
 }
 
 export interface PVRSearchResultsResponse {

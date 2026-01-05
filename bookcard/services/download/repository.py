@@ -93,6 +93,58 @@ class DownloadItemRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_by_tracked_book(self, tracked_book_id: int) -> Sequence[DownloadItem]:
+        """Get all download items for a tracked book.
+
+        Parameters
+        ----------
+        tracked_book_id : int
+            Tracked book ID.
+
+        Returns
+        -------
+        Sequence[DownloadItem]
+            List of download items for the tracked book.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_latest_by_url_and_tracked_book(
+        self, tracked_book_id: int, download_url: str
+    ) -> DownloadItem | None:
+        """Get latest download item by tracked book and url.
+
+        Parameters
+        ----------
+        tracked_book_id : int
+            Tracked book ID.
+        download_url : str
+            Download URL.
+
+        Returns
+        -------
+        DownloadItem | None
+            Latest download item if found, None otherwise.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_by_client(self, client_id: int) -> Sequence[DownloadItem]:
+        """Get all download items for a client.
+
+        Parameters
+        ----------
+        client_id : int
+            Client ID.
+
+        Returns
+        -------
+        Sequence[DownloadItem]
+            List of download items for the client.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def update(self, item: DownloadItem) -> None:
         """Update an existing download item.
 
@@ -171,6 +223,30 @@ class SQLModelDownloadItemRepository(DownloadItemRepository):
             .offset(offset)
             .limit(limit)
         )
+        return self._session.exec(stmt).all()
+
+    def get_by_tracked_book(self, tracked_book_id: int) -> Sequence[DownloadItem]:
+        """Get all download items for a tracked book."""
+        stmt = select(DownloadItem).where(
+            DownloadItem.tracked_book_id == tracked_book_id
+        )
+        return self._session.exec(stmt).all()
+
+    def get_latest_by_url_and_tracked_book(
+        self, tracked_book_id: int, download_url: str
+    ) -> DownloadItem | None:
+        """Get latest download item by tracked book and url."""
+        stmt = (
+            select(DownloadItem)
+            .where(DownloadItem.tracked_book_id == tracked_book_id)
+            .where(DownloadItem.download_url == download_url)
+            .order_by(desc(DownloadItem.created_at))
+        )
+        return self._session.exec(stmt).first()
+
+    def get_by_client(self, client_id: int) -> Sequence[DownloadItem]:
+        """Get all download items for a client."""
+        stmt = select(DownloadItem).where(DownloadItem.download_client_id == client_id)
         return self._session.exec(stmt).all()
 
     def update(self, item: DownloadItem) -> None:

@@ -144,3 +144,17 @@ def get_session(engine: Engine, max_retries: int = 3) -> Iterator[Session]:
         raise
     finally:
         session.close()
+
+
+class EngineSessionFactory:
+    """Factory that creates sessions from an engine."""
+
+    def __init__(self, engine: Engine) -> None:
+        """Initialize with database engine."""
+        self.engine = engine
+
+    @contextmanager
+    def create_session(self) -> Iterator[Session]:
+        """Create a new session context using get_session."""
+        with get_session(self.engine) as session:
+            yield session

@@ -19,13 +19,15 @@ Routes handle only HTTP concerns: request/response, status codes, exceptions.
 Business logic is delegated to services following SOLID principles.
 """
 
-from typing import Annotated
+import logging
+from typing import Annotated, Any, NoReturn, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session
 
 from bookcard.api.deps import get_current_user, get_db_session
 from bookcard.api.schemas.tracked_books import (
+    BookFileRead,
     TrackedBookCreate,
     TrackedBookListResponse,
     TrackedBookRead,
@@ -33,8 +35,10 @@ from bookcard.api.schemas.tracked_books import (
     TrackedBookUpdate,
 )
 from bookcard.models.auth import User
-from bookcard.models.pvr import TrackedBookStatus
+from bookcard.models.pvr import TrackedBook, TrackedBookStatus
 from bookcard.services.tracked_book_service import TrackedBookService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/tracked-books", tags=["tracked-books"])
 
@@ -62,7 +66,7 @@ def _get_tracked_book_service(
     return TrackedBookService(session)
 
 
-def _raise_not_found(tracked_book_id: int) -> None:
+def _raise_not_found(tracked_book_id: int) -> NoReturn:
     """Raise HTTPException for tracked book not found.
 
     Parameters
@@ -79,6 +83,32 @@ def _raise_not_found(tracked_book_id: int) -> None:
         status_code=status.HTTP_404_NOT_FOUND,
         detail=f"Tracked book {tracked_book_id} not found",
     )
+
+
+@router.get(
+    "/search/suggestions",
+    dependencies=[Depends(get_current_user)],
+)
+def search_tracked_book_suggestions(
+    q: str,
+    session: SessionDep,
+) -> dict[str, Any]:
+    """Get search suggestions for tracked books.
+
+    Parameters
+    ----------
+    q : str
+        Search query.
+    session : SessionDep
+        Database session dependency.
+
+    Returns
+    -------
+    dict[str, Any]
+        Search suggestions.
+    """
+    service = _get_tracked_book_service(session)
+    return service.get_search_suggestions(q)
 
 
 @router.get(
@@ -144,7 +174,29 @@ def get_tracked_book(
     book = service.get_tracked_book(tracked_book_id)
     if book is None:
         _raise_not_found(tracked_book_id)
-    return TrackedBookRead.model_validate(book)
+
+    # _raise_not_found raises an exception, so book is not None here.
+    # We cast to satisfy type checkers that might not infer NoReturn behavior fully across functions.
+    book = cast("TrackedBook", book)
+
+    # Manually construct response to avoid validation issues with relationship attributes
+    # when validation happens before we populate custom fields.
+    # We first validate the base book attributes
+    response = TrackedBookRead.model_validate(book)
+
+    # Populate files using service logic to keep route clean
+    # The files are not part of the TrackedBook model fields that Pydantic validates from attributes directly
+    # because they are loaded separately via relationship but we are using from_attributes=True.
+    # However, TrackedBookRead defines files as optional.
+    # Let's populate the Pydantic model with data including files if available.
+
+    files_data = service.get_book_files(book)
+    files_list = [BookFileRead(**f) for f in files_data] if files_data else []
+
+    # We can update the response object directly since Pydantic models are mutable
+    response.files = files_list
+
+    return response
 
 
 @router.post(
@@ -254,9 +306,18 @@ def delete_tracked_book(
         If tracked book not found.
     """
     service = _get_tracked_book_service(session)
-    deleted = service.delete_tracked_book(tracked_book_id)
-    if not deleted:
-        _raise_not_found(tracked_book_id)
+    try:
+        deleted = service.delete_tracked_book(tracked_book_id)
+        if not deleted:
+            _raise_not_found(tracked_book_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to delete tracked book %s", tracked_book_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete tracked book",
+        ) from e
 
 
 @router.get(

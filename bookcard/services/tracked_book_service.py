@@ -22,9 +22,9 @@ Follows SOLID principles:
 
 import logging
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, or_, select
 
 from bookcard.models.pvr import TrackedBook, TrackedBookStatus
 from bookcard.repositories.base import Repository
@@ -92,6 +92,27 @@ class TrackedBookRepository(Repository[TrackedBook]):
             TrackedBook.metadata_external_id == external_id,
         )
         return self._session.exec(stmt).first()
+
+    def search(self, query: str) -> list[TrackedBook]:
+        """Search tracked books by title or author.
+
+        Parameters
+        ----------
+        query : str
+            Search query.
+
+        Returns
+        -------
+        list[TrackedBook]
+            List of matching tracked books.
+        """
+        stmt = select(TrackedBook).where(
+            or_(
+                col(TrackedBook.title).ilike(f"%{query}%"),
+                col(TrackedBook.author).ilike(f"%{query}%"),
+            )
+        )
+        return list(self._session.exec(stmt).all())
 
 
 class TrackedBookService:
@@ -199,6 +220,7 @@ class TrackedBookService:
             metadata_source_id=data.metadata_source_id,
             metadata_external_id=data.metadata_external_id,
             status=status,
+            monitor_mode=data.monitor_mode,
             auto_search_enabled=data.auto_search_enabled,
             auto_download_enabled=data.auto_download_enabled,
             preferred_formats=data.preferred_formats,
@@ -256,6 +278,65 @@ class TrackedBookService:
         if status:
             return self._repository.list_by_status(status)
         return list(self._repository.list())
+
+    def search_tracked_books(self, query: str) -> list[TrackedBook]:
+        """Search tracked books.
+
+        Parameters
+        ----------
+        query : str
+            Search query.
+
+        Returns
+        -------
+        list[TrackedBook]
+            List of matching tracked books.
+        """
+        return self._repository.search(query)
+
+    def get_search_suggestions(self, query: str) -> dict[str, Any]:
+        """Get search suggestions from tracked books.
+
+        Parameters
+        ----------
+        query : str
+            Search query.
+
+        Returns
+        -------
+        dict[str, Any]
+             Suggestions response.
+        """
+        books = self.search_tracked_books(query)
+
+        book_suggestions = [
+            {"id": b.id, "title": b.title, "author": b.author} for b in books
+        ]
+
+        # Extract authors
+        seen_authors = set()
+        author_suggestions = []
+        for b in books:
+            if b.author and b.author not in seen_authors:
+                seen_authors.add(b.author)
+                author_suggestions.append({"name": b.author})
+
+        # Extract tags
+        seen_tags = set()
+        tag_suggestions = []
+        for b in books:
+            if b.tags:
+                for tag in b.tags:
+                    if tag.lower().startswith(query.lower()) and tag not in seen_tags:
+                        seen_tags.add(tag)
+                        tag_suggestions.append({"name": tag})
+
+        return {
+            "books": book_suggestions,
+            "authors": author_suggestions,
+            "tags": tag_suggestions,
+            "series": [],
+        }
 
     def update_tracked_book(
         self, tracked_book_id: int, data: "TrackedBookUpdate"
@@ -347,6 +428,100 @@ class TrackedBookService:
             self._session.refresh(tracked_book)
 
         return tracked_book
+
+    def update_search_status(
+        self, tracked_book_id: int, searched_at: datetime, status: TrackedBookStatus
+    ) -> None:
+        """Update search status of a tracked book.
+
+        Parameters
+        ----------
+        tracked_book_id : int
+            Tracked book ID.
+        searched_at : datetime
+            Timestamp of search.
+        status : TrackedBookStatus
+            New status.
+        """
+        tracked_book = self._repository.get(tracked_book_id)
+        if tracked_book:
+            tracked_book.last_searched_at = searched_at
+            tracked_book.status = status
+            tracked_book.updated_at = datetime.now(UTC)
+            self._session.add(tracked_book)
+            self._session.commit()
+
+    def get_book_files(self, book: TrackedBook) -> list[dict[str, Any]]:
+        """Get files for a tracked book.
+
+        Prioritizes persisted TrackedBookFile records.
+        Falls back to querying Calibre if matched_book_id is present.
+
+        Parameters
+        ----------
+        book : TrackedBook
+            The tracked book instance.
+
+        Returns
+        -------
+        list[dict[str, Any]]
+            List of file dictionaries with keys: name, format, size, path.
+        """
+        # 1. Use persisted files if available
+        if book.files:
+            return [
+                {
+                    "name": f.filename,
+                    "format": f.file_type,
+                    "size": f.size_bytes,
+                    "path": f.path,
+                }
+                for f in book.files
+            ]
+
+        # 2. Fallback to Calibre
+        if book.matched_book_id:
+            try:
+                # Import here to avoid circular dependencies
+                from bookcard.services.book_service import BookService
+
+                if book.matched_library_id:
+                    library = self._library_service.get_library(book.matched_library_id)
+                else:
+                    library = self._library_service.get_active_library()
+
+                if library:
+                    book_service = BookService(library, self._session)
+                    full_book = book_service.get_book_full(book.matched_book_id)
+
+                    if full_book and full_book.formats:
+                        files = []
+                        for fmt in full_book.formats:
+                            file_format = str(fmt.get("format", "")).upper()
+                            try:
+                                path = book_service.get_format_file_path(
+                                    book.matched_book_id, file_format
+                                )
+                                files.append({
+                                    "name": str(path.name),
+                                    "format": file_format,
+                                    "size": int(fmt.get("size", 0)),
+                                    "path": str(path),
+                                })
+                            except (ValueError, RuntimeError) as e:
+                                logger.debug(
+                                    "Failed to get file info for format %s: %s",
+                                    file_format,
+                                    e,
+                                )
+                                continue
+                        return files
+            except (ValueError, RuntimeError, OSError) as e:
+                logger.warning(
+                    "Failed to fetch files for tracked book %d: %s", book.id, e
+                )
+
+        return []
 
     def _find_library_match(
         self, title: str, author: str, library_id: int | None

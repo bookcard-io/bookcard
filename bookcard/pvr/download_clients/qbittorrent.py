@@ -25,14 +25,14 @@ import json
 import logging
 import pathlib
 from collections.abc import Callable, Sequence
-from typing import Any
+from typing import Any, ClassVar
 from urllib.parse import urljoin
 
 import httpx
 
 from bookcard.pvr.base import (
-    BaseDownloadClient,
     DownloadClientSettings,
+    TrackingDownloadClient,
 )
 from bookcard.pvr.base.interfaces import (
     FileFetcherProtocol,
@@ -51,6 +51,7 @@ from bookcard.pvr.exceptions import (
 )
 from bookcard.pvr.models import DownloadItem
 from bookcard.pvr.utils.status import DownloadStatus, StatusMapper
+from bookcard.pvr.utils.torrent import calculate_torrent_hash, extract_hash_from_magnet
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,9 @@ class QBittorrentProxy:
     Follows SRP by separating API communication from business logic.
     """
 
+    # Class-level cache for auth cookies: {(host, port, username): cookies}
+    _cookie_cache: ClassVar[dict[tuple[str, int, str], dict[str, str]]] = {}
+
     def __init__(self, settings: QBittorrentSettings) -> None:
         """Initialize qBittorrent proxy.
 
@@ -89,7 +93,27 @@ class QBittorrentProxy:
             settings.host, settings.port, settings.use_ssl, settings.url_base
         )
         logger.debug("Initialized qBittorrent proxy with base URL: %s", self.base_url)
-        self._auth_cookies: dict[str, str] | None = None
+        self._auth_cookies = self._get_cached_cookies()
+
+    def _get_cache_key(self) -> tuple[str, int, str]:
+        """Get cache key for auth cookies."""
+        return (
+            self.settings.host,
+            self.settings.port,
+            self.settings.username or "",
+        )
+
+    def _get_cached_cookies(self) -> dict[str, str] | None:
+        """Get cached cookies for current settings."""
+        return QBittorrentProxy._cookie_cache.get(self._get_cache_key())
+
+    def _update_cached_cookies(self, cookies: dict[str, str]) -> None:
+        """Update cached cookies."""
+        QBittorrentProxy._cookie_cache[self._get_cache_key()] = cookies
+
+    def _clear_cached_cookies(self) -> None:
+        """Clear cached cookies."""
+        QBittorrentProxy._cookie_cache.pop(self._get_cache_key(), None)
 
     def _get_client(self) -> httpx.Client:
         """Get configured HTTP client.
@@ -153,10 +177,12 @@ class QBittorrentProxy:
 
                 # Extract cookies
                 self._auth_cookies = dict(response.cookies)
+                self._update_cached_cookies(self._auth_cookies)
                 logger.debug("qBittorrent authentication succeeded")
 
             except httpx.HTTPStatusError as e:
                 if e.response.status_code in (401, 403):
+                    self._clear_cached_cookies()
                     msg = "qBittorrent authentication failed: invalid credentials"
                     raise PVRProviderAuthenticationError(msg) from e
                 handle_httpx_exception(e, "qBittorrent authentication")
@@ -417,7 +443,7 @@ class QBittorrentProxy:
             raise PVRProviderError(msg) from e
 
 
-class QBittorrentClient(BaseDownloadClient):
+class QBittorrentClient(TrackingDownloadClient):
     """qBittorrent download client implementation.
 
     Implements BaseDownloadClient interface for qBittorrent Web API v2.
@@ -507,10 +533,9 @@ class QBittorrentClient(BaseDownloadClient):
             magnet_url, category=category, save_path=download_path
         )
         # Extract hash from magnet link
-        if magnet_url.startswith("magnet:"):
-            for part in magnet_url.split("&"):
-                if "xt=urn:btih:" in part:
-                    return part.split(":")[-1].upper()
+        hash_str = extract_hash_from_magnet(magnet_url)
+        if hash_str:
+            return hash_str
         return "pending"
 
     def add_url(
@@ -521,6 +546,23 @@ class QBittorrentClient(BaseDownloadClient):
         download_path: str | None,
     ) -> str:
         """Add download from HTTP/HTTPS URL."""
+        # Try to download and calculate hash first
+        try:
+            file_content = self._file_fetcher.fetch_content(url)
+            hash_str = calculate_torrent_hash(file_content)
+
+            if hash_str:
+                filename = f"{hash_str}.torrent"
+                self._proxy.add_torrent_from_file(
+                    file_content, filename, category=category, save_path=download_path
+                )
+                return hash_str
+        except Exception:
+            logger.exception(
+                "Failed to pre-process torrent from URL %s. Falling back to simple add.",
+                url,
+            )
+
         self._proxy.add_torrent_from_url(
             url, category=category, save_path=download_path
         )
@@ -541,6 +583,11 @@ class QBittorrentClient(BaseDownloadClient):
         self._proxy.add_torrent_from_file(
             file_content, filename, category=category, save_path=download_path
         )
+
+        hash_str = calculate_torrent_hash(file_content)
+        if hash_str:
+            return hash_str
+
         # qBittorrent doesn't return hash immediately, return placeholder
         return "pending"
 
@@ -571,7 +618,12 @@ class QBittorrentClient(BaseDownloadClient):
                 status = self._status_mapper.map(state)
 
                 # Calculate progress
-                progress = float(torrent.get("progress", 0.0)) / 100.0
+                # qBittorrent API returns progress as float 0.0-1.0
+                # But some versions may return 0-100, so normalize
+                progress = float(torrent.get("progress", 0.0))
+                if progress > 1.0:
+                    # Assume it's 0-100 scale, convert to 0-1
+                    progress = progress / 100.0
                 if progress > 1.0:
                     progress = 1.0
 
@@ -588,6 +640,7 @@ class QBittorrentClient(BaseDownloadClient):
                     "download_speed_bytes_per_sec": torrent.get("dlspeed"),
                     "eta_seconds": self._calculate_eta(torrent),
                     "file_path": file_path,
+                    "comment": torrent.get("comment"),
                 }
                 items.append(item)
         except Exception as e:

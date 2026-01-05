@@ -120,9 +120,7 @@ def test_get_history(
     assert result.total_count == 1
     assert len(result.items) == 1
     assert result.items[0].id == 3
-    mock_download_service.get_download_history.assert_called_once_with(
-        limit=50, offset=10
-    )
+    mock_download_service.get_download_history.assert_called_once_with(50, 10)
 
 
 def test_cancel_download_success(
@@ -150,11 +148,9 @@ def test_cancel_download_success(
     )
     mock_download_service.cancel_download.return_value = mock_item
 
-    result = downloads.cancel_download(download_id=1, service=mock_download_service)
+    # Since cancel_download now returns None in the route, we verify the call
+    downloads.cancel_download(item_id=1, service=mock_download_service)
 
-    assert result.id == 1
-    assert result.status == DownloadItemStatus.REMOVED
-    assert result.error_message == "Cancelled by user"
     mock_download_service.cancel_download.assert_called_once_with(1)
 
 
@@ -176,19 +172,19 @@ def test_cancel_download_not_found(
     )
 
     with pytest.raises(downloads.HTTPException) as exc:
-        downloads.cancel_download(download_id=999, service=mock_download_service)
+        downloads.cancel_download(item_id=999, service=mock_download_service)
 
     # Type check ignore as these attributes exist on HTTPException but mypy/pyright
     # might infer BaseException which doesn't have them
     assert exc.value.status_code == status.HTTP_404_NOT_FOUND  # type: ignore[attr-defined]
-    assert exc.value.detail == "Download item 999 not found"  # type: ignore[attr-defined]
+    assert exc.value.detail == "Download item not found or cannot be cancelled"  # type: ignore[attr-defined]
 
 
-def test_force_import_success(
+def test_retry_download_success(
     mock_import_service: MagicMock,
     session: DummySession,
 ) -> None:
-    """Test successful force import.
+    """Test successful retry download.
 
     Parameters
     ----------
@@ -200,19 +196,24 @@ def test_force_import_success(
     mock_item = MagicMock(spec=DownloadItem)
     session.get = MagicMock(return_value=mock_item)  # type: ignore[assignment]
 
-    result = downloads.force_import(
-        download_id=1, session=session, import_service=mock_import_service
+    # Mock success result
+    mock_result = MagicMock()
+    mock_result.is_success = True
+    mock_import_service.process_completed_download.return_value = mock_result
+
+    result = downloads.retry_download(
+        item_id=1, session=session, service=mock_import_service
     )
 
-    assert result == {"status": "imported", "message": "Download imported successfully"}
+    assert result == {"status": "success", "message": "Download imported successfully"}
     mock_import_service.process_completed_download.assert_called_once_with(mock_item)
 
 
-def test_force_import_not_found(
+def test_retry_download_not_found(
     mock_import_service: MagicMock,
     session: DummySession,
 ) -> None:
-    """Test force import for non-existent item.
+    """Test retry download for non-existent item.
 
     Parameters
     ----------
@@ -224,8 +225,8 @@ def test_force_import_not_found(
     session.get = MagicMock(return_value=None)  # type: ignore[assignment]
 
     with pytest.raises(downloads.HTTPException) as exc:
-        downloads.force_import(
-            download_id=999, session=session, import_service=mock_import_service
+        downloads.retry_download(
+            item_id=999, session=session, service=mock_import_service
         )
 
     # Type check ignore as these attributes exist on HTTPException but mypy/pyright
@@ -235,11 +236,11 @@ def test_force_import_not_found(
     mock_import_service.process_completed_download.assert_not_called()
 
 
-def test_force_import_failure(
+def test_retry_download_failure(
     mock_import_service: MagicMock,
     session: DummySession,
 ) -> None:
-    """Test force import failure handling.
+    """Test retry download failure handling.
 
     Parameters
     ----------
@@ -250,16 +251,19 @@ def test_force_import_failure(
     """
     mock_item = MagicMock(spec=DownloadItem)
     session.get = MagicMock(return_value=mock_item)  # type: ignore[assignment]
-    mock_import_service.process_completed_download.side_effect = Exception(
-        "Import error"
-    )
+
+    # Mock failure result
+    mock_result = MagicMock()
+    mock_result.is_success = False
+    mock_result.error_message = "Import error"
+    mock_import_service.process_completed_download.return_value = mock_result
 
     with pytest.raises(downloads.HTTPException) as exc:
-        downloads.force_import(
-            download_id=1, session=session, import_service=mock_import_service
+        downloads.retry_download(
+            item_id=1, session=session, service=mock_import_service
         )
 
     # Type check ignore as these attributes exist on HTTPException but mypy/pyright
     # might infer BaseException which doesn't have them
-    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST  # type: ignore[attr-defined]
+    assert exc.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR  # type: ignore[attr-defined]
     assert "Import failed: Import error" in exc.value.detail  # type: ignore[attr-defined]

@@ -1,3 +1,18 @@
+// Copyright (C) 2025 knguyen and others
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import type { DownloadClientType } from "@/types/downloadClient";
 
 export interface BaseClientFormData {
@@ -171,6 +186,11 @@ export type DownloadClientFormDataUnion =
 // We can use a relaxed type for form handling that includes all fields optional
 // but the main benefit is validation or specific logic per type.
 
+export interface PathMapping {
+  remote: string;
+  local: string;
+}
+
 export interface DownloadClientFormDataRelaxed {
   name: string;
   client_type: DownloadClientType;
@@ -201,4 +221,5 @@ export interface DownloadClientFormDataRelaxed {
   magnet_file_extension?: string;
   directory?: string;
   download_path?: string;
+  path_mappings?: PathMapping[];
 }

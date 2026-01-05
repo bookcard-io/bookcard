@@ -58,9 +58,11 @@ class DefaultStatusMapper(ClientStatusMapper):
             "queued": DownloadItemStatus.QUEUED,
             "checking": DownloadItemStatus.QUEUED,
             "completed": DownloadItemStatus.COMPLETED,
-            "seeding": DownloadItemStatus.COMPLETED,  # Seeding counts as completed
+            "seeding": DownloadItemStatus.SEEDING,
             "error": DownloadItemStatus.FAILED,
             "failed": DownloadItemStatus.FAILED,
+            "removed": DownloadItemStatus.REMOVED,
+            "stalled": DownloadItemStatus.STALLED,
         }
 
     def map(self, client_status: str) -> DownloadItemStatus:

@@ -23,10 +23,10 @@ This module provides the DownloadMonitorService which is responsible for:
 """
 
 import logging
-from datetime import UTC, datetime
 
-from sqlmodel import Session, select
+from sqlmodel import Session
 
+from bookcard.common.clock import Clock, UTCClock
 from bookcard.models.pvr import (
     DownloadClientDefinition,
     DownloadClientStatus,
@@ -35,23 +35,62 @@ from bookcard.models.pvr import (
     TrackedBookStatus,
 )
 from bookcard.pvr.base.interfaces import DownloadTracker
-from bookcard.pvr.factory.download_client_factory import create_download_client
 from bookcard.pvr.models import DownloadItem as ClientDownloadItem
+from bookcard.services.download.book_updater import TrackedBookStatusUpdater
+from bookcard.services.download.client_health_manager import ClientHealthManager
+from bookcard.services.download.client_repository import (
+    DownloadClientRepository,
+    SQLModelDownloadClientRepository,
+)
+from bookcard.services.download.factory import (
+    DefaultDownloadClientFactory,
+    DownloadClientFactory,
+)
+from bookcard.services.download.item_updater import DownloadItemUpdater
+from bookcard.services.download.reconciler import DownloadReconciler
+from bookcard.services.download.repository import (
+    DownloadItemRepository,
+    SQLModelDownloadItemRepository,
+)
+from bookcard.services.download.status_mapper import (
+    ClientStatusMapper,
+    DefaultStatusMapper,
+)
+from bookcard.services.pvr.search.matcher import (
+    DownloadItemMatcher,
+    GuidMatchStrategy,
+    InfohashMatchStrategy,
+    MetaMatchStrategy,
+    TitleMatchStrategy,
+    UrlMatchStrategy,
+)
 from bookcard.services.security import DataEncryptor
 
 logger = logging.getLogger(__name__)
 
 
+PENDING_CLIENT_ITEM_ID = "PENDING"
+
+
 class DownloadMonitorService:
     """Service for monitoring download clients and updating local state.
 
-    This service is designed to be run periodically (e.g., via a background task).
-    It iterates through all enabled download clients, fetches their active downloads,
-    and updates the corresponding DownloadItem records in the database.
+    Refactored to follow SOLID principles with separated concerns.
     """
 
     def __init__(
-        self, session: Session, encryptor: DataEncryptor | None = None
+        self,
+        session: Session,
+        encryptor: DataEncryptor | None = None,
+        item_repo: DownloadItemRepository | None = None,
+        client_repo: DownloadClientRepository | None = None,
+        client_factory: DownloadClientFactory | None = None,
+        status_mapper: ClientStatusMapper | None = None,
+        health_manager: ClientHealthManager | None = None,
+        reconciler: DownloadReconciler | None = None,
+        item_updater: DownloadItemUpdater | None = None,
+        book_updater: TrackedBookStatusUpdater | None = None,
+        clock: Clock | None = None,
     ) -> None:
         """Initialize service.
 
@@ -61,9 +100,53 @@ class DownloadMonitorService:
             Database session.
         encryptor : DataEncryptor | None
             Data encryptor for decrypting passwords.
+        item_repo : DownloadItemRepository | None
+            Repository for download items.
+        client_repo : DownloadClientRepository | None
+            Repository for download clients.
+        client_factory : DownloadClientFactory | None
+            Factory for creating download clients.
+        status_mapper : ClientStatusMapper | None
+            Status mapper strategy.
+        health_manager : ClientHealthManager | None
+            Client health manager.
+        reconciler : DownloadReconciler | None
+            Download reconciler.
+        item_updater : DownloadItemUpdater | None
+            Download item updater.
+        book_updater : TrackedBookStatusUpdater | None
+            Tracked book status updater.
+        clock : Clock | None
+            Time provider.
         """
-        self.session = session
+        self._session = session
         self._encryptor = encryptor
+        self._item_repo = item_repo or SQLModelDownloadItemRepository(session)
+        self._client_repo = client_repo or SQLModelDownloadClientRepository(session)
+        self._client_factory = client_factory or DefaultDownloadClientFactory()
+        self._status_mapper = status_mapper or DefaultStatusMapper()
+        self._clock = clock or UTCClock()
+        self._health_manager = health_manager or ClientHealthManager(
+            session, self._clock
+        )
+        self._item_updater = item_updater or DownloadItemUpdater(
+            self._status_mapper, self._clock
+        )
+        self._book_updater = book_updater or TrackedBookStatusUpdater()
+
+        if reconciler:
+            self._reconciler = reconciler
+        else:
+            matcher = DownloadItemMatcher(
+                strategies=[
+                    GuidMatchStrategy(),
+                    InfohashMatchStrategy(),
+                    UrlMatchStrategy(),
+                    MetaMatchStrategy(),
+                    TitleMatchStrategy(),
+                ]
+            )
+            self._reconciler = DownloadReconciler(matcher)
 
     def check_downloads(self) -> None:
         """Check all enabled download clients for updates.
@@ -72,46 +155,92 @@ class DownloadMonitorService:
         and updates local database records. Handles connection errors by updating
         client status.
         """
-        clients = self._get_enabled_clients()
+        clients = self._client_repo.get_enabled_clients()
 
         for client_def in clients:
             try:
-                self._check_client(client_def)
+                self._process_client(client_def)
+            except (ConnectionError, TimeoutError) as e:
+                logger.warning(
+                    "Connection error checking download client %s (id=%d): %s",
+                    client_def.name,
+                    client_def.id,
+                    e,
+                )
+                self._update_client_health(client_def, str(e))
             except Exception as e:
                 logger.exception(
-                    "Failed to check download client %s (id=%d)",
+                    "Unexpected error checking download client %s (id=%d)",
                     client_def.name,
                     client_def.id,
                 )
-                self._update_client_status(
-                    client_def,
-                    DownloadClientStatus.UNHEALTHY,
-                    str(e),
-                )
+                self._update_client_health(client_def, str(e))
 
-    def _get_enabled_clients(self) -> list[DownloadClientDefinition]:
-        """Get all enabled download clients.
-
-        Returns
-        -------
-        list[DownloadClientDefinition]
-            List of enabled download clients.
-        """
-        stmt = select(DownloadClientDefinition).where(
-            DownloadClientDefinition.enabled == True  # noqa: E712
+    def _update_client_health(
+        self, client_def: DownloadClientDefinition, error_message: str
+    ) -> None:
+        """Update client health status on error."""
+        self._health_manager.update_status(
+            client_def,
+            DownloadClientStatus.UNHEALTHY,
+            error_message,
         )
-        return list(self.session.exec(stmt).all())
+        self._session.commit()
 
-    def _check_client(self, client_def: DownloadClientDefinition) -> None:
-        """Check a single download client.
+    def _process_client(self, client_def: DownloadClientDefinition) -> None:
+        """Process a single download client."""
+        # Create client instance (handling decryption)
+        client = self._create_client_instance(client_def)
+        if not client:
+            return
 
-        Parameters
-        ----------
-        client_def : DownloadClientDefinition
-            Download client definition to check.
-        """
-        # Create a detached copy with decrypted password for connection
-        test_client = DownloadClientDefinition.model_validate(client_def)
+        # Fetch items
+        client_items = list(client.get_items())
+
+        # Update health status
+        self._health_manager.update_status(client_def, DownloadClientStatus.HEALTHY)
+
+        # Get DB items for this client via repository
+        if client_def.id is None:
+            return
+        db_items = list(self._item_repo.get_by_client(client_def.id))
+
+        # Reconcile
+        result = self._reconciler.reconcile(db_items, client_items)
+
+        # Update matched items
+        for db_item, client_item in result.matched_pairs:
+            self._update_item(db_item, client_item)
+
+        # Handle unmatched DB items (removed/missing)
+        for db_item in result.unmatched_db_items:
+            self._handle_missing_item(db_item, client_def)
+
+        # Commit changes
+        self._session.commit()
+
+    def _create_client_instance(
+        self, client_def: DownloadClientDefinition
+    ) -> DownloadTracker | None:
+        """Create a client instance with decrypted password."""
+        # Create a detached copy for connection to avoid messing with session objects
+        test_client = DownloadClientDefinition(
+            id=client_def.id,
+            name=client_def.name,
+            client_type=client_def.client_type,
+            host=client_def.host,
+            port=client_def.port,
+            username=client_def.username,
+            password=client_def.password,
+            use_ssl=client_def.use_ssl,
+            enabled=client_def.enabled,
+            priority=client_def.priority,
+            timeout_seconds=client_def.timeout_seconds,
+            category=client_def.category,
+            download_path=client_def.download_path,
+            additional_settings=client_def.additional_settings,
+        )
+
         if test_client.password and self._encryptor:
             try:
                 test_client.password = self._encryptor.decrypt(test_client.password)
@@ -122,191 +251,65 @@ class DownloadMonitorService:
                     client_def.id,
                 )
 
-        client = create_download_client(test_client)
+        client = self._client_factory.create(test_client)
 
-        # Check if client supports tracking
         if not isinstance(client, DownloadTracker):
             logger.warning(
                 "Download client %s (type=%s) does not support tracking",
                 client_def.name,
                 client_def.client_type,
             )
+            return None
+
+        return client
+
+    def _update_item(
+        self, db_item: DownloadItem, client_item: ClientDownloadItem
+    ) -> None:
+        """Update a download item and propagate status."""
+        self._item_updater.update(db_item, client_item)
+
+        # Propagate to tracked book
+        if db_item.tracked_book:
+            # FIX: If tracked book is already completed, do not update status.
+            # This prevents re-imports if client reports temporary errors (e.g. during file moves).
+            if db_item.tracked_book.status == TrackedBookStatus.COMPLETED:
+                return
+
+            if self._book_updater.update_from_download(
+                db_item.tracked_book,
+                db_item.status,
+                db_item.error_message,
+            ):
+                self._session.add(db_item.tracked_book)
+
+        self._session.add(db_item)
+
+    def _handle_missing_item(
+        self, db_item: DownloadItem, client_def: DownloadClientDefinition
+    ) -> None:
+        """Handle an item that exists in DB but not in client."""
+        # Skip pending items (they match later)
+        if db_item.client_item_id == PENDING_CLIENT_ITEM_ID:
+            logger.debug(
+                "Pending item %d ('%s') not found in client yet",
+                db_item.id,
+                db_item.title,
+            )
             return
 
-        # Fetch items from client
-        # Note: client.get_items() returns a Sequence of TypedDicts
-        client_items = client.get_items()
+        if db_item.status not in (
+            DownloadItemStatus.COMPLETED,
+            DownloadItemStatus.FAILED,
+            DownloadItemStatus.REMOVED,
+        ):
+            logger.warning(
+                "Download item %s (id=%d) not found in client %s. Marking as REMOVED.",
+                db_item.client_item_id,
+                db_item.id,
+                client_def.name,
+            )
+            db_item.status = DownloadItemStatus.REMOVED
+            db_item.error_message = "Item removed from download client"
 
-        # Update client status to HEALTHY
-        self._update_client_status(client_def, DownloadClientStatus.HEALTHY)
-
-        # Process items
-        self._process_client_items(client_def, list(client_items))
-
-    def _update_client_status(
-        self,
-        client_def: DownloadClientDefinition,
-        status: DownloadClientStatus,
-        error_message: str | None = None,
-    ) -> None:
-        """Update download client status.
-
-        Parameters
-        ----------
-        client_def : DownloadClientDefinition
-            Client definition to update.
-        status : DownloadClientStatus
-            New status.
-        error_message : str | None
-            Error message if status is UNHEALTHY.
-        """
-        client_def.status = status
-        client_def.last_checked_at = datetime.now(UTC)
-
-        if status == DownloadClientStatus.HEALTHY:
-            client_def.last_successful_connection_at = datetime.now(UTC)
-            client_def.error_count = 0
-            client_def.error_message = None
-        else:
-            client_def.error_count += 1
-            client_def.error_message = error_message
-
-        self.session.add(client_def)
-        self.session.commit()
-
-    def _process_client_items(
-        self,
-        client_def: DownloadClientDefinition,
-        client_items: list[ClientDownloadItem],
-    ) -> None:
-        """Process items returned by the download client.
-
-        Updates existing DownloadItems in the database and handles
-        reconciliation (detecting removed items).
-
-        Parameters
-        ----------
-        client_def : DownloadClientDefinition
-            Download client definition.
-        client_items : list[ClientDownloadItem]
-            List of download items returned by the client.
-        """
-        # Strategy:
-        # 1. Map client_items by hash (client_item_id)
-        # 2. Iterate DB items for this client
-        # 3. If DB item in client_items -> update
-        # 4. If DB item NOT in client_items -> check if it was expected to be there.
-        #    If it was downloading/queued, it might have been removed or finished.
-
-        client_items_map = {
-            item["client_item_id"].upper(): item for item in client_items
-        }
-
-        stmt = select(DownloadItem).where(
-            DownloadItem.download_client_id == client_def.id
-        )
-        db_items = list(self.session.exec(stmt).all())
-
-        for db_item in db_items:
-            client_item_id = db_item.client_item_id.upper()
-
-            if client_item_id in client_items_map:
-                # Update existing item
-                self._update_download_item(db_item, client_items_map[client_item_id])
-                # Remove from map to track processed items
-                del client_items_map[client_item_id]
-            elif db_item.status not in (
-                DownloadItemStatus.COMPLETED,
-                DownloadItemStatus.FAILED,
-                DownloadItemStatus.REMOVED,
-            ):
-                # Item exists in DB as active but not found in client
-                # This could mean it was removed externally or completed and removed
-                logger.warning(
-                    "Download item %s (id=%d) not found in client %s. Marking as REMOVED.",
-                    db_item.client_item_id,
-                    db_item.id,
-                    client_def.name,
-                )
-                db_item.status = DownloadItemStatus.REMOVED
-                db_item.error_message = "Item removed from download client"
-                self.session.add(db_item)
-
-        self.session.commit()
-
-    def _update_download_item(
-        self,
-        db_item: DownloadItem,
-        client_item: ClientDownloadItem,
-    ) -> None:
-        """Update a database download item from client data.
-
-        Parameters
-        ----------
-        db_item : DownloadItem
-            Database record to update.
-        client_item : ClientDownloadItem
-            Data from download client.
-        """
-        # Update fields
-        # Note: client_item["status"] returns string from pvr.utils.status.DownloadStatus
-        # We need to ensure it matches DownloadItemStatus enum
-        client_status_str = client_item.get("status", "unknown")
-        db_item.status = self._map_status(client_status_str)
-        db_item.progress = float(client_item.get("progress", 0.0))
-        db_item.size_bytes = client_item.get("size_bytes")
-        db_item.downloaded_bytes = client_item.get("downloaded_bytes")
-        db_item.download_speed_bytes_per_sec = client_item.get(
-            "download_speed_bytes_per_sec"
-        )
-        db_item.eta_seconds = client_item.get("eta_seconds")
-
-        if client_item.get("file_path"):
-            db_item.file_path = client_item["file_path"]
-
-        # Check for completion
-        if db_item.status == DownloadItemStatus.COMPLETED and not db_item.completed_at:
-            db_item.completed_at = datetime.now(UTC)
-
-            # Note: We do NOT update the TrackedBook status here.
-            # That is now handled by the PVRImportService which will pick up
-            # this completed download item and perform the import.
-
-        # Check for failure
-        if db_item.status == DownloadItemStatus.FAILED and not db_item.error_message:
-            db_item.error_message = "Download failed reported by client"
-
-            if db_item.tracked_book:
-                db_item.tracked_book.status = TrackedBookStatus.FAILED
-                db_item.tracked_book.error_message = db_item.error_message
-                self.session.add(db_item.tracked_book)
-
-        self.session.add(db_item)
-
-    def _map_status(self, client_status: str) -> DownloadItemStatus:
-        """Map client status string to DownloadItemStatus enum.
-
-        Parameters
-        ----------
-        client_status : str
-            Status string from download client adapter.
-
-        Returns
-        -------
-        DownloadItemStatus
-            Mapped status enum.
-        """
-        status_map = {
-            "queued": DownloadItemStatus.QUEUED,
-            "downloading": DownloadItemStatus.DOWNLOADING,
-            "paused": DownloadItemStatus.PAUSED,
-            "completed": DownloadItemStatus.COMPLETED,
-            "failed": DownloadItemStatus.FAILED,
-            "removed": DownloadItemStatus.REMOVED,
-            # Map others to closest
-            "stalled": DownloadItemStatus.DOWNLOADING,
-            "checking": DownloadItemStatus.DOWNLOADING,
-            "metadata": DownloadItemStatus.DOWNLOADING,
-        }
-
-        return status_map.get(client_status.lower(), DownloadItemStatus.DOWNLOADING)
+            self._session.add(db_item)

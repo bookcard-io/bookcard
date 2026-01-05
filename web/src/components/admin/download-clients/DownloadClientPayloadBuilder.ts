@@ -1,3 +1,18 @@
+// Copyright (C) 2025 knguyen and others
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import type { DownloadClientCreate } from "@/types/downloadClient";
 import type { DownloadClientFormDataRelaxed as DownloadClientFormData } from "./types";
 
@@ -21,10 +36,11 @@ export function buildDownloadClientPayload(
     save_magnet_files,
     magnet_file_extension,
     directory,
+    path_mappings,
     ...baseData
   } = formData;
 
-  const additional_settings: Record<string, string | number | boolean> = {};
+  const additional_settings: Record<string, unknown> = {};
 
   // Helper to add if value exists
   const addIf = (key: string, value: string | number | boolean | undefined) => {
@@ -52,6 +68,10 @@ export function buildDownloadClientPayload(
   // Boolean fields might be false, so check undefined
   if (save_magnet_files !== undefined) {
     additional_settings.save_magnet_files = save_magnet_files;
+  }
+
+  if (path_mappings && path_mappings.length > 0) {
+    additional_settings.path_mappings = path_mappings;
   }
 
   // Ensure baseData satisfies DownloadClientCreate

@@ -21,9 +21,15 @@ of `BookWithRelations`.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from sqlmodel import Session, select
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 from bookcard.models.core import (
+    Book,
     BookLanguageLink,
     BookPublisherLink,
     BookRatingLink,
@@ -43,6 +49,9 @@ from bookcard.repositories.models import BookWithFullRelations, BookWithRelation
 
 class BookEnrichmentService:
     """Build enriched `BookWithFullRelations` results from base book rows."""
+
+    def __init__(self, calibre_db_path: Path | None = None) -> None:
+        self._calibre_db_path = calibre_db_path
 
     def enrich_books_with_full_details(
         self,
@@ -202,18 +211,68 @@ class BookEnrichmentService:
         self, session: Session, book_ids: list[int]
     ) -> dict[int, list[dict[str, str | int]]]:
         formats_stmt = (
-            select(Data.book, Data.format, Data.uncompressed_size, Data.name)
+            select(Data.book, Data.format, Data.uncompressed_size, Data.name, Book.path)  # type: ignore[call-overload]
+            .join(Book, Data.book == Book.id)
             .where(Data.book.in_(book_ids))  # type: ignore[attr-defined]
             .order_by(Data.book, Data.format)
         )
         formats_map: dict[int, list[dict[str, str | int]]] = {}
-        for book_id, fmt, size, name in session.exec(formats_stmt).all():
-            formats_map.setdefault(book_id, []).append({
-                "format": fmt,
-                "size": size,
-                "name": name or "",
-            })
+
+        library_root = None
+        if self._calibre_db_path:
+            if self._calibre_db_path.is_dir():
+                library_root = self._calibre_db_path
+            else:
+                library_root = self._calibre_db_path.parent
+
+        for book_id, fmt, size, name, book_path in session.exec(formats_stmt).all():
+            if self._validate_format_exists(
+                library_root, book_path, fmt, name, book_id
+            ):
+                formats_map.setdefault(book_id, []).append({
+                    "format": fmt,
+                    "size": size,
+                    "name": name or "",
+                })
         return formats_map
+
+    def _validate_format_exists(
+        self,
+        library_root: Path | None,
+        book_path: str | None,
+        fmt: str,
+        name: str | None,
+        book_id: int,
+    ) -> bool:
+        """Check if format file exists on disk."""
+        if not library_root or not book_path:
+            return True  # Cannot validate, assume exists (or should we assume not?)
+            # Existing behavior was to trust DB. If we can't check, trust DB.
+
+        book_dir = library_root / book_path
+        format_lower = fmt.lower()
+
+        # 1. Check with stored name
+        file_name = name or f"{book_id}"
+        candidate = book_dir / f"{file_name}.{format_lower}"
+        if candidate.exists():
+            return True
+
+        # 2. Check with book ID
+        candidate = book_dir / f"{book_id}.{format_lower}"
+        if candidate.exists():
+            return True
+
+        # 3. Check directory scan
+        if book_dir.exists():
+            for file_in_dir in book_dir.iterdir():
+                if (
+                    file_in_dir.is_file()
+                    and file_in_dir.suffix.lower() == f".{format_lower}"
+                ):
+                    return True
+
+        return False
 
     def _fetch_series_ids_map(
         self, session: Session, book_ids: list[int]

@@ -1,3 +1,18 @@
+// Copyright (C) 2025 knguyen and others
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 "use client";
 
 import { FaSpinner } from "react-icons/fa";
@@ -8,26 +23,23 @@ interface IndexerListProps {
   indexers: Indexer[];
   isLoading: boolean;
   onEdit: (indexer: Indexer) => void;
-  onDelete: (indexer: Indexer) => void;
+  onRefresh: () => void;
 }
 
 export function IndexerList({
   indexers,
   isLoading,
   onEdit,
-  onDelete,
+  onRefresh,
 }: IndexerListProps) {
   return (
-    <div className="rounded-lg border border-[var(--color-surface-a20)] bg-[var(--color-surface-tonal-a0)] p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="font-semibold text-text-a0 text-xl">Indexers</h2>
-        {isLoading && (
-          <div className="flex items-center gap-2 text-sm text-text-a30">
-            <FaSpinner className="animate-spin" />
-            Loading...
-          </div>
-        )}
-      </div>
+    <>
+      {isLoading && (
+        <div className="flex items-center gap-2 text-sm text-text-a30">
+          <FaSpinner className="animate-spin" />
+          Loading...
+        </div>
+      )}
 
       {indexers.length === 0 && !isLoading ? (
         <div className="text-text-a30 italic">No indexers configured.</div>
@@ -38,11 +50,11 @@ export function IndexerList({
               key={indexer.id}
               indexer={indexer}
               onEdit={onEdit}
-              onDelete={onDelete}
+              onRefresh={onRefresh}
             />
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 }

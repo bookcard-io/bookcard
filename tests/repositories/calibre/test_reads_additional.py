@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
@@ -26,6 +27,7 @@ from sqlmodel import Session
 from bookcard.models.core import Author, Book, BookAuthorLink
 from bookcard.models.media import Data
 from bookcard.repositories.calibre.enrichment import BookEnrichmentService
+from bookcard.repositories.calibre.pathing import BookPathService
 from bookcard.repositories.calibre.queries import BookQueryBuilder
 from bookcard.repositories.calibre.reads import BookReadOperations
 from bookcard.repositories.calibre.retry import SQLiteRetryPolicy
@@ -66,6 +68,8 @@ class TestBookReadOperationsAdditional:
             enrichment=enrichment,
             search_service=search_service,
             statistics_service=statistics_service,
+            pathing=BookPathService(),
+            calibre_db_path=Path("test.db"),
         )
 
         assert sample_author.id is not None
@@ -103,6 +107,8 @@ class TestBookReadOperationsAdditional:
             enrichment=enrichment,
             search_service=search_service,
             statistics_service=statistics_service,
+            pathing=BookPathService(),
+            calibre_db_path=Path("test.db"),
         )
 
         assert sample_author.id is not None
@@ -120,6 +126,8 @@ class TestBookReadOperationsAdditional:
         enrichment = BookEnrichmentService()
         search_service = MockBookSearchService()
         statistics_service = MockLibraryStatisticsService()
+        pathing = BookPathService()
+        calibre_db_path = Path("test.db")
 
         operations = BookReadOperations(
             session_manager=session_manager,
@@ -129,6 +137,8 @@ class TestBookReadOperationsAdditional:
             enrichment=enrichment,
             search_service=search_service,
             statistics_service=statistics_service,
+            pathing=pathing,
+            calibre_db_path=calibre_db_path,
         )
 
         books = operations.list_books(pubdate_month=12, pubdate_day=12)
@@ -145,6 +155,8 @@ class TestBookReadOperationsAdditional:
         enrichment = BookEnrichmentService()
         search_service = MockBookSearchService()
         statistics_service = MockLibraryStatisticsService()
+        pathing = BookPathService()
+        calibre_db_path = Path("test.db")
 
         operations = BookReadOperations(
             session_manager=session_manager,
@@ -154,6 +166,8 @@ class TestBookReadOperationsAdditional:
             enrichment=enrichment,
             search_service=search_service,
             statistics_service=statistics_service,
+            pathing=pathing,
+            calibre_db_path=calibre_db_path,
         )
 
         count = operations.count_books(pubdate_month=12, pubdate_day=12)
@@ -170,6 +184,8 @@ class TestBookReadOperationsAdditional:
         enrichment = BookEnrichmentService()
         search_service = MockBookSearchService()
         statistics_service = MockLibraryStatisticsService()
+        pathing = BookPathService()
+        calibre_db_path = Path("test.db")
 
         operations = BookReadOperations(
             session_manager=session_manager,
@@ -179,6 +195,8 @@ class TestBookReadOperationsAdditional:
             enrichment=enrichment,
             search_service=search_service,
             statistics_service=statistics_service,
+            pathing=pathing,
+            calibre_db_path=calibre_db_path,
         )
 
         books = operations.list_books_with_filters(full=True)
@@ -207,6 +225,8 @@ class TestBookReadOperationsAdditional:
             enrichment=enrichment,
             search_service=search_service,
             statistics_service=statistics_service,
+            pathing=BookPathService(),
+            calibre_db_path=Path("test.db"),
         )
 
         assert sample_author.id is not None
@@ -224,6 +244,8 @@ class TestBookReadOperationsAdditional:
         enrichment = BookEnrichmentService()
         search_service = MockBookSearchService()
         statistics_service = MockLibraryStatisticsService()
+        pathing = BookPathService()
+        calibre_db_path = Path("test.db")
 
         operations = BookReadOperations(
             session_manager=session_manager,
@@ -233,6 +255,8 @@ class TestBookReadOperationsAdditional:
             enrichment=enrichment,
             search_service=search_service,
             statistics_service=statistics_service,
+            pathing=pathing,
+            calibre_db_path=calibre_db_path,
         )
 
         count = operations.count_books_with_filters()
@@ -247,6 +271,8 @@ class TestBookReadOperationsAdditional:
         enrichment = BookEnrichmentService()
         search_service = MockBookSearchService()
         statistics_service = MockLibraryStatisticsService()
+        pathing = BookPathService()
+        calibre_db_path = Path("test.db")
 
         operations = BookReadOperations(
             session_manager=session_manager,
@@ -256,6 +282,8 @@ class TestBookReadOperationsAdditional:
             enrichment=enrichment,
             search_service=search_service,
             statistics_service=statistics_service,
+            pathing=pathing,
+            calibre_db_path=calibre_db_path,
         )
 
         # Use invalid filter_type to get None strategy
@@ -273,6 +301,8 @@ class TestBookReadOperationsAdditional:
         enrichment = BookEnrichmentService()
         search_service = MockBookSearchService()
         statistics_service = MockLibraryStatisticsService()
+        pathing = BookPathService()
+        calibre_db_path = Path("test.db")
 
         operations = BookReadOperations(
             session_manager=session_manager,
@@ -282,6 +312,8 @@ class TestBookReadOperationsAdditional:
             enrichment=enrichment,
             search_service=search_service,
             statistics_service=statistics_service,
+            pathing=pathing,
+            calibre_db_path=calibre_db_path,
         )
 
         books = operations.list_books(sort_order="invalid")
@@ -298,6 +330,8 @@ class TestBookReadOperationsAdditional:
         enrichment = BookEnrichmentService()
         search_service = MockBookSearchService()
         statistics_service = MockLibraryStatisticsService()
+        pathing = BookPathService()
+        calibre_db_path = Path("test.db")
 
         operations = BookReadOperations(
             session_manager=session_manager,
@@ -307,6 +341,8 @@ class TestBookReadOperationsAdditional:
             enrichment=enrichment,
             search_service=search_service,
             statistics_service=statistics_service,
+            pathing=pathing,
+            calibre_db_path=calibre_db_path,
         )
 
         books = operations.list_books_with_filters(sort_order="invalid")
@@ -323,6 +359,8 @@ class TestBookReadOperationsAdditional:
         enrichment = BookEnrichmentService()
         search_service = MockBookSearchService()
         statistics_service = MockLibraryStatisticsService()
+        pathing = BookPathService()
+        calibre_db_path = Path("test.db")
 
         operations = BookReadOperations(
             session_manager=session_manager,
@@ -332,6 +370,8 @@ class TestBookReadOperationsAdditional:
             enrichment=enrichment,
             search_service=search_service,
             statistics_service=statistics_service,
+            pathing=pathing,
+            calibre_db_path=calibre_db_path,
         )
 
         result = operations._build_book_with_relations(in_memory_db, None)
@@ -348,6 +388,8 @@ class TestBookReadOperationsAdditional:
         enrichment = BookEnrichmentService()
         search_service = MockBookSearchService()
         statistics_service = MockLibraryStatisticsService()
+        pathing = BookPathService()
+        calibre_db_path = Path("test.db")
 
         operations = BookReadOperations(
             session_manager=session_manager,
@@ -357,6 +399,8 @@ class TestBookReadOperationsAdditional:
             enrichment=enrichment,
             search_service=search_service,
             statistics_service=statistics_service,
+            pathing=pathing,
+            calibre_db_path=calibre_db_path,
         )
 
         book_no_id = Book(

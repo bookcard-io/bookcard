@@ -19,6 +19,10 @@ This module provides shared torrent-related utilities following DRY principles
 by centralizing duplicate torrent handling logic.
 """
 
+import contextlib
+import hashlib
+from typing import Any
+
 
 def extract_hash_from_magnet(magnet_url: str) -> str | None:
     """Extract info hash from magnet link.
@@ -44,7 +48,100 @@ def extract_hash_from_magnet(magnet_url: str) -> str | None:
     ... )
     'ABC123'
     """
-    for part in magnet_url.split("&"):
+    parts = magnet_url.split("&")
+    has_multiple_parts = len(parts) > 1
+
+    # First, look for parts that start with "xt=urn:btih:" (preferred)
+    for part in parts:
         if part.startswith("xt=urn:btih:"):
             return part.split(":")[-1].upper()
+    # Then, handle "magnet:?xt=urn:btih:hash" format only if there are multiple parts
+    if has_multiple_parts:
+        for part in parts:
+            if part.startswith("magnet:?xt=urn:btih:"):
+                return part.split(":")[-1].upper()
+    return None
+
+
+def _decode_bencode(data: bytes) -> tuple[Any, int]:
+    """Decode single bencoded value."""
+    char = data[0:1]
+    if char == b"i":
+        end = data.index(b"e")
+        return int(data[1:end]), end + 1
+    if char == b"l":
+        lst = []
+        offset = 1
+        while data[offset : offset + 1] != b"e":
+            val, used = _decode_bencode(data[offset:])
+            lst.append(val)
+            offset += used
+        return lst, offset + 1
+    if char == b"d":
+        dct = {}
+        offset = 1
+        while data[offset : offset + 1] != b"e":
+            key, used = _decode_bencode(data[offset:])
+            val, used_val = _decode_bencode(data[offset + used :])
+            dct[key.decode("utf-8") if isinstance(key, bytes) else key] = val
+            offset += used + used_val
+        return dct, offset + 1
+    if char.isdigit():
+        colon = data.index(b":")
+        length = int(data[:colon])
+        return data[colon + 1 : colon + 1 + length], colon + 1 + length
+
+    # If we encounter something invalid, we might be at the end or it's malformed
+    # For our purpose (finding info dict), strict validation isn't strictly necessary
+    # but let's be safe.
+    msg = f"Invalid bencode start: {char!r}"
+    raise ValueError(msg)
+
+
+def _encode_bencode(data: Any) -> bytes:  # noqa: ANN401
+    """Encode value to bencode."""
+    if isinstance(data, int):
+        return f"i{data}e".encode()
+    if isinstance(data, bytes):
+        return f"{len(data)}:".encode() + data
+    if isinstance(data, str):
+        b = data.encode("utf-8")
+        return f"{len(b)}:".encode() + b
+    if isinstance(data, list):
+        return b"l" + b"".join(_encode_bencode(x) for x in data) + b"e"
+    if isinstance(data, dict):
+        # Keys must be sorted strings/bytes
+        items = sorted(
+            data.items(),
+            key=lambda x: x[0] if isinstance(x[0], bytes) else x[0].encode("utf-8"),
+        )
+        return (
+            b"d"
+            + b"".join(_encode_bencode(k) + _encode_bencode(v) for k, v in items)
+            + b"e"
+        )
+
+    msg = f"Cannot bencode type: {type(data)}"
+    raise TypeError(msg)
+
+
+def calculate_torrent_hash(file_content: bytes) -> str | None:
+    """Calculate SHA1 hash of torrent info dictionary.
+
+    Parameters
+    ----------
+    file_content : bytes
+        Raw content of the .torrent file.
+
+    Returns
+    -------
+    str | None
+        Calculated hash (uppercase hex), or None if parsing fails.
+    """
+    with contextlib.suppress(Exception):
+        decoded, _ = _decode_bencode(file_content)
+        if isinstance(decoded, dict) and "info" in decoded:
+            info_dict = decoded["info"]
+            encoded_info = _encode_bencode(info_dict)
+            return hashlib.sha1(encoded_info).hexdigest().upper()  # noqa: S324
     return None

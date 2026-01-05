@@ -121,7 +121,25 @@ class DownloadService:
         PVRProviderError
             If download fails to start.
         """
-        self._validate_initiate_download(release, tracked_book)
+        self._validate_initiate_download(release)
+
+        # Ensure tracked book has ID
+        if tracked_book.id is None:
+            msg = "Tracked book must have an ID"
+            raise ValueError(msg)
+
+        # Check for existing active download
+        existing_item = self._download_item_repo.get_latest_by_url_and_tracked_book(
+            tracked_book.id,
+            release.download_url,  # type: ignore[arg-type]
+        )
+        if existing_item and not DownloadStatusMapper.is_terminal(existing_item.status):
+            logger.info(
+                "Active download already exists for '%s' (id=%d). Returning existing item.",
+                release.title,
+                existing_item.id,
+            )
+            return existing_item
 
         if client is None:
             # Use decrypted clients for selection to ensure we can connect if needed
@@ -139,6 +157,17 @@ class DownloadService:
             client.name,
         )
 
+        # Get attached client for DB operations to avoid SAWarning
+        # The 'client' variable might be a detached copy with decrypted password
+        if client.id is None:
+            msg = "Download client has no ID"
+            raise ValueError(msg)
+
+        attached_client = self._client_service.get_download_client(client.id)
+        if attached_client is None:
+            msg = f"Download client {client.id} not found"
+            raise ValueError(msg)
+
         try:
             # Create client instance and start download
             client_instance = self._client_factory.create(client)
@@ -151,7 +180,7 @@ class DownloadService:
 
             # Create download item record
             download_item = self._create_download_item(
-                release, tracked_book, client, client_item_id
+                release, tracked_book, attached_client, client_item_id
             )
             self._download_item_repo.add(download_item)
 
@@ -170,17 +199,13 @@ class DownloadService:
             logger.info("Download started successfully: %s", client_item_id)
             return download_item
 
-    def _validate_initiate_download(
-        self, release: ReleaseInfo, tracked_book: TrackedBook
-    ) -> None:
+    def _validate_initiate_download(self, release: ReleaseInfo) -> None:
         """Validate download initiation parameters.
 
         Parameters
         ----------
         release : ReleaseInfo
             Release to validate.
-        tracked_book : TrackedBook
-            Tracked book to validate.
 
         Raises
         ------
@@ -189,10 +214,6 @@ class DownloadService:
         """
         if not release.download_url:
             msg = "Release must have a download URL"
-            raise ValueError(msg)
-
-        if tracked_book.status == TrackedBookStatus.DOWNLOADING:
-            msg = f"Book {tracked_book.id} is already downloading"
             raise ValueError(msg)
 
     def _create_download_item(
@@ -225,6 +246,7 @@ class DownloadService:
             download_client_id=client.id,  # type: ignore[arg-type]
             indexer_id=release.indexer_id,
             client_item_id=client_item_id,
+            guid=release.guid,
             title=release.title,
             download_url=release.download_url,
             status=DownloadItemStatus.QUEUED,

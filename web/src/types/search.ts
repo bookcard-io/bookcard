@@ -24,6 +24,10 @@ export interface SearchSuggestionItem {
   id: number;
   /** Display name for the suggestion. */
   name: string;
+  /** Title field for books (alternative to name) */
+  title?: string;
+  /** Author field for books */
+  author?: string;
   /** Optional display name for UI (e.g., friendly language name). Falls back to `name` if not provided. */
   displayName?: string;
 }
