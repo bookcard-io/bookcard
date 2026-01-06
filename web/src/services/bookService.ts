@@ -269,6 +269,52 @@ export async function stripBookDrm(
 }
 
 /**
+ * Fix EPUB file for a book.
+ *
+ * Fire-and-forget: creates a background task and returns a task ID for polling.
+ *
+ * Parameters
+ * ----------
+ * bookId : number
+ *     Book ID to fix EPUB for.
+ *
+ * Returns
+ * -------
+ * Promise<BookFixEpubResponse>
+ *     Response containing task ID and optional message.
+ *
+ * Raises
+ * ------
+ * Error
+ *     If the API request fails.
+ */
+export interface BookFixEpubResponse {
+  task_id: number;
+  message?: string | null;
+}
+
+export async function fixBookEpub(
+  bookId: number,
+): Promise<BookFixEpubResponse> {
+  const response = await fetch(`/api/books/${bookId}/fix-epub`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to fix EPUB" }));
+    throw new Error(error.detail || "Failed to fix EPUB");
+  }
+
+  return response.json();
+}
+
+/**
  * Get conversion history for a book.
  *
  * Parameters

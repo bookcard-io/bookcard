@@ -53,6 +53,7 @@ from bookcard.api.schemas import (
     BookConvertResponse,
     BookDeleteRequest,
     BookFilterRequest,
+    BookFixEpubResponse,
     BookListResponse,
     BookRead,
     BookSendRequest,
@@ -1377,6 +1378,119 @@ def strip_book_drm(
         ) from e
 
     return BookStripDrmResponse(task_id=result.task_id, message=result.message)
+
+
+@router.post(
+    "/{book_id}/fix-epub",
+    response_model=BookFixEpubResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def fix_book_epub(
+    book_id: int,
+    current_user: CurrentUserDep,
+    book_service: BookServiceDep,
+    book_file_service: BookFileServiceDep,
+    permission_helper: PermissionHelperDep,
+    request: Request,
+) -> BookFixEpubResponse:
+    """Fix EPUB file for a book.
+
+    Enqueues a background task that runs the EPUB fixer on the book's EPUB file.
+    Fixes common issues like encoding, stray images, and broken links.
+
+    Parameters
+    ----------
+    book_id : int
+        Calibre book ID.
+    current_user : CurrentUserDep
+        Current authenticated user.
+    book_service : BookServiceDep
+        Book service dependency.
+    book_file_service : BookFileServiceDep
+        Book file service dependency.
+    permission_helper : PermissionHelperDep
+        Permission helper dependency.
+    request : Request
+        FastAPI request object (for task runner).
+
+    Returns
+    -------
+    BookFixEpubResponse
+        Response containing task ID and optional message.
+
+    Raises
+    ------
+    HTTPException
+        If book not found (404), permission denied (403), or task runner unavailable (503).
+    """
+    existing_book = book_service.get_book_full(book_id)
+    if existing_book is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="book_not_found",
+        )
+
+    permission_helper.check_write_permission(current_user, existing_book)
+
+    if current_user.id is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="user_missing_id",
+        )
+
+    # Find EPUB format
+    formats = existing_book.formats or []
+    epub_format_data = next(
+        (f for f in formats if str(f.get("format", "")).upper() == "EPUB"), None
+    )
+
+    if not epub_format_data:
+        return BookFixEpubResponse(task_id=0, message="No EPUB format found")
+
+    # Resolve file path
+    try:
+        file_path, _ = book_file_service.resolve_file_path(
+            existing_book.book, book_id, "EPUB", epub_format_data
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to resolve file path: {e}",
+        ) from e
+
+    # Get task runner
+    task_runner = _get_task_runner(request)
+
+    # Enqueue task
+    metadata = {
+        "task_type": TaskType.EPUB_FIX_SINGLE.value,
+        "file_path": str(file_path),
+        "book_id": book_id,
+        "book_title": existing_book.book.title,
+        # library_id is optional in EPUBFixTask but good to have if we can access it
+        # book_service has .library but it might be protected or not directly exposed as id
+        # actually book_service.library.id should work if library is a model
+    }
+
+    # Try to add library_id if available
+    library = getattr(book_service, "library", None)
+    if library and hasattr(library, "id"):
+        metadata["library_id"] = library.id
+
+    try:
+        task_id = task_runner.enqueue(
+            task_type=TaskType.EPUB_FIX_SINGLE,
+            payload={},  # Empty payload, all data in metadata
+            user_id=current_user.id,
+            metadata=metadata,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to enqueue fix task: {e}",
+        ) from e
+
+    return BookFixEpubResponse(task_id=task_id, message="EPUB fix task created")
 
 
 @router.get(

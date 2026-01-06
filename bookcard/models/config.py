@@ -713,10 +713,10 @@ class EPUBFixerConfig(SQLModel, table=True):
     __tablename__ = "epub_fixer_config"
 
     id: int | None = Field(default=None, primary_key=True)
-    enabled: bool = Field(default=False)
+    enabled: bool = Field(default=True)
     backup_enabled: bool = Field(default=True)
     backup_directory: str = Field(
-        default="/config/processed_books/fixed_originals", max_length=1000
+        default="/data/processed_books/fixed_originals", max_length=1000
     )
     default_language: str = Field(default="en", max_length=10)
     skip_already_fixed: bool = Field(default=True)

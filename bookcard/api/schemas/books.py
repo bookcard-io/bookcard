@@ -532,6 +532,24 @@ class BookStripDrmResponse(BaseModel):
     )
 
 
+class BookFixEpubResponse(BaseModel):
+    """Response for book EPUB fix request.
+
+    Attributes
+    ----------
+    task_id : int
+        Task ID for tracking the EPUB fix operation.
+    message : str | None
+        Optional message.
+    """
+
+    task_id: int = Field(description="Task ID for tracking the EPUB fix operation")
+    message: str | None = Field(
+        default=None,
+        description="Optional message about the result",
+    )
+
+
 class FormatMetadataResponse(BaseModel):
     """Detailed metadata for a specific book format.
 

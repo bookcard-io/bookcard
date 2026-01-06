@@ -24,7 +24,7 @@ import { useFlyoutIntent } from "@/hooks/useFlyoutIntent";
 import { useFlyoutPosition } from "@/hooks/useFlyoutPosition";
 import { useTaskTerminalPolling } from "@/hooks/useTaskTerminalPolling";
 import { cn } from "@/libs/utils";
-import { stripBookDrm } from "@/services/bookService";
+import { fixBookEpub, stripBookDrm } from "@/services/bookService";
 import type { Book } from "@/types/book";
 import { getFlyoutPositionStyle } from "@/utils/flyoutPositionStyle";
 import { buildBookPermissionContext } from "@/utils/permissions";
@@ -72,6 +72,15 @@ export function MoreActionsFlyoutMenu({
     [book, canPerformAction],
   );
 
+  const hasEpub = useMemo(
+    () =>
+      book.formats?.some(
+        (f) =>
+          typeof f.format === "string" && f.format.toUpperCase() === "EPUB",
+      ) ?? false,
+    [book.formats],
+  );
+
   const { position, direction, menuRef } = useFlyoutPosition({
     isOpen,
     parentItemRef,
@@ -99,6 +108,75 @@ export function MoreActionsFlyoutMenu({
   const handleFlyoutMouseEnter = useCallback(() => {
     onMouseEnter?.();
   }, [onMouseEnter]);
+
+  const handleFixEpub = useCallback(() => {
+    if (!canWrite || !hasEpub) {
+      return;
+    }
+
+    fixBookEpub(book.id)
+      .then(({ task_id, message }) => {
+        if (task_id <= 0) {
+          showSuccess(message || "No fix needed");
+          return;
+        }
+
+        showInfo(message || "EPUB fix queued");
+
+        void taskTerminalPolling.pollToTerminal(task_id).then((task) => {
+          if (!task) {
+            showDanger(
+              "EPUB fix is taking longer than expected. Check the tasks panel for updates.",
+            );
+            return;
+          }
+
+          if (task.status === "completed") {
+            // Check for either total_fixes or total_fixes_applied for backward compatibility
+            const fixesCount =
+              task.metadata?.total_fixes ?? task.metadata?.total_fixes_applied;
+
+            const fixesApplied =
+              typeof fixesCount === "number" && fixesCount > 0;
+
+            if (fixesApplied) {
+              showSuccess(`Fixed ${fixesCount} issue(s) in EPUB file`);
+            } else {
+              showSuccess("No issues found in EPUB file");
+            }
+            return;
+          }
+
+          if (task.status === "cancelled") {
+            showWarning("EPUB fix cancelled");
+            return;
+          }
+
+          // failed
+          showDanger(task.error_message || "EPUB fix failed");
+        });
+      })
+      .catch((error) => {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to fix EPUB";
+        showDanger(errorMessage);
+      });
+
+    // Close UI immediately (fire-and-forget)
+    onClose();
+    onSuccess?.();
+  }, [
+    book.id,
+    canWrite,
+    hasEpub,
+    onClose,
+    onSuccess,
+    showDanger,
+    showInfo,
+    showSuccess,
+    showWarning,
+    taskTerminalPolling,
+  ]);
 
   const handleStripDrm = useCallback(() => {
     if (!canWrite) {
@@ -217,6 +295,11 @@ export function MoreActionsFlyoutMenu({
       data-keep-selection
     >
       <div className="py-1">
+        <DropdownMenuItem
+          label="Fix EPUB"
+          onClick={canWrite && hasEpub ? handleFixEpub : undefined}
+          disabled={!canWrite || !hasEpub}
+        />
         <DropdownMenuItem
           label="Strip DRM if present"
           onClick={canWrite ? handleStripDrm : undefined}
