@@ -3012,5 +3012,6 @@ def test_get_thumbnail_path_with_db_file_path() -> None:
 
         assert result is not None
         # Should use parent directory
-        # Note: on Windows this might fail due to path separators, but these tests run on Linux/CI typically
-        assert str(result) == "/path/to/library/Author Name/Test Book (123)/cover.jpg"
+        # Compare using Path.as_posix() for cross-platform compatibility
+        expected = Path("/path/to/library/Author Name/Test Book (123)/cover.jpg")
+        assert result.as_posix() == expected.as_posix()
