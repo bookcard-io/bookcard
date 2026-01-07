@@ -3,9 +3,11 @@
 # Optimized for layer caching - stable dependencies first, frequently changing code last
 
 # ============================================================================
-# Stage 1: Build Next.js frontend
+# Stage 1: Build Next.js frontend (on host architecture)
 # ============================================================================
-FROM node:22-alpine AS frontend-builder
+# Use --platform=$BUILDPLATFORM to run the build on the runner's native architecture (e.g. amd64)
+# This avoids slow QEMU emulation for heavy build steps like npm install and npm run build
+FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend-builder
 
 WORKDIR /app/web
 
@@ -13,7 +15,7 @@ WORKDIR /app/web
 # See https://github.com/npm/cli/issues/4828
 COPY web/package*.json ./
 
-# Install dependencies
+# Install dependencies (full install including devDependencies for building)
 RUN npm install
 
 # Copy frontend source code (changes frequently - keep separate from npm install)
@@ -28,6 +30,22 @@ ENV NEXT_PUBLIC_SENTRY_DISABLED=1
 # Use 3GB to leave room for Docker and system overhead
 ENV NODE_OPTIONS=--max-old-space-size=3072
 RUN npm run build
+
+# ============================================================================
+# Stage 1.5: Install frontend production dependencies (on target architecture)
+# ============================================================================
+# This stage runs on the target architecture (e.g. arm64 via QEMU if needed)
+# It installs ONLY production dependencies. This is much faster than full install
+# and ensures we have the correct native binaries for the runtime.
+FROM node:22-alpine AS frontend-deps
+
+WORKDIR /app/web
+
+COPY web/package*.json ./
+
+# Install only production dependencies
+# This might still run on QEMU for arm64, but it's much lighter without devDependencies
+RUN npm install --omit=dev
 
 # ============================================================================
 # Stage 2: Build Python backend dependencies
@@ -162,7 +180,8 @@ COPY alembic.ini ./
 COPY --from=frontend-builder /app/web/.next ./web/.next
 COPY --from=frontend-builder /app/web/public ./web/public
 COPY --from=frontend-builder /app/web/package.json ./web/package.json
-COPY --from=frontend-builder /app/web/node_modules ./web/node_modules
+# COPY node_modules from frontend-deps (target arch), NOT frontend-builder (host arch)
+COPY --from=frontend-deps /app/web/node_modules ./web/node_modules
 COPY --from=frontend-builder /app/web/next.config.ts ./web/next.config.ts
 COPY --from=frontend-builder /app/web/tsconfig.json ./web/tsconfig.json
 
