@@ -212,12 +212,15 @@ class EPUBFixTask(BaseTask):
 
             # Complete fix run
             if fix_run.id is not None:
+                total_fixes_applied = len(fix_results)
                 fixer_service.complete_fix_run(
                     run_id=fix_run.id,
                     total_files_processed=1,
                     total_files_fixed=1 if fix_results else 0,
-                    total_fixes_applied=len(fix_results),
+                    total_fixes_applied=total_fixes_applied,
                 )
+                # Store statistics in metadata for frontend
+                self.set_metadata("total_fixes", total_fixes_applied)
 
             update_progress(1.0)
 

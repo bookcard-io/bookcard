@@ -58,6 +58,32 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
+
+    # Seed default configuration
+    op.execute(
+        """
+        INSERT INTO epub_fixer_config (
+            enabled,
+            backup_enabled,
+            backup_directory,
+            default_language,
+            skip_already_fixed,
+            skip_failed,
+            created_at,
+            updated_at
+        ) VALUES (
+            true,
+            true,
+            '/data/processed_books/fixed_originals',
+            'en',
+            true,
+            true,
+            NOW(),
+            NOW()
+        );
+        """
+    )
+
     op.create_index(
         op.f("ix_epub_fixer_config_created_at"),
         "epub_fixer_config",
