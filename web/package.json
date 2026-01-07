@@ -46,6 +46,7 @@
     "@fontsource/literata": "^5.2.8",
     "@fontsource/opendyslexic": "^5.2.5",
     "@hookform/resolvers": "^5.2.2",
+    "@next/bundle-analyzer": "^16.1.1",
     "@sentry/nextjs": "^10.22.0",
     "@tanstack/react-query": "^5.90.9",
     "@tanstack/react-virtual": "^3.13.12",
@@ -73,7 +74,6 @@
     "@commitlint/prompt-cli": "^20.1.0",
     "@faker-js/faker": "^10.1.0",
     "@lingual/i18n-check": "^0.8.12",
-    "@next/bundle-analyzer": "^16.1.0",
     "@playwright/test": "^1.56.1",
     "@spotlightjs/spotlight": "^4.4.0",
     "@storybook/addon-a11y": "^10.1.10",
@@ -114,8 +114,8 @@
     "vitest-browser-react": "^2.0.2"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-musl": "4.54.0",
     "@rollup/rollup-linux-arm64-musl": "4.54.0",
+    "@rollup/rollup-linux-x64-musl": "4.54.0",
     "@tailwindcss/oxide-linux-arm64-musl": "4.1.18",
     "lightningcss-linux-arm64-musl": "1.30.2",
     "lightningcss-linux-x64-gnu": "1.30.2",
