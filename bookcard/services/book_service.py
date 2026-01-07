@@ -454,6 +454,26 @@ class BookService:
             title_sort=title_sort,
         )
 
+    def _get_library_path(self) -> Path:
+        """Get the library root path.
+
+        Handles both directory and file paths in configuration.
+
+        Returns
+        -------
+        Path
+            Library root path.
+        """
+        # Prefer explicit library_root from config when provided
+        lib_root = getattr(self._library, "library_root", None)
+        if lib_root:
+            return Path(lib_root)
+
+        db_path = Path(self._library.calibre_db_path)
+        if db_path.is_dir():
+            return db_path
+        return db_path.parent
+
     def get_thumbnail_url(
         self, book: Book | BookWithRelations | BookWithFullRelations
     ) -> str | None:
@@ -520,12 +540,7 @@ class BookService:
             return None
 
         # Calibre stores covers as cover.jpg in the book's path directory
-        # Prefer explicit library_root from config when provided
-        lib_root = getattr(self._library, "library_root", None)
-        if lib_root:
-            library_path = Path(lib_root)
-        else:
-            library_path = Path(self._library.calibre_db_path)
+        library_path = self._get_library_path()
         book_path = library_path / book_obj.path
         cover_path = book_path / "cover.jpg"
 
@@ -754,13 +769,8 @@ class BookService:
         ValueError
             If file_path doesn't exist or file_format is invalid.
         """
-        # Determine library path (prefer library_root if set)
-        library_path = None
-        lib_root = getattr(self._library, "library_root", None)
-        if lib_root:
-            library_path = Path(lib_root)
-        else:
-            library_path = Path(self._library.calibre_db_path)
+        # Determine library path
+        library_path = self._get_library_path()
         return self._book_repo.add_book(
             file_path=file_path,
             file_format=file_format,
@@ -978,13 +988,8 @@ class BookService:
                 book_id, delete_files_from_drive=delete_files_from_drive
             )
 
-        # Determine library path (prefer library_root if set)
-        library_path = None
-        lib_root = getattr(self._library, "library_root", None)
-        if lib_root:
-            library_path = Path(lib_root)
-        else:
-            library_path = Path(self._library.calibre_db_path)
+        # Determine library path
+        library_path = self._get_library_path()
 
         self._book_repo.delete_book(
             book_id=book_id,
@@ -1417,15 +1422,7 @@ class BookService:
             If file is not found.
         """
         # Determine library path
-        lib_root = getattr(self._library, "library_root", None)
-        if lib_root:
-            library_path = Path(lib_root)
-        else:
-            library_db_path = Path(self._library.calibre_db_path)
-            if library_db_path.is_dir():
-                library_path = library_db_path
-            else:
-                library_path = library_db_path.parent
+        library_path = self._get_library_path()
 
         book_path = library_path / book.path
         logger.debug("Book path: %s", book_path)
