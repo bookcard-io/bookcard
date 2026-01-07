@@ -783,12 +783,14 @@ def test_add_book_without_library_root() -> None:
         mock_repo.add_book.return_value = 123
         mock_repo_class.return_value = mock_repo
 
-        service = BookService(library)
-        result = service.add_book(
-            file_path=Path("/tmp/test.epub"),
-            file_format="epub",
-            title="Test Book",
-        )
+        # Mock Path.is_dir to return True so logic assumes it's a directory
+        with patch("pathlib.Path.is_dir", return_value=True):
+            service = BookService(library)
+            result = service.add_book(
+                file_path=Path("/tmp/test.epub"),
+                file_format="epub",
+                title="Test Book",
+            )
 
         assert result == 123
         call_kwargs = mock_repo.add_book.call_args[1]
@@ -833,8 +835,10 @@ def test_delete_book_without_library_root() -> None:
         mock_repo = MagicMock()
         mock_repo_class.return_value = mock_repo
 
-        service = BookService(library)
-        service.delete_book(book_id=123, delete_files_from_drive=True)
+        # Mock Path.is_dir to return True so logic assumes it's a directory
+        with patch("pathlib.Path.is_dir", return_value=True):
+            service = BookService(library)
+            service.delete_book(book_id=123, delete_files_from_drive=True)
 
         call_kwargs = mock_repo.delete_book.call_args[1]
         assert call_kwargs["library_path"] == Path("/path/to/library")
@@ -2923,6 +2927,91 @@ def test_ensure_epub_for_kindle_no_user_id(library: Library, book: Book) -> None
         assert call_args.kwargs["user_id"] is None
 
 
-# Note: Lines 641-648 are covered by the _ensure_epub_for_kindle tests above.
-# These lines are part of send_book_to_device but the logic is fully tested
-# through the direct _ensure_epub_for_kindle method tests.
+def test_add_book_with_db_file_path() -> None:
+    """Test add_book correctly handles calibre_db_path pointing to a file."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library/metadata.db",
+        calibre_db_file="metadata.db",
+    )
+
+    with patch(
+        "bookcard.services.book_service.CalibreBookRepository"
+    ) as mock_repo_class:
+        mock_repo = MagicMock()
+        mock_repo.add_book.return_value = 123
+        mock_repo_class.return_value = mock_repo
+
+        # Mock Path.is_dir to return False so logic assumes it's a file
+        with patch("pathlib.Path.is_dir", return_value=False):
+            service = BookService(library)
+            result = service.add_book(
+                file_path=Path("/tmp/test.epub"),
+                file_format="epub",
+                title="Test Book",
+            )
+
+        assert result == 123
+        call_kwargs = mock_repo.add_book.call_args[1]
+        # Should use parent directory
+        assert call_kwargs["library_path"] == Path("/path/to/library")
+
+
+def test_delete_book_with_db_file_path() -> None:
+    """Test delete_book correctly handles calibre_db_path pointing to a file."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library/metadata.db",
+        calibre_db_file="metadata.db",
+    )
+
+    with patch(
+        "bookcard.services.book_service.CalibreBookRepository"
+    ) as mock_repo_class:
+        mock_repo = MagicMock()
+        mock_repo_class.return_value = mock_repo
+
+        # Mock Path.is_dir to return False so logic assumes it's a file
+        with patch("pathlib.Path.is_dir", return_value=False):
+            service = BookService(library)
+            service.delete_book(book_id=123, delete_files_from_drive=True)
+
+        call_kwargs = mock_repo.delete_book.call_args[1]
+        # Should use parent directory
+        assert call_kwargs["library_path"] == Path("/path/to/library")
+
+
+def test_get_thumbnail_path_with_db_file_path() -> None:
+    """Test get_thumbnail_path correctly handles calibre_db_path pointing to a file."""
+    library = Library(
+        id=1,
+        name="Test Library",
+        calibre_db_path="/path/to/library/metadata.db",
+        calibre_db_file="metadata.db",
+    )
+
+    book = Book(
+        id=123,
+        title="Test Book",
+        uuid="test-uuid",
+        has_cover=True,
+        path="Author Name/Test Book (123)",
+    )
+
+    with patch("bookcard.services.book_service.CalibreBookRepository"):
+        # Mock Path.is_dir to return False so logic assumes it's a file
+        # Mock Path.exists to return True for cover path check
+        with (
+            patch("pathlib.Path.is_dir", return_value=False),
+            patch("pathlib.Path.exists", return_value=True),
+        ):
+            service = BookService(library)
+            result = service.get_thumbnail_path(book)
+
+        assert result is not None
+        # Should use parent directory
+        # Compare using Path.as_posix() for cross-platform compatibility
+        expected = Path("/path/to/library/Author Name/Test Book (123)/cover.jpg")
+        assert result.as_posix() == expected.as_posix()
