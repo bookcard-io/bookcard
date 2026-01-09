@@ -66,6 +66,9 @@ services:
       - .env
     ports:
       - "3000:3000"
+      # Uncomment this if you want to expose the backend port
+      # e.g. for API access and/or OPDS
+      # - "8000:8000"
     healthcheck:
       test:
         - CMD-SHELL
