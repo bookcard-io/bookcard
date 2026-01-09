@@ -20,9 +20,10 @@ Business logic is delegated to services following SOLID principles.
 """
 
 import json
-from pathlib import Path
+import logging
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse
 from fastapi.responses import Response as FastAPIResponse
@@ -31,7 +32,6 @@ from sqlmodel import Session, col, func, select
 from bookcard.api.deps import get_db_session, get_opds_user
 from bookcard.api.schemas.opds import OpdsFeedRequest
 from bookcard.models.auth import User
-from bookcard.models.config import Library
 from bookcard.models.core import Book, BookAuthorLink, BookSeriesLink, BookTagLink
 from bookcard.repositories.config_repository import LibraryRepository
 from bookcard.services.book_permission_helper import BookPermissionHelper
@@ -41,6 +41,7 @@ from bookcard.services.opds.feed_service import OpdsFeedService
 from bookcard.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/opds", tags=["opds"])
+logger = logging.getLogger(__name__)
 
 SessionDep = Annotated[Session, Depends(get_db_session)]
 OpdsUserDep = Annotated[User | None, Depends(get_opds_user)]
@@ -136,7 +137,7 @@ def feed_index(
     """
     _check_opds_read_permission(opds_user, session)
     feed_service = _get_opds_feed_service(session)
-    feed_response = feed_service.generate_catalog_feed(request)
+    feed_response = feed_service.generate_catalog_feed(request, opds_user)
 
     return Response(
         content=feed_response.xml_content,
@@ -282,11 +283,13 @@ def feed_discover(
 
 
 @router.get("/search", response_class=FastAPIResponse)
+@router.post("/search", response_class=FastAPIResponse)
 def feed_search(
     request: Request,
     session: SessionDep,
     opds_user: OpdsUserDep,
-    query: str = Query(..., min_length=1),
+    query: str | None = Query(default=None),
+    search_terms: str | None = Query(default=None),
     offset: int = Query(default=0, ge=0),
     page_size: int = Query(default=20, ge=1, le=100),
 ) -> Response:
@@ -302,8 +305,10 @@ def feed_search(
         Database session.
     opds_user : User | None
         Authenticated user (required for book access).
-    query : str
+    query : str | None
         Search query string.
+    searchTerms : str | None
+        Alternative search query parameter (OpenSearch standard).
     offset : int
         Pagination offset (OPDS standard).
     page_size : int
@@ -320,10 +325,26 @@ def feed_search(
         If user is not authenticated (401).
     """
     _check_opds_read_permission(opds_user, session)
+
+    # Resolve search query from 'query' or 'searchTerms'
+    search_query = query or search_terms
+
+    if search_query:
+        logger.info(
+            "OPDS search request: query='%s', user=%s",
+            search_query,
+            opds_user.id if opds_user else "None",
+        )
+    else:
+        logger.info(
+            "OPDS search request: empty query, user=%s",
+            opds_user.id if opds_user else "None",
+        )
+
     feed_service = _get_opds_feed_service(session)
     feed_request = OpdsFeedRequest(offset=offset, page_size=page_size)
     feed_response = feed_service.generate_search_feed(
-        request, opds_user, query, feed_request
+        request, opds_user, search_query, feed_request
     )
 
     return Response(
@@ -509,56 +530,6 @@ def feed_rated(
     )
 
 
-def _get_opds_library_path(library: Library) -> Path:
-    """Get library path from library configuration.
-
-    Parameters
-    ----------
-    library : object
-        Library configuration object.
-
-    Returns
-    -------
-    Path
-        Library root path.
-    """
-    lib_root = getattr(library, "library_root", None)
-    if lib_root:
-        return Path(lib_root)
-
-    library_db_path = Path(library.calibre_db_path)
-    return library_db_path.parent if library_db_path.is_file() else library_db_path
-
-
-def _find_opds_format_data(
-    formats: list[dict[str, str | int]] | None, format_name: str
-) -> dict[str, str | int] | None:
-    """Find format data in book formats list.
-
-    Parameters
-    ----------
-    formats : list[dict[str, object]] | None
-        List of format dictionaries.
-    format_name : str
-        Format name to find (case-insensitive).
-
-    Returns
-    -------
-    dict[str, object] | None
-        Format data if found, None otherwise.
-    """
-    if not formats:
-        return None
-
-    format_upper = format_name.upper()
-    for fmt in formats:
-        fmt_str = str(fmt.get("format", "")).upper()
-        if fmt_str == format_upper:
-            return fmt
-
-    return None
-
-
 def _get_opds_media_type(format_name: str) -> str:
     """Get media type for book format.
 
@@ -616,58 +587,11 @@ def _sanitize_opds_filename(
     return f"{safe_author} - {safe_title}.{format_name.lower()}"
 
 
-def _find_opds_file_path(
-    library_path: Path,
-    book_path: str,
-    format_data: dict[str, str | int],
-    book_id: int,
-    format_name: str,
-) -> Path:
-    """Find book file path with fallback.
-
-    Parameters
-    ----------
-    library_path : Path
-        Library root path.
-    book_path : str
-        Book relative path.
-    format_data : dict[str, object]
-        Format data dictionary.
-    book_id : int
-        Book ID.
-    format_name : str
-        Format name.
-
-    Returns
-    -------
-    Path
-        File path.
-
-    Raises
-    ------
-    HTTPException
-        If file not found.
-    """
-    full_book_path = library_path / book_path
-    file_name = format_data.get("name") or f"{book_id}.{format_name.lower()}"
-    file_path = full_book_path / file_name
-
-    if file_path.exists():
-        return file_path
-
-    # Try alternative
-    alt_file_name = f"{book_id}.{format_name.lower()}"
-    alt_file_path = full_book_path / alt_file_name
-    if alt_file_path.exists():
-        return alt_file_path
-
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="file_not_found",
-    )
-
-
-@router.get("/download/{book_id}/{book_format}", response_class=FastAPIResponse)
+@router.api_route(
+    "/download/{book_id}/{book_format}",
+    methods=["GET", "HEAD"],
+    response_class=FastAPIResponse,
+)
 def opds_download(
     session: SessionDep,
     opds_user: OpdsUserDep,
@@ -720,17 +644,17 @@ def opds_download(
             detail="book_missing_id",
         )
 
-    format_data = _find_opds_format_data(book_with_rels.formats, book_format)
-    if format_data is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"format_not_found: {book_format.upper()}",
+    try:
+        file_path = book_service.get_format_file_path(book_id, book_format)
+        logger.info("OPDS download: file found at %s", file_path)
+    except ValueError as e:
+        logger.warning(
+            "OPDS download: file not found for book %s, format %s: %s",
+            book_id,
+            book_format,
+            e,
         )
-
-    library_path = _get_opds_library_path(library)
-    file_path = _find_opds_file_path(
-        library_path, book.path, format_data, book_id, book_format
-    )
+        return Response(status_code=status.HTTP_404_NOT_FOUND)
 
     media_type = _get_opds_media_type(book_format)
     filename = _sanitize_opds_filename(
@@ -744,10 +668,18 @@ def opds_download(
     )
 
 
-@router.get("/cover/{book_id}", response_class=FastAPIResponse)
-@router.get("/cover_90_90/{book_id}", response_class=FastAPIResponse)
-@router.get("/cover_240_240/{book_id}", response_class=FastAPIResponse)
-@router.get("/thumb_240_240/{book_id}", response_class=FastAPIResponse)
+@router.api_route(
+    "/cover/{book_id}", methods=["GET", "HEAD"], response_class=FastAPIResponse
+)
+@router.api_route(
+    "/cover_90_90/{book_id}", methods=["GET", "HEAD"], response_class=FastAPIResponse
+)
+@router.api_route(
+    "/cover_240_240/{book_id}", methods=["GET", "HEAD"], response_class=FastAPIResponse
+)
+@router.api_route(
+    "/thumb_240_240/{book_id}", methods=["GET", "HEAD"], response_class=FastAPIResponse
+)
 def opds_cover(
     session: SessionDep,
     opds_user: OpdsUserDep,
@@ -797,8 +729,35 @@ def opds_cover(
             detail="permission_denied",
         )
 
+    # Handle virtual books (negative ID)
+    if book_id < 0:
+        # For virtual books, we might have an external cover URL
+        if getattr(book_with_rels, "cover_url", None):
+            # Proxy the image to avoid client-side redirect issues (CORS, Auth headers, etc.)
+            cover_url = str(book_with_rels.cover_url)
+            try:
+                with httpx.Client() as client:
+                    resp = client.get(cover_url, follow_redirects=True, timeout=10.0)
+                    resp.raise_for_status()
+                    return Response(
+                        content=resp.content,
+                        media_type=resp.headers.get("content-type", "image/jpeg"),
+                    )
+            except (httpx.RequestError, httpx.HTTPStatusError) as exc:
+                logger.warning(
+                    "Failed to proxy cover for virtual book %s (%s): %s",
+                    book_id,
+                    cover_url,
+                    exc,
+                )
+                # Fallthrough to 404
+
+        # If no cover URL, return 404
+        return Response(status_code=status.HTTP_404_NOT_FOUND)
+
     cover_path = book_service.get_thumbnail_path(book_with_rels)
     if cover_path is None or not cover_path.exists():
+        logger.warning("Cover path not found for book %s: %s", book_id, cover_path)
         return Response(status_code=status.HTTP_404_NOT_FOUND)
 
     book_id_for_filename = book_with_rels.book.id or book_id

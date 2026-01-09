@@ -18,6 +18,7 @@
 Orchestrates feed generation by coordinating book queries and XML building.
 """
 
+import logging
 from datetime import UTC, datetime
 
 from fastapi import Request
@@ -36,6 +37,8 @@ from bookcard.services.opds.book_query_service import OpdsBookQueryService
 from bookcard.services.opds.interfaces import IOpdsFeedService
 from bookcard.services.opds.url_builder import OpdsUrlBuilder
 from bookcard.services.opds.xml_builder import OpdsXmlBuilder
+
+logger = logging.getLogger(__name__)
 
 
 class OpdsFeedService(IOpdsFeedService):
@@ -76,6 +79,7 @@ class OpdsFeedService(IOpdsFeedService):
     def generate_catalog_feed(
         self,
         request: Request,
+        user: User | None,
     ) -> OpdsFeedResponse:
         """Generate main catalog feed.
 
@@ -83,6 +87,8 @@ class OpdsFeedService(IOpdsFeedService):
         ----------
         request : Request
             FastAPI request object.
+        user : User | None
+            Authenticated user.
 
         Returns
         -------
@@ -113,12 +119,20 @@ class OpdsFeedService(IOpdsFeedService):
                 "title": "Discover",
             },
             {
-                "href": url_builder.build_opds_url("/opds/search"),
+                "href": url_builder.build_opds_url("/opds/search?query={searchTerms}"),
                 "rel": "search",
                 "type": "application/atom+xml",
                 "title": "Search",
             },
         ]
+
+        # Fetch recent books for the acquisition feed (top 20)
+        books, _ = self._book_query_service.get_recent_books(
+            user=user,
+            page=1,
+            page_size=20,
+        )
+        entries = self._build_entries(request, books)
 
         feed_id = f"{base_url}/opds/"
         title = f"Calibre Library - {self._library.name}"
@@ -128,7 +142,7 @@ class OpdsFeedService(IOpdsFeedService):
             title=title,
             feed_id=feed_id,
             updated=updated,
-            entries=[],
+            entries=entries,
             links=links,
         )
 
@@ -242,7 +256,7 @@ class OpdsFeedService(IOpdsFeedService):
         self,
         request: Request,
         user: User | None,
-        query: str,
+        query: str | None,
         feed_request: OpdsFeedRequest,
     ) -> OpdsFeedResponse:
         """Generate search results feed.
@@ -253,7 +267,7 @@ class OpdsFeedService(IOpdsFeedService):
             FastAPI request object.
         user : User | None
             Authenticated user or None.
-        query : str
+        query : str | None
             Search query string.
         feed_request : OpdsFeedRequest
             Feed request parameters.
@@ -263,6 +277,18 @@ class OpdsFeedService(IOpdsFeedService):
         OpdsFeedResponse
             Generated feed response.
         """
+        # Handle empty query by returning empty feed
+        if not query or not query.strip():
+            return self._build_books_feed(
+                request,
+                books=[],
+                total=0,
+                feed_request=feed_request,
+                path="/opds/search",
+                title="Search",
+                query=None,
+            )
+
         page = (feed_request.offset // feed_request.page_size) + 1
 
         books, total = self._book_query_service.search_books(
@@ -435,13 +461,28 @@ class OpdsFeedService(IOpdsFeedService):
         base_url = str(request.base_url).rstrip("/")
         entries: list[OpdsEntry] = []
 
+        logger.info("Building OPDS entries for %s books", len(books))
+
         for book_with_rels in books:
             book = book_with_rels.book
             if book.id is None:
                 continue
 
-            # Build entry ID
-            entry_id = f"{base_url}/opds/books/{book.id}"
+            # Log book title for debugging
+            logger.info(
+                "OPDS Entry: id=%s, title='%s', virtual=%s",
+                book.id,
+                book.title,
+                getattr(book_with_rels, "is_virtual", False),
+            )
+
+            # Build entry ID using URN UUID to match Calibre-Web-Automated
+            # This prevents browsers/readers from trying to navigate to it as a URL
+            if book.uuid:
+                entry_id = f"urn:uuid:{book.uuid}"
+            else:
+                # Fallback to URL-based ID if UUID missing (should be rare)
+                entry_id = f"{base_url}/opds/books/{book.id}"
 
             # Build links
             links: list[OpdsLink] = []
@@ -464,17 +505,36 @@ class OpdsFeedService(IOpdsFeedService):
                     )
                 )
 
-            # Download links (need to get formats from book)
-            # For now, we'll add a generic download link
-            # In a full implementation, we'd query available formats
-            download_url = url_builder.build_download_url(book.id, "EPUB")
-            links.append(
-                OpdsLink(
-                    href=download_url,
-                    rel="http://opds-spec.org/acquisition/open-access",
-                    type="application/epub+zip",
-                )
-            )
+            # Download links
+            if book_with_rels.formats:
+                for fmt in book_with_rels.formats:
+                    fmt_name = str(fmt.get("format", "")).upper()
+                    if not fmt_name:
+                        continue
+
+                    download_url = url_builder.build_download_url(book.id, fmt_name)
+                    # Get media type for format (you might want to import helper or duplicate logic)
+                    # Simple mapping for common formats
+                    media_type_map = {
+                        "EPUB": "application/epub+zip",
+                        "PDF": "application/pdf",
+                        "MOBI": "application/x-mobipocket-ebook",
+                        "AZW3": "application/vnd.amazon.ebook",
+                        "CBZ": "application/vnd.comicbook+zip",
+                        "CBR": "application/vnd.comicbook-rar",
+                    }
+                    media_type = media_type_map.get(
+                        fmt_name, "application/octet-stream"
+                    )
+
+                    links.append(
+                        OpdsLink(
+                            href=download_url,
+                            rel="http://opds-spec.org/acquisition",
+                            type=media_type,
+                            title=f"Download {fmt_name}",
+                        )
+                    )
 
             # Build published date
             published = None
@@ -488,15 +548,19 @@ class OpdsFeedService(IOpdsFeedService):
                 else datetime.now(UTC).isoformat()
             )
 
-            # Build summary (description) - would need to get from Comment table
-            summary = None
+            # Build summary (description)
+            # Try to get description from relations if available (BookWithFullRelations)
+            summary = getattr(book_with_rels, "description", None)
 
             # Build identifier (ISBN)
             identifier = book.isbn if book.isbn else None
 
+            # Ensure title is populated (fallback to Unknown if empty/None)
+            title = book.title if book.title else "Unknown"
+
             entry = OpdsEntry(
                 id=entry_id,
-                title=book.title,
+                title=title,
                 authors=book_with_rels.authors,
                 updated=updated,
                 summary=summary,
@@ -504,6 +568,7 @@ class OpdsFeedService(IOpdsFeedService):
                 published=published,
                 identifier=identifier,
                 series=book_with_rels.series,
+                series_index=book.series_index,
             )
 
             entries.append(entry)

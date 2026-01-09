@@ -94,7 +94,11 @@ class TestOpdsBookQueryService:
         # Arrange
         user = User(id=1)
         book1 = Mock(spec=BookWithRelations)
+        book1.is_virtual = False
+        book1.formats = [{"format": "EPUB"}]
         book2 = Mock(spec=BookWithRelations)
+        book2.is_virtual = False
+        book2.formats = [{"format": "EPUB"}]
         mock_book_service.list_books.return_value = ([book1, book2], 2)
 
         # Allow book1, deny book2
@@ -134,6 +138,8 @@ class TestOpdsBookQueryService:
         # Arrange
         user = User(id=1)
         book = Mock(spec=BookWithRelations)
+        book.is_virtual = False
+        book.formats = [{"format": "EPUB"}]
         mock_book_service.list_books.return_value = ([book], 1)
         mock_permission_service.has_permission.return_value = True
 
@@ -154,6 +160,9 @@ class TestOpdsBookQueryService:
         """Test get_random_books with filtering."""
         user = User(id=1)
         books = [Mock(spec=BookWithRelations) for _ in range(5)]
+        for b in books:
+            b.is_virtual = False
+            b.formats = [{"format": "EPUB"}]
         mock_book_service.list_books.return_value = (books, 5)
         mock_permission_service.has_permission.return_value = True
 
@@ -175,6 +184,8 @@ class TestOpdsBookQueryService:
         """Test search_books."""
         user = User(id=1)
         book = Mock(spec=BookWithRelations)
+        book.is_virtual = False
+        book.formats = [{"format": "EPUB"}]
         mock_book_service.list_books.return_value = ([book], 1)
         mock_permission_service.has_permission.return_value = True
 
@@ -195,6 +206,8 @@ class TestOpdsBookQueryService:
         """Test get_books_by_filter."""
         user = User(id=1)
         book = Mock(spec=BookWithRelations)
+        book.is_virtual = False
+        book.formats = [{"format": "EPUB"}]
         mock_book_service.list_books_with_filters.return_value = ([book], 1)
         mock_permission_service.has_permission.return_value = True
 
@@ -230,17 +243,23 @@ class TestOpdsBookQueryService:
 
         # Book 1: High rating
         book1 = Mock(spec=BookWithRelations)
+        book1.is_virtual = False
+        book1.formats = [{"format": "EPUB"}]
         book1.book = Mock()
         book1.book.rating_id = 9
 
         # Book 2: Low rating
         book2 = Mock(spec=BookWithRelations)
+        book2.is_virtual = False
+        book2.formats = [{"format": "EPUB"}]
         book2.book = Mock()
         # Mocking empty rating_id or 0
         book2.book.rating_id = 0
 
         # Book 3: No rating attr
         book3 = Mock(spec=BookWithRelations)
+        book3.is_virtual = False
+        book3.formats = [{"format": "EPUB"}]
         # Mock book3.book to NOT have rating_id set correctly or None
         book3.book = Mock()
         book3.book.rating_id = None
@@ -256,3 +275,24 @@ class TestOpdsBookQueryService:
 
             assert len(result) == 1
             assert result[0] == book1
+
+    def test_filters_out_virtual_without_formats(
+        self,
+        book_query_service: OpdsBookQueryService,
+        mock_book_service: Mock,
+        mock_permission_service: Mock,
+    ) -> None:
+        """Virtual items without formats are excluded from OPDS feeds."""
+        user = User(id=1)
+        virtual_no_formats = Mock(spec=BookWithRelations)
+        virtual_no_formats.is_virtual = True
+        virtual_no_formats.formats = []
+
+        mock_book_service.list_books.return_value = ([virtual_no_formats], 1)
+        mock_permission_service.has_permission.return_value = True
+
+        with patch.object(BookPermissionHelper, "build_permission_context"):
+            result, count = book_query_service.get_books(user)
+
+        assert result == []
+        assert count == 0

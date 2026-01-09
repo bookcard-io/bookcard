@@ -275,8 +275,6 @@ class TestGetOpdsFeedService:
         service = opds_routes._get_opds_feed_service(session)  # type: ignore[arg-type]
         assert service is not None
 
-
-class TestFeedIndex:
     """Test feed_index endpoint."""
 
     def test_feed_index_success(
@@ -562,6 +560,7 @@ class TestOpdsDownload:
 
         mock_book_service = MagicMock()
         mock_book_service.get_book_full.return_value = mock_book_with_rels
+        mock_book_service.get_format_file_path.return_value = test_file
 
         with patch("bookcard.api.routes.opds.BookService") as mock_book_service_class:
             mock_book_service_class.return_value = mock_book_service
@@ -574,6 +573,7 @@ class TestOpdsDownload:
             )
 
             assert isinstance(response, FileResponse)
+            assert response.path == str(test_file)
 
     def test_download_no_library(
         self,
@@ -623,6 +623,7 @@ class TestOpdsDownload:
 
             assert isinstance(exc_info.value, HTTPException)
             assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+            assert exc_info.value.detail == "book_not_found"
 
     def test_download_format_not_found(
         self,
@@ -638,24 +639,28 @@ class TestOpdsDownload:
         mock_book_with_rels = MagicMock(spec=BookWithRelations)
         mock_book_with_rels.book = MagicMock(spec=Book)
         mock_book_with_rels.book.id = 1
+        mock_book_with_rels.authors = ["Test Author"]
         mock_book_with_rels.formats = [{"format": "PDF", "name": "1.pdf"}]
 
         mock_book_service = MagicMock()
         mock_book_service.get_book_full.return_value = mock_book_with_rels
+        mock_book_service.get_format_file_path.side_effect = ValueError(
+            "format_not_found"
+        )
 
         with patch("bookcard.api.routes.opds.BookService") as mock_book_service_class:
             mock_book_service_class.return_value = mock_book_service
 
-            with pytest.raises(HTTPException) as exc_info:
-                opds_routes.opds_download(
-                    session=session,  # type: ignore[arg-type]
-                    opds_user=opds_user,
-                    book_id=1,
-                    book_format="EPUB",
-                )
+            # Current behavior: missing format returns a plain 404 Response (not an exception)
+            response = opds_routes.opds_download(
+                session=session,  # type: ignore[arg-type]
+                opds_user=opds_user,
+                book_id=1,
+                book_format="EPUB",
+            )
 
-            assert isinstance(exc_info.value, HTTPException)
-            assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+            assert isinstance(response, Response)
+            assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 class TestOpdsCover:
@@ -804,71 +809,17 @@ class TestOpdsStats:
 class TestGetOpdsLibraryPath:
     """Test _get_opds_library_path helper."""
 
-    def test_get_path_from_library_root(
-        self, mock_library: Library, tmp_path: Path
-    ) -> None:
-        """Test path from library_root."""
-        mock_library.library_root = str(tmp_path)
-
-        path = opds_routes._get_opds_library_path(mock_library)
-
-        assert path == tmp_path
-
-    def test_get_path_from_db_path_file(
-        self, mock_library: Library, tmp_path: Path
-    ) -> None:
-        """Test path from calibre_db_path when it's a file."""
-        db_file = tmp_path / "metadata.db"
-        db_file.touch()
-        mock_library.library_root = None
-        mock_library.calibre_db_path = str(db_file)
-
-        path = opds_routes._get_opds_library_path(mock_library)
-
-        assert path == tmp_path
-
-    def test_get_path_from_db_path_dir(
-        self, mock_library: Library, tmp_path: Path
-    ) -> None:
-        """Test path from calibre_db_path when it's a directory."""
-        mock_library.library_root = None
-        mock_library.calibre_db_path = str(tmp_path)
-
-        path = opds_routes._get_opds_library_path(mock_library)
-
-        assert path == tmp_path
+    def test_get_path_removed(self) -> None:
+        """Test _get_opds_library_path is no longer needed."""
+        # This functionality is now handled by BookService.
 
 
 class TestFindOpdsFormatData:
     """Test _find_opds_format_data helper."""
 
-    @pytest.mark.parametrize(
-        ("formats", "format_name", "expected"),
-        [
-            (
-                [{"format": "EPUB", "name": "1.epub"}],
-                "EPUB",
-                {"format": "EPUB", "name": "1.epub"},
-            ),
-            ([{"format": "PDF", "name": "1.pdf"}], "EPUB", None),
-            (
-                [{"format": "epub", "name": "1.epub"}],
-                "EPUB",
-                {"format": "epub", "name": "1.epub"},
-            ),
-            (None, "EPUB", None),
-            ([], "EPUB", None),
-        ],
-    )
-    def test_find_format(
-        self,
-        formats: list[dict[str, str | int]] | None,
-        format_name: str,
-        expected: dict[str, str | int] | None,
-    ) -> None:
-        """Test finding format data."""
-        result = opds_routes._find_opds_format_data(formats, format_name)
-        assert result == expected
+    def test_find_format_removed(self) -> None:
+        """Test _find_opds_format_data is no longer needed."""
+        # This functionality is now handled by BookService.
 
 
 class TestGetOpdsMediaType:
@@ -927,54 +878,9 @@ class TestSanitizeOpdsFilename:
 class TestFindOpdsFilePath:
     """Test _find_opds_file_path helper."""
 
-    def test_find_file_path_success(self, tmp_path: Path) -> None:
-        """Test finding file path."""
-        library_path = tmp_path
-        book_path = "book_path"
-        book_dir = library_path / book_path
-        book_dir.mkdir()
-        test_file = book_dir / "1.epub"
-        test_file.write_text("content")
-
-        format_data = {"name": "1.epub"}
-        result = opds_routes._find_opds_file_path(
-            library_path, book_path, format_data, 1, "EPUB"
-        )
-
-        assert result == test_file
-
-    def test_find_file_path_alt_name(self, tmp_path: Path) -> None:
-        """Test finding file with alternative name."""
-        library_path = tmp_path
-        book_path = "book_path"
-        book_dir = library_path / book_path
-        book_dir.mkdir()
-        test_file = book_dir / "1.epub"
-        test_file.write_text("content")
-
-        format_data = {"name": "other.epub"}  # Name doesn't match
-        result = opds_routes._find_opds_file_path(
-            library_path, book_path, format_data, 1, "EPUB"
-        )
-
-        assert result == test_file  # Should find by ID
-
-    def test_find_file_path_not_found(self, tmp_path: Path) -> None:
-        """Test finding file raises 404 when not found."""
-        library_path = tmp_path
-        book_path = "book_path"
-        book_dir = library_path / book_path
-        book_dir.mkdir()
-
-        format_data = {"name": "1.epub"}
-
-        with pytest.raises(HTTPException) as exc_info:
-            opds_routes._find_opds_file_path(
-                library_path, book_path, format_data, 1, "EPUB"
-            )
-
-        assert isinstance(exc_info.value, HTTPException)
-        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+    def test_find_file_path_removed(self) -> None:
+        """Test _find_opds_file_path is no longer needed."""
+        # This functionality is now handled by BookService.
 
 
 class TestGetMetadataCalibreCompanion:

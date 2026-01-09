@@ -19,6 +19,7 @@ Routes handle only HTTP concerns: request/response, status codes, exceptions.
 Business logic is delegated to services following SOLID principles.
 """
 
+import logging
 import math
 import tempfile
 from pathlib import Path
@@ -102,6 +103,7 @@ if TYPE_CHECKING:
     from bookcard.services.tasks.base import TaskRunner
 
 router = APIRouter(prefix="/books", tags=["books"])
+logger = logging.getLogger(__name__)
 
 SessionDep = Annotated[Session, Depends(get_db_session)]
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
@@ -762,6 +764,9 @@ def get_book_cover(
     cover_path = book_service.get_thumbnail_path(book_with_rels)
     book_id_for_filename = book_with_rels.book.id
     if cover_path is None or not cover_path.exists():
+        logger.warning(
+            "Main API: Cover path not found for book %s: %s", book_id, cover_path
+        )
         return Response(status_code=status.HTTP_404_NOT_FOUND)
 
     return FileResponse(

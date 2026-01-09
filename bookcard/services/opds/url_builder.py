@@ -90,7 +90,7 @@ class OpdsUrlBuilder:
             Absolute download URL.
         """
         base_url = str(self._request.base_url).rstrip("/")
-        return f"{base_url}/api/books/{book_id}/download/{file_format}"
+        return f"{base_url}/opds/download/{book_id}/{file_format}"
 
     def build_cover_url(self, book_id: int) -> str:
         """Build book cover image URL.
@@ -106,7 +106,7 @@ class OpdsUrlBuilder:
             Absolute cover URL.
         """
         base_url = str(self._request.base_url).rstrip("/")
-        return f"{base_url}/api/books/{book_id}/cover"
+        return f"{base_url}/opds/cover/{book_id}"
 
     def build_pagination_url(
         self,

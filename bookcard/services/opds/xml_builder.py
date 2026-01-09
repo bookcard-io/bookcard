@@ -67,7 +67,7 @@ class OpdsXmlBuilder(IOpdsXmlBuilder):
         """
         # Create root feed element with namespaces
         feed = etree.Element(
-            "feed",
+            f"{{{NS_ATOM}}}feed",
             nsmap={
                 None: NS_ATOM,
                 "opds": NS_OPDS,
@@ -77,18 +77,18 @@ class OpdsXmlBuilder(IOpdsXmlBuilder):
         )
 
         # Add required Atom elements
-        title_elem = etree.SubElement(feed, "title")
+        title_elem = etree.SubElement(feed, f"{{{NS_ATOM}}}title")
         title_elem.text = title
 
-        id_elem = etree.SubElement(feed, "id")
+        id_elem = etree.SubElement(feed, f"{{{NS_ATOM}}}id")
         id_elem.text = feed_id
 
-        updated_elem = etree.SubElement(feed, "updated")
+        updated_elem = etree.SubElement(feed, f"{{{NS_ATOM}}}updated")
         updated_elem.text = updated
 
         # Add author element (required by Atom)
-        author_elem = etree.SubElement(feed, "author")
-        name_elem = etree.SubElement(author_elem, "name")
+        author_elem = etree.SubElement(feed, f"{{{NS_ATOM}}}author")
+        name_elem = etree.SubElement(author_elem, f"{{{NS_ATOM}}}name")
         name_elem.text = "Calibre Bookcard"
 
         # Add links
@@ -128,7 +128,7 @@ class OpdsXmlBuilder(IOpdsXmlBuilder):
         _Element
             XML element (lxml.etree._Element).
         """
-        entry_elem = etree.Element("entry")
+        entry_elem = etree.Element(f"{{{NS_ATOM}}}entry")
 
         # Required Atom elements
         self._add_required_atom_elements(entry_elem, entry)
@@ -150,13 +150,13 @@ class OpdsXmlBuilder(IOpdsXmlBuilder):
         entry : OpdsEntry
             Entry data model.
         """
-        id_elem = etree.SubElement(entry_elem, "id")
+        id_elem = etree.SubElement(entry_elem, f"{{{NS_ATOM}}}id")
         id_elem.text = entry.id
 
-        title_elem = etree.SubElement(entry_elem, "title")
+        title_elem = etree.SubElement(entry_elem, f"{{{NS_ATOM}}}title")
         title_elem.text = entry.title
 
-        updated_elem = etree.SubElement(entry_elem, "updated")
+        updated_elem = etree.SubElement(entry_elem, f"{{{NS_ATOM}}}updated")
         updated_elem.text = entry.updated
 
     def _add_authors(self, entry_elem: etree._Element, entry: OpdsEntry) -> None:
@@ -170,8 +170,8 @@ class OpdsXmlBuilder(IOpdsXmlBuilder):
             Entry data model.
         """
         for author in entry.authors:
-            author_elem = etree.SubElement(entry_elem, "author")
-            name_elem = etree.SubElement(author_elem, "name")
+            author_elem = etree.SubElement(entry_elem, f"{{{NS_ATOM}}}author")
+            name_elem = etree.SubElement(author_elem, f"{{{NS_ATOM}}}name")
             name_elem.text = author
 
     def _add_optional_metadata(
@@ -188,13 +188,13 @@ class OpdsXmlBuilder(IOpdsXmlBuilder):
         """
         # Summary/description
         if entry.summary:
-            summary_elem = etree.SubElement(entry_elem, "summary")
+            summary_elem = etree.SubElement(entry_elem, f"{{{NS_ATOM}}}summary")
             summary_elem.text = entry.summary
             summary_elem.set("type", "text")
 
         # Published date
         if entry.published:
-            published_elem = etree.SubElement(entry_elem, "published")
+            published_elem = etree.SubElement(entry_elem, f"{{{NS_ATOM}}}published")
             published_elem.text = entry.published
 
         # DC metadata
@@ -266,7 +266,7 @@ class OpdsXmlBuilder(IOpdsXmlBuilder):
         title : str | None
             Optional link title.
         """
-        link_elem = etree.SubElement(parent, "link")
+        link_elem = etree.SubElement(parent, f"{{{NS_ATOM}}}link")
         link_elem.set("href", href)
         link_elem.set("rel", rel)
 

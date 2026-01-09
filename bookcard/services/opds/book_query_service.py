@@ -362,6 +362,20 @@ class OpdsBookQueryService(IOpdsBookQueryService):
         filtered: list[BookWithRelations] = []
 
         for book in books:
+            # OPDS expects acquisition-style entries. Readest (via foliate-js/opds.js)
+            # determines whether an entry is a "publication" based on whether it has at
+            # least one acquisition/preview link. Virtual tracked books that have no
+            # downloadable formats would otherwise be treated as navigation items and,
+            # if they appear first, can cause Readest to render the entire feed as
+            # navigation ("Untitled" + broken click behavior).
+            #
+            # To match Calibre-Web(-Automated) behavior and keep OPDS feeds consistent,
+            # we exclude virtual entries that don't have any formats to acquire.
+            if getattr(book, "is_virtual", False) and not getattr(
+                book, "formats", None
+            ):
+                continue
+
             # Build permission context
             context = BookPermissionHelper.build_permission_context(book)
 

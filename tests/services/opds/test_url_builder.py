@@ -63,12 +63,12 @@ class TestOpdsUrlBuilder:
     def test_build_download_url(self, url_builder: OpdsUrlBuilder) -> None:
         """Test building download URL."""
         url = url_builder.build_download_url(123, "EPUB")
-        assert url == "http://testserver/api/books/123/download/EPUB"
+        assert url == "http://testserver/opds/download/123/EPUB"
 
     def test_build_cover_url(self, url_builder: OpdsUrlBuilder) -> None:
         """Test building cover URL."""
         url = url_builder.build_cover_url(123)
-        assert url == "http://testserver/api/books/123/cover"
+        assert url == "http://testserver/opds/cover/123"
 
     def test_build_pagination_url(self, url_builder: OpdsUrlBuilder) -> None:
         """Test building pagination URL."""

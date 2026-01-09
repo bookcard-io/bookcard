@@ -87,13 +87,16 @@ def mock_book() -> Mock:
     book_rel.book = Mock()
     book_rel.book.id = 1
     book_rel.book.title = "Test Book"
+    book_rel.book.uuid = "00000000-0000-0000-0000-000000000001"
     book_rel.book.has_cover = True
     book_rel.book.pubdate = datetime(2023, 1, 1, tzinfo=UTC)
     book_rel.book.last_modified = datetime(2023, 1, 2, tzinfo=UTC)
     book_rel.book.isbn = "123"
+    book_rel.book.series_index = 1.0
     book_rel.authors = ["Author"]
     book_rel.series = "Series"
-    book_rel.series_index = 1.0
+    book_rel.formats = [{"format": "EPUB", "name": "1.epub", "size": 1000}]
+    book_rel.is_virtual = False
     return book_rel
 
 
@@ -110,12 +113,17 @@ class TestOpdsFeedService:
             assert service._book_query_service is not None
 
     def test_generate_catalog_feed(
-        self, feed_service: OpdsFeedService, mock_request: Mock, mock_xml_builder: Mock
+        self,
+        feed_service: OpdsFeedService,
+        mock_request: Mock,
+        mock_xml_builder: Mock,
+        mock_book_query_service: Mock,
     ) -> None:
         """Test generating catalog feed."""
         mock_xml_builder.build_feed.return_value = "<feed></feed>"
+        mock_book_query_service.get_recent_books.return_value = ([], 0)
 
-        response = feed_service.generate_catalog_feed(mock_request)
+        response = feed_service.generate_catalog_feed(mock_request, None)
 
         assert isinstance(response, OpdsFeedResponse)
         assert response.xml_content == "<feed></feed>"
@@ -146,7 +154,7 @@ class TestOpdsFeedService:
         mock_xml_builder.build_feed.assert_called()
         entries = mock_xml_builder.build_feed.call_args[1]["entries"]
         assert len(entries) == 1
-        assert entries[0].id == "http://testserver/opds/books/1"
+        assert entries[0].id == "urn:uuid:00000000-0000-0000-0000-000000000001"
 
     def test_generate_new_feed(
         self,
@@ -256,8 +264,12 @@ class TestOpdsFeedService:
         book1.book.pubdate = None
         book1.book.last_modified = datetime(2023, 1, 1, tzinfo=UTC)
         book1.book.isbn = None
+        book1.book.uuid = "00000000-0000-0000-0000-000000000001"
+        book1.book.series_index = 1.0
         book1.authors = ["Author"]
         book1.series = None
+        book1.formats = [{"format": "EPUB", "name": "1.epub", "size": 1000}]
+        book1.is_virtual = False
 
         # Book starts with A
         book2 = Mock(spec=BookWithRelations)
@@ -269,8 +281,12 @@ class TestOpdsFeedService:
         book2.book.pubdate = None
         book2.book.last_modified = datetime(2023, 1, 1, tzinfo=UTC)
         book2.book.isbn = None
+        book2.book.uuid = "00000000-0000-0000-0000-000000000002"
+        book2.book.series_index = 1.0
         book2.authors = ["Author"]
         book2.series = None
+        book2.formats = [{"format": "EPUB", "name": "2.epub", "size": 1000}]
+        book2.is_virtual = False
 
         mock_book_query_service.get_books.return_value = ([book1, book2], 2)
         mock_xml_builder.build_feed.return_value = "<feed></feed>"
@@ -282,7 +298,8 @@ class TestOpdsFeedService:
         # Only book1 should be in entries
         entries = mock_xml_builder.build_feed.call_args[1]["entries"]
         assert len(entries) == 1
-        assert "books/1" in entries[0].id
+        # UUID is used when available
+        assert entries[0].id.startswith("urn:uuid:")
 
     def test_generate_rated_feed(
         self,

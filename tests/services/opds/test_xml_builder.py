@@ -98,37 +98,35 @@ class TestOpdsXmlBuilder:
         """Test building a single entry."""
         elem = xml_builder.build_entry(sample_entry)
 
-        # Elements are created without explicit namespace, but when added to feed
-        # with default namespace, they'll be in that namespace
-        # For testing, we can search without namespace or check tag names
-        assert elem.tag == "entry"
+        # Builder creates namespace-qualified Atom elements
+        assert elem.tag == f"{{{NS_ATOM}}}entry"
 
-        # Required Atom elements - search by tag name (namespace will be applied when added to feed)
-        id_elem = elem.find("id")
+        # Required Atom elements
+        id_elem = elem.find(f"{{{NS_ATOM}}}id")
         assert id_elem is not None
         assert id_elem.text == "urn:uuid:123"
 
-        title_elem = elem.find("title")
+        title_elem = elem.find(f"{{{NS_ATOM}}}title")
         assert title_elem is not None
         assert title_elem.text == "Test Book"
 
-        updated_elem = elem.find("updated")
+        updated_elem = elem.find(f"{{{NS_ATOM}}}updated")
         assert updated_elem is not None
         assert updated_elem.text == "2023-01-01T12:00:00Z"
 
         # Authors
-        author = elem.find("author")
+        author = elem.find(f"{{{NS_ATOM}}}author")
         assert author is not None
-        name_elem = author.find("name")
+        name_elem = author.find(f"{{{NS_ATOM}}}name")
         assert name_elem is not None
         assert name_elem.text == "Author One"
 
         # Optional metadata
-        summary_elem = elem.find("summary")
+        summary_elem = elem.find(f"{{{NS_ATOM}}}summary")
         assert summary_elem is not None
         assert summary_elem.text == "A test book"
 
-        published_elem = elem.find("published")
+        published_elem = elem.find(f"{{{NS_ATOM}}}published")
         assert published_elem is not None
         assert published_elem.text == "2023-01-01"
 
@@ -148,7 +146,7 @@ class TestOpdsXmlBuilder:
         assert identifier.get("scheme") == "ISBN"
 
         # Links
-        link = elem.find("link")
+        link = elem.find(f"{{{NS_ATOM}}}link")
         assert link is not None
         assert link.get("href") == "/link1"
         assert link.get("rel") == "alternate"
@@ -165,12 +163,11 @@ class TestOpdsXmlBuilder:
 
         elem = xml_builder.build_entry(entry)
 
-        # Search by tag name (namespace applied when added to feed)
-        id_elem = elem.find("id")
+        id_elem = elem.find(f"{{{NS_ATOM}}}id")
         assert id_elem is not None
         assert id_elem.text == "urn:uuid:min"
 
-        assert elem.find("summary") is None
+        assert elem.find(f"{{{NS_ATOM}}}summary") is None
         assert elem.find(f"{{{NS_DC}}}language") is None
 
     def test_build_feed_no_links(self, xml_builder: OpdsXmlBuilder) -> None:
