@@ -126,11 +126,11 @@ class OpdsFeedService(IOpdsFeedService):
             },
         ]
 
-        # Fetch recent books for the acquisition feed (top 20)
+        # Fetch recent books for the acquisition feed (top 50)
         books, _ = self._book_query_service.get_recent_books(
             user=user,
             page=1,
-            page_size=20,
+            page_size=50,
         )
         entries = self._build_entries(request, books)
 
@@ -426,6 +426,18 @@ class OpdsFeedService(IOpdsFeedService):
             links.append({
                 "href": url_builder.build_opds_url(path, next_params),
                 "rel": "next",
+                "type": "application/atom+xml;profile=opds-catalog",
+            })
+
+        # Last page
+        if total_pages > 1 and current_page < total_pages:
+            last_offset = (total_pages - 1) * feed_request.page_size
+            last_params = {"offset": last_offset, "page_size": feed_request.page_size}
+            if query:
+                last_params["query"] = query
+            links.append({
+                "href": url_builder.build_opds_url(path, last_params),
+                "rel": "last",
                 "type": "application/atom+xml;profile=opds-catalog",
             })
 

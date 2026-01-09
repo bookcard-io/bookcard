@@ -426,10 +426,10 @@ class TestFeedEndpoints:
         )
 
         if endpoint_func == "feed_discover":
-            kwargs["page_size"] = 20
+            kwargs["page_size"] = 50
         elif endpoint_func not in no_pagination_endpoints:
             kwargs["offset"] = 0
-            kwargs["page_size"] = 20
+            kwargs["page_size"] = 50
 
     @staticmethod
     def _add_endpoint_specific_params(
@@ -498,7 +498,7 @@ class TestFeedSearchPath:
             opds_user=opds_user,
             query="test+query",
             offset=0,
-            page_size=20,
+            page_size=50,
         )
 
         assert isinstance(response, Response)
