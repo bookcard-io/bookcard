@@ -51,36 +51,48 @@ jobs:
       - name: Resolve Docker Hub image name
         id: dockerhub_image
         run: |
-          if [ -n "${DOCKERHUB_IMAGE}" ]; then
-            echo "image=${DOCKERHUB_IMAGE}" >> "${GITHUB_OUTPUT}"
-          else
-            echo "image=${GITHUB_REPOSITORY}" >> "${GITHUB_OUTPUT}"
+          set -euo pipefail
+
+          dockerhub_enabled="false"
+          if [ -n "${DOCKERHUB_USERNAME:-}" ] \
+            && [ -n "${DOCKERHUB_TOKEN:-}" ]; then
+            dockerhub_enabled="true"
+          fi
+          echo "enabled=${dockerhub_enabled}" >> "${GITHUB_OUTPUT}"
+
+          if [ "${dockerhub_enabled}" != "true" ]; then
+            # Docker Hub is optional; leave image empty when disabled.
+            echo "image=" >> "${GITHUB_OUTPUT}"
+            echo "meta_image=" >> "${GITHUB_OUTPUT}"
+            exit 0
           fi
 
+          repo_name="${GITHUB_REPOSITORY#*/}" # owner/repo -> repo
+          image="${DOCKERHUB_IMAGE:-${repo_name}}"
+
+          # Ensure we always push to a namespaced Docker Hub repo.
+          # If the secret is already "namespace/repo", keep it as-is.
+          if ! printf '%s' "${image}" | grep -q '/'; then
+            image="${DOCKERHUB_USERNAME}/${image}"
+          fi
+
+          echo "image=${image}" >> "${GITHUB_OUTPUT}"
+          echo "meta_image=${image},enable=true" >> "${GITHUB_OUTPUT}"
+
       - name: Log in to Docker Hub
-        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
+        if: steps.dockerhub_image.outputs.enabled == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract Docker metadata (GHCR)
-        id: meta_ghcr
+      - name: Extract Docker metadata (GHCR + optional Docker Hub)
+        id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha
-
-      - name: Extract Docker metadata (Docker Hub)
-        id: meta_dockerhub
-        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ steps.dockerhub_image.outputs.image }}
+          images: |
+            ghcr.io/${{ github.repository }}
+            ${{ steps.dockerhub_image.outputs.meta_image }}
           tags: |
             type=ref,event=tag
             type=semver,pattern={{version}}
@@ -95,8 +107,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ steps.meta_ghcr.outputs.tags }}
-            ${{ steps.meta_dockerhub.outputs.tags }}
-          labels: ${{ steps.meta_ghcr.outputs.labels }}
+            ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
