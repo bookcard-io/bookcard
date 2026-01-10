@@ -33,7 +33,7 @@ class OpdsFeedRequest(BaseModel):
 
     offset: int = Field(default=0, ge=0, description="Pagination offset")
     page_size: int = Field(
-        default=20, ge=1, le=100, description="Number of items per page"
+        default=50, ge=1, le=100, description="Number of items per page"
     )
 
 

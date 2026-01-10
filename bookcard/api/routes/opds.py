@@ -151,7 +151,7 @@ def feed_books(
     session: SessionDep,
     opds_user: OpdsUserDep,
     offset: int = Query(default=0, ge=0),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
     """Book listings feed.
 
@@ -197,7 +197,7 @@ def feed_new(
     session: SessionDep,
     opds_user: OpdsUserDep,
     offset: int = Query(default=0, ge=0),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
     """Recently added books feed.
 
@@ -242,7 +242,7 @@ def feed_discover(
     request: Request,
     session: SessionDep,
     opds_user: OpdsUserDep,
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
     """Random book discovery feed.
 
@@ -291,7 +291,7 @@ def feed_search(
     query: str | None = Query(default=None),
     search_terms: str | None = Query(default=None),
     offset: int = Query(default=0, ge=0),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
     """Search functionality feed.
 
@@ -394,7 +394,7 @@ def feed_search_path(
     opds_user: OpdsUserDep,
     query: str,
     offset: int = Query(default=0, ge=0),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
     """Alternative search route with path parameter.
 
@@ -450,7 +450,7 @@ def feed_books_letter(
     opds_user: OpdsUserDep,
     letter: str,
     offset: int = Query(default=0, ge=0),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
     """Books by first letter feed.
 
@@ -495,7 +495,7 @@ def feed_rated(
     session: SessionDep,
     opds_user: OpdsUserDep,
     offset: int = Query(default=0, ge=0),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
     """Best rated books feed.
 
@@ -828,7 +828,7 @@ def feed_author_index(
     session: SessionDep,
     opds_user: OpdsUserDep,
     offset: int = Query(default=0, ge=0),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
     """Return author index feed.
 
@@ -870,7 +870,7 @@ def feed_author_letter(
     opds_user: OpdsUserDep,
     letter: str,
     offset: int = Query(default=0, ge=0),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
     """Return authors by letter feed.
 
@@ -916,7 +916,7 @@ def feed_author(
     opds_user: OpdsUserDep,
     author_id: int,
     offset: int = Query(default=0, ge=0),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
     """Books by author feed.
 
@@ -1001,7 +1001,7 @@ def feed_publisher(
     opds_user: OpdsUserDep,
     publisher_id: int,
     offset: int = Query(default=0, ge=0),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
     """Books by publisher feed.
 
@@ -1127,7 +1127,7 @@ def feed_category(
     opds_user: OpdsUserDep,
     category_id: int,
     offset: int = Query(default=0, ge=0),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
     """Books by category/tag feed.
 
@@ -1253,7 +1253,7 @@ def feed_series(
     opds_user: OpdsUserDep,
     series_id: int,
     offset: int = Query(default=0, ge=0),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
     """Books by series feed.
 
@@ -1338,7 +1338,7 @@ def feed_ratings(
     opds_user: OpdsUserDep,
     rating_id: int,
     offset: int = Query(default=0, ge=0),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
     """Books by rating feed.
 
@@ -1423,7 +1423,7 @@ def feed_format(
     opds_user: OpdsUserDep,
     format_name: str,
     offset: int = Query(default=0, ge=0),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
     """Books by format feed.
 
@@ -1508,7 +1508,7 @@ def feed_language(
     opds_user: OpdsUserDep,
     language_id: int,
     offset: int = Query(default=0, ge=0),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
     """Books by language feed.
 
@@ -1634,7 +1634,7 @@ def feed_hot(
     session: SessionDep,
     opds_user: OpdsUserDep,
     offset: int = Query(default=0, ge=0),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
     """Hot/popular books feed.
 

@@ -100,7 +100,7 @@ class OpdsBookQueryService(IOpdsBookQueryService):
         tuple[list[BookWithRelations], int]
             Tuple of (books list, total count).
         """
-        books, _total = self._book_service.list_books(
+        books, total = self._book_service.list_books(
             page=page,
             page_size=page_size,
             sort_by=sort_by,
@@ -111,9 +111,12 @@ class OpdsBookQueryService(IOpdsBookQueryService):
         # Filter by permissions
         filtered_books = self._filter_by_permissions(books, user)
 
-        # Recalculate total (approximate - we filter after pagination)
-        # For accurate counts, we'd need to filter at the database level
-        return filtered_books, len(filtered_books)
+        # Keep the underlying total count for correct OPDS pagination.
+        #
+        # Note: filtering happens after pagination, so `total` is not strictly
+        # permission-aware; however OPDS clients (e.g. Readest) rely on paging
+        # links (`next`/`last`) which require an honest total estimate.
+        return filtered_books, total
 
     def get_recent_books(
         self,
@@ -206,7 +209,7 @@ class OpdsBookQueryService(IOpdsBookQueryService):
         tuple[list[BookWithRelations], int]
             Tuple of (books list, total count).
         """
-        books, _total = self._book_service.list_books(
+        books, total = self._book_service.list_books(
             page=page,
             page_size=page_size,
             search_query=query,
@@ -216,7 +219,7 @@ class OpdsBookQueryService(IOpdsBookQueryService):
         # Filter by permissions
         filtered_books = self._filter_by_permissions(books, user)
 
-        return filtered_books, len(filtered_books)
+        return filtered_books, total
 
     def get_books_by_filter(
         self,
@@ -267,7 +270,7 @@ class OpdsBookQueryService(IOpdsBookQueryService):
         tuple[list[BookWithRelations], int]
             Tuple of (books list, total count).
         """
-        books, _total = self._book_service.list_books_with_filters(
+        books, total = self._book_service.list_books_with_filters(
             page=page,
             page_size=page_size,
             author_ids=author_ids,
@@ -285,7 +288,7 @@ class OpdsBookQueryService(IOpdsBookQueryService):
         # Filter by permissions
         filtered_books = self._filter_by_permissions(books, user)
 
-        return filtered_books, len(filtered_books)
+        return filtered_books, total
 
     def get_best_rated_books(
         self,

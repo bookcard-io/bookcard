@@ -112,7 +112,7 @@ class TestOpdsBookQueryService:
 
             # Assert
             assert result == [book1]
-            assert count == 1
+            assert count == 2
             mock_book_service.list_books.assert_called_with(
                 page=1, page_size=20, sort_by="timestamp", sort_order="desc", full=False
             )
@@ -126,7 +126,8 @@ class TestOpdsBookQueryService:
         result, count = book_query_service.get_books(None)
 
         assert result == []
-        assert count == 0
+        # Total is the underlying count; without a user we return no entries.
+        assert count == 1
 
     def test_get_recent_books(
         self,
@@ -144,9 +145,10 @@ class TestOpdsBookQueryService:
         mock_permission_service.has_permission.return_value = True
 
         with patch.object(BookPermissionHelper, "build_permission_context"):
-            result, _count = book_query_service.get_recent_books(user)
+            result, count = book_query_service.get_recent_books(user)
 
             assert result == [book]
+            assert count == 1
             mock_book_service.list_books.assert_called_with(
                 page=1, page_size=20, sort_by="timestamp", sort_order="desc", full=False
             )
@@ -190,9 +192,10 @@ class TestOpdsBookQueryService:
         mock_permission_service.has_permission.return_value = True
 
         with patch.object(BookPermissionHelper, "build_permission_context"):
-            result, _count = book_query_service.search_books(user, "query")
+            result, count = book_query_service.search_books(user, "query")
 
             assert result == [book]
+            assert count == 1
             mock_book_service.list_books.assert_called_with(
                 page=1, page_size=20, search_query="query", full=False
             )
@@ -212,11 +215,10 @@ class TestOpdsBookQueryService:
         mock_permission_service.has_permission.return_value = True
 
         with patch.object(BookPermissionHelper, "build_permission_context"):
-            result, _count = book_query_service.get_books_by_filter(
-                user, author_ids=[1]
-            )
+            result, count = book_query_service.get_books_by_filter(user, author_ids=[1])
 
             assert result == [book]
+            assert count == 1
             mock_book_service.list_books_with_filters.assert_called_with(
                 page=1,
                 page_size=20,
@@ -295,4 +297,5 @@ class TestOpdsBookQueryService:
             result, count = book_query_service.get_books(user)
 
         assert result == []
-        assert count == 0
+        # Total is the underlying count; filtering removes the entry from the page.
+        assert count == 1

@@ -126,11 +126,11 @@ class OpdsFeedService(IOpdsFeedService):
             },
         ]
 
-        # Fetch recent books for the acquisition feed (top 20)
+        # Fetch recent books for the acquisition feed (top 50)
         books, _ = self._book_query_service.get_recent_books(
             user=user,
             page=1,
-            page_size=20,
+            page_size=50,
         )
         entries = self._build_entries(request, books)
 
@@ -375,59 +375,40 @@ class OpdsFeedService(IOpdsFeedService):
         url_builder = OpdsUrlBuilder(request)
         base_url = str(request.base_url).rstrip("/")
 
-        # Build pagination links
-        links = []
-        current_page = (feed_request.offset // feed_request.page_size) + 1
-        total_pages = (total + feed_request.page_size - 1) // feed_request.page_size
+        # Build pagination links.
+        #
+        # Readest groups links by `rel` and renders pagination controls based on
+        # the presence of `first`/`previous`/`next`/`last`. Some clients hide the
+        # controls entirely if any of these are missing (notably on the first or
+        # last page). To maximize client compatibility we emit a full set of
+        # pagination links whenever paging is possible, clamping offsets to the
+        # valid range (so e.g. `previous` on the first page points to the first
+        # page instead of being omitted).
+        extra_params: dict[str, str] | None = {"query": query} if query else None
+        links = self._build_pagination_links(
+            url_builder=url_builder,
+            base_path=path,
+            offset=feed_request.offset,
+            page_size=feed_request.page_size,
+            total=total,
+            extra_params=extra_params,
+        )
 
-        # Self link
-        query_params: dict[str, str | int] = {
+        # Self link (always present)
+        self_params: dict[str, str | int] = {
             "offset": feed_request.offset,
             "page_size": feed_request.page_size,
         }
         if query:
-            query_params["query"] = query
-        links.append({
-            "href": url_builder.build_opds_url(path, query_params),
-            "rel": "self",
-            "type": "application/atom+xml;profile=opds-catalog",
-        })
-
-        # First page
-        if current_page > 1:
-            first_offset = 0
-            first_params = {"offset": first_offset, "page_size": feed_request.page_size}
-            if query:
-                first_params["query"] = query
-            links.append({
-                "href": url_builder.build_opds_url(path, first_params),
-                "rel": "first",
+            self_params["query"] = query
+        links.insert(
+            0,
+            {
+                "href": url_builder.build_opds_url(path, self_params),
+                "rel": "self",
                 "type": "application/atom+xml;profile=opds-catalog",
-            })
-
-        # Previous page
-        if current_page > 1:
-            prev_offset = feed_request.offset - feed_request.page_size
-            prev_params = {"offset": prev_offset, "page_size": feed_request.page_size}
-            if query:
-                prev_params["query"] = query
-            links.append({
-                "href": url_builder.build_opds_url(path, prev_params),
-                "rel": "previous",
-                "type": "application/atom+xml;profile=opds-catalog",
-            })
-
-        # Next page
-        if current_page < total_pages:
-            next_offset = feed_request.offset + feed_request.page_size
-            next_params = {"offset": next_offset, "page_size": feed_request.page_size}
-            if query:
-                next_params["query"] = query
-            links.append({
-                "href": url_builder.build_opds_url(path, next_params),
-                "rel": "next",
-                "type": "application/atom+xml;profile=opds-catalog",
-            })
+            },
+        )
 
         feed_id = f"{base_url}{path}"
         updated = datetime.now(UTC).isoformat()
@@ -719,6 +700,7 @@ class OpdsFeedService(IOpdsFeedService):
         offset: int,
         page_size: int,
         total: int,
+        extra_params: dict[str, str] | None = None,
     ) -> list[dict[str, str]]:
         """Build pagination links for OPDS feed.
 
@@ -734,58 +716,54 @@ class OpdsFeedService(IOpdsFeedService):
             Page size.
         total : int
             Total number of items.
+        extra_params : dict[str, str] | None
+            Optional extra query parameters to include in pagination URLs.
 
         Returns
         -------
         list[dict[str, str]]
             List of pagination link dictionaries.
         """
-        links: list[dict[str, str]] = []
+        if page_size <= 0 or total <= page_size:
+            return []
 
-        # First page
-        if offset > 0:
-            links.append({
-                "href": url_builder.build_opds_url(
-                    f"{base_path}?offset=0&page_size={page_size}"
-                ),
+        last_offset = ((total - 1) // page_size) * page_size
+
+        def _href(target_offset: int) -> str:
+            params: dict[str, str | int] = {
+                "offset": target_offset,
+                "page_size": page_size,
+            }
+            if extra_params:
+                params.update(extra_params)
+            return url_builder.build_opds_url(base_path, params)
+
+        # Clamp offsets so the link set is always complete.
+        prev_offset = max(0, offset - page_size)
+        next_offset = min(last_offset, offset + page_size)
+
+        return [
+            {
+                "href": _href(0),
                 "rel": "first",
                 "type": "application/atom+xml;profile=opds-catalog",
-            })
-
-        # Previous page
-        if offset >= page_size:
-            prev_offset = offset - page_size
-            links.append({
-                "href": url_builder.build_opds_url(
-                    f"{base_path}?offset={prev_offset}&page_size={page_size}"
-                ),
+            },
+            {
+                "href": _href(prev_offset),
                 "rel": "previous",
                 "type": "application/atom+xml;profile=opds-catalog",
-            })
-
-        # Next page
-        if offset + page_size < total:
-            next_offset = offset + page_size
-            links.append({
-                "href": url_builder.build_opds_url(
-                    f"{base_path}?offset={next_offset}&page_size={page_size}"
-                ),
+            },
+            {
+                "href": _href(next_offset),
                 "rel": "next",
                 "type": "application/atom+xml;profile=opds-catalog",
-            })
-
-        # Last page
-        if offset + page_size < total:
-            last_offset = ((total - 1) // page_size) * page_size
-            links.append({
-                "href": url_builder.build_opds_url(
-                    f"{base_path}?offset={last_offset}&page_size={page_size}"
-                ),
+            },
+            {
+                "href": _href(last_offset),
                 "rel": "last",
                 "type": "application/atom+xml;profile=opds-catalog",
-            })
-
-        return links
+            },
+        ]
 
     # Index feed methods (lists of entities for browsing)
     def generate_author_index_feed(
