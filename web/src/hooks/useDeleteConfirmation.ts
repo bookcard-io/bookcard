@@ -115,8 +115,21 @@ export function useDeleteConfirmation({
         });
 
         if (!response.ok) {
-          const data = (await response.json()) as { detail?: string };
-          const errorMsg = data.detail || "Failed to delete book";
+          let errorMsg = "Failed to delete book";
+          try {
+            const data = (await response.json()) as { detail?: string };
+            errorMsg = data.detail || errorMsg;
+          } catch {
+            // Non-JSON error response (e.g., plain text / HTML)
+            try {
+              const text = await response.text();
+              if (text) {
+                errorMsg = text;
+              }
+            } catch {
+              // Ignore secondary parse failures; keep default message
+            }
+          }
           setError(errorMsg);
           onError?.(errorMsg);
           return;
