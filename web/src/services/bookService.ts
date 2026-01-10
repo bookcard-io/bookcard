@@ -47,28 +47,40 @@ export interface SendBookOptions {
   fileFormat?: string;
 }
 
-export async function sendBookToDevice(
-  bookId: number,
-  options?: SendBookOptions,
+async function postOrThrow(
+  url: string,
+  body: Record<string, unknown>,
+  defaultErrorMessage: string,
 ): Promise<void> {
-  const response = await fetch(`/api/books/${bookId}/send`, {
+  const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     credentials: "include",
-    body: JSON.stringify({
-      to_email: options?.toEmail || null,
-      file_format: options?.fileFormat || null,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
     const error = await response
       .json()
-      .catch(() => ({ detail: "Failed to send book" }));
-    throw new Error(error.detail || "Failed to send book");
+      .catch(() => ({ detail: defaultErrorMessage }));
+    throw new Error(error.detail || defaultErrorMessage);
   }
+}
+
+export async function sendBookToDevice(
+  bookId: number,
+  options?: SendBookOptions,
+): Promise<void> {
+  await postOrThrow(
+    `/api/books/${bookId}/send`,
+    {
+      to_email: options?.toEmail || null,
+      file_format: options?.fileFormat || null,
+    },
+    "Failed to send book",
+  );
 }
 
 /**
@@ -103,25 +115,57 @@ export async function sendBooksToDeviceBatch(
     return;
   }
 
-  const response = await fetch("/api/books/send/batch", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    credentials: "include",
-    body: JSON.stringify({
+  await postOrThrow(
+    "/api/books/send/batch",
+    {
       book_ids: bookIds,
       to_email: options?.toEmail || null,
       file_format: options?.fileFormat || null,
-    }),
-  });
+    },
+    "Failed to send books",
+  );
+}
 
-  if (!response.ok) {
-    const error = await response
-      .json()
-      .catch(() => ({ detail: "Failed to send books" }));
-    throw new Error(error.detail || "Failed to send books");
+/**
+ * Queue one or more books for sending via email/device.
+ *
+ * Uses the batch endpoint for both single and multiple books so the UI can
+ * share one centralized code path.
+ *
+ * Parameters
+ * ----------
+ * bookIds : number[]
+ *     List of book IDs to send. If empty, this is a no-op.
+ * options : SendBookOptions | undefined
+ *     Optional send options including email and file format.
+ *
+ * Returns
+ * -------
+ * Promise<void>
+ *     Success response.
+ *
+ * Raises
+ * ------
+ * Error
+ *     If the API request fails.
+ */
+export async function queueBooksToDevice(
+  bookIds: number[],
+  options?: SendBookOptions,
+): Promise<void> {
+  if (bookIds.length === 0) {
+    return;
   }
+
+  await postOrThrow(
+    "/api/books/send/batch",
+    {
+      book_ids: bookIds,
+      to_email: options?.toEmail || null,
+      file_format: options?.fileFormat || null,
+    },
+    bookIds.length === 1 ? "Failed to send book" : "Failed to send books",
+  );
 }
 
 /**

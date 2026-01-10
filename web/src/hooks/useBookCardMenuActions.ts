@@ -15,7 +15,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useUser } from "@/contexts/UserContext";
-import { sendBookToDevice } from "@/services/bookService";
+import { queueBooksToDevice } from "@/services/bookService";
 import type { Book } from "@/types/book";
 import { useBookNavigation } from "./useBookNavigation";
 import { useDeleteConfirmation } from "./useDeleteConfirmation";
@@ -129,7 +129,7 @@ export function useBookCardMenuActions({
       return;
     }
     try {
-      await sendBookToDevice(book.id, {
+      await queueBooksToDevice([book.id], {
         toEmail: deviceToUse.email,
       });
       // Optionally show success message or notification

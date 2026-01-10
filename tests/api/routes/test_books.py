@@ -136,9 +136,9 @@ class MockPermissionHelper:
     def check_send_permission(
         self,
         user: User,
-        book_with_rels: object,
-        book_id: int,
-        session: object,
+        book_with_rels: object | None = None,
+        book_id: int | None = None,
+        session: object | None = None,
     ) -> None:
         """Mock check_send_permission - always allows."""
 
