@@ -217,6 +217,12 @@ def get_optional_user(
 ) -> User | None:
     """Return the current user when a valid token is present; allow anonymous otherwise.
 
+    This dependency supports a first-run bootstrap scenario: when no active
+    library exists yet, anonymous access is permitted so the UI can determine
+    that setup is incomplete (e.g., ``GET /libraries/active`` returning ``None``).
+    Once an active library exists, anonymous access is permitted only when the
+    basic configuration flag ``allow_anonymous_browsing`` is enabled.
+
     Parameters
     ----------
     request : Request
@@ -247,6 +253,13 @@ def get_optional_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_token"
         )
+
+    # Bootstrap: if there is no active library, allow anonymous access so the
+    # UI can discover "no library configured" without requiring auth.
+    library_repo = LibraryRepository(session)
+    library_service = LibraryService(session, library_repo)
+    if library_service.get_active_library() is None:
+        return None
 
     basic_config_service = BasicConfigService(session)
     basic_config = basic_config_service.get_basic_config()
