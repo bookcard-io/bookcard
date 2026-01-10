@@ -25,7 +25,7 @@ import { useUser } from "@/contexts/UserContext";
 import { useFlyoutIntent } from "@/hooks/useFlyoutIntent";
 import { useFlyoutPosition } from "@/hooks/useFlyoutPosition";
 import { cn } from "@/libs/utils";
-import { sendBooksToDeviceBatch } from "@/services/bookService";
+import { queueBooksToDevice } from "@/services/bookService";
 import type { Book } from "@/types/book";
 import { getFlyoutPositionStyle } from "@/utils/flyoutPositionStyle";
 import { buildBookPermissionContext } from "@/utils/permissions";
@@ -206,7 +206,7 @@ export function SendToDeviceFlyoutMenu({
 
     // Fire-and-forget: send all books in one API call
     // Backend will create tasks for each book
-    sendBooksToDeviceBatch(
+    queueBooksToDevice(
       books.map((book) => book.id),
       {
         toEmail: defaultDevice.email,
@@ -256,7 +256,7 @@ export function SendToDeviceFlyoutMenu({
 
       // Fire-and-forget: send all books in one API call
       // Backend will create tasks for each book
-      sendBooksToDeviceBatch(
+      queueBooksToDevice(
         books.map((book) => book.id),
         {
           toEmail: device.email,
@@ -310,7 +310,7 @@ export function SendToDeviceFlyoutMenu({
 
     // Fire-and-forget: send all books in one API call
     // Backend will create tasks for each book
-    sendBooksToDeviceBatch(
+    queueBooksToDevice(
       books.map((book) => book.id),
       {
         toEmail: trimmedEmail,

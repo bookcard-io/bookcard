@@ -20,7 +20,7 @@ vi.mock("./useDeleteConfirmation", () => ({
 }));
 
 vi.mock("@/services/bookService", () => ({
-  sendBookToDevice: vi.fn(),
+  queueBooksToDevice: vi.fn(),
 }));
 
 import { act, renderHook } from "@testing-library/react";
@@ -424,8 +424,10 @@ describe("useBookCardMenuActions", () => {
     const book = createMockBook(1);
     vi.stubGlobal("alert", vi.fn());
     vi.stubGlobal("console", { ...console, error: vi.fn() });
-    const { sendBookToDevice } = await import("@/services/bookService");
-    vi.mocked(sendBookToDevice).mockRejectedValueOnce(new Error("Send failed"));
+    const { queueBooksToDevice } = await import("@/services/bookService");
+    vi.mocked(queueBooksToDevice).mockRejectedValueOnce(
+      new Error("Send failed"),
+    );
 
     const wrapper = createWrapper({
       user: {
@@ -467,8 +469,8 @@ describe("useBookCardMenuActions", () => {
     const book = createMockBook(1);
     vi.stubGlobal("alert", vi.fn());
     vi.stubGlobal("console", { ...console, error: vi.fn() });
-    const { sendBookToDevice } = await import("@/services/bookService");
-    vi.mocked(sendBookToDevice).mockRejectedValueOnce("String error");
+    const { queueBooksToDevice } = await import("@/services/bookService");
+    vi.mocked(queueBooksToDevice).mockRejectedValueOnce("String error");
 
     const wrapper = createWrapper({
       user: {

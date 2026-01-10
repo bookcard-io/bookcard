@@ -1049,9 +1049,7 @@ def send_book_to_device(
             detail="book_not_found",
         )
 
-    permission_helper.check_send_permission(
-        current_user, existing_book, book_id, session
-    )
+    permission_helper.check_send_permission(current_user, existing_book)
 
     # Get email configuration to validate it's enabled
     email_config_service = _email_config_service(request, session)

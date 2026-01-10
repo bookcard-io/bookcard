@@ -25,7 +25,7 @@ import { RatingDisplay } from "@/components/forms/RatingDisplay";
 import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { useUser } from "@/contexts/UserContext";
 import { useTaskTerminalPolling } from "@/hooks/useTaskTerminalPolling";
-import { sendBookToDevice } from "@/services/bookService";
+import { queueBooksToDevice } from "@/services/bookService";
 import type { Book } from "@/types/book";
 import { getPreferredReadableFormat } from "@/utils/bookFormats";
 import { buildBookPermissionContext } from "@/utils/permissions";
@@ -99,7 +99,7 @@ export function BookViewHeader({
   const handleSend = useCallback(async () => {
     try {
       setIsSending(true);
-      await sendBookToDevice(book.id);
+      await queueBooksToDevice([book.id]);
       // Optionally show success message
     } catch (error) {
       const errorMessage =
