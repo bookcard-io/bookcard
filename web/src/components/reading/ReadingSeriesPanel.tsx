@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { BookCard } from "@/components/library/BookCard";
 import { useBooks } from "@/hooks/useBooks";
+import { getReadableFormatForReader } from "@/utils/bookFormats";
 import { ThemeSettingsPanel } from "./components/ThemeSettingsPanel";
 
 export interface ReadingSeriesPanelProps {
@@ -75,15 +76,9 @@ export function ReadingSeriesPanel({
       : null;
 
   const handleBookClick = (book: import("@/types/book").Book) => {
-    // Determine the best format to use
-    // Prefer EPUB, then try others, fallback to first available
-    let format = "EPUB";
-    if (book.formats && book.formats.length > 0) {
-      const formats = book.formats;
-      const hasEpub = formats.some((f) => f.format.toUpperCase() === "EPUB");
-      if (!hasEpub && formats[0]) {
-        format = formats[0].format.toUpperCase();
-      }
+    const format = getReadableFormatForReader(book.formats || []);
+    if (!format) {
+      return;
     }
 
     router.push(`/reading/${book.id}/${format}`);

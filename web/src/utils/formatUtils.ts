@@ -31,9 +31,9 @@ export const AUDIOBOOK_FORMATS = ["MP3", "M4B", "M4A", "WAV", "FLAC"] as const;
 /**
  * All supported readable formats in priority order.
  *
- * EPUB is preferred, then PDF, then comics.
+ * Native comic formats are preferred first, then EPUB, then PDF.
  */
-export const READABLE_FORMATS = ["EPUB", "PDF", ...COMIC_FORMATS] as const;
+export const READABLE_FORMATS = [...COMIC_FORMATS, "EPUB", "PDF"] as const;
 
 /**
  * Check if a format is a comic book format.

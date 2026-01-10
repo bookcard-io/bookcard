@@ -27,6 +27,7 @@ import { useUser } from "@/contexts/UserContext";
 import { useTaskTerminalPolling } from "@/hooks/useTaskTerminalPolling";
 import { sendBookToDevice } from "@/services/bookService";
 import type { Book } from "@/types/book";
+import { getPreferredReadableFormat } from "@/utils/bookFormats";
 import { buildBookPermissionContext } from "@/utils/permissions";
 
 export interface BookViewHeaderProps {
@@ -82,23 +83,9 @@ export function BookViewHeader({
   const canWrite = canPerformAction("books", "write", bookContext);
   const canSend = canPerformAction("books", "send", bookContext);
 
-  // Determine preferred format for reading (EPUB > PDF > first available)
+  // Determine preferred format for reading (Comic > EPUB > PDF)
   const preferredFormat = useMemo(() => {
-    if (!book.formats || book.formats.length === 0) {
-      return null;
-    }
-    // Prefer EPUB
-    const epub = book.formats.find((f) => f.format.toUpperCase() === "EPUB");
-    if (epub) {
-      return epub.format;
-    }
-    // Then PDF
-    const pdf = book.formats.find((f) => f.format.toUpperCase() === "PDF");
-    if (pdf) {
-      return pdf.format;
-    }
-    // Otherwise use first available format
-    return book.formats[0]?.format || null;
+    return getPreferredReadableFormat(book.formats || []);
   }, [book.formats]);
 
   const handleRead = useCallback(() => {
@@ -106,7 +93,7 @@ export function BookViewHeader({
       showDanger("No readable format available for this book");
       return;
     }
-    router.push(`/reading/${book.id}/${preferredFormat.toUpperCase()}`);
+    router.push(`/reading/${book.id}/${preferredFormat}`);
   }, [book.id, preferredFormat, router, showDanger]);
 
   const handleSend = useCallback(async () => {

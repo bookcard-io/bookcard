@@ -22,6 +22,7 @@ import { useReadingProgress } from "@/hooks/useReadingProgress";
 import { useReadStatus } from "@/hooks/useReadStatus";
 import { cn } from "@/libs/utils";
 import type { Book } from "@/types/book";
+import { getReadableFormatForReader } from "@/utils/bookFormats";
 import { ReadingHistoryList } from "./ReadingHistoryList";
 import { ReadingProgressBar } from "./ReadingProgressBar";
 
@@ -56,13 +57,9 @@ export function BookReadingInfo({
 
   // Determine format to use
   const format = useMemo(() => {
-    if (
-      preferredFormat &&
-      book.formats?.some((f) => f.format === preferredFormat)
-    ) {
-      return preferredFormat;
-    }
-    return book.formats?.[0]?.format || "EPUB";
+    return (
+      getReadableFormatForReader(book.formats || [], preferredFormat) || ""
+    );
   }, [preferredFormat, book.formats]);
 
   const {
