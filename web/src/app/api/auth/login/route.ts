@@ -19,6 +19,7 @@ import {
   BACKEND_URL,
   COOKIE_SECURE,
 } from "@/constants/config";
+import { isSecureRequest } from "@/services/http/requestSecurity";
 
 /**
  * POST /api/auth/login
@@ -65,7 +66,10 @@ export async function POST(request: NextRequest) {
     if (data.access_token) {
       nextResponse.cookies.set(AUTH_COOKIE_NAME, data.access_token, {
         httpOnly: true,
-        secure: COOKIE_SECURE,
+        // Browsers will reject Secure cookies over plain HTTP. In Docker setups
+        // that expose :3000 directly (no TLS), we must not mark the cookie secure.
+        // When deployed behind HTTPS, proxies should set x-forwarded-proto=https.
+        secure: COOKIE_SECURE && isSecureRequest(request),
         sameSite: "lax",
         path: "/",
       });

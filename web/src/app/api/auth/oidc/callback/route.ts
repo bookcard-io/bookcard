@@ -4,6 +4,7 @@ import {
   BACKEND_URL,
   COOKIE_SECURE,
 } from "@/constants/config";
+import { isSecureRequest } from "@/services/http/requestSecurity";
 
 const POST_LOGIN_NEXT_COOKIE = "bookcard_post_login_next";
 
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
   // Clear the post-login cookie
   nextResponse.cookies.set(POST_LOGIN_NEXT_COOKIE, "", {
     httpOnly: true,
-    secure: COOKIE_SECURE,
+    secure: COOKIE_SECURE && isSecureRequest(request),
     sameSite: "lax",
     path: "/",
     maxAge: 0,
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
   if (data.access_token) {
     nextResponse.cookies.set(AUTH_COOKIE_NAME, data.access_token, {
       httpOnly: true,
-      secure: COOKIE_SECURE,
+      secure: COOKIE_SECURE && isSecureRequest(request),
       sameSite: "lax",
       path: "/",
     });

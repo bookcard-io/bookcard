@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { BACKEND_URL } from "@/constants/config";
+import { isSecureRequest } from "@/services/http/requestSecurity";
 
 const POST_LOGIN_NEXT_COOKIE = "bookcard_post_login_next";
 
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
   response.cookies.set(POST_LOGIN_NEXT_COOKIE, next, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production" && isSecureRequest(request),
     path: "/",
     maxAge: 10 * 60,
   });

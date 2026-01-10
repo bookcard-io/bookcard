@@ -120,6 +120,8 @@ function LoginForm() {
         headers: {
           "Content-Type": "application/json",
         },
+        // Ensure the auth cookie set by the route handler is accepted/stored.
+        credentials: "include",
         body: JSON.stringify({
           identifier: formData.identifier,
           password: formData.password,
