@@ -27,12 +27,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from sqlalchemy import func, or_
-from sqlmodel import select
+from sqlalchemy.exc import SQLAlchemyError
+from sqlmodel import col, select
 
 from bookcard.models.conversion import BookConversion, ConversionMethod
 from bookcard.models.core import Book, Tag
 from bookcard.models.epub_fixer import EPUBFix
-from bookcard.models.ingest import IngestHistory
+from bookcard.models.ingest import IngestAudit, IngestHistory, IngestRetry
 from bookcard.models.kobo import (
     KoboArchivedBook,
     KoboReadingState,
@@ -1670,6 +1671,11 @@ class BookService:
                 tracked_book.matched_library_id = None
                 self._session.add(tracked_book)
 
+            # Ingest models have FK relationships that require explicit ordering:
+            # ingest_audit/history_id -> ingest_history/id
+            # ingest_retry/history_id -> ingest_history/id
+            self._delete_ingest_associations(book_id)
+
             # Define all models that reference books by book_id
             models_to_delete = [
                 (BookConversion, "conversion"),
@@ -1697,8 +1703,8 @@ class BookService:
                 book_id,
             )
 
-        except Exception:
-            # Rollback on any error
+        except SQLAlchemyError:
+            # Rollback on DB error
             self._session.rollback()
             logger.exception(
                 "Failed to delete Bookcard associations for book_id=%d",
@@ -1738,6 +1744,58 @@ class BookService:
                 "Deleted %d %s records for book_id=%d",
                 len(records),
                 model_name,
+                book_id,
+            )
+
+    def _delete_ingest_associations(self, book_id: int) -> None:
+        """Delete ingest-related records that depend on ingest history.
+
+        Notes
+        -----
+        `IngestAudit` and `IngestRetry` reference `IngestHistory` via a foreign key,
+        so they must be deleted before deleting `IngestHistory` records for a book.
+        """
+        if self._session is None:
+            return
+
+        history_ids = list(
+            self._session.exec(
+                select(IngestHistory.id).where(IngestHistory.book_id == book_id)
+            ).all()
+        )
+        ingest_history_ids = [hid for hid in history_ids if hid is not None]
+        if not ingest_history_ids:
+            return
+
+        retries = list(
+            self._session.exec(
+                select(IngestRetry).where(
+                    col(IngestRetry.history_id).in_(ingest_history_ids)
+                )
+            ).all()
+        )
+        for retry in retries:
+            self._session.delete(retry)
+        if retries:
+            logger.debug(
+                "Deleted %d ingest retry record(s) for book_id=%d",
+                len(retries),
+                book_id,
+            )
+
+        audits = list(
+            self._session.exec(
+                select(IngestAudit).where(
+                    col(IngestAudit.history_id).in_(ingest_history_ids)
+                )
+            ).all()
+        )
+        for audit in audits:
+            self._session.delete(audit)
+        if audits:
+            logger.debug(
+                "Deleted %d ingest audit record(s) for book_id=%d",
+                len(audits),
                 book_id,
             )
 

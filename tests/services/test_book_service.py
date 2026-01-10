@@ -21,13 +21,14 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 
 from bookcard.models.auth import EBookFormat, EReaderDevice
 from bookcard.models.config import Library
 from bookcard.models.conversion import BookConversion, ConversionMethod
 from bookcard.models.core import Book
 from bookcard.models.epub_fixer import EPUBFix
-from bookcard.models.ingest import IngestHistory
+from bookcard.models.ingest import IngestAudit, IngestHistory, IngestRetry
 from bookcard.models.kobo import (
     KoboArchivedBook,
     KoboReadingState,
@@ -927,13 +928,19 @@ def test_delete_bookcard_associations_deletes_all_model_types() -> None:
     mock_epub_fix = MagicMock(spec=EPUBFix)
     mock_metadata_enforcement = MagicMock(spec=MetadataEnforcementOperation)
     mock_ingest_history = MagicMock(spec=IngestHistory)
+    mock_ingest_retry = MagicMock(spec=IngestRetry)
+    mock_ingest_audit = MagicMock(spec=IngestAudit)
 
     # Configure mock_session.exec to return different results for each model
-    # First call is for TrackedBook query (returns empty list)
+    # First call is for TrackedBook query
+    # Next calls are for ingest dependency deletion (history ids, retries, audits)
     # Then 12 calls for the model types
     mock_tracked_book = MagicMock(spec=TrackedBook)
     mock_records = [
         [mock_tracked_book],  # TrackedBook query (first call)
+        [34],  # IngestHistory.id query for this book_id
+        [mock_ingest_retry],  # IngestRetry rows for those history ids
+        [mock_ingest_audit],  # IngestAudit rows for those history ids
         [mock_conversion],
         [mock_reading_progress],
         [mock_reading_session],
@@ -967,13 +974,11 @@ def test_delete_bookcard_associations_deletes_all_model_types() -> None:
     # Call the method
     service._delete_bookcard_associations(book_id)
 
-    # Verify session.exec was called for TrackedBook + 12 model types = 13 calls
-    assert mock_session.exec.call_count == 13
+    # Verify session.exec was called for TrackedBook + ingest dependencies + 12 model types
+    assert mock_session.exec.call_count == 16
 
-    # Verify session.delete was called for each record (1 TrackedBook update + 12 model deletes = 13)
-    # Note: TrackedBook is updated (not deleted), but session.add is called, and session.delete
-    # is called for the 12 model records
-    assert mock_session.delete.call_count == 12
+    # Verify session.delete was called for ingest dependencies + model deletes
+    assert mock_session.delete.call_count == 14
 
     # Verify commit was called
     mock_session.commit.assert_called_once()
@@ -997,8 +1002,8 @@ def test_delete_bookcard_associations_handles_empty_results() -> None:
     # Call the method
     service._delete_bookcard_associations(123)
 
-    # Verify session.exec was called for TrackedBook + 12 model types = 13 calls
-    assert mock_session.exec.call_count == 13
+    # Verify session.exec was called for TrackedBook + ingest history id query + 12 model types
+    assert mock_session.exec.call_count == 14
 
     # Verify session.delete was never called (no records to delete)
     mock_session.delete.assert_not_called()
@@ -1017,12 +1022,12 @@ def test_delete_bookcard_associations_handles_errors() -> None:
     )
 
     mock_session = MagicMock()
-    mock_session.exec.side_effect = Exception("Database error")
+    mock_session.exec.side_effect = SQLAlchemyError("Database error")
 
     service = BookService(library, session=mock_session)
 
     # Call the method and expect it to raise
-    with pytest.raises(Exception, match="Database error"):
+    with pytest.raises(SQLAlchemyError, match="Database error"):
         service._delete_bookcard_associations(123)
 
     # Verify rollback was called
