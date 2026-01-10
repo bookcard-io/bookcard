@@ -15,6 +15,7 @@
 
 "use client";
 
+import { FaPlus, FaSpinner } from "react-icons/fa";
 import { useUser } from "@/contexts/UserContext";
 import { cn } from "@/libs/utils";
 
@@ -95,10 +96,17 @@ export function AddBooksButton({
         disabled={!canCreate || isUploading}
         aria-label="Add books"
       >
-        <i
-          className="pi pi-plus flex-shrink-0 text-[var(--color-text-primary-a0)]"
-          aria-hidden="true"
-        />
+        {isUploading ? (
+          <FaSpinner
+            className="flex-shrink-0 animate-spin text-[var(--color-text-primary-a0)]"
+            aria-hidden="true"
+          />
+        ) : (
+          <FaPlus
+            className="flex-shrink-0 text-[var(--color-text-primary-a0)]"
+            aria-hidden="true"
+          />
+        )}
         <span className="leading-none">
           {isUploading ? "Uploading..." : "Add Books"}
         </span>
