@@ -15,7 +15,8 @@
 
 "use client";
 
-import { FaPlus, FaSpinner } from "react-icons/fa";
+import { FaSpinner } from "react-icons/fa";
+import { GoPlus } from "react-icons/go";
 import { useUser } from "@/contexts/UserContext";
 import { cn } from "@/libs/utils";
 
@@ -78,7 +79,7 @@ export function AddBooksButton({
           // Layout
           "flex cursor-pointer items-center gap-2 whitespace-nowrap",
           // Shape & spacing
-          "rounded-md border-none px-5 py-2.5",
+          "h-[34px] rounded-md border-none px-3",
           // Colors
           "bg-primary-a0 text-[var(--color-text-primary-a0)]",
           // Typography
@@ -102,8 +103,8 @@ export function AddBooksButton({
             aria-hidden="true"
           />
         ) : (
-          <FaPlus
-            className="flex-shrink-0 text-[var(--color-text-primary-a0)]"
+          <GoPlus
+            className="flex-shrink-0 text-[var(--color-text-primary-a0)] text-xl"
             aria-hidden="true"
           />
         )}
