@@ -16,7 +16,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FaHistory } from "react-icons/fa";
 import { InteractiveSearchModal } from "@/components/pvr/InteractiveSearchModal";
 import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
@@ -28,6 +28,7 @@ import { BookHeader } from "./BookHeader";
 import { InfoCard } from "./InfoCard";
 import { InfoRow } from "./InfoRow";
 import { StatusBadge } from "./StatusBadge";
+import { TrackedBookEditModal } from "./TrackedBookEditModal";
 
 interface BookDetailViewProps {
   book: TrackedBook;
@@ -38,9 +39,15 @@ type Tab = "overview" | "history";
 export function BookDetailView({ book }: BookDetailViewProps) {
   const router = useRouter();
   const { showDanger } = useGlobalMessages();
+  const [currentBook, setCurrentBook] = useState<TrackedBook>(book);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [_isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    setCurrentBook(book);
+  }, [book]);
 
   const handleDelete = async () => {
     if (
@@ -84,12 +91,13 @@ export function BookDetailView({ book }: BookDetailViewProps) {
       />
 
       <BookHeader
-        book={book}
+        book={currentBook}
         onSearchClick={() => setIsSearchModalOpen(true)}
+        onEditClick={() => setIsEditModalOpen(true)}
         onDeleteClick={handleDelete}
       />
 
-      <BookFiles files={book.files} />
+      <BookFiles files={currentBook.files} />
 
       {/* Tabs & Content */}
       <div className="flex flex-col">
@@ -115,35 +123,38 @@ export function BookDetailView({ book }: BookDetailViewProps) {
                 <div className="flex flex-col gap-2 text-sm">
                   <InfoRow
                     label="Status"
-                    value={<StatusBadge status={book.status} />}
+                    value={<StatusBadge status={currentBook.status} />}
                   />
                   <InfoRow
                     label="Monitor"
                     value={
                       <span className="capitalize">
-                        {book.monitor_mode?.replace("_", " ")}
+                        {currentBook.monitor_mode?.replace("_", " ")}
                       </span>
                     }
                   />
                   <InfoRow
                     label="Formats"
-                    value={book.preferred_formats?.join(", ") || "Any"}
+                    value={currentBook.preferred_formats?.join(", ") || "Any"}
                   />
                 </div>
               </InfoCard>
 
               <InfoCard title="Metadata">
                 <div className="flex flex-col gap-2 text-sm">
-                  <InfoRow label="Author" value={book.author} />
-                  <InfoRow label="Publisher" value={book.publisher || "-"} />
+                  <InfoRow label="Author" value={currentBook.author} />
+                  <InfoRow
+                    label="Publisher"
+                    value={currentBook.publisher || "-"}
+                  />
                   <InfoRow
                     label="Published"
-                    value={book.published_date || "-"}
+                    value={currentBook.published_date || "-"}
                   />
-                  <InfoRow label="ISBN" value={book.isbn || "-"} />
+                  <InfoRow label="ISBN" value={currentBook.isbn || "-"} />
                   <InfoRow
                     label="Goodreads ID"
-                    value={book.metadata_external_id || "-"}
+                    value={currentBook.metadata_external_id || "-"}
                   />
                 </div>
               </InfoCard>
@@ -162,12 +173,25 @@ export function BookDetailView({ book }: BookDetailViewProps) {
       <InteractiveSearchModal
         isOpen={isSearchModalOpen}
         onClose={() => setIsSearchModalOpen(false)}
-        trackedBookId={book.id}
-        bookTitle={book.title}
+        trackedBookId={currentBook.id}
+        bookTitle={currentBook.title}
         bookYear={
-          book.published_date ? extractYear(book.published_date) : undefined
+          currentBook.published_date
+            ? extractYear(currentBook.published_date)
+            : undefined
         }
       />
+
+      {isEditModalOpen && (
+        <TrackedBookEditModal
+          book={currentBook}
+          onClose={() => setIsEditModalOpen(false)}
+          onBookSaved={(updated) => {
+            setCurrentBook(updated);
+            setIsEditModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -90,6 +90,26 @@ class TrackedBookCreate(BaseModel):
     )
     rating: float | None = Field(default=None, description="Average rating")
     tags: list[str] | None = Field(default=None, description="List of tags/genres")
+    series_name: str | None = Field(
+        default=None, max_length=500, description="Series name"
+    )
+    series_index: float | None = Field(default=None, description="Series index/number")
+    exclude_keywords: list[str] | None = Field(
+        default=None, description="Keywords to exclude from release title/description"
+    )
+    require_keywords: list[str] | None = Field(
+        default=None,
+        description="Keywords that must appear in release title/description",
+    )
+    require_title_match: bool = Field(
+        default=True, description="Whether title must match search criteria"
+    )
+    require_author_match: bool = Field(
+        default=True, description="Whether author must match search criteria"
+    )
+    require_isbn_match: bool = Field(
+        default=False, description="Whether ISBN must match if provided"
+    )
 
 
 class TrackedBookUpdate(BaseModel):
@@ -127,6 +147,39 @@ class TrackedBookUpdate(BaseModel):
         default=None, description="List of preferred formats"
     )
     library_id: int | None = Field(default=None, description="Target library ID")
+    title: str | None = Field(default=None, max_length=500, description="Book title")
+    author: str | None = Field(default=None, max_length=500, description="Author name")
+    isbn: str | None = Field(default=None, max_length=20, description="ISBN")
+    cover_url: str | None = Field(
+        default=None, max_length=2000, description="Cover URL"
+    )
+    description: str | None = Field(default=None, description="Book description")
+    publisher: str | None = Field(default=None, max_length=500, description="Publisher")
+    published_date: str | None = Field(
+        default=None, max_length=50, description="Publication date"
+    )
+    rating: float | None = Field(default=None, description="Average rating")
+    tags: list[str] | None = Field(default=None, description="List of tags/genres")
+    series_name: str | None = Field(
+        default=None, max_length=500, description="Series name"
+    )
+    series_index: float | None = Field(default=None, description="Series index/number")
+    exclude_keywords: list[str] | None = Field(
+        default=None, description="Keywords to exclude from release title/description"
+    )
+    require_keywords: list[str] | None = Field(
+        default=None,
+        description="Keywords that must appear in release title/description",
+    )
+    require_title_match: bool | None = Field(
+        default=None, description="Whether title must match search criteria"
+    )
+    require_author_match: bool | None = Field(
+        default=None, description="Whether author must match search criteria"
+    )
+    require_isbn_match: bool | None = Field(
+        default=None, description="Whether ISBN must match if provided"
+    )
 
 
 class BookFileRead(BaseModel):
@@ -208,6 +261,13 @@ class TrackedBookRead(BaseModel):
     published_date: str | None
     rating: float | None
     tags: list[str] | None
+    series_name: str | None
+    series_index: float | None
+    exclude_keywords: list[str] | None
+    require_keywords: list[str] | None
+    require_title_match: bool
+    require_author_match: bool
+    require_isbn_match: bool
     created_at: datetime
     updated_at: datetime
     files: list[BookFileRead] | None = Field(default=None)

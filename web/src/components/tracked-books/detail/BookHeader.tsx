@@ -34,6 +34,7 @@ import { StatusBadge } from "./StatusBadge";
 interface BookHeaderProps {
   book: TrackedBook;
   onSearchClick: () => void;
+  onEditClick: () => void;
   onDeleteClick: () => void;
 }
 
@@ -42,6 +43,7 @@ const MAX_TAGS = 10;
 export function BookHeader({
   book,
   onSearchClick,
+  onEditClick,
   onDeleteClick,
 }: BookHeaderProps) {
   const [tagsExpanded, setTagsExpanded] = useState(false);
@@ -158,7 +160,7 @@ export function BookHeader({
           <BookToolbar
             onSearchClick={onSearchClick}
             onAutomatedSearchClick={() => {}} // Placeholder
-            onEditClick={() => {}} // Placeholder
+            onEditClick={onEditClick}
             onManualImportClick={() => {}} // Placeholder
             onDeleteClick={onDeleteClick}
           />
