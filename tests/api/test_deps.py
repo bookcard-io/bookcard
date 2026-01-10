@@ -16,6 +16,7 @@
 """Tests for FastAPI dependency providers."""
 
 from contextlib import suppress
+from typing import cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -28,6 +29,7 @@ from bookcard.api.deps import (
     get_kobo_auth_token,
     get_kobo_user,
     get_opds_user,
+    get_optional_user,
     require_permission,
 )
 from bookcard.config import AppConfig
@@ -158,6 +160,84 @@ def test_get_current_user_success() -> None:
             assert result == user
             assert result.id == 1
             assert result.username == "testuser"
+
+
+def test_get_optional_user_bootstrap_allows_anonymous_when_no_active_library() -> None:
+    """Allow anonymous access during bootstrap when no active library exists."""
+    request = MagicMock(spec=Request)
+    request.headers = {}
+    session = DummySession()
+
+    with (
+        patch("bookcard.api.deps.LibraryRepository") as mock_library_repo_class,
+        patch("bookcard.api.deps.LibraryService") as mock_library_service_class,
+    ):
+        mock_library_repo_class.return_value = MagicMock()
+        mock_library_service = MagicMock()
+        mock_library_service.get_active_library.return_value = None
+        mock_library_service_class.return_value = mock_library_service
+
+        result = get_optional_user(request, session)  # type: ignore[arg-type]
+        assert result is None
+
+
+def test_get_optional_user_missing_token_denied_when_library_exists_and_anonymous_disabled() -> (
+    None
+):
+    """Raise 401 when no token is provided and anonymous browsing is disabled."""
+    request = MagicMock(spec=Request)
+    request.headers = {}
+    session = DummySession()
+
+    with (
+        patch("bookcard.api.deps.LibraryRepository") as mock_library_repo_class,
+        patch("bookcard.api.deps.LibraryService") as mock_library_service_class,
+        patch("bookcard.api.deps.BasicConfigService") as mock_basic_cfg_service_class,
+    ):
+        mock_library_repo_class.return_value = MagicMock()
+        mock_library_service = MagicMock()
+        mock_library_service.get_active_library.return_value = MagicMock()
+        mock_library_service_class.return_value = mock_library_service
+
+        mock_basic_cfg_service = MagicMock()
+        mock_basic_cfg = MagicMock()
+        mock_basic_cfg.allow_anonymous_browsing = False
+        mock_basic_cfg_service.get_basic_config.return_value = mock_basic_cfg
+        mock_basic_cfg_service_class.return_value = mock_basic_cfg_service
+
+        with pytest.raises(HTTPException) as exc_info:
+            get_optional_user(request, session)  # type: ignore[arg-type]
+        exc = cast("HTTPException", exc_info.value)
+        assert exc.status_code == status.HTTP_401_UNAUTHORIZED
+        assert exc.detail == "missing_token"
+
+
+def test_get_optional_user_missing_token_allowed_when_library_exists_and_anonymous_enabled() -> (
+    None
+):
+    """Allow anonymous access when anonymous browsing is enabled."""
+    request = MagicMock(spec=Request)
+    request.headers = {}
+    session = DummySession()
+
+    with (
+        patch("bookcard.api.deps.LibraryRepository") as mock_library_repo_class,
+        patch("bookcard.api.deps.LibraryService") as mock_library_service_class,
+        patch("bookcard.api.deps.BasicConfigService") as mock_basic_cfg_service_class,
+    ):
+        mock_library_repo_class.return_value = MagicMock()
+        mock_library_service = MagicMock()
+        mock_library_service.get_active_library.return_value = MagicMock()
+        mock_library_service_class.return_value = mock_library_service
+
+        mock_basic_cfg_service = MagicMock()
+        mock_basic_cfg = MagicMock()
+        mock_basic_cfg.allow_anonymous_browsing = True
+        mock_basic_cfg_service.get_basic_config.return_value = mock_basic_cfg
+        mock_basic_cfg_service_class.return_value = mock_basic_cfg_service
+
+        result = get_optional_user(request, session)  # type: ignore[arg-type]
+        assert result is None
 
 
 def test_get_current_user_oidc_fallback_by_sub() -> None:
