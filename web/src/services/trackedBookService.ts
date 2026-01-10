@@ -13,7 +13,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import type { MetadataSearchResult, TrackedBook } from "@/types/trackedBook";
+import type {
+  MetadataSearchResult,
+  TrackedBook,
+  TrackedBookUpdate,
+} from "@/types/trackedBook";
 
 const BASE_URL = "/api/tracked-books";
 const METADATA_SEARCH_URL = "/api/metadata/search";
@@ -53,7 +57,7 @@ export const trackedBookService = {
 
   update: async (
     id: number | string,
-    book: Partial<TrackedBook>,
+    book: TrackedBookUpdate,
   ): Promise<TrackedBook> => {
     const response = await fetch(`${BASE_URL}/${id}`, {
       method: "PUT",

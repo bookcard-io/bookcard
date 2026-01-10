@@ -32,7 +32,8 @@ export interface TrackedBook {
     | "stalled"
     | "seeding"
     | "completed"
-    | "failed";
+    | "failed"
+    | "ignored";
   library_id?: number;
   cover_url?: string;
   created_at?: string;
@@ -42,13 +43,50 @@ export interface TrackedBook {
   description?: string;
   publisher?: string;
   published_date?: string;
+  series_name?: string;
+  series_index?: number;
   rating?: number;
   tags?: string[];
   auto_search_enabled?: boolean;
   auto_download_enabled?: boolean;
   preferred_formats?: string[];
   monitor_mode?: MonitorMode;
+  exclude_keywords?: string[];
+  require_keywords?: string[];
+  require_title_match?: boolean;
+  require_author_match?: boolean;
+  require_isbn_match?: boolean;
   files?: BookFile[];
+}
+
+/**
+ * Payload for updating a tracked book.
+ *
+ * Mirrors the backend `TrackedBookUpdate` schema (nullable fields allowed).
+ */
+export interface TrackedBookUpdate {
+  title?: string;
+  author?: string;
+  isbn?: string | null;
+  cover_url?: string | null;
+  description?: string | null;
+  publisher?: string | null;
+  published_date?: string | null;
+  rating?: number | null;
+  tags?: string[] | null;
+  series_name?: string | null;
+  series_index?: number | null;
+  status?: TrackedBook["status"];
+  monitor_mode?: MonitorMode | null;
+  auto_search_enabled?: boolean;
+  auto_download_enabled?: boolean;
+  preferred_formats?: string[] | null;
+  exclude_keywords?: string[] | null;
+  require_keywords?: string[] | null;
+  require_title_match?: boolean;
+  require_author_match?: boolean;
+  require_isbn_match?: boolean;
+  library_id?: number | null;
 }
 
 export enum MonitorMode {

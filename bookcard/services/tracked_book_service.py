@@ -230,8 +230,15 @@ class TrackedBookService:
             description=data.description,
             publisher=data.publisher,
             published_date=data.published_date,
+            series_name=data.series_name,
+            series_index=data.series_index,
             rating=data.rating,
             tags=data.tags,
+            exclude_keywords=data.exclude_keywords,
+            require_keywords=data.require_keywords,
+            require_title_match=data.require_title_match,
+            require_author_match=data.require_author_match,
+            require_isbn_match=data.require_isbn_match,
         )
 
         self._repository.add(tracked_book)
@@ -361,8 +368,22 @@ class TrackedBookService:
 
         # Update fields
         update_data = data.model_dump(exclude_unset=True)
+        did_request_status_update = "status" in update_data
+        did_change_identity_fields = any(
+            key in update_data for key in ("title", "author", "isbn", "library_id")
+        )
         for key, value in update_data.items():
             setattr(tracked_book, key, value)
+
+        # If key identity fields changed, recompute library match
+        if did_change_identity_fields:
+            matched_book_id, has_files = self._find_library_match(
+                tracked_book.title, tracked_book.author, tracked_book.library_id
+            )
+            tracked_book.matched_book_id = matched_book_id
+            tracked_book.matched_library_id = tracked_book.library_id
+            if has_files and not did_request_status_update:
+                tracked_book.status = TrackedBookStatus.COMPLETED
 
         tracked_book.updated_at = datetime.now(UTC)
         self._session.add(tracked_book)
@@ -542,6 +563,8 @@ class TrackedBookService:
         tuple[int | None, bool]
             Tuple of (book_id, has_files). book_id is None if no match.
         """
+        author_candidates = _parse_author_candidates(author)
+
         # Get library config
         if library_id:
             library = self._library_service.get_library(library_id)
@@ -561,7 +584,7 @@ class TrackedBookService:
             books = calibre_repo.list_books(search_query=title, full=False)
 
             title_lower = title.lower().strip()
-            author_lower = author.lower().strip()
+            author_candidates_lower = [a.lower().strip() for a in author_candidates]
 
             for book_rel in books:
                 # Check title match
@@ -570,7 +593,7 @@ class TrackedBookService:
 
                 # Check author match (any author matches)
                 authors = [a.lower().strip() for a in book_rel.authors]
-                if author_lower in authors:
+                if any(candidate in authors for candidate in author_candidates_lower):
                     # Found match! Check for formats
                     has_files = bool(book_rel.formats)
                     return book_rel.book.id, has_files
@@ -582,3 +605,26 @@ class TrackedBookService:
             calibre_repo.dispose()
 
         return None, False
+
+
+def _parse_author_candidates(author: str) -> list[str]:
+    """Parse an author string into candidate author names.
+
+    Supports tracked-book inputs that may include multiple authors separated by commas.
+
+    Parameters
+    ----------
+    author : str
+        Author string (may include multiple names separated by commas).
+
+    Returns
+    -------
+    list[str]
+        Candidate author names, in priority order.
+    """
+    raw = author.strip()
+    if not raw:
+        return [""]
+    parts = [p.strip() for p in raw.split(",")]
+    candidates = [p for p in parts if p]
+    return candidates or [raw]

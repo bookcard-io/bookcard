@@ -504,6 +504,8 @@ class TrackedBook(SQLModel, table=True):
     description: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
     publisher: str | None = Field(default=None, max_length=500)
     published_date: str | None = Field(default=None, max_length=50)
+    series_name: str | None = Field(default=None, max_length=500, index=True)
+    series_index: float | None = Field(default=None)
     rating: float | None = Field(default=None)
     tags: list[str] | None = Field(default=None, sa_column=Column(JSON, nullable=True))  # type: ignore[call-overload]
     status: TrackedBookStatus = Field(
