@@ -525,12 +525,13 @@ class TestOpdsFeedService:
         feed_service.generate_books_feed(mock_request, None, feed_request)
 
         links = mock_xml_builder.build_feed.call_args[1]["links"]
-        # _build_books_feed generates: self, first, prev, next (no last)
+        # _build_books_feed generates: self + full pagination set
         rels = [link["rel"] for link in links]
         assert "self" in rels
         assert "first" in rels
         assert "previous" in rels
         assert "next" in rels
+        assert "last" in rels
 
     def test_build_entries_skips_no_id(
         self,
@@ -572,7 +573,7 @@ class TestOpdsFeedService:
         assert "self" in rels
         # Verify query param is in URLs
         for link_item in links:
-            if link_item["rel"] in ["self", "first", "previous", "next"]:
+            if link_item["rel"] in ["self", "first", "previous", "next", "last"]:
                 assert (
                     "query=test+query" in link_item["href"]
                     or "query=test%20query" in link_item["href"]
@@ -590,25 +591,29 @@ class TestOpdsFeedService:
 
         url_builder = OpdsUrlBuilder(mock_request)
 
-        # Test: offset = 0 (no first/prev)
+        # Test: offset = 0 (clamped prev to first; full link set)
         links = feed_service._build_pagination_links(
             url_builder, "/opds/test", 0, 20, 100
         )
         rels = [link["rel"] for link in links]
-        assert "first" not in rels
-        assert "previous" not in rels
+        assert "first" in rels
+        assert "previous" in rels
         assert "next" in rels
         assert "last" in rels
+        href_by_rel = {link["rel"]: link["href"] for link in links}
+        assert "offset=0" in href_by_rel["previous"]
 
-        # Test: offset at end (no next/last)
+        # Test: offset at end (clamped next to last; full link set)
         links = feed_service._build_pagination_links(
             url_builder, "/opds/test", 80, 20, 100
         )
         rels = [link["rel"] for link in links]
         assert "first" in rels
         assert "previous" in rels
-        assert "next" not in rels
-        assert "last" not in rels
+        assert "next" in rels
+        assert "last" in rels
+        href_by_rel = {link["rel"]: link["href"] for link in links}
+        assert "offset=80" in href_by_rel["next"]
 
         # Test offset in middle
         links = feed_service._build_pagination_links(
@@ -619,6 +624,12 @@ class TestOpdsFeedService:
         assert "previous" in rels
         assert "next" in rels
         assert "last" in rels
+
+        # Test total <= page_size (no pagination)
+        links = feed_service._build_pagination_links(
+            url_builder, "/opds/test", 0, 20, 20
+        )
+        assert links == []
 
     def test_generate_author_letter_feed_all(
         self,
