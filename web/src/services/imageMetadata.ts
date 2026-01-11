@@ -46,7 +46,9 @@ export class ProxyImageMetadataFetcher implements ImageMetadataFetcher {
    */
   constructor(params: { endpoint?: string; fetchImpl?: FetchLike } = {}) {
     this.endpoint = params.endpoint ?? "/api/metadata/probe-image";
-    this.fetchImpl = params.fetchImpl ?? fetch;
+    // Bind fetch to the global scope to avoid "Illegal invocation" errors
+    // when called as a method of this class.
+    this.fetchImpl = params.fetchImpl ?? ((input, init) => fetch(input, init));
   }
 
   async fetchMetadata(
