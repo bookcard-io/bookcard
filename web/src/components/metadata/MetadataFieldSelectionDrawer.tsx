@@ -16,6 +16,7 @@
 "use client";
 
 import { Button } from "@/components/forms/Button";
+import { useImageMetadata } from "@/hooks/useImageMetadata";
 import type { MetadataRecord } from "@/hooks/useMetadataSearchStream";
 import { METADATA_FIELDS, type MetadataFieldKey } from "./metadataFields";
 
@@ -48,6 +49,8 @@ export function MetadataFieldSelectionDrawer({
   onCancel,
   isAnimatingOut,
 }: MetadataFieldSelectionDrawerProps) {
+  const { sizeKiB, dimensions, extension } = useImageMetadata(record.cover_url);
+
   return (
     <div
       className={`overflow-hidden border-surface-a20 border-t pt-3 ${
@@ -77,6 +80,17 @@ export function MetadataFieldSelectionDrawer({
             <div className="shrink-0">
               {METADATA_FIELDS.find((f) => f.key === "cover")?.getValue(record)}
             </div>
+            {(sizeKiB !== null || dimensions !== null) && (
+              <div className="flex flex-col items-center text-text-a40 text-xs">
+                {sizeKiB !== null && <span>{sizeKiB} KiB</span>}
+                {dimensions !== null && (
+                  <span>
+                    {dimensions.width} x {dimensions.height}
+                  </span>
+                )}
+                {extension && <span>{extension}</span>}
+              </div>
+            )}
           </div>
         )}
 
