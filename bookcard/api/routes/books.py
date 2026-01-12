@@ -22,6 +22,7 @@ Business logic is delegated to services following SOLID principles.
 import logging
 import math
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
@@ -75,6 +76,7 @@ from bookcard.api.schemas import (
 from bookcard.models.auth import User
 from bookcard.models.tasks import TaskType
 from bookcard.repositories.config_repository import LibraryRepository
+from bookcard.repositories.session_manager import CalibreSessionManager
 from bookcard.services.book_conversion_orchestration_service import (
     BookConversionOrchestrationService,
 )
@@ -303,7 +305,7 @@ def _get_cover_service(
 
 def _get_book_merge_service(
     session: SessionDep,
-) -> BookMergeService:
+) -> Generator[BookMergeService, None, None]:
     """Get book merge service instance.
 
     Parameters
@@ -311,8 +313,8 @@ def _get_book_merge_service(
     session : SessionDep
         Database session.
 
-    Returns
-    -------
+    Yields
+    ------
     BookMergeService
         Book merge service instance.
     """
@@ -326,7 +328,19 @@ def _get_book_merge_service(
             detail="no_active_library",
         )
 
-    return BookMergeService(session, active_library.calibre_db_path)
+    # Determine paths
+    db_path = Path(active_library.calibre_db_path)
+    if db_path.is_dir():
+        library_root = db_path
+        db_file = "metadata.db"
+    else:
+        library_root = db_path.parent
+        db_file = db_path.name
+
+    # Create session manager and yield service with Calibre session
+    session_manager = CalibreSessionManager(str(library_root), db_file)
+    with session_manager.get_session() as calibre_session:
+        yield BookMergeService(calibre_session, str(library_root))
 
 
 BookMergeServiceDep = Annotated[BookMergeService, Depends(_get_book_merge_service)]
