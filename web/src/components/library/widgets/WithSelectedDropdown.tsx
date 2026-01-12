@@ -15,19 +15,13 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
+import { useMemo, useRef, useState } from "react";
+import { AddToShelfModal } from "@/components/library/AddToShelfModal";
+import { BookMergeModal } from "@/components/library/BookMergeModal";
+import { WithSelectedMenu } from "@/components/library/widgets/WithSelectedMenu";
 import { useSelectedBooks } from "@/contexts/SelectedBooksContext";
-import { useExclusiveFlyoutMenus } from "@/hooks/useExclusiveFlyoutMenus";
-import { useFlyoutMenu } from "@/hooks/useFlyoutMenu";
-import { LibraryBuilding } from "@/icons/LibraryBuilding";
-import { OutlineMerge } from "@/icons/OutlineMerge";
+import { useWithSelectedMenuActions } from "@/hooks/useWithSelectedMenuActions";
 import { cn } from "@/libs/utils";
-import { AddToShelfFlyoutMenu } from "../AddToShelfFlyoutMenu";
-import { AddToShelfMenuItem } from "../AddToShelfMenuItem";
-import { AddToShelfModal } from "../AddToShelfModal";
-import { SendToDeviceFlyoutMenu } from "../SendToDeviceFlyoutMenu";
-import { SendToDeviceMenuItem } from "../SendToDeviceMenuItem";
 
 export interface WithSelectedDropdownProps {
   /**
@@ -54,12 +48,15 @@ export interface WithSelectedDropdownProps {
  */
 export function WithSelectedDropdown({
   onClick,
-  isSendDisabled = false,
+  isSendDisabled: isSendDisabledProp = false,
   disabled = false,
 }: WithSelectedDropdownProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [showAddToShelfModal, setShowAddToShelfModal] = useState(false);
-  const panelRef = useRef<HTMLDivElement>(null);
+  const [cursorPosition, setCursorPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const { selectedBookIds, books } = useSelectedBooks();
 
   // Get all selected books
@@ -70,17 +67,21 @@ export function WithSelectedDropdown({
     return books.filter((book) => selectedBookIds.has(book.id));
   }, [selectedBookIds, books]);
 
-  const addToShelfFlyoutMenu = useFlyoutMenu({ parentMenuOpen: isMenuOpen });
-  const sendFlyoutMenu = useFlyoutMenu({ parentMenuOpen: isMenuOpen });
-
-  // Ensure only one flyout menu is open at a time
-  const { handleFirstMouseEnter, handleSecondMouseEnter } =
-    useExclusiveFlyoutMenus(addToShelfFlyoutMenu, sendFlyoutMenu);
+  const actions = useWithSelectedMenuActions({
+    selectedBooks,
+  });
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     if (disabled) {
       return;
+    }
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      // Align left edge of menu with left edge of button
+      setCursorPosition({ x: rect.left, y: rect.bottom });
+    } else {
+      setCursorPosition({ x: e.clientX, y: e.clientY });
     }
     setIsMenuOpen((prev) => !prev);
     onClick?.();
@@ -90,88 +91,10 @@ export function WithSelectedDropdown({
     setIsMenuOpen(false);
   };
 
-  // Handle click outside to close panel
-  // Exclude clicks on the button
-  useEffect(() => {
-    if (!isMenuOpen) {
-      return;
-    }
-
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-
-      // Don't close if clicking on the button or its children
-      const isWithSelectedButton = target.closest(
-        "[data-with-selected-button]",
-      );
-      if (isWithSelectedButton) {
-        return;
-      }
-
-      // Don't close if clicking inside the panel
-      if (panelRef.current?.contains(target)) {
-        return;
-      }
-
-      // Close if clicking outside
-      setIsMenuOpen(false);
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isMenuOpen]);
-
-  /**
-   * Handle "Add to..." menu item click.
-   *
-   * Note: The flyout menu opens on hover, so clicking the parent item
-   * doesn't need to do anything. The actual functionality is in the flyout.
-   */
-  const handleAddToClick = useCallback(() => {
-    // No-op: flyout opens on hover, functionality is in flyout menu
-  }, []);
-
-  /**
-   * Handle "Send to..." menu item click.
-   *
-   * Note: The flyout menu opens on hover, so clicking the parent item
-   * doesn't need to do anything. The actual functionality is in the flyout.
-   */
-  const handleSendToClick = useCallback(() => {
-    // No-op: flyout opens on hover, functionality is in flyout menu
-  }, []);
-
-  // No-op handlers for all actions
-  const handleBatchEdit = () => {
-    handleMenuClose();
-    // No-op
-  };
-
-  const handleMoveToLibrary = () => {
-    handleMenuClose();
-    // No-op
-  };
-
-  const handleConvert = () => {
-    handleMenuClose();
-    // No-op
-  };
-
-  const handleDelete = () => {
-    handleMenuClose();
-    // No-op
-  };
-
-  const handleMerge = () => {
-    handleMenuClose();
-    // No-op
-  };
-
   return (
-    <div className="relative">
+    <>
       <button
+        ref={buttonRef}
         type="button"
         className={cn(
           "btn-tonal group flex cursor-pointer items-center gap-2 whitespace-nowrap px-4 py-2.5 font-inherit",
@@ -191,108 +114,35 @@ export function WithSelectedDropdown({
           aria-hidden="true"
         />
       </button>
-      {isMenuOpen && (
-        <div
-          className="absolute top-[calc(100%+8px)] left-0 z-[100] flex min-w-[180px] flex-col overflow-hidden rounded-md border border-surface-tonal-a20 bg-surface-tonal-a10 shadow-black/50 shadow-lg"
-          ref={panelRef}
-          role="menu"
-          aria-label="Actions with selected items"
-          data-with-selected-panel
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          <div className="transition-colors duration-150 hover:bg-surface-tonal-a20">
-            <DropdownMenuItem
-              icon="pi pi-pencil"
-              label="Batch edit"
-              onClick={handleBatchEdit}
-              className="hover:bg-transparent"
-            />
-          </div>
-          <div className="transition-colors duration-150 hover:bg-surface-tonal-a20">
-            <SendToDeviceMenuItem
-              itemRef={sendFlyoutMenu.parentItemRef}
-              onMouseEnter={handleSecondMouseEnter}
-              onMouseLeave={sendFlyoutMenu.handleParentMouseLeave}
-              onClick={handleSendToClick}
-              books={selectedBooks}
-              disabled={isSendDisabled}
-            />
-          </div>
-          <div className="transition-colors duration-150 hover:bg-surface-tonal-a20">
-            <DropdownMenuItem
-              icon={<LibraryBuilding className="h-4 w-4" />}
-              label="Move to library"
-              onClick={handleMoveToLibrary}
-              className="hover:bg-transparent"
-            />
-          </div>
-          <div className="transition-colors duration-150 hover:bg-surface-tonal-a20">
-            <AddToShelfMenuItem
-              itemRef={addToShelfFlyoutMenu.parentItemRef}
-              onMouseEnter={handleFirstMouseEnter}
-              onMouseLeave={addToShelfFlyoutMenu.handleParentMouseLeave}
-              onClick={handleAddToClick}
-            />
-          </div>
-          <div className="transition-colors duration-150 hover:bg-surface-tonal-a20">
-            <DropdownMenuItem
-              icon="pi pi-arrow-right-arrow-left"
-              label="Convert"
-              onClick={handleConvert}
-              className="hover:bg-transparent"
-            />
-          </div>
-          <div className="transition-colors duration-150 hover:bg-surface-tonal-a20">
-            <DropdownMenuItem
-              icon="pi pi-trash"
-              label="Delete"
-              onClick={handleDelete}
-              className="hover:bg-transparent"
-            />
-          </div>
-          <div className="transition-colors duration-150 hover:bg-surface-tonal-a20">
-            <DropdownMenuItem
-              icon={<OutlineMerge className="h-4 w-4" />}
-              label="Merge"
-              onClick={handleMerge}
-              className="hover:bg-transparent"
-            />
-          </div>
-        </div>
-      )}
-      {isMenuOpen && selectedBooks.length > 0 && (
-        <>
-          <AddToShelfFlyoutMenu
-            isOpen={addToShelfFlyoutMenu.isFlyoutOpen && isMenuOpen}
-            parentItemRef={addToShelfFlyoutMenu.parentItemRef}
-            onOpenModal={() => {
-              addToShelfFlyoutMenu.handleFlyoutClose();
-              handleMenuClose();
-              setShowAddToShelfModal(true);
-            }}
-            onClose={addToShelfFlyoutMenu.handleFlyoutClose}
-            onMouseEnter={addToShelfFlyoutMenu.handleFlyoutMouseEnter}
-            onSuccess={handleMenuClose}
-          />
-          <SendToDeviceFlyoutMenu
-            isOpen={sendFlyoutMenu.isFlyoutOpen && isMenuOpen}
-            parentItemRef={sendFlyoutMenu.parentItemRef}
-            onClose={sendFlyoutMenu.handleFlyoutClose}
-            onMouseEnter={sendFlyoutMenu.handleFlyoutMouseEnter}
-            onSuccess={handleMenuClose}
-            onCloseParent={handleMenuClose}
-          />
-        </>
-      )}
-      {showAddToShelfModal && (
+      <WithSelectedMenu
+        isOpen={isMenuOpen}
+        onClose={handleMenuClose}
+        buttonRef={buttonRef}
+        cursorPosition={cursorPosition}
+        selectedBooks={selectedBooks}
+        actions={{
+          ...actions,
+          isSendDisabled: isSendDisabledProp || actions.isSendDisabled,
+        }}
+      />
+      {actions.addToShelfState.isOpen && (
         <AddToShelfModal
           onClose={() => {
-            setShowAddToShelfModal(false);
+            actions.addToShelfState.close();
             handleMenuClose();
           }}
           onSuccess={handleMenuClose}
         />
       )}
-    </div>
+      {actions.mergeModalState.isOpen && (
+        <BookMergeModal
+          bookIds={selectedBooks.map((b) => b.id)}
+          onClose={() => {
+            actions.mergeModalState.close();
+            handleMenuClose();
+          }}
+        />
+      )}
+    </>
   );
 }
