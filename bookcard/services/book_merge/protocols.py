@@ -93,6 +93,10 @@ class FileStorage(Protocol):
         """Check if path exists."""
         ...
 
+    def find_file(self, directory: Path, stem: str, extension: str) -> Path | None:
+        """Find file in directory with stem and extension (case-insensitive)."""
+        ...
+
     def ensure_dir(self, path: Path) -> None:
         """Ensure parent directory exists."""
         ...

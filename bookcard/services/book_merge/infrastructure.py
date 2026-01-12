@@ -139,6 +139,26 @@ class LocalFileStorage:
         """Check if a path exists."""
         return path.exists()
 
+    def find_file(self, directory: Path, stem: str, extension: str) -> Path | None:
+        """Find file in directory with stem and extension (case-insensitive)."""
+        if not directory.exists() or not directory.is_dir():
+            return None
+
+        target_stem = stem.lower()
+        target_ext = extension.lower().lstrip(".")
+
+        for path in directory.iterdir():
+            if not path.is_file():
+                continue
+
+            if (
+                path.stem.lower() == target_stem
+                and path.suffix.lower().lstrip(".") == target_ext
+            ):
+                return path
+
+        return None
+
     def ensure_dir(self, path: Path) -> None:
         """Ensure the parent directory of a path exists."""
         path.parent.mkdir(parents=True, exist_ok=True)
