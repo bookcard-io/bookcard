@@ -127,9 +127,9 @@ class LocalFileStorage:
             return {"area": 0, "size": size, "width": 0, "height": 0}
 
     def get_unique_bak_path(self, file_path: Path) -> Path:
-        """Generate a unique backup path."""
+        """Generate a unique backup path with .bakN extension."""
         counter = 1
-        bak_path = file_path.with_name(f"{file_path.name}.bak")
+        bak_path = file_path.with_name(f"{file_path.name}.bak{counter}")
         while bak_path.exists():
             counter += 1
             bak_path = file_path.with_name(f"{file_path.name}.bak{counter}")
