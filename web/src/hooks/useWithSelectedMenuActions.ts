@@ -48,6 +48,12 @@ export interface UseWithSelectedMenuActionsResult {
     open: () => void;
     close: () => void;
   };
+  /** Merge modal state and controls. */
+  mergeModalState: {
+    isOpen: boolean;
+    open: () => void;
+    close: () => void;
+  };
   /** Whether Send action is disabled. */
   isSendDisabled: boolean;
 }
@@ -76,6 +82,7 @@ export function useWithSelectedMenuActions({
 }: UseWithSelectedMenuActionsOptions): UseWithSelectedMenuActionsResult {
   const { user } = useUser();
   const [showAddToShelfModal, setShowAddToShelfModal] = useState(false);
+  const [showMergeModal, setShowMergeModal] = useState(false);
 
   // Get device to use: default device, or first device if no default
   const deviceToUse = useMemo(() => {
@@ -113,9 +120,12 @@ export function useWithSelectedMenuActions({
   }, [selectedBooks]);
 
   const onMerge = useCallback(() => {
-    // TODO: Implement merge
-    console.log("Merge", selectedBooks);
-  }, [selectedBooks]);
+    setShowMergeModal(true);
+  }, []);
+
+  const closeMergeModal = useCallback(() => {
+    setShowMergeModal(false);
+  }, []);
 
   const onSend = useCallback(async () => {
     if (!deviceToUse) {
@@ -155,6 +165,11 @@ export function useWithSelectedMenuActions({
       isOpen: showAddToShelfModal,
       open: onAddToShelf,
       close: closeAddToShelfModal,
+    },
+    mergeModalState: {
+      isOpen: showMergeModal,
+      open: onMerge,
+      close: closeMergeModal,
     },
     isSendDisabled,
   };

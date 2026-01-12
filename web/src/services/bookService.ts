@@ -427,3 +427,97 @@ export async function getBookConversions(
 
   return response.json();
 }
+
+/**
+ * Recommend which book to keep when merging.
+ *
+ * Parameters
+ * ----------
+ * bookIds : number[]
+ *     List of book IDs to merge.
+ *
+ * Returns
+ * -------
+ * Promise<BookMergeRecommendation>
+ *     Recommendation with book details.
+ */
+export interface BookMergeRecommendation {
+  recommended_keep_id: number;
+  books: {
+    id: number;
+    title: string;
+    author: string | null;
+    year: number | null;
+    publisher: string | null;
+    has_cover: boolean;
+    formats: {
+      format: string;
+      size: number;
+      name: string;
+    }[];
+    path: string;
+  }[];
+}
+
+export async function recommendMergeBooks(
+  bookIds: number[],
+): Promise<BookMergeRecommendation> {
+  const response = await fetch("/api/books/merge/recommend", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify({
+      book_ids: bookIds,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to get merge recommendation" }));
+    throw new Error(error.detail || "Failed to get merge recommendation");
+  }
+
+  return response.json();
+}
+
+/**
+ * Merge multiple books into one.
+ *
+ * Parameters
+ * ----------
+ * bookIds : number[]
+ *     List of book IDs to merge.
+ * keepBookId : number
+ *     Book ID to keep.
+ *
+ * Returns
+ * -------
+ * Promise<void>
+ *     Success response.
+ */
+export async function mergeBooks(
+  bookIds: number[],
+  keepBookId: number,
+): Promise<void> {
+  const response = await fetch("/api/books/merge", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify({
+      book_ids: bookIds,
+      keep_book_id: keepBookId,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to merge books" }));
+    throw new Error(error.detail || "Failed to merge books");
+  }
+}

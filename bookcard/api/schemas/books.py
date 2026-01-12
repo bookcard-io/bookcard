@@ -590,3 +590,30 @@ class FormatMetadataResponse(BaseModel):
     validation_status: str | None = None
     validation_issues: list[str] = Field(default_factory=list)
     mime_type: str | None = None
+
+
+class BookMergeRecommendRequest(BaseModel):
+    """Request model for book merge recommendation.
+
+    Attributes
+    ----------
+    book_ids : list[int]
+        List of book IDs to merge.
+    """
+
+    book_ids: list[int] = Field(..., min_length=2, description="Book IDs to merge")
+
+
+class BookMergeRequest(BaseModel):
+    """Request model for book merge operation.
+
+    Attributes
+    ----------
+    book_ids : list[int]
+        List of book IDs to merge.
+    keep_book_id : int
+        Book ID to keep (others will be merged into this one).
+    """
+
+    book_ids: list[int] = Field(..., min_length=2, description="Book IDs to merge")
+    keep_book_id: int = Field(..., description="Book ID to keep")

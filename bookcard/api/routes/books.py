@@ -56,6 +56,8 @@ from bookcard.api.schemas import (
     BookFilterRequest,
     BookFixEpubResponse,
     BookListResponse,
+    BookMergeRecommendRequest,
+    BookMergeRequest,
     BookRead,
     BookSendRequest,
     BookStripDrmResponse,
@@ -82,6 +84,8 @@ from bookcard.services.book_dedrm_orchestration_service import (
 )
 from bookcard.services.book_exception_mapper import BookExceptionMapper
 from bookcard.services.book_file_service import BookFileService
+from bookcard.services.book_merge.exceptions import BookMergeError
+from bookcard.services.book_merge_service import BookMergeService
 from bookcard.services.book_permission_helper import BookPermissionHelper
 from bookcard.services.book_read_model_service import BookReadModelService
 from bookcard.services.book_response_builder import BookResponseBuilder
@@ -297,6 +301,35 @@ def _get_cover_service(
     return BookCoverService(book_service)
 
 
+def _get_book_merge_service(
+    session: SessionDep,
+) -> BookMergeService:
+    """Get book merge service instance.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session.
+
+    Returns
+    -------
+    BookMergeService
+        Book merge service instance.
+    """
+    library_repo = LibraryRepository(session)
+    library_service = LibraryService(session, library_repo)
+    active_library = library_service.get_active_library()
+
+    if not active_library or not active_library.calibre_db_path:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="no_active_library",
+        )
+
+    return BookMergeService(session, active_library.calibre_db_path)
+
+
+BookMergeServiceDep = Annotated[BookMergeService, Depends(_get_book_merge_service)]
 BookServiceDep = Annotated[BookService, Depends(_get_active_library_service)]
 BookFileServiceDep = Annotated[BookFileService, Depends(_get_book_file_service)]
 PermissionHelperDep = Annotated[
@@ -2600,4 +2633,119 @@ def upload_books_batch(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=error_msg,
+        ) from exc
+
+
+@router.post(
+    "/merge/recommend",
+    response_model=dict[str, object],
+    dependencies=[Depends(get_current_user)],
+)
+def recommend_merge_book(
+    request_body: BookMergeRecommendRequest,
+    current_user: CurrentUserDep,
+    book_service: BookServiceDep,
+    merge_service: BookMergeServiceDep,
+    permission_helper: PermissionHelperDep,
+) -> dict[str, object]:
+    """Recommend which book to keep when merging.
+
+    Parameters
+    ----------
+    request_body : BookMergeRecommendRequest
+        Request with list of book IDs to merge.
+    current_user : CurrentUserDep
+        Current authenticated user.
+    book_service : BookServiceDep
+        Book service instance.
+    merge_service : BookMergeServiceDep
+        Book merge service instance.
+    permission_helper : PermissionHelperDep
+        Permission helper instance.
+
+    Returns
+    -------
+    dict[str, object]
+        Dictionary with recommended keep book ID and book details.
+
+    Raises
+    ------
+    HTTPException
+        If validation fails, books not found, or permission denied.
+    """
+    # Check write permission for all books being merged
+    for book_id in request_body.book_ids:
+        book = book_service.get_book_full(book_id)
+        if not book:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Book not found: {book_id}",
+            )
+        permission_helper.check_write_permission(current_user, book)
+
+    try:
+        return merge_service.recommend_keep_book(request_body.book_ids)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+
+@router.post(
+    "/merge",
+    response_model=dict[str, object],
+    dependencies=[Depends(get_current_user)],
+)
+def merge_books(
+    request_body: BookMergeRequest,
+    current_user: CurrentUserDep,
+    book_service: BookServiceDep,
+    merge_service: BookMergeServiceDep,
+    permission_helper: PermissionHelperDep,
+) -> dict[str, object]:
+    """Merge multiple books into one.
+
+    Parameters
+    ----------
+    request_body : BookMergeRequest
+        Request with list of book IDs and keep book ID.
+    current_user : CurrentUserDep
+        Current authenticated user.
+    book_service : BookServiceDep
+        Book service instance.
+    merge_service : BookMergeServiceDep
+        Book merge service instance.
+    permission_helper : PermissionHelperDep
+        Permission helper instance.
+
+    Returns
+    -------
+    dict[str, object]
+        Dictionary with merged book details.
+
+    Raises
+    ------
+    HTTPException
+        If validation fails, books not found, merge fails, or permission denied.
+    """
+    # Check write permission for all books being merged
+    for book_id in request_body.book_ids:
+        book = book_service.get_book_full(book_id)
+        if not book:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Book not found: {book_id}",
+            )
+        permission_helper.check_write_permission(current_user, book)
+
+    try:
+        return merge_service.merge_books(
+            request_body.book_ids,
+            request_body.keep_book_id,
+        )
+    except (ValueError, BookMergeError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
         ) from exc

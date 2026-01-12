@@ -17,6 +17,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { AddToShelfModal } from "@/components/library/AddToShelfModal";
+import { BookMergeModal } from "@/components/library/BookMergeModal";
 import { WithSelectedMenu } from "@/components/library/widgets/WithSelectedMenu";
 import { useSelectedBooks } from "@/contexts/SelectedBooksContext";
 import { useWithSelectedMenuActions } from "@/hooks/useWithSelectedMenuActions";
@@ -131,6 +132,15 @@ export function WithSelectedDropdown({
             handleMenuClose();
           }}
           onSuccess={handleMenuClose}
+        />
+      )}
+      {actions.mergeModalState.isOpen && (
+        <BookMergeModal
+          bookIds={selectedBooks.map((b) => b.id)}
+          onClose={() => {
+            actions.mergeModalState.close();
+            handleMenuClose();
+          }}
         />
       )}
     </>
