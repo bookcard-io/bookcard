@@ -29,8 +29,9 @@ from bookcard.services.book_merge.exceptions import BookNotFoundError
 class SQLBookRepository:
     """SQLModel implementation of BookRepository."""
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, library_path: Path) -> None:
         self._session = session
+        self._library_path = library_path
 
     def get(self, book_id: int) -> Book | None:
         """Get a book by ID."""
@@ -54,6 +55,73 @@ class SQLBookRepository:
             return None
         data = self._session.exec(select(Data).where(Data.book == book_id)).all()
         return book, list(data)
+
+    def add_format(
+        self,
+        *,
+        book_id: int,
+        file_path: Path,
+        file_format: str,
+        replace: bool = False,
+    ) -> None:
+        """Add a format to a book using standard logic."""
+        if not file_path.exists():
+            msg = f"File not found: {file_path}"
+            raise ValueError(msg)
+
+        file_format_upper = file_format.upper().lstrip(".")
+
+        # Check for existing format
+        existing_data = self._session.exec(
+            select(Data).where(Data.book == book_id)
+        ).all()
+        existing_format_record = next(
+            (d for d in existing_data if d.format == file_format_upper), None
+        )
+        if existing_format_record is not None and not replace:
+            msg = f"Format {file_format_upper} already exists for book {book_id}"
+            raise FileExistsError(msg)
+
+        # Determine target directory name
+        # Use existing format's name if available, otherwise parse from book path
+        book = self.get_or_raise(book_id)
+        title_dir = existing_data[0].name if existing_data else Path(book.path).name
+
+        # Construct destination path
+        library_path = self._library_path
+        book_dir = library_path / book.path
+
+        if not book_dir.exists():
+            book_dir.mkdir(parents=True, exist_ok=True)
+
+        dest_filename = f"{title_dir}.{file_format_upper.lower()}"
+        dest_path = book_dir / dest_filename
+
+        # Move file and update DB
+        # Note: Direct file operations used here to avoid circular dependencies
+        shutil.move(str(file_path), str(dest_path))
+
+        file_size = dest_path.stat().st_size
+
+        if existing_format_record:
+            existing_format_record.uncompressed_size = file_size
+            existing_format_record.name = title_dir
+            self._session.add(existing_format_record)
+        else:
+            new_data = Data(
+                book=book_id,
+                format=file_format_upper,
+                uncompressed_size=file_size,
+                name=title_dir,
+            )
+            self._session.add(new_data)
+
+        # Update last_modified
+        from datetime import UTC, datetime
+
+        book.last_modified = datetime.now(UTC)
+        self._session.add(book)
+        self._session.flush()
 
     def save(self, instance: object) -> None:
         """Save a model instance to the session."""

@@ -19,6 +19,7 @@ Follows SRP by focusing solely on book merge orchestration.
 """
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from sqlmodel import Session
@@ -63,7 +64,7 @@ class BookMergeService:
         self._library_path = library_path
 
         # Initialize infrastructure
-        self._repository = SQLBookRepository(session)
+        self._repository = SQLBookRepository(session, Path(library_path))
         self._file_storage = LocalFileStorage(library_path)
 
         # Initialize domain services

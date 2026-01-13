@@ -41,6 +41,17 @@ class BookRepository(Protocol):
         """Get book with associated data records."""
         ...
 
+    def add_format(
+        self,
+        *,
+        book_id: int,
+        file_path: Path,
+        file_format: str,
+        replace: bool = False,
+    ) -> None:
+        """Add format to book using standard mechanism."""
+        ...
+
     def save(self, instance: object) -> None:
         """Save instance to database."""
         ...
