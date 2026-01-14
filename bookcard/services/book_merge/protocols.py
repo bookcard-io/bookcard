@@ -41,6 +41,17 @@ class BookRepository(Protocol):
         """Get book with associated data records."""
         ...
 
+    def add_format(
+        self,
+        *,
+        book_id: int,
+        file_path: Path,
+        file_format: str,
+        replace: bool = False,
+    ) -> None:
+        """Add format to book using standard mechanism."""
+        ...
+
     def save(self, instance: object) -> None:
         """Save instance to database."""
         ...
@@ -91,6 +102,10 @@ class FileStorage(Protocol):
 
     def exists(self, path: Path) -> bool:
         """Check if path exists."""
+        ...
+
+    def find_file(self, directory: Path, stem: str, extension: str) -> Path | None:
+        """Find file in directory with stem and extension (case-insensitive)."""
         ...
 
     def ensure_dir(self, path: Path) -> None:

@@ -144,10 +144,17 @@ class FileMerger:
 
         for data in merge_data:
             fmt = data.format.upper()
-            src_file = merge_dir / data.name
 
-            if not self._file_storage.exists(src_file):
-                logger.warning("File missing for book %s: %s", merge_book.id, src_file)
+            # Resolve source file
+            src_file = self._file_storage.find_file(merge_dir, data.name, data.format)
+
+            if not src_file:
+                expected = merge_dir / self._construct_filename(data.name, data.format)
+                logger.warning(
+                    "File missing for book %s: %s (and variations)",
+                    merge_book.id,
+                    expected,
+                )
                 continue
 
             if fmt in keep_formats:
@@ -155,7 +162,7 @@ class FileMerger:
                     data, keep_formats[fmt], src_file, keep_dir, keep_book, merge_book
                 )
             else:
-                self._move_and_link(data, src_file, keep_dir, keep_book)
+                self._move_and_link(data, src_file, keep_book)
 
     def _handle_conflict(
         self,
@@ -167,7 +174,15 @@ class FileMerger:
         merge_book: Book,
     ) -> None:
         """Handle file conflict."""
-        keep_file = keep_dir / keep_data_record.name
+        # Try to find existing file to handle case-sensitivity
+        keep_file = self._file_storage.find_file(
+            keep_dir, keep_data_record.name, keep_data_record.format
+        )
+        if not keep_file:
+            # Fallback to constructed path
+            keep_file = keep_dir / self._construct_filename(
+                keep_data_record.name, keep_data_record.format
+            )
 
         src_size = merge_data_record.uncompressed_size
         keep_size = keep_data_record.uncompressed_size
@@ -185,11 +200,17 @@ class FileMerger:
             self._file_storage.backup_file(keep_file)
 
             # Move src to keep location
-            self._file_storage.move_file(src_file, keep_file)
+            # Use add_format to ensure consistency, treating it as a new format essentially but replacing
+            if not keep_book.id:
+                logger.error("Cannot add format to book without ID")
+                return
 
-            # Update DB record for keep_book
-            keep_data_record.uncompressed_size = src_size
-            self._repository.save(keep_data_record)
+            self._repository.add_format(
+                book_id=keep_book.id,
+                file_path=src_file,
+                file_format=keep_data_record.format,
+                replace=True,
+            )
 
         else:
             # Keep is better (or equal), just move src as backup
@@ -202,27 +223,30 @@ class FileMerger:
             dest_bak = self._file_storage.get_unique_bak_path(keep_file)
             self._file_storage.move_file(src_file, dest_bak)
 
-    def _move_and_link(
-        self, data: Data, src_file: Path, keep_dir: Path, keep_book: Book
-    ) -> None:
-        """Move file and update data record."""
-        dest_file = keep_dir / data.name
+    def _move_and_link(self, data: Data, src_file: Path, keep_book: Book) -> None:
+        """Move file and update data record using standard add_format mechanism."""
+        # This uses the repository's add_format which mimics standard Calibre behavior:
+        # 1. Renames file to match book convention
+        # 2. Updates/Creates Data record
+        # 3. Updates Book last_modified
 
-        # Handle filename collision if file exists but not in DB
-        if self._file_storage.exists(dest_file):
-            stem = dest_file.stem
-            suffix = dest_file.suffix
-            counter = 1
-            while self._file_storage.exists(dest_file):
-                dest_file = keep_dir / f"{stem}_{counter}{suffix}"
-                counter += 1
+        # Note: We don't need to manually update data.book = keep_book.id because
+        # add_format will create a NEW Data record for the keep_book.
+        # The OLD Data record (for merge_book) will be deleted during cleanup.
+        if not keep_book.id:
+            logger.error("Cannot add format to book without ID")
+            return
 
-        self._file_storage.move_file(src_file, dest_file)
+        self._repository.add_format(
+            book_id=keep_book.id,
+            file_path=src_file,
+            file_format=data.format,
+            replace=False,
+        )
 
-        # Update Data record to point to keep_book
-        data.book = keep_book.id
-        data.name = dest_file.name
-        self._repository.save(data)
+    def _construct_filename(self, name: str, fmt: str) -> str:
+        """Construct filename with lowercase extension."""
+        return f"{name}.{fmt.lower()}"
 
 
 class CleanupService:
