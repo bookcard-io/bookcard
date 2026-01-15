@@ -43,6 +43,7 @@ class IndexerProtocol(StrEnum):
 
     TORRENT = "torrent"
     USENET = "usenet"
+    HTTP = "http"
 
 
 class IndexerType(StrEnum):
@@ -68,6 +69,7 @@ class IndexerType(StrEnum):
     TORRENT_RSS = "torrent_rss"
     USENET_RSS = "usenet_rss"
     CUSTOM = "custom"
+    ANNAS_ARCHIVE = "annas_archive"
 
 
 class DownloadClientType(StrEnum):
@@ -132,6 +134,7 @@ class DownloadClientType(StrEnum):
     # Blackhole clients (file-based, no API)
     TORRENT_BLACKHOLE = "torrent_blackhole"
     USENET_BLACKHOLE = "usenet_blackhole"
+    DIRECT_HTTP = "direct_http"
 
 
 class ProwlarrConfig(SQLModel, table=True):

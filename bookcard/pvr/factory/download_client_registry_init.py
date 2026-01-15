@@ -26,6 +26,7 @@ from bookcard.pvr.download_clients.blackhole import (
     UsenetBlackholeClient,
 )
 from bookcard.pvr.download_clients.deluge import DelugeClient
+from bookcard.pvr.download_clients.direct_http import DirectHttpClient
 from bookcard.pvr.download_clients.download_station import DownloadStationClient
 from bookcard.pvr.download_clients.flood import FloodClient
 from bookcard.pvr.download_clients.freebox_download import FreeboxDownloadClient
@@ -45,6 +46,7 @@ from bookcard.pvr.registries import register_download_client
 def _initialize_download_client_registry() -> None:
     """Initialize the download client registry with built-in clients."""
     # Fully implemented clients
+    register_download_client(DownloadClientType.DIRECT_HTTP, DirectHttpClient)
     register_download_client(DownloadClientType.QBITTORRENT, QBittorrentClient)
     register_download_client(DownloadClientType.TRANSMISSION, TransmissionClient)
     register_download_client(
