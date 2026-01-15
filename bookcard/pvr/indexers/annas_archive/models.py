@@ -25,9 +25,11 @@ class AnnasArchiveTableColumns:
     TITLE: Final[int] = 1
     AUTHOR: Final[int] = 2
     PUBLISHER: Final[int] = 3
+    YEAR: Final[int] = 4
+    LANGUAGE: Final[int] = 7
     FILE_TYPE: Final[int] = 9
     SIZE: Final[int] = 10
-    MINIMUM_COLUMNS: Final[int] = 10
+    MINIMUM_COLUMNS: Final[int] = 11
 
 
 @dataclass

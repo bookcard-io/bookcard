@@ -16,8 +16,12 @@
 """HTML parser for Anna's Archive search results."""
 
 import logging
+import re
 import urllib.parse
-from typing import ClassVar
+from collections.abc import Callable
+from contextlib import suppress
+from datetime import UTC, datetime
+from typing import Any, ClassVar
 
 from bs4 import BeautifulSoup, Tag
 
@@ -41,20 +45,23 @@ class FileSizeParser:
 
     @classmethod
     def parse(cls, size_str: str) -> int | None:
-        """Parse '1.2 MB' into bytes."""
+        """Parse '1.2 MB' or '1.2MB' into bytes."""
         try:
-            parts = size_str.lower().split()
-            if len(parts) != 2:
+            # Clean and lower
+            s = size_str.lower().strip()
+            # Regex to find number and unit
+            match = re.match(r"^([\d.]+)\s*([a-z]+)$", s)
+            if not match:
                 return None
-            value = float(parts[0])
-            unit = parts[1]
+
+            value = float(match.group(1))
+            unit = match.group(2)
+
             multiplier = cls.UNIT_MULTIPLIERS.get(unit)
             if multiplier is None:
-                logger.warning("Unknown size unit: %s", unit)
                 return None
             return int(value * multiplier)
-        except (ValueError, IndexError) as e:
-            logger.warning("Failed to parse size '%s': %s", size_str, e)
+        except (ValueError, IndexError):
             return None
 
 
@@ -69,21 +76,56 @@ class AnnasArchiveHtmlParser:
             return []
 
         soup = BeautifulSoup(html_content, "html.parser")
+        releases: list[ReleaseInfo] = []
+
+        # Try parsing as table first
+        releases.extend(self._parse_table_results(soup, max_results, base_url))
+
+        if len(releases) < max_results:
+            remaining = max_results - len(releases)
+            releases.extend(self._parse_div_results(soup, remaining, base_url))
+
+        return releases
+
+    def _parse_table_results(
+        self, soup: BeautifulSoup, max_results: int, base_url: str
+    ) -> list[ReleaseInfo]:
+        """Parse results from table layout."""
+        releases: list[ReleaseInfo] = []
         table = soup.find("table")
         if not table:
             return []
 
-        releases: list[ReleaseInfo] = []
         rows = table.find_all("tr")
-
         for row in rows:
             if len(releases) >= max_results:
                 break
-
             release = self._parse_row(row, base_url)
             if release:
                 releases.append(release)
+        return releases
 
+    def _parse_div_results(
+        self, soup: BeautifulSoup, max_results: int, base_url: str
+    ) -> list[ReleaseInfo]:
+        """Parse results from div/list layout."""
+        releases: list[ReleaseInfo] = []
+        div_rows = soup.find_all(
+            "div",
+            class_=lambda c: c and "flex" in c and "border-b" in c and "pt-3" in c,
+        )
+
+        for row in div_rows:
+            if len(releases) >= max_results:
+                break
+
+            # Verify it's likely a result row by checking for md5 link
+            if not row.find("a", href=re.compile(r"/md5/")):
+                continue
+
+            release = self._parse_div_row(row, base_url)
+            if release:
+                releases.append(release)
         return releases
 
     def _parse_row(self, row: Tag, base_url: str) -> ReleaseInfo | None:
@@ -108,46 +150,25 @@ class AnnasArchiveHtmlParser:
     ) -> ReleaseInfo:
         """Build ReleaseInfo from cells, raising RowParsingError on failure."""
         try:
+            # Required fields
             title = self._extract_title(cells)
-        except Exception as e:
-            msg = f"Failed to extract title: {e}"
-            raise RowParsingError(msg, row_html=row_html, field="title") from e
-
-        try:
             download_url = self._extract_download_url(cells, base_url)
-        except Exception as e:
-            msg = f"Failed to extract download URL: {e}"
-            raise RowParsingError(msg, row_html=row_html, field="download_url") from e
+        except (AttributeError, ValueError, IndexError, TypeError) as e:
+            msg = f"Failed to extract required field: {e}"
+            raise RowParsingError(msg, row_html=row_html, field="required") from e
 
-        try:
-            size_bytes = self._extract_size(cells)
-        except Exception as e:
-            msg = f"Failed to extract size: {e}"
-            raise RowParsingError(msg, row_html=row_html, field="size") from e
+        # Optional fields
+        size_bytes = self._safe_extract(self._extract_size, cells)
+        author = self._safe_extract(self._extract_author, cells)
+        description = self._safe_extract(self._extract_description, cells)
+        quality = self._safe_extract(self._extract_file_type, cells)
+        guid = self._safe_extract(self._extract_guid, cells)
 
-        try:
-            author = self._extract_author(cells)
-        except Exception as e:
-            msg = f"Failed to extract author: {e}"
-            raise RowParsingError(msg, row_html=row_html, field="author") from e
+        # Extract language
+        language = self._extract_language(cells)
 
-        try:
-            description = self._extract_description(cells)
-        except Exception as e:
-            msg = f"Failed to extract description: {e}"
-            raise RowParsingError(msg, row_html=row_html, field="description") from e
-
-        try:
-            quality = self._extract_file_type(cells)
-        except Exception as e:
-            msg = f"Failed to extract file type: {e}"
-            raise RowParsingError(msg, row_html=row_html, field="quality") from e
-
-        try:
-            guid = self._extract_guid(cells)
-        except Exception as e:
-            msg = f"Failed to extract guid: {e}"
-            raise RowParsingError(msg, row_html=row_html, field="guid") from e
+        # Extract year/publish_date
+        publish_date = self._extract_publish_date(cells)
 
         return ReleaseInfo(
             title=title,
@@ -158,9 +179,153 @@ class AnnasArchiveHtmlParser:
             description=description,
             quality=quality,
             guid=guid,
-            publish_date=None,
+            publish_date=publish_date,
             indexer_id=None,
+            language=language,
         )
+
+    def _safe_extract(
+        self,
+        extractor_func: Callable[..., Any],
+        *args: Any,  # noqa: ANN401
+    ) -> Any:  # noqa: ANN401
+        """Safely extract a field, returning None on failure."""
+        try:
+            return extractor_func(*args)
+        except (AttributeError, ValueError, IndexError, TypeError):
+            return None
+
+    def _extract_language(self, cells: list[Tag]) -> str | None:
+        """Extract language from cells."""
+        with suppress(AttributeError, ValueError, IndexError):
+            if len(cells) > AnnasArchiveTableColumns.LANGUAGE:
+                raw_lang = cells[AnnasArchiveTableColumns.LANGUAGE].get_text(strip=True)
+                if raw_lang:
+                    parts = [p.strip() for p in raw_lang.split(",")]
+                    # Prefer non-English language if multiple are present
+                    non_en = next((p for p in parts if p.lower() != "en"), None)
+                    return non_en if non_en else parts[0]
+        return None
+
+    def _extract_publish_date(self, cells: list[Tag]) -> datetime | None:
+        """Extract publish date from cells."""
+        with suppress(AttributeError, ValueError, IndexError):
+            if len(cells) > AnnasArchiveTableColumns.YEAR:
+                year_str = cells[AnnasArchiveTableColumns.YEAR].get_text(strip=True)
+                if re.match(r"^\d{4}$", year_str):
+                    return datetime(int(year_str), 1, 1, tzinfo=UTC)
+        return None
+
+    def _parse_div_row(self, row: Tag, base_url: str) -> ReleaseInfo | None:
+        """Parse a div-based result row."""
+        try:
+            # Title & Link
+            title_link = self._find_title_link(row)
+            if not title_link:
+                return None
+
+            title = title_link.get_text(strip=True)
+            relative_link = title_link.get("href")
+            download_url = urllib.parse.urljoin(base_url, relative_link)
+            guid = relative_link.split("/")[-1] if relative_link else None
+
+            # Author
+            author_tag = row.find("a", href=re.compile(r"/search\?q="))
+            author = author_tag.get_text(strip=True) if author_tag else None
+
+            # Description
+            desc_div = row.find(
+                "div", class_=lambda c: c and "line-clamp" in c and "text-gray-600" in c
+            )
+            description = desc_div.get_text(strip=True) if desc_div else None
+
+            # Metadata line
+            metadata = self._extract_metadata(row)
+
+            return ReleaseInfo(
+                title=title,
+                download_url=download_url,
+                size_bytes=metadata["size_bytes"],
+                author=author,
+                category=metadata["category"],
+                description=description,
+                quality=metadata["quality"],
+                guid=guid,
+                publish_date=metadata["publish_date"],
+                indexer_id=None,
+                language=metadata["language"],
+            )
+
+        except (AttributeError, ValueError, TypeError, IndexError) as e:
+            # Catch specific exceptions if possible, but for parsing logic, catching all
+            # and logging is safer to prevent one bad row from crashing the whole search
+            logger.warning("Failed to parse div row: %s", e)
+            return None
+
+    def _find_title_link(self, row: Tag) -> Tag | None:
+        """Find the main title link in a div row."""
+        # Look for the main title link: <a href="/md5/..." ... class="... text-lg ...">
+        title_link = row.find(
+            "a", class_=lambda c: c and "text-lg" in c and "font-semibold" in c
+        )
+        if title_link:
+            return title_link
+
+        # Fallback: find first /md5/ link that has text
+        links = row.find_all("a", href=re.compile(r"^/md5/"))
+        for link in links:
+            if link.get_text(strip=True):
+                return link
+        return None
+
+    def _extract_metadata(self, row: Tag) -> dict[str, Any]:
+        """Extract metadata (language, size, etc.) from row."""
+        info = {
+            "language": None,
+            "quality": None,
+            "size_bytes": None,
+            "publish_date": None,
+            "category": "Ebook",
+        }
+
+        # Metadata line: <div class="text-gray-800 ... text-sm ...">
+        metadata_div = row.find(
+            "div",
+            class_=lambda c: (
+                c and "text-gray-800" in c and "text-sm" in c and "mt-2" in c
+            ),
+        )
+
+        if not metadata_div:
+            return info
+
+        text = metadata_div.get_text(strip=True)
+        parts = [p.strip() for p in text.split("·")]
+
+        for part in parts:
+            if re.search(r"\[[a-z]{2,3}\]$", part):
+                info["language"] = part
+            elif re.match(r"^\d+(\.\d+)?(KB|MB|GB|TB|B)$", part, re.IGNORECASE):
+                info["size_bytes"] = FileSizeParser.parse(part)
+            elif re.match(r"^\d{4}$", part):
+                with suppress(ValueError):
+                    year = int(part)
+                    info["publish_date"] = datetime(year, 1, 1, tzinfo=UTC)
+            elif part.lower() in [
+                "epub",
+                "pdf",
+                "mobi",
+                "azw3",
+                "cbz",
+                "cbr",
+                "zip",
+                "rar",
+            ]:
+                info["quality"] = part.lower()
+            elif "Book" in part or "Article" in part or "Magazine" in part:
+                info["category"] = part
+
+        return info
 
     def _is_valid_data_row(self, cells: list[Tag]) -> bool:
         """Check if row contains valid data."""

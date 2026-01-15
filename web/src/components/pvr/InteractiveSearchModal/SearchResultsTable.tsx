@@ -145,7 +145,9 @@ export function SearchResultsTable({
             </div>
             <div className="text-text-a30">
               {(() => {
-                const lang = languageDetector.detect(result.release.title);
+                const lang = languageDetector.detect(
+                  result.release.language || result.release.title,
+                );
                 return (
                   <span title={lang?.englishName}>
                     {lang?.flag} {lang?.englishName}

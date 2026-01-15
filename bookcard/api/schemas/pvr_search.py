@@ -115,6 +115,7 @@ class ReleaseInfoRead(BaseModel):
     description: str | None = None
     category: str | None = None
     additional_info: dict[str, str | int | float | None] | None = None
+    language: str | None = None
     guid: str | None = None
     warning: str | None = None
 
@@ -146,6 +147,7 @@ class ReleaseInfoRead(BaseModel):
             description=release.description,
             category=release.category,
             additional_info=release.additional_info,
+            language=release.language,
             guid=release.guid,
             warning=release.warning,
         )
