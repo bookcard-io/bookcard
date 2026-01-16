@@ -201,12 +201,16 @@ function DownloadClientModalContent({
             />
 
             {/* Path Mappings */}
-            <div className="border-surface-a20 border-t pt-4">
-              <PathMappings
-                mappings={formData.path_mappings || []}
-                onChange={(mappings) => handleChange("path_mappings", mappings)}
-              />
-            </div>
+            {currentConfig.supportsPathMappings !== false && (
+              <div className="border-surface-a20 border-t pt-4">
+                <PathMappings
+                  mappings={formData.path_mappings || []}
+                  onChange={(mappings) =>
+                    handleChange("path_mappings", mappings)
+                  }
+                />
+              </div>
+            )}
 
             {/* Advanced Settings Toggle */}
             {currentConfig.advancedFields &&

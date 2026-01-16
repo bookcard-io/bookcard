@@ -110,6 +110,25 @@ class HttpxClient:
         """
         return self._client.post(url, **kwargs)
 
+    def stream(self, method: str, url: str, **kwargs: Any) -> Any:  # noqa: ANN401
+        """Stream HTTP response.
+
+        Parameters
+        ----------
+        method : str
+            HTTP method.
+        url : str
+            Request URL.
+        **kwargs : Any
+            Additional request parameters.
+
+        Returns
+        -------
+        Any
+            Streaming context manager.
+        """
+        return self._client.stream(method, url, **kwargs)
+
     def __enter__(self) -> "HttpxClient":
         """Enter context manager."""
         return self

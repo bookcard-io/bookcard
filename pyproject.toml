@@ -39,6 +39,7 @@ dependencies = [
     "rarfile>=4.2",
     "apscheduler>=3.11.2",
     "urllib3>=2.6.3",
+    "seleniumbase>=4.45.11",
 ]
 
 [tool.hatch.build.targets.wheel]

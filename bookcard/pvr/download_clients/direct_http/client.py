@@ -34,6 +34,7 @@ from bookcard.pvr.base.interfaces import (
     UrlRouterProtocol,
 )
 from bookcard.pvr.download_clients._http_client import create_httpx_client
+from bookcard.pvr.download_clients.direct_http.anna import AnnaArchiveConfig
 from bookcard.pvr.download_clients.direct_http.downloader import FileDownloader
 from bookcard.pvr.download_clients.direct_http.protocols import (
     BeautifulSoupParser,
@@ -114,8 +115,18 @@ class DirectHttpClient(TrackingDownloadClient):
         self._file_downloader = file_downloader or FileDownloader(self._time)
 
         # Initialize resolvers
+        aa_config = AnnaArchiveConfig(donator_key=self.settings.aa_donator_key)
         self._url_resolvers = url_resolvers or [
-            AnnaArchiveResolver(self._http_client_factory, self._parser, self._time),
+            AnnaArchiveResolver(
+                self._http_client_factory,
+                self._parser,
+                self._time,
+                config=aa_config,
+                flaresolverr_url=self.settings.flaresolverr_url,
+                flaresolverr_path=self.settings.flaresolverr_path,
+                flaresolverr_timeout=self.settings.flaresolverr_timeout,
+                use_seleniumbase=self.settings.use_seleniumbase,
+            ),
             DirectUrlResolver(),
         ]
 
@@ -212,9 +223,10 @@ class DirectHttpClient(TrackingDownloadClient):
 
             with cast("Callable[[], StreamingHttpClient]", factory)() as client:
                 # We need a quick HEAD or GET to determine filename before full stream
+                headers = {"Referer": url} if url != actual_url else None
                 try:
                     with client.stream(
-                        "GET", actual_url, follow_redirects=True
+                        "GET", actual_url, follow_redirects=True, headers=headers
                     ) as response:
                         response.raise_for_status()
                         filename = self._filename_resolver.resolve(
@@ -229,8 +241,14 @@ class DirectHttpClient(TrackingDownloadClient):
                 target_dir.mkdir(parents=True, exist_ok=True)
 
                 # 3. Download
+                headers = {"Referer": url} if url != actual_url else None
                 self._file_downloader.download(
-                    client, actual_url, file_path, download_id, self._state_manager
+                    client,
+                    actual_url,
+                    file_path,
+                    download_id,
+                    self._state_manager,
+                    headers=headers,
                 )
 
             self._state_manager.update_status(download_id, DownloadStatus.COMPLETED)

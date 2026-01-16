@@ -21,6 +21,7 @@ Create Date: 2026-01-14 19:28:13.919241
 
 """
 
+import os
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
@@ -61,6 +62,29 @@ def upgrade() -> None:
         native_enum=False,
     )
 
+    download_client_type_enum = sa.Enum(
+        "QBITTORRENT",
+        "TRANSMISSION",
+        "DELUGE",
+        "RTORRENT",
+        "UTORRENT",
+        "VUZE",
+        "ARIA2",
+        "FLOOD",
+        "HADOUKEN",
+        "FREEBOX_DOWNLOAD",
+        "DOWNLOAD_STATION",
+        "SABNZBD",
+        "NZBGET",
+        "NZBVORTEX",
+        "PNEUMATIC",
+        "TORRENT_BLACKHOLE",
+        "USENET_BLACKHOLE",
+        "DIRECT_HTTP",
+        name="downloadclienttype",
+        native_enum=False,
+    )
+
     if is_postgresql:
         op.alter_column(
             "indexer_definitions",
@@ -77,6 +101,14 @@ def upgrade() -> None:
             type_=protocol_enum,
             existing_nullable=False,
         )
+
+        op.alter_column(
+            "download_client_definitions",
+            "client_type",
+            existing_type=sa.VARCHAR(length=17),
+            type_=download_client_type_enum,
+            existing_nullable=False,
+        )
     else:
         with op.batch_alter_table("indexer_definitions") as batch_op:
             batch_op.alter_column(
@@ -90,6 +122,14 @@ def upgrade() -> None:
                 "protocol",
                 existing_type=sa.VARCHAR(length=7),
                 type_=protocol_enum,
+                existing_nullable=False,
+            )
+
+        with op.batch_alter_table("download_client_definitions") as batch_op:
+            batch_op.alter_column(
+                "client_type",
+                existing_type=sa.VARCHAR(length=17),
+                type_=download_client_type_enum,
                 existing_nullable=False,
             )
 
@@ -111,6 +151,29 @@ def upgrade() -> None:
         sa.column("updated_at", sa.DateTime),
     )
 
+    download_client_definitions = sa.table(
+        "download_client_definitions",
+        sa.column("name", sa.String),
+        sa.column("client_type", sa.String),
+        sa.column("host", sa.String),
+        sa.column("port", sa.Integer),
+        sa.column("username", sa.String),
+        sa.column("password", sa.String),
+        sa.column("use_ssl", sa.Boolean),
+        sa.column("enabled", sa.Boolean),
+        sa.column("priority", sa.Integer),
+        sa.column("timeout_seconds", sa.Integer),
+        sa.column("category", sa.String),
+        sa.column("download_path", sa.String),
+        sa.column("additional_settings", sa.JSON),
+        sa.column("status", sa.String),
+        sa.column("error_count", sa.Integer),
+        sa.column("created_at", sa.DateTime),
+        sa.column("updated_at", sa.DateTime),
+    )
+
+    now = datetime.now(UTC)
+
     # Seed Anna's Archive
     connection = op.get_bind()
     indexer_name = "Anna's Archive"
@@ -123,7 +186,6 @@ def upgrade() -> None:
     ).scalar()
 
     if not exists:
-        now = datetime.now(UTC)
         op.bulk_insert(
             indexer_definitions,
             [
@@ -138,6 +200,41 @@ def upgrade() -> None:
                     "timeout_seconds": 30,
                     "retry_count": 3,
                     "status": "UNKNOWN",
+                    "error_count": 0,
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            ],
+        )
+
+    # Seed Direct HTTP Client
+    client_name = "Direct HTTP"
+    exists_client = connection.execute(
+        sa.select(download_client_definitions.c.name).where(
+            download_client_definitions.c.name == client_name
+        )
+    ).scalar()
+
+    if not exists_client:
+        ingest_dir = os.getenv("BOOKS_INGEST_DIR", "/data/books_ingest")
+        op.bulk_insert(
+            download_client_definitions,
+            [
+                {
+                    "name": client_name,
+                    "client_type": "DIRECT_HTTP",
+                    "host": "localhost",
+                    "port": 80,
+                    "username": None,
+                    "password": None,
+                    "use_ssl": False,
+                    "enabled": True,
+                    "priority": 0,
+                    "timeout_seconds": 30,
+                    "category": None,
+                    "download_path": ingest_dir,
+                    "additional_settings": None,
+                    "status": "UNHEALTHY",
                     "error_count": 0,
                     "created_at": now,
                     "updated_at": now,
@@ -159,10 +256,21 @@ def downgrade() -> None:
         sa.column("name", sa.String),
     )
 
+    download_client_definitions = sa.table(
+        "download_client_definitions",
+        sa.column("name", sa.String),
+    )
+
     # Remove seeded data
     op.execute(
         indexer_definitions.delete().where(
             indexer_definitions.c.name == "Anna's Archive"
+        )
+    )
+
+    op.execute(
+        download_client_definitions.delete().where(
+            download_client_definitions.c.name == "Direct HTTP"
         )
     )
 
@@ -187,6 +295,28 @@ def downgrade() -> None:
         native_enum=False,
     )
 
+    download_client_type_enum = sa.Enum(
+        "QBITTORRENT",
+        "TRANSMISSION",
+        "DELUGE",
+        "RTORRENT",
+        "UTORRENT",
+        "VUZE",
+        "ARIA2",
+        "FLOOD",
+        "HADOUKEN",
+        "FREEBOX_DOWNLOAD",
+        "DOWNLOAD_STATION",
+        "SABNZBD",
+        "NZBGET",
+        "NZBVORTEX",
+        "PNEUMATIC",
+        "TORRENT_BLACKHOLE",
+        "USENET_BLACKHOLE",
+        name="downloadclienttype",
+        native_enum=False,
+    )
+
     if is_postgresql:
         op.alter_column(
             "indexer_definitions",
@@ -203,6 +333,14 @@ def downgrade() -> None:
             type_=sa.VARCHAR(length=11),
             existing_nullable=False,
         )
+
+        op.alter_column(
+            "download_client_definitions",
+            "client_type",
+            existing_type=download_client_type_enum,
+            type_=sa.VARCHAR(length=17),
+            existing_nullable=False,
+        )
     else:
         with op.batch_alter_table("indexer_definitions") as batch_op:
             batch_op.alter_column(
@@ -216,6 +354,14 @@ def downgrade() -> None:
                 "indexer_type",
                 existing_type=indexer_type_enum,
                 type_=sa.VARCHAR(length=11),
+                existing_nullable=False,
+            )
+
+        with op.batch_alter_table("download_client_definitions") as batch_op:
+            batch_op.alter_column(
+                "client_type",
+                existing_type=download_client_type_enum,
+                type_=sa.VARCHAR(length=17),
                 existing_nullable=False,
             )
     # ### end Alembic commands ###

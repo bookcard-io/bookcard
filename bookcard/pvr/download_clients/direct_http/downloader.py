@@ -18,6 +18,7 @@
 import logging
 from pathlib import Path
 
+from bookcard.common.filesystem import atomic_file_stream
 from bookcard.pvr.download_clients.direct_http.protocols import (
     StreamingHttpClient,
     TimeProvider,
@@ -42,10 +43,13 @@ class FileDownloader:
         target_path: Path,
         download_id: str,
         state_manager: DownloadStateManager,
+        headers: dict[str, str] | None = None,
     ) -> None:
         """Download file with progress updates."""
         try:
-            with client.stream("GET", url, follow_redirects=True) as response:
+            with client.stream(
+                "GET", url, follow_redirects=True, headers=headers
+            ) as response:
                 response.raise_for_status()
 
                 total_size = int(response.headers.get("content-length", 0))
@@ -55,7 +59,7 @@ class FileDownloader:
                 start_time = self._time.time()
                 last_update = 0.0
 
-                with target_path.open("wb") as f:
+                with atomic_file_stream(target_path) as f:
                     for chunk in response.iter_bytes(
                         chunk_size=DownloadConstants.DOWNLOAD_CHUNK_SIZE
                     ):

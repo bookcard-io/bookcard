@@ -31,6 +31,7 @@ from bookcard.database import EngineSessionFactory
 from bookcard.models.pvr import DownloadHistory, DownloadItem, DownloadQueue
 from bookcard.repositories.config_repository import LibraryRepository
 from bookcard.services.config_service import LibraryService
+from bookcard.services.download.client_selector import ProtocolBasedSelector
 from bookcard.services.download.repository import SQLModelDownloadItemRepository
 from bookcard.services.download_client_service import DownloadClientService
 from bookcard.services.download_service import DownloadService
@@ -47,8 +48,9 @@ def get_download_service(
     encryptor = get_data_encryptor(request)
     repo = SQLModelDownloadItemRepository(session)
     client_service = DownloadClientService(session, encryptor=encryptor)
+    client_selector = ProtocolBasedSelector()
 
-    return DownloadService(repo, client_service)
+    return DownloadService(repo, client_service, client_selector=client_selector)
 
 
 def get_import_service(

@@ -87,6 +87,8 @@ export function IndexerModal({
           type === IndexerType.TORRENT_RSS
         ) {
           newData.protocol = IndexerProtocol.TORRENT;
+        } else if (type === IndexerType.ANNAS_ARCHIVE) {
+          newData.protocol = IndexerProtocol.HTTP;
         }
       }
 

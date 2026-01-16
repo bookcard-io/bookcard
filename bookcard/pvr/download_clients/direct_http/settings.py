@@ -16,12 +16,44 @@
 """Settings and constants for Direct HTTP download client."""
 
 import tempfile
+from pathlib import Path
+
+from pydantic import Field
 
 from bookcard.pvr.base import DownloadClientSettings
 
 
 class DirectHttpSettings(DownloadClientSettings):
     """Settings for Direct HTTP download client."""
+
+    aa_donator_key: str | None = Field(
+        default=None,
+        description=(
+            "Anna's Archive Donator Key. If set, the resolver will try the "
+            "fast download API before the slow partner servers."
+        ),
+    )
+    flaresolverr_url: str | None = Field(
+        default="http://flaresolverr:8191",
+        description="FlareSolverr service URL for Cloudflare bypass.",
+    )
+    flaresolverr_path: str = Field(
+        default="/v1",
+        description="FlareSolverr API path.",
+    )
+    flaresolverr_timeout: int = Field(
+        default=60000,
+        ge=1000,
+        le=300000,
+        description="FlareSolverr timeout in milliseconds.",
+    )
+    use_seleniumbase: bool = Field(
+        default=True,
+        description=(
+            "Use SeleniumBase for internal Cloudflare bypass instead of FlareSolverr. "
+            "Requires seleniumbase package to be installed."
+        ),
+    )
 
 
 class DownloadConstants:
@@ -30,5 +62,5 @@ class DownloadConstants:
     RETENTION_SECONDS = 86400  # 24 hours
     DOWNLOAD_CHUNK_SIZE = 8192  # 8KB
     MAX_COUNTDOWN_SECONDS = 600  # 10 minutes
-    DEFAULT_TEMP_DIR = tempfile.gettempdir()
+    DEFAULT_TEMP_DIR = str(Path(tempfile.gettempdir()) / "bookcard_downloads")
     UPDATE_INTERVAL = 0.5  # 500ms
