@@ -75,7 +75,7 @@
     "@faker-js/faker": "^10.1.0",
     "@lingual/i18n-check": "^0.8.12",
     "@playwright/test": "^1.56.1",
-    "@spotlightjs/spotlight": "^4.4.0",
+    "@spotlightjs/spotlight": "^4.10.0",
     "@storybook/addon-a11y": "^10.1.10",
     "@storybook/addon-docs": "^10.1.10",
     "@storybook/addon-vitest": "^10.1.10",
