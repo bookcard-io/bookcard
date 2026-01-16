@@ -1704,9 +1704,9 @@ pyparsing==3.2.5 \
     --hash=sha256:2df8d5b7b2802ef88e8d016a2eb9c7aeaa923529cd251ed0fe4608275d4105b6 \
     --hash=sha256:e38a4f02064cf41fe6593d328d0512495ad1f3d8a91c4f73fc401b3079a59a5e
     # via mike
-pypdf==6.4.2 \
-    --hash=sha256:014dcff867fd99fc0b6fc90ed1f7e1347ef2317ae038a489c2caa64106d268f4 \
-    --hash=sha256:c466ff1272ffb4712c2348d2bbc3019bc93f1c62ccfaf50808e3b9f13c3dc527
+pypdf==6.6.0 \
+    --hash=sha256:4c887ef2ea38d86faded61141995a3c7d068c9d6ae8477be7ae5de8a8e16592f \
+    --hash=sha256:bca9091ef6de36c7b1a81e09327c554b7ce51e88dad68f5890c2b4a4417f1fd7
     # via bookcard (pyproject.toml)
 pyppmd==1.2.0 \
     --hash=sha256:011c813389476e84387599ad4aa834100e888c6608a6e7d6f07ea7cbac8a8e65 \
