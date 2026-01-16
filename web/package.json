@@ -76,10 +76,10 @@
     "@lingual/i18n-check": "^0.8.12",
     "@playwright/test": "^1.56.1",
     "@spotlightjs/spotlight": "^4.10.0",
-    "@storybook/addon-a11y": "^10.1.10",
-    "@storybook/addon-docs": "^10.1.10",
-    "@storybook/addon-vitest": "^10.1.10",
-    "@storybook/nextjs-vite": "^10.1.10",
+    "@storybook/addon-a11y": "^10.1.11",
+    "@storybook/addon-docs": "^10.1.11",
+    "@storybook/addon-vitest": "^10.1.11",
+    "@storybook/nextjs-vite": "^10.1.11",
     "@tailwindcss/postcss": "^4.1.16",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
@@ -106,7 +106,7 @@
     "rimraf": "^6.1.2",
     "sass": "^1.93.3",
     "semantic-release": "^25.0.1",
-    "storybook": "^10.1.10",
+    "storybook": "^10.1.11",
     "tailwindcss": "^4.1.16",
     "typescript": "^5.9.3",
     "vite-tsconfig-paths": "^5.1.4",
@@ -127,7 +127,13 @@
     "@types/localforage": "npm:noop@1.0.1",
     "semver-diff": "npm:noop@1.0.1",
     "@esbuild-kit/esm-loader": "npm:noop@1.0.1",
-    "@esbuild-kit/core-utils": "npm:noop@1.0.1"
+    "@esbuild-kit/core-utils": "npm:noop@1.0.1",
+    "@chromatic-com/playwright": {
+      "storybook": "^8.6.15",
+      "@storybook/addon-essentials": "^8.6.15",
+      "@storybook/manager-api": "^8.6.15",
+      "@storybook/server-webpack5": "^8.6.15"
+    }
   },
   "release": {
     "branches": [
