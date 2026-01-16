@@ -8188,13 +8188,13 @@
       }
     },
     "/opds/download/{book_id}/{book_format}": {
-      "head": {
+      "get": {
         "tags": [
           "opds"
         ],
         "summary": "Opds Download",
         "description": "Download book file via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for download).\nbook_id : int\n    Book ID.\nbook_format : str\n    File format (e.g., 'EPUB', 'PDF').\n\nReturns\n-------\nResponse\n    Book file or error response.",
-        "operationId": "opds_download_opds_download__book_id___book_format__head",
+        "operationId": "opds_download_opds_download__book_id___book_format__get",
         "parameters": [
           {
             "name": "book_id",
@@ -8231,13 +8231,13 @@
           }
         }
       },
-      "get": {
+      "head": {
         "tags": [
           "opds"
         ],
         "summary": "Opds Download",
         "description": "Download book file via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for download).\nbook_id : int\n    Book ID.\nbook_format : str\n    File format (e.g., 'EPUB', 'PDF').\n\nReturns\n-------\nResponse\n    Book file or error response.",
-        "operationId": "opds_download_opds_download__book_id___book_format__head",
+        "operationId": "opds_download_opds_download__book_id___book_format__get",
         "parameters": [
           {
             "name": "book_id",
@@ -8276,13 +8276,13 @@
       }
     },
     "/opds/thumb_240_240/{book_id}": {
-      "head": {
+      "get": {
         "tags": [
           "opds"
         ],
         "summary": "Opds Cover",
         "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
-        "operationId": "opds_cover_opds_thumb_240_240__book_id__head",
+        "operationId": "opds_cover_opds_thumb_240_240__book_id__get",
         "parameters": [
           {
             "name": "book_id",
@@ -8310,13 +8310,13 @@
           }
         }
       },
-      "get": {
+      "head": {
         "tags": [
           "opds"
         ],
         "summary": "Opds Cover",
         "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
-        "operationId": "opds_cover_opds_thumb_240_240__book_id__head",
+        "operationId": "opds_cover_opds_thumb_240_240__book_id__get",
         "parameters": [
           {
             "name": "book_id",
@@ -8346,13 +8346,13 @@
       }
     },
     "/opds/cover_240_240/{book_id}": {
-      "head": {
+      "get": {
         "tags": [
           "opds"
         ],
         "summary": "Opds Cover",
         "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
-        "operationId": "opds_cover_opds_cover_240_240__book_id__head",
+        "operationId": "opds_cover_opds_cover_240_240__book_id__get",
         "parameters": [
           {
             "name": "book_id",
@@ -8380,13 +8380,13 @@
           }
         }
       },
-      "get": {
+      "head": {
         "tags": [
           "opds"
         ],
         "summary": "Opds Cover",
         "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
-        "operationId": "opds_cover_opds_cover_240_240__book_id__head",
+        "operationId": "opds_cover_opds_cover_240_240__book_id__get",
         "parameters": [
           {
             "name": "book_id",
@@ -8416,13 +8416,13 @@
       }
     },
     "/opds/cover_90_90/{book_id}": {
-      "head": {
+      "get": {
         "tags": [
           "opds"
         ],
         "summary": "Opds Cover",
         "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
-        "operationId": "opds_cover_opds_cover_90_90__book_id__head",
+        "operationId": "opds_cover_opds_cover_90_90__book_id__get",
         "parameters": [
           {
             "name": "book_id",
@@ -8450,13 +8450,13 @@
           }
         }
       },
-      "get": {
+      "head": {
         "tags": [
           "opds"
         ],
         "summary": "Opds Cover",
         "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
-        "operationId": "opds_cover_opds_cover_90_90__book_id__head",
+        "operationId": "opds_cover_opds_cover_90_90__book_id__get",
         "parameters": [
           {
             "name": "book_id",
@@ -8486,13 +8486,13 @@
       }
     },
     "/opds/cover/{book_id}": {
-      "head": {
+      "get": {
         "tags": [
           "opds"
         ],
         "summary": "Opds Cover",
         "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
-        "operationId": "opds_cover_opds_cover__book_id__head",
+        "operationId": "opds_cover_opds_cover__book_id__get",
         "parameters": [
           {
             "name": "book_id",
@@ -8520,13 +8520,13 @@
           }
         }
       },
-      "get": {
+      "head": {
         "tags": [
           "opds"
         ],
         "summary": "Opds Cover",
         "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
-        "operationId": "opds_cover_opds_cover__book_id__head",
+        "operationId": "opds_cover_opds_cover__book_id__get",
         "parameters": [
           {
             "name": "book_id",
