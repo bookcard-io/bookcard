@@ -38,6 +38,7 @@ dependencies = [
     "py7zr>=1.0.0",
     "rarfile>=4.2",
     "apscheduler>=3.11.2",
+    "urllib3>=2.6.3",
 ]
 
 [tool.hatch.build.targets.wheel]
