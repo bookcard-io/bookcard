@@ -35,6 +35,7 @@ export interface ReleaseInfoRead {
   leechers?: number;
   quality?: string;
   author?: string;
+  language?: string;
   isbn?: string;
   description?: string;
   category?: string;

@@ -79,6 +79,7 @@ class ReleaseInfo(BaseModel):
         default=None, description="Quality/format indicator (e.g., 'epub', 'pdf')"
     )
     author: str | None = Field(default=None, description="Author name if available")
+    language: str | None = Field(default=None, description="Language of the release")
     isbn: str | None = Field(default=None, description="ISBN if available")
     description: str | None = Field(
         default=None, description="Release description/details"

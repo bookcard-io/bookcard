@@ -29,6 +29,10 @@ from bookcard.pvr.download_clients.deluge import (
     DelugeClient,
     DelugeSettings,
 )
+from bookcard.pvr.download_clients.direct_http import (
+    DirectHttpClient,
+    DirectHttpSettings,
+)
 from bookcard.pvr.download_clients.download_station import (
     DownloadStationClient,
     DownloadStationSettings,
@@ -88,6 +92,8 @@ __all__ = [
     "Aria2Settings",
     "DelugeClient",
     "DelugeSettings",
+    "DirectHttpClient",
+    "DirectHttpSettings",
     "DownloadStationClient",
     "DownloadStationSettings",
     "FloodClient",

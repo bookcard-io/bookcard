@@ -15,11 +15,17 @@
 
 """PVR indexer implementations."""
 
+from bookcard.pvr.indexers.annas_archive import AnnasArchiveIndexer
 from bookcard.pvr.indexers.newznab import NewznabIndexer
 from bookcard.pvr.indexers.torrent_rss import TorrentRssIndexer
 from bookcard.pvr.indexers.torznab import TorznabIndexer
 
-__all__ = ["NewznabIndexer", "TorrentRssIndexer", "TorznabIndexer"]
+__all__ = [
+    "AnnasArchiveIndexer",
+    "NewznabIndexer",
+    "TorrentRssIndexer",
+    "TorznabIndexer",
+]
 
 
 # Auto-register built-in indexers
@@ -31,6 +37,7 @@ def _register_builtin_indexers() -> None:
     register_indexer(IndexerType.TORZNAB, TorznabIndexer)
     register_indexer(IndexerType.NEWZNAB, NewznabIndexer)
     register_indexer(IndexerType.TORRENT_RSS, TorrentRssIndexer)
+    register_indexer(IndexerType.ANNAS_ARCHIVE, AnnasArchiveIndexer)
 
 
 # Register on import
