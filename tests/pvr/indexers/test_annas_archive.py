@@ -52,23 +52,23 @@ class TestAnnasArchiveIndexer:
 
         # Case 1: Title and Author provided -> should be used
         annas_archive_indexer.search(
-            query="query", title="Title", author="Author", isbn="123"
+            query="query", title="Title", author="Author", isbn="9780132350884"
         )
         call_args = mock_client_instance.get.call_args
         # Only check if params.q matches what we expect
         assert call_args[1]["params"]["q"] == "Title Author"
 
         # Case 2: Title provided -> should be used over Query and ISBN
-        annas_archive_indexer.search(query="query", title="Title", isbn="123")
+        annas_archive_indexer.search(query="query", title="Title", isbn="9780132350884")
         call_args = mock_client_instance.get.call_args
         assert call_args[1]["params"]["q"] == "Title"
 
         # Case 3: Query provided, no Title -> should be used over ISBN
-        annas_archive_indexer.search(query="query", isbn="123")
+        annas_archive_indexer.search(query="query", isbn="9780132350884")
         call_args = mock_client_instance.get.call_args
         assert call_args[1]["params"]["q"] == "query"
 
         # Case 4: Only ISBN provided -> should be used
-        annas_archive_indexer.search(query="", isbn="123")
+        annas_archive_indexer.search(query="", isbn="9780132350884")
         call_args = mock_client_instance.get.call_args
-        assert call_args[1]["params"]["q"] == "123"
+        assert call_args[1]["params"]["q"] == "9780132350884"
