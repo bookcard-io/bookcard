@@ -15,20 +15,57 @@
 
 """SeleniumBase bypass strategy implementation."""
 
+from __future__ import annotations
+
 import logging
-from contextlib import suppress
+from typing import TYPE_CHECKING
 
 from seleniumbase import Driver
 
-from bookcard.pvr.download_clients.direct_http.bypass.config import SeleniumBaseConfig
 from bookcard.pvr.download_clients.direct_http.bypass.result import BypassResult
+from bookcard.pvr.download_clients.direct_http.bypass.selenium.bypass_engine import (
+    BypassEngine,
+)
+from bookcard.pvr.download_clients.direct_http.bypass.selenium.bypass_methods import (
+    DEFAULT_BYPASS_METHODS,
+)
+from bookcard.pvr.download_clients.direct_http.bypass.selenium.constants import (
+    DEFAULT_MAX_FETCH_RETRIES,
+    DRIVER_RESET_ERRORS,
+)
+from bookcard.pvr.download_clients.direct_http.bypass.selenium.cookie_store import (
+    ThreadSafeCookieStore,
+    ThreadSafeUserAgentStore,
+)
+from bookcard.pvr.download_clients.direct_http.bypass.selenium.display_manager import (
+    VirtualDisplayManager,
+)
+from bookcard.pvr.download_clients.direct_http.bypass.selenium.driver_factory import (
+    DriverFactory,
+)
+from bookcard.pvr.download_clients.direct_http.bypass.selenium.driver_manager import (
+    DriverManager,
+)
+from bookcard.pvr.download_clients.direct_http.bypass.selenium.process_manager import (
+    DockerProcessManager,
+)
 from bookcard.pvr.download_clients.direct_http.bypass.strategy import BypassStrategy
+
+if TYPE_CHECKING:
+    from bookcard.pvr.download_clients.direct_http.bypass.config import (
+        SeleniumBaseConfig,
+    )
 
 logger = logging.getLogger(__name__)
 
 
 class SeleniumBaseStrategy(BypassStrategy):
-    """SeleniumBase bypass strategy."""
+    """SeleniumBase bypass strategy.
+
+    This class orchestrates the bypass process by composing specialized
+    components for display management, driver lifecycle, process cleanup,
+    and bypass execution.
+    """
 
     def __init__(self, config: SeleniumBaseConfig) -> None:
         """Initialize SeleniumBase strategy.
@@ -40,6 +77,17 @@ class SeleniumBaseStrategy(BypassStrategy):
         """
         self._config = config
         self.validate_dependencies()
+
+        # Initialize dependencies (Dependency Injection)
+        self._process_manager = DockerProcessManager()
+        self._display_manager = VirtualDisplayManager(
+            reconnect_time=self._config.reconnect_time
+        )
+        self._driver_factory = DriverFactory(config)
+        self._driver_manager = DriverManager(self._process_manager)
+        self._cookie_store = ThreadSafeCookieStore()
+        self._user_agent_store = ThreadSafeUserAgentStore()
+        self._bypass_engine = BypassEngine(DEFAULT_BYPASS_METHODS)
 
     def validate_dependencies(self) -> None:
         """Validate required dependencies are available.
@@ -71,56 +119,162 @@ class SeleniumBaseStrategy(BypassStrategy):
             return BypassResult(html=html)
         return BypassResult(html=None, error="Failed to fetch from SeleniumBase")
 
-    def _do_fetch(self, url: str) -> str | None:
-        """Perform actual fetch operation.
+    def _attempt_fetch_with_bypass(
+        self,
+        driver: Driver,  # type: ignore[invalid-type-form]
+        url: str,
+    ) -> str | None:
+        """Attempt to fetch URL and bypass protection.
 
         Parameters
         ----------
+        driver : Driver
+            SeleniumBase driver instance.
         url : str
             URL to fetch.
 
         Returns
         -------
         str | None
+            HTML content if successful, None otherwise.
+        """
+        logger.debug("Opening URL with SeleniumBase: %s", url)
+        # SeleniumBase Driver has uc_open_with_reconnect method but type stubs don't include it
+        driver.uc_open_with_reconnect(  # type: ignore[attr-defined, misc]
+            url, reconnect_time=self._config.reconnect_time
+        )
+
+        try:
+            logger.debug(
+                "Page loaded - URL: %s, Title: %s",
+                driver.get_current_url(),
+                driver.get_title(),
+            )
+        except (AttributeError, RuntimeError, TimeoutError) as e:
+            logger.debug("Could not get page info: %s", e)
+
+        logger.debug("Starting bypass process...")
+        if self._bypass_engine.attempt_bypass(driver, max_retries=6):
+            self._cookie_store.extract_from_driver(driver, url)
+            self._user_agent_store.extract_from_driver(driver, url)
+            html = driver.page_source
+            if html:
+                logger.debug("SeleniumBase bypass successful for '%s'", url)
+                return html
+
+        logger.warning("Bypass completed but page still shows protection")
+        try:
+            body = driver.get_text("body")
+            logger.debug(
+                "Page content: %s...",
+                body[:500] if len(body) > 500 else body,
+            )
+        except (AttributeError, RuntimeError, TimeoutError) as e:
+            logger.debug("Could not get page body: %s", e)
+        return None
+
+    def _handle_driver_error(
+        self,
+        e: Exception,
+        attempt: int,
+        max_retries: int,
+        url: str,
+        driver: Driver | None,  # type: ignore[invalid-type-form]
+    ) -> Driver | None:  # type: ignore[invalid-type-form]
+        """Handle driver errors and restart if needed.
+
+        Parameters
+        ----------
+        e : Exception
+            The exception that occurred.
+        attempt : int
+            Current attempt number.
+        max_retries : int
+            Maximum number of retries.
+        url : str
+            URL being fetched.
+        driver : Driver | None
+            Current driver instance.
+
+        Returns
+        -------
+        Driver | None
+            Driver instance (None if restarted).
+        """
+        error_name = type(e).__name__
+        logger.warning(
+            "SeleniumBase driver error (attempt %d/%d) for '%s': %s",
+            attempt + 1,
+            max_retries,
+            url,
+            e,
+        )
+        if error_name in DRIVER_RESET_ERRORS:
+            logger.info("Restarting Chrome due to browser error...")
+            self._driver_manager.quit(driver)
+            return None
+        return driver
+
+    def _do_fetch(
+        self, url: str, max_retries: int = DEFAULT_MAX_FETCH_RETRIES
+    ) -> str | None:
+        """Perform actual fetch operation with bypass.
+
+        Parameters
+        ----------
+        url : str
+            URL to fetch.
+        max_retries : int
+            Maximum number of retry attempts.
+
+        Returns
+        -------
+        str | None
             HTML content or None if fetch failed.
         """
+        # Clean up orphan processes before starting
+        self._process_manager.cleanup_orphans()
+
+        # Ensure virtual display is initialized before creating driver
+        screen_width, screen_height = self._driver_factory.get_screen_size()
+        self._display_manager.ensure_initialized(
+            screen_width, screen_height, self._config.headless
+        )
+
         driver = None
         try:
-            logger.debug("Creating SeleniumBase driver for bypass")
-            driver = Driver(
-                uc=True,
-                headless=self._config.headless,
-                incognito=self._config.incognito,
-                locale=self._config.locale,
-                ad_block=self._config.ad_block,
-            )
-            driver.set_page_load_timeout(self._config.page_load_timeout)
+            for attempt in range(max_retries):
+                try:
+                    if driver is None:
+                        logger.debug("Creating SeleniumBase driver for bypass")
+                        driver = self._driver_factory.create()
 
-            logger.debug("Opening URL with SeleniumBase: %s", url)
-            # SeleniumBase Driver has uc_open_with_reconnect method but type stubs don't include it
-            driver.uc_open_with_reconnect(  # type: ignore[attr-defined, misc]
-                url, reconnect_time=self._config.reconnect_time
-            )
+                    html = self._attempt_fetch_with_bypass(driver, url)
+                    if html:
+                        return html
 
-            html = driver.page_source
-            if not html:
-                logger.warning("SeleniumBase returned empty page for '%s'", url)
-                return None
+                except (TimeoutError, RuntimeError, AttributeError) as e:
+                    driver = self._handle_driver_error(
+                        e, attempt, max_retries, url, driver
+                    )
+                except (
+                    OSError,
+                    ConnectionError,
+                    BrokenPipeError,
+                    ValueError,
+                    TypeError,
+                    KeyError,
+                    IndexError,
+                ) as e:
+                    # SeleniumBase/undetected-chromedriver may raise various exceptions
+                    # Catch common webdriver-related exceptions instead of blind Exception
+                    driver = self._handle_driver_error(
+                        e, attempt, max_retries, url, driver
+                    )
 
-            logger.debug("SeleniumBase bypass successful for '%s'", url)
-        except (TimeoutError, RuntimeError, AttributeError) as e:
-            logger.warning("SeleniumBase bypass failed for '%s': %s", url, e)
+            logger.error("Bypass failed after %d attempts", max_retries)
             return None
-        except Exception as e:  # noqa: BLE001
-            # SeleniumBase/undetected-chromedriver may raise generic Exception
-            # (e.g., "Chrome not found! Install it first!")
-            logger.warning(
-                "SeleniumBase driver initialization failed for '%s': %s", url, e
-            )
-            return None
-        else:
-            return html
+
         finally:
             if driver:
-                with suppress(Exception):
-                    driver.quit()
+                self._driver_manager.quit(driver)

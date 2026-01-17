@@ -40,6 +40,7 @@ dependencies = [
     "apscheduler>=3.11.2",
     "urllib3>=2.6.3",
     "seleniumbase>=4.45.11",
+    "emoji>=2.15.0",
 ]
 
 [tool.hatch.build.targets.wheel]
