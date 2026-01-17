@@ -17,6 +17,7 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -320,6 +321,7 @@ class BaseDownloadClient(ABC):
         title: str | None = None,
         category: str | None = None,
         download_path: str | None = None,
+        **kwargs: Any,  # noqa: ANN401
     ) -> str:
         """Add a download to the client.
 
@@ -336,6 +338,8 @@ class BaseDownloadClient(ABC):
             Optional category/tag to assign.
         download_path : str | None
             Optional custom download path.
+        **kwargs : Any
+            Additional metadata/options.
 
         Returns
         -------
@@ -354,7 +358,7 @@ class BaseDownloadClient(ABC):
             resolved_path = download_path or self.settings.download_path
 
             return self._strategy_registry.handle(
-                self, download_url, title, resolved_category, resolved_path
+                self, download_url, title, resolved_category, resolved_path, **kwargs
             )
 
         except PVRProviderError:

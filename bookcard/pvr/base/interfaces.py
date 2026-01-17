@@ -37,6 +37,7 @@ class DownloadInitiator(Protocol):
         title: str | None = None,
         category: str | None = None,
         download_path: str | None = None,
+        **kwargs: Any,  # noqa: ANN401
     ) -> str:
         """Add a download to the client."""
         ...

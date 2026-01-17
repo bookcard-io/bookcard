@@ -176,6 +176,9 @@ class DownloadService:
                 title=release.title,
                 category=client.category,
                 download_path=client.download_path,
+                author=release.author,
+                quality=release.quality,
+                guid=release.guid,
             )
 
             # Create download item record

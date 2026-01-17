@@ -20,7 +20,7 @@ import uuid
 from collections.abc import Callable, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import httpx
 
@@ -151,6 +151,7 @@ class DirectHttpClient(TrackingDownloadClient):
         title: str | None,
         _category: str | None,
         download_path: str | None,
+        **kwargs: Any,  # noqa: ANN401
     ) -> str:
         """Add a new download from URL.
 
@@ -164,6 +165,8 @@ class DirectHttpClient(TrackingDownloadClient):
             Category (unused).
         download_path : str | None
             Target directory.
+        **kwargs : Any
+            Additional metadata (author, quality, guid).
 
         Returns
         -------
@@ -181,7 +184,11 @@ class DirectHttpClient(TrackingDownloadClient):
         )
 
         self._state_manager.create(
-            download_id, url, title or "Unknown", target_path_str
+            download_id,
+            url,
+            title or "Unknown",
+            target_path_str,
+            extra=kwargs,
         )
 
         future = self._executor.submit(
@@ -190,6 +197,7 @@ class DirectHttpClient(TrackingDownloadClient):
             url,
             Path(target_path_str),
             title,
+            kwargs,
         )
         self._active_futures[download_id] = future
 
@@ -205,7 +213,12 @@ class DirectHttpClient(TrackingDownloadClient):
         return url
 
     def _download_worker(
-        self, download_id: str, url: str, target_dir: Path, title: str | None
+        self,
+        download_id: str,
+        url: str,
+        target_dir: Path,
+        title: str | None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Background worker to handle the download."""
         try:
@@ -229,8 +242,16 @@ class DirectHttpClient(TrackingDownloadClient):
                         "GET", actual_url, follow_redirects=True, headers=headers
                     ) as response:
                         response.raise_for_status()
+
+                        # Extract metadata for filename resolution
+                        meta = metadata or {}
                         filename = self._filename_resolver.resolve(
-                            response, actual_url, title
+                            response,
+                            actual_url,
+                            title,
+                            author=meta.get("author"),
+                            quality=meta.get("quality"),
+                            guid=meta.get("guid"),
                         )
                 except httpx.HTTPError as e:
                     # If stream fails immediately (e.g. 404), we catch it here

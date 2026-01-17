@@ -91,6 +91,57 @@ class TestFilenameResolver:
         assert result.endswith(".bin")
         assert "Test Book" in result
 
+    def test_resolve_from_content_disposition(self) -> None:
+        """Test resolving filename from Content-Disposition header."""
+        resolver = FilenameResolver()
+        response = MagicMock(spec=StreamingResponse)
+        response.headers = httpx.Headers({
+            "content-disposition": 'attachment; filename="actual_file.pdf"'
+        })
+        result = resolver.resolve(
+            response, "https://example.com/path/to/different.pdf", "Test Book"
+        )
+        # Content-Disposition should take precedence
+        assert result == "actual_file.pdf"
+
+    def test_resolve_from_content_disposition_rfc5987(self) -> None:
+        """Test resolving filename from Content-Disposition header with RFC 5987 encoding."""
+        resolver = FilenameResolver()
+        response = MagicMock(spec=StreamingResponse)
+        response.headers = httpx.Headers({
+            "content-disposition": "attachment; filename*=UTF-8''book%20title.pdf"
+        })
+        result = resolver.resolve(
+            response, "https://example.com/path/to/different.pdf", None
+        )
+        # Should decode UTF-8 encoded filename
+        assert result == "book title.pdf"
+
+    def test_resolve_from_content_disposition_quoted(self) -> None:
+        """Test resolving filename from Content-Disposition header with quotes."""
+        resolver = FilenameResolver()
+        response = MagicMock(spec=StreamingResponse)
+        response.headers = httpx.Headers({
+            "content-disposition": 'attachment; filename="my book.epub"'
+        })
+        result = resolver.resolve(
+            response, "https://example.com/path/to/different.pdf", None
+        )
+        assert result == "my book.epub"
+
+    def test_resolve_content_disposition_takes_precedence_over_title(self) -> None:
+        """Test that Content-Disposition takes precedence over title."""
+        resolver = FilenameResolver()
+        response = MagicMock(spec=StreamingResponse)
+        response.headers = httpx.Headers({
+            "content-disposition": 'attachment; filename="server_file.pdf"',
+            "content-type": "application/pdf",
+        })
+        result = resolver.resolve(response, "https://example.com/file", "Test Book")
+        # Should use Content-Disposition, not title
+        assert result == "server_file.pdf"
+        assert "Test Book" not in result
+
     def test_resolve_from_url_path(self) -> None:
         """Test resolving filename from URL path."""
         resolver = FilenameResolver()

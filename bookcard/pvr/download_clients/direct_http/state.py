@@ -18,6 +18,7 @@
 import threading
 import time
 from dataclasses import dataclass
+from typing import Any
 
 from bookcard.pvr.utils.status import DownloadStatus
 
@@ -38,6 +39,7 @@ class DownloadState:
     error: str | None = None
     completed_at: float | None = None
     eta: int | None = None
+    extra: dict[str, Any] | None = None
 
 
 class DownloadStateManager:
@@ -47,7 +49,14 @@ class DownloadStateManager:
         self._downloads: dict[str, DownloadState] = {}
         self._lock = threading.Lock()
 
-    def create(self, download_id: str, url: str, title: str, path: str) -> None:
+    def create(
+        self,
+        download_id: str,
+        url: str,
+        title: str,
+        path: str,
+        extra: dict[str, Any] | None = None,
+    ) -> None:
         """Create new download entry."""
         with self._lock:
             self._downloads[download_id] = DownloadState(
@@ -56,6 +65,7 @@ class DownloadStateManager:
                 title=title,
                 status=DownloadStatus.QUEUED,
                 path=path,
+                extra=extra,
             )
 
     def update_status(
@@ -108,6 +118,7 @@ class DownloadStateManager:
                     error=d.error,
                     completed_at=d.completed_at,
                     eta=d.eta,
+                    extra=d.extra,
                 )
                 for d in self._downloads.values()
             ]
