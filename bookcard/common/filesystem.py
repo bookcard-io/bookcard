@@ -28,7 +28,17 @@ INVALID_CHARS = re.compile(r'[\\:*?"<>|]')
 def _sanitize(name: str, max_length: int = 245) -> str:
     """Sanitize a string for filesystem use.
 
-    Follows patterns from Shelfmark project.
+    Parameters
+    ----------
+    name : str
+        String to sanitize.
+    max_length : int
+        Maximum length for the sanitized string.
+
+    Returns
+    -------
+    str
+        Sanitized string.
     """
     if not name:
         return ""
