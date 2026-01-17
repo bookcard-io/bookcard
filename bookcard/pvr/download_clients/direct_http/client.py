@@ -110,7 +110,26 @@ class DirectHttpClient(TrackingDownloadClient):
         # Initialize dependencies
         self._time = time_provider or SystemTimeProvider()
         self._parser = html_parser or BeautifulSoupParser()
-        self._state_manager = state_manager or DownloadStateManager()
+
+        if state_manager:
+            self._state_manager = state_manager
+        else:
+            base_path = (
+                self.settings.download_path or DownloadConstants.DEFAULT_TEMP_DIR
+            )
+            # Ensure base path exists
+            try:
+                Path(base_path).mkdir(parents=True, exist_ok=True)
+            except OSError:
+                logger.warning(
+                    "Could not create download path %s, using temp dir", base_path
+                )
+                base_path = DownloadConstants.DEFAULT_TEMP_DIR
+                Path(base_path).mkdir(parents=True, exist_ok=True)
+
+            state_file = Path(base_path) / ".direct_http_state.json"
+            self._state_manager = DownloadStateManager(state_file=state_file)
+
         self._filename_resolver = filename_resolver or FilenameResolver()
         self._file_downloader = file_downloader or FileDownloader(self._time)
 
