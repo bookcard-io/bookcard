@@ -140,6 +140,30 @@ def _safe_reconnect(driver: "Driver") -> None:  # type: ignore[invalid-type-form
         logger.debug("Reconnect failed: %s", e)
 
 
+@contextlib.contextmanager
+def cdp_mode(driver: "Driver") -> "Driver":  # type: ignore[invalid-type-form, misc]
+    """Context manager for CDP mode operations.
+
+    Automatically activates CDP mode on entry and reconnects on exit.
+
+    Parameters
+    ----------
+    driver : Driver
+        SeleniumBase driver instance.
+
+    Yields
+    ------
+    Driver
+        The driver instance in CDP mode.
+    """
+    try:
+        driver.activate_cdp_mode(driver.get_current_url())
+        time.sleep(_sys_random.uniform(CDP_DELAY_MIN, CDP_DELAY_MAX))
+        yield driver
+    finally:
+        _safe_reconnect(driver)
+
+
 # Global success checker instance for methods to use
 _success_checker = SuccessChecker()
 
@@ -180,25 +204,17 @@ class CdpSolveMethod(BypassMethod):
         """
         try:
             logger.debug("Attempting bypass: CDP Mode solve_captcha")
-            driver.activate_cdp_mode(driver.get_current_url())
-            time.sleep(_sys_random.uniform(CDP_DELAY_MIN, CDP_DELAY_MAX))
-
-            try:
+            with cdp_mode(driver):
                 driver.cdp.solve_captcha()
                 time.sleep(_sys_random.uniform(CAPTCHA_WAIT_MIN, CAPTCHA_WAIT_MAX))
-                driver.reconnect()
-                time.sleep(_sys_random.uniform(1, 2))
-                result = _is_bypassed(driver)
-            except (AttributeError, RuntimeError, TimeoutError) as e:
-                logger.debug("CDP solve_captcha failed: %s", e)
-                _safe_reconnect(driver)
-                return False
-            else:
-                return result
+
+            time.sleep(_sys_random.uniform(1, 2))
+            result = _is_bypassed(driver)
         except (AttributeError, RuntimeError, TimeoutError) as e:
-            logger.debug("CDP Mode solve failed: %s", e)
-            _safe_reconnect(driver)
+            logger.debug("CDP solve_captcha failed: %s", e)
             return False
+        else:
+            return result
 
     def get_name(self) -> str:
         """Get method name.
@@ -229,34 +245,28 @@ class CdpClickMethod(BypassMethod):
         """
         try:
             logger.debug("Attempting bypass: CDP Mode native click")
-            driver.activate_cdp_mode(driver.get_current_url())
-            time.sleep(_sys_random.uniform(CDP_DELAY_MIN, CDP_DELAY_MAX))
-
             for selector in CDP_CLICK_SELECTORS:
                 try:
-                    if not driver.cdp.is_element_visible(selector):
-                        continue
+                    with cdp_mode(driver):
+                        if not driver.cdp.is_element_visible(selector):
+                            continue
 
-                    logger.debug("CDP clicking: %s", selector)
-                    driver.cdp.click(selector)
-                    time.sleep(_sys_random.uniform(2, 4))
+                        logger.debug("CDP clicking: %s", selector)
+                        driver.cdp.click(selector)
+                        time.sleep(_sys_random.uniform(2, 4))
 
-                    driver.reconnect()
                     time.sleep(_sys_random.uniform(1, 2))
 
                     if _is_bypassed(driver):
                         return True
 
-                    driver.activate_cdp_mode(driver.get_current_url())
                     time.sleep(_sys_random.uniform(0.5, 1))
                 except (AttributeError, RuntimeError, TimeoutError) as e:
                     logger.debug("CDP click on '%s' failed: %s", selector, e)
 
-            _safe_reconnect(driver)
             result = _is_bypassed(driver)
         except (AttributeError, RuntimeError, TimeoutError) as e:
             logger.debug("CDP Mode click failed: %s", e)
-            _safe_reconnect(driver)
             return False
         else:
             return result
@@ -290,50 +300,46 @@ class CdpGuiClickMethod(BypassMethod):
         """
         try:
             logger.debug("Attempting bypass: CDP Mode gui_click (mouse-based)")
-            driver.activate_cdp_mode(driver.get_current_url())
-            time.sleep(_sys_random.uniform(CDP_DELAY_MIN, CDP_DELAY_MAX))
 
             try:
                 logger.debug("Trying cdp.gui_click_captcha()")
-                driver.cdp.gui_click_captcha()
-                time.sleep(_sys_random.uniform(CAPTCHA_WAIT_MIN, CAPTCHA_WAIT_MAX))
+                with cdp_mode(driver):
+                    driver.cdp.gui_click_captcha()
+                    time.sleep(_sys_random.uniform(CAPTCHA_WAIT_MIN, CAPTCHA_WAIT_MAX))
 
-                driver.reconnect()
                 time.sleep(_sys_random.uniform(1, 2))
 
                 if _is_bypassed(driver):
                     return True
 
-                driver.activate_cdp_mode(driver.get_current_url())
                 time.sleep(_sys_random.uniform(0.5, 1))
             except (AttributeError, RuntimeError, TimeoutError) as e:
                 logger.debug("cdp.gui_click_captcha() failed: %s", e)
 
             for selector in CDP_GUI_CLICK_SELECTORS:
                 try:
-                    if not driver.cdp.is_element_visible(selector):
-                        continue
+                    with cdp_mode(driver):
+                        if not driver.cdp.is_element_visible(selector):
+                            continue
 
-                    logger.debug("CDP gui_click_element: %s", selector)
-                    driver.cdp.gui_click_element(selector)
-                    time.sleep(_sys_random.uniform(CAPTCHA_WAIT_MIN, CAPTCHA_WAIT_MAX))
+                        logger.debug("CDP gui_click_element: %s", selector)
+                        driver.cdp.gui_click_element(selector)
+                        time.sleep(
+                            _sys_random.uniform(CAPTCHA_WAIT_MIN, CAPTCHA_WAIT_MAX)
+                        )
 
-                    driver.reconnect()
                     time.sleep(_sys_random.uniform(1, 2))
 
                     if _is_bypassed(driver):
                         return True
 
-                    driver.activate_cdp_mode(driver.get_current_url())
                     time.sleep(_sys_random.uniform(0.5, 1))
                 except (AttributeError, RuntimeError, TimeoutError) as e:
                     logger.debug("CDP gui_click on '%s' failed: %s", selector, e)
 
-            _safe_reconnect(driver)
             result = _is_bypassed(driver)
         except (AttributeError, RuntimeError, TimeoutError) as e:
             logger.debug("CDP Mode gui_click failed: %s", e)
-            _safe_reconnect(driver)
             return False
         else:
             return result

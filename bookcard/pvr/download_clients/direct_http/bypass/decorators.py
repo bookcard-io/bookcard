@@ -54,10 +54,6 @@ def log_bypass_errors[**P, T](func: Callable[P, T | None]) -> Callable[P, T | No
         func_name = getattr(func, "__name__", "unknown")
         try:
             result = func(*args, **kwargs)
-            if result:
-                logger.debug("%s successful for '%s'", func_name, url)
-            else:
-                return result
         except (
             TimeoutError,
             RuntimeError,
@@ -68,5 +64,8 @@ def log_bypass_errors[**P, T](func: Callable[P, T | None]) -> Callable[P, T | No
         ) as e:
             logger.warning("%s failed for '%s': %s", func_name, url, e)
             return None
+        else:
+            logger.debug("%s successful for '%s'", func_name, url)
+            return result
 
     return wrapper
