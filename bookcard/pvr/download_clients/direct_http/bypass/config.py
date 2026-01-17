@@ -35,7 +35,9 @@ class SeleniumBaseConfig:
 
     page_load_timeout: int = BypassConstants.DEFAULT_PAGE_LOAD_TIMEOUT
     reconnect_time: float = BypassConstants.DEFAULT_RECONNECT_TIME
-    headless: bool = True
+    # DDoS-Guard / Turnstile flows often fail in true headless mode.
+    # We run with a virtual X display in Docker, so non-headless is safe there.
+    headless: bool = False
     incognito: bool = True
     locale: str = "en"
     ad_block: bool = True

@@ -19,7 +19,9 @@ from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
+import httpx
 from seleniumbase import Driver
 
 from bookcard.pvr.download_clients.direct_http.bypass.result import BypassResult
@@ -30,6 +32,8 @@ from bookcard.pvr.download_clients.direct_http.bypass.selenium.bypass_methods im
     DEFAULT_BYPASS_METHODS,
 )
 from bookcard.pvr.download_clients.direct_http.bypass.selenium.constants import (
+    CLOUDFLARE_INDICATORS,
+    DDOS_GUARD_INDICATORS,
     DEFAULT_MAX_FETCH_RETRIES,
     DRIVER_RESET_ERRORS,
 )
@@ -57,6 +61,15 @@ if TYPE_CHECKING:
     )
 
 logger = logging.getLogger(__name__)
+
+
+def _looks_like_protection_page(html: str) -> bool:
+    """Heuristically detect if HTML looks like a protection/challenge page."""
+    text = html.lower()
+    return any(
+        indicator in text
+        for indicator in (CLOUDFLARE_INDICATORS + DDOS_GUARD_INDICATORS)
+    )
 
 
 class SeleniumBaseStrategy(BypassStrategy):
@@ -119,6 +132,97 @@ class SeleniumBaseStrategy(BypassStrategy):
             return BypassResult(html=html)
         return BypassResult(html=None, error="Failed to fetch from SeleniumBase")
 
+    def _try_fetch_with_cached_session(self, url: str) -> str | None:
+        """Try a plain HTTP fetch with cached cookies/UA.
+
+        Parameters
+        ----------
+        url : str
+            URL to fetch.
+
+        Returns
+        -------
+        str | None
+            HTML if request succeeds and doesn't look like a protection page.
+        """
+        cookies = self._cookie_store.get_cookie_values_for_url(url)
+        if not cookies:
+            return None
+
+        headers: dict[str, str] = {}
+        if ua := self._user_agent_store.get_user_agent_for_url(url):
+            headers["User-Agent"] = ua
+
+        try:
+            response = httpx.get(
+                url,
+                cookies=cookies,
+                headers=headers,
+                follow_redirects=True,
+                timeout=10.0,
+            )
+        except httpx.HTTPError as e:
+            logger.debug("Cached-cookie HTTP fetch failed for %s: %s", url, e)
+            return None
+
+        if response.status_code != 200:
+            logger.debug(
+                "Cached-cookie HTTP fetch blocked for %s (status=%s)",
+                url,
+                response.status_code,
+            )
+            return None
+        if not response.text:
+            return None
+        if _looks_like_protection_page(response.text):
+            logger.debug("Cached-cookie HTTP fetch still shows protection for %s", url)
+            return None
+
+        logger.debug("Cached bypass cookies worked; skipped SeleniumBase for %s", url)
+        return response.text
+
+    def _apply_cached_cookies_to_driver(
+        self,
+        driver: Driver,  # type: ignore[invalid-type-form]
+        url: str,
+    ) -> None:
+        """Apply cached cookies to a fresh driver session (best-effort)."""
+        try:
+            parsed = urlparse(url)
+            origin = (
+                f"{parsed.scheme}://{parsed.netloc}/"
+                if parsed.scheme and parsed.netloc
+                else ""
+            )
+        except ValueError:
+            return
+
+        if not origin:
+            return
+
+        cookies_to_apply = self._cookie_store.get_cookie_dicts_for_url(url)
+        if not cookies_to_apply:
+            return
+
+        try:
+            driver.uc_open_with_reconnect(  # type: ignore[attr-defined, misc]
+                origin, reconnect_time=min(self._config.reconnect_time, 1.0)
+            )
+        except (AttributeError, RuntimeError, TimeoutError, ValueError):
+            return
+
+        applied = 0
+        for cookie in cookies_to_apply:
+            try:
+                driver.add_cookie(cookie)
+            except (AttributeError, RuntimeError, TypeError, ValueError):
+                continue
+            else:
+                applied += 1
+
+        if applied:
+            logger.debug("Applied %d cached cookies for %s", applied, parsed.netloc)
+
     def _attempt_fetch_with_bypass(
         self,
         driver: Driver,  # type: ignore[invalid-type-form]
@@ -138,6 +242,8 @@ class SeleniumBaseStrategy(BypassStrategy):
         str | None
             HTML content if successful, None otherwise.
         """
+        self._apply_cached_cookies_to_driver(driver, url)
+
         logger.debug("Opening URL with SeleniumBase: %s", url)
         # SeleniumBase Driver has uc_open_with_reconnect method but type stubs don't include it
         driver.uc_open_with_reconnect(  # type: ignore[attr-defined, misc]
@@ -232,7 +338,10 @@ class SeleniumBaseStrategy(BypassStrategy):
         str | None
             HTML content or None if fetch failed.
         """
-        # Clean up orphan processes before starting
+        if cached_html := self._try_fetch_with_cached_session(url):
+            return cached_html
+
+        # Clean up orphan processes before starting Selenium
         self._process_manager.cleanup_orphans()
 
         # Ensure virtual display is initialized before creating driver

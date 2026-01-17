@@ -15,8 +15,11 @@
 
 """Cookie and User-Agent storage for bypass operations."""
 
+from __future__ import annotations
+
 import logging
 import threading
+import time
 from typing import TYPE_CHECKING, Protocol
 from urllib.parse import urlparse
 
@@ -140,7 +143,7 @@ class ThreadSafeCookieStore:
 
     def extract_from_driver(
         self,
-        driver: "Driver",  # type: ignore[invalid-type-form, misc]
+        driver: Driver,  # type: ignore[invalid-type-form, misc]
         url: str,
     ) -> None:
         """Extract cookies from Chrome driver after successful bypass.
@@ -189,6 +192,95 @@ class ThreadSafeCookieStore:
 
         except (AttributeError, RuntimeError, KeyError, TypeError) as e:
             logger.debug("Failed to extract cookies: %s", e)
+
+    def get_cookie_values_for_url(self, url: str) -> dict[str, str]:
+        """Get valid cookie name/value pairs for a URL.
+
+        Parameters
+        ----------
+        url : str
+            URL to retrieve cookies for.
+
+        Returns
+        -------
+        dict[str, str]
+            Mapping of cookie name to cookie value. Empty if none available or
+            if cached cookies are expired.
+        """
+        parsed = urlparse(url)
+        hostname = parsed.hostname or ""
+        if not hostname:
+            return {}
+
+        base_domain = _get_base_domain(hostname)
+        cookies = self.get(base_domain)
+        if not cookies:
+            return {}
+
+        # If cf_clearance is expired, drop the whole cache for the domain.
+        cf_clearance = cookies.get("cf_clearance", {})
+        expiry = cf_clearance.get("expiry")
+        if isinstance(expiry, (int, float)) and time.time() > float(expiry):
+            logger.debug("Cached bypass cookies expired for %s", base_domain)
+            self.set(base_domain, {})
+            return {}
+
+        return {
+            name: data.get("value", "")
+            for name, data in cookies.items()
+            if isinstance(name, str) and data.get("value")
+        }
+
+    def get_cookie_dicts_for_url(self, url: str) -> list[dict]:
+        """Get Selenium-compatible cookie dicts for a URL.
+
+        Parameters
+        ----------
+        url : str
+            URL to retrieve cookies for.
+
+        Returns
+        -------
+        list[dict]
+            List of cookie dictionaries suitable for `driver.add_cookie()`.
+            Returns empty list if none available or cookies are expired.
+        """
+        parsed = urlparse(url)
+        hostname = parsed.hostname or ""
+        if not hostname:
+            return []
+
+        base_domain = _get_base_domain(hostname)
+        cookies = self.get(base_domain)
+        if not cookies:
+            return []
+
+        cf_clearance = cookies.get("cf_clearance", {})
+        expiry = cf_clearance.get("expiry")
+        if isinstance(expiry, (int, float)) and time.time() > float(expiry):
+            logger.debug("Cached bypass cookies expired for %s", base_domain)
+            self.set(base_domain, {})
+            return []
+
+        out: list[dict] = []
+        for name, data in cookies.items():
+            if not isinstance(name, str):
+                continue
+            value = data.get("value")
+            if not value:
+                continue
+
+            cookie: dict = {
+                "name": name,
+                "value": value,
+                "domain": data.get("domain") or hostname,
+                "path": data.get("path") or "/",
+            }
+            cookie_expiry = data.get("expiry")
+            if isinstance(cookie_expiry, (int, float)):
+                cookie["expiry"] = int(cookie_expiry)
+            out.append(cookie)
+        return out
 
 
 class UserAgentStore(Protocol):
@@ -262,7 +354,7 @@ class ThreadSafeUserAgentStore:
 
     def extract_from_driver(
         self,
-        driver: "Driver",  # type: ignore[invalid-type-form, misc]
+        driver: Driver,  # type: ignore[invalid-type-form, misc]
         url: str,
     ) -> None:
         """Extract user agent from Chrome driver.
@@ -289,3 +381,22 @@ class ThreadSafeUserAgentStore:
 
         except (AttributeError, RuntimeError, TimeoutError) as e:
             logger.debug("Failed to extract user agent: %s", e)
+
+    def get_user_agent_for_url(self, url: str) -> str | None:
+        """Get stored user agent for a URL.
+
+        Parameters
+        ----------
+        url : str
+            URL to retrieve stored user agent for.
+
+        Returns
+        -------
+        str | None
+            Stored user agent string for the URL's base domain, if available.
+        """
+        parsed = urlparse(url)
+        hostname = parsed.hostname or ""
+        if not hostname:
+            return None
+        return self.get(_get_base_domain(hostname))

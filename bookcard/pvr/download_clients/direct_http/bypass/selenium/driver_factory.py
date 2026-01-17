@@ -16,12 +16,17 @@
 """Driver factory for creating and configuring Chrome drivers."""
 
 import logging
+import os
 import random
+import socket
 import time
+import urllib.parse
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from seleniumbase import Driver
 
+from bookcard.pvr.download_clients.direct_http.anna.config import AnnaArchiveConfig
 from bookcard.pvr.download_clients.direct_http.bypass.selenium.constants import (
     COMMON_RESOLUTIONS,
 )
@@ -80,6 +85,10 @@ class DriverFactory:
             )
         return self._screen_size
 
+    def _is_docker(self) -> bool:
+        """Check if running in Docker environment."""
+        return Path("/.dockerenv").exists() or os.environ.get("DOCKERMODE") == "true"
+
     def _get_chromium_args(self) -> list[str]:
         """Build Chrome arguments for driver initialization.
 
@@ -97,15 +106,46 @@ class DriverFactory:
         ]
 
         # Essential flags for Docker/restricted environments
-        # --no-sandbox is required when running Chrome in Docker
-        # --disable-gpu is recommended for headless mode
-        arguments.extend([
-            "--no-sandbox",
-            "--disable-gpu",
-            "--disable-dev-shm-usage",  # Overcome limited resource problems
-        ])
+        if self._is_docker():
+            arguments.extend([
+                "--no-sandbox",
+                "--disable-gpu",
+                "--disable-dev-shm-usage",  # Overcome limited resource problems
+            ])
+
+        host_rules = self._build_host_resolver_rules()
+        if host_rules:
+            arguments.append(f"--host-resolver-rules={', '.join(host_rules)}")
+            logger.debug(
+                "Chrome: Using host resolver rules for %d hosts", len(host_rules)
+            )
 
         return arguments
+
+    def _build_host_resolver_rules(self) -> list[str]:
+        """Pre-resolve AA hostnames and build Chrome host resolver rules."""
+        host_rules = []
+        try:
+            for url in AnnaArchiveConfig().mirrors:
+                hostname = urllib.parse.urlparse(url).hostname
+                if not hostname:
+                    continue
+
+                try:
+                    # Resolve to IPv4
+                    results = socket.getaddrinfo(hostname, 443, socket.AF_INET)
+                    if results:
+                        ip = results[0][4][0]
+                        host_rules.append(f"MAP {hostname} {ip}")
+                        logger.debug("Chrome: Pre-resolved %s -> %s", hostname, ip)
+                    else:
+                        logger.warning("Chrome: No addresses returned for %s", hostname)
+                except socket.gaierror as e:
+                    logger.warning("Chrome: Could not pre-resolve %s: %s", hostname, e)
+        except (ImportError, AttributeError, TypeError, ValueError) as e:
+            logger.warning("Error pre-resolving hostnames for Chrome: %s", e)
+
+        return host_rules
 
     def create(self) -> Driver:  # type: ignore[invalid-type-form]
         """Create a fresh Chrome driver instance.

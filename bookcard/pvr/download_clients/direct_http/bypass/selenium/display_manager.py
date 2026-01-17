@@ -96,9 +96,15 @@ class VirtualDisplayManager:
 
             # Check if we need a virtual display
             is_docker = self._is_docker_environment()
-            needs_display = is_docker or headless
+            # We need a virtual display when:
+            # - running in Docker (often no host X server)
+            # - running in headless mode (some stacks still require Xvfb)
+            # - running non-headless but no DISPLAY is available (common on servers/CI)
+            has_display = bool(os.environ.get("DISPLAY"))
+            needs_display = is_docker or headless or not has_display
 
             if not needs_display:
+                self._reset_pyautogui_display_state()
                 return
 
             # Add padding for browser chrome (title bar, borders, etc.)
@@ -125,15 +131,8 @@ class VirtualDisplayManager:
             # Access private members for display state reset (required for pyautogui)
             pyautogui_x11 = getattr(pyautogui, "_pyautogui_x11", None)
             if pyautogui_x11 is not None:
-                display_attr = getattr(pyautogui_x11, "_display", None)
-                if display_attr is not None:
-                    # Use dynamic attribute name to satisfy linter
-                    attr_name = "_display"
-                    setattr(
-                        pyautogui_x11,
-                        attr_name,
-                        Xlib.display.Display(os.environ["DISPLAY"]),
-                    )
+                # Unconditionally update the display object with the new DISPLAY env var
+                pyautogui_x11._display = Xlib.display.Display(os.environ["DISPLAY"])  # noqa: SLF001
         except (ImportError, AttributeError, KeyError, OSError) as e:
             logger.warning("Error resetting pyautogui display state: %s", e)
 

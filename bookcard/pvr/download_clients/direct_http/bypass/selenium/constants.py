@@ -83,6 +83,7 @@ CDP_CLICK_SELECTORS = [
     "iframe[src*='challenges']",  # CF challenge iframe
     "input[type='checkbox']",  # Generic checkbox (DDOS-Guard)
     "[class*='checkbox']",  # Class-based checkbox
+    "[class*='cb-i']",  # DDOS-Guard checkbox (seen in some templates)
     "#challenge-running",  # CF challenge indicator
 ]
 
@@ -95,7 +96,13 @@ CDP_GUI_CLICK_SELECTORS = [
 ]
 
 # Bypass thresholds
-MAX_CONSECUTIVE_SAME_CHALLENGE = 3
+#
+# NOTE:
+# Some providers (notably DDoS-Guard) can keep reporting the same challenge type
+# while still requiring multiple different interaction strategies to succeed.
+# If we abort too early, we never reach the later methods (GUI click / humanlike).
+# Keep this high enough to allow a full method cycle.
+MAX_CONSECUTIVE_SAME_CHALLENGE = 10
 MIN_CONTENT_LENGTH_FOR_BYPASS = 100_000
 MIN_EMOJI_COUNT = 3
 MIN_BODY_LENGTH = 50

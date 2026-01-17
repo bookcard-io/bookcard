@@ -24,8 +24,8 @@ class AnnaArchiveConfig:
 
     mirrors: list[str] = field(
         default_factory=lambda: [
-            "https://annas-archive.se",
             "https://annas-archive.li",
+            "https://annas-archive.se",
             "https://annas-archive.pm",
             "https://annas-archive.in",
         ]

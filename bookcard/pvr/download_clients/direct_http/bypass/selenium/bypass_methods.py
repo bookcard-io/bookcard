@@ -15,6 +15,7 @@
 
 """Bypass method implementations for different protection systems."""
 
+import contextlib
 import logging
 import random
 import time
@@ -87,9 +88,27 @@ def _simulate_human_behavior(sb: "Driver") -> None:  # type: ignore[invalid-type
         time.sleep(_sys_random.uniform(HUMAN_DELAY_MIN, HUMAN_DELAY_MAX))
 
         if _sys_random.random() < 0.3:
-            sb.scroll_down(_sys_random.randint(20, 50))
+            # SeleniumBase's `Driver` API differs by version/driver backend.
+            # Use SeleniumBase helpers when available; otherwise fall back to JS.
+            scroll_down = getattr(sb, "scroll_down", None)
+            if callable(scroll_down):
+                scroll_down(_sys_random.randint(20, 50))
+            else:
+                with contextlib.suppress(AttributeError, RuntimeError, TimeoutError):
+                    sb.execute_script(
+                        "window.scrollBy(0, arguments[0]);",
+                        _sys_random.randint(200, 600),
+                    )
             time.sleep(_sys_random.uniform(0.2, 0.5))
-            sb.scroll_up(_sys_random.randint(10, 30))
+            scroll_up = getattr(sb, "scroll_up", None)
+            if callable(scroll_up):
+                scroll_up(_sys_random.randint(10, 30))
+            else:
+                with contextlib.suppress(AttributeError, RuntimeError, TimeoutError):
+                    sb.execute_script(
+                        "window.scrollBy(0, -arguments[0]);",
+                        _sys_random.randint(120, 400),
+                    )
             time.sleep(_sys_random.uniform(0.2, 0.4))
 
         try:
@@ -438,10 +457,21 @@ class HumanlikeMethod(BypassMethod):
             time.sleep(_sys_random.uniform(6, 10))
 
             try:
-                driver.scroll_to_bottom()
-                time.sleep(_sys_random.uniform(1, 2))
-                driver.scroll_to_top()
-                time.sleep(_sys_random.uniform(2, 3))
+                scroll_to_bottom = getattr(driver, "scroll_to_bottom", None)
+                scroll_to_top = getattr(driver, "scroll_to_top", None)
+                if callable(scroll_to_bottom) and callable(scroll_to_top):
+                    scroll_to_bottom()
+                    time.sleep(_sys_random.uniform(1, 2))
+                    scroll_to_top()
+                    time.sleep(_sys_random.uniform(2, 3))
+                else:
+                    # JS fallback when SeleniumBase scroll helpers aren't available
+                    driver.execute_script(
+                        "window.scrollTo(0, document.body.scrollHeight);"
+                    )
+                    time.sleep(_sys_random.uniform(1, 2))
+                    driver.execute_script("window.scrollTo(0, 0);")
+                    time.sleep(_sys_random.uniform(2, 3))
             except (AttributeError, RuntimeError) as e:
                 logger.debug("Scroll behavior failed: %s", e)
 

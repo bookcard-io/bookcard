@@ -33,6 +33,7 @@ from bookcard.pvr.download_clients.direct_http.anna.config import AnnaArchiveCon
 from bookcard.pvr.download_clients.direct_http.anna.countdown import CountdownHandler
 from bookcard.pvr.download_clients.direct_http.anna.extractors import LinkExtractor
 from bookcard.pvr.download_clients.direct_http.anna.mirrors import MirrorRotator
+from bookcard.pvr.download_clients.direct_http.libgen_resolver import LibgenResolver
 from bookcard.pvr.download_clients.direct_http.protocols import (
     HtmlParser,
     StreamingHttpClient,
@@ -77,6 +78,7 @@ class AnnaArchiveResolver(UrlResolverProtocol):
             time_provider, self._config.max_countdown_seconds
         )
         self._extractor = LinkExtractor()
+        self._libgen = LibgenResolver(http_client_factory)
 
     def can_resolve(self, url: str) -> bool:
         """Check if URL is Anna's Archive."""
@@ -93,11 +95,22 @@ class AnnaArchiveResolver(UrlResolverProtocol):
             return None
 
     def _resolve_with_client(self, client: StreamingHttpClient, url: str) -> str | None:
+        md5 = self._extract_md5(url)
+
+        # 1. Try AA Fast (if donator key present)
         if self._config.donator_key and (
-            fast_url := self._try_fast_download(client, url)
+            fast_url := self._try_fast_download(client, url, md5)
         ):
             return fast_url
 
+        # 2. Try Libgen (Fast source)
+        if md5:
+            logger.debug("Checking Libgen fallback for MD5: %s", md5)
+            if libgen_url := self._libgen.resolve(md5):
+                logger.info("Found download on Libgen: %s", libgen_url)
+                return libgen_url
+
+        # 3. Fallback to AA Page (Slow sources)
         logger.debug("Resolving AA details page: %s", url)
         response = client.get(url, follow_redirects=True)
         response.raise_for_status()
@@ -109,8 +122,11 @@ class AnnaArchiveResolver(UrlResolverProtocol):
 
         return self._process_slow_download_page(client, slow_url)
 
-    def _try_fast_download(self, client: StreamingHttpClient, url: str) -> str | None:
-        md5 = self._extract_md5(url)
+    def _try_fast_download(
+        self, client: StreamingHttpClient, url: str, md5: str | None = None
+    ) -> str | None:
+        if not md5:
+            md5 = self._extract_md5(url)
         if not md5:
             return None
 
