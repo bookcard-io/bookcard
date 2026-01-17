@@ -24,6 +24,7 @@ Create Date: 2026-01-14 19:28:13.919241
 import os
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from pathlib import Path
 
 import sqlalchemy as sa
 from alembic import op
@@ -216,7 +217,8 @@ def upgrade() -> None:
     ).scalar()
 
     if not exists_client:
-        ingest_dir = os.getenv("BOOKS_INGEST_DIR", "/data/books_ingest")
+        data_directory = (os.getenv("DATA_DIRECTORY") or "/data").strip()
+        ingest_dir = str(Path(data_directory) / "downloads")
         op.bulk_insert(
             download_client_definitions,
             [
