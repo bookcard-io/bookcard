@@ -15,40 +15,18 @@
 
 """URL and filename resolvers for Direct HTTP download client."""
 
-import logging
 import re
 import urllib.parse
 import uuid
-from collections.abc import Callable
 from contextlib import suppress
 from pathlib import Path
-from typing import Protocol, cast
 
-import httpx
-from bs4 import BeautifulSoup
-
-from bookcard.pvr.base.interfaces import HttpClientProtocol
+from bookcard.common.filesystem import sanitize_filename
+from bookcard.pvr.download_clients.direct_http.anna import AnnaArchiveResolver
 from bookcard.pvr.download_clients.direct_http.protocols import (
-    HtmlParser,
-    StreamingHttpClient,
     StreamingResponse,
-    TimeProvider,
+    UrlResolver,
 )
-from bookcard.pvr.download_clients.direct_http.settings import DownloadConstants
-
-logger = logging.getLogger(__name__)
-
-
-class UrlResolver(Protocol):
-    """Protocol for URL resolution strategies."""
-
-    def can_resolve(self, url: str) -> bool:
-        """Check if this resolver can handle the URL."""
-        ...
-
-    def resolve(self, url: str) -> str | None:
-        """Resolve URL to actual download link."""
-        ...
 
 
 class DirectUrlResolver(UrlResolver):
@@ -56,173 +34,173 @@ class DirectUrlResolver(UrlResolver):
 
     def can_resolve(self, url: str) -> bool:
         """Check if URL is direct."""
-        return not any(pattern in url for pattern in ["annas-archive.org/md5/"])
+        return not ("annas-archive." in url and "/md5/" in url)
 
     def resolve(self, url: str) -> str | None:
         """Resolve direct URL."""
         return url
 
 
-class AnnaArchiveResolver(UrlResolver):
-    """Resolver for Anna's Archive URLs."""
+def _extract_filename_from_content_disposition(content_disposition: str) -> str | None:
+    """Extract filename from Content-Disposition header.
 
-    def __init__(
-        self,
-        http_client_factory: Callable[[], HttpClientProtocol],
-        html_parser: HtmlParser,
-        time_provider: TimeProvider,
-    ) -> None:
-        self._factory = http_client_factory
-        self._parser = html_parser
-        self._time = time_provider
+    Parameters
+    ----------
+    content_disposition : str
+        The Content-Disposition header value.
 
-    def can_resolve(self, url: str) -> bool:
-        """Check if URL is Anna's Archive."""
-        return "annas-archive.org/md5/" in url
-
-    def resolve(self, url: str) -> str | None:
-        """Resolve Anna's Archive URL."""
-        try:
-            # Cast to StreamingHttpClient because we know our factory produces httpx clients
-            # that satisfy the interface, even if typed as generic HttpClientProtocol
-            with cast("Callable[[], StreamingHttpClient]", self._factory)() as client:
-                logger.debug("Resolving AA details page: %s", url)
-                response = client.get(url, follow_redirects=True)
-                response.raise_for_status()
-                soup = self._parser.parse(response.text)
-
-                # Find slow partner server link
-                slow_url = self._find_slow_server_link(soup, url)
-                if not slow_url:
-                    return self._find_direct_button_link(soup, url)
-
-                return self._process_slow_download_page(client, slow_url)
-
-        except (httpx.HTTPError, ValueError):
-            logger.warning("Failed to resolve AA link", exc_info=True)
-            return None
-
-    def _find_slow_server_link(self, soup: BeautifulSoup, base_url: str) -> str | None:
-        for a in soup.find_all("a", href=True):
-            href = a["href"]
-            text = a.get_text().lower()
-            if "/slow_download/" in href or "slow partner server" in text:
-                return urllib.parse.urljoin(base_url, href)
+    Returns
+    -------
+    str | None
+        Extracted filename or None if not found.
+    """
+    if not content_disposition:
         return None
 
-    def _find_direct_button_link(
-        self, soup: BeautifulSoup, base_url: str
-    ) -> str | None:
-        for a in soup.find_all("a", href=True):
-            text = a.get_text().lower()
-            if "download" in text and "/md5/" not in a["href"]:
-                return urllib.parse.urljoin(base_url, a["href"])
-        logger.warning("No download link found on %s", base_url)
-        return None
+    # Try RFC 5987 format: filename*=UTF-8''filename.ext
+    rfc5987_match = re.search(
+        r"filename\*=UTF-8''([^;]+)", content_disposition, re.IGNORECASE
+    )
+    if rfc5987_match:
+        with suppress(UnicodeDecodeError):
+            return urllib.parse.unquote(rfc5987_match.group(1))
 
-    def _process_slow_download_page(
-        self, client: StreamingHttpClient, url: str
-    ) -> str | None:
-        logger.debug("Processing slow download page: %s", url)
-        response = client.get(url, follow_redirects=True)
-        response.raise_for_status()
-        html = response.text
-        soup = self._parser.parse(html)
+    # Try standard format: filename="filename.ext" or filename=filename.ext
+    standard_match = re.search(r"filename=([^;]+)", content_disposition, re.IGNORECASE)
+    if standard_match:
+        filename = standard_match.group(1).strip()
+        # Remove quotes if present
+        filename = filename.strip("\"'")
+        if filename:
+            return filename
 
-        direct_link = self._extract_direct_link(soup, html)
-        if direct_link:
-            return urllib.parse.urljoin(url, direct_link)
-
-        countdown = self._extract_countdown_seconds(soup, html)
-        if countdown > 0:
-            logger.info("AA countdown detected: %ds", countdown)
-            if countdown > DownloadConstants.MAX_COUNTDOWN_SECONDS:
-                logger.warning("Countdown too long (%ds), aborting", countdown)
-                return None
-
-            self._time.sleep(countdown + 1)
-            return self._process_slow_download_page(client, url)
-
-        return None
-
-    def _extract_direct_link(self, soup: BeautifulSoup, html_str: str) -> str | None:
-        return (
-            self._extract_from_clipboard(html_str)
-            or self._extract_from_download_button(soup)
-            or self._extract_from_window_location(html_str)
-            or self._extract_from_other_links(soup)
-        )
-
-    def _extract_from_clipboard(self, html_str: str) -> str | None:
-        match = re.search(
-            r"navigator\.clipboard\.writeText\(['\"]([^'\"]+)['\"]\)", html_str
-        )
-        if match:
-            link = match.group(1)
-            if link.startswith("http") and "/slow_download/" not in link:
-                return link
-        return None
-
-    def _extract_from_download_button(self, soup: BeautifulSoup) -> str | None:
-        links = soup.find_all("a", href=True)
-        for link in links:
-            if link.string == "📚 Download now":
-                return link["href"]
-        for link in links:
-            if link.string and "Download now" in link.string:
-                return link["href"]
-        return None
-
-    def _extract_from_window_location(self, html_str: str) -> str | None:
-        match = re.search(r"window\.location\.href\s*=\s*['\"]([^'\"]+)['\"]", html_str)
-        if match:
-            link = match.group(1)
-            if link.startswith("http") and "/slow_download/" not in link:
-                return link
-        return None
-
-    def _extract_from_other_links(self, soup: BeautifulSoup) -> str | None:
-        for a_tag in soup.find_all("a", href=True):
-            if a_tag.has_attr("download"):
-                href = a_tag["href"]
-                if href.startswith("http") and "/slow_download/" not in href:
-                    return href
-        return None
-
-    def _extract_countdown_seconds(self, soup: BeautifulSoup, html_str: str) -> int:
-        elem = soup.find("span", class_="js-partner-countdown")
-        if elem:
-            with suppress(ValueError):
-                return int(elem.get_text(strip=True))
-
-        js_var = re.search(r"(?:var|let|const)\s+countdown\s*=\s*(\d+)", html_str)
-        if js_var:
-            return int(js_var.group(1))
-        return 0
+    return None
 
 
 class FilenameResolver:
     """Determines filenames from various sources."""
 
-    def resolve(self, response: StreamingResponse, url: str, title: str | None) -> str:
-        """Resolve filename with fallback chain."""
-        if title:
-            safe_title = self._sanitize_filename(title)
-            if safe_title:
-                ext = ".bin"
-                content_type = response.headers.get("content-type", "")
-                if "pdf" in content_type:
-                    ext = ".pdf"
-                elif "epub" in content_type:
-                    ext = ".epub"
-                return f"{safe_title}{ext}"
+    def resolve(
+        self,
+        response: StreamingResponse,
+        url: str,
+        title: str | None,
+        author: str | None = None,
+        quality: str | None = None,
+        guid: str | None = None,
+    ) -> str:
+        """Resolve filename with fallback chain.
 
+        Checks in order:
+        1. Content-Disposition header (standard HTTP way)
+        2. Name from ReleaseInfo (Author - Title.Extension)
+        3. Title with content-type extension (legacy fallback)
+        4. URL path (if meaningful)
+        5. GUID (if available)
+        6. UUID (final fallback)
+        """
+        # 1. Content-Disposition
+        if name := self._from_content_disposition(response):
+            return name
+
+        # 2. ReleaseInfo (Author - Title.ext)
+        if name := self._from_release_info(title, author, quality):
+            return name
+
+        # 3. Title + content-type/quality
+        if name := self._from_title_fallback(response, title, quality):
+            return name
+
+        # 4. URL path
+        if name := self._from_url_path(url):
+            return name
+
+        # 5. GUID
+        if name := self._from_guid(guid, quality):
+            return name
+
+        # 6. UUID
+        return f"download-{uuid.uuid4()}"
+
+    def _from_content_disposition(self, response: StreamingResponse) -> str | None:
+        """Try resolving from Content-Disposition header."""
+        content_disposition = response.headers.get("content-disposition", "")
+        if content_disposition:
+            filename = _extract_filename_from_content_disposition(content_disposition)
+            if filename:
+                sanitized = sanitize_filename(filename)
+                if sanitized:
+                    return sanitized
+        return None
+
+    def _from_release_info(
+        self, title: str | None, author: str | None, quality: str | None
+    ) -> str | None:
+        """Try resolving from release metadata."""
+        if title and quality:
+            ext = quality.lower().lstrip(".")
+            candidate = f"{author} - {title}.{ext}" if author else f"{title}.{ext}"
+            return sanitize_filename(candidate)
+        return None
+
+    def _from_title_fallback(
+        self, response: StreamingResponse, title: str | None, quality: str | None
+    ) -> str | None:
+        """Try resolving from title and content type."""
+        if not title:
+            return None
+
+        safe_title = sanitize_filename(title)
+        if not safe_title:
+            return None
+
+        ext = ".bin"
+        content_type = response.headers.get("content-type", "")
+        if "pdf" in content_type:
+            ext = ".pdf"
+        elif "epub" in content_type:
+            ext = ".epub"
+        elif quality:
+            ext = f".{quality.lstrip('.')}"
+
+        return f"{safe_title}{ext}"
+
+    def _from_url_path(self, url: str) -> str | None:
+        """Try resolving from URL path."""
         path = urllib.parse.urlparse(url).path
         name = Path(path).name
-        return name or f"download-{uuid.uuid4()}"
+        if name and "." in name:
+            name = sanitize_filename(name)
+            if name:
+                return name
+        return None
 
-    def _sanitize_filename(self, title: str, max_length: int = 200) -> str:
-        """Sanitize title for use as filename."""
-        sanitized = re.sub(r"[^\w\s._-]", "", title)
-        sanitized = re.sub(r"\s+", " ", sanitized).strip()
-        return sanitized[:max_length]
+    def _from_guid(self, guid: str | None, quality: str | None) -> str | None:
+        """Try resolving from GUID."""
+        if not guid:
+            return None
+
+        # GUID might be a URL, extract last part
+        if guid.startswith(("http:", "https:")):
+            guid_name = Path(urllib.parse.urlparse(guid).path).name
+        else:
+            guid_name = guid
+
+        if not guid_name:
+            return None
+
+        safe_guid = sanitize_filename(guid_name)
+        if not safe_guid:
+            return None
+
+        if quality:
+            return f"{safe_guid}.{quality.lstrip('.')}"
+        return safe_guid
+
+
+__all__ = [
+    "AnnaArchiveResolver",
+    "DirectUrlResolver",
+    "FilenameResolver",
+    "UrlResolver",
+]

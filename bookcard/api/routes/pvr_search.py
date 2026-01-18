@@ -35,6 +35,7 @@ from bookcard.api.schemas.pvr_search import (
 )
 from bookcard.models.auth import User
 from bookcard.services.book_permission_helper import BookPermissionHelper
+from bookcard.services.download.client_selector import ProtocolBasedSelector
 from bookcard.services.download.repository import SQLModelDownloadItemRepository
 from bookcard.services.download_client_service import DownloadClientService
 from bookcard.services.download_service import DownloadService
@@ -78,9 +79,11 @@ def _get_tracked_book_search_service(
 
     download_item_repo = SQLModelDownloadItemRepository(session)
     download_client_service = DownloadClientService(session, encryptor=encryptor)
+    client_selector = ProtocolBasedSelector()
     download_service = DownloadService(
         download_item_repo=download_item_repo,
         download_client_service=download_client_service,
+        client_selector=client_selector,
     )
 
     return TrackedBookSearchService(

@@ -19,9 +19,20 @@ This module provides settings factory functions for download client types, follo
 by separating settings creation from factory logic.
 """
 
+import logging
+import os
 import tempfile
+from contextlib import suppress
 
-from bookcard.models.pvr import DownloadClientDefinition, DownloadClientType
+from sqlmodel import Session, select
+
+from bookcard.database import create_db_engine
+from bookcard.models.pvr import (
+    DownloadClientDefinition,
+    DownloadClientType,
+    IndexerDefinition,
+    IndexerType,
+)
 from bookcard.pvr.base import DownloadClientSettings
 from bookcard.pvr.download_clients.aria2 import Aria2Settings
 from bookcard.pvr.download_clients.blackhole import (
@@ -29,6 +40,7 @@ from bookcard.pvr.download_clients.blackhole import (
     UsenetBlackholeSettings,
 )
 from bookcard.pvr.download_clients.deluge import DelugeSettings
+from bookcard.pvr.download_clients.direct_http.settings import DirectHttpSettings
 from bookcard.pvr.download_clients.download_station import DownloadStationSettings
 from bookcard.pvr.download_clients.flood import FloodSettings
 from bookcard.pvr.download_clients.freebox_download import FreeboxDownloadSettings
@@ -45,6 +57,9 @@ from bookcard.pvr.download_clients.vuze import VuzeSettings
 from bookcard.pvr.factory.download_client_factory import (
     register_download_client_settings_factory,
 )
+from bookcard.services.security import DataEncryptor
+
+logger = logging.getLogger(__name__)
 
 
 def _create_qbittorrent_settings(
@@ -423,6 +438,98 @@ def _create_vuze_settings(
     )
 
 
+def _create_direct_http_settings(
+    client_def: DownloadClientDefinition,
+) -> DownloadClientSettings:
+    """Create DirectHttpSettings from client definition.
+
+    Looks up enabled Anna's Archive indexers and uses their api_key
+    as the donator_key if not explicitly set in additional_settings.
+    """
+    # Get aa_donator_key from additional_settings if set
+    aa_donator_key = None
+    if client_def.additional_settings:
+        aa_donator_key = client_def.additional_settings.get("aa_donator_key")
+
+    # If not set, look up from Anna's Archive indexers
+    if not aa_donator_key:
+        aa_donator_key = _get_annas_archive_api_key()
+
+    return DirectHttpSettings(
+        host=client_def.host,
+        port=client_def.port,
+        username=client_def.username,
+        password=client_def.password,
+        use_ssl=client_def.use_ssl,
+        timeout_seconds=client_def.timeout_seconds,
+        category=client_def.category,
+        download_path=client_def.download_path,
+        aa_donator_key=str(aa_donator_key) if aa_donator_key else None,
+        flaresolverr_url=client_def.additional_settings.get("flaresolverr_url")
+        if client_def.additional_settings
+        else None,
+        flaresolverr_path=str(
+            client_def.additional_settings.get("flaresolverr_path", "/v1")
+        )
+        if client_def.additional_settings
+        else "/v1",
+        flaresolverr_timeout=int(
+            client_def.additional_settings.get("flaresolverr_timeout", 60000)
+        )
+        if client_def.additional_settings
+        else 60000,
+        use_seleniumbase=bool(
+            client_def.additional_settings.get("use_seleniumbase", True)
+        )
+        if client_def.additional_settings
+        else True,
+    )
+
+
+def _get_annas_archive_api_key() -> str | None:
+    """Get the api_key from the first enabled Anna's Archive indexer.
+
+    Attempts to decrypt the API key if it's encrypted. Falls back to using
+    the key as-is if decryption fails (e.g., plain text in development).
+
+    Returns
+    -------
+    str | None
+        Decrypted API key from the first enabled Anna's Archive indexer, or None if not found.
+    """
+    try:
+        engine = create_db_engine()
+        with Session(engine) as session:
+            stmt = (
+                select(IndexerDefinition)
+                .where(IndexerDefinition.indexer_type == IndexerType.ANNAS_ARCHIVE)
+                .where(IndexerDefinition.enabled == True)  # noqa: E712
+                .where(IndexerDefinition.api_key != None)  # noqa: E711
+                .order_by(IndexerDefinition.priority, IndexerDefinition.id)
+                .limit(1)
+            )
+            result = session.exec(stmt).first()
+            if result and result.api_key:
+                api_key = result.api_key
+                # Try to decrypt if encryption key is available
+                encryption_key = os.getenv("BOOKCARD_FERNET_KEY")
+                if encryption_key:
+                    try:
+                        encryptor = DataEncryptor(encryption_key)
+                        api_key = encryptor.decrypt(api_key)
+                    except ValueError:
+                        # Decryption failed, might be plain text - use as-is
+                        logger.debug(
+                            "Failed to decrypt API key for Anna's Archive indexer %s. Using as-is.",
+                            result.id,
+                        )
+                return api_key
+    except (ValueError, RuntimeError, OSError) as e:
+        with suppress(Exception):
+            logger.debug("Failed to look up Anna's Archive indexer api_key: %s", e)
+    return None
+
+
 def _initialize_download_client_settings_factories() -> None:
     """Initialize the download client settings factory registry."""
     # Fully implemented clients
@@ -477,6 +584,9 @@ def _initialize_download_client_settings_factories() -> None:
     )
     register_download_client_settings_factory(
         DownloadClientType.PNEUMATIC, _create_pneumatic_settings
+    )
+    register_download_client_settings_factory(
+        DownloadClientType.DIRECT_HTTP, _create_direct_http_settings
     )
 
 

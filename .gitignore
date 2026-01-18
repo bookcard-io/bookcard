@@ -419,3 +419,6 @@ docker-compose.local.yaml
 # database files
 bookcard.db
 bookcard.db-*
+
+# seleniumbase
+/downloaded_files/

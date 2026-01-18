@@ -1,6 +1,7 @@
 export enum IndexerProtocol {
   TORRENT = "torrent",
   USENET = "usenet",
+  HTTP = "http",
 }
 
 export enum IndexerType {
@@ -9,6 +10,7 @@ export enum IndexerType {
   TORRENT_RSS = "torrent_rss",
   USENET_RSS = "usenet_rss",
   CUSTOM = "custom",
+  ANNAS_ARCHIVE = "annas_archive",
 }
 
 export enum IndexerStatus {

@@ -106,7 +106,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     unar \
     libarchive-tools \
     libfreetype6 \
+    # Cloudflare Bypass dependencies
+    chromium \
+    chromium-driver \
+    xvfb \
     && rm -rf /var/lib/apt/lists/*
+
+# Grant read/execute permissions to others for Chromium and ChromeDriver
+RUN chmod -R o+rx /usr/bin/chromium && \
+    chmod -R o+rx /usr/bin/chromedriver
 
 # ============================================================================
 # Layer 2: Node.js runtime (stable, rarely changes)
@@ -164,6 +172,9 @@ ENV PATH="/opt/kcc/venv/bin:/opt/kcc:${PATH}"
 # ============================================================================
 COPY --from=backend-builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
+
+# Grant write permissions to seleniumbase drivers directory
+RUN chmod -R o+w /opt/venv/lib/python3.12/site-packages/seleniumbase/drivers/ || true
 
 # ============================================================================
 # Layer 6: Static infrastructure files (changes occasionally)

@@ -16,6 +16,7 @@ export enum DownloadClientType {
   PNEUMATIC = "pneumatic",
   TORRENT_BLACKHOLE = "torrent_blackhole",
   USENET_BLACKHOLE = "usenet_blackhole",
+  DIRECT_HTTP = "direct_http",
 }
 
 export enum DownloadClientStatus {

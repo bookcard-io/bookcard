@@ -23,6 +23,7 @@ export type ClientField =
   | "watch_folder"
   | "save_magnet_files"
   | "magnet_file_extension"
+  | "download_path"
   | "priority";
 
 export interface ClientConfig {
@@ -31,6 +32,7 @@ export interface ClientConfig {
   advancedFields?: ClientField[];
   defaultUrlBase?: string;
   defaultRpcPath?: string;
+  supportsPathMappings?: boolean;
 }
 
 export const CLIENT_CONFIGS: Record<DownloadClientType, ClientConfig> = {
@@ -209,6 +211,7 @@ export const CLIENT_CONFIGS: Record<DownloadClientType, ClientConfig> = {
   [DownloadClientType.PNEUMATIC]: {
     defaultPort: 0,
     fields: ["nzb_folder", "strm_folder", "priority"],
+    supportsPathMappings: false,
   },
   [DownloadClientType.TORRENT_BLACKHOLE]: {
     defaultPort: 0,
@@ -219,10 +222,17 @@ export const CLIENT_CONFIGS: Record<DownloadClientType, ClientConfig> = {
       "magnet_file_extension",
       "priority",
     ],
+    supportsPathMappings: false,
   },
   [DownloadClientType.USENET_BLACKHOLE]: {
     defaultPort: 0,
     fields: ["nzb_folder", "watch_folder", "priority"],
+    supportsPathMappings: false,
+  },
+  [DownloadClientType.DIRECT_HTTP]: {
+    defaultPort: 80,
+    fields: ["download_path", "priority"],
+    supportsPathMappings: false,
   },
 };
 
@@ -260,5 +270,6 @@ export const FIELD_DEFINITIONS: Record<
     type: "text",
     placeholder: ".magnet",
   },
+  download_path: { label: "Download Path", type: "text" },
   priority: { label: "Priority", type: "number" },
 };

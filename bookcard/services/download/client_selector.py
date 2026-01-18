@@ -113,6 +113,9 @@ class ProtocolBasedSelector(DownloadClientSelector):
         ):
             return {"usenet"}
 
+        if client_value == "direct_http":
+            return {"http"}
+
         # Torrent clients - everything else (including blackhole)
         # This includes: qbittorrent, transmission, deluge, rtorrent, utorrent,
         # vuze, aria2, flood, hadouken, freebox_download, torrent_blackhole
@@ -149,6 +152,11 @@ class ProtocolBasedSelector(DownloadClientSelector):
             return "torrent"
         if url_lower.endswith(".nzb"):
             return "usenet"
+
+        # Check for Anna's Archive HTTP downloads
+        # If url doesn't match torrent/usenet patterns but is an HTTP url, treat as HTTP
+        if release.download_url.startswith(("http:", "https:")):
+            return "http"
 
         # Cannot determine protocol
         return None

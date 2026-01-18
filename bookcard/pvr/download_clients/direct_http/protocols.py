@@ -60,7 +60,7 @@ class StreamingHttpClient(Protocol):
         ...
 
     def stream(
-        self, method: str, url: str, *, follow_redirects: bool = False
+        self, method: str, url: str, *, follow_redirects: bool = False, **kwargs: object
     ) -> AbstractContextManager[StreamingResponse]:
         """Stream HTTP response."""
         ...
@@ -117,3 +117,15 @@ class SystemTimeProvider(TimeProvider):
     def time(self) -> float:
         """Get current time."""
         return time.time()
+
+
+class UrlResolver(Protocol):
+    """Protocol for URL resolution strategies."""
+
+    def can_resolve(self, url: str) -> bool:
+        """Check if this resolver can handle the URL."""
+        ...
+
+    def resolve(self, url: str) -> str | None:
+        """Resolve URL to actual download link."""
+        ...

@@ -20,7 +20,7 @@ import uuid
 from collections.abc import Callable, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import httpx
 
@@ -34,6 +34,7 @@ from bookcard.pvr.base.interfaces import (
     UrlRouterProtocol,
 )
 from bookcard.pvr.download_clients._http_client import create_httpx_client
+from bookcard.pvr.download_clients.direct_http.anna import AnnaArchiveConfig
 from bookcard.pvr.download_clients.direct_http.downloader import FileDownloader
 from bookcard.pvr.download_clients.direct_http.protocols import (
     BeautifulSoupParser,
@@ -109,13 +110,42 @@ class DirectHttpClient(TrackingDownloadClient):
         # Initialize dependencies
         self._time = time_provider or SystemTimeProvider()
         self._parser = html_parser or BeautifulSoupParser()
-        self._state_manager = state_manager or DownloadStateManager()
+
+        if state_manager:
+            self._state_manager = state_manager
+        else:
+            base_path = (
+                self.settings.download_path or DownloadConstants.DEFAULT_TEMP_DIR
+            )
+            # Ensure base path exists
+            try:
+                Path(base_path).mkdir(parents=True, exist_ok=True)
+            except OSError:
+                logger.warning(
+                    "Could not create download path %s, using temp dir", base_path
+                )
+                base_path = DownloadConstants.DEFAULT_TEMP_DIR
+                Path(base_path).mkdir(parents=True, exist_ok=True)
+
+            state_file = Path(base_path) / ".direct_http_state.json"
+            self._state_manager = DownloadStateManager(state_file=state_file)
+
         self._filename_resolver = filename_resolver or FilenameResolver()
         self._file_downloader = file_downloader or FileDownloader(self._time)
 
         # Initialize resolvers
+        aa_config = AnnaArchiveConfig(donator_key=self.settings.aa_donator_key)
         self._url_resolvers = url_resolvers or [
-            AnnaArchiveResolver(self._http_client_factory, self._parser, self._time),
+            AnnaArchiveResolver(
+                self._http_client_factory,
+                self._parser,
+                self._time,
+                config=aa_config,
+                flaresolverr_url=self.settings.flaresolverr_url,
+                flaresolverr_path=self.settings.flaresolverr_path,
+                flaresolverr_timeout=self.settings.flaresolverr_timeout,
+                use_seleniumbase=self.settings.use_seleniumbase,
+            ),
             DirectUrlResolver(),
         ]
 
@@ -140,6 +170,7 @@ class DirectHttpClient(TrackingDownloadClient):
         title: str | None,
         _category: str | None,
         download_path: str | None,
+        **kwargs: Any,  # noqa: ANN401
     ) -> str:
         """Add a new download from URL.
 
@@ -153,6 +184,8 @@ class DirectHttpClient(TrackingDownloadClient):
             Category (unused).
         download_path : str | None
             Target directory.
+        **kwargs : Any
+            Additional metadata (author, quality, guid).
 
         Returns
         -------
@@ -170,7 +203,11 @@ class DirectHttpClient(TrackingDownloadClient):
         )
 
         self._state_manager.create(
-            download_id, url, title or "Unknown", target_path_str
+            download_id,
+            url,
+            title or "Unknown",
+            target_path_str,
+            extra=kwargs,
         )
 
         future = self._executor.submit(
@@ -179,6 +216,7 @@ class DirectHttpClient(TrackingDownloadClient):
             url,
             Path(target_path_str),
             title,
+            kwargs,
         )
         self._active_futures[download_id] = future
 
@@ -194,7 +232,12 @@ class DirectHttpClient(TrackingDownloadClient):
         return url
 
     def _download_worker(
-        self, download_id: str, url: str, target_dir: Path, title: str | None
+        self,
+        download_id: str,
+        url: str,
+        target_dir: Path,
+        title: str | None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Background worker to handle the download."""
         try:
@@ -212,13 +255,22 @@ class DirectHttpClient(TrackingDownloadClient):
 
             with cast("Callable[[], StreamingHttpClient]", factory)() as client:
                 # We need a quick HEAD or GET to determine filename before full stream
+                headers = {"Referer": url} if url != actual_url else None
                 try:
                     with client.stream(
-                        "GET", actual_url, follow_redirects=True
+                        "GET", actual_url, follow_redirects=True, headers=headers
                     ) as response:
                         response.raise_for_status()
+
+                        # Extract metadata for filename resolution
+                        meta = metadata or {}
                         filename = self._filename_resolver.resolve(
-                            response, actual_url, title
+                            response,
+                            actual_url,
+                            title,
+                            author=meta.get("author"),
+                            quality=meta.get("quality"),
+                            guid=meta.get("guid"),
                         )
                 except httpx.HTTPError as e:
                     # If stream fails immediately (e.g. 404), we catch it here
@@ -229,8 +281,14 @@ class DirectHttpClient(TrackingDownloadClient):
                 target_dir.mkdir(parents=True, exist_ok=True)
 
                 # 3. Download
+                headers = {"Referer": url} if url != actual_url else None
                 self._file_downloader.download(
-                    client, actual_url, file_path, download_id, self._state_manager
+                    client,
+                    actual_url,
+                    file_path,
+                    download_id,
+                    self._state_manager,
+                    headers=headers,
                 )
 
             self._state_manager.update_status(download_id, DownloadStatus.COMPLETED)

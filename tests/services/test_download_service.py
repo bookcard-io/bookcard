@@ -132,6 +132,9 @@ class TestDownloadService:
                 title=sample_release.title,
                 category="books",
                 download_path="/downloads",
+                author=sample_release.author,
+                quality=sample_release.quality,
+                guid=sample_release.guid,
             )
 
             # Verify DB operations

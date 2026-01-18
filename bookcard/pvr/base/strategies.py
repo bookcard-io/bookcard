@@ -15,6 +15,7 @@
 
 """Download strategies for PVR."""
 
+import inspect
 from typing import Any, Protocol, runtime_checkable
 
 from bookcard.pvr._base.capabilities import FileSupport, MagnetSupport, UrlSupport
@@ -110,12 +111,24 @@ class UrlStrategy:
         title: str | None = None,
         category: str | None = None,
         download_path: str | None = None,
+        **kwargs: Any,  # noqa: ANN401
     ) -> str:
         """Add URL to client."""
         if not isinstance(client, UrlSupport):
             name = getattr(client, "client_name", "Client")
             msg = f"{name} does not support URL downloads"
             raise PVRProviderError(msg)
+
+        # Check if client.add_url accepts kwargs using introspection
+        # This prevents breaking clients that don't support extra arguments
+        sig = inspect.signature(client.add_url)
+        supports_kwargs = any(
+            p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
+        )
+
+        if supports_kwargs:
+            return client.add_url(url, title, category, download_path, **kwargs)
+
         return client.add_url(url, title, category, download_path)
 
 
@@ -166,6 +179,7 @@ class DownloadStrategyRegistry:
         title: str | None = None,
         category: str | None = None,
         download_path: str | None = None,
+        **kwargs: Any,  # noqa: ANN401
     ) -> str:
         """Handle download addition using registered strategies."""
         download_type = self._router.route(url)
@@ -174,5 +188,14 @@ class DownloadStrategyRegistry:
         if not strategy:
             msg = f"No strategy found for download type: {download_type}"
             raise PVRProviderError(msg)
+
+        # Check if strategy.add accepts kwargs
+        sig = inspect.signature(strategy.add)
+        supports_kwargs = any(
+            p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
+        )
+
+        if supports_kwargs:
+            return strategy.add(client, url, title, category, download_path, **kwargs)
 
         return strategy.add(client, url, title, category, download_path)
