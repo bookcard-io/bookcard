@@ -521,3 +521,45 @@ export async function mergeBooks(
     throw new Error(error.detail || "Failed to merge books");
   }
 }
+
+/**
+ * Upload a cover image for a book.
+ *
+ * Parameters
+ * ----------
+ * bookId : number
+ *     Book ID.
+ * file : File
+ *     Cover image file.
+ *
+ * Returns
+ * -------
+ * Promise<UploadCoverResponse>
+ *     Response containing the temporary URL of the uploaded cover.
+ */
+export interface UploadCoverResponse {
+  temp_url: string;
+}
+
+export async function uploadBookCover(
+  bookId: number,
+  file: File,
+): Promise<UploadCoverResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`/api/books/${bookId}/cover`, {
+    method: "POST",
+    body: formData,
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Failed to upload cover" }));
+    throw new Error(error.detail || "Failed to upload cover");
+  }
+
+  return response.json();
+}

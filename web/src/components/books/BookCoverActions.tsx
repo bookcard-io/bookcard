@@ -15,6 +15,7 @@
 
 "use client";
 
+import { useRef } from "react";
 import { Button } from "@/components/forms/Button";
 import { useUser } from "@/contexts/UserContext";
 import type { Book } from "@/types/book";
@@ -29,6 +30,10 @@ export interface BookCoverActionsProps {
   onSetFromUrlClick: () => void;
   /** URL input component to render when visible. */
   urlInput?: React.ReactNode;
+  /** Handler for file selection. */
+  onFileSelect?: (file: File) => void;
+  /** Whether loading (e.g. uploading). */
+  isLoading?: boolean;
 }
 
 /**
@@ -47,32 +52,58 @@ export function BookCoverActions({
   isUrlInputVisible,
   onSetFromUrlClick,
   urlInput,
+  onFileSelect,
+  isLoading,
 }: BookCoverActionsProps) {
   const { canPerformAction } = useUser();
   const bookContext = buildBookPermissionContext(book);
   const canWrite = canPerformAction("books", "write", bookContext);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleBrowseClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onFileSelect) {
+      onFileSelect(file);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   return (
     <div className="flex flex-col gap-2">
+      <input
+        type="file"
+        ref={fileInputRef}
+        className="hidden"
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        onChange={handleFileChange}
+        disabled={!canWrite || isLoading}
+      />
       <Button
         type="button"
         variant="ghost"
         size="small"
-        disabled={!canWrite}
+        onClick={handleBrowseClick}
+        disabled={!canWrite || isLoading}
         className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 focus:!shadow-none w-full justify-start rounded-md hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <span
           className="pi pi-image mr-2 text-primary-a20"
           aria-hidden="true"
         />
-        Select cover
+        Browse for a cover
       </Button>
       <Button
         type="button"
         variant="ghost"
         size="small"
         onClick={canWrite ? onSetFromUrlClick : undefined}
-        disabled={!canWrite}
+        disabled={!canWrite || isLoading}
         className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 focus:!shadow-none w-full justify-start rounded-md hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <span className="pi pi-link mr-2 text-primary-a20" aria-hidden="true" />
@@ -83,7 +114,7 @@ export function BookCoverActions({
         type="button"
         variant="ghost"
         size="small"
-        disabled={!canWrite}
+        disabled={!canWrite || isLoading}
         className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 focus:!shadow-none w-full justify-start rounded-md hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <span
@@ -96,7 +127,7 @@ export function BookCoverActions({
         type="button"
         variant="ghost"
         size="small"
-        disabled={!canWrite}
+        disabled={!canWrite || isLoading}
         className="!border-primary-a20 !text-primary-a20 hover:!text-primary-a20 focus:!shadow-none w-full justify-start rounded-md hover:border-primary-a10 hover:bg-surface-a20 focus:outline-2 focus:outline-[var(--color-primary-a0)] focus:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <span

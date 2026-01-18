@@ -237,4 +237,61 @@ describe("bookService", () => {
       );
     });
   });
+
+  describe("uploadBookCover", () => {
+    const bookId = 1;
+    // Create a mock File
+    const file = new File(["dummy content"], "cover.jpg", {
+      type: "image/jpeg",
+    });
+
+    it("should upload cover successfully", async () => {
+      const mockResponse = createMockResponse(true, {
+        temp_url: "/api/books/1/cover",
+      });
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      const result = await import("./bookService").then((m) =>
+        m.uploadBookCover(bookId, file),
+      );
+
+      expect(result).toEqual({ temp_url: "/api/books/1/cover" });
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        `/api/books/${bookId}/cover`,
+        expect.objectContaining({
+          method: "POST",
+          credentials: "include",
+          // body should be FormData, but we can't easily check FormData content in this environment
+          // without additional setup, so checking it's an object is enough for now
+          body: expect.any(FormData),
+        }),
+      );
+    });
+
+    it("should throw error when upload fails", async () => {
+      const mockResponse = createMockResponse(false, {
+        detail: "Invalid image format",
+      });
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      await expect(
+        import("./bookService").then((m) => m.uploadBookCover(bookId, file)),
+      ).rejects.toThrow("Invalid image format");
+    });
+
+    it("should throw default error when upload fails without detail", async () => {
+      const mockResponse = createMockResponse(false, {});
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockResponse,
+      );
+
+      await expect(
+        import("./bookService").then((m) => m.uploadBookCover(bookId, file)),
+      ).rejects.toThrow("Failed to upload cover");
+    });
+  });
 });

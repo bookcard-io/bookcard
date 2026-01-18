@@ -17,6 +17,7 @@
 
 import { useEffect, useState } from "react";
 import { useBookCoverFromUrl } from "@/hooks/useBookCoverFromUrl";
+import { uploadBookCover } from "@/services/bookService";
 import type { Book } from "@/types/book";
 import { getCoverUrlWithCacheBuster } from "@/utils/books";
 import { BookCoverActions } from "./BookCoverActions";
@@ -58,25 +59,47 @@ export function BookEditCoverSection({
 }: BookEditCoverSectionProps) {
   // Local state to track cover URL with cache-busting
   const [coverUrl, setCoverUrl] = useState<string | null>(book.thumbnail_url);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Update cover URL when book changes
   useEffect(() => {
     setCoverUrl(book.thumbnail_url);
   }, [book.thumbnail_url]);
 
-  const { isLoading, error, urlInput, handleUrlChange, handleSetFromUrlClick } =
-    useBookCoverFromUrl({
-      bookId: book.id,
-      onCoverUrlSet,
-      onUrlInputVisibilityChange,
-      onCoverSaved: () => {
-        // Update cover URL with cache-busting parameter to force image refresh
-        // without refetching the entire book data (DRY: using utility)
-        setCoverUrl(getCoverUrlWithCacheBuster(book.id));
-        // Notify parent component
-        onCoverSaved?.();
-      },
-    });
+  const {
+    isLoading: isUrlLoading,
+    error,
+    urlInput,
+    handleUrlChange,
+    handleSetFromUrlClick,
+  } = useBookCoverFromUrl({
+    bookId: book.id,
+    onCoverUrlSet,
+    onUrlInputVisibilityChange,
+    onCoverSaved: () => {
+      // Update cover URL with cache-busting parameter to force image refresh
+      // without refetching the entire book data (DRY: using utility)
+      setCoverUrl(getCoverUrlWithCacheBuster(book.id));
+      // Notify parent component
+      onCoverSaved?.();
+    },
+  });
+
+  const handleFileSelect = async (file: File) => {
+    setIsUploading(true);
+    try {
+      await uploadBookCover(book.id, file);
+      setCoverUrl(getCoverUrlWithCacheBuster(book.id));
+      onCoverSaved?.();
+    } catch (err) {
+      console.error("Failed to upload cover:", err);
+      // TODO: Handle error state (maybe reuse error from hook or add new one)
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const isLoading = isUrlLoading || isUploading;
 
   // Use staged cover URL if available, otherwise use local cover URL
   const displayCoverUrl = stagedCoverUrl || coverUrl;
@@ -93,6 +116,8 @@ export function BookEditCoverSection({
           book={book}
           isUrlInputVisible={urlInput.isVisible}
           onSetFromUrlClick={handleSetFromUrlClick}
+          onFileSelect={handleFileSelect}
+          isLoading={isLoading}
           urlInput={
             urlInput.isVisible ? (
               <CoverUrlInput

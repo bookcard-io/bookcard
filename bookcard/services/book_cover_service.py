@@ -142,6 +142,35 @@ class BookCoverService:
         """
         self.validate_url(url)
         content, _image = self.download_and_validate_image(url)
+        return self.save_cover_image(book_id, content)
+
+    def save_cover_image(self, book_id: int, content: bytes) -> str:
+        """Save cover image content to book directory.
+
+        Parameters
+        ----------
+        book_id : int
+            Calibre book ID.
+        content : bytes
+            Image content bytes.
+
+        Returns
+        -------
+        str
+            Cover URL path for API access.
+
+        Raises
+        ------
+        ValueError
+            If book not found, image is invalid, or save fails.
+        """
+        # Validate image content
+        try:
+            image = Image.open(io.BytesIO(content))
+            image.verify()
+        except Exception as exc:
+            error_msg = "invalid_image_format"
+            raise ValueError(error_msg) from exc
 
         # Get book with relations to access book path
         book_with_rels = self._book_service.get_book_full(book_id)

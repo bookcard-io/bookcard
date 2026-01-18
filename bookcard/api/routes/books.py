@@ -823,6 +823,80 @@ def get_book_cover(
     )
 
 
+@router.post("/{book_id}/cover", response_model=CoverFromUrlResponse)
+def upload_cover_image(
+    book_id: int,
+    current_user: CurrentUserDep,
+    book_service: BookServiceDep,
+    permission_helper: PermissionHelperDep,
+    cover_service: CoverServiceDep,
+    session: SessionDep,
+    file: Annotated[UploadFile, File(...)],
+) -> CoverFromUrlResponse:
+    """Upload a cover image file.
+
+    Parameters
+    ----------
+    book_id : int
+        Calibre book ID.
+    current_user : CurrentUserDep
+        Current authenticated user.
+    book_service : BookServiceDep
+        Book service dependency.
+    permission_helper : PermissionHelperDep
+        Permission helper dependency.
+    cover_service : CoverServiceDep
+        Cover service dependency.
+    session : SessionDep
+        Database session dependency.
+    file : UploadFile
+        Cover image file.
+
+    Returns
+    -------
+    CoverFromUrlResponse
+        Response containing URL to access the saved cover image.
+
+    Raises
+    ------
+    HTTPException
+        If book not found, permission denied, or upload fails.
+    """
+    existing_book = book_service.get_book_full(book_id)
+    if existing_book is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="book_not_found",
+        )
+
+    permission_helper.check_write_permission(current_user, existing_book)
+
+    try:
+        content = file.file.read()
+        cover_url = cover_service.save_cover_image(book_id, content)
+
+        # Refresh book data to get updated cover status
+        updated_book = book_service.get_book_full(book_id)
+
+        # Trigger metadata enforcement if enabled (includes cover embedding)
+        if updated_book is not None:
+            enforcement_trigger = MetadataEnforcementTriggerService(session=session)
+            enforcement_trigger.trigger_enforcement_if_enabled(
+                book_id=book_id,
+                book_with_rels=updated_book,
+                user_id=current_user.id,
+            )
+
+        return CoverFromUrlResponse(temp_url=cover_url)
+    except ValueError as exc:
+        raise BookExceptionMapper.map_cover_error_to_http_exception(exc) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"internal_error: {exc!s}",
+        ) from exc
+
+
 @router.get("/{book_id}/download/{file_format}", response_model=None)
 def download_book_file(
     current_user: OptionalUserDep,
