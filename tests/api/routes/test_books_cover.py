@@ -18,14 +18,23 @@
 from __future__ import annotations
 
 import io
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-import bookcard.api.routes.books as books
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+from bookcard.api.deps import get_current_user, get_db_session
 from bookcard.api.main import app
+from bookcard.api.routes.books import (
+    _get_active_library_service,
+    _get_cover_service,
+    _get_permission_helper,
+)
 from bookcard.models.auth import User
 from bookcard.models.core import Book
 from bookcard.repositories.models import BookWithFullRelations
@@ -49,33 +58,46 @@ def mock_book_service() -> MagicMock:
 def override_dependencies(
     mock_book_service: MagicMock,
     mock_cover_service: MagicMock,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+    session: object,
+) -> Generator[None, None, None]:
     """Override API dependencies."""
-
-    def mock_get_active_library_service(session: object) -> BookService:
-        return mock_book_service
-
-    def mock_get_cover_service(book_service: BookService) -> BookCoverService:
-        return mock_cover_service
-
-    monkeypatch.setattr(
-        books, "_get_active_library_service", mock_get_active_library_service
-    )
-    monkeypatch.setattr(books, "_get_cover_service", mock_get_cover_service)
+    # Ensure clean state
+    app.dependency_overrides = {}
 
     # Mock permission helper
     mock_permission_helper = MagicMock()
     mock_permission_helper.check_write_permission.return_value = None
 
-    def mock_get_permission_helper(session: object) -> MagicMock:
+    def mock_get_active_library_service() -> BookService:
+        return mock_book_service
+
+    def mock_get_cover_service() -> BookCoverService:
+        return mock_cover_service
+
+    def mock_get_permission_helper() -> MagicMock:
         return mock_permission_helper
 
-    monkeypatch.setattr(books, "_get_permission_helper", mock_get_permission_helper)
+    def mock_get_db_session() -> Generator[object, None, None]:
+        yield session
+
+    def mock_get_current_user() -> User:
+        return User(id=1, username="test", is_admin=True)
+
+    app.dependency_overrides[_get_active_library_service] = (
+        mock_get_active_library_service
+    )
+    app.dependency_overrides[_get_cover_service] = mock_get_cover_service
+    app.dependency_overrides[_get_permission_helper] = mock_get_permission_helper
+    app.dependency_overrides[get_db_session] = mock_get_db_session
+    app.dependency_overrides[get_current_user] = mock_get_current_user
+
+    yield
+
+    app.dependency_overrides = {}
 
 
 @pytest.fixture
-def client() -> TestClient:
+def client(override_dependencies: None) -> TestClient:
     """Create test client."""
     return TestClient(app)
 
@@ -84,7 +106,6 @@ def test_upload_cover_image_success(
     client: TestClient,
     mock_book_service: MagicMock,
     mock_cover_service: MagicMock,
-    override_dependencies: None,
 ) -> None:
     """Test successful cover upload."""
     book_id = 1
@@ -115,21 +136,10 @@ def test_upload_cover_image_success(
 
     files = {"file": ("cover.jpg", image_bytes, "image/jpeg")}
 
-    # Need to authenticate user
-    # Ideally use a fixture that provides an authenticated client or sets overrides
-    # For now, let's assume we can override get_current_user
-
-    app.dependency_overrides[books.get_current_user] = lambda: User(
-        id=1, username="test", is_admin=True
+    response = client.post(
+        f"/books/{book_id}/cover",
+        files=files,
     )
-
-    try:
-        response = client.post(
-            f"/books/{book_id}/cover",
-            files=files,
-        )
-    finally:
-        app.dependency_overrides = {}
 
     assert response.status_code == 200
     assert response.json() == {"temp_url": f"/api/books/{book_id}/cover"}
@@ -138,25 +148,16 @@ def test_upload_cover_image_success(
 def test_upload_cover_image_book_not_found(
     client: TestClient,
     mock_book_service: MagicMock,
-    mock_cover_service: MagicMock,
-    override_dependencies: None,
 ) -> None:
     """Test upload fails when book not found."""
     book_id = 999
     mock_book_service.get_book_full.return_value = None
 
-    app.dependency_overrides[books.get_current_user] = lambda: User(
-        id=1, username="test", is_admin=True
+    files = {"file": ("cover.jpg", b"fake-content", "image/jpeg")}
+    response = client.post(
+        f"/books/{book_id}/cover",
+        files=files,
     )
-
-    try:
-        files = {"file": ("cover.jpg", b"fake-content", "image/jpeg")}
-        response = client.post(
-            f"/books/{book_id}/cover",
-            files=files,
-        )
-    finally:
-        app.dependency_overrides = {}
 
     assert response.status_code == 404
     assert response.json()["detail"] == "book_not_found"
@@ -166,7 +167,6 @@ def test_upload_cover_image_invalid_file(
     client: TestClient,
     mock_book_service: MagicMock,
     mock_cover_service: MagicMock,
-    override_dependencies: None,
 ) -> None:
     """Test upload fails when file is invalid."""
     book_id = 1
@@ -189,18 +189,11 @@ def test_upload_cover_image_invalid_file(
     mock_book_service.get_book_full.return_value = mock_book
     mock_cover_service.save_cover_image.side_effect = ValueError("invalid_image_format")
 
-    app.dependency_overrides[books.get_current_user] = lambda: User(
-        id=1, username="test", is_admin=True
+    files = {"file": ("cover.txt", b"not-an-image", "text/plain")}
+    response = client.post(
+        f"/books/{book_id}/cover",
+        files=files,
     )
-
-    try:
-        files = {"file": ("cover.txt", b"not-an-image", "text/plain")}
-        response = client.post(
-            f"/books/{book_id}/cover",
-            files=files,
-        )
-    finally:
-        app.dependency_overrides = {}
 
     assert response.status_code == 400
     assert response.json()["detail"] == "invalid_image_format"
