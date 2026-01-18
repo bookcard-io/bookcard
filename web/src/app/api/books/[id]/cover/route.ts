@@ -14,7 +14,10 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { type NextRequest, NextResponse } from "next/server";
-import { getOptionalClient } from "@/services/http/routeHelpers";
+import {
+  getAuthenticatedClient,
+  getOptionalClient,
+} from "@/services/http/routeHelpers";
 
 /**
  * GET /api/books/[id]/cover
@@ -71,6 +74,65 @@ export async function GET(
     console.error("Cover fetch error:", error);
     return NextResponse.json(
       { detail: "Internal server error" },
+      { status: 500 },
+    );
+  }
+}
+
+/**
+ * POST /api/books/[id]/cover
+ *
+ * Proxies request to upload book cover image.
+ */
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    // Read formData first
+    const formData = await request.formData();
+    const file = formData.get("file") as File | null;
+
+    if (!file) {
+      return NextResponse.json({ detail: "No file provided" }, { status: 400 });
+    }
+
+    const { client, error } = getAuthenticatedClient(request);
+
+    if (error) {
+      return error;
+    }
+
+    const { id } = await params;
+
+    const backendFormData = new FormData();
+    backendFormData.append("file", file);
+
+    const response = await client.request(`/books/${id}/cover`, {
+      method: "POST",
+      headers: {}, // Empty headers - fetch will set Content-Type for FormData
+      body: backendFormData,
+    });
+
+    if (!response.ok) {
+      const data = await response
+        .json()
+        .catch(() => ({ detail: "Failed to upload cover" }));
+      return NextResponse.json(
+        { detail: data.detail || "Failed to upload cover" },
+        { status: response.status },
+      );
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("Cover upload error:", error);
+    return NextResponse.json(
+      {
+        detail:
+          error instanceof Error ? error.message : "Internal server error",
+      },
       { status: 500 },
     );
   }
