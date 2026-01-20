@@ -158,6 +158,11 @@ class EmailServerConfig(SQLModel, table=True):
         sa_column_kwargs={"onupdate": lambda: datetime.now(UTC)},
     )
 
+    @property
+    def has_smtp_password(self) -> bool:
+        """Check if an SMTP password is set."""
+        return bool(self.smtp_password)
+
 
 class Library(SQLModel, table=True):
     """Calibre library configuration.

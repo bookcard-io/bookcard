@@ -489,6 +489,7 @@ class EmailServerConfigRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int | None = None
+    has_smtp_password: bool = False
     server_type: EmailServerType
     smtp_host: str | None = None
     smtp_port: int | None = None

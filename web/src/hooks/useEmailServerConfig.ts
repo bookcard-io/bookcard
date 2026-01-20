@@ -23,6 +23,8 @@ import {
   updateEmailServerConfig,
 } from "@/services/emailServerConfigService";
 
+const PASSWORD_PLACEHOLDER = "**********";
+
 export interface EmailServerConfigFormData
   extends Partial<EmailServerConfigData> {
   smtp_password?: string;
@@ -113,7 +115,7 @@ export function useEmailServerConfig(
       smtp_host: data.smtp_host || null,
       smtp_port: data.smtp_port ?? 587,
       smtp_username: data.smtp_username || null,
-      smtp_password: undefined, // Password is never returned
+      smtp_password: data.has_smtp_password ? PASSWORD_PLACEHOLDER : undefined,
       smtp_use_tls: data.smtp_use_tls ?? true,
       smtp_use_ssl: data.smtp_use_ssl ?? false,
       smtp_from_email: data.smtp_from_email || null,
@@ -164,7 +166,15 @@ export function useEmailServerConfig(
       formData.smtp_from_name !== (config.smtp_from_name || null) ||
       formData.max_email_size_mb !== (config.max_email_size_mb ?? 25) ||
       formData.enabled !== (config.enabled ?? true) ||
-      formData.smtp_password !== undefined; // Password change counts as a change
+      // Password change logic:
+      // - If we have an existing password, any value other than the placeholder is a change
+      // - If we don't have a password, any non-empty value is a change
+      (() => {
+        if (config.has_smtp_password) {
+          return formData.smtp_password !== PASSWORD_PLACEHOLDER;
+        }
+        return !!formData.smtp_password;
+      })();
 
     setHasChanges(hasModifications);
   }, [formData, config]);
@@ -211,7 +221,10 @@ export function useEmailServerConfig(
           payload.smtp_port = formData.smtp_port;
         if (formData.smtp_username)
           payload.smtp_username = formData.smtp_username;
-        if (formData.smtp_password !== undefined) {
+        if (
+          formData.smtp_password !== undefined &&
+          formData.smtp_password !== PASSWORD_PLACEHOLDER
+        ) {
           payload.smtp_password = formData.smtp_password;
         }
         if (formData.smtp_use_tls !== undefined) {
@@ -235,7 +248,9 @@ export function useEmailServerConfig(
       setConfig(updatedConfig);
       setFormData((prev) => ({
         ...prev,
-        smtp_password: undefined, // Clear password after save
+        smtp_password: updatedConfig.has_smtp_password
+          ? PASSWORD_PLACEHOLDER
+          : undefined,
       }));
       setHasChanges(false);
 

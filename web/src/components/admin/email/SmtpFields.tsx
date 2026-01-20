@@ -92,10 +92,8 @@ export function SmtpFields({ formData, onFieldChange }: SmtpFieldsProps) {
           label="SMTP Password"
           type="password"
           value={formData.smtp_password || ""}
-          onChange={(e) =>
-            onFieldChange("smtp_password", e.target.value || undefined)
-          }
-          placeholder="Leave blank to keep current password"
+          onChange={(e) => onFieldChange("smtp_password", e.target.value)}
+          placeholder="Password (leave blank for no authentication)"
         />
       </div>
 

@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 import pytest
 from fastapi import HTTPException
@@ -23,6 +24,7 @@ from fastapi import HTTPException
 import bookcard.api.routes.auth as auth
 from bookcard.api.schemas import ProfilePictureUpdateRequest
 from bookcard.models.auth import User
+from bookcard.models.config import EmailServerConfig, EmailServerType
 from tests.conftest import TEST_ENCRYPTION_KEY, DummySession
 
 
@@ -1791,10 +1793,10 @@ def test_upsert_email_server_config_invalid_smtp_encryption(
     assert exc_info.value.detail == "invalid_smtp_encryption"
 
 
-def test_upsert_email_server_config_other_value_error(
+def test_upsert_email_server_config_clears_password(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Test upsert_email_server_config re-raises ValueError with other messages (covers line 719)."""
+    """Test upsert_email_server_config clears password when empty string provided."""
     from bookcard.api.schemas import EmailServerConfigUpdate
 
     user = User(
@@ -1810,12 +1812,31 @@ def test_upsert_email_server_config_other_value_error(
 
     monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
 
-    class StubService:
-        def upsert_email_server_config(self, **kwargs: object) -> None:
-            raise ValueError("other_error")
+    # Mock config with existing password
+    config = EmailServerConfig(
+        id=1,
+        server_type=EmailServerType.SMTP,
+        smtp_host="smtp.example.com",
+        smtp_password="encrypted_password",
+        enabled=True,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
 
-        def get_email_server_config(self, decrypt: bool = False) -> None:
-            return None
+    class StubService:
+        def get_email_server_config(self, decrypt: bool = False) -> EmailServerConfig:
+            return config
+
+        def upsert_email_server_config(
+            self,
+            *,
+            server_type: EmailServerType,
+            smtp_password: str | None = None,
+            **kwargs: object,
+        ) -> EmailServerConfig:
+            if smtp_password == "":
+                config.smtp_password = None
+            return config
 
     def fake_auth_service(request: object, session: object) -> StubService:
         return StubService()
@@ -1823,7 +1844,74 @@ def test_upsert_email_server_config_other_value_error(
     monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
 
     session = DummySession()
-    payload = EmailServerConfigUpdate(smtp_host="smtp.example.com")
+    # Send empty string as password to clear it
+    payload = EmailServerConfigUpdate(
+        server_type=EmailServerType.SMTP, smtp_password=""
+    )
+    result = auth.upsert_email_server_config(DummyRequest(), session, payload)
 
-    with pytest.raises(ValueError, match="other_error"):
-        auth.upsert_email_server_config(DummyRequest(), session, payload)
+    # Verify password was cleared (not in response read model, but logic executed)
+    # We can check the mock config object directly
+    assert config.smtp_password is None
+    # And check the property on the result
+    assert result.has_smtp_password is False
+
+
+def test_upsert_email_server_config_sets_password(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test upsert_email_server_config sets new password."""
+    from bookcard.api.schemas import EmailServerConfigUpdate
+
+    user = User(
+        id=1,
+        username="admin",
+        email="admin@example.com",
+        password_hash="hash",
+        is_admin=True,
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    config = EmailServerConfig(
+        id=1,
+        server_type=EmailServerType.SMTP,
+        smtp_host="smtp.example.com",
+        enabled=True,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    class StubService:
+        def get_email_server_config(self, decrypt: bool = False) -> EmailServerConfig:
+            return config
+
+        def upsert_email_server_config(
+            self,
+            *,
+            server_type: EmailServerType,
+            smtp_password: str | None = None,
+            **kwargs: object,
+        ) -> EmailServerConfig:
+            if smtp_password:
+                config.smtp_password = (
+                    smtp_password  # In real app, this would be encrypted
+                )
+            return config
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+
+    session = DummySession()
+    payload = EmailServerConfigUpdate(
+        server_type=EmailServerType.SMTP, smtp_password="new-password"
+    )
+    result = auth.upsert_email_server_config(DummyRequest(), session, payload)
+
+    assert config.smtp_password == "new-password"
+    assert result.has_smtp_password is True

@@ -51,6 +51,7 @@ function createMockConfig(
     smtp_use_ssl: false,
     smtp_from_email: "from@example.com",
     smtp_from_name: "Test Sender",
+    has_smtp_password: true,
     max_email_size_mb: 25,
     gmail_token: null,
     enabled: true,
@@ -248,7 +249,7 @@ describe("useEmailServerConfig", () => {
       vi.mocked(emailServerConfigService.updateEmailServerConfig),
     ).toHaveBeenCalled();
     expect(result.current.config).toEqual(updatedConfig);
-    expect(result.current.formData.smtp_password).toBeUndefined();
+    expect(result.current.formData.smtp_password).toBe("**********");
     expect(result.current.hasChanges).toBe(false);
     expect(mockOnSaveSuccess).toHaveBeenCalledWith(updatedConfig);
   });
@@ -500,12 +501,9 @@ describe("useEmailServerConfig", () => {
 
     const { result } = renderHook(() => useEmailServerConfig());
 
-    await waitFor(
-      () => {
-        expect(result.current.isLoading).toBe(false);
-      },
-      { timeout: 3000 },
-    );
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
 
     expect(result.current.hasChanges).toBe(false);
   });
@@ -656,5 +654,128 @@ describe("useEmailServerConfig", () => {
     // Should handle non-Error object (lines 247-249)
     expect(result.current.error).toBe("Failed to save configuration");
     expect(mockOnError).toHaveBeenCalledWith("Failed to save configuration");
+  });
+
+  it("should initialize password field with placeholder if has_smtp_password is true", async () => {
+    const mockConfig = createMockConfig({ has_smtp_password: true });
+    vi.mocked(
+      emailServerConfigService.fetchEmailServerConfig,
+    ).mockResolvedValue(mockConfig);
+
+    const { result } = renderHook(() => useEmailServerConfig());
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.formData.smtp_password).toBe("**********");
+  });
+
+  it("should initialize password field as undefined if has_smtp_password is false", async () => {
+    const mockConfig = createMockConfig({ has_smtp_password: false });
+    vi.mocked(
+      emailServerConfigService.fetchEmailServerConfig,
+    ).mockResolvedValue(mockConfig);
+
+    const { result } = renderHook(() => useEmailServerConfig());
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.formData.smtp_password).toBeUndefined();
+  });
+
+  it("should not send password if it is the placeholder value", async () => {
+    const mockConfig = createMockConfig({ has_smtp_password: true });
+    vi.mocked(
+      emailServerConfigService.fetchEmailServerConfig,
+    ).mockResolvedValue(mockConfig);
+    vi.mocked(
+      emailServerConfigService.updateEmailServerConfig,
+    ).mockResolvedValue(mockConfig);
+
+    const { result } = renderHook(() => useEmailServerConfig());
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    // Ensure it's set to placeholder
+    expect(result.current.formData.smtp_password).toBe("**********");
+
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
+
+    expect(
+      vi.mocked(emailServerConfigService.updateEmailServerConfig),
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        server_type: "smtp",
+      }),
+    );
+    // Should NOT have smtp_password in the call args
+    const mockCalls = vi.mocked(
+      emailServerConfigService.updateEmailServerConfig,
+    ).mock.calls;
+    expect(mockCalls[0]).toBeDefined();
+    const callArgs = mockCalls[0]?.[0];
+    expect(callArgs?.smtp_password).toBeUndefined();
+  });
+
+  it("should send password if it is cleared (empty string)", async () => {
+    const mockConfig = createMockConfig({ has_smtp_password: true });
+    vi.mocked(
+      emailServerConfigService.fetchEmailServerConfig,
+    ).mockResolvedValue(mockConfig);
+    vi.mocked(
+      emailServerConfigService.updateEmailServerConfig,
+    ).mockResolvedValue(mockConfig);
+
+    const { result } = renderHook(() => useEmailServerConfig());
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.handleFieldChange("smtp_password", "");
+    });
+
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
+
+    expect(
+      vi.mocked(emailServerConfigService.updateEmailServerConfig),
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        smtp_password: "",
+      }),
+    );
+  });
+
+  it("should not detect changes if password field is touched but left empty when no password exists", async () => {
+    const mockConfig = createMockConfig({ has_smtp_password: false });
+    vi.mocked(
+      emailServerConfigService.fetchEmailServerConfig,
+    ).mockResolvedValue(mockConfig);
+
+    const { result } = renderHook(() => useEmailServerConfig());
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    act(() => {
+      // Simulate user typing then clearing, or just focusing and leaving empty
+      result.current.handleFieldChange("smtp_password", "");
+    });
+
+    await waitFor(() => {
+      // Should NOT be considered a change because no password existed
+      expect(result.current.hasChanges).toBe(false);
+    });
   });
 });

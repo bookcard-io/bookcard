@@ -77,6 +77,7 @@ function createMockConfig(
     smtp_use_ssl: false,
     smtp_from_email: "from@example.com",
     smtp_from_name: "Test Sender",
+    has_smtp_password: true,
     max_email_size_mb: 25,
     gmail_token: null,
     enabled: true,
