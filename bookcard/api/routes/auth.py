@@ -47,13 +47,18 @@ from bookcard.api.schemas import (
     UserCreate,
     UserRead,
 )
-from bookcard.models.auth import Role, RolePermission, User, UserRole
-from bookcard.models.config import EmailServerType
+from bookcard.models.auth import Role, RolePermission, User, UserRole, UserSetting
+from bookcard.models.config import EmailServerConfig, EmailServerType
+from bookcard.repositories.admin_repositories import InviteRepository, SettingRepository
 from bookcard.repositories.user_repository import (
     TokenBlacklistRepository,
     UserRepository,
 )
-from bookcard.services.auth_service import AuthError, AuthService
+from bookcard.services.authentication_service import AuthenticationService, AuthError
+from bookcard.services.email_config_update import (
+    EmailServerConfigUpdate as EmailServerConfigUpdateDTO,
+)
+from bookcard.services.file_storage_service import FileStorageService
 from bookcard.services.oidc_auth_service import OIDCAuthError, OIDCAuthService
 from bookcard.services.security import (
     DataEncryptor,
@@ -61,7 +66,10 @@ from bookcard.services.security import (
     PasswordHasher,
     SecurityTokenError,
 )
+from bookcard.services.system_configuration_service import SystemConfigurationService
 from bookcard.services.user_linking_service import UserLinkingService
+from bookcard.services.user_profile_service import ProfileError, UserProfileService
+from bookcard.services.user_settings_service import UserSettingsService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -71,19 +79,141 @@ SessionDep = Annotated[Session, Depends(get_db_session)]
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
 
 
-def _auth_service(request: Request, session: Session) -> AuthService:
+class AuthFacade:
+    """Facade used by the API layer to orchestrate auth-related operations.
+
+    This is intentionally thin: it composes smaller services so the route
+    handlers can depend on a single object without pulling business logic
+    into the web layer.
+    """
+
+    def __init__(
+        self,
+        *,
+        authentication: AuthenticationService,
+        user_profile: UserProfileService,
+        user_settings: UserSettingsService,
+        system_config: SystemConfigurationService,
+    ) -> None:
+        self._authentication = authentication
+        self._user_profile = user_profile
+        self._user_settings = user_settings
+        self._system_config = system_config
+
+    def register_user(
+        self, username: str, email: str, password: str
+    ) -> tuple[User, str]:
+        """Register a new user and return (user, token)."""
+        return self._authentication.register_user(username, email, password)
+
+    def login_user(self, identifier: str, password: str) -> tuple[User, str]:
+        """Login a user and return (user, token)."""
+        return self._authentication.login_user(identifier, password)
+
+    def validate_invite_token(self, token: str) -> bool:
+        """Validate an invite token."""
+        return self._authentication.validate_invite_token(token)
+
+    def change_password(
+        self, user_id: int, current_password: str, new_password: str
+    ) -> None:
+        """Change a user's password."""
+        self._user_profile.change_password(user_id, current_password, new_password)
+
+    def update_profile(
+        self,
+        user_id: int,
+        *,
+        username: str | None = None,
+        email: str | None = None,
+        full_name: str | None = None,
+    ) -> User:
+        """Update user profile fields."""
+        return self._user_profile.update_profile(
+            user_id, username=username, email=email, full_name=full_name
+        )
+
+    def upload_profile_picture(
+        self, user_id: int, file_content: bytes, filename: str
+    ) -> User:
+        """Upload and set a user's profile picture."""
+        return self._user_profile.upload_profile_picture(
+            user_id, file_content, filename
+        )
+
+    def update_profile_picture(self, user_id: int, picture_path: str) -> User:
+        """Set profile picture path without uploading."""
+        return self._user_profile.update_profile_picture_path(user_id, picture_path)
+
+    def delete_profile_picture(self, user_id: int) -> User:
+        """Delete a user's profile picture."""
+        return self._user_profile.delete_profile_picture(user_id)
+
+    def upsert_setting(
+        self, user_id: int, key: str, value: str, description: str | None = None
+    ) -> UserSetting:
+        """Create or update a user setting."""
+        return self._user_settings.upsert_setting(user_id, key, value, description)
+
+    def get_all_settings(self, user_id: int) -> list[UserSetting]:
+        """Return all settings for a user."""
+        return self._user_settings.get_all_settings(user_id)
+
+    def get_email_server_config(
+        self, decrypt: bool = False
+    ) -> EmailServerConfig | None:
+        """Return global email server configuration."""
+        return self._system_config.get_email_server_config(decrypt=decrypt)
+
+    def upsert_email_server_config(
+        self, update: EmailServerConfigUpdate
+    ) -> EmailServerConfig:
+        """Create or update global email server configuration."""
+        dto = EmailServerConfigUpdateDTO(**update.model_dump(exclude_unset=True))
+        return self._system_config.upsert_email_server_config(dto)
+
+
+def _auth_service(request: Request, session: Session) -> AuthFacade:
+    """Create the request-scoped auth facade.
+
+    Parameters
+    ----------
+    request : Request
+        FastAPI request.
+    session : Session
+        Database session.
+
+    Returns
+    -------
+    AuthFacade
+        Composed facade for auth routes.
+    """
     cfg = request.app.state.config
-    jwt = JWTManager(cfg)
-    hasher = PasswordHasher()
     encryptor = DataEncryptor(cfg.encryption_key)
-    repo = UserRepository(session)
-    return AuthService(
-        session,
-        repo,
-        hasher,
-        jwt,
-        encryptor=encryptor,
-        data_directory=cfg.data_directory,
+    user_repo = UserRepository(session)
+    return AuthFacade(
+        authentication=AuthenticationService(
+            session=session,
+            user_repo=user_repo,
+            invite_repo=InviteRepository(session),
+            hasher=PasswordHasher(),
+            jwt=JWTManager(cfg),
+        ),
+        user_profile=UserProfileService(
+            session=session,
+            user_repo=user_repo,
+            hasher=PasswordHasher(),
+            file_storage=FileStorageService(data_directory=cfg.data_directory),
+        ),
+        user_settings=UserSettingsService(
+            session=session,
+            user_repo=user_repo,
+            setting_repo=SettingRepository(session),
+        ),
+        system_config=SystemConfigurationService(
+            session=session,
+            encryptor=encryptor,
+        ),
     )
 
 
@@ -348,7 +478,7 @@ def change_password(
         logger.info("Password changed: user_id=%s", current_user.id)
     except ValueError as exc:
         msg = str(exc)
-        if msg == AuthError.INVALID_PASSWORD:
+        if msg == ProfileError.INVALID_PASSWORD:
             logger.debug(
                 "Password change failed: invalid password for user_id=%s",
                 current_user.id,
@@ -480,7 +610,7 @@ def update_profile(
         msg = str(exc)
         if msg == "user_not_found":
             raise HTTPException(status_code=404, detail=msg) from exc
-        if msg in {AuthError.USERNAME_EXISTS, AuthError.EMAIL_EXISTS}:
+        if msg in {ProfileError.USERNAME_EXISTS, ProfileError.EMAIL_EXISTS}:
             raise HTTPException(status_code=409, detail=msg) from exc
         raise
     return ProfileRead.model_validate(user)
@@ -527,7 +657,7 @@ def upload_profile_picture(
 
     try:
         file_content = file.file.read()
-    except Exception as exc:
+    except OSError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"failed_to_read_file: {exc!s}",
@@ -549,7 +679,7 @@ def upload_profile_picture(
         msg = str(exc)
         if msg == "user_not_found":
             raise HTTPException(status_code=404, detail=msg) from exc
-        if msg == "invalid_file_type":
+        if msg == ProfileError.INVALID_FILE_TYPE:
             raise HTTPException(status_code=400, detail=msg) from exc
         if msg.startswith("failed_to_save_file"):
             raise HTTPException(status_code=500, detail=msg) from exc
@@ -876,9 +1006,7 @@ def upsert_email_server_config(
         raise HTTPException(status_code=403, detail="forbidden")
 
     try:
-        cfg = service.upsert_email_server_config(
-            **payload.model_dump(exclude_unset=True)
-        )
+        cfg = service.upsert_email_server_config(payload)
         session.commit()
         logger.info("Email server config updated: user_id=%s", current_user.id)
         # Decrypt for API response (password won't be included in response model)

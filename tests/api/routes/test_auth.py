@@ -360,9 +360,7 @@ def test_auth_service_constructs_service(monkeypatch: pytest.MonkeyPatch) -> Non
 
     # Test that _auth_service constructs the service correctly
     service = auth._auth_service(request, session)  # type: ignore[arg-type]
-    from bookcard.services.auth_service import AuthService
-
-    assert isinstance(service, AuthService)
+    assert isinstance(service, auth.AuthFacade)
 
 
 def test_change_password_success(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1638,7 +1636,7 @@ def test_upsert_email_server_config_not_admin(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
 
     class StubService:
-        def upsert_email_server_config(self, **kwargs: object) -> None:
+        def upsert_email_server_config(self, payload: object) -> None:
             return None
 
     def fake_auth_service(request: object, session: object) -> StubService:
@@ -1686,7 +1684,7 @@ def test_upsert_email_server_config_success(monkeypatch: pytest.MonkeyPatch) -> 
     )
 
     class StubService:
-        def upsert_email_server_config(self, **kwargs: object) -> EmailServerConfig:
+        def upsert_email_server_config(self, payload: object) -> EmailServerConfig:
             return config
 
         def get_email_server_config(self, decrypt: bool) -> EmailServerConfig:
@@ -1736,7 +1734,7 @@ def test_upsert_email_server_config_retrieval_fails(
     )
 
     class StubService:
-        def upsert_email_server_config(self, **kwargs: object) -> EmailServerConfig:
+        def upsert_email_server_config(self, payload: object) -> EmailServerConfig:
             return config
 
         def get_email_server_config(self, decrypt: bool) -> None:
@@ -1776,7 +1774,7 @@ def test_upsert_email_server_config_invalid_smtp_encryption(
     monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
 
     class StubService:
-        def upsert_email_server_config(self, **kwargs: object) -> None:
+        def upsert_email_server_config(self, payload: object) -> None:
             raise ValueError("invalid_smtp_encryption")
 
     def fake_auth_service(request: object, session: object) -> StubService:
@@ -1827,13 +1825,8 @@ def test_upsert_email_server_config_clears_password(
         def get_email_server_config(self, decrypt: bool = False) -> EmailServerConfig:
             return config
 
-        def upsert_email_server_config(
-            self,
-            *,
-            server_type: EmailServerType,
-            smtp_password: str | None = None,
-            **kwargs: object,
-        ) -> EmailServerConfig:
+        def upsert_email_server_config(self, payload: object) -> EmailServerConfig:
+            smtp_password = getattr(payload, "smtp_password", None)
             if smtp_password == "":
                 config.smtp_password = None
             return config
@@ -1889,13 +1882,8 @@ def test_upsert_email_server_config_sets_password(
         def get_email_server_config(self, decrypt: bool = False) -> EmailServerConfig:
             return config
 
-        def upsert_email_server_config(
-            self,
-            *,
-            server_type: EmailServerType,
-            smtp_password: str | None = None,
-            **kwargs: object,
-        ) -> EmailServerConfig:
+        def upsert_email_server_config(self, payload: object) -> EmailServerConfig:
+            smtp_password = getattr(payload, "smtp_password", None)
             if smtp_password:
                 config.smtp_password = (
                     smtp_password  # In real app, this would be encrypted
@@ -1952,14 +1940,8 @@ def test_upsert_email_server_config_clears_username(
         def get_email_server_config(self, decrypt: bool = False) -> EmailServerConfig:
             return config
 
-        def upsert_email_server_config(
-            self,
-            *,
-            server_type: EmailServerType,
-            smtp_username: str | None = None,
-            **kwargs: object,
-        ) -> EmailServerConfig:
-            # Simulate the logic we want to implement
+        def upsert_email_server_config(self, payload: object) -> EmailServerConfig:
+            smtp_username = getattr(payload, "smtp_username", None)
             if smtp_username == "":
                 config.smtp_username = None
             return config
@@ -2015,14 +1997,9 @@ def test_upsert_email_server_config_validates_from_email(
         def get_email_server_config(self, decrypt: bool = False) -> EmailServerConfig:
             return config
 
-        def upsert_email_server_config(
-            self,
-            *,
-            server_type: EmailServerType,
-            smtp_username: str | None = None,
-            **kwargs: object,
-        ) -> EmailServerConfig:
+        def upsert_email_server_config(self, payload: object) -> EmailServerConfig:
             # Simulate validation logic
+            smtp_username = getattr(payload, "smtp_username", None)
             if smtp_username == "":
                 config.smtp_username = None
 
