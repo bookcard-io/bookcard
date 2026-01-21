@@ -353,6 +353,22 @@ class AuthService:
         else:
             config.smtp_password = password
 
+    def _apply_smtp_username(
+        self,
+        config: EmailServerConfig,
+        username: str,
+    ) -> None:
+        """Apply SMTP username configuration.
+
+        Parameters
+        ----------
+        config : EmailServerConfig
+            Configuration object to update.
+        username : str
+            Username value. Empty string clears the username.
+        """
+        config.smtp_username = username if username else None
+
     def _apply_smtp_config(
         self,
         config: EmailServerConfig,
@@ -384,7 +400,7 @@ class AuthService:
         if smtp_port is not None:
             config.smtp_port = smtp_port
         if smtp_username is not None:
-            config.smtp_username = smtp_username
+            self._apply_smtp_username(config, smtp_username)
         if smtp_password is not None:
             self._apply_smtp_password(config, smtp_password)
         if smtp_use_tls is not None:
@@ -395,6 +411,12 @@ class AuthService:
             config.smtp_from_email = smtp_from_email
         if smtp_from_name is not None:
             config.smtp_from_name = smtp_from_name
+
+        # Validation: If no username (no auth), from_email is required
+        if not config.smtp_username and not config.smtp_from_email:
+            msg = "smtp_from_email_required"
+            raise ValueError(msg)
+
         # Clear Gmail-specific fields
         config.gmail_token = None
 

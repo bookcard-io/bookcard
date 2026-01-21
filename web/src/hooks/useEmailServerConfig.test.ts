@@ -756,6 +756,38 @@ describe("useEmailServerConfig", () => {
     );
   });
 
+  it("should send empty string for username if cleared", async () => {
+    const mockConfig = createMockConfig({ smtp_username: "user" });
+    vi.mocked(
+      emailServerConfigService.fetchEmailServerConfig,
+    ).mockResolvedValue(mockConfig);
+    vi.mocked(
+      emailServerConfigService.updateEmailServerConfig,
+    ).mockResolvedValue(mockConfig);
+
+    const { result } = renderHook(() => useEmailServerConfig());
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.handleFieldChange("smtp_username", "");
+    });
+
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
+
+    expect(
+      vi.mocked(emailServerConfigService.updateEmailServerConfig),
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        smtp_username: "",
+      }),
+    );
+  });
+
   it("should not detect changes if password field is touched but left empty when no password exists", async () => {
     const mockConfig = createMockConfig({ has_smtp_password: false });
     vi.mocked(

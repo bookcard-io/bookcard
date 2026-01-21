@@ -219,8 +219,8 @@ export function useEmailServerConfig(
         if (formData.smtp_host) payload.smtp_host = formData.smtp_host;
         if (formData.smtp_port !== undefined)
           payload.smtp_port = formData.smtp_port;
-        if (formData.smtp_username)
-          payload.smtp_username = formData.smtp_username;
+        if (formData.smtp_username !== undefined)
+          payload.smtp_username = formData.smtp_username || "";
         if (
           formData.smtp_password !== undefined &&
           formData.smtp_password !== PASSWORD_PLACEHOLDER

@@ -1036,7 +1036,7 @@ def test_apply_smtp_config_without_encryptor(
         config,
         smtp_host=None,
         smtp_port=None,
-        smtp_username=None,
+        smtp_username="user@example.com",
         smtp_password="plain_password",
         smtp_use_tls=None,
         smtp_use_ssl=None,
@@ -1045,6 +1045,7 @@ def test_apply_smtp_config_without_encryptor(
     )
 
     assert config.smtp_password == "plain_password"
+    assert config.smtp_username == "user@example.com"
 
 
 # Tests for _apply_gmail_config (lines 421-442)
@@ -1245,6 +1246,7 @@ def test_upsert_email_server_config_creates_new_smtp(
         server_type=EmailServerType.SMTP,
         smtp_host="smtp.example.com",
         smtp_port=587,
+        smtp_username="user@example.com",
         enabled=True,
         max_email_size_mb=25,
     )
@@ -1253,6 +1255,7 @@ def test_upsert_email_server_config_creates_new_smtp(
     assert result.server_type == EmailServerType.SMTP
     assert result.smtp_host == "smtp.example.com"
     assert result.smtp_port == 587
+    assert result.smtp_username == "user@example.com"
     assert result.enabled is True
     assert result.max_email_size_mb == 25
     assert len(session.added) >= 1
@@ -1273,6 +1276,7 @@ def test_upsert_email_server_config_updates_existing_smtp(
         server_type=EmailServerType.SMTP,
         enabled=True,
         smtp_host="old.example.com",
+        smtp_username="user@example.com",
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
@@ -1287,6 +1291,7 @@ def test_upsert_email_server_config_updates_existing_smtp(
 
     assert result.smtp_host == "new.example.com"
     assert result.smtp_port == 465
+    assert result.smtp_username == "user@example.com"
     # Should not add new config, only update existing
     assert len([a for a in session.added if isinstance(a, EmailServerConfig)]) == 0
 
