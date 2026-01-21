@@ -2595,14 +2595,13 @@ def test_create_user_generic_value_error() -> None:
 
 
 def test_auth_service_function(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test _auth_service function creates AuthService (covers lines 104-109)."""
+    """Test _system_config_service function creates SystemConfigurationService."""
     from unittest.mock import MagicMock
 
     class DummyRequest:
         def __init__(self) -> None:
             class DummyConfig:
                 encryption_key = "test_key"
-                data_directory = "/tmp"
 
             self.app = type(
                 "App", (), {"state": type("State", (), {"config": DummyConfig()})()}
@@ -2612,35 +2611,23 @@ def test_auth_service_function(monkeypatch: pytest.MonkeyPatch) -> None:
     request = DummyRequest()
 
     with (
-        patch("bookcard.api.routes.admin.JWTManager") as mock_jwt_class,
-        patch("bookcard.api.routes.admin.PasswordHasher") as mock_hasher_class,
         patch("bookcard.api.routes.admin.DataEncryptor") as mock_encryptor_class,
-        patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
-        patch("bookcard.api.routes.admin.AuthService") as mock_auth_service_class,
+        patch(
+            "bookcard.api.routes.admin.SystemConfigurationService"
+        ) as mock_service_class,
     ):
-        mock_jwt = MagicMock()
-        mock_jwt_class.return_value = mock_jwt
-
-        mock_hasher = MagicMock()
-        mock_hasher_class.return_value = mock_hasher
-
         mock_encryptor = MagicMock()
         mock_encryptor_class.return_value = mock_encryptor
+        mock_service = MagicMock()
+        mock_service_class.return_value = mock_service
 
-        mock_repo = MagicMock()
-        mock_repo_class.return_value = mock_repo
-
-        mock_auth_service = MagicMock()
-        mock_auth_service_class.return_value = mock_auth_service
-
-        result = admin._auth_service(request, session)  # type: ignore[arg-type]
+        result = admin._system_config_service(request, session)  # type: ignore[arg-type]
 
         assert result is not None
-        mock_jwt_class.assert_called_once()
-        mock_hasher_class.assert_called_once()
         mock_encryptor_class.assert_called_once()
-        mock_repo_class.assert_called_once_with(session)
-        mock_auth_service_class.assert_called_once()
+        mock_service_class.assert_called_once_with(
+            session=session, encryptor=mock_encryptor
+        )
 
 
 def test_ensure_role_exists_role_not_found() -> None:

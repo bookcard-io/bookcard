@@ -69,7 +69,6 @@ from bookcard.repositories.role_repository import (
     UserRoleRepository,
 )
 from bookcard.repositories.user_repository import UserRepository
-from bookcard.services.auth_service import AuthService
 from bookcard.services.config_service import (
     BasicConfigService,
     LibraryService,
@@ -78,7 +77,8 @@ from bookcard.services.config_service import (
 from bookcard.services.ereader_service import EReaderService
 from bookcard.services.openlibrary_service import OpenLibraryService
 from bookcard.services.role_service import RoleService
-from bookcard.services.security import DataEncryptor, JWTManager, PasswordHasher
+from bookcard.services.security import DataEncryptor, PasswordHasher
+from bookcard.services.system_configuration_service import SystemConfigurationService
 from bookcard.services.user_service import UserService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -89,34 +89,25 @@ AdminUserDep = Annotated[User, Depends(get_admin_user)]
 logger = logging.getLogger(__name__)
 
 
-def _auth_service(request: Request, session: Session) -> AuthService:
-    """Create AuthService instance for admin routes.
-
-    Parameters
-    ----------
-    request : Request
-        FastAPI request object.
-    session : Session
-        Database session.
-
-    Returns
-    -------
-    AuthService
-        Configured AuthService instance.
-    """
+def _system_config_service(
+    request: Request, session: Session
+) -> SystemConfigurationService:
     cfg = request.app.state.config
-    jwt = JWTManager(cfg)
-    hasher = PasswordHasher()
-    encryptor = DataEncryptor(cfg.encryption_key)
-    repo = UserRepository(session)
-    return AuthService(
-        session,
-        repo,
-        hasher,
-        jwt,
-        encryptor=encryptor,
-        data_directory=cfg.data_directory,
+    return SystemConfigurationService(
+        session=session,
+        encryptor=DataEncryptor(cfg.encryption_key),
     )
+
+
+def _auth_service(request: Request, session: Session) -> SystemConfigurationService:
+    """Backward-compatible factory for admin config operations.
+
+    Historically, admin routes used an auth-centric service for system configs.
+    The underlying implementation has been split; this helper now returns the
+    focused configuration service while keeping the module-level factory name
+    stable for callers/tests.
+    """
+    return _system_config_service(request, session)
 
 
 class DownloadFilesRequest(BaseModel):
