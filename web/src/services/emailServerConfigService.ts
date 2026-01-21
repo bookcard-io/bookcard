@@ -23,6 +23,7 @@
 
 export interface EmailServerConfigData {
   id: number | null;
+  has_smtp_password: boolean;
   server_type: "smtp" | "gmail";
   smtp_host: string | null;
   smtp_port: number | null;

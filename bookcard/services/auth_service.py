@@ -334,6 +334,25 @@ class AuthService:
 
         return config
 
+    def _apply_smtp_password(self, config: EmailServerConfig, password: str) -> None:
+        """Apply SMTP password configuration.
+
+        Parameters
+        ----------
+        config : EmailServerConfig
+            Configuration object to update.
+        password : str
+            The new password to set.
+        """
+        if len(password) == 0:
+            # Clear password
+            config.smtp_password = None
+        # Encrypt password before storing
+        elif self._encryptor is not None:
+            config.smtp_password = self._encryptor.encrypt(password)
+        else:
+            config.smtp_password = password
+
     def _apply_smtp_config(
         self,
         config: EmailServerConfig,
@@ -367,11 +386,7 @@ class AuthService:
         if smtp_username is not None:
             config.smtp_username = smtp_username
         if smtp_password is not None:
-            # Encrypt password before storing
-            if self._encryptor is not None:
-                config.smtp_password = self._encryptor.encrypt(smtp_password)
-            else:
-                config.smtp_password = smtp_password
+            self._apply_smtp_password(config, smtp_password)
         if smtp_use_tls is not None:
             config.smtp_use_tls = smtp_use_tls
         if smtp_use_ssl is not None:
