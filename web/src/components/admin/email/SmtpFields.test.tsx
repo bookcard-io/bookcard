@@ -118,4 +118,55 @@ describe("SmtpFields", () => {
       "Password (leave blank for no authentication)",
     );
   });
+
+  it("shows From Email as required when username is empty", () => {
+    const formData = createFormData({ smtp_username: null });
+    const onFieldChange = vi.fn();
+
+    render(<SmtpFields formData={formData} onFieldChange={onFieldChange} />);
+
+    const fromEmailInput = screen.getByLabelText("From Email *");
+    expect(fromEmailInput).toBeRequired();
+    expect(
+      screen.getByText("Required when no username is provided"),
+    ).toBeInTheDocument();
+  });
+
+  it("does not show From Email as required when username is provided", () => {
+    const formData = createFormData({ smtp_username: "user" });
+    const onFieldChange = vi.fn();
+
+    render(<SmtpFields formData={formData} onFieldChange={onFieldChange} />);
+
+    const fromEmailInput = screen.getByLabelText("From Email");
+    expect(fromEmailInput).not.toBeRequired();
+    expect(
+      screen.queryByText("Required when no username is provided"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("calls onFieldChange with empty string when username is cleared", () => {
+    const formData = createFormData({ smtp_username: "existing_user" });
+    const onFieldChange = vi.fn();
+
+    render(<SmtpFields formData={formData} onFieldChange={onFieldChange} />);
+
+    const usernameInput = screen.getByLabelText("SMTP Username");
+    fireEvent.change(usernameInput, { target: { value: "" } });
+
+    expect(onFieldChange).toHaveBeenCalledWith("smtp_username", "");
+  });
+
+  it("renders placeholder for username field", () => {
+    const formData = createFormData();
+    const onFieldChange = vi.fn();
+
+    render(<SmtpFields formData={formData} onFieldChange={onFieldChange} />);
+
+    const usernameInput = screen.getByLabelText("SMTP Username");
+    expect(usernameInput).toHaveAttribute(
+      "placeholder",
+      "Username (leave blank for no authentication)",
+    );
+  });
 });

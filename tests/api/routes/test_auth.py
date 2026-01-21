@@ -1915,3 +1915,137 @@ def test_upsert_email_server_config_sets_password(
 
     assert config.smtp_password == "new-password"
     assert result.has_smtp_password is True
+
+
+def test_upsert_email_server_config_clears_username(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test upsert_email_server_config clears username when empty string provided."""
+    from bookcard.api.schemas import EmailServerConfigUpdate
+
+    user = User(
+        id=1,
+        username="admin",
+        email="admin@example.com",
+        password_hash="hash",
+        is_admin=True,
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    # Mock config with existing username
+    config = EmailServerConfig(
+        id=1,
+        server_type=EmailServerType.SMTP,
+        smtp_host="smtp.example.com",
+        smtp_username="existing_user",
+        smtp_from_email="sender@example.com",  # Required when username is cleared
+        enabled=True,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    class StubService:
+        def get_email_server_config(self, decrypt: bool = False) -> EmailServerConfig:
+            return config
+
+        def upsert_email_server_config(
+            self,
+            *,
+            server_type: EmailServerType,
+            smtp_username: str | None = None,
+            **kwargs: object,
+        ) -> EmailServerConfig:
+            # Simulate the logic we want to implement
+            if smtp_username == "":
+                config.smtp_username = None
+            return config
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+
+    session = DummySession()
+    # Send empty string as username to clear it
+    payload = EmailServerConfigUpdate(
+        server_type=EmailServerType.SMTP, smtp_username=""
+    )
+    result = auth.upsert_email_server_config(DummyRequest(), session, payload)
+
+    assert config.smtp_username is None
+    assert result.smtp_username is None
+
+
+def test_upsert_email_server_config_validates_from_email(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test upsert_email_server_config requires from_email if username is empty."""
+    from bookcard.api.schemas import EmailServerConfigUpdate
+
+    user = User(
+        id=1,
+        username="admin",
+        email="admin@example.com",
+        password_hash="hash",
+        is_admin=True,
+    )
+
+    def mock_get_current_user(request: object, sess: object) -> User:
+        return user
+
+    monkeypatch.setattr(auth, "get_current_user", mock_get_current_user)
+
+    # Mock config with no from_email
+    config = EmailServerConfig(
+        id=1,
+        server_type=EmailServerType.SMTP,
+        smtp_host="smtp.example.com",
+        smtp_username="existing_user",
+        smtp_from_email=None,
+        enabled=True,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    class StubService:
+        def get_email_server_config(self, decrypt: bool = False) -> EmailServerConfig:
+            return config
+
+        def upsert_email_server_config(
+            self,
+            *,
+            server_type: EmailServerType,
+            smtp_username: str | None = None,
+            **kwargs: object,
+        ) -> EmailServerConfig:
+            # Simulate validation logic
+            if smtp_username == "":
+                config.smtp_username = None
+
+            if not config.smtp_username and not config.smtp_from_email:
+                raise ValueError("smtp_from_email_required")
+            return config
+
+    def fake_auth_service(request: object, session: object) -> StubService:
+        return StubService()
+
+    monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
+
+    session = DummySession()
+    # Clear username, but don't provide from_email (and it's None in config)
+    payload = EmailServerConfigUpdate(
+        server_type=EmailServerType.SMTP, smtp_username=""
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        auth.upsert_email_server_config(DummyRequest(), session, payload)
+    assert isinstance(exc_info.value, HTTPException)
+    assert exc_info.value.status_code == 400
+    assert (
+        exc_info.value.detail
+        == "From email is required when SMTP authentication is disabled"
+    )

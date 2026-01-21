@@ -40,6 +40,8 @@ export interface SmtpFieldsProps {
  *     Component props including form data and change handler.
  */
 export function SmtpFields({ formData, onFieldChange }: SmtpFieldsProps) {
+  const isUsernameEmpty = !formData.smtp_username;
+
   return (
     <>
       {/* Second Row: SMTP Host, SMTP Port, Max Email Size (3 columns, 1/3 each) */}
@@ -81,10 +83,8 @@ export function SmtpFields({ formData, onFieldChange }: SmtpFieldsProps) {
           id="smtp_username"
           label="SMTP Username"
           value={formData.smtp_username || ""}
-          onChange={(e) =>
-            onFieldChange("smtp_username", e.target.value || null)
-          }
-          placeholder="user@example.com"
+          onChange={(e) => onFieldChange("smtp_username", e.target.value)}
+          placeholder="Username (leave blank for no authentication)"
         />
 
         <TextInput
@@ -144,12 +144,18 @@ export function SmtpFields({ formData, onFieldChange }: SmtpFieldsProps) {
 
         <TextInput
           id="smtp_from_email"
-          label="From Email"
+          label={`From Email${isUsernameEmpty ? " *" : ""}`}
           value={formData.smtp_from_email || ""}
           onChange={(e) =>
             onFieldChange("smtp_from_email", e.target.value || null)
           }
           placeholder="automailer <sender@example.com>"
+          required={isUsernameEmpty}
+          helperText={
+            isUsernameEmpty
+              ? "Required when no username is provided"
+              : undefined
+          }
         />
       </div>
     </>

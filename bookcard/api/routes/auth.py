@@ -891,6 +891,11 @@ def upsert_email_server_config(
         msg = str(exc)
         if msg == "invalid_smtp_encryption":
             raise HTTPException(status_code=400, detail=msg) from exc
+        if msg == "smtp_from_email_required":
+            raise HTTPException(
+                status_code=400,
+                detail="From email is required when SMTP authentication is disabled",
+            ) from exc
         raise
 
     return EmailServerConfigRead.model_validate(cfg)
