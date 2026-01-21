@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING
 from bookcard.services.tasks.factory import create_task
 from bookcard.services.tasks.runner_celery import CeleryTaskRunner
 from bookcard.services.tasks.runner_dramatiq import DramatiqTaskRunner
-from bookcard.services.tasks.runner_thread import ThreadTaskRunner
+from bookcard.services.tasks.thread_runner import ThreadTaskRunner
 
 if TYPE_CHECKING:
     from sqlalchemy import Engine
