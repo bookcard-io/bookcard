@@ -17,8 +17,8 @@
 
 from __future__ import annotations
 
-import queue
 import time
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -26,7 +26,11 @@ import pytest
 from bookcard.models.tasks import Task, TaskStatus, TaskType
 from bookcard.services.task_service import TaskService
 from bookcard.services.tasks.base import BaseTask
-from bookcard.services.tasks.runner_thread import ThreadTaskRunner
+from bookcard.services.tasks.thread_runner import ThreadTaskRunner
+from bookcard.services.tasks.thread_runner.queue import TaskQueueManager
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @pytest.fixture
@@ -58,7 +62,7 @@ class TestThreadTaskRunnerInit:
     ) -> None:
         """Test __init__ starts worker thread."""
         with patch(
-            "bookcard.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.thread_runner.runner._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -72,12 +76,12 @@ class TestThreadTaskRunnerInit:
     ) -> None:
         """Test __init__ creates queue."""
         with patch(
-            "bookcard.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.thread_runner.runner._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
             runner = ThreadTaskRunner(mock_engine, mock_task_factory)
-            assert isinstance(runner._queue, queue.Queue)
+            assert isinstance(runner._queue, TaskQueueManager)
             runner.shutdown()
 
 
@@ -89,7 +93,7 @@ class TestEnqueue:
     ) -> None:
         """Test enqueue creates task in database."""
         with patch(
-            "bookcard.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.thread_runner.runner._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -105,7 +109,7 @@ class TestEnqueue:
             # Make worker thread fail to get task so it doesn't process
             mock_task_service.get_task.return_value = None
             with patch(
-                "bookcard.services.tasks.runner_thread.TaskService",
+                "bookcard.services.tasks.thread_runner.runner.TaskService",
                 return_value=mock_task_service,
             ):
                 runner = ThreadTaskRunner(mock_engine, mock_task_factory)
@@ -120,16 +124,6 @@ class TestEnqueue:
                 assert task_id == 1
                 # Verify task was created in database
                 mock_task_service.create_task.assert_called_once()
-                # Check queue size immediately after enqueue
-                # Note: Worker thread consumes tasks immediately (queue.get removes item),
-                # so queue size may be 0 if worker already consumed it, or 1 if not yet consumed.
-                # Since get_task returns None, worker will skip processing but item was
-                # already removed from queue by queue.get(). The important verification is
-                # that create_task was called, confirming the task was created and enqueued.
-                queue_size = runner._queue.qsize()
-                # Queue size should be 0 (worker consumed) or 1 (not yet consumed)
-                # Both are valid - the key is that enqueue succeeded
-                assert queue_size in (0, 1)
                 runner.shutdown()
 
     def test_enqueue_raises_on_failed_creation(
@@ -137,7 +131,7 @@ class TestEnqueue:
     ) -> None:
         """Test enqueue raises RuntimeError when task creation fails."""
         with patch(
-            "bookcard.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.thread_runner.runner._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -150,7 +144,7 @@ class TestEnqueue:
             )
             mock_task_service.create_task.return_value = mock_task
             with patch(
-                "bookcard.services.tasks.runner_thread.TaskService",
+                "bookcard.services.tasks.thread_runner.runner.TaskService",
                 return_value=mock_task_service,
             ):
                 runner = ThreadTaskRunner(mock_engine, mock_task_factory)
@@ -171,14 +165,14 @@ class TestCancel:
     ) -> None:
         """Test cancel returns False when task not found."""
         with patch(
-            "bookcard.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.thread_runner.runner._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
             mock_task_service = MagicMock(spec=TaskService)
             mock_task_service.get_task.return_value = None
             with patch(
-                "bookcard.services.tasks.runner_thread.TaskService",
+                "bookcard.services.tasks.thread_runner.runner.TaskService",
                 return_value=mock_task_service,
             ):
                 runner = ThreadTaskRunner(mock_engine, mock_task_factory)
@@ -191,7 +185,7 @@ class TestCancel:
     ) -> None:
         """Test cancel marks running task as cancelled."""
         with patch(
-            "bookcard.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.thread_runner.runner._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -205,7 +199,7 @@ class TestCancel:
             mock_task_service.get_task.return_value = mock_task
             mock_task_service.cancel_task.return_value = True
             with patch(
-                "bookcard.services.tasks.runner_thread.TaskService",
+                "bookcard.services.tasks.thread_runner.runner.TaskService",
                 return_value=mock_task_service,
             ):
                 runner = ThreadTaskRunner(mock_engine, mock_task_factory)
@@ -225,7 +219,7 @@ class TestGetStatus:
     ) -> None:
         """Test get_status returns task status."""
         with patch(
-            "bookcard.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.thread_runner.runner._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -238,7 +232,7 @@ class TestGetStatus:
             )
             mock_task_service.get_task.return_value = mock_task
             with patch(
-                "bookcard.services.tasks.runner_thread.TaskService",
+                "bookcard.services.tasks.thread_runner.runner.TaskService",
                 return_value=mock_task_service,
             ):
                 runner = ThreadTaskRunner(mock_engine, mock_task_factory)
@@ -251,14 +245,14 @@ class TestGetStatus:
     ) -> None:
         """Test get_status raises ValueError when task not found."""
         with patch(
-            "bookcard.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.thread_runner.runner._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
             mock_task_service = MagicMock(spec=TaskService)
             mock_task_service.get_task.return_value = None
             with patch(
-                "bookcard.services.tasks.runner_thread.TaskService",
+                "bookcard.services.tasks.thread_runner.runner.TaskService",
                 return_value=mock_task_service,
             ):
                 runner = ThreadTaskRunner(mock_engine, mock_task_factory)
@@ -275,7 +269,7 @@ class TestGetProgress:
     ) -> None:
         """Test get_progress returns task progress."""
         with patch(
-            "bookcard.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.thread_runner.runner._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -289,7 +283,7 @@ class TestGetProgress:
             )
             mock_task_service.get_task.return_value = mock_task
             with patch(
-                "bookcard.services.tasks.runner_thread.TaskService",
+                "bookcard.services.tasks.thread_runner.runner.TaskService",
                 return_value=mock_task_service,
             ):
                 runner = ThreadTaskRunner(mock_engine, mock_task_factory)
@@ -302,14 +296,14 @@ class TestGetProgress:
     ) -> None:
         """Test get_progress raises ValueError when task not found."""
         with patch(
-            "bookcard.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.thread_runner.runner._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
             mock_task_service = MagicMock(spec=TaskService)
             mock_task_service.get_task.return_value = None
             with patch(
-                "bookcard.services.tasks.runner_thread.TaskService",
+                "bookcard.services.tasks.thread_runner.runner.TaskService",
                 return_value=mock_task_service,
             ):
                 runner = ThreadTaskRunner(mock_engine, mock_task_factory)
@@ -326,7 +320,7 @@ class TestWorkerLoop:
     ) -> None:
         """Test _worker_loop processes queued task."""
         with patch(
-            "bookcard.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.thread_runner.runner._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -340,48 +334,90 @@ class TestWorkerLoop:
             mock_task_service.get_task.return_value = mock_task
             with (
                 patch(
-                    "bookcard.services.tasks.runner_thread.TaskService",
+                    "bookcard.services.tasks.thread_runner.runner.TaskService",
                     return_value=mock_task_service,
                 ),
                 patch(
-                    "bookcard.services.tasks.runner_thread.TaskExecutor"
+                    "bookcard.services.tasks.thread_runner.runner.TaskExecutor"
                 ) as mock_executor_class,
             ):
                 mock_executor = MagicMock()
                 mock_executor_class.return_value = mock_executor
                 runner = ThreadTaskRunner(mock_engine, mock_task_factory)
-                runner._queue.put((1, TaskType.BOOK_UPLOAD, {}, 1, None))
-                time.sleep(0.1)  # Give worker time to process
-                runner.shutdown()
-                mock_task_service.start_task.assert_called_once_with(1)
 
-    def test_worker_loop_handles_missing_task(
+                # Mock the worker pool to execute synchronously for testing
+                # We need to execute the function AND return a future-like object
+                mock_future = MagicMock()
+                mock_future.add_done_callback = lambda cb: cb(mock_future)
+
+                def submit_side_effect(
+                    fn: Callable[..., Any], *args: object, **kwargs: object
+                ) -> MagicMock:
+                    fn(*args, **kwargs)
+                    return mock_future
+
+                with (
+                    patch.object(
+                        runner._worker_pool, "submit", side_effect=submit_side_effect
+                    ),
+                    patch.object(runner, "_execute_task") as mock_execute_task,
+                ):
+                    runner.enqueue(TaskType.BOOK_UPLOAD, {}, 1)
+                    time.sleep(0.2)
+                    mock_execute_task.assert_called()
+
+                runner.shutdown()
+
+    def test_execute_task_logic(
         self, mock_engine: MagicMock, mock_task_factory: MagicMock
     ) -> None:
-        """Test _worker_loop handles missing task gracefully."""
+        """Test _execute_task logic directly."""
         with patch(
-            "bookcard.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.thread_runner.runner._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
             mock_task_service = MagicMock(spec=TaskService)
-            mock_task_service.get_task.return_value = None
-            with patch(
-                "bookcard.services.tasks.runner_thread.TaskService",
-                return_value=mock_task_service,
-            ):
-                runner = ThreadTaskRunner(mock_engine, mock_task_factory)
-                runner._queue.put((999, TaskType.BOOK_UPLOAD, {}, 1, None))
-                time.sleep(0.1)  # Give worker time to process
-                runner.shutdown()
-                # Should not raise, just log warning
+            mock_task = Task(
+                id=1,
+                task_type=TaskType.BOOK_UPLOAD,
+                status=TaskStatus.PENDING,
+                user_id=1,
+            )
+            mock_task_service.get_task.return_value = mock_task
 
-    def test_worker_loop_handles_exception(
+            with (
+                patch(
+                    "bookcard.services.tasks.thread_runner.runner.TaskService",
+                    return_value=mock_task_service,
+                ),
+                patch(
+                    "bookcard.services.tasks.thread_runner.runner.TaskExecutor"
+                ) as mock_executor_class,
+            ):
+                mock_executor = MagicMock()
+                mock_executor_class.return_value = mock_executor
+
+                runner = ThreadTaskRunner(mock_engine, mock_task_factory)
+
+                # Create a queued task item
+                from bookcard.services.tasks.thread_runner.types import QueuedTask
+
+                item = QueuedTask(1, TaskType.BOOK_UPLOAD, {}, 1, None)
+
+                # Run _execute_task directly
+                runner._execute_task(item)
+
+                mock_task_service.start_task.assert_called_once_with(1)
+                mock_executor.execute_task.assert_called_once()
+                runner.shutdown()
+
+    def test_execute_task_handles_exception(
         self, mock_engine: MagicMock, mock_task_factory: MagicMock
     ) -> None:
-        """Test _worker_loop handles exceptions gracefully."""
+        """Test _execute_task handles exceptions."""
         with patch(
-            "bookcard.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.thread_runner.runner._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
@@ -394,15 +430,22 @@ class TestWorkerLoop:
             )
             mock_task_service.get_task.return_value = mock_task
             mock_task_service.start_task.side_effect = Exception("Test error")
+
             with patch(
-                "bookcard.services.tasks.runner_thread.TaskService",
+                "bookcard.services.tasks.thread_runner.runner.TaskService",
                 return_value=mock_task_service,
             ):
                 runner = ThreadTaskRunner(mock_engine, mock_task_factory)
-                runner._queue.put((1, TaskType.BOOK_UPLOAD, {}, 1, None))
-                time.sleep(0.1)  # Give worker time to process
+
+                from bookcard.services.tasks.thread_runner.types import QueuedTask
+
+                item = QueuedTask(1, TaskType.BOOK_UPLOAD, {}, 1, None)
+
+                runner._execute_task(item)
+
+                # Should have called fail_task
+                mock_task_service.fail_task.assert_called_with(1, "Test error")
                 runner.shutdown()
-                # Should not raise, exception is caught and logged
 
 
 class TestShutdown:
@@ -413,35 +456,38 @@ class TestShutdown:
     ) -> None:
         """Test shutdown waits for queue to empty."""
         with patch(
-            "bookcard.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.thread_runner.runner._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
-            mock_task_service = MagicMock(spec=TaskService)
-            # Make worker thread skip processing (task not found) but still call task_done()
-            mock_task_service.get_task.return_value = None
-            with patch(
-                "bookcard.services.tasks.runner_thread.TaskService",
-                return_value=mock_task_service,
-            ):
-                runner = ThreadTaskRunner(mock_engine, mock_task_factory)
-                runner._queue.put((1, TaskType.BOOK_UPLOAD, {}, 1, None))
-                # Give worker thread time to process and call task_done()
-                time.sleep(0.1)
-                runner.shutdown()
-                assert runner._shutdown is True
+
+            runner = ThreadTaskRunner(mock_engine, mock_task_factory)
+
+            # Mock queue to simulate having items
+            runner._queue = MagicMock()
+            runner._queue.join = MagicMock()
+
+            runner.shutdown()
+
+            runner._queue.join.assert_called_once()
 
     def test_shutdown_waits_for_thread(
         self, mock_engine: MagicMock, mock_task_factory: MagicMock
     ) -> None:
         """Test shutdown waits for worker thread."""
         with patch(
-            "bookcard.services.tasks.runner_thread._get_session"
+            "bookcard.services.tasks.thread_runner.runner._get_session"
         ) as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
             runner = ThreadTaskRunner(mock_engine, mock_task_factory)
+
+            # Mock worker thread
+            mock_thread = MagicMock()
+            mock_thread.is_alive.return_value = False
+            runner._worker_thread = mock_thread
+
             runner.shutdown()
-            # Thread should be joined
-            assert runner._worker_thread is not None
-            assert not runner._worker_thread.is_alive() or runner._shutdown is True
+
+            mock_thread.join.assert_called_once()
+            assert runner._shutdown_event.is_set()
