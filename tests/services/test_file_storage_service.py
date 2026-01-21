@@ -113,7 +113,9 @@ class TestSaveProfilePicture:
 
         result = service.save_profile_picture(1, content, filename)
 
-        assert result == f"1/assets/profile_picture{expected_ext}"
+        # Use Path for cross-platform comparison (Windows uses backslashes)
+        expected_path = Path("1") / "assets" / f"profile_picture{expected_ext}"
+        assert Path(result) == expected_path
         saved_path = temp_data_dir / result
         assert saved_path.exists()
         assert saved_path.read_bytes() == content
