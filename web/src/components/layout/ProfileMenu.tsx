@@ -15,13 +15,11 @@
 
 "use client";
 
-import { useCallback } from "react";
 import { DropdownMenu } from "@/components/common/DropdownMenu";
 import { DropdownMenuItem } from "@/components/common/DropdownMenuItem";
-import { getToggleThemeLabel } from "@/components/profile/config/configurationConstants";
 import type { User } from "@/contexts/UserContext";
 import { useUser } from "@/contexts/UserContext";
-import { useTheme } from "@/hooks/useTheme";
+import { useProfileMenuActions } from "@/hooks/useProfileMenuActions";
 
 export interface ProfileMenuProps {
   /** Whether the menu is open. */
@@ -34,10 +32,6 @@ export interface ProfileMenuProps {
   cursorPosition: { x: number; y: number } | null;
   /** User data to display in header. */
   user: User | null;
-  /** Callback when View profile is clicked. */
-  onViewProfile?: () => void;
-  /** Callback when Logout is clicked. */
-  onLogout?: () => void;
 }
 
 /**
@@ -54,32 +48,12 @@ export function ProfileMenu({
   buttonRef,
   cursorPosition,
   user,
-  onViewProfile,
-  onLogout,
 }: ProfileMenuProps) {
-  const handleViewProfileClick = useCallback(() => {
-    if (onViewProfile) {
-      onViewProfile();
-    }
-    onClose();
-  }, [onViewProfile, onClose]);
-
-  const handleLogoutClick = useCallback(() => {
-    if (onLogout) {
-      onLogout();
-    }
-    onClose();
-  }, [onLogout, onClose]);
+  const { onViewProfile, items } = useProfileMenuActions({ onClose });
 
   const displayName = user?.full_name ?? user?.username ?? "User";
   // Use shared profile picture URL from context (fetched once globally)
   const { profilePictureUrl } = useUser();
-  const { theme, toggleTheme } = useTheme();
-
-  const handleThemeToggle = useCallback(() => {
-    toggleTheme();
-    onClose();
-  }, [toggleTheme, onClose]);
 
   return (
     <DropdownMenu
@@ -94,7 +68,7 @@ export function ProfileMenu({
         <button
           type="button"
           className="flex w-full cursor-pointer flex-col items-center gap-2 border-0 bg-transparent p-0 text-center"
-          onClick={handleViewProfileClick}
+          onClick={onViewProfile}
           aria-label="View profile"
         >
           {/* Profile picture or placeholder */}
@@ -123,24 +97,9 @@ export function ProfileMenu({
         </button>
       </div>
       {/* Menu items */}
-      <DropdownMenuItem
-        icon="pi pi-id-card"
-        label="View profile"
-        onClick={handleViewProfileClick}
-        className="cursor-pointer"
-      />
-      <DropdownMenuItem
-        icon={theme === "dark" ? "pi pi-sun" : "pi pi-moon"}
-        label={getToggleThemeLabel(theme)}
-        onClick={handleThemeToggle}
-        className="cursor-pointer"
-      />
-      <DropdownMenuItem
-        icon="pi pi-sign-out"
-        label="Logout"
-        onClick={handleLogoutClick}
-        className="cursor-pointer"
-      />
+      {items.map((item) => (
+        <DropdownMenuItem key={item.label} {...item} />
+      ))}
     </DropdownMenu>
   );
 }

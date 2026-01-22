@@ -28,7 +28,7 @@ export interface ShowMessageOptions {
   durationMs?: number;
 }
 
-interface GlobalMessageContextValue {
+export interface GlobalMessageContextValue {
   /**Current list of global messages. */
   messages: GlobalMessage[];
   /**
@@ -176,4 +176,22 @@ export function useGlobalMessages(): GlobalMessageContextValue {
     );
   }
   return context;
+}
+
+/**
+ * Hook to optionally access the global message context.
+ *
+ * Unlike `useGlobalMessages`, this hook does not throw when used outside of a
+ * `GlobalMessageProvider`. This is useful for code paths (and tests) where
+ * global messaging is an optional enhancement.
+ *
+ * Returns
+ * -------
+ * GlobalMessageContextValue | undefined
+ *     The global message context if available, otherwise undefined.
+ */
+export function useOptionalGlobalMessages():
+  | GlobalMessageContextValue
+  | undefined {
+  return useContext(GlobalMessageContext);
 }
