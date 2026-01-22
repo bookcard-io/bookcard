@@ -32,6 +32,10 @@ from bookcard.models.conversion import ConversionMethod
 from bookcard.models.core import Book
 from bookcard.models.media import Data
 from bookcard.repositories import CalibreBookRepository
+from bookcard.services.settings_value_codecs import (
+    decode_string_list,
+    normalize_string_list,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -415,21 +419,8 @@ class ConversionAutoConvertPolicy:
         if setting is None:
             return []
 
-        # Parse JSON array or comma-separated string
-        import json
-
-        try:
-            formats = json.loads(setting.value)
-            if isinstance(formats, list):
-                return [f.upper() for f in formats if isinstance(f, str)]
-        except (json.JSONDecodeError, TypeError):
-            # Fallback to comma-separated string
-            if setting.value:
-                return [
-                    f.strip().upper() for f in setting.value.split(",") if f.strip()
-                ]
-
-        return []
+        parsed = decode_string_list(setting.value, allow_csv_fallback=True)
+        return normalize_string_list(parsed, normalizer=str.upper, dedupe=True)
 
     def should_backup_original(self) -> bool:
         """Check if original should be backed up.

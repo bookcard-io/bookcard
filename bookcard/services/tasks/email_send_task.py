@@ -34,6 +34,7 @@ from bookcard.services.email_config_service import EmailConfigService
 from bookcard.services.email_service import EmailService
 from bookcard.services.email_utils import build_attachment_filename
 from bookcard.services.security import DataEncryptor
+from bookcard.services.send_format_service import SendFormatService
 from bookcard.services.tasks.base import BaseTask
 from bookcard.services.tasks.context import ProgressCallback, WorkerContext
 from bookcard.services.tasks.exceptions import (
@@ -42,7 +43,7 @@ from bookcard.services.tasks.exceptions import (
     LibraryNotConfiguredError,
     TaskCancelledError,
 )
-from bookcard.services.tasks.utils import AuthorExtractor, BookFormatResolver
+from bookcard.services.tasks.utils import AuthorExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,19 @@ class SendMetadata:
 
     book_title: str
     attachment_filename: str
+
+
+@dataclass(frozen=True)
+class SendPreparation:
+    """Prepared data for sending a book via email.
+
+    Bundles the resolved format and metadata so the task can keep orchestration
+    logic thin and consistent.
+    """
+
+    book_title: str
+    attachment_filename: str
+    resolved_format: str | None
 
 
 class EmailSendTask(BaseTask):
@@ -306,18 +320,25 @@ class EmailSendTask(BaseTask):
             raise BookNotFoundError(self._book_id)
         return book_with_rels
 
-    def _prepare_send_metadata(self, book_service: BookService) -> SendMetadata:
-        """Prepare metadata for task completion.
+    def _prepare_send(
+        self,
+        *,
+        book_service: BookService,
+        session: Session,  # type: ignore[type-arg]
+    ) -> SendPreparation:
+        """Prepare all data required to send a book.
 
         Parameters
         ----------
         book_service : BookService
             Book service instance.
+        session : Session
+            Database session used to read user preferences.
 
         Returns
         -------
-        SendMetadata
-            Metadata for completed email send.
+        SendPreparation
+            Prepared send data including resolved format and attachment filename.
 
         Raises
         ------
@@ -325,28 +346,33 @@ class EmailSendTask(BaseTask):
             If book is not found.
         """
         book_with_rels = self._get_book_or_raise(book_service)
-
         book_title = book_with_rels.book.title or "Unknown Book"
         author_name = AuthorExtractor.get_primary_author_name(book_with_rels)
-        format_to_send = BookFormatResolver.resolve_send_format(
-            self._file_format, book_with_rels
+
+        resolved_format = SendFormatService(session).select_format(
+            user_id=self.user_id,
+            to_email=self._email_target.address,
+            requested_format=self._file_format,
+            book_with_rels=book_with_rels,
         )
 
         attachment_filename = build_attachment_filename(
             author=author_name,
             title=book_title,
-            extension=format_to_send.lower() if format_to_send else None,
+            extension=resolved_format.lower() if resolved_format else None,
         )
 
-        return SendMetadata(
+        return SendPreparation(
             book_title=book_title,
             attachment_filename=attachment_filename,
+            resolved_format=resolved_format,
         )
 
     def _send_book(
         self,
         book_service: BookService,
         email_service: EmailService,
+        session: Session,  # type: ignore[type-arg]
     ) -> None:
         """Send book and store completion metadata.
 
@@ -356,19 +382,21 @@ class EmailSendTask(BaseTask):
             Book service instance.
         email_service : EmailService
             Email service instance.
+        session : Session
+            Database session.
         """
-        send_metadata = self._prepare_send_metadata(book_service)
+        prepared = self._prepare_send(book_service=book_service, session=session)
 
         book_service.send_book(
             book_id=self._book_id,
             user_id=self.user_id,
             email_service=email_service,
             to_email=self._email_target.address,
-            file_format=self._file_format,
+            file_format=prepared.resolved_format,
         )
 
-        self.set_metadata("book_title", send_metadata.book_title)
-        self.set_metadata("attachment_filename", send_metadata.attachment_filename)
+        self.set_metadata("book_title", prepared.book_title)
+        self.set_metadata("attachment_filename", prepared.attachment_filename)
 
     def run(self, worker_context: dict[str, Any] | WorkerContext) -> None:
         """Execute email send task.
@@ -433,7 +461,7 @@ class EmailSendTask(BaseTask):
         context.update_progress(0.4, None)
 
         self._check_cancellation()
-        self._send_book(book_service, email_service)
+        self._send_book(book_service, email_service, context.session)
         context.update_progress(1.0, None)
 
         logger.info(

@@ -497,10 +497,12 @@ class TestEmailSendTaskRun:
         ):
             task.run(worker_context)
 
-        # Verify book service was called with None values
+        # Verify book service was called with expected values.
+        # If no format is provided, the task resolves a preferred format based on
+        # user-level priority (defaulting to EPUB -> PDF -> first available).
         mock_book_service.send_book.assert_called_once()
         call_kwargs = mock_book_service.send_book.call_args[1]
         assert call_kwargs["book_id"] == 1
         assert call_kwargs["user_id"] == 1
         assert call_kwargs["to_email"] is None
-        assert call_kwargs["file_format"] is None
+        assert call_kwargs["file_format"] == "EPUB"
