@@ -33,7 +33,6 @@ from abc import ABC, abstractmethod
 from email.message import EmailMessage
 from mimetypes import guess_type
 from pathlib import Path
-from typing import ClassVar
 
 from ezmail import EzSender
 
@@ -249,8 +248,10 @@ class NoAuthSmtpEmailSenderStrategy(EmailSenderStrategy):
             raise EmailServiceError(msg)
 
         port = self._config.smtp_port or 587
-        use_ssl = bool(self._config.smtp_use_ssl) or port == 465
-        use_tls = bool(self._config.smtp_use_tls) or (not use_ssl and port == 587)
+        # Respect explicit configuration. If a user selects port 465 but disables SSL,
+        # we still follow the explicit flag.
+        use_ssl = bool(self._config.smtp_use_ssl)
+        use_tls = bool(self._config.smtp_use_tls) and not use_ssl
 
         email_msg = EmailMessage()
         email_msg["From"] = self._config.smtp_from_email
@@ -260,11 +261,10 @@ class NoAuthSmtpEmailSenderStrategy(EmailSenderStrategy):
 
         try:
             ctype, _ = guess_type(str(attachment_path))
-            maintype, subtype = ("application", "octet-stream")
-            if ctype:
-                parts = ctype.split("/", 1)
-                if len(parts) == 2:
-                    maintype, subtype = parts[0], parts[1]
+            if ctype and "/" in ctype:
+                maintype, subtype = ctype.split("/", 1)
+            else:
+                maintype, subtype = ("application", "octet-stream")
 
             attachment_bytes = attachment_path.read_bytes()
             email_msg.add_attachment(
@@ -284,8 +284,10 @@ class NoAuthSmtpEmailSenderStrategy(EmailSenderStrategy):
             else:
                 smtp = smtplib.SMTP(self._config.smtp_host, port, timeout=30)
 
-            if use_tls and not use_ssl:
-                smtp.ehlo()
+            # Some servers expect EHLO/HELO before MAIL FROM.
+            smtp.ehlo()
+
+            if use_tls:
                 smtp.starttls()
                 smtp.ehlo()
 
@@ -301,7 +303,7 @@ class NoAuthSmtpEmailSenderStrategy(EmailSenderStrategy):
             raise EmailServiceError(msg) from exc
         finally:
             if smtp is not None:
-                with contextlib.suppress(smtplib.SMTPException, OSError):
+                with contextlib.suppress(smtplib.SMTPException, OSError, ssl.SSLError):
                     smtp.quit()
 
 
@@ -402,12 +404,6 @@ class EmailSenderStrategyFactory:
     Follows Factory pattern to create appropriate strategy based on server type.
     """
 
-    _strategies: ClassVar[list[type[EmailSenderStrategy]]] = [
-        NoAuthSmtpEmailSenderStrategy,
-        SmtpEmailSenderStrategy,
-        GmailEmailSenderStrategy,
-    ]
-
     @classmethod
     def create(cls, config: EmailServerConfig) -> EmailSenderStrategy:
         """Create appropriate email sender strategy for the given config.
@@ -427,10 +423,15 @@ class EmailSenderStrategyFactory:
         EmailServiceError
             If no strategy can handle the server type.
         """
-        for strategy_class in cls._strategies:
-            strategy = strategy_class(config)
-            if strategy.can_handle(config.server_type):
-                return strategy
+        if config.server_type == EmailServerType.GMAIL:
+            return GmailEmailSenderStrategy(config)
+
+        if config.server_type == EmailServerType.SMTP:
+            # If no password is set, treat it as "no-auth" flow. This must not
+            # depend on list ordering.
+            if not config.smtp_password:
+                return NoAuthSmtpEmailSenderStrategy(config)
+            return SmtpEmailSenderStrategy(config)
 
         msg = f"unsupported_server_type: {config.server_type}"
         raise EmailServiceError(msg)
@@ -530,17 +531,18 @@ class EmailService:
             extension=extension or None,
         )
 
-        temp_dir = Path(tempfile.gettempdir()) / "calibre_email_attachments"
-        temp_dir.mkdir(parents=True, exist_ok=True)
-        temp_path = temp_dir / attachment_filename
+        # Use a per-send temporary directory to avoid filename collisions when
+        # multiple sends happen concurrently (e.g., background workers).
+        with tempfile.TemporaryDirectory(prefix="bookcard_email_attachments_") as tmp:
+            temp_dir = Path(tmp)
+            temp_path = temp_dir / attachment_filename
 
-        try:
-            shutil.copy2(book_file_path, temp_path)
-        except OSError as exc:
-            msg = f"failed_to_prepare_attachment: {exc!s}"
-            raise ValueError(msg) from exc
+            try:
+                shutil.copy2(book_file_path, temp_path)
+            except OSError as exc:
+                msg = f"failed_to_prepare_attachment: {exc!s}"
+                raise ValueError(msg) from exc
 
-        try:
             # Delegate to strategy with sanitized attachment path
             self._sender_strategy.send(
                 to_email=to_email,
@@ -548,7 +550,3 @@ class EmailService:
                 message=message,
                 attachment_path=temp_path,
             )
-        finally:
-            # Best-effort cleanup of temporary attachment file
-            with contextlib.suppress(OSError):
-                temp_path.unlink()
