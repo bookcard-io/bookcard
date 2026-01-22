@@ -68,4 +68,5 @@ class ProgressTracker:
         self.check_cancellation()
         self.current_step += 1
         progress = self.current_step / self.total_steps
-        self.callback(progress, message)
+        metadata = {"message": message} if message is not None else None
+        self.callback(progress, metadata)
