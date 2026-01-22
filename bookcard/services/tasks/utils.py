@@ -21,41 +21,6 @@ Provides shared utilities following Separation of Concerns.
 from bookcard.repositories import BookWithFullRelations
 
 
-class BookFormatResolver:
-    """Resolves the format to use for book operations.
-
-    Follows Separation of Concerns by extracting format resolution logic.
-    """
-
-    @staticmethod
-    def resolve_send_format(
-        requested_format: str | None,
-        book_with_rels: BookWithFullRelations,
-    ) -> str | None:
-        """Determine the format to send.
-
-        Parameters
-        ----------
-        requested_format : str | None
-            Explicitly requested format, if any.
-        book_with_rels : BookWithFullRelations
-            Book with its relationships.
-
-        Returns
-        -------
-        str | None
-            Uppercase format string, or None if no format available.
-        """
-        if requested_format:
-            return requested_format.upper()
-
-        if not book_with_rels.formats:
-            return None
-
-        first_format = book_with_rels.formats[0].get("format")
-        return str(first_format).upper() if first_format else None
-
-
 class AuthorExtractor:
     """Extracts author information from book data.
 

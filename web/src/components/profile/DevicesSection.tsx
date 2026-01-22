@@ -16,6 +16,10 @@
 "use client";
 
 import { useState } from "react";
+import {
+  getFormatLabel,
+  SUPPORTED_BOOK_FORMAT_EXTENSIONS,
+} from "@/constants/bookFormats";
 import { useUser } from "@/contexts/UserContext";
 import { cn } from "@/libs/utils";
 import {
@@ -32,6 +36,116 @@ interface DevicesSectionProps {
   devices: EReaderDevice[] | undefined;
 }
 
+const SEND_FORMAT_PRIORITY_SETTING_KEY = "send_format_priority";
+
+// A simple, opinionated "most popular first" list; the rest are appended
+// in backend-consistent supported format order.
+const POPULAR_SEND_FORMATS: readonly string[] = [
+  "epub",
+  "pdf",
+  "azw3",
+  "mobi",
+  "kepub",
+  "azw",
+  "cbz",
+  "cbr",
+  "djvu",
+  "docx",
+  "fb2",
+  "rtf",
+  "txt",
+] as const;
+
+type DropSide = "before" | "after";
+
+function moveToInsertionIndex<T>(
+  items: T[],
+  fromIndex: number,
+  insertionIndex: number,
+): T[] {
+  const next = items.slice();
+  const [moved] = next.splice(fromIndex, 1);
+  if (moved === undefined) {
+    return items;
+  }
+
+  // insertionIndex refers to the "slot" in the original list. After removal,
+  // everything to the right shifts left by one.
+  let targetIndex = insertionIndex;
+  if (fromIndex < targetIndex) {
+    targetIndex -= 1;
+  }
+  targetIndex = Math.max(0, Math.min(targetIndex, next.length));
+
+  next.splice(targetIndex, 0, moved);
+  return next;
+}
+
+function getDropSideFromEventTarget(
+  el: HTMLElement,
+  clientX: number,
+): DropSide {
+  const rect = el.getBoundingClientRect();
+  const mid = rect.left + rect.width / 2;
+  return clientX < mid ? "before" : "after";
+}
+
+function buildDefaultSendFormatPriority(): string[] {
+  const popularSet = new Set(POPULAR_SEND_FORMATS);
+  const popular = POPULAR_SEND_FORMATS.filter((f) =>
+    SUPPORTED_BOOK_FORMAT_EXTENSIONS.includes(f as never),
+  );
+  const remaining = SUPPORTED_BOOK_FORMAT_EXTENSIONS.filter(
+    (f) => !popularSet.has(f),
+  );
+  return [...popular, ...remaining];
+}
+
+function normalizeSendFormatPriority(value: string | null): string[] {
+  const supported =
+    SUPPORTED_BOOK_FORMAT_EXTENSIONS.slice() as unknown as string[];
+  const supportedSet = new Set(supported.map((f) => f.toLowerCase()));
+
+  if (!value) {
+    return buildDefaultSendFormatPriority();
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    // Backward-compatible: comma-separated list
+    parsed = value.split(",").map((s) => s.trim());
+  }
+
+  const rawList = Array.isArray(parsed) ? parsed : [];
+  const cleaned: string[] = [];
+  const seen = new Set<string>();
+
+  for (const item of rawList) {
+    if (typeof item !== "string") {
+      continue;
+    }
+    const normalized = item.trim().toLowerCase();
+    if (!normalized || !supportedSet.has(normalized) || seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    cleaned.push(normalized);
+  }
+
+  // Always include all supported formats (append any missing)
+  for (const f of supported) {
+    const normalized = f.toLowerCase();
+    if (!seen.has(normalized)) {
+      cleaned.push(normalized);
+      seen.add(normalized);
+    }
+  }
+
+  return cleaned.length > 0 ? cleaned : buildDefaultSendFormatPriority();
+}
+
 /**
  * Devices section displaying user's e-reader devices.
  *
@@ -44,9 +158,19 @@ export function DevicesSection({ devices }: DevicesSectionProps) {
   const [editingDevice, setEditingDevice] = useState<EReaderDevice | null>(
     null,
   );
-  const { refresh, updateUser, user } = useUser();
+  const { refresh, updateUser, user, getSetting, updateSetting, isSaving } =
+    useUser();
 
   const deviceList = devices || [];
+
+  const [sendFormatPriority, setSendFormatPriority] = useState<string[]>(() =>
+    normalizeSendFormatPriority(getSetting(SEND_FORMAT_PRIORITY_SETTING_KEY)),
+  );
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndicator, setDropIndicator] = useState<{
+    index: number;
+    side: DropSide;
+  } | null>(null);
 
   const handleCreateDevice = async (data: {
     email: string;
@@ -194,6 +318,144 @@ export function DevicesSection({ devices }: DevicesSectionProps) {
           <AddDeviceCard onClick={() => setShowAddModal(true)} />
         </div>
       </div>
+
+      {deviceList.length > 0 && (
+        <div className="rounded-lg border border-[var(--color-surface-a20)] p-4">
+          <div className="flex items-center gap-2">
+            <h3 className="m-0 font-semibold text-base text-text-a0">
+              Send format priority
+            </h3>
+            {isSaving && (
+              <div className="flex items-center gap-2 text-sm text-text-a30">
+                <i className="pi pi-spin pi-spinner" aria-hidden="true" />
+                <span>Saving...</span>
+              </div>
+            )}
+          </div>
+          <p className="mt-2 text-sm text-text-a60">
+            Drag to reorder. When sending a book without an explicit format,
+            we’ll pick the first available format based on this order.
+          </p>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {sendFormatPriority.map((format, index) => (
+              <div key={format} className="relative inline-flex">
+                {dropIndicator?.index === index &&
+                  dropIndicator.side === "before" && (
+                    <span
+                      className={cn(
+                        "-translate-y-1/2 pointer-events-none absolute top-1/2 left-[-6px] h-6 w-px",
+                        "bg-[var(--color-primary-a0)]",
+                      )}
+                      aria-hidden="true"
+                    />
+                  )}
+                {dropIndicator?.index === index &&
+                  dropIndicator.side === "after" && (
+                    <span
+                      className={cn(
+                        "-translate-y-1/2 pointer-events-none absolute top-1/2 right-[-6px] h-6 w-px",
+                        "bg-[var(--color-primary-a0)]",
+                      )}
+                      aria-hidden="true"
+                    />
+                  )}
+
+                <button
+                  type="button"
+                  draggable
+                  onDragStart={(e) => {
+                    // Some browsers won't start drag unless data is set.
+                    e.dataTransfer?.setData("text/plain", format);
+                    setDragIndex(index);
+                    setDropIndicator(null);
+                  }}
+                  onDragEnd={() => {
+                    setDragIndex(null);
+                    setDropIndicator(null);
+                  }}
+                  onDragLeave={() => {
+                    // Keep the indicator stable when moving between pills; clear only
+                    // if we're leaving the currently-indicated target.
+                    if (dropIndicator?.index === index) {
+                      setDropIndicator(null);
+                    }
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (dragIndex === null || dragIndex === index) {
+                      setDropIndicator(null);
+                      return;
+                    }
+                    const side = getDropSideFromEventTarget(
+                      e.currentTarget,
+                      e.clientX,
+                    );
+                    setDropIndicator({ index, side });
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (dragIndex === null) {
+                      return;
+                    }
+
+                    const side = getDropSideFromEventTarget(
+                      e.currentTarget,
+                      e.clientX,
+                    );
+                    const insertionIndex = index + (side === "after" ? 1 : 0);
+                    const next =
+                      dragIndex === index
+                        ? sendFormatPriority
+                        : moveToInsertionIndex(
+                            sendFormatPriority,
+                            dragIndex,
+                            insertionIndex,
+                          );
+
+                    setSendFormatPriority(next);
+                    updateSetting(
+                      SEND_FORMAT_PRIORITY_SETTING_KEY,
+                      JSON.stringify(next),
+                    );
+                    setDragIndex(null);
+                    setDropIndicator(null);
+                  }}
+                  className={cn(
+                    "cursor-grab select-none rounded-full border px-3 py-1 text-sm",
+                    "border-[var(--color-surface-a20)] bg-[var(--color-surface-a0)] text-text-a10",
+                    dragIndex === index && "opacity-60",
+                  )}
+                  title="Drag to reorder"
+                  aria-label={`Format ${getFormatLabel(format)}, drag to reorder`}
+                >
+                  {getFormatLabel(format)}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3 flex items-center justify-end">
+            <button
+              type="button"
+              className={cn(
+                "rounded-md border px-3 py-1.5 text-sm",
+                "border-[var(--color-surface-a20)] text-text-a20 hover:text-text-a10",
+              )}
+              onClick={() => {
+                const next = buildDefaultSendFormatPriority();
+                setSendFormatPriority(next);
+                updateSetting(
+                  SEND_FORMAT_PRIORITY_SETTING_KEY,
+                  JSON.stringify(next),
+                );
+              }}
+            >
+              Reset to default
+            </button>
+          </div>
+        </div>
+      )}
       {showAddModal && (
         <DeviceEditModal
           onClose={() => setShowAddModal(false)}
