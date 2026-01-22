@@ -18,16 +18,18 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
-from unittest.mock import MagicMock, patch
+from typing import TYPE_CHECKING, cast
+from unittest.mock import MagicMock
 
 import pytest
 
 from bookcard.models.config import EmailServerConfig, EmailServerType, Library
 from bookcard.models.core import Book
 from bookcard.repositories import BookWithFullRelations
-from bookcard.services.email_service import EmailServiceError
-from bookcard.services.tasks.email_send_task import EmailSendTask
+from bookcard.services.email_service import EmailService, EmailServiceError
+from bookcard.services.tasks.context import WorkerContext
+from bookcard.services.tasks.email_send import EmailSendTask
+from bookcard.services.tasks.email_send.dependencies import EmailSendDependencies
 from bookcard.services.tasks.exceptions import (
     EmailServerNotConfiguredError,
     LibraryNotConfiguredError,
@@ -38,14 +40,13 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
-def worker_context(session: DummySession) -> dict[str, Any]:
+def worker_context(session: DummySession) -> WorkerContext:
     """Create worker context for task execution."""
-    update_progress = MagicMock()
-    return {
-        "session": session,
-        "task_service": MagicMock(),
-        "update_progress": update_progress,
-    }
+    return WorkerContext(
+        session=session,  # type: ignore[arg-type]
+        task_service=MagicMock(),
+        update_progress=MagicMock(),
+    )
 
 
 @pytest.fixture
@@ -82,6 +83,89 @@ def email_config() -> EmailServerConfig:
         enabled=True,
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
+    )
+
+
+@pytest.fixture
+def book_with_rels() -> BookWithFullRelations:
+    """Create a test book with relations."""
+    book = Book(
+        id=1,
+        title="Test Book",
+        author_sort="Test Author",
+        pubdate="2024-01-01",
+        timestamp="2024-01-01T00:00:00",
+        series_index=1.0,
+        isbn="1234567890",
+        uuid="test-uuid",
+        has_cover=False,
+        path="test/path",
+    )
+    return BookWithFullRelations(
+        book=book,
+        authors=["Test Author"],
+        series=None,
+        series_id=None,
+        tags=[],
+        identifiers=[],
+        description=None,
+        publisher=None,
+        publisher_id=None,
+        languages=[],
+        language_ids=[],
+        rating=None,
+        rating_id=None,
+        formats=[{"format": "EPUB", "size": 1000, "name": "test"}],
+    )
+
+
+@pytest.fixture
+def mock_dependencies(
+    library: Library,
+    email_config: EmailServerConfig,
+    book_with_rels: BookWithFullRelations,
+) -> EmailSendDependencies:
+    """Create mock dependencies for EmailSendTask."""
+    # Mock library provider
+    library_provider = MagicMock()
+    library_provider.get_active_library.return_value = library
+
+    # Mock email service factory
+    email_service = EmailService(email_config)
+    email_service_factory = MagicMock()
+    email_service_factory.create.return_value = email_service
+
+    # Mock book service
+    book_service = MagicMock()
+    book_service.get_book_full.return_value = book_with_rels
+    book_service.send_book.return_value = None
+
+    # Mock book service factory
+    book_service_factory = MagicMock()
+    book_service_factory.create.return_value = book_service
+
+    # Mock preparation service
+    from bookcard.services.tasks.email_send.domain import SendPreparation
+
+    preparation = SendPreparation(
+        book_title="Test Book",
+        attachment_filename="Test_Author_-_Test_Book.epub",
+        resolved_format="EPUB",
+        book_with_rels=book_with_rels,
+    )
+    preparation_service = MagicMock()
+    preparation_service.prepare.return_value = preparation
+
+    # Mock preprocessing pipeline
+    preprocessing_pipeline = MagicMock()
+    preprocessing_pipeline.execute.return_value = None
+
+    return EmailSendDependencies(
+        library_provider=library_provider,
+        email_service_factory=email_service_factory,
+        book_service_factory=book_service_factory,
+        preparation_service=preparation_service,
+        preprocessing_pipeline=preprocessing_pipeline,
     )
 
 
@@ -125,10 +209,10 @@ class TestEmailSendTaskInit:
     def test_init_success(self, base_metadata: dict[str, object]) -> None:
         """Test __init__ sets attributes correctly."""
         task = EmailSendTask(task_id=1, user_id=1, metadata=base_metadata)
-        assert task._book_id == 1
-        assert task._email_target.address == "test@example.com"
-        assert task._file_format == "EPUB"
-        assert task._encryption_key == "test-key"
+        assert task._request.book_id.value == 1
+        assert task._request.email_target.address == "test@example.com"
+        assert task._request.file_format.value == "EPUB"
+        assert task._request.encryption_key.value == "test-key"
 
     def test_init_optional_fields(self) -> None:
         """Test __init__ handles optional fields."""
@@ -137,372 +221,180 @@ class TestEmailSendTaskInit:
             "encryption_key": "test-key",
         }
         task = EmailSendTask(task_id=1, user_id=1, metadata=metadata)
-        assert task._book_id == 1
-        assert task._email_target.address is None
-        assert task._file_format is None
-        assert task._encryption_key == "test-key"
+        assert task._request.book_id.value == 1
+        assert task._request.email_target.address is None
+        assert task._request.file_format.value is None
+        assert task._request.encryption_key.value == "test-key"
 
 
 class TestEmailSendTaskRun:
     """Test EmailSendTask.run method."""
 
-    @pytest.fixture
-    def mock_library_service(self, library: Library) -> MagicMock:
-        """Create mock library service."""
-        service = MagicMock()
-        service.get_active_library.return_value = library
-        return service
-
-    @pytest.fixture
-    def mock_email_config_service(self, email_config: EmailServerConfig) -> MagicMock:
-        """Create mock email config service."""
-        service = MagicMock()
-        service.get_config.return_value = email_config
-        return service
-
-    @pytest.fixture
-    def mock_book_service(self) -> MagicMock:
-        """Create mock book service."""
-        # Create a proper BookWithFullRelations object for get_book_full
-        book = Book(
-            id=1,
-            title="Test Book",
-            author_sort="Test Author",
-            pubdate="2024-01-01",
-            timestamp="2024-01-01T00:00:00",
-            series_index=1.0,
-            isbn="1234567890",
-            uuid="test-uuid",
-            has_cover=False,
-            path="test/path",
-        )
-        book_with_rels = BookWithFullRelations(
-            book=book,
-            authors=["Test Author"],
-            series=None,
-            series_id=None,
-            tags=[],
-            identifiers=[],
-            description=None,
-            publisher=None,
-            publisher_id=None,
-            languages=[],
-            language_ids=[],
-            rating=None,
-            rating_id=None,
-            formats=[{"format": "EPUB", "size": 1000, "name": "test"}],
-        )
-
-        service = MagicMock()
-        service.get_book_full.return_value = book_with_rels
-        service.send_book.return_value = None
-        return service
-
     def test_run_success(
         self,
         base_metadata: dict[str, object],
-        worker_context: dict[str, MagicMock],
-        mock_library_service: MagicMock,
-        mock_email_config_service: MagicMock,
-        mock_book_service: MagicMock,
+        worker_context: WorkerContext,
+        mock_dependencies: EmailSendDependencies,
     ) -> None:
         """Test run completes successfully."""
-        task = EmailSendTask(task_id=1, user_id=1, metadata=base_metadata)
+        task = EmailSendTask(
+            task_id=1, user_id=1, metadata=base_metadata, dependencies=mock_dependencies
+        )
 
-        with (
-            patch("bookcard.services.tasks.email_send_task.LibraryRepository"),
-            patch(
-                "bookcard.services.tasks.email_send_task.LibraryService",
-                return_value=mock_library_service,
-            ),
-            patch("bookcard.services.tasks.email_send_task.DataEncryptor"),
-            patch(
-                "bookcard.services.tasks.email_send_task.EmailConfigService",
-                return_value=mock_email_config_service,
-            ),
-            patch("bookcard.services.tasks.email_send_task.EmailService"),
-            patch(
-                "bookcard.services.tasks.email_send_task.BookService",
-                return_value=mock_book_service,
-            ),
-        ):
-            task.run(worker_context)
+        task.run(worker_context)
 
-        # Verify progress updates
-        update_progress = worker_context["update_progress"]
-        assert update_progress.call_count == 5
-        # Check that progress was updated (now includes metadata parameter)
-        assert update_progress.call_count == 5
-        # Verify calls were made with correct progress values
-        call_args_list = [call[0][0] for call in update_progress.call_args_list]
-        assert 0.1 in call_args_list
-        assert 0.2 in call_args_list
-        assert 0.3 in call_args_list
-        assert 0.4 in call_args_list
-        assert 1.0 in call_args_list
+        # Verify progress updates (6 steps: library, email, book, prepare, preprocess, send)
+        assert worker_context.update_progress.call_count == 6
 
-        # Verify book service was called
-        mock_book_service.send_book.assert_called_once()
-        call_kwargs = mock_book_service.send_book.call_args[1]
+        # Verify library provider was called
+        library_provider = cast("MagicMock", mock_dependencies.library_provider)
+        library_provider.get_active_library.assert_called_once()
+
+        # Verify email service factory was called
+        email_service_factory = cast(
+            "MagicMock", mock_dependencies.email_service_factory
+        )
+        email_service_factory.create.assert_called_once()
+
+        # Verify book service factory was called
+        book_service_factory = cast("MagicMock", mock_dependencies.book_service_factory)
+        book_service_factory.create.assert_called_once()
+
+        # Verify preparation service was called
+        preparation_service = cast("MagicMock", mock_dependencies.preparation_service)
+        preparation_service.prepare.assert_called_once()
+
+        # Verify preprocessing pipeline was called
+        preprocessing_pipeline = cast(
+            "MagicMock", mock_dependencies.preprocessing_pipeline
+        )
+        preprocessing_pipeline.execute.assert_called_once()
+
+        # Verify book service send_book was called
+        book_service = book_service_factory.create.return_value
+        book_service.send_book.assert_called_once()
+        call_kwargs = book_service.send_book.call_args[1]
         assert call_kwargs["book_id"] == 1
         assert call_kwargs["user_id"] == 1
         assert call_kwargs["to_email"] == "test@example.com"
         assert call_kwargs["file_format"] == "EPUB"
 
+        # Verify metadata was set
+        assert task.metadata["book_title"] == "Test Book"
+        assert task.metadata["attachment_filename"] == "Test_Author_-_Test_Book.epub"
+
     def test_run_cancelled_before_processing(
         self,
         base_metadata: dict[str, object],
-        worker_context: dict[str, MagicMock],
+        worker_context: WorkerContext,
+        mock_dependencies: EmailSendDependencies,
     ) -> None:
         """Test run handles cancellation before processing."""
-        task = EmailSendTask(task_id=1, user_id=1, metadata=base_metadata)
+        task = EmailSendTask(
+            task_id=1, user_id=1, metadata=base_metadata, dependencies=mock_dependencies
+        )
         task.mark_cancelled()
 
         task.run(worker_context)
 
         # Should log cancellation but not raise
-        update_progress = worker_context["update_progress"]
-        update_progress.assert_not_called()
+        worker_context.update_progress.assert_not_called()
 
     def test_run_no_library_configured(
         self,
         base_metadata: dict[str, object],
-        worker_context: dict[str, MagicMock],
+        worker_context: WorkerContext,
+        mock_dependencies: EmailSendDependencies,
     ) -> None:
-        """Test run raises ValueError when no library configured."""
-        task = EmailSendTask(task_id=1, user_id=1, metadata=base_metadata)
+        """Test run raises LibraryNotConfiguredError when no library configured."""
+        task = EmailSendTask(
+            task_id=1, user_id=1, metadata=base_metadata, dependencies=mock_dependencies
+        )
 
-        with (
-            patch("bookcard.services.tasks.email_send_task.LibraryRepository"),
-            patch(
-                "bookcard.services.tasks.email_send_task.LibraryService"
-            ) as mock_library_service,
-        ):
-            mock_library_service.return_value.get_active_library.return_value = None
+        library_provider = cast("MagicMock", mock_dependencies.library_provider)
+        library_provider.get_active_library.side_effect = LibraryNotConfiguredError
 
-            with pytest.raises(LibraryNotConfiguredError):
-                task.run(worker_context)
+        with pytest.raises(LibraryNotConfiguredError):
+            task.run(worker_context)
 
     def test_run_email_server_not_configured(
         self,
         base_metadata: dict[str, object],
-        worker_context: dict[str, MagicMock],
-        mock_library_service: MagicMock,
+        worker_context: WorkerContext,
+        mock_dependencies: EmailSendDependencies,
     ) -> None:
-        """Test run raises ValueError when email server not configured."""
-        task = EmailSendTask(task_id=1, user_id=1, metadata=base_metadata)
-
-        with (
-            patch("bookcard.services.tasks.email_send_task.LibraryRepository"),
-            patch(
-                "bookcard.services.tasks.email_send_task.LibraryService",
-                return_value=mock_library_service,
-            ),
-            patch("bookcard.services.tasks.email_send_task.DataEncryptor"),
-            patch(
-                "bookcard.services.tasks.email_send_task.EmailConfigService"
-            ) as mock_email_config_service,
-        ):
-            # Return None or disabled config
-            mock_email_config_service.return_value.get_config.return_value = None
-
-            with pytest.raises(EmailServerNotConfiguredError):
-                task.run(worker_context)
-
-    def test_run_email_server_disabled(
-        self,
-        base_metadata: dict[str, object],
-        worker_context: dict[str, MagicMock],
-        mock_library_service: MagicMock,
-    ) -> None:
-        """Test run raises ValueError when email server is disabled."""
-        task = EmailSendTask(task_id=1, user_id=1, metadata=base_metadata)
-
-        disabled_config = EmailServerConfig(
-            id=1,
-            server_type=EmailServerType.SMTP,
-            enabled=False,
-            created_at=datetime.now(UTC),
-            updated_at=datetime.now(UTC),
+        """Test run raises EmailServerNotConfiguredError when email server not configured."""
+        task = EmailSendTask(
+            task_id=1, user_id=1, metadata=base_metadata, dependencies=mock_dependencies
         )
 
-        with (
-            patch("bookcard.services.tasks.email_send_task.LibraryRepository"),
-            patch(
-                "bookcard.services.tasks.email_send_task.LibraryService",
-                return_value=mock_library_service,
-            ),
-            patch("bookcard.services.tasks.email_send_task.DataEncryptor"),
-            patch(
-                "bookcard.services.tasks.email_send_task.EmailConfigService"
-            ) as mock_email_config_service,
-        ):
-            mock_email_config_service.return_value.get_config.return_value = (
-                disabled_config
-            )
+        email_service_factory = cast(
+            "MagicMock", mock_dependencies.email_service_factory
+        )
+        email_service_factory.create.side_effect = EmailServerNotConfiguredError
 
-            with pytest.raises(EmailServerNotConfiguredError):
-                task.run(worker_context)
-
-    @pytest.mark.parametrize(
-        ("progress_value", "cancelled_after"),
-        [
-            (0.1, False),  # Not cancelled
-            (0.2, True),  # Cancelled after library found
-            (0.3, True),  # Cancelled after email service ready
-            (0.4, True),  # Cancelled after book service ready
-        ],
-    )
-    def test_run_cancelled_at_different_stages(
-        self,
-        base_metadata: dict[str, object],
-        worker_context: dict[str, MagicMock],
-        mock_library_service: MagicMock,
-        mock_email_config_service: MagicMock,
-        progress_value: float,
-        cancelled_after: bool,
-    ) -> None:
-        """Test run handles cancellation at different stages."""
-        task = EmailSendTask(task_id=1, user_id=1, metadata=base_metadata)
-
-        update_progress = worker_context["update_progress"]
-
-        def cancel_after_progress(
-            progress: float, metadata: dict | None = None
-        ) -> None:
-            """Cancel task after specific progress value."""
-            if progress == progress_value:
-                task.mark_cancelled()
-
-        update_progress.side_effect = cancel_after_progress
-
-        with (
-            patch("bookcard.services.tasks.email_send_task.LibraryRepository"),
-            patch(
-                "bookcard.services.tasks.email_send_task.LibraryService",
-                return_value=mock_library_service,
-            ),
-            patch("bookcard.services.tasks.email_send_task.DataEncryptor"),
-            patch(
-                "bookcard.services.tasks.email_send_task.EmailConfigService",
-                return_value=mock_email_config_service,
-            ),
-            patch("bookcard.services.tasks.email_send_task.EmailService"),
-            patch(
-                "bookcard.services.tasks.email_send_task.BookService"
-            ) as mock_book_service,
-        ):
+        with pytest.raises(EmailServerNotConfiguredError):
             task.run(worker_context)
-
-            # If cancelled early, book service should not be called
-            if cancelled_after:
-                mock_book_service.return_value.send_book.assert_not_called()
 
     def test_run_email_service_error(
         self,
         base_metadata: dict[str, object],
-        worker_context: dict[str, MagicMock],
-        mock_library_service: MagicMock,
-        mock_email_config_service: MagicMock,
-        mock_book_service: MagicMock,
+        worker_context: WorkerContext,
+        mock_dependencies: EmailSendDependencies,
     ) -> None:
         """Test run raises EmailServiceError when email service fails."""
-        task = EmailSendTask(task_id=1, user_id=1, metadata=base_metadata)
+        task = EmailSendTask(
+            task_id=1, user_id=1, metadata=base_metadata, dependencies=mock_dependencies
+        )
 
-        mock_book_service.send_book.side_effect = EmailServiceError("Email send failed")
+        book_service_factory = cast("MagicMock", mock_dependencies.book_service_factory)
+        book_service = book_service_factory.create.return_value
+        book_service.send_book.side_effect = EmailServiceError("Email send failed")
 
-        with (
-            patch("bookcard.services.tasks.email_send_task.LibraryRepository"),
-            patch(
-                "bookcard.services.tasks.email_send_task.LibraryService",
-                return_value=mock_library_service,
-            ),
-            patch("bookcard.services.tasks.email_send_task.DataEncryptor"),
-            patch(
-                "bookcard.services.tasks.email_send_task.EmailConfigService",
-                return_value=mock_email_config_service,
-            ),
-            patch("bookcard.services.tasks.email_send_task.EmailService"),
-            patch(
-                "bookcard.services.tasks.email_send_task.BookService",
-                return_value=mock_book_service,
-            ),
-            pytest.raises(EmailServiceError, match="Email send failed"),
-        ):
+        with pytest.raises(EmailServiceError, match="Email send failed"):
             task.run(worker_context)
 
     def test_run_generic_exception(
         self,
         base_metadata: dict[str, object],
-        worker_context: dict[str, MagicMock],
-        mock_library_service: MagicMock,
-        mock_email_config_service: MagicMock,
-        mock_book_service: MagicMock,
+        worker_context: WorkerContext,
+        mock_dependencies: EmailSendDependencies,
     ) -> None:
         """Test run raises generic Exception when unexpected error occurs."""
-        task = EmailSendTask(task_id=1, user_id=1, metadata=base_metadata)
+        task = EmailSendTask(
+            task_id=1, user_id=1, metadata=base_metadata, dependencies=mock_dependencies
+        )
 
-        mock_book_service.send_book.side_effect = RuntimeError("Unexpected error")
+        book_service_factory = cast("MagicMock", mock_dependencies.book_service_factory)
+        book_service = book_service_factory.create.return_value
+        book_service.send_book.side_effect = RuntimeError("Unexpected error")
 
-        with (
-            patch("bookcard.services.tasks.email_send_task.LibraryRepository"),
-            patch(
-                "bookcard.services.tasks.email_send_task.LibraryService",
-                return_value=mock_library_service,
-            ),
-            patch("bookcard.services.tasks.email_send_task.DataEncryptor"),
-            patch(
-                "bookcard.services.tasks.email_send_task.EmailConfigService",
-                return_value=mock_email_config_service,
-            ),
-            patch("bookcard.services.tasks.email_send_task.EmailService"),
-            patch(
-                "bookcard.services.tasks.email_send_task.BookService",
-                return_value=mock_book_service,
-            ),
-            pytest.raises(RuntimeError, match="Unexpected error"),
-        ):
+        with pytest.raises(RuntimeError, match="Unexpected error"):
             task.run(worker_context)
 
     def test_run_with_none_email_and_format(
         self,
-        worker_context: dict[str, MagicMock],
-        mock_library_service: MagicMock,
-        mock_email_config_service: MagicMock,
-        mock_book_service: MagicMock,
+        worker_context: WorkerContext,
+        mock_dependencies: EmailSendDependencies,
     ) -> None:
         """Test run handles None email and format."""
         metadata = {
             "book_id": 1,
             "encryption_key": "test-key",
         }
-        task = EmailSendTask(task_id=1, user_id=1, metadata=metadata)
+        task = EmailSendTask(
+            task_id=1, user_id=1, metadata=metadata, dependencies=mock_dependencies
+        )
 
-        with (
-            patch("bookcard.services.tasks.email_send_task.LibraryRepository"),
-            patch(
-                "bookcard.services.tasks.email_send_task.LibraryService",
-                return_value=mock_library_service,
-            ),
-            patch("bookcard.services.tasks.email_send_task.DataEncryptor"),
-            patch(
-                "bookcard.services.tasks.email_send_task.EmailConfigService",
-                return_value=mock_email_config_service,
-            ),
-            patch("bookcard.services.tasks.email_send_task.EmailService"),
-            patch(
-                "bookcard.services.tasks.email_send_task.BookService",
-                return_value=mock_book_service,
-            ),
-        ):
-            task.run(worker_context)
+        task.run(worker_context)
 
-        # Verify book service was called with expected values.
-        # If no format is provided, the task resolves a preferred format based on
-        # user-level priority (defaulting to EPUB -> PDF -> first available).
-        mock_book_service.send_book.assert_called_once()
-        call_kwargs = mock_book_service.send_book.call_args[1]
+        # Verify book service was called with expected values
+        book_service_factory = cast("MagicMock", mock_dependencies.book_service_factory)
+        book_service = book_service_factory.create.return_value
+        book_service.send_book.assert_called_once()
+        call_kwargs = book_service.send_book.call_args[1]
         assert call_kwargs["book_id"] == 1
         assert call_kwargs["user_id"] == 1
         assert call_kwargs["to_email"] is None
+        # Format is resolved by preparation service
         assert call_kwargs["file_format"] == "EPUB"

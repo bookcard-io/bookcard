@@ -151,6 +151,25 @@ class LibraryService:
         """
         return self._library_repo.get_active()
 
+    def require_active_library(self) -> Library:
+        """Get the currently active library, raising exception if not found.
+
+        Returns
+        -------
+        Library
+            The active library.
+
+        Raises
+        ------
+        ValueError
+            If no active library is configured.
+        """
+        library = self.get_active_library()
+        if library is None:
+            msg = "No active library configured"
+            raise ValueError(msg)
+        return library
+
     def get_library(self, library_id: int) -> Library | None:
         """Get a library by ID.
 

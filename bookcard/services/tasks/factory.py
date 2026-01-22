@@ -31,7 +31,7 @@ from bookcard.services.tasks.book_convert_task import BookConvertTask
 from bookcard.services.tasks.book_strip_drm_task import BookStripDrmTask
 from bookcard.services.tasks.book_upload_task import BookUploadTask
 from bookcard.services.tasks.download_monitor_task import DownloadMonitorTask
-from bookcard.services.tasks.email_send_task import EmailSendTask
+from bookcard.services.tasks.email_send import EmailSendTask
 from bookcard.services.tasks.epub_fix_daily_scan_task import (
     EPUBFixDailyScanTask,
 )
