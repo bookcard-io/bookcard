@@ -86,13 +86,15 @@ class EmailSendTask(BaseTask):
         if self.check_cancelled():
             raise TaskCancelledError(self.task_id)
 
-    def run(self, worker_context: WorkerContext) -> None:
+    def run(self, worker_context: WorkerContext | dict[str, Any]) -> None:
         """Execute email send task.
 
         Parameters
         ----------
-        worker_context : WorkerContext
+        worker_context : WorkerContext | dict[str, Any]
             Worker context containing session, task_service, update_progress.
+            Can be a `WorkerContext` (preferred) or a dict (backward compatibility
+            with older runners).
 
         Raises
         ------
@@ -105,8 +107,19 @@ class EmailSendTask(BaseTask):
         BookNotFoundError
             If book is not found.
         """
+        # Convert legacy dict context to WorkerContext for type safety.
+        if isinstance(worker_context, dict):
+            context = WorkerContext(
+                session=worker_context["session"],
+                update_progress=worker_context["update_progress"],
+                task_service=worker_context["task_service"],
+                enqueue_task=worker_context.get("enqueue_task"),  # type: ignore[arg-type]
+            )
+        else:
+            context = worker_context
+
         try:
-            self._execute(worker_context)
+            self._execute(context)
         except TaskCancelledError:
             logger.info("Task %s cancelled", self.task_id)
             # Don't re-raise - cancellation is expected
