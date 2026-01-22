@@ -25,6 +25,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useOptionalGlobalMessages } from "@/contexts/GlobalMessageContext";
 import {
   fetchSettings as apiFetchSettings,
   saveSetting as apiSaveSetting,
@@ -115,6 +116,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
   );
   const hasInitialRefetchRunRef = useRef(false);
   const previousPicturePathRef = useRef<string | null>(null);
+  const lastSettingSavedToastRef = useRef<
+    Map<string, { value: string; at: number }>
+  >(new Map());
+  const lastSettingsSaveErrorToastAtRef = useRef<number>(0);
+  const lastSettingsSaveErrorMessageRef = useRef<string | null>(null);
+
+  const globalMessages = useOptionalGlobalMessages();
+  const showSuccess = globalMessages?.showSuccess;
+  const showDanger = globalMessages?.showDanger;
 
   // Queue for debounced settings updates
   const pendingUpdatesRef = useRef<Map<string, string>>(new Map());
@@ -216,18 +226,51 @@ export function UserProvider({ children }: { children: ReactNode }) {
         }
         return updated;
       });
+
+      // Notify per saved setting using the server response (avoid spamming identical
+      // toasts for rapid saves of the same key/value).
+      const now = Date.now();
+      for (const { setting } of results) {
+        const previous = lastSettingSavedToastRef.current.get(setting.key);
+        const shouldToast =
+          !previous ||
+          previous.value !== setting.value ||
+          now - previous.at > 2000;
+        if (shouldToast) {
+          showSuccess?.(`Settings saved: ${setting.key} -> ${setting.value}`);
+          lastSettingSavedToastRef.current.set(setting.key, {
+            value: setting.value,
+            at: now,
+          });
+        }
+      }
     } catch (saveError) {
       // Re-queue on failure for retry; surface in console rather than breaking UX
       for (const [key, value] of updatesToSave.entries()) {
         pendingUpdatesRef.current.set(key, value);
       }
+
+      const message =
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to save settings";
+      const now = Date.now();
+      const shouldToast =
+        message !== lastSettingsSaveErrorMessageRef.current ||
+        now - lastSettingsSaveErrorToastAtRef.current > 5000;
+      if (shouldToast) {
+        showDanger?.(`${message}. Will retry automatically.`);
+        lastSettingsSaveErrorMessageRef.current = message;
+        lastSettingsSaveErrorToastAtRef.current = now;
+      }
+
       // Preserve original error policy: do not throw here
       // eslint-disable-next-line no-console
       console.error("Failed to save settings:", saveError);
     } finally {
       setIsSaving(false);
     }
-  }, [user]);
+  }, [showDanger, showSuccess, user]);
 
   const scheduleSettingsSave = useCallback(() => {
     if (debounceTimerRef.current) {

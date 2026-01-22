@@ -15,7 +15,6 @@
 
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import { useUser } from "@/contexts/UserContext";
 import { ProfileMenu } from "./ProfileMenu";
@@ -29,7 +28,6 @@ import { Tooltip } from "./Tooltip";
  */
 export function ProfileButton() {
   const { user } = useUser();
-  const router = useRouter();
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [cursorPosition, setCursorPosition] = useState<{
@@ -59,26 +57,6 @@ export function ProfileButton() {
     setIsMenuOpen(false);
     setCursorPosition(null);
   }, []);
-
-  const handleViewProfile = useCallback(() => {
-    router.push("/profile");
-  }, [router]);
-
-  const handleLogout = useCallback(async () => {
-    try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
-      // Redirect to login page
-      router.push("/login");
-      router.refresh();
-    } catch {
-      // Even if logout fails, redirect to login
-      router.push("/login");
-      router.refresh();
-    }
-  }, [router]);
 
   // Use shared profile picture URL from context (fetched once globally)
   const { profilePictureUrl } = useUser();
@@ -125,8 +103,6 @@ export function ProfileButton() {
         buttonRef={buttonRef}
         cursorPosition={cursorPosition}
         user={user}
-        onViewProfile={handleViewProfile}
-        onLogout={handleLogout}
       />
     </>
   );

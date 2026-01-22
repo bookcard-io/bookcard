@@ -15,7 +15,6 @@
 
 "use client";
 
-import { ConfigurationsSection } from "./ConfigurationsSection";
 import { DevicesSection } from "./DevicesSection";
 import { useUserProfile } from "./hooks/useUserProfile";
 import { ProfileSection } from "./ProfileSection";
@@ -23,7 +22,7 @@ import { ProfileSection } from "./ProfileSection";
 /**
  * Profile settings component.
  *
- * Displays user information, devices, and configuration preferences.
+ * Displays user information and devices (including send format priority).
  * Follows SRP by delegating to specialized section components.
  */
 export function ProfileSettings() {
@@ -50,7 +49,6 @@ export function ProfileSettings() {
       <div className="flex flex-col gap-8">
         <ProfileSection user={user} />
         <DevicesSection devices={user.ereader_devices} />
-        <ConfigurationsSection />
       </div>
     </div>
   );

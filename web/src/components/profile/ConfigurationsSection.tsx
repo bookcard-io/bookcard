@@ -16,7 +16,7 @@
 "use client";
 
 import { useState } from "react";
-import { SettingsProvider, useSettings } from "@/contexts/SettingsContext";
+import { SettingsProvider } from "@/contexts/SettingsContext";
 import { useTabScroll } from "@/hooks/useTabScroll";
 import { cn } from "@/libs/utils";
 import { BlurAfterClickProvider } from "./BlurAfterClickContext";
@@ -67,9 +67,8 @@ function TabContent({ children }: { children: React.ReactNode[] }) {
  * Follows IOC by using configurable scroll hook.
  * Follows SOC by delegating scroll behavior to useTabScroll hook.
  */
-function ConfigurationsSectionContent() {
+function ConfigurationsSectionContent({ showTitle }: { showTitle: boolean }) {
   const [activeTab, setActiveTab] = useState<TabId>(DEFAULT_TAB_ID);
-  const { isSaving } = useSettings();
   const { headerRef, contentRef, scrollToBottom } = useTabScroll();
 
   /**
@@ -134,27 +133,30 @@ function ConfigurationsSectionContent() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-2">
-        <h2 ref={headerRef} className="m-0 font-semibold text-text-a0 text-xl">
-          Configurations
-        </h2>
-        {isSaving && (
-          <div className="flex items-center gap-2 text-sm text-text-a30">
-            <i className="pi pi-spin pi-spinner" aria-hidden="true" />
-            <span>Saving...</span>
-          </div>
+      <div
+        className={cn("flex items-center gap-2", !showTitle && "justify-end")}
+      >
+        {showTitle ? (
+          <h2
+            ref={headerRef}
+            className="m-0 font-semibold text-text-a0 text-xl"
+          >
+            Configurations
+          </h2>
+        ) : (
+          <div ref={headerRef} className="h-0 w-0" aria-hidden="true" />
         )}
       </div>
 
       <BlurAfterClickProvider>
         <div className="flex flex-col gap-6">
-          <div className="flex gap-2 border-[var(--color-surface-a20)] border-b">
+          <div className="flex flex-col gap-2 border-[var(--color-surface-a20)] border-b sm:flex-row sm:flex-wrap">
             {CONFIGURATION_TABS.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 className={cn(
-                  "-mb-px relative cursor-pointer border-0 border-transparent border-b-2 bg-transparent px-6 py-3 font-medium text-sm text-text-a30 transition-[color,border-color] duration-200",
+                  "sm:-mb-px relative w-full max-w-[200px] cursor-pointer border-0 border-transparent border-b-2 bg-transparent px-4 py-2 font-medium text-sm text-text-a30 transition-[color,border-color] duration-200 sm:w-auto sm:px-6 sm:py-3",
                   "hover:text-text-a10",
                   activeTab === tab.id &&
                     "border-b-[var(--color-primary-a0)] text-text-a0",
@@ -188,15 +190,19 @@ function ConfigurationsSectionContent() {
  * ----------
  * debounceMs : number
  *     Debounce delay in milliseconds for settings updates (default: 500).
+ * showTitle : boolean
+ *     Whether to show the section title header (default: true).
  */
 export function ConfigurationsSection({
   debounceMs = 300,
+  showTitle = true,
 }: {
   debounceMs?: number;
+  showTitle?: boolean;
 }) {
   return (
     <SettingsProvider debounceMs={debounceMs}>
-      <ConfigurationsSectionContent />
+      <ConfigurationsSectionContent showTitle={showTitle} />
     </SettingsProvider>
   );
 }
