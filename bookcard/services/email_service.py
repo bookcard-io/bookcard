@@ -33,8 +33,10 @@ from abc import ABC, abstractmethod
 from email.message import EmailMessage
 from mimetypes import guess_type
 from pathlib import Path
+from typing import ClassVar
 
 from ezmail import EzSender
+from pydantic import EmailStr, TypeAdapter, ValidationError
 
 from bookcard.models.config import EmailServerConfig, EmailServerType
 from bookcard.services.email_utils import build_attachment_filename
@@ -89,6 +91,9 @@ class EmailSenderStrategy(ABC):
             Email message body.
         attachment_path : Path
             Path to file to attach.
+            The attachment path may be deleted immediately after this method
+            returns. Implementations MUST read any required file contents before
+            returning.
 
         Raises
         ------
@@ -247,11 +252,15 @@ class NoAuthSmtpEmailSenderStrategy(EmailSenderStrategy):
             msg = "smtp_from_email_required"
             raise EmailServiceError(msg)
 
-        port = self._config.smtp_port or 587
-        # Respect explicit configuration. If a user selects port 465 but disables SSL,
-        # we still follow the explicit flag.
-        use_ssl = bool(self._config.smtp_use_ssl)
-        use_tls = bool(self._config.smtp_use_tls) and not use_ssl
+        port: int = self._config.smtp_port or 587
+        # Security-first defaults:
+        # - port 465 implies SSL
+        # - port 587 implies STARTTLS
+        # Explicit flags can still force behavior on other ports.
+        use_ssl: bool = bool(self._config.smtp_use_ssl) or port == 465
+        use_tls: bool = (not use_ssl) and (
+            bool(self._config.smtp_use_tls) or port == 587
+        )
 
         email_msg = EmailMessage()
         email_msg["From"] = self._config.smtp_from_email
@@ -279,6 +288,13 @@ class NoAuthSmtpEmailSenderStrategy(EmailSenderStrategy):
 
         smtp: smtplib.SMTP | smtplib.SMTP_SSL | None = None
         try:
+            logger.debug(
+                "Connecting to SMTP server %s:%s (ssl=%s, starttls=%s)",
+                self._config.smtp_host,
+                port,
+                use_ssl,
+                use_tls,
+            )
             if use_ssl:
                 smtp = smtplib.SMTP_SSL(self._config.smtp_host, port, timeout=30)
             else:
@@ -292,6 +308,7 @@ class NoAuthSmtpEmailSenderStrategy(EmailSenderStrategy):
                 smtp.ehlo()
 
             smtp.send_message(email_msg)
+            logger.info("Email sent successfully to %s (no-auth SMTP)", to_email)
         except (
             OSError,
             smtplib.SMTPException,
@@ -404,6 +421,12 @@ class EmailSenderStrategyFactory:
     Follows Factory pattern to create appropriate strategy based on server type.
     """
 
+    AVAILABLE_STRATEGIES: ClassVar[tuple[type[EmailSenderStrategy], ...]] = (
+        NoAuthSmtpEmailSenderStrategy,
+        SmtpEmailSenderStrategy,
+        GmailEmailSenderStrategy,
+    )
+
     @classmethod
     def create(cls, config: EmailServerConfig) -> EmailSenderStrategy:
         """Create appropriate email sender strategy for the given config.
@@ -498,6 +521,12 @@ class EmailService:
             msg = "email_server_not_enabled"
             raise EmailServiceError(msg)
 
+        try:
+            TypeAdapter(EmailStr).validate_python(to_email)
+        except ValidationError as exc:
+            msg = f"invalid_email_address: {to_email}"
+            raise ValueError(msg) from exc
+
         if not book_file_path.exists():
             msg = f"book_file_not_found: {book_file_path}"
             raise ValueError(msg)
@@ -520,15 +549,30 @@ class EmailService:
         # Fallbacks:
         # - If author is missing, use title only.
         # - If neither is available, use "Unknown Author - Unknown Book.ext".
-        extension = (
-            preferred_format.lower()
-            if preferred_format
-            else book_file_path.suffix.lstrip(".").lower()
-        )
+        if preferred_format:
+            extension: str | None = preferred_format.lower()
+        elif book_file_path.suffix:
+            extension = book_file_path.suffix.lstrip(".").lower()
+        else:
+            extension = None
+
         attachment_filename = build_attachment_filename(
             author=author,
             title=book_title,
-            extension=extension or None,
+            extension=extension,
+        )
+
+        logger.info(
+            "Sending '%s' to %s via %s",
+            book_title,
+            to_email,
+            self._sender_strategy.__class__.__name__,
+        )
+        logger.debug(
+            "Attachment source=%s size_mb=%.2f max_mb=%s",
+            book_file_path,
+            file_size_mb,
+            self._config.max_email_size_mb,
         )
 
         # Use a per-send temporary directory to avoid filename collisions when

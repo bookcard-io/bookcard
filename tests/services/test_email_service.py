@@ -273,6 +273,82 @@ def test_strategy_factory_prefers_noauth_strategy_when_password_missing(
     assert isinstance(strategy, NoAuthSmtpEmailSenderStrategy)
 
 
+def test_noauth_smtp_defaults_to_ssl_on_port_465(
+    smtp_config: EmailServerConfig,
+    test_file: Path,
+) -> None:
+    """Test NoAuthSmtpEmailSenderStrategy defaults to SSL when port is 465."""
+    smtp_config.smtp_password = None
+    smtp_config.smtp_port = 465
+    smtp_config.smtp_use_ssl = False
+    smtp_config.smtp_use_tls = True
+    strategy = NoAuthSmtpEmailSenderStrategy(smtp_config)
+
+    with patch("bookcard.services.email_service.smtplib.SMTP_SSL") as mock_smtp_ssl:
+        mock_conn = MagicMock()
+        mock_smtp_ssl.return_value = mock_conn
+
+        strategy.send(
+            to_email="recipient@example.com",
+            subject="Test Subject",
+            message="Test message",
+            attachment_path=test_file,
+        )
+
+        mock_smtp_ssl.assert_called_once()
+
+
+def test_noauth_smtp_defaults_to_starttls_on_port_587(
+    smtp_config: EmailServerConfig,
+    test_file: Path,
+) -> None:
+    """Test NoAuthSmtpEmailSenderStrategy defaults to STARTTLS when port is 587."""
+    smtp_config.smtp_password = None
+    smtp_config.smtp_port = 587
+    smtp_config.smtp_use_ssl = False
+    smtp_config.smtp_use_tls = False
+    strategy = NoAuthSmtpEmailSenderStrategy(smtp_config)
+
+    with patch("bookcard.services.email_service.smtplib.SMTP") as mock_smtp:
+        mock_conn = MagicMock()
+        mock_smtp.return_value = mock_conn
+
+        strategy.send(
+            to_email="recipient@example.com",
+            subject="Test Subject",
+            message="Test message",
+            attachment_path=test_file,
+        )
+
+        mock_conn.starttls.assert_called_once()
+
+
+def test_send_ebook_rejects_invalid_to_email(
+    smtp_config: EmailServerConfig,
+    test_file: Path,
+) -> None:
+    """Test EmailService.send_ebook rejects invalid recipient email."""
+    service = EmailService(smtp_config)
+
+    with patch.object(service._sender_strategy, "send") as mock_send:
+        invalid_emails = [
+            "not-an-email",
+            "user@",
+            "@example.com",
+            "a@@b.com",
+            "user@.com",
+            "user@example",  # no TLD dot
+        ]
+        for bad in invalid_emails:
+            with pytest.raises(ValueError, match="invalid_email_address"):
+                service.send_ebook(
+                    to_email=bad,
+                    book_title="Test Book",
+                    book_file_path=test_file,
+                )
+        mock_send.assert_not_called()
+
+
 # Tests for GmailEmailSenderStrategy (lines 189, 193, 221-266)
 def test_gmail_sender_strategy_init(gmail_config: EmailServerConfig) -> None:
     """Test GmailEmailSenderStrategy initialization (covers line 189)."""
