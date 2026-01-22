@@ -29,6 +29,7 @@ from bookcard.services.email_service import (
     EmailService,
     EmailServiceError,
     GmailEmailSenderStrategy,
+    NoAuthSmtpEmailSenderStrategy,
     SmtpEmailSenderStrategy,
 )
 
@@ -225,6 +226,51 @@ def test_smtp_send_exception_handling(
                 message="Test message",
                 attachment_path=test_file,
             )
+
+
+def test_noauth_smtp_strategy_can_handle_when_password_missing(
+    smtp_config: EmailServerConfig,
+) -> None:
+    """Test NoAuthSmtpEmailSenderStrategy.can_handle when password is missing."""
+    smtp_config.smtp_password = None
+    strategy = NoAuthSmtpEmailSenderStrategy(smtp_config)
+
+    assert strategy.can_handle(EmailServerType.SMTP) is True
+    assert strategy.can_handle(EmailServerType.GMAIL) is False
+
+
+def test_noauth_smtp_send_does_not_login(
+    smtp_config: EmailServerConfig,
+    test_file: Path,
+) -> None:
+    """Test NoAuthSmtpEmailSenderStrategy.send does not perform SMTP login."""
+    smtp_config.smtp_password = None
+    smtp_config.smtp_username = "user@example.com"
+    strategy = NoAuthSmtpEmailSenderStrategy(smtp_config)
+
+    with patch("bookcard.services.email_service.smtplib.SMTP") as mock_smtp:
+        mock_conn = MagicMock()
+        mock_smtp.return_value = mock_conn
+
+        strategy.send(
+            to_email="recipient@example.com",
+            subject="Test Subject",
+            message="Test message",
+            attachment_path=test_file,
+        )
+
+        # Ensure no login attempt is made in no-auth flow.
+        mock_conn.login.assert_not_called()
+        mock_conn.send_message.assert_called_once()
+
+
+def test_strategy_factory_prefers_noauth_strategy_when_password_missing(
+    smtp_config: EmailServerConfig,
+) -> None:
+    """Test EmailSenderStrategyFactory chooses no-auth SMTP strategy when password is missing."""
+    smtp_config.smtp_password = None
+    strategy = EmailSenderStrategyFactory.create(smtp_config)
+    assert isinstance(strategy, NoAuthSmtpEmailSenderStrategy)
 
 
 # Tests for GmailEmailSenderStrategy (lines 189, 193, 221-266)

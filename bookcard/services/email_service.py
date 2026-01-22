@@ -25,8 +25,13 @@ from __future__ import annotations
 import contextlib
 import logging
 import shutil
+import smtplib
+import socket
+import ssl
 import tempfile
 from abc import ABC, abstractmethod
+from email.message import EmailMessage
+from mimetypes import guess_type
 from pathlib import Path
 from typing import ClassVar
 
@@ -174,6 +179,132 @@ class SmtpEmailSenderStrategy(EmailSenderStrategy):
             raise EmailServiceError(msg) from exc
 
 
+class NoAuthSmtpEmailSenderStrategy(EmailSenderStrategy):
+    """Strategy for sending emails via SMTP without authentication.
+
+    This is intentionally implemented without `py-ezmail` because that library
+    always requires credentials and performs `SMTP.login(...)`.
+    """
+
+    def __init__(self, config: EmailServerConfig) -> None:
+        """Initialize no-auth SMTP email sender strategy.
+
+        Parameters
+        ----------
+        config : EmailServerConfig
+            Email server configuration with decrypted values.
+        """
+        self._config = config
+
+    def can_handle(self, server_type: EmailServerType) -> bool:
+        """Check if this strategy can handle the given server type.
+
+        Parameters
+        ----------
+        server_type : EmailServerType
+            Email server type.
+
+        Returns
+        -------
+        bool
+            True if this strategy should handle the configuration.
+        """
+        if server_type != EmailServerType.SMTP:
+            return False
+        # Treat missing/empty password as "no-auth" flow.
+        return not self._config.smtp_password
+
+    def send(
+        self,
+        *,
+        to_email: str,
+        subject: str,
+        message: str,
+        attachment_path: Path,
+    ) -> None:
+        """Send email via SMTP without authentication.
+
+        Parameters
+        ----------
+        to_email : str
+            Recipient email address.
+        subject : str
+            Email subject.
+        message : str
+            Email message body (plain text).
+        attachment_path : Path
+            Path to file to attach.
+
+        Raises
+        ------
+        EmailServiceError
+            If configuration is invalid or sending fails.
+        """
+        if not self._config.smtp_host:
+            msg = "smtp_host_required"
+            raise EmailServiceError(msg)
+
+        if not self._config.smtp_from_email:
+            msg = "smtp_from_email_required"
+            raise EmailServiceError(msg)
+
+        port = self._config.smtp_port or 587
+        use_ssl = bool(self._config.smtp_use_ssl) or port == 465
+        use_tls = bool(self._config.smtp_use_tls) or (not use_ssl and port == 587)
+
+        email_msg = EmailMessage()
+        email_msg["From"] = self._config.smtp_from_email
+        email_msg["To"] = to_email
+        email_msg["Subject"] = subject
+        email_msg.set_content(message or "")
+
+        try:
+            ctype, _ = guess_type(str(attachment_path))
+            maintype, subtype = ("application", "octet-stream")
+            if ctype:
+                parts = ctype.split("/", 1)
+                if len(parts) == 2:
+                    maintype, subtype = parts[0], parts[1]
+
+            attachment_bytes = attachment_path.read_bytes()
+            email_msg.add_attachment(
+                attachment_bytes,
+                maintype=maintype,
+                subtype=subtype,
+                filename=attachment_path.name,
+            )
+        except OSError as exc:
+            msg = f"failed_to_prepare_attachment: {exc!s}"
+            raise EmailServiceError(msg) from exc
+
+        smtp: smtplib.SMTP | smtplib.SMTP_SSL | None = None
+        try:
+            if use_ssl:
+                smtp = smtplib.SMTP_SSL(self._config.smtp_host, port, timeout=30)
+            else:
+                smtp = smtplib.SMTP(self._config.smtp_host, port, timeout=30)
+
+            if use_tls and not use_ssl:
+                smtp.ehlo()
+                smtp.starttls()
+                smtp.ehlo()
+
+            smtp.send_message(email_msg)
+        except (
+            OSError,
+            smtplib.SMTPException,
+            socket.gaierror,
+            TimeoutError,
+            ssl.SSLError,
+        ) as exc:
+            msg = f"failed_to_send_email: {exc}"
+            raise EmailServiceError(msg) from exc
+        finally:
+            if smtp is not None:
+                with contextlib.suppress(smtplib.SMTPException, OSError):
+                    smtp.quit()
+
+
 class GmailEmailSenderStrategy(EmailSenderStrategy):
     """Strategy for sending emails via Gmail OAuth2."""
 
@@ -272,6 +403,7 @@ class EmailSenderStrategyFactory:
     """
 
     _strategies: ClassVar[list[type[EmailSenderStrategy]]] = [
+        NoAuthSmtpEmailSenderStrategy,
         SmtpEmailSenderStrategy,
         GmailEmailSenderStrategy,
     ]
