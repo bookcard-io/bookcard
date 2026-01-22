@@ -25,12 +25,18 @@ from __future__ import annotations
 import contextlib
 import logging
 import shutil
+import smtplib
+import socket
+import ssl
 import tempfile
 from abc import ABC, abstractmethod
+from email.message import EmailMessage
+from mimetypes import guess_type
 from pathlib import Path
 from typing import ClassVar
 
 from ezmail import EzSender
+from pydantic import EmailStr, TypeAdapter, ValidationError
 
 from bookcard.models.config import EmailServerConfig, EmailServerType
 from bookcard.services.email_utils import build_attachment_filename
@@ -85,6 +91,9 @@ class EmailSenderStrategy(ABC):
             Email message body.
         attachment_path : Path
             Path to file to attach.
+            The attachment path may be deleted immediately after this method
+            returns. Implementations MUST read any required file contents before
+            returning.
 
         Raises
         ------
@@ -172,6 +181,147 @@ class SmtpEmailSenderStrategy(EmailSenderStrategy):
         except Exception as exc:
             msg = f"failed_to_send_email: {exc}"
             raise EmailServiceError(msg) from exc
+
+
+class NoAuthSmtpEmailSenderStrategy(EmailSenderStrategy):
+    """Strategy for sending emails via SMTP without authentication.
+
+    This is intentionally implemented without `py-ezmail` because that library
+    always requires credentials and performs `SMTP.login(...)`.
+    """
+
+    def __init__(self, config: EmailServerConfig) -> None:
+        """Initialize no-auth SMTP email sender strategy.
+
+        Parameters
+        ----------
+        config : EmailServerConfig
+            Email server configuration with decrypted values.
+        """
+        self._config = config
+
+    def can_handle(self, server_type: EmailServerType) -> bool:
+        """Check if this strategy can handle the given server type.
+
+        Parameters
+        ----------
+        server_type : EmailServerType
+            Email server type.
+
+        Returns
+        -------
+        bool
+            True if this strategy should handle the configuration.
+        """
+        if server_type != EmailServerType.SMTP:
+            return False
+        # Treat missing/empty password as "no-auth" flow.
+        return not self._config.smtp_password
+
+    def send(
+        self,
+        *,
+        to_email: str,
+        subject: str,
+        message: str,
+        attachment_path: Path,
+    ) -> None:
+        """Send email via SMTP without authentication.
+
+        Parameters
+        ----------
+        to_email : str
+            Recipient email address.
+        subject : str
+            Email subject.
+        message : str
+            Email message body (plain text).
+        attachment_path : Path
+            Path to file to attach.
+
+        Raises
+        ------
+        EmailServiceError
+            If configuration is invalid or sending fails.
+        """
+        if not self._config.smtp_host:
+            msg = "smtp_host_required"
+            raise EmailServiceError(msg)
+
+        if not self._config.smtp_from_email:
+            msg = "smtp_from_email_required"
+            raise EmailServiceError(msg)
+
+        port: int = self._config.smtp_port or 587
+        # Security-first defaults:
+        # - port 465 implies SSL
+        # - port 587 implies STARTTLS
+        # Explicit flags can still force behavior on other ports.
+        use_ssl: bool = bool(self._config.smtp_use_ssl) or port == 465
+        use_tls: bool = (not use_ssl) and (
+            bool(self._config.smtp_use_tls) or port == 587
+        )
+
+        email_msg = EmailMessage()
+        email_msg["From"] = self._config.smtp_from_email
+        email_msg["To"] = to_email
+        email_msg["Subject"] = subject
+        email_msg.set_content(message or "")
+
+        try:
+            ctype, _ = guess_type(str(attachment_path))
+            if ctype and "/" in ctype:
+                maintype, subtype = ctype.split("/", 1)
+            else:
+                maintype, subtype = ("application", "octet-stream")
+
+            attachment_bytes = attachment_path.read_bytes()
+            email_msg.add_attachment(
+                attachment_bytes,
+                maintype=maintype,
+                subtype=subtype,
+                filename=attachment_path.name,
+            )
+        except OSError as exc:
+            msg = f"failed_to_prepare_attachment: {exc!s}"
+            raise EmailServiceError(msg) from exc
+
+        smtp: smtplib.SMTP | smtplib.SMTP_SSL | None = None
+        try:
+            logger.debug(
+                "Connecting to SMTP server %s:%s (ssl=%s, starttls=%s)",
+                self._config.smtp_host,
+                port,
+                use_ssl,
+                use_tls,
+            )
+            if use_ssl:
+                smtp = smtplib.SMTP_SSL(self._config.smtp_host, port, timeout=30)
+            else:
+                smtp = smtplib.SMTP(self._config.smtp_host, port, timeout=30)
+
+            # Some servers expect EHLO/HELO before MAIL FROM.
+            smtp.ehlo()
+
+            if use_tls:
+                smtp.starttls()
+                smtp.ehlo()
+
+            smtp.send_message(email_msg)
+            logger.info("Email sent successfully to %s (no-auth SMTP)", to_email)
+        except (
+            OSError,
+            smtplib.SMTPException,
+            socket.gaierror,
+            TimeoutError,
+            ssl.SSLError,
+        ) as exc:
+            msg = f"failed_to_send_email: {exc}"
+            raise EmailServiceError(msg) from exc
+        finally:
+            if smtp is not None:
+                with contextlib.suppress(smtplib.SMTPException, OSError, ssl.SSLError):
+                    smtp.quit()
 
 
 class GmailEmailSenderStrategy(EmailSenderStrategy):
@@ -271,10 +421,11 @@ class EmailSenderStrategyFactory:
     Follows Factory pattern to create appropriate strategy based on server type.
     """
 
-    _strategies: ClassVar[list[type[EmailSenderStrategy]]] = [
+    AVAILABLE_STRATEGIES: ClassVar[tuple[type[EmailSenderStrategy], ...]] = (
+        NoAuthSmtpEmailSenderStrategy,
         SmtpEmailSenderStrategy,
         GmailEmailSenderStrategy,
-    ]
+    )
 
     @classmethod
     def create(cls, config: EmailServerConfig) -> EmailSenderStrategy:
@@ -295,10 +446,15 @@ class EmailSenderStrategyFactory:
         EmailServiceError
             If no strategy can handle the server type.
         """
-        for strategy_class in cls._strategies:
-            strategy = strategy_class(config)
-            if strategy.can_handle(config.server_type):
-                return strategy
+        if config.server_type == EmailServerType.GMAIL:
+            return GmailEmailSenderStrategy(config)
+
+        if config.server_type == EmailServerType.SMTP:
+            # If no password is set, treat it as "no-auth" flow. This must not
+            # depend on list ordering.
+            if not config.smtp_password:
+                return NoAuthSmtpEmailSenderStrategy(config)
+            return SmtpEmailSenderStrategy(config)
 
         msg = f"unsupported_server_type: {config.server_type}"
         raise EmailServiceError(msg)
@@ -365,6 +521,12 @@ class EmailService:
             msg = "email_server_not_enabled"
             raise EmailServiceError(msg)
 
+        try:
+            TypeAdapter(EmailStr).validate_python(to_email)
+        except ValidationError as exc:
+            msg = f"invalid_email_address: {to_email}"
+            raise ValueError(msg) from exc
+
         if not book_file_path.exists():
             msg = f"book_file_not_found: {book_file_path}"
             raise ValueError(msg)
@@ -387,28 +549,44 @@ class EmailService:
         # Fallbacks:
         # - If author is missing, use title only.
         # - If neither is available, use "Unknown Author - Unknown Book.ext".
-        extension = (
-            preferred_format.lower()
-            if preferred_format
-            else book_file_path.suffix.lstrip(".").lower()
-        )
+        if preferred_format:
+            extension: str | None = preferred_format.lower()
+        elif book_file_path.suffix:
+            extension = book_file_path.suffix.lstrip(".").lower()
+        else:
+            extension = None
+
         attachment_filename = build_attachment_filename(
             author=author,
             title=book_title,
-            extension=extension or None,
+            extension=extension,
         )
 
-        temp_dir = Path(tempfile.gettempdir()) / "calibre_email_attachments"
-        temp_dir.mkdir(parents=True, exist_ok=True)
-        temp_path = temp_dir / attachment_filename
+        logger.info(
+            "Sending '%s' to %s via %s",
+            book_title,
+            to_email,
+            self._sender_strategy.__class__.__name__,
+        )
+        logger.debug(
+            "Attachment source=%s size_mb=%.2f max_mb=%s",
+            book_file_path,
+            file_size_mb,
+            self._config.max_email_size_mb,
+        )
 
-        try:
-            shutil.copy2(book_file_path, temp_path)
-        except OSError as exc:
-            msg = f"failed_to_prepare_attachment: {exc!s}"
-            raise ValueError(msg) from exc
+        # Use a per-send temporary directory to avoid filename collisions when
+        # multiple sends happen concurrently (e.g., background workers).
+        with tempfile.TemporaryDirectory(prefix="bookcard_email_attachments_") as tmp:
+            temp_dir = Path(tmp)
+            temp_path = temp_dir / attachment_filename
 
-        try:
+            try:
+                shutil.copy2(book_file_path, temp_path)
+            except OSError as exc:
+                msg = f"failed_to_prepare_attachment: {exc!s}"
+                raise ValueError(msg) from exc
+
             # Delegate to strategy with sanitized attachment path
             self._sender_strategy.send(
                 to_email=to_email,
@@ -416,7 +594,3 @@ class EmailService:
                 message=message,
                 attachment_path=temp_path,
             )
-        finally:
-            # Best-effort cleanup of temporary attachment file
-            with contextlib.suppress(OSError):
-                temp_path.unlink()
