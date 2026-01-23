@@ -66,18 +66,11 @@ export const DISPLAY_MODE_OPTIONS = [
   { value: "infinite-scroll", label: "Use infinite scroll" },
 ] as const;
 
-export const SORT_FIELD_OPTIONS = [
-  { value: "timestamp", label: "Added date" },
-  { value: "title", label: "Title" },
-  { value: "author_sort", label: "Author" },
-  { value: "pubdate", label: "Modified date" },
-  { value: "series_index", label: "Size" },
-] as const;
-
-export const SORT_ORDER_OPTIONS = [
-  { value: "asc", label: "Ascending" },
-  { value: "desc", label: "Descending" },
-] as const;
+// Sorting options are shared with the library UI to avoid duplication.
+export {
+  SORT_OPTIONS as SORT_FIELD_OPTIONS,
+  SORT_ORDER_OPTIONS,
+} from "@/constants/librarySorting";
 
 export const PAGE_SIZE_OPTIONS = [
   { value: "10", label: "10" },

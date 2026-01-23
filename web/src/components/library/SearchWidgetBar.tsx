@@ -15,13 +15,13 @@
 
 "use client";
 
+import type { SortField } from "@/constants/librarySorting";
 import { useSelectedBooks } from "@/contexts/SelectedBooksContext";
 import type { SearchSuggestion } from "@/types/search";
 import { FiltersButton } from "./widgets/FiltersButton";
 import type { FilterValues } from "./widgets/FiltersPanel";
 import { SearchInput } from "./widgets/SearchInput";
 import { SortByDropdown } from "./widgets/SortByDropdown";
-import type { SortField } from "./widgets/SortPanel";
 import { SortPanel } from "./widgets/SortPanel";
 import { type ViewMode, ViewModeButtons } from "./widgets/ViewModeButtons";
 import { WithSelectedDropdown } from "./widgets/WithSelectedDropdown";
@@ -62,7 +62,7 @@ export interface SearchWidgetBarProps {
   /**
    * Currently selected sort field.
    */
-  sortBy?: "timestamp" | "pubdate" | "title" | "author_sort" | "series_index";
+  sortBy?: SortField;
   /**
    * Whether the sort panel is visible.
    */
