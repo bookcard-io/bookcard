@@ -15,8 +15,8 @@
 
 "use client";
 
-import type { SortField } from "./SortPanel";
-import { SORT_OPTIONS } from "./SortPanel";
+import type { SortField } from "@/constants/librarySorting";
+import { SORT_OPTIONS } from "@/constants/librarySorting";
 
 export interface SortByDropdownProps {
   /**

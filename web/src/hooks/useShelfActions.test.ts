@@ -13,22 +13,22 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { vi } from "vitest";
-
-vi.mock("@/services/shelfService", () => ({
-  addBookToShelf: vi.fn(),
-  removeBookFromShelf: vi.fn(),
-  reorderShelfBooks: vi.fn(),
-}));
-
 import { act, renderHook } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addBookToShelf,
   removeBookFromShelf,
   reorderShelfBooks,
 } from "@/services/shelfService";
 import { useShelfActions } from "./useShelfActions";
+
+const shelfServiceMocks = vi.hoisted(() => ({
+  addBookToShelf: vi.fn(),
+  removeBookFromShelf: vi.fn(),
+  reorderShelfBooks: vi.fn(),
+}));
+
+vi.mock("@/services/shelfService", () => shelfServiceMocks);
 
 describe("useShelfActions", () => {
   beforeEach(() => {
@@ -98,7 +98,7 @@ describe("useShelfActions", () => {
       const promise = new Promise<void>((resolve) => {
         resolvePromise = resolve;
       });
-      vi.mocked(addBookToShelf).mockReturnValue(promise);
+      vi.mocked(addBookToShelf).mockImplementation(() => promise);
 
       const { result } = renderHook(() => useShelfActions());
 

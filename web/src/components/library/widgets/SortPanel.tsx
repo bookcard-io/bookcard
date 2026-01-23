@@ -16,14 +16,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import type { SortField } from "@/constants/librarySorting";
+import { SORT_OPTIONS } from "@/constants/librarySorting";
 import { cn } from "@/libs/utils";
 
-export type SortField =
-  | "title"
-  | "author_sort"
-  | "timestamp"
-  | "pubdate"
-  | "series_index";
+export type { SortField } from "@/constants/librarySorting";
+export { SORT_OPTIONS } from "@/constants/librarySorting";
 
 export interface SortOption {
   /** Display label for the sort option. */
@@ -31,14 +29,6 @@ export interface SortOption {
   /** Backend field name. */
   value: SortField;
 }
-
-export const SORT_OPTIONS: SortOption[] = [
-  { label: "Title", value: "title" },
-  { label: "Author", value: "author_sort" },
-  { label: "Added date", value: "timestamp" },
-  { label: "Modified date", value: "pubdate" },
-  { label: "Size", value: "series_index" },
-];
 
 export interface SortPanelProps {
   /**

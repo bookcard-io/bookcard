@@ -90,6 +90,7 @@ describe("useMainContent", () => {
     mockSorting = {
       sortBy: "title",
       sortOrder: "asc",
+      isReady: true,
       showSortPanel: false,
       handleSortByClick: vi.fn<() => void>(),
       handleSortByChange:
