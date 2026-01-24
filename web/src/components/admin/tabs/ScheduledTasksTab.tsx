@@ -15,8 +15,9 @@
 
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
 import { ScheduledTasksConfig } from "@/components/admin/scheduledtasks/ScheduledTasksConfig";
+import { Button } from "@/components/forms/Button";
 import { TaskErrorDisplay } from "@/components/tasks/TaskErrorDisplay";
 import { TaskFiltersBar } from "@/components/tasks/TaskFiltersBar";
 import { TaskList } from "@/components/tasks/TaskList";
@@ -24,7 +25,6 @@ import { TaskPagination } from "@/components/tasks/TaskPagination";
 import { useTaskCancellation } from "@/hooks/useTaskCancellation";
 import { useTaskFilters } from "@/hooks/useTaskFilters";
 import { useTasks } from "@/hooks/useTasks";
-import { Button } from "@/components/forms/Button";
 import { TaskStatus } from "@/types/tasks";
 
 /**
@@ -78,12 +78,16 @@ export function ScheduledTasksTab() {
    */
   const handleCancelAll = useCallback(async () => {
     const tasksToCancel = tasks.filter(
-      (t) => t.status === TaskStatus.PENDING || t.status === TaskStatus.RUNNING
+      (t) => t.status === TaskStatus.PENDING || t.status === TaskStatus.RUNNING,
     );
 
     if (tasksToCancel.length === 0) return;
 
-    if (!window.confirm(`Are you sure you want to cancel all ${tasksToCancel.length} pending/running tasks?`)) {
+    if (
+      !window.confirm(
+        `Are you sure you want to cancel all ${tasksToCancel.length} pending/running tasks?`,
+      )
+    ) {
       return;
     }
 
@@ -91,8 +95,8 @@ export function ScheduledTasksTab() {
     try {
       // Send cancellation requests for all filtered tasks in parallel
       await Promise.allSettled(tasksToCancel.map((t) => cancelTask(t.id)));
-      
-      // Add a 1-second delay to allow the server enough time to 
+
+      // Add a 1-second delay to allow the server enough time to
       // update the task statuses in the database before refetching
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -127,7 +131,14 @@ export function ScheduledTasksTab() {
             size="small"
             onClick={handleCancelAll}
             loading={isBulkCancelling}
-            disabled={isBulkCancelling || !tasks.some(t => t.status === TaskStatus.PENDING || t.status === TaskStatus.RUNNING)}
+            disabled={
+              isBulkCancelling ||
+              !tasks.some(
+                (t) =>
+                  t.status === TaskStatus.PENDING ||
+                  t.status === TaskStatus.RUNNING,
+              )
+            }
           >
             Cancel All
           </Button>
