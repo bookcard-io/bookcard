@@ -89,7 +89,14 @@ export function ScheduledTasksTab() {
 
     setIsBulkCancelling(true);
     try {
+      // Send cancellation requests for all filtered tasks in parallel
       await Promise.allSettled(tasksToCancel.map((t) => cancelTask(t.id)));
+      
+      // Add a 1-second delay to allow the server enough time to 
+      // update the task statuses in the database before refetching
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Refresh the task list to reflect the updated statuses in the UI
       await refresh();
     } finally {
       setIsBulkCancelling(false);
