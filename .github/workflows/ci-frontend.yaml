@@ -79,9 +79,9 @@ jobs:
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
 
-      - name: Install npm >=11.8.0
+      - name: Install npm ^11.8.0
         if: steps.check_changes.outputs.has_changes == 'true'
-        run: npm install -g "npm@>=11.8.0"
+        run: npm install -g "npm@^11.8.0"
 
       - name: Install dependencies
         if: steps.check_changes.outputs.has_changes == 'true'
@@ -105,7 +105,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: ["22.22.0"]
+        node-version: ["22", "24"]
 
     steps:
       - name: Check for frontend changes
@@ -129,9 +129,9 @@ jobs:
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
 
-      - name: Install npm >=11.8.0
+      - name: Install npm ^11.8.0
         if: steps.check_changes.outputs.has_changes == 'true'
-        run: npm install -g "npm@>=11.8.0"
+        run: npm install -g "npm@^11.8.0"
 
       - name: Install dependencies
         if: steps.check_changes.outputs.has_changes == 'true'
