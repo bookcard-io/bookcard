@@ -58,6 +58,13 @@ repos:
         stages: [pre-commit]
   - repo: local
     hooks:
+      - id: frontend-lockfile-guard
+        name: prevent unintended package-lock.json rewrites
+        entry: bash scripts/check_frontend_lockfile_intent.sh
+        language: system
+        files: ^web/package(-lock)?\.json$
+        pass_filenames: false
+        stages: [pre-commit]
       - id: biome-check
         name: biome check
         entry: bash -c 'cd web && npm run lint:fix -- --error-on-warnings'

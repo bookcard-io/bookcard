@@ -1,0 +1,6 @@
+# Prevent lockfile diffs from exploding due to CRLF/EOL changes.
+# Keep this intentionally narrow: only lockfiles (and other deterministic artifacts).
+
+**/package-lock.json text eol=lf
+**/pnpm-lock.yaml text eol=lf
+**/yarn.lock text eol=lf

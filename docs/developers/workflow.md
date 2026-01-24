@@ -105,3 +105,10 @@ make test  # Run all tests
 ## Questions?
 
 Feel free to open an issue for questions or discussions.
+
+## Frontend dependency workflow (important)
+
+- **Install dependencies**: use `npm ci` (reproducible; should not modify `web/package-lock.json`)
+- **Only use `npm install` when intentionally changing dependencies**:
+  - If you add/update/remove deps, commit **both** `web/package.json` and `web/package-lock.json`
+  - If your PR doesn't touch dependencies, your PR should not include lockfile changes

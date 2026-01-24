@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Python 3.12+
-- Node.js 22+
+- Node.js 22+ (compatible with 22.x, see `.nvmrc` / `.node-version`)
 - Docker and Docker Compose (optional)
 - uv (Python package manager)
 
@@ -31,8 +31,15 @@
 3. **Set up frontend**
 
     ```bash
+    # Ensure you are using the pinned Node version
+    nvm install
+    nvm use
+
+    # (Optional) Enable Corepack (helps when using packageManager tooling)
+    corepack enable || true
+
     cd web
-    npm install
+    npm ci
     cd ..
     ```
 

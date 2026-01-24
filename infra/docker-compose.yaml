@@ -1,7 +1,7 @@
 ---
 services:
   bookcard:
-    image: bookcard/bookcard:latest # or `ghcr.io/bookcard-io/bookcard:latest`
+    image: bookcard/bookcard:latest  # or `ghcr.io/bookcard-io/bookcard:latest`
     build:
       context: ..
       dockerfile: infra/Dockerfile
