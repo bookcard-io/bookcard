@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Python 3.12+
-- Node.js 22+ or >=24 (compatible with 22.x or 24.x, see `.nvmrc` / `.node-version`)
+- Node.js 22+ (compatible with 22.x, see `.nvmrc` / `.node-version`)
 - Docker and Docker Compose (optional)
 - uv (Python package manager)
 

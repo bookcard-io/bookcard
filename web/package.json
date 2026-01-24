@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "description": "Web app for browsing, reading, and downloading ebooks stored in a calibre database.",
   "engines": {
-    "node": "^22.0.0 || >=24.0.0",
+    "node": "^22.0.0",
     "npm": "^11.8.0"
   },
   "packageManager": "npm@11.8.0",
