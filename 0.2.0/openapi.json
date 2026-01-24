@@ -3190,6 +3190,57 @@
             }
           }
         }
+      },
+      "post": {
+        "tags": [
+          "books"
+        ],
+        "summary": "Upload Cover Image",
+        "description": "Upload a cover image file.\n\nParameters\n----------\nbook_id : int\n    Calibre book ID.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nbook_service : BookServiceDep\n    Book service dependency.\npermission_helper : PermissionHelperDep\n    Permission helper dependency.\ncover_service : CoverServiceDep\n    Cover service dependency.\nsession : SessionDep\n    Database session dependency.\nfile : UploadFile\n    Cover image file.\n\nReturns\n-------\nCoverFromUrlResponse\n    Response containing URL to access the saved cover image.\n\nRaises\n------\nHTTPException\n    If book not found, permission denied, or upload fails.",
+        "operationId": "upload_cover_image_books__book_id__cover_post",
+        "parameters": [
+          {
+            "name": "book_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Book Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_cover_image_books__book_id__cover_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoverFromUrlResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/books/{book_id}/download/{file_format}": {
@@ -12194,6 +12245,20 @@
         ],
         "title": "Body_upload_books_batch_books_upload_batch_post"
       },
+      "Body_upload_cover_image_books__book_id__cover_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_cover_image_books__book_id__cover_post"
+      },
       "Body_upload_profile_picture_auth_profile_picture_post": {
         "properties": {
           "file": {
@@ -15222,6 +15287,11 @@
               }
             ],
             "title": "Id"
+          },
+          "has_smtp_password": {
+            "type": "boolean",
+            "title": "Has Smtp Password",
+            "default": false
           },
           "server_type": {
             "$ref": "#/components/schemas/EmailServerType"

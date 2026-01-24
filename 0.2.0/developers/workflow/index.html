@@ -1283,6 +1283,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#frontend-dependency-workflow-important" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frontend dependency workflow (important)
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1529,6 +1540,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#frontend-dependency-workflow-important" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frontend dependency workflow (important)
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1650,6 +1672,13 @@
 </ol>
 <h2 id="questions">Questions?<a class="headerlink" href="#questions" title="Permanent link">¶</a></h2>
 <p>Feel free to open an issue for questions or discussions.</p>
+<h2 id="frontend-dependency-workflow-important">Frontend dependency workflow (important)<a class="headerlink" href="#frontend-dependency-workflow-important" title="Permanent link">¶</a></h2>
+<ul>
+<li><strong>Install dependencies</strong>: use <code>npm ci</code> (reproducible; should not modify <code>web/package-lock.json</code>)</li>
+<li><strong>Only use <code>npm install</code> when intentionally changing dependencies</strong>:</li>
+<li>If you add/update/remove deps, commit <strong>both</strong> <code>web/package.json</code> and <code>web/package-lock.json</code></li>
+<li>If your PR doesn't touch dependencies, your PR should not include lockfile changes</li>
+</ul>
 
 
 
