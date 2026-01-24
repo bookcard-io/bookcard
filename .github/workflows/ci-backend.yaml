@@ -1,7 +1,8 @@
 ---
+# yamllint disable rule:line-length
 name: CI Backend
 
-on:
+"on":
   push:
     branches: [main]
   pull_request:
