@@ -3,8 +3,10 @@
   "version": "0.2.0",
   "description": "Web app for browsing, reading, and downloading ebooks stored in a calibre database.",
   "engines": {
-    "node": ">=20"
+    "node": "22.22.0",
+    "npm": ">=11.8.0"
   },
+  "packageManager": "npm@11.8.0",
   "scripts": {
     "dev:spotlight": "npx @spotlightjs/spotlight",
     "dev:next": "next dev",

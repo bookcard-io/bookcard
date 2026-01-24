@@ -1,7 +1,8 @@
 ---
+# yamllint disable rule:line-length
 name: CI Frontend
 
-on:
+"on":
   push:
     branches: [main]
   pull_request:
@@ -18,6 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
+      frontend_manifest: ${{ steps.filter.outputs.frontend_manifest }}
+      frontend_lockfile: ${{ steps.filter.outputs.frontend_lockfile }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -27,10 +30,32 @@ jobs:
             frontend:
               - 'web/**'
               - '.github/workflows/ci-frontend.yaml'
+            frontend_manifest:
+              - 'web/package.json'
+            frontend_lockfile:
+              - 'web/package-lock.json'
+
+  lockfile-guard:
+    name: Guard against unintended lockfile rewrites
+    needs: changes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if lockfile changed without manifest
+        shell: bash
+        run: |
+          lockfile="${{ needs.changes.outputs.frontend_lockfile }}"
+          manifest="${{ needs.changes.outputs.frontend_manifest }}"
+
+          if [ "${lockfile}" = "true" ] && [ "${manifest}" != "true" ]; then
+            echo "::error::web/package-lock.json changed without web/package.json."
+            echo "::error::Use npm ci for normal development."
+            echo "::error::Only change lockfile when changing dependencies."
+            exit 1
+          fi
 
   lint:
     name: Lint & Typecheck
-    needs: changes
+    needs: [changes, lockfile-guard]
     runs-on: ubuntu-latest
     steps:
       - name: Check for frontend changes
@@ -50,9 +75,13 @@ jobs:
         if: steps.check_changes.outputs.has_changes == 'true'
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "22.22.0"
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
+
+      - name: Install npm >=11.8.0
+        if: steps.check_changes.outputs.has_changes == 'true'
+        run: npm install -g "npm@>=11.8.0"
 
       - name: Install dependencies
         if: steps.check_changes.outputs.has_changes == 'true'
@@ -71,12 +100,12 @@ jobs:
 
   test-and-build:
     name: Test & Build (Node ${{ matrix.node-version }})
-    needs: [changes, lint]
+    needs: [changes, lockfile-guard, lint]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20, 22]
+        node-version: ["22.22.0"]
 
     steps:
       - name: Check for frontend changes
@@ -99,6 +128,10 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
+
+      - name: Install npm >=11.8.0
+        if: steps.check_changes.outputs.has_changes == 'true'
+        run: npm install -g "npm@>=11.8.0"
 
       - name: Install dependencies
         if: steps.check_changes.outputs.has_changes == 'true'
