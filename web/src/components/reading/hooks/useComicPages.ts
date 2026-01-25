@@ -75,6 +75,7 @@ export function useComicPages({
     try {
       const params = new URLSearchParams({
         file_format: format,
+        include_dimensions: "true",
       });
 
       const response = await fetch(`/api/comic/${bookId}/pages?${params}`, {
