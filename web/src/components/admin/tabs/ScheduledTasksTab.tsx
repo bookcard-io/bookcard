@@ -15,17 +15,16 @@
 
 "use client";
 
-import { useCallback, useState } from "react";
 import { ScheduledTasksConfig } from "@/components/admin/scheduledtasks/ScheduledTasksConfig";
 import { Button } from "@/components/forms/Button";
 import { TaskErrorDisplay } from "@/components/tasks/TaskErrorDisplay";
 import { TaskFiltersBar } from "@/components/tasks/TaskFiltersBar";
 import { TaskList } from "@/components/tasks/TaskList";
 import { TaskPagination } from "@/components/tasks/TaskPagination";
+import { useBulkCancelTasks } from "@/hooks/useBulkCancelTasks";
 import { useTaskCancellation } from "@/hooks/useTaskCancellation";
 import { useTaskFilters } from "@/hooks/useTaskFilters";
 import { useTasks } from "@/hooks/useTasks";
-import { TaskStatus } from "@/types/tasks";
 
 /**
  * Scheduled Tasks tab component for admin panel.
@@ -71,41 +70,12 @@ export function ScheduledTasksTab() {
     onRefresh: refresh,
   });
 
-  const [isBulkCancelling, setIsBulkCancelling] = useState(false);
-
-  /**
-   * Handles bulk cancellation of all pending and running tasks.
-   */
-  const handleCancelAll = useCallback(async () => {
-    const tasksToCancel = tasks.filter(
-      (t) => t.status === TaskStatus.PENDING || t.status === TaskStatus.RUNNING,
-    );
-
-    if (tasksToCancel.length === 0) return;
-
-    if (
-      !window.confirm(
-        `Are you sure you want to cancel all ${tasksToCancel.length} pending/running tasks?`,
-      )
-    ) {
-      return;
-    }
-
-    setIsBulkCancelling(true);
-    try {
-      // Send cancellation requests for all filtered tasks in parallel
-      await Promise.allSettled(tasksToCancel.map((t) => cancelTask(t.id)));
-
-      // Add a 1-second delay to allow the server enough time to
-      // update the task statuses in the database before refetching
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Refresh the task list to reflect the updated statuses in the UI
-      await refresh();
-    } finally {
-      setIsBulkCancelling(false);
-    }
-  }, [tasks, cancelTask, refresh]);
+  const bulkCancel = useBulkCancelTasks({
+    selectedStatus: filters.selectedStatus,
+    selectedTaskType: filters.selectedTaskType,
+    cancelTask: (taskId: number) => cancelTask(taskId, { refresh: false }),
+    refresh,
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -126,25 +96,27 @@ export function ScheduledTasksTab() {
               onRefresh={() => void refresh()}
             />
           </div>
+
           <Button
             variant="danger"
             size="small"
-            onClick={handleCancelAll}
-            loading={isBulkCancelling}
+            onClick={() => void bulkCancel.cancelAll()}
+            loading={bulkCancel.isCancelling}
             disabled={
-              isBulkCancelling ||
-              !tasks.some(
-                (t) =>
-                  t.status === TaskStatus.PENDING ||
-                  t.status === TaskStatus.RUNNING,
-              )
+              bulkCancel.isCancelling || !bulkCancel.isCancellableSelection
             }
           >
-            Cancel All
+            Cancel all
           </Button>
         </div>
 
         {error && <TaskErrorDisplay error={error} />}
+        {bulkCancel.error && <TaskErrorDisplay error={bulkCancel.error} />}
+        {bulkCancel.notice && (
+          <div className="mb-4 rounded-lg border border-surface-a20 bg-surface-a10 p-4 text-text-a0">
+            {bulkCancel.notice}
+          </div>
+        )}
 
         <TaskList tasks={tasks} isLoading={isLoading} onCancel={cancelTask} />
 

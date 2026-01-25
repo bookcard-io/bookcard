@@ -56,6 +56,24 @@ describe("useTaskCancellation", () => {
     expect(onRefresh).toHaveBeenCalled();
   });
 
+  it("should not refresh when refresh option is false", async () => {
+    const onRefresh = vi.fn().mockResolvedValue(undefined);
+    const mockResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue({ success: true }),
+    };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockResponse,
+    );
+
+    const { result } = renderHook(() => useTaskCancellation({ onRefresh }));
+
+    const success = await result.current.cancelTask(123, { refresh: false });
+
+    expect(success).toBe(true);
+    expect(onRefresh).not.toHaveBeenCalled();
+  });
+
   it("should cancel task successfully without refresh callback", async () => {
     const mockResponse = {
       ok: true,

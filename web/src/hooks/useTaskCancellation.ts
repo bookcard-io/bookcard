@@ -26,9 +26,14 @@ export interface UseTaskCancellationOptions {
   onRefresh?: () => Promise<void>;
 }
 
+export interface CancelTaskOptions {
+  /**Whether to refresh the task list after successful cancellation (default: true). */
+  refresh?: boolean;
+}
+
 export interface UseTaskCancellationResult {
   /**Cancel a task by ID. */
-  cancelTask: (taskId: number) => Promise<boolean>;
+  cancelTask: (taskId: number, options?: CancelTaskOptions) => Promise<boolean>;
 }
 
 /**
@@ -54,7 +59,11 @@ export function useTaskCancellation(
   const { onRefresh } = options;
 
   const cancelTask = useCallback(
-    async (taskId: number): Promise<boolean> => {
+    async (
+      taskId: number,
+      options: CancelTaskOptions = {},
+    ): Promise<boolean> => {
+      const { refresh = true } = options;
       try {
         const response = await fetch(`/api/tasks/${taskId}/cancel`, {
           method: "POST",
@@ -64,17 +73,28 @@ export function useTaskCancellation(
         });
 
         if (!response.ok) {
-          const errorData = (await response.json()) as { detail?: string };
-          throw new Error(errorData.detail || "Failed to cancel task");
+          let detail: string | undefined;
+          try {
+            const errorData = (await response.json()) as { detail?: string };
+            detail = errorData.detail;
+          } catch (err: unknown) {
+            if (!(err instanceof Error)) {
+              throw err;
+            }
+          }
+          throw new Error(detail || "Failed to cancel task");
         }
 
         const data = (await response.json()) as { success: boolean };
-        if (data.success && onRefresh) {
+        if (data.success && refresh && onRefresh) {
           await onRefresh();
         }
         return data.success;
-      } catch {
-        return false;
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          return false;
+        }
+        throw err;
       }
     },
     [onRefresh],
