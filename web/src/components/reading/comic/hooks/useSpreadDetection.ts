@@ -92,7 +92,7 @@ export function useSpreadDetection({
   heuristic = defaultSpreadHeuristic,
 }: UseSpreadDetectionOptions): UseSpreadDetectionResult {
   const dimsByPageRef = useRef<Map<number, ImageDimensions>>(new Map());
-  const [_version, setVersion] = useState(0);
+  const [version, setVersion] = useState(0);
   const prevBookKeyRef = useRef(bookKey);
 
   useEffect(() => {
@@ -120,6 +120,7 @@ export function useSpreadDetection({
     [],
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: version is needed to trigger recomputation when dimensions change via ref updates
   const effectiveSpreadMode = useMemo(() => {
     if (!enabled || currentPage >= totalPages) {
       return false;
@@ -130,7 +131,7 @@ export function useSpreadDetection({
       return false;
     }
     return heuristic(d1, d2);
-  }, [enabled, currentPage, totalPages, heuristic]);
+  }, [enabled, currentPage, totalPages, heuristic, version]);
 
   return { effectiveSpreadMode, onPageDimensions };
 }

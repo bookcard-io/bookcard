@@ -90,15 +90,15 @@ export function usePreloadPages(
   ctx: PreloadPagesContext,
   getPreloadPages: GetPreloadPages = defaultGetPreloadPages,
 ): number[] {
+  const { currentPage, totalPages, overscan, spreadMode } = ctx;
   return useMemo(
-    () => getPreloadPages(ctx),
-    [
-      getPreloadPages,
-      ctx.currentPage,
-      ctx.totalPages,
-      ctx.overscan,
-      ctx.spreadMode,
-      ctx,
-    ],
+    () =>
+      getPreloadPages({
+        currentPage,
+        totalPages,
+        overscan,
+        spreadMode,
+      }),
+    [getPreloadPages, currentPage, totalPages, overscan, spreadMode],
   );
 }
