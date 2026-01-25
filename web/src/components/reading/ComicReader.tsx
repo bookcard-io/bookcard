@@ -26,7 +26,6 @@ import { PagedComicView } from "./comic/PagedComicView";
 import { WebtoonComicView } from "./comic/WebtoonComicView";
 import { useComicNavigation } from "./hooks/useComicNavigation";
 import { useComicPages } from "./hooks/useComicPages";
-import { useComicSpreads } from "./hooks/useComicSpreads";
 import type { PagingInfo } from "./ReaderControls";
 
 export type ComicReadingMode = "paged" | "continuous" | "webtoon";
@@ -116,11 +115,7 @@ export function ComicReader({
   });
 
   // Fetch pages
-  const {
-    pages,
-    isLoading: pagesLoading,
-    totalPages,
-  } = useComicPages({
+  const { isLoading: pagesLoading, totalPages } = useComicPages({
     bookId,
     format,
     enabled: true,
@@ -143,13 +138,6 @@ export function ComicReader({
       },
       [bookId, format, updateProgress, spreadMode, readingDirection],
     ),
-  });
-
-  // Spread detection
-  const spreads = useComicSpreads({
-    pages,
-    currentPage: navigation.currentPage,
-    enabled: spreadMode,
   });
 
   // Shared page change handler for continuous and webtoon modes
@@ -227,9 +215,7 @@ export function ComicReader({
             canGoPrevious={navigation.canGoPrevious}
             onNext={navigation.goToNext}
             onPrevious={navigation.goToPrevious}
-            spreadMode={
-              spreadMode && spreads.currentSpread.isSpread ? spreadMode : false
-            }
+            spreadMode={spreadMode}
             readingDirection={
               readingDirection === "vertical" ? "ltr" : readingDirection
             }
