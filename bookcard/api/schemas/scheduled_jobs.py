@@ -40,6 +40,8 @@ class ScheduledJobRead(BaseModel):
     user_id: int | None = None
     created_at: datetime
     updated_at: datetime
+    last_run_at: datetime | None = None
+    last_run_status: str | None = None
 
 
 class ScheduledJobUpdate(BaseModel):

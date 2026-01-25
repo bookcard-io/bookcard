@@ -30,6 +30,8 @@ export interface ScheduledJob {
   user_id: number | null;
   created_at: string;
   updated_at: string;
+  last_run_status?: string | null;
+  last_run_at?: string | null;
 }
 
 export interface ScheduledJobUpdate {
