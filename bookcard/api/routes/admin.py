@@ -27,7 +27,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import selectinload
-from sqlmodel import Session, select
+from sqlmodel import Session, desc, select
 
 from bookcard.api.deps import get_admin_user, get_current_user, get_db_session
 from bookcard.api.schemas import (
@@ -62,6 +62,7 @@ from bookcard.api.schemas import (
 )
 from bookcard.models.auth import EBookFormat, Role, RolePermission, User
 from bookcard.models.config import ScheduledJobDefinition
+from bookcard.models.tasks import Task
 from bookcard.repositories.config_repository import (
     LibraryRepository,
 )
@@ -2294,7 +2295,26 @@ def list_scheduled_jobs(session: SessionDep) -> list[ScheduledJobRead]:
     """List scheduled job definitions (admin only)."""
     stmt = select(ScheduledJobDefinition).order_by(ScheduledJobDefinition.job_name)
     jobs = list(session.exec(stmt).all())
-    return [ScheduledJobRead.model_validate(job) for job in jobs]
+
+    results = []
+    for job in jobs:
+        # Find the latest task execution for this job type
+        task_stmt = (
+            select(Task)
+            .where(Task.task_type == job.task_type)
+            .order_by(desc(Task.created_at))
+            .limit(1)
+        )
+        last_task = session.exec(task_stmt).first()
+
+        job_read = ScheduledJobRead.model_validate(job)
+        if last_task:
+            job_read.last_run_at = last_task.started_at or last_task.created_at
+            job_read.last_run_status = last_task.status
+
+        results.append(job_read)
+
+    return results
 
 
 @router.put(
