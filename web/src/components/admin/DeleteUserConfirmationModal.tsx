@@ -15,10 +15,7 @@
 
 "use client";
 
-import { useCallback } from "react";
-import { createPortal } from "react-dom";
-import { Button } from "@/components/forms/Button";
-import { useModal } from "@/hooks/useModal";
+import { ConfirmationModal } from "@/components/common/ConfirmationModal";
 
 export interface DeleteUserConfirmationModalProps {
   /** Whether the modal is open. */
@@ -55,112 +52,21 @@ export function DeleteUserConfirmationModal({
   isDeleting = false,
   error = null,
 }: DeleteUserConfirmationModalProps) {
-  // Prevent body scroll when modal is open
-  useModal(isOpen);
-
-  /**
-   * Handles overlay click to close modal.
-   */
-  const handleOverlayClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.target === e.currentTarget) {
-        onClose();
-      }
-    },
-    [onClose],
-  );
-
-  /**
-   * Prevents modal content clicks from closing the modal.
-   */
-  const handleModalClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      e.stopPropagation();
-    },
-    [],
-  );
-
-  /**
-   * Handles Escape key to close modal.
-   */
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    },
-    [onClose],
-  );
-
-  if (!isOpen) {
-    return null;
-  }
-
   const displayUsername = username || "this user";
 
-  const modalContent = (
-    /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
-    <div
-      className="modal-overlay modal-overlay-z-1002 modal-overlay-padding"
-      onClick={handleOverlayClick}
-      onKeyDown={handleKeyDown}
-      role="presentation"
-    >
-      <div
-        className="modal-container modal-container-shadow-large w-full max-w-md flex-col"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Confirm user deletion"
-        onMouseDown={handleModalClick}
-      >
-        <button
-          type="button"
-          onClick={onClose}
-          className="modal-close-button modal-close-button-sm cursor-pointer transition-all hover:bg-[var(--color-surface-a20)] hover:text-[var(--color-text-a0)]"
-          aria-label="Close"
-        >
-          <i className="pi pi-times" aria-hidden="true" />
-        </button>
-
-        <div className="flex flex-col gap-6 p-6">
-          <div className="flex flex-col gap-2 pr-8">
-            <h2 className="m-0 font-bold text-2xl text-[var(--color-text-a0)]">
-              Delete User
-            </h2>
-            <p className="m-0 text-[var(--color-text-a20)] text-base leading-relaxed">
-              Are you sure you want to delete user{" "}
-              <strong>{displayUsername}</strong>? This action cannot be undone.
-            </p>
-          </div>
-
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="medium"
-              onClick={onClose}
-              disabled={isDeleting}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              size="medium"
-              onClick={onConfirm}
-              disabled={isDeleting}
-            >
-              {isDeleting ? "Deleting..." : "Delete"}
-            </Button>
-          </div>
-          {error && (
-            <p className="m-0 text-[var(--color-danger-a0)] text-sm">{error}</p>
-          )}
-        </div>
-      </div>
-    </div>
+  return (
+    <ConfirmationModal
+      isOpen={isOpen}
+      onClose={onClose}
+      onConfirm={onConfirm}
+      ariaLabel="Confirm user deletion"
+      title="Delete User"
+      message={`Are you sure you want to delete user ${displayUsername}? This action cannot be undone.`}
+      confirmLabel="Delete"
+      confirmLoadingLabel="Deleting..."
+      confirmVariant="danger"
+      confirmLoading={isDeleting}
+      error={error}
+    />
   );
-
-  // Render modal in a portal to avoid DOM hierarchy conflicts
-  return createPortal(modalContent, document.body);
 }

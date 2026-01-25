@@ -17,55 +17,55 @@
 
 import { ConfirmationModal } from "@/components/common/ConfirmationModal";
 
-export interface DeleteRoleConfirmationModalProps {
+export interface CancelAllTasksConfirmationModalProps {
   /** Whether the modal is open. */
   isOpen: boolean;
   /** Callback to close the modal. */
   onClose: () => void;
-  /** Callback when delete is confirmed. */
+  /** Callback when cancel is confirmed. */
   onConfirm: () => void | Promise<void>;
-  /** Whether deletion is in progress. */
-  isDeleting?: boolean;
-  /** Error message if deletion failed. */
+  /** Number of tasks that will be cancelled. */
+  taskCount: number;
+  /** Whether cancellation is in progress. */
+  isCancelling?: boolean;
+  /** Error message if cancellation failed. */
   error?: string | null;
-  /** Role name for display in warning message. */
-  roleName?: string;
 }
 
 /**
- * Delete role confirmation modal component.
+ * Cancel all tasks confirmation modal component.
  *
- * Displays a warning modal before deleting a role.
+ * Displays a warning modal before cancelling all pending/running tasks.
  * Follows SRP by focusing solely on confirmation UI.
  * Uses IOC via callback props.
- * Uses DRY by leveraging useModalInteractions hook and renderModalPortal utility.
  *
  * Parameters
  * ----------
- * props : DeleteRoleConfirmationModalProps
+ * props : CancelAllTasksConfirmationModalProps
  *     Component props including modal state and callbacks.
  */
-export function DeleteRoleConfirmationModal({
+export function CancelAllTasksConfirmationModal({
   isOpen,
   onClose,
   onConfirm,
-  roleName,
-  isDeleting = false,
+  taskCount,
+  isCancelling = false,
   error = null,
-}: DeleteRoleConfirmationModalProps) {
-  const displayRoleName = roleName || "this role";
+}: CancelAllTasksConfirmationModalProps) {
   return (
     <ConfirmationModal
       isOpen={isOpen}
       onClose={onClose}
       onConfirm={onConfirm}
-      ariaLabel="Confirm role deletion"
-      title="Delete Role"
-      message={`Are you sure you want to delete role ${displayRoleName}? This action cannot be undone.`}
-      confirmLabel="Delete"
-      confirmLoadingLabel="Deleting..."
+      ariaLabel="Confirm cancel all tasks"
+      title="Cancel All Tasks"
+      message={`Are you sure you want to cancel all ${taskCount} ${
+        taskCount === 1 ? "task" : "tasks"
+      }? This action cannot be undone.`}
+      confirmLabel="Cancel all"
+      confirmLoadingLabel="Cancelling..."
       confirmVariant="danger"
-      confirmLoading={isDeleting}
+      confirmLoading={isCancelling}
       error={error}
     />
   );
