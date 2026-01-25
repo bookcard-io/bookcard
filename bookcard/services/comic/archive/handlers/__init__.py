@@ -13,16 +13,18 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Comic book archive services."""
+"""Archive handlers for comic formats."""
 
-from bookcard.services.comic.archive import (
-    ComicArchiveService,
-    ComicPage,
-    ComicPageInfo,
-)
+from bookcard.services.comic.archive.handlers.base import ArchiveHandler
+from bookcard.services.comic.archive.handlers.cb7 import CB7Handler
+from bookcard.services.comic.archive.handlers.cbc import CBCHandler
+from bookcard.services.comic.archive.handlers.cbr import CBRHandler
+from bookcard.services.comic.archive.handlers.cbz import CBZHandler
 
 __all__ = [
-    "ComicArchiveService",
-    "ComicPage",
-    "ComicPageInfo",
+    "ArchiveHandler",
+    "CB7Handler",
+    "CBCHandler",
+    "CBRHandler",
+    "CBZHandler",
 ]
