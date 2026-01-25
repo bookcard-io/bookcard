@@ -45,6 +45,7 @@ from bookcard.services.tasks.indexer_health_check_task import (
 from bookcard.services.tasks.ingest_book_task import IngestBookTask
 from bookcard.services.tasks.ingest_discovery_task import IngestDiscoveryTask
 from bookcard.services.tasks.library_scan_task import LibraryScanTask
+from bookcard.services.tasks.metadata_db_backup_task import MetadataDbBackupTask
 from bookcard.services.tasks.multi_upload_task import MultiBookUploadTask
 from bookcard.services.tasks.openlibrary import OpenLibraryDumpIngestTask
 from bookcard.services.tasks.openlibrary_dump_download_task import (
@@ -257,3 +258,4 @@ _registry.register(TaskType.INGEST_BOOK, IngestBookTask)
 _registry.register(TaskType.PVR_DOWNLOAD_MONITOR, DownloadMonitorTask)
 _registry.register(TaskType.PROWLARR_SYNC, ProwlarrSyncTask)
 _registry.register(TaskType.INDEXER_HEALTH_CHECK, IndexerHealthCheckTask)
+_registry.register(TaskType.METADATA_BACKUP, MetadataDbBackupTask)
