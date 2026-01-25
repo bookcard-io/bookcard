@@ -13,16 +13,36 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Comic book archive services."""
+"""Comic archive domain (handlers, service, models, exceptions)."""
 
-from bookcard.services.comic.archive import (
-    ComicArchiveService,
+from bookcard.services.comic.archive.exceptions import (
+    ArchiveCorruptedError,
+    ArchiveReadError,
+    ComicArchiveError,
+    ImageProcessingError,
+    InvalidArchiveEntryNameError,
+    PageNotFoundError,
+    UnsupportedFormatError,
+)
+from bookcard.services.comic.archive.models import (
     ComicPage,
     ComicPageInfo,
 )
+from bookcard.services.comic.archive.service import (
+    ComicArchiveService,
+    create_comic_archive_service,
+)
 
 __all__ = [
+    "ArchiveCorruptedError",
+    "ArchiveReadError",
+    "ComicArchiveError",
     "ComicArchiveService",
     "ComicPage",
     "ComicPageInfo",
+    "ImageProcessingError",
+    "InvalidArchiveEntryNameError",
+    "PageNotFoundError",
+    "UnsupportedFormatError",
+    "create_comic_archive_service",
 ]

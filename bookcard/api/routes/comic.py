@@ -33,8 +33,9 @@ from bookcard.models.auth import User
 from bookcard.repositories.config_repository import LibraryRepository
 from bookcard.services.book_permission_helper import BookPermissionHelper
 from bookcard.services.book_service import BookService
-from bookcard.services.comic.comic_archive_service import (
-    ComicArchiveService,
+from bookcard.services.comic.archive import (
+    ComicArchiveError,
+    create_comic_archive_service,
 )
 from bookcard.services.config_service import LibraryService
 
@@ -241,6 +242,10 @@ def list_comic_pages(
     session: SessionDep,
     current_user: CurrentUserDep,
     file_format: str = Query(..., description="Comic format (CBZ, CBR, CB7, CBC)"),
+    include_dimensions: bool = Query(
+        False,
+        description="If true, compute and return image width/height for each page",
+    ),
 ) -> list[dict]:
     """List all pages in a comic book archive.
 
@@ -282,10 +287,12 @@ def list_comic_pages(
     file_path = _get_comic_file_path(book_service, book_id, file_format)
 
     # List pages
-    archive_service = ComicArchiveService()
+    archive_service = create_comic_archive_service()
     try:
-        pages = archive_service.list_pages(file_path)
-    except ValueError as e:
+        pages = archive_service.list_pages(
+            file_path, include_dimensions=include_dimensions
+        )
+    except ComicArchiveError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
@@ -366,10 +373,10 @@ def get_comic_page(
     file_path = _get_comic_file_path(book_service, book_id, file_format)
 
     # Extract page
-    archive_service = ComicArchiveService()
+    archive_service = create_comic_archive_service()
     try:
         page = archive_service.get_page(file_path, page_number)
-    except (ValueError, IndexError) as e:
+    except ComicArchiveError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
