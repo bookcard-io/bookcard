@@ -15,10 +15,7 @@
 
 "use client";
 
-import { Button } from "@/components/forms/Button";
-import { useModalInteractions } from "@/hooks/useModalInteractions";
-import { cn } from "@/libs/utils";
-import { renderModalPortal } from "@/utils/modal";
+import { ConfirmationModal } from "@/components/common/ConfirmationModal";
 
 export interface DeletePermissionConfirmationModalProps {
   /** Whether the modal is open. */
@@ -50,82 +47,19 @@ export function DeletePermissionConfirmationModal({
   onClose,
   onConfirm,
 }: DeletePermissionConfirmationModalProps) {
-  // Use standardized modal interaction handlers (DRY, SRP)
-  const { handleOverlayClick, handleModalClick, handleOverlayKeyDown } =
-    useModalInteractions({ onClose });
-
-  if (!isOpen) {
-    return null;
-  }
-
-  const modalContent = (
-    /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
-    <div
-      className="modal-overlay modal-overlay-z-1002 modal-overlay-padding"
-      onClick={handleOverlayClick}
-      onKeyDown={handleOverlayKeyDown}
-      role="presentation"
-    >
-      <div
-        className={cn(
-          "modal-container modal-container-shadow-default w-full max-w-md flex-col",
-        )}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Delete permission confirmation"
-        onMouseDown={handleModalClick}
-      >
-        <button
-          type="button"
-          onClick={onClose}
-          className="modal-close-button modal-close-button-sm focus:outline"
-          aria-label="Close"
-        >
-          <i className="pi pi-times" aria-hidden="true" />
-        </button>
-
-        <div className="flex items-start justify-between gap-4 border-surface-a20 border-b pt-6 pr-16 pb-4 pl-6">
-          <h2 className="m-0 truncate font-bold text-2xl text-text-a0 leading-[1.4]">
-            Delete Permission
-          </h2>
-        </div>
-
-        <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-6">
-          <p className="m-0 text-sm text-text-a0">
-            Are you sure you want to delete the permission{" "}
-            <strong>{permissionName}</strong>? This action cannot be undone.
-          </p>
-          {error && (
-            <p className="m-0 text-[var(--color-danger-a0)] text-sm">{error}</p>
-          )}
-        </div>
-
-        <div className={cn("modal-footer-end flex-shrink-0")}>
-          <div className="flex w-full flex-shrink-0 flex-col-reverse justify-end gap-3 md:w-auto md:flex-row">
-            <Button
-              type="button"
-              variant="ghost"
-              size="medium"
-              onClick={onClose}
-              disabled={isDeleting}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              size="medium"
-              onClick={onConfirm}
-              loading={isDeleting}
-            >
-              Delete permission
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
+  return (
+    <ConfirmationModal
+      isOpen={isOpen}
+      onClose={onClose}
+      onConfirm={onConfirm}
+      ariaLabel="Delete permission confirmation"
+      title="Delete Permission"
+      message={`Are you sure you want to delete the permission ${permissionName}? This action cannot be undone.`}
+      confirmLabel="Delete permission"
+      confirmVariant="danger"
+      confirmLoading={isDeleting}
+      cancelVariant="ghost"
+      error={error}
+    />
   );
-
-  // Render modal in a portal to avoid DOM hierarchy conflicts (DRY via utility)
-  return renderModalPortal(modalContent);
 }

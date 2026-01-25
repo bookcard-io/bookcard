@@ -93,6 +93,8 @@ export interface UseBulkCancelTasksOptions extends BulkCancelDeps {
 export interface UseBulkCancelTasksResult extends BulkCancelState {
   /** Run the bulk cancel workflow. */
   cancelAll: () => Promise<void>;
+  /** Get the count of tasks that would be cancelled. */
+  getTaskCount: () => Promise<number>;
   /** Whether the current filter implies no cancellable tasks. */
   isCancellableSelection: boolean;
 }
@@ -168,6 +170,34 @@ export function useBulkCancelTasks(
     return CANCELLABLE_STATUSES.has(selectedStatus);
   }, [selectedStatus]);
 
+  /**
+   * Get the count of tasks that would be cancelled.
+   *
+   * Returns
+   * -------
+   * Promise[int]
+   *     Number of tasks that would be cancelled, or 0 if none.
+   */
+  const getTaskCount = useCallback(async (): Promise<number> => {
+    const statusesToCancel: TaskStatus[] = selectedStatus
+      ? [selectedStatus]
+      : [TaskStatus.PENDING, TaskStatus.RUNNING];
+
+    // Respect the current status filter: if it's not cancellable, return 0.
+    if (statusesToCancel.some((s) => !CANCELLABLE_STATUSES.has(s))) {
+      return 0;
+    }
+
+    try {
+      const taskLists = await Promise.all(
+        statusesToCancel.map((s) => listAllByStatus(s, selectedTaskType)),
+      );
+      return taskLists.flat().length;
+    } catch {
+      return 0;
+    }
+  }, [selectedStatus, selectedTaskType, listAllByStatus]);
+
   const cancelAll = useCallback(async () => {
     if (isCancelling) {
       return;
@@ -235,6 +265,7 @@ export function useBulkCancelTasks(
 
   return {
     cancelAll,
+    getTaskCount,
     isCancelling,
     error,
     notice,

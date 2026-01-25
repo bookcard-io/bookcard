@@ -15,8 +15,10 @@
 
 "use client";
 
+import { useCallback, useState } from "react";
 import { ScheduledTasksConfig } from "@/components/admin/scheduledtasks/ScheduledTasksConfig";
 import { Button } from "@/components/forms/Button";
+import { CancelAllTasksConfirmationModal } from "@/components/tasks/CancelAllTasksConfirmationModal";
 import { TaskErrorDisplay } from "@/components/tasks/TaskErrorDisplay";
 import { TaskFiltersBar } from "@/components/tasks/TaskFiltersBar";
 import { TaskList } from "@/components/tasks/TaskList";
@@ -77,6 +79,45 @@ export function ScheduledTasksTab() {
     refresh,
   });
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [taskCount, setTaskCount] = useState(0);
+
+  /**
+   * Handles opening the confirmation modal.
+   * Fetches the task count first, then shows the modal.
+   */
+  const handleOpenModal = useCallback(async () => {
+    const count = await bulkCancel.getTaskCount();
+    if (count === 0) {
+      // If no tasks to cancel, show notice instead of modal
+      return;
+    }
+    setTaskCount(count);
+    setIsModalOpen(true);
+  }, [bulkCancel]);
+
+  /**
+   * Handles closing the confirmation modal.
+   */
+  const handleCloseModal = useCallback(() => {
+    setIsModalOpen(false);
+    setTaskCount(0);
+  }, []);
+
+  /**
+   * Handles confirming the cancellation.
+   */
+  const handleConfirmCancel = useCallback(async () => {
+    try {
+      await bulkCancel.cancelAll();
+    } finally {
+      // Close modal regardless of success/failure
+      // Errors will be displayed via bulkCancel.error
+      setIsModalOpen(false);
+      setTaskCount(0);
+    }
+  }, [bulkCancel]);
+
   return (
     <div className="flex flex-col gap-6">
       <ScheduledTasksConfig />
@@ -100,7 +141,7 @@ export function ScheduledTasksTab() {
           <Button
             variant="danger"
             size="small"
-            onClick={() => void bulkCancel.cancelAll()}
+            onClick={() => void handleOpenModal()}
             loading={bulkCancel.isCancelling}
             disabled={
               bulkCancel.isCancelling || !bulkCancel.isCancellableSelection
@@ -129,6 +170,15 @@ export function ScheduledTasksTab() {
           onNextPage={nextPage}
         />
       </div>
+
+      <CancelAllTasksConfirmationModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onConfirm={handleConfirmCancel}
+        taskCount={taskCount}
+        isCancelling={bulkCancel.isCancelling}
+        error={bulkCancel.error}
+      />
     </div>
   );
 }
