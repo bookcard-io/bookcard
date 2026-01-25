@@ -23,6 +23,7 @@ export interface ComicPageProps {
   format: string;
   pageNumber: number;
   onLoad?: () => void;
+  onDimensions?: (dimensions: { width: number; height: number }) => void;
   className?: string;
 }
 
@@ -43,6 +44,7 @@ export function ComicPage({
   format,
   pageNumber,
   onLoad,
+  onDimensions,
   className,
 }: ComicPageProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -63,24 +65,7 @@ export function ComicPage({
 
     const url = `/api/comic/${bookId}/pages/${pageNumber}?${params}`;
     setImageUrl(url);
-
-    // Preload image
-    const img = new Image();
-    img.onload = () => {
-      setIsLoading(false);
-      onLoad?.();
-    };
-    img.onerror = () => {
-      setIsLoading(false);
-      setError("Failed to load page");
-    };
-    img.src = url;
-
-    return () => {
-      img.onload = null;
-      img.onerror = null;
-    };
-  }, [bookId, format, pageNumber, onLoad]);
+  }, [bookId, format, pageNumber]);
 
   if (error) {
     return (
@@ -110,8 +95,14 @@ export function ComicPage({
             "h-full w-full object-contain",
             isLoading && "opacity-0",
           )}
-          onLoad={() => {
+          onLoad={(e) => {
             setIsLoading(false);
+            const img = e.currentTarget;
+            const width = img.naturalWidth || img.width;
+            const height = img.naturalHeight || img.height;
+            if (width > 0 && height > 0) {
+              onDimensions?.({ width, height });
+            }
             onLoad?.();
           }}
           onError={() => {

@@ -15,17 +15,19 @@
 
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useMemo, useRef } from "react";
+import { ComicPage } from "@/components/reading/comic/ComicPage";
+import { usePagedNavigation } from "@/components/reading/comic/hooks/usePagedNavigation";
+import { usePagedPageLoading } from "@/components/reading/comic/hooks/usePagedPageLoading";
+import type { GetPreloadPages } from "@/components/reading/comic/hooks/usePreloadPages";
+import { usePreloadPages } from "@/components/reading/comic/hooks/usePreloadPages";
+import type {
+  ImageDimensions,
+  SpreadHeuristic,
+} from "@/components/reading/comic/hooks/useSpreadDetection";
+import { useSpreadDetection } from "@/components/reading/comic/hooks/useSpreadDetection";
+import { useZoomScrollCenter } from "@/components/reading/comic/hooks/useZoomScrollCenter";
 import { cn } from "@/libs/utils";
-import { ComicPage } from "./ComicPage";
-import { usePagedNavigation } from "./hooks/usePagedNavigation";
 
 export interface PagedComicViewProps {
   bookId: number;
@@ -38,41 +40,29 @@ export interface PagedComicViewProps {
   onNext: () => void;
   onPrevious: () => void;
   spreadMode?: boolean;
+  /**
+   * Optional override for spread detection behavior.
+   *
+   * Notes
+   * -----
+   * This provides an OCP/DIP-friendly seam for experimenting with different
+   * heuristics without changing the component internals.
+   */
+  spreadHeuristic?: SpreadHeuristic;
   readingDirection?: "ltr" | "rtl";
   zoomLevel?: number;
   className?: string;
   /** Number of pages to preload before and after current page (default: 3) */
   overscan?: number;
-}
-
-/**
- * Calculate which pages to preload based on current page and overscan.
- */
-function getPreloadPages(
-  currentPage: number,
-  totalPages: number,
-  overscan: number,
-  spreadMode: boolean,
-): number[] {
-  const pages = new Set<number>();
-
-  // Visible pages
-  pages.add(currentPage);
-  if (spreadMode && currentPage < totalPages) {
-    pages.add(currentPage + 1);
-  }
-
-  // Overscan pages (before and after)
-  const startPage = spreadMode ? currentPage : currentPage;
-  for (let i = 1; i <= overscan; i++) {
-    const before = startPage - i;
-    const after = spreadMode ? currentPage + 1 + i : currentPage + i;
-
-    if (before >= 1) pages.add(before);
-    if (after <= totalPages) pages.add(after);
-  }
-
-  return Array.from(pages).sort((a, b) => a - b);
+  /**
+   * Optional override for page preloading behavior.
+   *
+   * Notes
+   * -----
+   * This provides an OCP/DIP seam for experimenting with different preloading
+   * strategies without changing `PagedComicView`.
+   */
+  getPreloadPages?: GetPreloadPages;
 }
 
 /**
@@ -102,34 +92,17 @@ export function PagedComicView({
   onNext,
   onPrevious,
   spreadMode = false,
+  spreadHeuristic,
   readingDirection = "ltr",
   zoomLevel = 1.0,
   className,
   overscan = 3,
+  getPreloadPages,
 }: PagedComicViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const loadedPagesRef = useRef<Set<number>>(new Set());
-  const currentPagesRef = useRef<number[]>([]);
-  const prevZoomRef = useRef(1.0);
+  const bookKey = useMemo(() => `${bookId}:${format}`, [bookId, format]);
 
-  useLayoutEffect(() => {
-    if (
-      containerRef.current &&
-      Math.abs(prevZoomRef.current - zoomLevel) > 0.001
-    ) {
-      const ratio = zoomLevel / prevZoomRef.current;
-      const { scrollLeft, scrollTop, clientWidth, clientHeight } =
-        containerRef.current;
-
-      containerRef.current.scrollLeft =
-        (scrollLeft + clientWidth / 2) * ratio - clientWidth / 2;
-      containerRef.current.scrollTop =
-        (scrollTop + clientHeight / 2) * ratio - clientHeight / 2;
-
-      prevZoomRef.current = zoomLevel;
-    }
-  }, [zoomLevel]);
+  useZoomScrollCenter({ containerRef, zoomLevel });
 
   // Use extracted navigation hook (SRP improvement)
   const { handleContainerClick, handleTouchStart, handleTouchEnd } =
@@ -144,50 +117,38 @@ export function PagedComicView({
       onGoToPage: onPageChange,
     });
 
+  const { effectiveSpreadMode, onPageDimensions } = useSpreadDetection({
+    enabled: spreadMode,
+    bookKey,
+    currentPage,
+    totalPages,
+    heuristic: spreadHeuristic,
+  });
+
   // Calculate pages to display (spread mode or single page)
   const pagesToDisplay = useMemo(
     () =>
-      spreadMode && currentPage < totalPages
+      effectiveSpreadMode && currentPage < totalPages
         ? [currentPage, currentPage + 1]
         : [currentPage],
-    [currentPage, spreadMode, totalPages],
+    [currentPage, effectiveSpreadMode, totalPages],
   );
 
-  // Calculate pages to cache (3-page overscan: previous, current, next)
-  const pagesToCache = useMemo(
-    () => getPreloadPages(currentPage, totalPages, overscan, spreadMode),
-    [currentPage, totalPages, overscan, spreadMode],
+  const pagesToCache = usePreloadPages(
+    { currentPage, totalPages, overscan, spreadMode },
+    getPreloadPages,
   );
 
-  // Reset loading state when visible pages change
-  useEffect(() => {
-    const pagesChanged =
-      currentPagesRef.current.length !== pagesToDisplay.length ||
-      !currentPagesRef.current.every((p, i) => p === pagesToDisplay[i]);
+  const { isLoading, onPageLoad } = usePagedPageLoading({
+    bookKey,
+    visiblePages: pagesToDisplay,
+  });
 
-    if (pagesChanged) {
-      currentPagesRef.current = [...pagesToDisplay];
-      loadedPagesRef.current = new Set();
-      setIsLoading(true);
-    }
-  }, [pagesToDisplay]);
-
-  // Track when pages load
-  const handlePageLoad = useCallback(
-    (pageNum: number) => {
-      // Track all cached pages loading, but only show loading for visible pages
-      loadedPagesRef.current.add(pageNum);
-
-      // Check if all visible pages are now loaded
-      const allLoaded = pagesToDisplay.every((p) =>
-        loadedPagesRef.current.has(p),
-      );
-
-      if (allLoaded && isLoading) {
-        setIsLoading(false);
-      }
+  const handlePageDimensions = useCallback(
+    (pageNum: number, dims: ImageDimensions) => {
+      onPageDimensions(pageNum, dims);
     },
-    [pagesToDisplay, isLoading],
+    [onPageDimensions],
   );
 
   return (
@@ -225,10 +186,11 @@ export function PagedComicView({
             bookId={bookId}
             format={format}
             pageNumber={pageNum}
-            onLoad={() => handlePageLoad(pageNum)}
+            onLoad={() => onPageLoad(pageNum)}
+            onDimensions={(dims) => handlePageDimensions(pageNum, dims)}
             className={cn(
               "h-full w-full object-contain",
-              spreadMode && "w-1/2",
+              effectiveSpreadMode && "w-1/2",
             )}
           />
         ))}
@@ -244,7 +206,8 @@ export function PagedComicView({
               bookId={bookId}
               format={format}
               pageNumber={pageNum}
-              onLoad={() => handlePageLoad(pageNum)}
+              onLoad={() => onPageLoad(pageNum)}
+              onDimensions={(dims) => handlePageDimensions(pageNum, dims)}
               className="h-full w-full object-contain"
             />
           ))}

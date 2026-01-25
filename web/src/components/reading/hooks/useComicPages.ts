@@ -29,6 +29,15 @@ export interface UseComicPagesOptions {
   bookId: number;
   format: string;
   enabled?: boolean;
+  /**
+   * Whether to include image dimensions (width/height) for every page.
+   *
+   * Notes
+   * -----
+   * Setting this to true can be expensive for large archives because the backend
+   * may need to inspect many entries to compute dimensions.
+   */
+  includeDimensions?: boolean;
 }
 
 export interface UseComicPagesResult {
@@ -59,6 +68,7 @@ export function useComicPages({
   bookId,
   format,
   enabled = true,
+  includeDimensions = false,
 }: UseComicPagesOptions): UseComicPagesResult {
   const [pages, setPages] = useState<ComicPageInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -75,8 +85,10 @@ export function useComicPages({
     try {
       const params = new URLSearchParams({
         file_format: format,
-        include_dimensions: "true",
       });
+      if (includeDimensions) {
+        params.set("include_dimensions", "true");
+      }
 
       const response = await fetch(`/api/comic/${bookId}/pages?${params}`, {
         method: "GET",
@@ -100,7 +112,7 @@ export function useComicPages({
     } finally {
       setIsLoading(false);
     }
-  }, [bookId, format, enabled]);
+  }, [bookId, format, enabled, includeDimensions]);
 
   useEffect(() => {
     void fetchPages();
