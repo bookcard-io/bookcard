@@ -152,6 +152,7 @@ from bookcard.api.schemas.reading import (
     ReadStatusUpdate,
     RecentReadsResponse,
 )
+from bookcard.api.schemas.scheduled_jobs import ScheduledJobRead, ScheduledJobUpdate
 from bookcard.api.schemas.shelves import (
     BookShelfLinkRead,
     ShelfCreate,
@@ -264,6 +265,8 @@ __all__ = [
     "RolePermissionUpdate",
     "RoleRead",
     "RoleUpdate",
+    "ScheduledJobRead",
+    "ScheduledJobUpdate",
     "ScheduledTasksConfigRead",
     "ScheduledTasksConfigUpdate",
     "SearchSuggestionItem",

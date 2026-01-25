@@ -26,10 +26,11 @@ from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import Engine
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from bookcard.models.auth import User
-from bookcard.models.config import ScheduledJobDefinition
+from bookcard.models.config import ScheduledJobDefinition, ScheduledTasksConfig
 from bookcard.models.tasks import TaskType
 
 if TYPE_CHECKING:
@@ -211,15 +212,49 @@ class APSchedulerService:
     ) -> None:
         """Execute task callback (runs in scheduler thread pool)."""
         try:
+            effective_metadata = metadata.copy()
+            max_runtime_seconds = self._get_scheduled_task_max_runtime_seconds()
+            if max_runtime_seconds is not None:
+                effective_metadata["max_runtime_seconds"] = max_runtime_seconds
+
             task_id = self._task_runner.enqueue(
                 task_type=task_type,
                 payload=payload,
                 user_id=user_id,
-                metadata=metadata,
+                metadata=effective_metadata,
             )
             logger.info("Scheduled task %s triggered (id=%s)", task_type.value, task_id)
         except Exception:
             logger.exception("Failed to trigger scheduled task %s", task_type.value)
+
+    def _get_scheduled_task_max_runtime_seconds(self) -> int | None:
+        """Get the max runtime (seconds) for scheduled tasks from system config.
+
+        Returns
+        -------
+        int | None
+            Maximum runtime in seconds, or None if config is missing/invalid.
+        """
+        try:
+            with Session(self._engine) as session:
+                config = session.exec(select(ScheduledTasksConfig).limit(1)).first()
+        except SQLAlchemyError:
+            # If config can't be read, avoid blocking job execution.
+            logger.exception("Failed to read ScheduledTasksConfig from database")
+            return None
+
+        if config is None:
+            return None
+
+        try:
+            duration_hours = int(config.duration_hours)
+        except (TypeError, ValueError):
+            logger.exception("Invalid ScheduledTasksConfig.duration_hours value")
+            return None
+
+        if duration_hours <= 0:
+            return None
+        return duration_hours * 60 * 60
 
     def _get_system_user(self, session: Session) -> User | None:
         """Get system user for scheduled tasks."""

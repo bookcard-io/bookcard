@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any
 import dramatiq
 from dramatiq.brokers.redis import RedisBroker
 from dramatiq.middleware import ShutdownNotifications, TimeLimit
+from dramatiq.middleware.time_limit import TimeLimitExceeded
 
 from bookcard.database import get_session as _get_session
 from bookcard.models.tasks import TaskStatus, TaskType  # noqa: TC001
@@ -116,6 +117,18 @@ def _execute_task_actor(
             executor = TaskExecutor(task_service)
             executor.execute_task(task_id, task_instance, worker_context)
 
+    except TimeLimitExceeded:
+        max_runtime_seconds = None
+        if metadata and isinstance(metadata.get("max_runtime_seconds"), (int, float)):
+            max_runtime_seconds = float(metadata["max_runtime_seconds"])
+        logger.warning(
+            "Task %s exceeded max runtime (%s seconds); marking cancelled",
+            task_id,
+            "unknown" if max_runtime_seconds is None else f"{max_runtime_seconds:.0f}",
+        )
+        with _get_session(engine) as session:
+            task_service = TaskService(session)
+            task_service.cancel_task(task_id)
     except Exception:
         logger.exception("Error executing task %s", task_id)
 
@@ -168,7 +181,8 @@ class DramatiqTaskRunner(TaskRunner):
             if not isinstance(m, (TimeLimit, ShutdownNotifications))
         ]
 
-        self._broker.add_middleware(TimeLimit(time_limit=3600000))  # 1 hour max
+        # Default upper bound is 24 hours; per-message time_limit can be set on enqueue.
+        self._broker.add_middleware(TimeLimit(time_limit=24 * 60 * 60 * 1000))
         self._broker.add_middleware(ShutdownNotifications())
         dramatiq.set_broker(self._broker)
 
@@ -195,7 +209,7 @@ class DramatiqTaskRunner(TaskRunner):
         # Register as Dramatiq actor
         self._task_actor = dramatiq.actor(
             max_retries=3,
-            time_limit=3600000,
+            time_limit=24 * 60 * 60 * 1000,
             actor_name="execute_task",
         )(execute_task)
 
@@ -252,14 +266,32 @@ class DramatiqTaskRunner(TaskRunner):
             raise RuntimeError(msg)
 
         # Enqueue via Dramatiq
+        time_limit_ms: int | None = None
+        if metadata and metadata.get("scheduled") is True:
+            value = metadata.get("max_runtime_seconds")
+            if isinstance(value, (int, float)) and value > 0:
+                time_limit_ms = int(float(value) * 1000)
+
         try:
-            self._task_actor.send(
-                task_id=task_id,
-                user_id=user_id,
-                task_type=task_type.value,
-                payload=payload,
-                metadata=metadata,
-            )
+            if time_limit_ms is not None:
+                self._task_actor.send_with_options(
+                    kwargs={
+                        "task_id": task_id,
+                        "user_id": user_id,
+                        "task_type": task_type.value,
+                        "payload": payload,
+                        "metadata": metadata,
+                    },
+                    time_limit=time_limit_ms,
+                )
+            else:
+                self._task_actor.send(
+                    task_id=task_id,
+                    user_id=user_id,
+                    task_type=task_type.value,
+                    payload=payload,
+                    metadata=metadata,
+                )
             logger.info(
                 "Task %s (%s) enqueued via Dramatiq for user %s",
                 task_id,

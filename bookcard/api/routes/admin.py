@@ -22,6 +22,7 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Annotated
 
+from apscheduler.triggers.cron import CronTrigger
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
@@ -52,12 +53,15 @@ from bookcard.api.schemas import (
     RolePermissionUpdate,
     RoleRead,
     RoleUpdate,
+    ScheduledJobRead,
+    ScheduledJobUpdate,
     ScheduledTasksConfigRead,
     ScheduledTasksConfigUpdate,
     UserRead,
     UserRoleAssign,
 )
 from bookcard.models.auth import EBookFormat, Role, RolePermission, User
+from bookcard.models.config import ScheduledJobDefinition
 from bookcard.repositories.config_repository import (
     LibraryRepository,
 )
@@ -141,6 +145,23 @@ class DownloadFilesResponse(BaseModel):
     task_id: int
     downloaded_files: list[str]
     failed_files: list[str]
+
+
+def _validate_cron_expression(cron_expression: str) -> None:
+    """Validate a standard 5-field cron expression.
+
+    Parameters
+    ----------
+    cron_expression : str
+        Cron expression in standard crontab format: "minute hour day month day_of_week".
+
+    Raises
+    ------
+    ValueError
+        If the expression is invalid or not a standard 5-field cron.
+    """
+    # APScheduler's from_crontab enforces standard 5-field cron expressions.
+    CronTrigger.from_crontab(cron_expression, timezone="UTC")
 
 
 def role_to_role_read(role: Role) -> RoleRead:
@@ -2262,6 +2283,58 @@ def upsert_scheduled_tasks_config(
         raise HTTPException(status_code=400, detail=msg) from exc
 
     return ScheduledTasksConfigRead.model_validate(cfg, from_attributes=True)
+
+
+@router.get(
+    "/scheduled-jobs",
+    response_model=list[ScheduledJobRead],
+    dependencies=[Depends(get_admin_user)],
+)
+def list_scheduled_jobs(session: SessionDep) -> list[ScheduledJobRead]:
+    """List scheduled job definitions (admin only)."""
+    stmt = select(ScheduledJobDefinition).order_by(ScheduledJobDefinition.job_name)
+    jobs = list(session.exec(stmt).all())
+    return [ScheduledJobRead.model_validate(job) for job in jobs]
+
+
+@router.put(
+    "/scheduled-jobs/{job_name}",
+    response_model=ScheduledJobRead,
+    dependencies=[Depends(get_admin_user)],
+)
+def update_scheduled_job(
+    request: Request,
+    session: SessionDep,
+    job_name: str,
+    payload: ScheduledJobUpdate,
+) -> ScheduledJobRead:
+    """Update a scheduled job definition (admin only)."""
+    stmt = select(ScheduledJobDefinition).where(
+        ScheduledJobDefinition.job_name == job_name
+    )
+    job = session.exec(stmt).first()
+    if job is None:
+        raise HTTPException(status_code=404, detail="scheduled_job_not_found")
+
+    if payload.cron_expression is not None:
+        try:
+            _validate_cron_expression(payload.cron_expression)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        job.cron_expression = payload.cron_expression
+
+    if payload.enabled is not None:
+        job.enabled = payload.enabled
+
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+
+    # Refresh scheduler to pick up changes immediately
+    if hasattr(request.app.state, "scheduler") and request.app.state.scheduler:
+        request.app.state.scheduler.refresh_jobs()
+
+    return ScheduledJobRead.model_validate(job)
 
 
 @router.get(

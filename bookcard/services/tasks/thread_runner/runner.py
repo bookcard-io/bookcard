@@ -22,6 +22,8 @@ import queue
 import threading
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from bookcard.database import get_session as _get_session
 from bookcard.services.task_service import TaskService
 from bookcard.services.tasks.base import TaskRunner
@@ -126,6 +128,7 @@ class ThreadTaskRunner(TaskRunner):
         This runs inside the ThreadPoolExecutor.
         """
         task_id = item.task_id
+        timeout_timer: threading.Timer | None = None
 
         try:
             with self._context_builder.build_service_context() as (
@@ -153,6 +156,18 @@ class ThreadTaskRunner(TaskRunner):
                 with self._lock:
                     self._running_tasks[task_id] = task_instance
 
+                timeout_seconds = self._get_scheduled_task_timeout_seconds(
+                    item.metadata
+                )
+                if timeout_seconds is not None:
+                    timeout_timer = threading.Timer(
+                        timeout_seconds,
+                        self._cancel_for_timeout,
+                        args=(task_id, timeout_seconds),
+                    )
+                    timeout_timer.daemon = True
+                    timeout_timer.start()
+
                 # Execute task with progress callback
                 def update_progress(
                     progress: float,
@@ -176,6 +191,8 @@ class ThreadTaskRunner(TaskRunner):
                     executor = TaskExecutor(task_service)
                     executor.execute_task(task_id, task_instance, worker_context)
                 finally:
+                    if timeout_timer is not None:
+                        timeout_timer.cancel()
                     # Remove from running tasks
                     with self._lock:
                         self._running_tasks.pop(task_id, None)
@@ -194,6 +211,52 @@ class ThreadTaskRunner(TaskRunner):
         finally:
             with self._lock:
                 self._running_tasks.pop(task_id, None)
+
+    @staticmethod
+    def _get_scheduled_task_timeout_seconds(
+        metadata: dict[str, Any] | None,
+    ) -> float | None:
+        """Extract scheduled-task timeout (seconds) from task metadata.
+
+        Parameters
+        ----------
+        metadata : dict[str, Any] | None
+            Task metadata.
+
+        Returns
+        -------
+        float | None
+            Timeout in seconds if present and applicable; otherwise None.
+        """
+        if not metadata:
+            return None
+        if metadata.get("scheduled") is not True:
+            return None
+
+        value = metadata.get("max_runtime_seconds")
+        if isinstance(value, (int, float)) and value > 0:
+            return float(value)
+        return None
+
+    def _cancel_for_timeout(self, task_id: int, timeout_seconds: float) -> None:
+        """Cancel a task that exceeded its allowed runtime.
+
+        Parameters
+        ----------
+        task_id : int
+            Task ID to cancel.
+        timeout_seconds : float
+            Timeout threshold (seconds) that was exceeded.
+        """
+        logger.warning(
+            "Task %s exceeded max runtime (%.0fs); sending cancellation signal",
+            task_id,
+            timeout_seconds,
+        )
+        try:
+            self.cancel(task_id)
+        except SQLAlchemyError:
+            logger.exception("Database error cancelling task %s after timeout", task_id)
 
     def enqueue(
         self,

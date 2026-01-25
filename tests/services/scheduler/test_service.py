@@ -273,12 +273,19 @@ class TestAPSchedulerService:
 
         service._execute_task(task_type, payload, user_id, metadata)
 
-        mock_task_runner.enqueue.assert_called_once_with(
-            task_type=task_type,
-            payload=payload,
-            user_id=user_id,
-            metadata=metadata,
-        )
+        # The scheduler may augment metadata with runtime limits derived from
+        # ScheduledTasksConfig.duration_hours. Ensure we preserve original metadata
+        # and do not mutate the caller's dict.
+        assert metadata == {"meta": "data"}
+
+        mock_task_runner.enqueue.assert_called_once()
+        _args, kwargs = mock_task_runner.enqueue.call_args
+        assert kwargs["task_type"] == task_type
+        assert kwargs["payload"] == payload
+        assert kwargs["user_id"] == user_id
+        assert kwargs["metadata"]["meta"] == "data"
+        assert isinstance(kwargs["metadata"].get("max_runtime_seconds"), int)
+        assert kwargs["metadata"]["max_runtime_seconds"] > 0
 
     def test_execute_task_error(
         self,
