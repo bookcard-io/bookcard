@@ -15,7 +15,7 @@
 
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useReadingSettingsContext } from "@/contexts/ReadingSettingsContext";
 import { useReadingProgress } from "@/hooks/useReadingProgress";
 import { useReadingSession } from "@/hooks/useReadingSession";
@@ -97,6 +97,9 @@ export function ComicReader({
   onPagingInfoChange,
   className,
 }: ComicReaderProps) {
+  const [cursorVisible, setCursorVisible] = useState(true);
+  const lastActivityRef = useRef<number>(Date.now());
+
   const { readingMode, readingDirection, spreadMode, zoomLevel, pageColor } =
     useReadingSettingsContext();
 
@@ -150,6 +153,23 @@ export function ComicReader({
     },
     [navigation],
   );
+
+  const handleUserActivity = useCallback(() => {
+    lastActivityRef.current = Date.now();
+    if (!cursorVisible) {
+      setCursorVisible(true);
+    }
+  }, [cursorVisible]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const idleMs = Date.now() - lastActivityRef.current;
+      if (idleMs >= 2000 && cursorVisible) {
+        setCursorVisible(false);
+      }
+    }, 300);
+    return () => clearInterval(interval);
+  }, [cursorVisible]);
 
   // Register jump handler
   useEffect(() => {
@@ -257,7 +277,19 @@ export function ComicReader({
   };
 
   return (
-    <div className={cn("h-full w-full", className)} style={{ backgroundColor }}>
+    <div
+      className={cn(
+        "h-full w-full",
+        !cursorVisible && "cursor-none",
+        className,
+      )}
+      style={{ backgroundColor }}
+      role="application"
+      aria-label="Comic reader"
+      onMouseMove={handleUserActivity}
+      onTouchStart={handleUserActivity}
+      onKeyDown={handleUserActivity}
+    >
       {renderView()}
     </div>
   );
