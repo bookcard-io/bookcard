@@ -44,7 +44,7 @@ from bookcard.services.tasks.indexer_health_check_task import (
 )
 from bookcard.services.tasks.ingest_book_task import IngestBookTask
 from bookcard.services.tasks.ingest_discovery_task import IngestDiscoveryTask
-from bookcard.services.tasks.library_scan_task import LibraryScanTask
+from bookcard.services.tasks.library_scan import LibraryScanTask
 from bookcard.services.tasks.metadata_db_backup_task import MetadataDbBackupTask
 from bookcard.services.tasks.multi_upload_task import MultiBookUploadTask
 from bookcard.services.tasks.openlibrary import OpenLibraryDumpIngestTask

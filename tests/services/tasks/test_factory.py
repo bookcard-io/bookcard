@@ -32,7 +32,7 @@ from bookcard.services.tasks.factory import (
     create_task,
     register_task,
 )
-from bookcard.services.tasks.library_scan_task import LibraryScanTask
+from bookcard.services.tasks.library_scan import LibraryScanTask
 from bookcard.services.tasks.multi_upload_task import MultiBookUploadTask
 
 

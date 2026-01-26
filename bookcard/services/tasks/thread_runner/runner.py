@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     from sqlalchemy import Engine
 
     from bookcard.models.tasks import TaskStatus, TaskType
+    from bookcard.services.messaging.base import MessagePublisher
     from bookcard.services.tasks.base import BaseTask
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,7 @@ class ThreadTaskRunner(TaskRunner):
         self,
         engine: Engine,
         task_factory: Callable[[int, int, dict[str, Any]], BaseTask],
+        message_broker: MessagePublisher | None = None,
         executor: Executor | None = None,
         max_workers: int = 8,
     ) -> None:
@@ -71,9 +73,13 @@ class ThreadTaskRunner(TaskRunner):
             Optional executor instance.
         max_workers : int
             Maximum number of workers (default: 8).
+        message_broker : MessagePublisher | None
+            Optional message broker for tasks that need to publish messages
+            (e.g., distributed library scan jobs).
         """
         self._engine = engine
         self._task_factory = task_factory
+        self._message_broker = message_broker
 
         # Components
         self._queue = TaskQueueManager()
@@ -184,6 +190,7 @@ class ThreadTaskRunner(TaskRunner):
                     "task_service": task_service,
                     "update_progress": update_progress,
                     "enqueue_task": self.enqueue,
+                    "message_broker": self._message_broker,
                 }
 
                 try:
