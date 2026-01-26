@@ -17,7 +17,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
@@ -65,8 +65,12 @@ def test_create_task_runner_valid_types(
             "bookcard.services.tasks.runner_factory.DramatiqTaskRunner"
         ) as mock_dramatiq,
         patch("bookcard.services.tasks.runner_factory.CeleryTaskRunner") as mock_celery,
+        patch(
+            "bookcard.services.tasks.runner_factory.RedisBroker"
+        ) as mock_redis_broker,
         patch("bookcard.services.tasks.runner_factory.create_task") as mock_create_task,
     ):
+        mock_redis_broker.return_value = MagicMock()
         mock_thread_instance = MagicMock()
         mock_thread.return_value = mock_thread_instance
         mock_dramatiq_instance = MagicMock()
@@ -77,7 +81,7 @@ def test_create_task_runner_valid_types(
         result = create_task_runner(mock_engine, config)
 
         if runner_type == "thread":
-            mock_thread.assert_called_once_with(mock_engine, mock_create_task)
+            mock_thread.assert_called_once_with(mock_engine, mock_create_task, ANY)
             assert result == mock_thread_instance
         elif runner_type == "dramatiq":
             mock_dramatiq.assert_called_once()
@@ -113,12 +117,16 @@ def test_create_task_runner_default_thread(mock_engine: MagicMock) -> None:
 
     with (
         patch("bookcard.services.tasks.runner_factory.ThreadTaskRunner") as mock_thread,
+        patch(
+            "bookcard.services.tasks.runner_factory.RedisBroker"
+        ) as mock_redis_broker,
         patch("bookcard.services.tasks.runner_factory.create_task") as mock_create_task,
     ):
+        mock_redis_broker.return_value = MagicMock()
         mock_thread_instance = MagicMock()
         mock_thread.return_value = mock_thread_instance
 
         result = create_task_runner(mock_engine, config)
 
-        mock_thread.assert_called_once_with(mock_engine, mock_create_task)
+        mock_thread.assert_called_once_with(mock_engine, mock_create_task, ANY)
         assert result == mock_thread_instance
