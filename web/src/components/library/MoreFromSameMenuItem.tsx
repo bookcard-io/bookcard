@@ -58,7 +58,7 @@ export function MoreFromSameMenuItem({
       <DropdownMenuItem
         ref={itemRef}
         icon={<CgStack className="h-4 w-4" />}
-        label="More from the same..."
+        label="Related..."
         onClick={onClick}
         rightContent={
           <i

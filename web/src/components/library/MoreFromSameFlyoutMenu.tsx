@@ -162,7 +162,7 @@ export function MoreFromSameFlyoutMenu({
       )}
       style={getFlyoutPositionStyle(position, direction)}
       role="menu"
-      aria-label="More from the same"
+      aria-label="Related"
       onMouseDown={(e) => e.stopPropagation()}
       onMouseEnter={handleFlyoutMouseEnter}
       data-keep-selection
