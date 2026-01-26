@@ -15,7 +15,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect } from "react";
 import { useReadingSettingsContext } from "@/contexts/ReadingSettingsContext";
 import { useReadingProgress } from "@/hooks/useReadingProgress";
 import { useReadingSession } from "@/hooks/useReadingSession";
@@ -26,6 +26,7 @@ import { PagedComicView } from "./comic/PagedComicView";
 import { WebtoonComicView } from "./comic/WebtoonComicView";
 import { useComicNavigation } from "./hooks/useComicNavigation";
 import { useComicPages } from "./hooks/useComicPages";
+import { useCursorAutoHide } from "./hooks/useCursorAutoHide";
 import type { PagingInfo } from "./ReaderControls";
 
 export type ComicReadingMode = "paged" | "continuous" | "webtoon";
@@ -83,7 +84,8 @@ export interface ComicReaderProps {
  *
  * Main component for reading comic books in various formats.
  * Supports multiple reading modes and navigation options.
- * Follows SRP by delegating to specialized view components.
+ * Follows SRP by focusing solely on view composition and rendering.
+ * Delegates business logic to specialized hooks and view components.
  *
  * Parameters
  * ----------
@@ -97,8 +99,7 @@ export function ComicReader({
   onPagingInfoChange,
   className,
 }: ComicReaderProps) {
-  const [cursorVisible, setCursorVisible] = useState(true);
-  const lastActivityRef = useRef<number>(Date.now());
+  const { cursorClassName, handleUserActivity } = useCursorAutoHide();
 
   const { readingMode, readingDirection, spreadMode, zoomLevel, pageColor } =
     useReadingSettingsContext();
@@ -153,23 +154,6 @@ export function ComicReader({
     },
     [navigation],
   );
-
-  const handleUserActivity = useCallback(() => {
-    lastActivityRef.current = Date.now();
-    if (!cursorVisible) {
-      setCursorVisible(true);
-    }
-  }, [cursorVisible]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const idleMs = Date.now() - lastActivityRef.current;
-      if (idleMs >= 2000 && cursorVisible) {
-        setCursorVisible(false);
-      }
-    }, 300);
-    return () => clearInterval(interval);
-  }, [cursorVisible]);
 
   // Register jump handler
   useEffect(() => {
@@ -278,17 +262,14 @@ export function ComicReader({
 
   return (
     <div
-      className={cn(
-        "h-full w-full",
-        !cursorVisible && "cursor-none",
-        className,
-      )}
+      className={cn("h-full w-full", cursorClassName, className)}
       style={{ backgroundColor }}
       role="application"
       aria-label="Comic reader"
       onMouseMove={handleUserActivity}
       onTouchStart={handleUserActivity}
       onKeyDown={handleUserActivity}
+      onWheel={handleUserActivity}
     >
       {renderView()}
     </div>
