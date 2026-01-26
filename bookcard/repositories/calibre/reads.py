@@ -474,27 +474,7 @@ class BookReadOperations:
         This is intentionally lighter than `enrich_books_with_full_details`:
         it adds only IDs + tag names needed for list UIs.
         """
-        book_ids = [b.book.id for b in books if b.book.id is not None]
-        if not book_ids:
-            return
-
-        series_ids_map = self._enrichment.fetch_series_ids_map(session, book_ids)
-        publishers_map = self._enrichment.fetch_publishers_map(session, book_ids)
-        tags_map = self._enrichment.fetch_tags_map(session, book_ids)
-        tag_ids_map = self._enrichment.fetch_tag_ids_map(session, book_ids)
-        author_ids_map = self._enrichment.fetch_author_ids_map(session, book_ids)
-
-        for b in books:
-            book_id = b.book.id
-            if book_id is None:
-                continue
-            b.series_id = series_ids_map.get(book_id)
-            publisher_name, publisher_id = publishers_map.get(book_id, (None, None))
-            b.publisher = publisher_name
-            b.publisher_id = publisher_id
-            b.tags = tags_map.get(book_id, [])
-            b.tag_ids = tag_ids_map.get(book_id, [])
-            b.author_ids = author_ids_map.get(book_id, [])
+        self._enrichment.enrich_books_for_list(session, books)
 
     def _build_book_with_relations(
         self, session: Session, result: object
