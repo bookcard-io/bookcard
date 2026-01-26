@@ -32,6 +32,7 @@ from dramatiq.middleware.time_limit import TimeLimitExceeded
 
 from bookcard.database import get_session as _get_session
 from bookcard.models.tasks import TaskStatus, TaskType  # noqa: TC001
+from bookcard.services.messaging.redis_broker import RedisBroker as ScanRedisBroker
 from bookcard.services.task_service import TaskService
 from bookcard.services.tasks.base import TaskRunner
 from bookcard.services.tasks.factory import create_task
@@ -55,6 +56,7 @@ def _execute_task_actor(
     metadata: dict[str, Any] | None,
     engine: Engine,  # type: ignore[name-defined]
     enqueue_callback: EnqueueTaskCallback,
+    redis_url: str | None,
 ) -> None:
     """Dramatiq actor function for executing tasks.
 
@@ -111,6 +113,7 @@ def _execute_task_actor(
                 "task_service": task_service,
                 "update_progress": update_progress,
                 "enqueue_task": enqueue_callback,
+                "message_broker": ScanRedisBroker(redis_url) if redis_url else None,
             }
 
             # Execute task using executor service
@@ -204,6 +207,7 @@ class DramatiqTaskRunner(TaskRunner):
                 metadata,
                 self._engine,
                 self.enqueue,
+                self._redis_url,
             )
 
         # Register as Dramatiq actor

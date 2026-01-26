@@ -361,6 +361,33 @@ class TestUpdateTags:
         assert any(isinstance(item, Tag) for item in session.added)  # type: ignore[arg-type]
         assert any(isinstance(item, BookTagLink) for item in session.added)  # type: ignore[arg-type]
 
+    def test_update_tags_deduplicates_input(
+        self, manager: BookRelationshipManager, session: DummySession, book_id: int
+    ) -> None:
+        """Test update_tags de-duplicates tag names before inserting links.
+
+        Parameters
+        ----------
+        manager : BookRelationshipManager
+            Book relationship manager.
+        session : DummySession
+            Database session.
+        book_id : int
+            Book ID.
+        """
+        session.set_exec_result([])  # Current tags (empty)  # type: ignore[arg-type]
+        session.add_exec_result([])  # Existing links (empty)  # type: ignore[arg-type]
+        session.add_exec_result([
+            None
+        ])  # Tag lookup (doesn't exist)  # type: ignore[arg-type]
+
+        manager.update_tags(session, book_id, ["Dup", " dup ", "DUP"])  # type: ignore[arg-type]
+
+        added_tags = [a for a in session.added if isinstance(a, Tag)]  # type: ignore[arg-type]
+        added_links = [a for a in session.added if isinstance(a, BookTagLink)]  # type: ignore[arg-type]
+        assert len(added_tags) == 1
+        assert len(added_links) == 1
+
     def test_update_tags_empty_tag_name(
         self, manager: BookRelationshipManager, session: DummySession, book_id: int
     ) -> None:

@@ -13,84 +13,120 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Tests for LibraryScanTask."""
+"""Tests for library scan monitoring behavior."""
 
-from unittest.mock import MagicMock, patch
+from __future__ import annotations
+
+from dataclasses import dataclass
+from unittest.mock import MagicMock
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 
-from bookcard.models.library_scanning import LibraryScanState
-from bookcard.services.library_scanning.workers.progress import JobProgressTracker
-from bookcard.services.tasks.library_scan_task import LibraryScanTask
+from bookcard.services.tasks.library_scan.errors import (
+    ScanFailedError,
+    ScanStateUnavailableError,
+)
+from bookcard.services.tasks.library_scan.monitor import ScanProgressMonitor
+from bookcard.services.tasks.library_scan.state_repository import (
+    LibraryScanStateRepository,
+)
 
 
-class TestLibraryScanTask:
-    """Tests for LibraryScanTask."""
+@dataclass
+class _State:
+    scan_status: str
 
-    def test_monitor_scan_progress_missing_state_retry_limit(self) -> None:
-        """Test that monitor raises RuntimeError if state is missing for too long."""
-        task = LibraryScanTask(task_id=1, user_id=1, metadata={})
-        mock_session = MagicMock()
-        mock_tracker = MagicMock(spec=JobProgressTracker)
 
-        # Mock session.get to always return None
-        mock_session.get.return_value = None
-        mock_session.expire_all.return_value = None
+class TestScanProgressMonitor:
+    """Unit tests for ``ScanProgressMonitor``."""
 
-        # Patch time.sleep specifically in the module under test
-        with patch(
-            "bookcard.services.tasks.library_scan_task.time.sleep"
-        ) as mock_sleep:
-            with pytest.raises(
-                RuntimeError, match="disappeared or cannot be retrieved"
-            ):
-                task._monitor_scan_progress(mock_tracker, 1, mock_session)
+    def test_missing_state_retry_limit(self) -> None:
+        """Monitor raises when state is missing for too long."""
+        repo = MagicMock(spec=LibraryScanStateRepository)
+        repo.get_by_library_id.return_value = None
+        repo.refresh_view.return_value = None
 
-            # Verify it retried enough times to hit limit
-            assert mock_session.get.call_count >= 13
-            assert mock_sleep.call_count >= 12
+        sleep_calls: list[float] = []
 
-    def test_monitor_scan_progress_recovers_after_missing_state(self) -> None:
-        """Test that monitor recovers if state appears after being missing."""
-        task = LibraryScanTask(task_id=1, user_id=1, metadata={})
-        mock_session = MagicMock()
-        mock_tracker = MagicMock(spec=JobProgressTracker)
+        def sleep(seconds: float) -> None:
+            sleep_calls.append(seconds)
 
-        # Mock session.get to return None twice, then a completed state
-        completed_state = MagicMock(spec=LibraryScanState)
-        completed_state.scan_status = "completed"
+        monitor = ScanProgressMonitor(
+            repo,
+            sleep=sleep,
+            poll_interval_seconds=0.0,
+            max_missing_state_retries=12,
+        )
 
-        mock_session.get.side_effect = [None, None, completed_state]
-        mock_session.expire_all.return_value = None
-
-        with (
-            patch.object(task, "update_progress") as mock_update_progress,
-            patch("bookcard.services.tasks.library_scan_task.time.sleep") as mock_sleep,
+        with pytest.raises(
+            ScanStateUnavailableError, match="disappeared or cannot be retrieved"
         ):
-            task._monitor_scan_progress(mock_tracker, 1, mock_session)
+            monitor.wait_for_terminal_state(1)
 
-            # Should not raise exception
-            assert mock_session.get.call_count == 3
-            assert mock_sleep.call_count == 2
-            mock_update_progress.assert_called_with(1.0)
+        assert repo.get_by_library_id.call_count >= 13
+        assert len(sleep_calls) >= 12
 
-    def test_monitor_scan_progress_db_failure_retry_limit(self) -> None:
-        """Test that monitor raises RuntimeError if DB fetch fails for too long."""
-        task = LibraryScanTask(task_id=1, user_id=1, metadata={})
-        mock_session = MagicMock()
-        mock_tracker = MagicMock(spec=JobProgressTracker)
+    def test_recovers_after_missing_state(self) -> None:
+        """Monitor succeeds when state eventually appears as completed."""
+        repo = MagicMock(spec=LibraryScanStateRepository)
+        repo.refresh_view.return_value = None
+        repo.get_by_library_id.side_effect = [None, None, _State("completed")]
 
-        # Mock session.get to always raise Exception
-        mock_session.get.side_effect = Exception("DB Connection failed")
-        mock_session.expire_all.return_value = None
+        sleep_calls: list[float] = []
 
-        with patch(
-            "bookcard.services.tasks.library_scan_task.time.sleep"
-        ) as mock_sleep:
-            with pytest.raises(
-                RuntimeError, match="disappeared or cannot be retrieved"
-            ):
-                task._monitor_scan_progress(mock_tracker, 1, mock_session)
+        def sleep(seconds: float) -> None:
+            sleep_calls.append(seconds)
 
-            assert mock_session.get.call_count >= 13
-            assert mock_sleep.call_count >= 12
+        progress: list[float] = []
+
+        monitor = ScanProgressMonitor(
+            repo,
+            sleep=sleep,
+            poll_interval_seconds=0.0,
+            max_missing_state_retries=12,
+        )
+        monitor.wait_for_terminal_state(1, on_terminal_progress=progress.append)
+
+        assert repo.get_by_library_id.call_count == 3
+        assert len(sleep_calls) == 2
+        assert progress == [1.0]
+
+    def test_db_failure_retry_limit(self) -> None:
+        """Monitor raises when DB errors persist."""
+        repo = MagicMock(spec=LibraryScanStateRepository)
+        repo.refresh_view.return_value = None
+        repo.get_by_library_id.side_effect = SQLAlchemyError("DB Connection failed")
+
+        sleep_calls: list[float] = []
+
+        def sleep(seconds: float) -> None:
+            sleep_calls.append(seconds)
+
+        monitor = ScanProgressMonitor(
+            repo,
+            sleep=sleep,
+            poll_interval_seconds=0.0,
+            max_missing_state_retries=12,
+        )
+
+        with pytest.raises(
+            ScanStateUnavailableError, match="disappeared or cannot be retrieved"
+        ):
+            monitor.wait_for_terminal_state(1)
+
+        assert repo.get_by_library_id.call_count >= 13
+        assert len(sleep_calls) >= 12
+
+    def test_failed_state_raises(self) -> None:
+        """Monitor raises when scan is marked failed."""
+        repo = MagicMock(spec=LibraryScanStateRepository)
+        repo.refresh_view.return_value = None
+        repo.get_by_library_id.return_value = _State("failed")
+
+        monitor = ScanProgressMonitor(
+            repo, sleep=lambda _: None, poll_interval_seconds=0.0
+        )
+
+        with pytest.raises(ScanFailedError, match="marked in ScanState"):
+            monitor.wait_for_terminal_state(1)

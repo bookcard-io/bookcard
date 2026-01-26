@@ -23,6 +23,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from bookcard.services.messaging.redis_broker import RedisBroker
 from bookcard.services.tasks.factory import create_task
 from bookcard.services.tasks.runner_celery import CeleryTaskRunner
 from bookcard.services.tasks.runner_dramatiq import DramatiqTaskRunner
@@ -61,16 +62,17 @@ def create_task_runner(engine: Engine, config: AppConfig) -> TaskRunner:
         If task_runner is set to an unsupported value.
     """
     runner_type = config.task_runner
+    message_broker = RedisBroker(config.redis_url) if config.redis_enabled else None
 
     if runner_type == "thread":
         logger.info("Using thread-based task runner")
-        return ThreadTaskRunner(engine, create_task)
+        return ThreadTaskRunner(engine, create_task, message_broker)
     if runner_type == "dramatiq":
         if not config.redis_enabled:
             logger.warning(
                 "Dramatiq requires Redis, but Redis is disabled. Falling back to thread runner."
             )
-            return ThreadTaskRunner(engine, create_task)
+            return ThreadTaskRunner(engine, create_task, None)
         logger.info("Using Dramatiq task runner with Redis broker")
         return DramatiqTaskRunner(engine, config.redis_url, create_task)
     if runner_type == "celery":

@@ -302,6 +302,7 @@ def test_closure_function_calls_execute_task_actor(
         assert call_args[0][4] == {"meta": "data"}  # metadata
         assert call_args[0][5] == mock_engine  # engine
         assert call_args[0][6] == runner.enqueue  # enqueue_callback
+        assert call_args[0][7] == "redis://localhost:6379/0"  # redis_url
 
 
 # ============================================================================
@@ -350,6 +351,7 @@ def test_execute_task_actor_success(
             metadata={"meta": "data"},
             engine=mock_engine,
             enqueue_callback=MagicMock(),
+            redis_url=None,
         )
 
         mock_task_service.get_task.assert_called_once_with(1)
@@ -387,6 +389,7 @@ def test_execute_task_actor_task_not_found(
             metadata=None,
             engine=mock_engine,
             enqueue_callback=MagicMock(),
+            redis_url=None,
         )
 
         mock_logger.warning.assert_called_once_with("Task %s not found in database", 1)
@@ -415,6 +418,7 @@ def test_execute_task_actor_exception(
             metadata=None,
             engine=mock_engine,
             enqueue_callback=MagicMock(),
+            redis_url=None,
         )
 
         mock_logger.exception.assert_called_once_with("Error executing task %s", 1)
