@@ -68,6 +68,33 @@ class BookRelationshipManager(IBookRelationshipManager):
         """
         return {s.strip().lower() for s in strings if s.strip()}
 
+    def _dedupe_normalized_strings(self, strings: list[str]) -> list[str]:
+        """De-duplicate strings using normalized comparison, preserving order.
+
+        Parameters
+        ----------
+        strings : list[str]
+            Input strings.
+
+        Returns
+        -------
+        list[str]
+            Cleaned strings with whitespace stripped, empty strings removed, and
+            duplicates removed using case-insensitive, stripped normalization.
+        """
+        seen: set[str] = set()
+        unique: list[str] = []
+        for s in strings:
+            cleaned = s.strip()
+            if not cleaned:
+                continue
+            key = cleaned.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            unique.append(cleaned)
+        return unique
+
     def _delete_links_and_flush(self, session: Session, links: list[object]) -> None:
         """Delete multiple links and flush the session.
 
@@ -242,7 +269,8 @@ class BookRelationshipManager(IBookRelationshipManager):
         )
 
         # Normalize new tag names
-        normalized_new_tags = self._normalize_string_set(tag_names)
+        unique_tag_names = self._dedupe_normalized_strings(tag_names)
+        normalized_new_tags = self._normalize_string_set(unique_tag_names)
 
         # Check if tags are actually changing
         if current_tag_names == normalized_new_tags:
@@ -255,9 +283,8 @@ class BookRelationshipManager(IBookRelationshipManager):
         self._delete_links_and_flush(session, existing_tag_links)
 
         # Create or get tags and create links
-        for tag_name in tag_names:
-            if not tag_name.strip():
-                continue
+        added_tag_ids: set[int] = set()
+        for tag_name in unique_tag_names:
             tag_stmt = select(Tag).where(Tag.name == tag_name)
             tag = session.exec(tag_stmt).first()
             if tag is None:
@@ -266,8 +293,11 @@ class BookRelationshipManager(IBookRelationshipManager):
                 session.flush()
             if tag.id is None:
                 continue
+            if tag.id in added_tag_ids:
+                continue
             link = BookTagLink(book=book_id, tag=tag.id)
             session.add(link)
+            added_tag_ids.add(tag.id)
 
     def update_identifiers(
         self,
@@ -674,9 +704,9 @@ class BookRelationshipManager(IBookRelationshipManager):
         tag_names : list[str]
             List of tag names to add.
         """
-        for tag_name in tag_names:
-            if not tag_name.strip():
-                continue
+        unique_tag_names = self._dedupe_normalized_strings(tag_names)
+        added_tag_ids: set[int] = set()
+        for tag_name in unique_tag_names:
             tag_stmt = select(Tag).where(Tag.name == tag_name)
             tag = session.exec(tag_stmt).first()
             if tag is None:
@@ -684,6 +714,8 @@ class BookRelationshipManager(IBookRelationshipManager):
                 session.add(tag)
                 session.flush()
             if tag.id is not None:
+                if tag.id in added_tag_ids:
+                    continue
                 link_stmt = select(BookTagLink).where(
                     BookTagLink.book == book_id, BookTagLink.tag == tag.id
                 )
@@ -691,6 +723,7 @@ class BookRelationshipManager(IBookRelationshipManager):
                 if existing_link is None:
                     link = BookTagLink(book=book_id, tag=tag.id)
                     session.add(link)
+                    added_tag_ids.add(tag.id)
 
     def _add_book_publisher(
         self, session: Session, book_id: int, publisher_name: str
