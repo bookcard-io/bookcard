@@ -278,8 +278,14 @@ export function ComicReader({
 
   return (
     <div
-      className={cn("h-full w-full", !cursorVisible && "cursor-none", className)}
+      className={cn(
+        "h-full w-full",
+        !cursorVisible && "cursor-none",
+        className,
+      )}
       style={{ backgroundColor }}
+      role="application"
+      aria-label="Comic reader"
       onMouseMove={handleUserActivity}
       onTouchStart={handleUserActivity}
       onKeyDown={handleUserActivity}
