@@ -9,7 +9,7 @@
   "packageManager": "npm@11.8.0",
   "scripts": {
     "dev:spotlight": "npx @spotlightjs/spotlight",
-    "dev:next": "next dev",
+    "dev:next": "cross-env NEXT_TURBOPACK=0 NEXT_USE_TURBOPACK=0 NEXT_DISABLE_TURBOPACK=1 next dev --webpack",
     "dev": "run-p dev:*",
     "build:next": "next build --webpack",
     "build-local": "npm run build:next",
