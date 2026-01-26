@@ -98,28 +98,44 @@ def test_facade_get_book_uses_injected_session_manager() -> None:
     # Arrange a fake session that will return a fake row for the first .first() call,
     # then authors, formats, and lightweight list-level metadata (ids/tags).
     session = MagicMock()
-    exec_obj = MagicMock()
 
     book = Book(id=1, title="Test Book", uuid="test-uuid")
     row = MagicMock()
     row.Book = book
     row.series_name = "Series X"
 
-    exec_obj.first.return_value = row
-    exec_obj.all.side_effect = [
-        ["Author 1"],  # authors query
-        [
-            (1, "EPUB", 123, "name", "Author/Test Book (1)")
-        ],  # formats query (book_id, format, size, name, book_path)
-        [(1, 10)],  # series ids query (book_id, series_id)
-        [
-            (1, "Publisher X", 20)
-        ],  # publishers query (book_id, publisher_name, publisher_id)
-        [(1, "Fiction")],  # tags query (book_id, tag_name)
-        [(1, 77)],  # tag ids query (book_id, tag_id)
-        [(1, 11)],  # author ids query (book_id, author_id)
+    # Mock query results in call order:
+    # - base book row
+    # - authors
+    # - formats
+    # - list enrichment (single aggregated query)
+    exec_base = MagicMock()
+    exec_base.first.return_value = row
+
+    exec_authors = MagicMock()
+    exec_authors.all.return_value = ["Author 1"]
+
+    exec_formats = MagicMock()
+    exec_formats.all.return_value = [(1, "EPUB", 123, "name", "Author/Test Book (1)")]
+
+    exec_list_enrich = MagicMock()
+    exec_list_enrich.mappings.return_value.all.return_value = [
+        {
+            "book_id": 1,
+            "tags_json": '[{"id": 77, "name": "Fiction"}]',
+            "author_ids_json": "[11]",
+            "identifiers_json": "[]",
+            "languages_json": "[]",
+            "publisher_name": "Publisher X",
+            "publisher_id": 20,
+            "rating_value": None,
+            "rating_id": None,
+            "series_id": 10,
+            "description": None,
+        }
     ]
-    session.exec.return_value = exec_obj
+
+    session.exec.side_effect = [exec_base, exec_authors, exec_formats, exec_list_enrich]
 
     repo = CalibreBookRepository(
         calibre_db_path="/tmp",
