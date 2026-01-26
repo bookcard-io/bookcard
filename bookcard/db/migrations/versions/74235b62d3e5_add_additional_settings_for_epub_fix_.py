@@ -60,28 +60,29 @@ def upgrade() -> None:
     )
 
     # Seed default configuration
-    op.execute(
-        """
-        INSERT INTO epub_fixer_config (
-            enabled,
-            backup_enabled,
-            backup_directory,
-            default_language,
-            skip_already_fixed,
-            skip_failed,
-            created_at,
-            updated_at
-        ) VALUES (
-            true,
-            true,
-            '/data/processed_books/fixed_originals',
-            'en',
-            true,
-            true,
-            CURRENT_TIMESTAMP,
-            CURRENT_TIMESTAMP
-        );
-        """
+    epub_fixer_config_table = sa.table(
+        "epub_fixer_config",
+        sa.column("enabled", sa.Boolean()),
+        sa.column("backup_enabled", sa.Boolean()),
+        sa.column("backup_directory", sqlmodel.AutoString(length=1000)),
+        sa.column("default_language", sqlmodel.AutoString(length=10)),
+        sa.column("skip_already_fixed", sa.Boolean()),
+        sa.column("skip_failed", sa.Boolean()),
+        sa.column("created_at", sa.DateTime()),
+        sa.column("updated_at", sa.DateTime()),
+    )
+    connection = op.get_bind()
+    connection.execute(
+        sa.insert(epub_fixer_config_table).values(
+            enabled=True,
+            backup_enabled=True,
+            backup_directory="/data/processed_books/fixed_originals",
+            default_language="en",
+            skip_already_fixed=True,
+            skip_failed=True,
+            created_at=sa.func.current_timestamp(),
+            updated_at=sa.func.current_timestamp(),
+        )
     )
 
     op.create_index(
@@ -95,11 +96,21 @@ def upgrade() -> None:
     )
     op.add_column(
         "scheduled_tasks_config",
-        sa.Column("epub_fixer_daily_scan", sa.Boolean(), nullable=False),
+        sa.Column(
+            "epub_fixer_daily_scan",
+            sa.Boolean(),
+            nullable=False,
+            server_default=sa.false(),
+        ),
     )
     op.add_column(
         "scheduled_tasks_config",
-        sa.Column("epub_fixer_auto_fix_on_ingest", sa.Boolean(), nullable=False),
+        sa.Column(
+            "epub_fixer_auto_fix_on_ingest",
+            sa.Boolean(),
+            nullable=False,
+            server_default=sa.false(),
+        ),
     )
     # ### end Alembic commands ###
 
