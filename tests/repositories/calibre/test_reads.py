@@ -21,7 +21,19 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from bookcard.models.core import Author, Book, BookAuthorLink
+import pytest
+
+from bookcard.models.core import (
+    Author,
+    Book,
+    BookAuthorLink,
+    BookPublisherLink,
+    BookSeriesLink,
+    BookTagLink,
+    Publisher,
+    Series,
+    Tag,
+)
 
 if TYPE_CHECKING:
     from sqlmodel import Session
@@ -139,6 +151,22 @@ class TestBookReadOperations:
 
         # Create book-author link
         in_memory_db.add(BookAuthorLink(book=sample_book.id, author=sample_author.id))
+
+        # Create series and link
+        series = Series(id=99, name="Test Series")
+        in_memory_db.add(series)
+        in_memory_db.add(BookSeriesLink(book=sample_book.id, series=series.id))
+
+        # Create publisher and link
+        publisher = Publisher(id=88, name="Test Publisher")
+        in_memory_db.add(publisher)
+        in_memory_db.add(BookPublisherLink(book=sample_book.id, publisher=publisher.id))
+
+        # Create tag and link
+        tag = Tag(id=77, name="Fiction")
+        in_memory_db.add(tag)
+        in_memory_db.add(BookTagLink(book=sample_book.id, tag=tag.id))
+
         in_memory_db.add(
             Data(
                 book=sample_book.id,
@@ -164,6 +192,88 @@ class TestBookReadOperations:
         books = operations.list_books(limit=10)
         assert len(books) == 1
         assert books[0].book.id == sample_book.id
+        assert books[0].author_ids == [sample_author.id]
+        assert books[0].series_id == 99
+        assert books[0].publisher_id == 88
+        assert books[0].tags == ["Fiction"]
+        assert books[0].tag_ids == [77]
+
+    @pytest.mark.parametrize(
+        ("method_name", "kwargs"),
+        [
+            ("list_books", {"limit": 10}),
+            ("list_books_with_filters", {"limit": 10, "author_ids": [1]}),
+        ],
+    )
+    def test_list_methods_populate_ids_and_tags(
+        self,
+        in_memory_db: Session,
+        sample_book: Book,
+        sample_author: Author,
+        method_name: str,
+        kwargs: dict[str, object],
+    ) -> None:
+        """Ensure list endpoints populate IDs/tags for MoreFromSame UI."""
+        session_manager = MockSessionManager(in_memory_db)
+        retry = SQLiteRetryPolicy()
+        unwrapper = ResultUnwrapper()
+        queries = BookQueryBuilder()
+        enrichment = BookEnrichmentService()
+        search_service = MockBookSearchService()
+        statistics_service = MockLibraryStatisticsService()
+
+        # Create book-author link
+        assert sample_book.id is not None
+        assert sample_author.id is not None
+        in_memory_db.add(BookAuthorLink(book=sample_book.id, author=sample_author.id))
+
+        # Create series/publisher/tag links
+        series = Series(id=99, name="Test Series")
+        publisher = Publisher(id=88, name="Test Publisher")
+        tag = Tag(id=77, name="Fiction")
+        in_memory_db.add(series)
+        in_memory_db.add(publisher)
+        in_memory_db.add(tag)
+        in_memory_db.add(BookSeriesLink(book=sample_book.id, series=series.id))
+        in_memory_db.add(BookPublisherLink(book=sample_book.id, publisher=publisher.id))
+        in_memory_db.add(BookTagLink(book=sample_book.id, tag=tag.id))
+
+        in_memory_db.add(
+            Data(
+                book=sample_book.id,
+                format="EPUB",
+                uncompressed_size=1000,
+                name="Test Book",
+            )
+        )
+        in_memory_db.commit()
+
+        operations = BookReadOperations(
+            session_manager=session_manager,
+            retry_policy=retry,
+            unwrapper=unwrapper,
+            queries=queries,
+            enrichment=enrichment,
+            search_service=search_service,
+            statistics_service=statistics_service,
+            pathing=BookPathService(),
+            calibre_db_path=Path("test.db"),
+        )
+
+        method = getattr(operations, method_name)
+        # Fix up author_ids in kwargs for the filter-based method
+        if method_name == "list_books_with_filters":
+            kwargs = dict(kwargs)
+            kwargs["author_ids"] = [sample_author.id]
+        books = method(**kwargs)  # type: ignore[misc]
+
+        assert len(books) == 1
+        assert books[0].book.id == sample_book.id
+        assert books[0].author_ids == [sample_author.id]
+        assert books[0].series_id == 99
+        assert books[0].publisher_id == 88
+        assert books[0].tags == ["Fiction"]
+        assert books[0].tag_ids == [77]
 
     def test_get_book_not_found(self, in_memory_db: Session) -> None:
         """Test get_book returns None when book not found."""

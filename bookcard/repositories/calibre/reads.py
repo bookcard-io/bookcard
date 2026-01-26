@@ -184,6 +184,7 @@ class BookReadOperations:
                         session, base_books
                     ),
                 )
+            self._enrich_base_books_for_list(session, base_books)
             return cast("list[BookWithRelations | BookWithFullRelations]", base_books)
 
         return self._retry.run_read(
@@ -255,6 +256,7 @@ class BookReadOperations:
                         session, base_books
                     ),
                 )
+            self._enrich_base_books_for_list(session, base_books)
             return cast("list[BookWithRelations | BookWithFullRelations]", base_books)
 
         return self._retry.run_read(
@@ -333,12 +335,14 @@ class BookReadOperations:
             formats = self._enrichment.fetch_formats_map(session, [book_id]).get(
                 book_id, []
             )
-            return BookWithRelations(
+            base = BookWithRelations(
                 book=book,
                 authors=authors,
                 series=series_name,
                 formats=formats,
             )
+            self._enrich_base_books_for_list(session, [base])
+            return base
 
         return self._retry.run_read(
             self._session_manager.get_session,
@@ -457,6 +461,40 @@ class BookReadOperations:
             if built is not None:
                 books.append(built)
         return books
+
+    def _enrich_base_books_for_list(
+        self,
+        session: Session,
+        books: list[BookWithRelations],
+    ) -> None:
+        """Populate list-level metadata on BookWithRelations.
+
+        Notes
+        -----
+        This is intentionally lighter than `enrich_books_with_full_details`:
+        it adds only IDs + tag names needed for list UIs.
+        """
+        book_ids = [b.book.id for b in books if b.book.id is not None]
+        if not book_ids:
+            return
+
+        series_ids_map = self._enrichment.fetch_series_ids_map(session, book_ids)
+        publishers_map = self._enrichment.fetch_publishers_map(session, book_ids)
+        tags_map = self._enrichment.fetch_tags_map(session, book_ids)
+        tag_ids_map = self._enrichment.fetch_tag_ids_map(session, book_ids)
+        author_ids_map = self._enrichment.fetch_author_ids_map(session, book_ids)
+
+        for b in books:
+            book_id = b.book.id
+            if book_id is None:
+                continue
+            b.series_id = series_ids_map.get(book_id)
+            publisher_name, publisher_id = publishers_map.get(book_id, (None, None))
+            b.publisher = publisher_name
+            b.publisher_id = publisher_id
+            b.tags = tags_map.get(book_id, [])
+            b.tag_ids = tag_ids_map.get(book_id, [])
+            b.author_ids = author_ids_map.get(book_id, [])
 
     def _build_book_with_relations(
         self, session: Session, result: object
