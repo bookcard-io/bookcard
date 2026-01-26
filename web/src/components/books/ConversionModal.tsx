@@ -15,39 +15,48 @@
 
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback } from "react";
+import { ConversionHistoryTable } from "@/components/books/conversion/ConversionHistoryTable";
 import { Button } from "@/components/forms/Button";
 import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
+import { useBookConversion } from "@/hooks/useBookConversion";
+import { useConversionHistory } from "@/hooks/useConversionHistory";
+import { useFormatSelection } from "@/hooks/useFormatSelection";
 import { useModal } from "@/hooks/useModal";
 import { useModalInteractions } from "@/hooks/useModalInteractions";
-import {
-  type BookConversionListResponse,
-  convertBookFormat,
-  getBookConversions,
-} from "@/services/bookService";
 import type { Book } from "@/types/book";
+import type { ConversionStartedCallback } from "@/types/conversion";
+import { getConversionValidationError } from "@/utils/conversion";
+import { renderModalPortal } from "@/utils/modal";
 
-export interface ConversionModalProps {
+interface ConversionModalDisplayProps {
   /** Book data. */
   book: Book;
   /** Whether modal is open. */
   isOpen: boolean;
   /** Callback when modal should be closed. */
   onClose: () => void;
-  /** Callback when conversion is started. */
-  onConversionStarted?: (
-    taskId: number,
-    sourceFormat: string,
-    targetFormat: string,
-  ) => void;
 }
+
+interface ConversionModalActionsProps {
+  /** Callback when conversion is started. */
+  onConversionStarted?: ConversionStartedCallback;
+}
+
+export interface ConversionModalProps
+  extends ConversionModalDisplayProps,
+    ConversionModalActionsProps {}
 
 /**
  * Conversion modal component.
  *
  * Displays format conversion interface with source/target format selection
  * and conversion history.
+ *
+ * Parameters
+ * ----------
+ * props : ConversionModalProps
+ *     Modal input props including book data and close handlers.
  */
 export function ConversionModal({
   book,
@@ -55,120 +64,70 @@ export function ConversionModal({
   onClose,
   onConversionStarted,
 }: ConversionModalProps) {
-  const { showSuccess, showDanger } = useGlobalMessages();
-  const [sourceFormat, setSourceFormat] = useState<string>("");
-  const [targetFormat, setTargetFormat] = useState<string>("");
+  const { showDanger } = useGlobalMessages();
 
-  // Available formats from book
-  const availableFormats = useMemo(() => {
-    return book.formats?.map((f) => f.format.toUpperCase()) || [];
-  }, [book.formats]);
+  const {
+    availableFormats,
+    targetFormatOptions,
+    sourceFormat,
+    targetFormat,
+    setSourceFormat,
+    setTargetFormat,
+  } = useFormatSelection(book, isOpen);
 
-  // Target format options (common formats)
-  const targetFormatOptions = useMemo(() => {
-    const commonFormats = ["EPUB", "MOBI", "AZW3", "KEPUB", "PDF"];
-    // Filter out formats that already exist
-    return commonFormats.filter((format) => !availableFormats.includes(format));
-  }, [availableFormats]);
-
-  // Load conversion history
   const { data: conversionHistory, refetch: refetchHistory } =
-    useQuery<BookConversionListResponse>({
-      queryKey: ["book-conversions", book.id],
-      queryFn: () => getBookConversions(book.id),
-      enabled: isOpen,
-      retry: false,
-    });
+    useConversionHistory(book.id, isOpen);
 
-  // Set default source format when modal opens
-  useEffect(() => {
-    if (isOpen && availableFormats.length > 0 && !sourceFormat) {
-      const firstFormat = availableFormats[0];
-      if (firstFormat) {
-        setSourceFormat(firstFormat);
-      }
-    }
-  }, [isOpen, availableFormats, sourceFormat]);
-
-  // Set default target format
-  useEffect(() => {
-    if (isOpen && targetFormatOptions.length > 0 && !targetFormat) {
-      const firstTarget = targetFormatOptions[0];
-      if (firstTarget) {
-        setTargetFormat(firstTarget);
-      }
-    }
-  }, [isOpen, targetFormatOptions, targetFormat]);
+  const { queueConversion } = useBookConversion({
+    bookId: book.id,
+    onConversionStarted,
+    refetchHistory: () => refetchHistory(),
+  });
 
   // Prevent body scroll when modal is open
   useModal(isOpen);
 
-  const { handleOverlayClick, handleOverlayKeyDown } = useModalInteractions({
-    onClose,
-  });
+  const { handleOverlayClick, handleModalClick, handleOverlayKeyDown } =
+    useModalInteractions({
+      onClose,
+    });
 
   const handleConvert = useCallback(() => {
-    if (!sourceFormat || !targetFormat) {
-      showDanger("Please select both source and target formats");
+    const error = getConversionValidationError(sourceFormat, targetFormat);
+    if (error) {
+      showDanger(error);
       return;
     }
 
-    if (sourceFormat === targetFormat) {
-      showDanger("Source and target formats must be different");
-      return;
-    }
-
-    // Fire-and-forget: queue conversion and close modal immediately
-    convertBookFormat(book.id, sourceFormat, targetFormat)
-      .then((response) => {
-        if (response.message) {
-          // Conversion already exists
-          showSuccess(response.message);
-        } else {
-          // Conversion queued successfully
-          showSuccess(
-            `Conversion from ${sourceFormat} to ${targetFormat} has been queued. You can track progress in the tasks panel.`,
-          );
-          onConversionStarted?.(response.task_id, sourceFormat, targetFormat);
-        }
-        // Refresh history in background
-        refetchHistory().catch(() => {
-          // Silently fail - history refresh is not critical
-        });
-      })
-      .catch((error) => {
-        const errorMessage =
-          error instanceof Error ? error.message : "Failed to queue conversion";
-        showDanger(errorMessage);
-      });
+    // Fire-and-forget: queue conversion and close modal immediately.
+    queueConversion(sourceFormat, targetFormat);
 
     // Close modal immediately (fire-and-forget)
     onClose();
-  }, [
-    sourceFormat,
-    targetFormat,
-    book.id,
-    showSuccess,
-    showDanger,
-    onClose,
-    onConversionStarted,
-    refetchHistory,
-  ]);
+  }, [sourceFormat, targetFormat, showDanger, onClose, queueConversion]);
 
   if (!isOpen) {
     return null;
   }
+  if (typeof document === "undefined") {
+    return null;
+  }
 
-  return (
+  const modalContent = (
+    /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="modal-overlay modal-overlay-z-1002 modal-overlay-padding"
       onClick={handleOverlayClick}
       onKeyDown={handleOverlayKeyDown}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="conversion-modal-title"
+      role="presentation"
     >
-      <div className="modal-container modal-container-shadow-large max-h-[90vh] w-full max-w-[600px] overflow-y-auto rounded-md bg-[var(--color-surface-a0)] p-6">
+      <div
+        className="modal-container modal-container-shadow-large max-h-[90vh] w-full max-w-[600px] overflow-y-auto rounded-md bg-[var(--color-surface-a0)] p-6"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="conversion-modal-title"
+        onMouseDown={handleModalClick}
+      >
         <div className="mb-4 flex items-center justify-between">
           <h2
             id="conversion-modal-title"
@@ -236,63 +195,7 @@ export function ConversionModal({
           </div>
         </div>
 
-        {/* Conversion History */}
-        {conversionHistory && conversionHistory.items.length > 0 && (
-          <div className="mb-6">
-            <h3 className="mb-2 font-semibold text-[var(--color-text-a0)] text-sm">
-              Conversion History
-            </h3>
-            <div className="max-h-[200px] overflow-y-auto rounded-md border border-[var(--color-surface-a20)]">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-[var(--color-surface-a10)]">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-[var(--color-text-a20)]">
-                      From
-                    </th>
-                    <th className="px-3 py-2 text-left text-[var(--color-text-a20)]">
-                      To
-                    </th>
-                    <th className="px-3 py-2 text-left text-[var(--color-text-a20)]">
-                      Status
-                    </th>
-                    <th className="px-3 py-2 text-left text-[var(--color-text-a20)]">
-                      Date
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {conversionHistory.items.map((conv) => (
-                    <tr
-                      key={conv.id}
-                      className="border-[var(--color-surface-a20)] border-t"
-                    >
-                      <td className="px-3 py-2 text-[var(--color-text-a0)]">
-                        {conv.original_format}
-                      </td>
-                      <td className="px-3 py-2 text-[var(--color-text-a0)]">
-                        {conv.target_format}
-                      </td>
-                      <td className="px-3 py-2">
-                        <span
-                          className={`inline-block rounded px-2 py-0.5 text-xs ${
-                            conv.status === "completed"
-                              ? "bg-green-500/20 text-green-500"
-                              : "bg-red-500/20 text-red-500"
-                          }`}
-                        >
-                          {conv.status}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-[var(--color-text-a20)] text-xs">
-                        {new Date(conv.created_at).toLocaleDateString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        <ConversionHistoryTable history={conversionHistory} />
 
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>
@@ -309,4 +212,6 @@ export function ConversionModal({
       </div>
     </div>
   );
+
+  return renderModalPortal(modalContent);
 }
