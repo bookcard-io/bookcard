@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
 from bookcard.models.core import (
     Book,
+    BookAuthorLink,
     BookLanguageLink,
     BookPublisherLink,
     BookRatingLink,
@@ -80,6 +81,8 @@ class BookEnrichmentService:
             return []
 
         tags_map = self._fetch_tags_map(session, book_ids)
+        tag_ids_map = self._fetch_tag_ids_map(session, book_ids)
+        author_ids_map = self._fetch_author_ids_map(session, book_ids)
         identifiers_map = self._fetch_identifiers_map(session, book_ids)
         descriptions_map = self._fetch_descriptions_map(session, book_ids)
         publishers_map = self._fetch_publishers_map(session, book_ids)
@@ -102,9 +105,11 @@ class BookEnrichmentService:
                 BookWithFullRelations(
                     book=base.book,
                     authors=base.authors,
+                    author_ids=author_ids_map.get(book_id, []),
                     series=base.series,
                     series_id=series_ids_map.get(book_id),
                     tags=tags_map.get(book_id, []),
+                    tag_ids=tag_ids_map.get(book_id, []),
                     identifiers=identifiers_map.get(book_id, []),
                     description=descriptions_map.get(book_id),
                     publisher=publisher_name,
@@ -122,8 +127,116 @@ class BookEnrichmentService:
     def fetch_formats_map(
         self, session: Session, book_ids: list[int]
     ) -> dict[int, list[dict[str, str | int]]]:
-        """Fetch formats map for given book IDs."""
+        """Fetch formats map for given book IDs.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_ids : list[int]
+            Book IDs to fetch formats for.
+
+        Returns
+        -------
+        dict[int, list[dict[str, str | int]]]
+            Mapping of book ID to list of format dictionaries.
+        """
         return self._fetch_formats_map(session, book_ids)
+
+    def fetch_tags_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, list[str]]:
+        """Fetch tag names for given book IDs.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_ids : list[int]
+            Book IDs to fetch tags for.
+
+        Returns
+        -------
+        dict[int, list[str]]
+            Mapping of book ID to tag names ordered by link creation.
+        """
+        return self._fetch_tags_map(session, book_ids)
+
+    def fetch_tag_ids_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, list[int]]:
+        """Fetch tag IDs for given book IDs.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_ids : list[int]
+            Book IDs to fetch tag IDs for.
+
+        Returns
+        -------
+        dict[int, list[int]]
+            Mapping of book ID to tag IDs ordered by link creation.
+        """
+        return self._fetch_tag_ids_map(session, book_ids)
+
+    def fetch_publishers_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, tuple[str | None, int | None]]:
+        """Fetch publisher (name, id) for given book IDs.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_ids : list[int]
+            Book IDs to fetch publisher metadata for.
+
+        Returns
+        -------
+        dict[int, tuple[str | None, int | None]]
+            Mapping of book ID to publisher name and publisher ID.
+        """
+        return self._fetch_publishers_map(session, book_ids)
+
+    def fetch_series_ids_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, int | None]:
+        """Fetch series IDs for given book IDs.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_ids : list[int]
+            Book IDs to fetch series IDs for.
+
+        Returns
+        -------
+        dict[int, int | None]
+            Mapping of book ID to series ID.
+        """
+        return self._fetch_series_ids_map(session, book_ids)
+
+    def fetch_author_ids_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, list[int]]:
+        """Fetch author IDs for given book IDs.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        book_ids : list[int]
+            Book IDs to fetch author IDs for.
+
+        Returns
+        -------
+        dict[int, list[int]]
+            Mapping of book ID to author IDs ordered by link creation.
+        """
+        return self._fetch_author_ids_map(session, book_ids)
 
     def _fetch_tags_map(
         self, session: Session, book_ids: list[int]
@@ -138,6 +251,22 @@ class BookEnrichmentService:
         for book_id, tag_name in session.exec(tags_stmt).all():
             tags_map.setdefault(book_id, []).append(tag_name)
         return tags_map
+
+    def _fetch_tag_ids_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, list[int]]:
+        tag_ids_stmt = (
+            select(BookTagLink.book, Tag.id)
+            .join(Tag, BookTagLink.tag == Tag.id)
+            .where(BookTagLink.book.in_(book_ids))  # type: ignore[attr-defined]
+            .order_by(BookTagLink.book, BookTagLink.id)
+        )
+        tag_ids_map: dict[int, list[int]] = {}
+        for book_id, tag_id in session.exec(tag_ids_stmt).all():
+            if tag_id is None:
+                continue
+            tag_ids_map.setdefault(book_id, []).append(tag_id)
+        return tag_ids_map
 
     def _fetch_identifiers_map(
         self, session: Session, book_ids: list[int]
@@ -283,3 +412,18 @@ class BookEnrichmentService:
             .where(BookSeriesLink.book.in_(book_ids))  # type: ignore[attr-defined]
         )
         return dict(session.exec(series_ids_stmt).all())
+
+    def _fetch_author_ids_map(
+        self, session: Session, book_ids: list[int]
+    ) -> dict[int, list[int]]:
+        author_ids_stmt = (
+            select(BookAuthorLink.book, BookAuthorLink.author)
+            .where(BookAuthorLink.book.in_(book_ids))  # type: ignore[attr-defined]
+            .order_by(BookAuthorLink.book, BookAuthorLink.id)
+        )
+        author_ids_map: dict[int, list[int]] = {}
+        for book_id, author_id in session.exec(author_ids_stmt).all():
+            if author_id is None:
+                continue
+            author_ids_map.setdefault(book_id, []).append(author_id)
+        return author_ids_map

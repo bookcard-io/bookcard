@@ -67,7 +67,13 @@ def book_with_relations(book: Book) -> BookWithRelations:
     return BookWithRelations(
         book=book,
         authors=["Author One", "Author Two"],
+        author_ids=[11, 12],
         series="Test Series",
+        series_id=10,
+        publisher="Test Publisher",
+        publisher_id=20,
+        tags=["Fiction"],
+        tag_ids=[101],
         formats=[],
     )
 
@@ -78,9 +84,11 @@ def book_with_full_relations(book: Book) -> BookWithFullRelations:
     return BookWithFullRelations(
         book=book,
         authors=["Author One", "Author Two"],
+        author_ids=[11, 12],
         series="Test Series",
         series_id=1,
         tags=["Fiction", "Sci-Fi"],
+        tag_ids=[101, 102],
         identifiers=[{"type": "isbn", "val": "1234567890"}],
         description="Test description",
         publisher="Test Publisher",
@@ -150,10 +158,14 @@ class TestBuildBookRead:
         assert result.id == 1
         assert result.title == "Test Book"
         assert result.authors == ["Author One", "Author Two"]
+        assert result.author_ids == [11, 12]
         assert result.series == "Test Series"
+        assert result.series_id == 10
         assert result.thumbnail_url == "/api/books/1/cover"
-        # Tags should be empty list by default, not None
-        assert result.tags == []
+        assert result.publisher == "Test Publisher"
+        assert result.publisher_id == 20
+        assert result.tags == ["Fiction"]
+        assert result.tag_ids == [101]
 
     def test_build_book_read_with_full_relations(
         self,
@@ -170,6 +182,8 @@ class TestBuildBookRead:
         assert result.id == 1
         assert result.title == "Test Book"
         assert result.tags == ["Fiction", "Sci-Fi"]
+        assert result.tag_ids == [101, 102]
+        assert result.author_ids == [11, 12]
         assert result.identifiers == [{"type": "isbn", "val": "1234567890"}]
         assert result.description == "Test description"
         assert result.publisher == "Test Publisher"
@@ -194,8 +208,12 @@ class TestBuildBookRead:
 
         assert isinstance(result, BookRead)
         assert result.id == 1
-        # Full details should not be included (tags should be empty list)
-        assert result.tags == []
+        # List-level details should still be included
+        assert result.tags == ["Fiction", "Sci-Fi"]
+        assert result.tag_ids == [101, 102]
+        assert result.publisher == "Test Publisher"
+        assert result.publisher_id == 1
+        assert result.series_id == 1
 
     def test_build_book_read_with_relations_full_true(
         self,
@@ -210,8 +228,9 @@ class TestBuildBookRead:
 
         assert isinstance(result, BookRead)
         assert result.id == 1
-        # BookWithRelations doesn't have full details, so tags should be empty list
-        assert result.tags == []
+        # BookWithRelations list-level details are still included
+        assert result.tags == ["Fiction"]
+        assert result.tag_ids == [101]
 
     def test_build_book_read_no_id(
         self,

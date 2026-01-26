@@ -21,7 +21,7 @@ by the Calibre book repository.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -40,8 +40,20 @@ class BookWithRelations:
         Book instance.
     authors : list[str]
         List of author names.
+    author_ids : list[int]
+        List of author IDs corresponding to ``authors``.
     series : str | None
         Series name if part of a series.
+    series_id : int | None
+        Series ID if part of a series.
+    publisher : str | None
+        Publisher name.
+    publisher_id : int | None
+        Publisher ID.
+    tags : list[str]
+        List of tag names.
+    tag_ids : list[int]
+        List of tag IDs corresponding to ``tags``.
     formats : list[dict[str, str | int]]
         List of file formats, each with 'format' and 'size' keys.
     """
@@ -50,6 +62,12 @@ class BookWithRelations:
     authors: list[str]
     series: str | None
     formats: list[dict[str, str | int]]
+    author_ids: list[int] = field(default_factory=list)
+    series_id: int | None = None
+    publisher: str | None = None
+    publisher_id: int | None = None
+    tags: list[str] = field(default_factory=list)
+    tag_ids: list[int] = field(default_factory=list)
     tracking_status: str | None = None
     is_virtual: bool = False
     tracking_id: int | None = None
@@ -66,12 +84,16 @@ class BookWithFullRelations:
         Book instance.
     authors : list[str]
         List of author names.
+    author_ids : list[int]
+        List of author IDs corresponding to ``authors``.
     series : str | None
         Series name if part of a series.
     series_id : int | None
         Series ID if part of a series.
     tags : list[str]
         List of tag names.
+    tag_ids : list[int]
+        List of tag IDs corresponding to ``tags``.
     identifiers : list[dict[str, str]]
         List of identifiers, each with 'type' and 'val' keys.
     description : str | None
@@ -106,6 +128,8 @@ class BookWithFullRelations:
     rating: int | None
     rating_id: int | None
     formats: list[dict[str, str | int]]
+    author_ids: list[int] = field(default_factory=list)
+    tag_ids: list[int] = field(default_factory=list)
     tracking_status: str | None = None
     is_virtual: bool = False
     tracking_id: int | None = None

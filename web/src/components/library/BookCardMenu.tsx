@@ -29,6 +29,8 @@ import { buildBookPermissionContext } from "@/utils/permissions";
 import { AddToShelfFlyoutMenu } from "./AddToShelfFlyoutMenu";
 import { AddToShelfMenuItem } from "./AddToShelfMenuItem";
 import { MoreActionsFlyoutMenu } from "./MoreActionsFlyoutMenu";
+import { MoreFromSameFlyoutMenu } from "./MoreFromSameFlyoutMenu";
+import { MoreFromSameMenuItem } from "./MoreFromSameMenuItem";
 import { SendToDeviceFlyoutMenu } from "./SendToDeviceFlyoutMenu";
 import { SendToDeviceMenuItem } from "./SendToDeviceMenuItem";
 
@@ -106,6 +108,7 @@ export function BookCardMenu({
   const flyoutMenu = useFlyoutMenu({ parentMenuOpen: isOpen });
   const sendFlyoutMenu = useFlyoutMenu({ parentMenuOpen: isOpen });
   const moreFlyoutMenu = useFlyoutMenu({ parentMenuOpen: isOpen });
+  const moreFromSameFlyoutMenu = useFlyoutMenu({ parentMenuOpen: isOpen });
 
   // Ensure only one flyout menu is open at a time
   const { handleFirstMouseEnter, handleSecondMouseEnter } =
@@ -115,15 +118,21 @@ export function BookCardMenu({
     if (moreFlyoutMenu.isFlyoutOpen) {
       moreFlyoutMenu.handleFlyoutClose();
     }
+    if (moreFromSameFlyoutMenu.isFlyoutOpen) {
+      moreFromSameFlyoutMenu.handleFlyoutClose();
+    }
     handleFirstMouseEnter();
-  }, [handleFirstMouseEnter, moreFlyoutMenu]);
+  }, [handleFirstMouseEnter, moreFlyoutMenu, moreFromSameFlyoutMenu]);
 
   const handleSendToDeviceMouseEnter = useCallback(() => {
     if (moreFlyoutMenu.isFlyoutOpen) {
       moreFlyoutMenu.handleFlyoutClose();
     }
+    if (moreFromSameFlyoutMenu.isFlyoutOpen) {
+      moreFromSameFlyoutMenu.handleFlyoutClose();
+    }
     handleSecondMouseEnter();
-  }, [handleSecondMouseEnter, moreFlyoutMenu]);
+  }, [handleSecondMouseEnter, moreFlyoutMenu, moreFromSameFlyoutMenu]);
 
   const handleMoreMouseEnter = useCallback(() => {
     if (flyoutMenu.isFlyoutOpen) {
@@ -132,8 +141,24 @@ export function BookCardMenu({
     if (sendFlyoutMenu.isFlyoutOpen) {
       sendFlyoutMenu.handleFlyoutClose();
     }
+    if (moreFromSameFlyoutMenu.isFlyoutOpen) {
+      moreFromSameFlyoutMenu.handleFlyoutClose();
+    }
     moreFlyoutMenu.handleParentMouseEnter();
-  }, [flyoutMenu, moreFlyoutMenu, sendFlyoutMenu]);
+  }, [flyoutMenu, moreFlyoutMenu, moreFromSameFlyoutMenu, sendFlyoutMenu]);
+
+  const handleMoreFromSameMouseEnter = useCallback(() => {
+    if (flyoutMenu.isFlyoutOpen) {
+      flyoutMenu.handleFlyoutClose();
+    }
+    if (sendFlyoutMenu.isFlyoutOpen) {
+      sendFlyoutMenu.handleFlyoutClose();
+    }
+    if (moreFlyoutMenu.isFlyoutOpen) {
+      moreFlyoutMenu.handleFlyoutClose();
+    }
+    moreFromSameFlyoutMenu.handleParentMouseEnter();
+  }, [flyoutMenu, moreFlyoutMenu, moreFromSameFlyoutMenu, sendFlyoutMenu]);
 
   /**
    * Handle menu item click.
@@ -180,6 +205,16 @@ export function BookCardMenu({
    * doesn't need to do anything. The actual functionality is in the flyout.
    */
   const handleMoreClick = useCallback(() => {
+    // No-op: flyout opens on hover, functionality is in flyout menu
+  }, []);
+
+  /**
+   * Handle "More from the same..." menu item click.
+   *
+   * Note: The flyout menu opens on hover, so clicking the parent item
+   * doesn't need to do anything. The actual functionality is in the flyout.
+   */
+  const handleMoreFromSameClick = useCallback(() => {
     // No-op: flyout opens on hover, functionality is in flyout menu
   }, []);
 
@@ -237,6 +272,12 @@ export function BookCardMenu({
               label="Convert format"
               onClick={canWrite ? () => handleItemClick(onConvert) : undefined}
               disabled={!canWrite}
+            />
+            <MoreFromSameMenuItem
+              itemRef={moreFromSameFlyoutMenu.parentItemRef}
+              onMouseEnter={handleMoreFromSameMouseEnter}
+              onMouseLeave={moreFromSameFlyoutMenu.handleParentMouseLeave}
+              onClick={handleMoreFromSameClick}
             />
             <DropdownMenuItem
               icon="pi pi-trash"
@@ -296,6 +337,15 @@ export function BookCardMenu({
                 onClose={flyoutMenu.handleFlyoutClose}
                 onMouseEnter={flyoutMenu.handleFlyoutMouseEnter}
                 onSuccess={onClose}
+              />
+              <MoreFromSameFlyoutMenu
+                isOpen={moreFromSameFlyoutMenu.isFlyoutOpen}
+                parentItemRef={moreFromSameFlyoutMenu.parentItemRef}
+                book={book}
+                onClose={moreFromSameFlyoutMenu.handleFlyoutClose}
+                onMouseEnter={moreFromSameFlyoutMenu.handleFlyoutMouseEnter}
+                onSuccess={onClose}
+                onCloseParent={onClose}
               />
               <MoreActionsFlyoutMenu
                 isOpen={moreFlyoutMenu.isFlyoutOpen}

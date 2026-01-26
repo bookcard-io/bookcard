@@ -76,16 +76,22 @@ class BookResponseBuilder:
             id=book.id,
             title=book.title,
             authors=book_with_rels.authors,
+            author_ids=getattr(book_with_rels, "author_ids", []),
             author_sort=book.author_sort,
             title_sort=book.sort,
             pubdate=book.pubdate,
             timestamp=book.timestamp,
             series=book_with_rels.series,
+            series_id=getattr(book_with_rels, "series_id", None),
             series_index=book.series_index,
             isbn=book.isbn,
             uuid=book.uuid or "",
             thumbnail_url=thumbnail_url,
             has_cover=book.has_cover,
+            tags=getattr(book_with_rels, "tags", []),
+            tag_ids=getattr(book_with_rels, "tag_ids", []),
+            publisher=getattr(book_with_rels, "publisher", None),
+            publisher_id=getattr(book_with_rels, "publisher_id", None),
             formats=book_with_rels.formats,
             tracking_status=getattr(book_with_rels, "tracking_status", None),
             is_virtual=getattr(book_with_rels, "is_virtual", False),
@@ -94,16 +100,12 @@ class BookResponseBuilder:
 
         # Add full details if requested and available
         if full and isinstance(book_with_rels, BookWithFullRelations):
-            book_read.tags = book_with_rels.tags
             book_read.identifiers = book_with_rels.identifiers
             book_read.description = book_with_rels.description
-            book_read.publisher = book_with_rels.publisher
-            book_read.publisher_id = book_with_rels.publisher_id
             book_read.languages = book_with_rels.languages
             book_read.language_ids = book_with_rels.language_ids
             book_read.rating = book_with_rels.rating
             book_read.rating_id = book_with_rels.rating_id
-            book_read.series_id = book_with_rels.series_id
             book_read.formats = book_with_rels.formats
 
         return book_read
