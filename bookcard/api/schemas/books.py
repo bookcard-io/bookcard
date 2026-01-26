@@ -68,6 +68,8 @@ class BookRead(BaseModel):
         Book title.
     authors : list[str]
         List of author names.
+    author_ids : list[int]
+        List of author IDs corresponding to ``authors`` (same order when available).
     author_sort : str | None
         Sortable author name.
     title_sort : str | None
@@ -92,6 +94,8 @@ class BookRead(BaseModel):
         Whether the book has a cover image.
     tags : list[str]
         List of tag names.
+    tag_ids : list[int]
+        List of tag IDs corresponding to ``tags`` (same order when available).
     identifiers : list[dict[str, str]]
         List of identifiers, each with 'type' and 'val' keys.
     description : str | None
@@ -119,6 +123,10 @@ class BookRead(BaseModel):
     id: int
     title: str
     authors: list[str] = Field(default_factory=list)
+    author_ids: list[int] = Field(
+        default_factory=list,
+        description="List of author IDs corresponding to authors (same order when available)",
+    )
     author_sort: str | None = None
     title_sort: str | None = None
     pubdate: datetime | None = None
@@ -131,6 +139,10 @@ class BookRead(BaseModel):
     thumbnail_url: str | None = None
     has_cover: bool = False
     tags: list[str] = Field(default_factory=list)
+    tag_ids: list[int] = Field(
+        default_factory=list,
+        description="List of tag IDs corresponding to tags (same order when available)",
+    )
     identifiers: list[dict[str, str]] = Field(default_factory=list)
     description: str | None = None
     publisher: str | None = None

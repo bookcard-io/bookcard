@@ -96,7 +96,7 @@ def test_query_builder_get_sort_field() -> None:
 
 def test_facade_get_book_uses_injected_session_manager() -> None:
     # Arrange a fake session that will return a fake row for the first .first() call,
-    # then authors, then formats.
+    # then authors, formats, and lightweight list-level metadata (ids/tags).
     session = MagicMock()
     exec_obj = MagicMock()
 
@@ -111,6 +111,13 @@ def test_facade_get_book_uses_injected_session_manager() -> None:
         [
             (1, "EPUB", 123, "name", "Author/Test Book (1)")
         ],  # formats query (book_id, format, size, name, book_path)
+        [(1, 10)],  # series ids query (book_id, series_id)
+        [
+            (1, "Publisher X", 20)
+        ],  # publishers query (book_id, publisher_name, publisher_id)
+        [(1, "Fiction")],  # tags query (book_id, tag_name)
+        [(1, 77)],  # tag ids query (book_id, tag_id)
+        [(1, 11)],  # author ids query (book_id, author_id)
     ]
     session.exec.return_value = exec_obj
 
@@ -126,5 +133,11 @@ def test_facade_get_book_uses_injected_session_manager() -> None:
         assert result is not None
         assert result.book.id == 1
         assert result.authors == ["Author 1"]
+        assert result.author_ids == [11]
         assert result.series == "Series X"
+        assert result.series_id == 10
+        assert result.publisher == "Publisher X"
+        assert result.publisher_id == 20
+        assert result.tags == ["Fiction"]
+        assert result.tag_ids == [77]
         assert result.formats == [{"format": "EPUB", "size": 123, "name": "name"}]

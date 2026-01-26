@@ -39,6 +39,8 @@ export interface Book {
   title: string;
   /** List of author names. */
   authors: string[];
+  /** List of author IDs corresponding to authors. */
+  author_ids?: number[];
   /** Sortable author name. */
   author_sort: string | null;
   /** Sortable title (with articles removed). */
@@ -63,6 +65,8 @@ export interface Book {
   has_cover: boolean;
   /** List of tag names. */
   tags?: string[];
+  /** List of tag IDs corresponding to tags. */
+  tag_ids?: number[];
   /** List of identifiers, each with 'type' and 'val' keys. */
   identifiers?: Array<{ type: string; val: string }>;
   /** Book description/comment text. */
