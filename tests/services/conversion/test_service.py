@@ -371,6 +371,7 @@ def test_convert_book_returns_existing_conversion(
         target_format="EPUB",
         status=ConversionStatus.COMPLETED,
         conversion_method="manual",
+        converted_file_path="",
     )
     session.set_exec_result([existing])
 
@@ -404,13 +405,70 @@ def test_convert_book_records_existing_format(
     session.set_exec_result([])  # No existing conversion
     mock_book_repository.get_book.return_value = book
     mock_book_repository.format_exists.return_value = True
-    mock_book_repository.get_book_file_path.return_value = temp_dir / "book.mobi"
+    original_path = temp_dir / "book.mobi"
+    target_path = temp_dir / "book.epub"
+    target_path.write_text("existing epub")
+
+    def get_book_file_path_side_effect(
+        _book: Book, _book_id: int, format_name: str, _library_root: Path
+    ) -> Path | None:
+        if format_name.upper() == "MOBI":
+            return original_path
+        if format_name.upper() == "EPUB":
+            return target_path
+        return None
+
+    mock_book_repository.get_book_file_path.side_effect = get_book_file_path_side_effect
 
     result = conversion_service.convert_book(1, "mobi", "epub")
 
     assert result.status == ConversionStatus.COMPLETED
     assert result.original_format == "MOBI"
     assert result.target_format == "EPUB"
+
+
+def test_convert_book_reconverts_when_target_file_is_empty(
+    conversion_service: ConversionService,
+    mock_book_repository: MagicMock,
+    session: DummySession,
+    book: Book,
+    temp_dir: Path,
+) -> None:
+    """Target format may exist in DB but be empty on disk; we should reconvert."""
+    session.set_exec_result([])  # No existing conversion
+    mock_book_repository.get_book.return_value = book
+    mock_book_repository.format_exists.return_value = True
+
+    original_path = temp_dir / "book.mobi"
+    target_path = temp_dir / "book.epub"
+    target_path.write_text("")  # empty file triggers reconvert
+
+    def get_book_file_path_side_effect(
+        _book: Book, _book_id: int, format_name: str, _library_root: Path
+    ) -> Path | None:
+        if format_name.upper() == "MOBI":
+            return original_path
+        if format_name.upper() == "EPUB":
+            return target_path
+        return None
+
+    mock_book_repository.get_book_file_path.side_effect = get_book_file_path_side_effect
+
+    sentinel = BookConversion(
+        book_id=1,
+        original_format="MOBI",
+        target_format="EPUB",
+        status=ConversionStatus.COMPLETED,
+        conversion_method="manual",
+    )
+
+    with patch.object(
+        conversion_service, "_perform_conversion", return_value=sentinel
+    ) as pc:
+        result = conversion_service.convert_book(1, "mobi", "epub")
+
+    assert result is sentinel
+    pc.assert_called_once()
 
 
 def test_validate_conversion_request_raises_book_not_found(

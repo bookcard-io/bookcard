@@ -207,7 +207,7 @@ class ConversionService:
         existing = self.check_existing_conversion(
             book_id, original_format_upper, target_format_upper
         )
-        if existing:
+        if existing and self._existing_conversion_is_usable(existing):
             logger.info(
                 "Conversion already exists: book_id=%d, %s -> %s",
                 book_id,
@@ -215,6 +215,14 @@ class ConversionService:
                 target_format_upper,
             )
             return existing
+        if existing:
+            logger.warning(
+                "Existing conversion record found but output is missing/empty; reconverting: "
+                "book_id=%d, %s -> %s",
+                book_id,
+                original_format_upper,
+                target_format_upper,
+            )
 
         # Validate conversion request
         request = self._validate_conversion_request(
@@ -222,7 +230,7 @@ class ConversionService:
         )
 
         # Check if target format already exists
-        if self._book_repository.format_exists(book_id, target_format_upper):
+        if self._target_format_has_valid_file(book_id, target_format_upper):
             logger.info(
                 "Target format %s already exists for book_id=%d",
                 target_format_upper,
@@ -233,6 +241,13 @@ class ConversionService:
                 user_id,
                 conversion_method,
             )
+        if self._book_repository.format_exists(book_id, target_format_upper):
+            logger.warning(
+                "Target format %s exists in database but file is missing/empty; reconverting: "
+                "book_id=%d",
+                target_format_upper,
+                book_id,
+            )
 
         # Perform conversion
         return self._perform_conversion(
@@ -241,6 +256,35 @@ class ConversionService:
             conversion_method,
             backup_original,
         )
+
+    def _existing_conversion_is_usable(self, conversion: BookConversion) -> bool:
+        """Check whether an existing conversion points to a usable output file."""
+        if not conversion.converted_file_path:
+            # Some tests/legacy records may omit this; treat as usable to preserve behavior.
+            return True
+
+        path = Path(conversion.converted_file_path)
+        if not path.exists():
+            return False
+        with suppress(OSError):
+            return path.stat().st_size > 0
+        return False
+
+    def _target_format_has_valid_file(self, book_id: int, format_name: str) -> bool:
+        """Check whether a target format exists and its file is present and non-empty."""
+        if not self._book_repository.format_exists(book_id, format_name):
+            return False
+
+        book = self._book_repository.get_book(book_id)
+        file_path = self._book_repository.get_book_file_path(
+            book, book_id, format_name, self._library_root
+        )
+        if file_path is None or not file_path.exists():
+            return False
+
+        with suppress(OSError):
+            return file_path.stat().st_size > 0
+        return False
 
     def _normalize_format(self, format_name: str) -> str:
         """Normalize format string.
