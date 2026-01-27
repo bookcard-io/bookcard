@@ -152,7 +152,7 @@ class SettingsFactory:
             else:
                 kwargs[field_name] = default_value
 
-        return self.settings_class(**kwargs)
+        return self.settings_class(**kwargs)  # ty:ignore[invalid-return-type]
 
 
 class IndexerSettingsFactory:
@@ -228,4 +228,4 @@ class IndexerSettingsFactory:
             else:
                 kwargs[field_name] = default_value
 
-        return self.settings_class(**kwargs)
+        return self.settings_class(**kwargs)  # ty:ignore[invalid-return-type]

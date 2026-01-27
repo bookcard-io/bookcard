@@ -1305,7 +1305,7 @@ class TestUpdateAuthor:
         # biography might not be in the result if it's None or not set
         if "biography" in result:
             assert result["biography"] == "Updated bio"
-        assert session.commit_count == 1  # type: ignore[attr-defined]
+        assert session.commit_count == 1
 
     def test_update_author_no_active_library(
         self, author_service: AuthorService, mock_library_service: MagicMock
@@ -1435,7 +1435,7 @@ class TestUpdateAuthorUserMetadata:
         update = {"genres": ["Fiction", "Sci-Fi"]}
         author_service.update_author("1", update)
 
-        assert session.commit_count >= 1  # type: ignore[attr-defined]
+        assert session.commit_count >= 1
 
     def test_update_author_deletes_user_metadata(
         self,
@@ -1451,7 +1451,7 @@ class TestUpdateAuthorUserMetadata:
         update = {"genres": None}
         author_service.update_author("1", update)
 
-        assert session.commit_count >= 1  # type: ignore[attr-defined]
+        assert session.commit_count >= 1
 
     def test_update_author_handles_multiple_user_metadata_fields(
         self,
@@ -1472,7 +1472,7 @@ class TestUpdateAuthorUserMetadata:
         }
         author_service.update_author("1", update)
 
-        assert session.commit_count >= 1  # type: ignore[attr-defined]
+        assert session.commit_count >= 1
 
 
 # ============================================================================
@@ -1529,7 +1529,7 @@ class TestUploadAuthorPhoto:
         """Test upload_author_photo with successful upload."""
         author_metadata.id = 1
         mock_author_repo.get_by_id_and_library.return_value = author_metadata
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
 
         file_content = b"fake image content"
         result = author_service.upload_author_photo(
@@ -1540,7 +1540,7 @@ class TestUploadAuthorPhoto:
         assert result.file_name == "photo.jpg"
         assert result.file_size == len(file_content)
         assert result.mime_type == "image/jpeg"
-        assert session.commit_count == 1  # type: ignore[attr-defined]
+        assert session.commit_count == 1
 
     def test_upload_author_photo_set_as_primary(
         self,
@@ -1565,8 +1565,8 @@ class TestUploadAuthorPhoto:
             order=0,
             created_at=datetime.now(UTC),
         )
-        session.set_exec_result([existing_primary])  # type: ignore[attr-defined]
-        session.add_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([existing_primary])
+        session.add_exec_result([])
 
         file_content = b"fake image content"
         result = author_service.upload_author_photo(
@@ -1653,8 +1653,8 @@ class TestUploadPhotoFromUrl:
         """Test upload_photo_from_url with successful download."""
         author_metadata.id = 1
         mock_author_repo.get_by_id_and_library.return_value = author_metadata
-        session.set_exec_result([])  # type: ignore[attr-defined]
-        session.add_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
+        session.add_exec_result([])
 
         with (
             patch("httpx.Client") as mock_client_class,
@@ -1677,7 +1677,7 @@ class TestUploadPhotoFromUrl:
 
             assert result.author_metadata_id == 1
             assert result.source_url == "https://example.com/photo.jpg"
-            assert session.commit_count == 2  # type: ignore[attr-defined]
+            assert session.commit_count == 2
 
     def test_upload_photo_from_url_not_image(
         self,
@@ -1797,7 +1797,7 @@ class TestGetAuthorPhotos:
             order=1,
             created_at=datetime.now(UTC),
         )
-        session.set_exec_result([user_photo1, user_photo2])  # type: ignore[attr-defined]
+        session.set_exec_result([user_photo1, user_photo2])
 
         result = author_service.get_author_photos("1")
 
@@ -1859,7 +1859,7 @@ class TestGetAuthorPhotoById:
             order=0,
             created_at=datetime.now(UTC),
         )
-        session.set_exec_result([user_photo])  # type: ignore[attr-defined]
+        session.set_exec_result([user_photo])
 
         result = author_service.get_author_photo_by_id("1", 1)
 
@@ -1876,7 +1876,7 @@ class TestGetAuthorPhotoById:
         """Test get_author_photo_by_id returns None when not found."""
         author_metadata.id = 1
         mock_author_repo.get_by_id_and_library.return_value = author_metadata
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
 
         result = author_service.get_author_photo_by_id("1", 999)
 
@@ -1946,14 +1946,14 @@ class TestSetPrimaryPhoto:
             order=0,
             created_at=datetime.now(UTC),
         )
-        session.set_exec_result([photo])  # type: ignore[attr-defined]
-        session.add_exec_result([existing_primary])  # type: ignore[attr-defined]
+        session.set_exec_result([photo])
+        session.add_exec_result([existing_primary])
 
         result = author_service.set_primary_photo("1", 1)
 
         assert result.is_primary is True
         assert existing_primary.is_primary is False
-        assert session.commit_count == 1  # type: ignore[attr-defined]
+        assert session.commit_count == 1
 
     def test_set_primary_photo_no_active_library(
         self, author_service: AuthorService, mock_library_service: MagicMock
@@ -1988,7 +1988,7 @@ class TestSetPrimaryPhoto:
         """Test set_primary_photo with photo not found."""
         author_metadata.id = 1
         mock_author_repo.get_by_id_and_library.return_value = author_metadata
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
 
         with pytest.raises(PhotoNotFoundError, match="Photo not found"):
             author_service.set_primary_photo("1", 999)
@@ -2029,11 +2029,11 @@ class TestDeletePhoto:
             order=0,
             created_at=datetime.now(UTC),
         )
-        session.set_exec_result([photo])  # type: ignore[attr-defined]
+        session.set_exec_result([photo])
 
         author_service.delete_photo("1", 1)
 
-        assert session.commit_count == 1  # type: ignore[attr-defined]
+        assert session.commit_count == 1
         # File should be deleted
         assert not photo_path.exists()
 
@@ -2070,7 +2070,7 @@ class TestDeletePhoto:
         """Test delete_photo with photo not found."""
         author_metadata.id = 1
         mock_author_repo.get_by_id_and_library.return_value = author_metadata
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
 
         with pytest.raises(PhotoNotFoundError, match="Photo not found"):
             author_service.delete_photo("1", 999)

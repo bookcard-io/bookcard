@@ -284,12 +284,12 @@ class TestRecommendKeepAuthor:
         ]
 
         session = merge_service._session
-        session.set_exec_result([author_mapping])  # type: ignore[attr-defined]  # type: ignore[attr-defined]  # For validate_same_library
-        session.add_exec_result([author_mapping2])  # type: ignore[attr-defined]  # type: ignore[attr-defined]  # For validate_same_library
-        session.add_exec_result([author_mapping])  # type: ignore[attr-defined]  # type: ignore[attr-defined]  # For get_mapping_for_author
-        session.add_exec_result([author_mapping2])  # type: ignore[attr-defined]  # type: ignore[attr-defined]  # For get_mapping_for_author
-        session.add_exec_result([])  # type: ignore[attr-defined]  # type: ignore[attr-defined]  # For get_photo_url (no user photos)
-        session.add_exec_result([])  # type: ignore[attr-defined]  # type: ignore[attr-defined]  # For get_photo_url (no user photos)
+        session.set_exec_result([author_mapping])  # ty:ignore[possibly-missing-attribute]
+        session.add_exec_result([author_mapping2])  # ty:ignore[possibly-missing-attribute]
+        session.add_exec_result([author_mapping])  # ty:ignore[possibly-missing-attribute]
+        session.add_exec_result([author_mapping2])  # ty:ignore[possibly-missing-attribute]
+        session.add_exec_result([])  # ty:ignore[possibly-missing-attribute]
+        session.add_exec_result([])  # ty:ignore[possibly-missing-attribute]
 
         with patch(
             "bookcard.services.author_merge_service.CalibreRepositoryFactory"
@@ -1153,8 +1153,8 @@ class TestValidateSameLibrary:
         """Test _validate_same_library with authors in same library."""
         authors = [author_metadata, author_metadata2]
 
-        session.set_exec_result([author_mapping])  # type: ignore[attr-defined]
-        session.add_exec_result([author_mapping2])  # type: ignore[attr-defined]
+        session.set_exec_result([author_mapping])
+        session.add_exec_result([author_mapping2])
 
         # Should not raise
         merge_service._validate_same_library(authors)
@@ -1170,14 +1170,14 @@ class TestValidateSameLibrary:
         """Test _validate_same_library raises error with different libraries."""
         authors = [author_metadata, author_metadata2]
 
-        session.set_exec_result([author_mapping])  # type: ignore[attr-defined]
+        session.set_exec_result([author_mapping])
         different_mapping = AuthorMapping(
             id=2,
             calibre_author_id=20,
             author_metadata_id=2,
             library_id=2,
         )
-        session.add_exec_result([different_mapping])  # type: ignore[attr-defined]
+        session.add_exec_result([different_mapping])
 
         with pytest.raises(
             ValueError, match="All authors must belong to the same library"
@@ -1195,8 +1195,8 @@ class TestValidateSameLibrary:
         """Test _validate_same_library with author without mapping."""
         authors = [author_metadata, author_metadata2]
 
-        session.set_exec_result([author_mapping])  # type: ignore[attr-defined]
-        session.add_exec_result([])  # type: ignore[attr-defined]  # No mapping for second author
+        session.set_exec_result([author_mapping])
+        session.add_exec_result([])
 
         # Should not raise if authors don't have mappings
         merge_service._validate_same_library(authors)
@@ -1219,7 +1219,7 @@ class TestValidateSameLibrary:
             author_metadata_id=author_metadata.id,
             library_id=1,
         )
-        session.set_exec_result([mapping])  # type: ignore[attr-defined]  # For first author (has ID)
+        session.set_exec_result([mapping])
         # Second author has no ID, so no query for it
 
         # Should not raise if author has no ID
@@ -1244,7 +1244,7 @@ class TestGetMappingForAuthor:
         author_metadata_id = 1
         library_id = 1
 
-        session.set_exec_result([author_mapping])  # type: ignore[attr-defined]
+        session.set_exec_result([author_mapping])
 
         result = merge_service._get_mapping_for_author(author_metadata_id, library_id)
 
@@ -1474,7 +1474,7 @@ class TestGetPhotoUrlForAuthor:
             file_path="photos/author1.jpg",
             is_primary=False,
         )
-        session.set_exec_result([photo])  # type: ignore[attr-defined]
+        session.set_exec_result([photo])
 
         result = merge_service._get_photo_url_for_author(author_metadata)
 
@@ -1523,7 +1523,7 @@ class TestGetPhotoUrlForAuthor:
             file_path="photos/author1.jpg",
             is_primary=True,
         )
-        session.set_exec_result([photo])  # type: ignore[attr-defined]
+        session.set_exec_result([photo])
 
         result = merge_service._get_photo_url_for_author(author_metadata)
 
@@ -1551,7 +1551,7 @@ class TestGetPhotoUrlForAuthor:
             file_path="photos/photo2.jpg",
             is_primary=True,
         )
-        session.set_exec_result([photo1, photo2])  # type: ignore[attr-defined]
+        session.set_exec_result([photo1, photo2])
 
         result = merge_service._get_photo_url_for_author(author_metadata)
 
@@ -1576,9 +1576,9 @@ class TestGetBookCountForAuthor:
     ) -> None:
         """Test _get_book_count_for_author with provided service."""
         library_id = 1
-        merge_service._session = session  # type: ignore[assignment]
+        merge_service._session = session
 
-        session.set_exec_result([author_mapping])  # type: ignore[attr-defined]
+        session.set_exec_result([author_mapping])
 
         mock_calibre_author_service = MagicMock()
         mock_calibre_author_service.get_book_count.return_value = 10
@@ -1598,7 +1598,7 @@ class TestGetBookCountForAuthor:
     ) -> None:
         """Test _get_book_count_for_author returns 0 when no mapping."""
         library_id = 1
-        merge_service._session = session  # type: ignore[assignment]
+        merge_service._session = session
 
         session.set_exec_result([])
 
@@ -1619,10 +1619,10 @@ class TestGetBookCountForAuthor:
     ) -> None:
         """Test _get_book_count_for_author creates service when not provided."""
         library_id = 1
-        merge_service._session = session  # type: ignore[assignment]
+        merge_service._session = session
         merge_service._library_service = mock_library_service
 
-        session.set_exec_result([author_mapping])  # type: ignore[attr-defined]
+        session.set_exec_result([author_mapping])
 
         mock_library_service.get_active_library.return_value = active_library
 
@@ -1657,10 +1657,10 @@ class TestGetBookCountForAuthor:
     ) -> None:
         """Test _get_book_count_for_author returns 0 when no active library."""
         library_id = 1
-        merge_service._session = session  # type: ignore[assignment]
+        merge_service._session = session
         merge_service._library_service = mock_library_service
 
-        session.set_exec_result([author_mapping])  # type: ignore[attr-defined]
+        session.set_exec_result([author_mapping])
 
         mock_library_service.get_active_library.return_value = None
 
@@ -1681,10 +1681,10 @@ class TestGetBookCountForAuthor:
     ) -> None:
         """Test _get_book_count_for_author returns 0 when Calibre repo cannot be created."""
         library_id = 1
-        merge_service._session = session  # type: ignore[assignment]
+        merge_service._session = session
         merge_service._library_service = mock_library_service
 
-        session.set_exec_result([author_mapping])  # type: ignore[attr-defined]
+        session.set_exec_result([author_mapping])
 
         mock_library_service.get_active_library.return_value = active_library
 

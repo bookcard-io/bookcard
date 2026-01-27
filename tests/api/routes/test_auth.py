@@ -218,8 +218,8 @@ def test_login_success(monkeypatch: pytest.MonkeyPatch) -> None:
         password_hash="hash",
         is_admin=False,
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
     session.add_exec_result([user])
     payload = auth.LoginRequest(identifier="alice", password="password123")
     resp = auth.login(DummyRequest(), session, payload)
@@ -268,8 +268,8 @@ def test_me_returns_user_read(monkeypatch: pytest.MonkeyPatch) -> None:
         password_hash="hash",
         is_admin=False,
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
     session = DummySession()
     session.add_exec_result([user])
 
@@ -798,7 +798,7 @@ def test_validate_invite_token_success(monkeypatch: pytest.MonkeyPatch) -> None:
         return stub
 
     monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
-    resp = auth.validate_invite_token(DummyRequest(), object(), "valid-token")  # type: ignore[arg-type]
+    resp = auth.validate_invite_token(DummyRequest(), object(), "valid-token")
     assert resp.valid is True
     assert resp.token == "valid-token"
 
@@ -815,7 +815,7 @@ def test_validate_invite_token_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
 
     with pytest.raises(HTTPException) as exc_info:
-        auth.validate_invite_token(DummyRequest(), object(), "invalid-token")  # type: ignore[arg-type]
+        auth.validate_invite_token(DummyRequest(), object(), "invalid-token")
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == auth.AuthError.INVALID_INVITE
@@ -833,7 +833,7 @@ def test_validate_invite_token_expired(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
 
     with pytest.raises(HTTPException) as exc_info:
-        auth.validate_invite_token(DummyRequest(), object(), "expired-token")  # type: ignore[arg-type]
+        auth.validate_invite_token(DummyRequest(), object(), "expired-token")
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail == auth.AuthError.INVITE_EXPIRED
@@ -851,7 +851,7 @@ def test_validate_invite_token_already_used(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
 
     with pytest.raises(HTTPException) as exc_info:
-        auth.validate_invite_token(DummyRequest(), object(), "used-token")  # type: ignore[arg-type]
+        auth.validate_invite_token(DummyRequest(), object(), "used-token")
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail == auth.AuthError.INVITE_ALREADY_USED
@@ -871,7 +871,7 @@ def test_validate_invite_token_unexpected_error(
     monkeypatch.setattr(auth, "_auth_service", fake_auth_service)
 
     with pytest.raises(ValueError, match="unexpected_error"):
-        auth.validate_invite_token(DummyRequest(), object(), "token")  # type: ignore[arg-type]
+        auth.validate_invite_token(DummyRequest(), object(), "token")
 
 
 def test_update_profile_success(monkeypatch: pytest.MonkeyPatch) -> None:

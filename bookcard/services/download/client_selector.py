@@ -138,8 +138,11 @@ class ProtocolBasedSelector(DownloadClientSelector):
         if release.download_url.startswith("magnet:"):
             return "torrent"
 
-        # Check for .nzb files (usenet)
-        if ".nzb" in release.download_url.lower():
+        url_lower = release.download_url.lower()
+
+        # Check for .nzb URLs that do NOT end with .nzb (e.g. query strings)
+        # Example: "https://example.com/file.nzb?token=abc"  # noqa: ERA001
+        if ".nzb" in url_lower and not url_lower.endswith(".nzb"):
             return "usenet"
 
         # Check seeders/leechers (torrents have these, usenet doesn't)
@@ -147,7 +150,6 @@ class ProtocolBasedSelector(DownloadClientSelector):
             return "torrent"
 
         # Check download URL extension
-        url_lower = release.download_url.lower()
         if url_lower.endswith((".torrent", ".magnet")):
             return "torrent"
         if url_lower.endswith(".nzb"):

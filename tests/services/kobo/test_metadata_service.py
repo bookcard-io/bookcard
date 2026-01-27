@@ -470,7 +470,7 @@ def test_get_reading_state_response_with_read_status(
     status_info = result["StatusInfo"]
     assert isinstance(status_info, dict)
     assert status_info["Status"] == "Reading"  # type: ignore[index]
-    assert "LastTimeStartedReading" in status_info  # type: ignore[operator]
+    assert "LastTimeStartedReading" in status_info
 
 
 def test_get_reading_state_response_without_read_status(
@@ -563,7 +563,7 @@ def test_get_reading_state_response_with_bookmark(
     assert isinstance(bookmark, dict)
     assert bookmark["ProgressPercent"] == 50.0  # type: ignore[index]
     assert bookmark["ContentSourceProgressPercent"] == 45.0  # type: ignore[index]
-    assert "Location" in bookmark  # type: ignore[operator]
+    assert "Location" in bookmark
 
 
 def test_get_reading_state_response_without_statistics(
@@ -588,7 +588,7 @@ def test_get_reading_state_response_without_statistics(
     assert "Statistics" in result
     statistics = result["Statistics"]
     assert isinstance(statistics, dict)
-    assert "SpentReadingMinutes" not in statistics  # type: ignore[operator]
+    assert "SpentReadingMinutes" not in statistics
 
 
 def test_get_reading_state_response_without_bookmark(
@@ -613,7 +613,7 @@ def test_get_reading_state_response_without_bookmark(
     assert "CurrentBookmark" in result
     bookmark = result["CurrentBookmark"]
     assert isinstance(bookmark, dict)
-    assert "ProgressPercent" not in bookmark  # type: ignore[operator]
+    assert "ProgressPercent" not in bookmark
 
 
 # ============================================================================

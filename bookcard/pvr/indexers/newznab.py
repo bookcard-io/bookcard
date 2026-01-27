@@ -360,7 +360,7 @@ class NewznabIndexer(BaseIndexer):
             settings = newznab_settings
 
         super().__init__(settings)
-        self.settings: NewznabSettings = settings  # type: ignore[assignment]
+        self.settings: NewznabSettings = settings
         self.request_generator = request_generator
         self.parser = parser
 

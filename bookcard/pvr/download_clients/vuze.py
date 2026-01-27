@@ -484,7 +484,7 @@ class VuzeClient(BaseDownloadClient):
         super().__init__(
             settings, file_fetcher, url_router, http_client_factory, enabled
         )
-        self.settings: VuzeSettings = settings  # type: ignore[assignment]
+        self.settings: VuzeSettings = settings
         self._proxy = VuzeProxy(self.settings)
         # Vuze uses Transmission RPC API, same status codes
         self._status_mapper = StatusMapper(

@@ -469,7 +469,7 @@ def test_add_series(book_with_full_metadata: BookWithFullRelations) -> None:
 
 def test_add_series_without_index(book: Book) -> None:
     """Test _add_series without series_index."""
-    book.series_index = None  # Explicitly set to None
+    book.series_index = None  # Explicitly set to None  # ty:ignore[invalid-assignment]
     book_with_series = BookWithFullRelations(
         book=book,
         authors=[],

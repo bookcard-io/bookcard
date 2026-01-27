@@ -37,7 +37,7 @@ from bookcard.models.author_metadata import (
 class AuthorDictBuilder:
     """Builder for creating author dictionaries from AuthorMetadata objects."""
 
-    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+    def __init__(self, session: Session) -> None:
         """Initialize author dict builder.
 
         Parameters
@@ -298,7 +298,7 @@ class AuthorDictBuilder:
             if photo.openlibrary_photo_id and photo.openlibrary_photo_id > 0
         ]
 
-    def _build_links_list(self, author: AuthorMetadata) -> list[dict[str, str]]:
+    def _build_links_list(self, author: AuthorMetadata) -> list[dict[str, object]]:
         """Build links list from author links.
 
         Parameters
@@ -308,7 +308,7 @@ class AuthorDictBuilder:
 
         Returns
         -------
-        list[dict[str, str]]
+        list[dict[str, object]]
             List of link dictionaries.
         """
         return [
@@ -364,7 +364,7 @@ class AuthorDictBuilder:
         remote_ids: dict[str, str],
         photos: list[int],
         alternate_names: list[str],
-        links: list[dict[str, str]],
+        links: list[dict[str, object]],
         subjects: list[str],
     ) -> None:
         """Add optional fields to author data dictionary.
@@ -383,7 +383,7 @@ class AuthorDictBuilder:
             Photos list.
         alternate_names : list[str]
             Alternate names list.
-        links : list[dict[str, str]]
+        links : list[dict[str, object]]
             Links list.
         subjects : list[str]
             Subjects list.
@@ -430,7 +430,7 @@ class AuthorDictBuilder:
         remote_ids: dict[str, str],
         photos: list[int],
         alternate_names: list[str],
-        links: list[dict[str, str]],
+        links: list[dict[str, object]],
         subjects: list[str],
     ) -> None:
         """Add relationship fields to dictionary.
@@ -447,7 +447,7 @@ class AuthorDictBuilder:
             Photos list.
         alternate_names : list[str]
             Alternate names list.
-        links : list[dict[str, str]]
+        links : list[dict[str, object]]
             Links list.
         subjects : list[str]
             Subjects list.
@@ -628,7 +628,7 @@ class AuthorDictBuilder:
                 self._session.exec(
                     select(AuthorWork)
                     .where(AuthorWork.author_metadata_id == author.id)
-                    .options(selectinload(AuthorWork.subjects))
+                    .options(selectinload(AuthorWork.subjects))  # type: ignore[invalid-argument-type]
                 ).all()
             )
             author.works = works

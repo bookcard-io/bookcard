@@ -256,7 +256,7 @@ class AppConfig:
         return AppConfig(
             jwt_secret=AppConfig._get_jwt_secret(),
             jwt_algorithm=AppConfig._get_jwt_algorithm(),
-            jwt_expires_minutes=int(jwt_expires_min),
+            jwt_expires_minutes=int(jwt_expires_min),  # type: ignore[invalid-argument-type]
             encryption_key=AppConfig._get_encryption_key(),
             database_url=(
                 db_url

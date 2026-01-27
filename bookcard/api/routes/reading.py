@@ -131,7 +131,7 @@ def update_progress(
 
     try:
         progress = reading_service.update_progress(
-            user_id=current_user.id,
+            user_id=current_user.id,  # type: ignore[invalid-argument-type]
             library_id=library_id,
             book_id=progress_data.book_id,
             book_format=progress_data.format,
@@ -216,7 +216,7 @@ def get_progress(
     )
 
     progress = reading_service.get_progress(
-        user_id=current_user.id,
+        user_id=current_user.id,  # type: ignore[invalid-argument-type]
         library_id=library_id,
         book_id=book_id,
         book_format=book_format,
@@ -292,7 +292,7 @@ def start_session(
     )
 
     reading_session = reading_service.start_session(
-        user_id=current_user.id,
+        user_id=current_user.id,  # type: ignore[invalid-argument-type]
         library_id=library_id,
         book_id=session_data.book_id,
         book_format=session_data.format,
@@ -457,7 +457,7 @@ def list_sessions(
 
     if book_id is not None:
         sessions = session_repo.get_sessions_by_book(
-            user_id=current_user.id,
+            user_id=current_user.id,  # type: ignore[invalid-argument-type]
             library_id=library_id,
             book_id=book_id,
             limit=page_size,
@@ -474,7 +474,7 @@ def list_sessions(
                 ReadingSession.user_id == current_user.id,
                 ReadingSession.library_id == library_id,
             )
-            .order_by(desc(ReadingSession.started_at))
+            .order_by(desc(ReadingSession.started_at))  # type: ignore[invalid-argument-type]
             .offset(offset)
             .limit(page_size)
         )
@@ -554,7 +554,7 @@ def get_recent_reads(
     )
 
     reads = reading_service.get_recent_reads(
-        user_id=current_user.id,
+        user_id=current_user.id,  # type: ignore[invalid-argument-type]
         library_id=library_id,
         limit=limit,
     )
@@ -622,7 +622,7 @@ def get_reading_history(
     )
 
     sessions = reading_service.get_reading_history(
-        user_id=current_user.id,
+        user_id=current_user.id,  # type: ignore[invalid-argument-type]
         library_id=library_id,
         book_id=book_id,
         limit=limit,
@@ -694,14 +694,14 @@ def update_read_status(
 
     if status_data.status == "read":
         read_status = reading_service.mark_as_read(
-            user_id=current_user.id,
+            user_id=current_user.id,  # type: ignore[invalid-argument-type]
             library_id=library_id,
             book_id=book_id,
             manual=True,
         )
     elif status_data.status == "not_read":
         read_status = reading_service.mark_as_unread(
-            user_id=current_user.id,
+            user_id=current_user.id,  # type: ignore[invalid-argument-type]
             library_id=library_id,
             book_id=book_id,
         )
@@ -774,7 +774,7 @@ def get_read_status(
     )
 
     read_status = reading_service.get_read_status(
-        user_id=current_user.id,
+        user_id=current_user.id,  # type: ignore[invalid-argument-type]
         library_id=library_id,
         book_id=book_id,
     )

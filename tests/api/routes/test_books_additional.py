@@ -1741,7 +1741,7 @@ def test_get_permission_helper(monkeypatch: pytest.MonkeyPatch) -> None:
         mock_helper = MagicMock()
         mock_class.return_value = mock_helper
 
-        result = books._get_permission_helper(session)
+        result = books._get_permission_helper(session)  # type: ignore[invalid-argument-type]
 
         assert result is not None
         mock_class.assert_called_once_with(session)
@@ -1855,9 +1855,9 @@ def test_get_conversion_orchestration_service_success(
         mock_orch = MagicMock()
         mock_orch_class.return_value = mock_orch
 
-        result = books._get_conversion_orchestration_service(  # type: ignore[arg-type]
+        result = books._get_conversion_orchestration_service(
             request,  # type: ignore[arg-type]
-            session,
+            session,  # type: ignore[invalid-argument-type]
             mock_service,  # type: ignore[arg-type]
         )
 
@@ -2017,10 +2017,10 @@ def test_send_books_to_device_batch_no_book_ids(
 
     with pytest.raises(HTTPException) as exc_info:
         books.send_books_to_device_batch(
-            request=request,  # type: ignore[arg-type]
+            request=request,
             session=session,
             current_user=current_user,
-            send_request=send_request,  # type: ignore[arg-type]
+            send_request=send_request,
             book_service=mock_service,
             permission_helper=mock_permission_helper,
         )
@@ -2095,7 +2095,7 @@ def test_send_books_to_device_batch_success(monkeypatch: pytest.MonkeyPatch) -> 
         )
 
         books.send_books_to_device_batch(
-            request=request,  # type: ignore[arg-type]
+            request=request,
             session=session,
             current_user=current_user,
             send_request=send_request,
@@ -2406,7 +2406,7 @@ def test_upload_book_format_not_allowed(monkeypatch: pytest.MonkeyPatch) -> None
 
         with pytest.raises(HTTPException) as exc_info:
             books.upload_book(
-                request=request,  # type: ignore[arg-type]
+                request=request,
                 current_user=current_user,
                 file=mock_file,
                 permission_helper=mock_permission_helper,
@@ -2628,7 +2628,7 @@ def test_upload_books_batch_success(monkeypatch: pytest.MonkeyPatch) -> None:
         mock_temp_file.return_value.__enter__.return_value = mock_temp
 
         result = books.upload_books_batch(
-            request=request,  # type: ignore[arg-type]
+            request=request,
             current_user=current_user,
             permission_helper=mock_permission_helper,
             session=session,
@@ -2694,7 +2694,7 @@ def test_upload_books_batch_unexpected_error(monkeypatch: pytest.MonkeyPatch) ->
 
         with pytest.raises(HTTPException) as exc_info:
             books.upload_books_batch(
-                request=request,  # type: ignore[arg-type]
+                request=request,
                 current_user=current_user,
                 permission_helper=mock_permission_helper,
                 session=session,
@@ -2779,7 +2779,7 @@ def test_send_books_to_device_batch_email_not_configured(
         send_request = BookBulkSendRequest(book_ids=[1, 2])
         with pytest.raises(HTTPException) as exc_info:
             books.send_books_to_device_batch(
-                request=request,  # type: ignore[arg-type]
+                request=request,
                 session=session,
                 current_user=current_user,
                 send_request=send_request,
@@ -2880,7 +2880,7 @@ def test_send_books_to_device_batch_user_missing_id(
         send_request = BookBulkSendRequest(book_ids=[1])
         with pytest.raises(HTTPException) as exc_info:
             books.send_books_to_device_batch(
-                request=request,  # type: ignore[arg-type]
+                request=request,
                 session=session,
                 current_user=current_user,
                 send_request=send_request,
@@ -2937,7 +2937,7 @@ def test_send_books_to_device_batch_task_runner_unavailable(
         send_request = BookBulkSendRequest(book_ids=[1])
         with pytest.raises(HTTPException) as exc_info:
             books.send_books_to_device_batch(
-                request=request,  # type: ignore[arg-type]
+                request=request,
                 session=session,
                 current_user=current_user,
                 send_request=send_request,
@@ -3005,7 +3005,7 @@ def test_send_books_to_device_batch_book_not_found(
         send_request = BookBulkSendRequest(book_ids=[999])
         with pytest.raises(HTTPException) as exc_info:
             books.send_books_to_device_batch(
-                request=request,  # type: ignore[arg-type]
+                request=request,
                 session=session,
                 current_user=current_user,
                 send_request=send_request,
@@ -3357,7 +3357,7 @@ def test_upload_book_task_runner_unavailable(monkeypatch: pytest.MonkeyPatch) ->
 
     with pytest.raises(HTTPException) as exc_info:
         books.upload_book(
-            request=request,  # type: ignore[arg-type]
+            request=request,
             current_user=current_user,
             file=mock_file,
             permission_helper=mock_permission_helper,
@@ -3427,7 +3427,7 @@ def test_upload_books_batch_http_exception(monkeypatch: pytest.MonkeyPatch) -> N
 
         with pytest.raises(HTTPException) as exc_info:
             books.upload_books_batch(
-                request=request,  # type: ignore[arg-type]
+                request=request,
                 current_user=current_user,
                 permission_helper=mock_permission_helper,
                 session=session,

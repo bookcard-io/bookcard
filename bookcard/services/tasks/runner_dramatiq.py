@@ -54,7 +54,7 @@ def _execute_task_actor(
     task_type: str,
     payload: dict[str, Any],
     metadata: dict[str, Any] | None,
-    engine: Engine,  # type: ignore[name-defined]
+    engine: Engine,
     enqueue_callback: EnqueueTaskCallback,
     redis_url: str | None,
 ) -> None:
@@ -154,9 +154,9 @@ class DramatiqTaskRunner(TaskRunner):
 
     def __init__(
         self,
-        engine: Engine,  # type: ignore[name-defined]
+        engine: Engine,
         redis_url: str,
-        _task_factory: Callable[[int, int, dict[str, Any]], Any] | None = None,  # type: ignore[name-defined]
+        _task_factory: Callable[[int, int, dict[str, Any]], Any] | None = None,
     ) -> None:
         """Initialize Dramatiq task runner.
 

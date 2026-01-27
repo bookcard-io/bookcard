@@ -944,11 +944,11 @@ class TestAddCroppingOptions:
         kcc_profile : KCCConversionProfile
             KCC profile.
         """
-        kcc_profile.cropping = None
-        kcc_profile.cropping_power = None
-        kcc_profile.preserve_margin = None
-        kcc_profile.cropping_minimum = None
-        kcc_profile.inter_panel_crop = None
+        kcc_profile.cropping = None  # ty:ignore[invalid-assignment]
+        kcc_profile.cropping_power = None  # ty:ignore[invalid-assignment]
+        kcc_profile.preserve_margin = None  # ty:ignore[invalid-assignment]
+        kcc_profile.cropping_minimum = None  # ty:ignore[invalid-assignment]
+        kcc_profile.inter_panel_crop = None  # ty:ignore[invalid-assignment]
         kcc_profile.black_borders = False
         kcc_profile.white_borders = False
 
@@ -1018,7 +1018,7 @@ class TestAddOutputOptions:
         kcc_profile.force_png = False
         kcc_profile.mozjpeg = False
         kcc_profile.maximize_strips = False
-        kcc_profile.splitter = None
+        kcc_profile.splitter = None  # ty:ignore[invalid-assignment]
         kcc_profile.target_size = None
 
         cmd: list[str] = []

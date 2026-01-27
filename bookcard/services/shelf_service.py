@@ -62,7 +62,7 @@ class ShelfService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         shelf_repo: ShelfRepository,
         link_repo: BookShelfLinkRepository,
         data_directory: str = "/data",

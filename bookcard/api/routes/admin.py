@@ -760,13 +760,13 @@ def _get_role_with_permissions(
         select(Role)
         .where(Role.id == role_id)
         .options(
-            selectinload(Role.permissions).selectinload(RolePermission.permission),
+            selectinload(Role.permissions).selectinload(RolePermission.permission),  # type: ignore[invalid-argument-type]
         )
     )
     role_with_perms = session.exec(stmt).first()
     if role_with_perms is None:
         _raise_role_not_found()
-    return role_with_perms
+    return role_with_perms  # ty:ignore[invalid-return-type]
 
 
 @router.post(
@@ -874,7 +874,7 @@ def list_roles(
     stmt = (
         select(Role)
         .options(
-            selectinload(Role.permissions).selectinload(RolePermission.permission),
+            selectinload(Role.permissions).selectinload(RolePermission.permission),  # type: ignore[invalid-argument-type]
         )
         .order_by(Role.name)
     )
@@ -884,7 +884,7 @@ def list_roles(
         role_repo = RoleRepository(session)
         roles = list(role_repo.list_all())
         for role in roles:
-            role.permissions = []  # type: ignore[attr-defined]
+            role.permissions = []
     return [role_to_role_read(role) for role in roles]
 
 
@@ -2003,7 +2003,7 @@ def download_openlibrary_dumps(
     try:
         task_id = service.create_download_task(
             urls=payload.urls,
-            user_id=current_user.id or 0,  # type: ignore[arg-type]
+            user_id=current_user.id or 0,
         )
     except ValueError as e:
         raise HTTPException(
@@ -2112,7 +2112,7 @@ def ingest_openlibrary_dumps(
     # Create service and delegate to it
     service = OpenLibraryService(task_runner=task_runner, config=cfg)
     task_id = service.create_ingest_task(
-        user_id=current_user.id or 0,  # type: ignore[arg-type]
+        user_id=current_user.id or 0,
         process_authors=payload.process_authors,
         process_works=payload.process_works,
         process_editions=payload.process_editions,

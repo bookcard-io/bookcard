@@ -45,7 +45,7 @@ def test_create_role_success() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     session.add_exec_result([None])  # find_by_name() call - role doesn't exist
@@ -70,7 +70,7 @@ def test_create_role_already_exists() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     existing_role = Role(id=1, name="viewer", description="Viewer role")
@@ -94,7 +94,7 @@ def test_assign_role_to_user_success() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     session.add_exec_result([None])  # find_by_user_role() call - doesn't exist
@@ -119,7 +119,7 @@ def test_assign_role_to_user_already_has_role() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     existing_user_role = UserRole(id=1, user_id=1, role_id=2)
@@ -143,7 +143,7 @@ def test_remove_role_from_user_success() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     user_role = UserRole(id=1, user_id=1, role_id=2)
@@ -168,7 +168,7 @@ def test_remove_role_from_user_not_found() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     session.add_exec_result([None])
@@ -190,7 +190,7 @@ def test_grant_permission_to_role_success() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     session.add_exec_result([None])  # find_by_role_permission() call - doesn't exist
@@ -217,7 +217,7 @@ def test_grant_permission_to_role_already_has_permission() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     existing_role_perm = RolePermission(id=1, role_id=1, permission_id=2)
@@ -241,7 +241,7 @@ def test_revoke_permission_from_role_success() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role_permission = RolePermission(id=1, role_id=1, permission_id=2)
@@ -266,7 +266,7 @@ def test_revoke_permission_from_role_not_found() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     session.add_exec_result([None])
@@ -290,7 +290,7 @@ def test_create_role_with_permission_assignments_by_id() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     permission = Permission(id=1, name="read:books", resource="books", action="read")
@@ -324,7 +324,7 @@ def test_create_role_with_permission_assignments_by_name() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     session.add_exec_result([None])  # find_by_name() call - role doesn't exist
@@ -367,7 +367,7 @@ def test_create_role_permission_not_found() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     session.add_exec_result([None])  # find_by_name() call - role doesn't exist
@@ -394,7 +394,7 @@ def test_create_role_permission_name_missing_resource_action() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     session.add_exec_result([None])  # find_by_name() call - role doesn't exist
@@ -424,7 +424,7 @@ def test_create_role_permission_id_or_name_required() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     session.add_exec_result([None])  # find_by_name() call - role doesn't exist
@@ -452,7 +452,7 @@ def test_create_role_permission_id_is_none() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     permission = Permission(id=None, name="read:books", resource="books", action="read")
@@ -487,7 +487,7 @@ def test_create_role_role_id_is_none() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     permission = Permission(id=1, name="read:books", resource="books", action="read")
@@ -530,7 +530,7 @@ def test_update_role_name_success() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role = Role(id=1, name="old_name", description="Old description")
@@ -555,7 +555,7 @@ def test_update_role_name_same_name() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role = Role(id=1, name="test_name", description="Test")
@@ -577,7 +577,7 @@ def test_update_role_name_locked_admin() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role = Role(id=1, name="admin", description="Admin")
@@ -600,7 +600,7 @@ def test_update_role_name_already_exists() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role = Role(id=1, name="old_name", description="Old")
@@ -625,7 +625,7 @@ def test_remove_role_permissions_empty_list() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     service._remove_role_permissions(1, [], False)
@@ -645,7 +645,7 @@ def test_remove_role_permissions_locked_admin() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     with pytest.raises(ValueError, match="cannot_remove_permissions_from_locked_role"):
@@ -665,7 +665,7 @@ def test_remove_role_permissions_not_found() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     session.add_exec_result([None])  # get() call for role_permission - not found
@@ -687,7 +687,7 @@ def test_remove_role_permissions_different_role() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role_permission = RolePermission(
@@ -714,7 +714,7 @@ def test_add_role_permissions_empty_list() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     service._add_role_permissions(1, [])
@@ -736,7 +736,7 @@ def test_add_role_permissions_already_exists() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     permission = Permission(id=1, name="read:books", resource="books", action="read")
@@ -764,7 +764,7 @@ def test_update_role_success() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role = Role(id=1, name="old_name", description="Old description")
@@ -794,7 +794,7 @@ def test_update_role_not_found() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     session.add_exec_result([None])  # get() call - role not found
@@ -816,7 +816,7 @@ def test_can_delete_role_success() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role = Role(id=2, name="test_role", description="Test")
@@ -844,7 +844,7 @@ def test_can_delete_role_not_found() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     session.add_exec_result([None])  # get() call - role not found
@@ -868,7 +868,7 @@ def test_can_delete_role_locked() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role = Role(id=1, name="admin", description="Admin")
@@ -895,7 +895,7 @@ def test_can_delete_role_assigned_to_users() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role = Role(id=2, name="test_role", description="Test")
@@ -926,7 +926,7 @@ def test_delete_role_success() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role = Role(id=2, name="test_role", description="Test")
@@ -954,7 +954,7 @@ def test_delete_role_cannot_delete() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role = Role(id=1, name="admin", description="Admin")
@@ -979,7 +979,7 @@ def test_delete_role_not_found_in_delete() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role = Role(id=2, name="test_role", description="Test")
@@ -1006,7 +1006,7 @@ def test_can_delete_permission_success() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     permission = Permission(id=1, name="read:books", resource="books", action="read")
@@ -1034,7 +1034,7 @@ def test_can_delete_permission_not_found() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     session.add_exec_result([None])  # get() call - permission not found
@@ -1060,7 +1060,7 @@ def test_can_delete_permission_assigned_to_roles() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     permission = Permission(id=1, name="read:books", resource="books", action="read")
@@ -1093,7 +1093,7 @@ def test_delete_permission_success() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     permission = Permission(id=1, name="read:books", resource="books", action="read")
@@ -1122,7 +1122,7 @@ def test_delete_permission_cannot_delete() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     permission = Permission(id=1, name="read:books", resource="books", action="read")
@@ -1152,7 +1152,7 @@ def test_delete_permission_not_found_in_delete() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     permission = Permission(id=1, name="read:books", resource="books", action="read")
@@ -1177,7 +1177,7 @@ def test_create_permission_success() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     session.add_exec_result([None])  # find_by_name() call - permission doesn't exist
@@ -1206,7 +1206,7 @@ def test_create_permission_already_exists() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     existing_permission = Permission(
@@ -1233,7 +1233,7 @@ def test_create_permission_resource_action_exists() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     existing_permission = Permission(
@@ -1265,7 +1265,7 @@ def test_get_or_create_permission_existing_by_name() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     existing_permission = Permission(
@@ -1294,7 +1294,7 @@ def test_get_or_create_permission_different_resource_action() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     existing_permission = Permission(
@@ -1323,7 +1323,7 @@ def test_get_or_create_permission_existing_by_resource_action() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     existing_permission = Permission(
@@ -1354,7 +1354,7 @@ def test_get_or_create_permission_different_name() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     existing_permission = Permission(
@@ -1382,7 +1382,7 @@ def test_get_or_create_permission_create_new() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     session.add_exec_result([None])  # find_by_name() call - doesn't exist
@@ -1415,7 +1415,7 @@ def test_update_permission_success() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     permission = Permission(
@@ -1445,7 +1445,7 @@ def test_update_permission_not_found() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     session.add_exec_result([None])  # get() call - permission not found
@@ -1469,7 +1469,7 @@ def test_update_permission_name_already_exists() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     permission = Permission(id=1, name="old_name", resource="books", action="read")
@@ -1499,7 +1499,7 @@ def test_update_permission_resource_action_exists() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     permission = Permission(id=1, name="old_name", resource="books", action="read")
@@ -1529,7 +1529,7 @@ def test_update_role_permission_condition_success() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role_permission = RolePermission(id=1, role_id=1, permission_id=1, condition=None)
@@ -1556,7 +1556,7 @@ def test_update_role_permission_condition_not_found() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     session.add_exec_result([None])  # get() call - not found
@@ -1581,7 +1581,7 @@ def test_update_permission_from_schema_success() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     permission = Permission(id=1, name="old_name", resource="books", action="read")
@@ -1612,7 +1612,7 @@ def test_update_permission_from_schema_blank_name() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     payload = PermissionUpdate(name="   ")
@@ -1636,7 +1636,7 @@ def test_update_permission_from_schema_blank_resource() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     payload = PermissionUpdate(resource="   ")
@@ -1660,7 +1660,7 @@ def test_update_permission_from_schema_blank_action() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     payload = PermissionUpdate(action="   ")
@@ -1684,7 +1684,7 @@ def test_process_permission_assignments_by_id() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     assignment = PermissionAssignment(permission_id=1, condition={"resource_id": 123})
@@ -1710,7 +1710,7 @@ def test_process_permission_assignments_by_name() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     assignment = PermissionAssignment(
@@ -1744,7 +1744,7 @@ def test_process_permission_assignments_blank_name() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     assignment = PermissionAssignment(
@@ -1770,7 +1770,7 @@ def test_process_permission_assignments_blank_resource() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     assignment = PermissionAssignment(
@@ -1796,7 +1796,7 @@ def test_process_permission_assignments_blank_action() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     assignment = PermissionAssignment(
@@ -1822,7 +1822,7 @@ def test_process_permission_assignments_missing_id_or_name() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     assignment = PermissionAssignment(resource="books", action="read")
@@ -1846,7 +1846,7 @@ def test_create_role_from_schema_success() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     session.add_exec_result([None])  # find_by_name() call - role doesn't exist
@@ -1894,7 +1894,7 @@ def test_create_role_from_schema_blank_name() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     payload = RoleCreate(name="   ", description="Test")
@@ -1918,7 +1918,7 @@ def test_update_role_from_schema_success() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role = Role(id=1, name="old_name", description="Old")
@@ -1971,7 +1971,7 @@ def test_update_role_from_schema_blank_name() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     payload = RoleUpdate(name="   ")
@@ -1993,7 +1993,7 @@ def test_add_role_permissions_permission_not_found() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role = Role(id=1, name="viewer", description="Viewer role")
@@ -2020,7 +2020,7 @@ def test_add_role_permissions_resource_action_required() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role = Role(id=1, name="viewer", description="Viewer role")
@@ -2050,7 +2050,7 @@ def test_add_role_permissions_permission_id_or_name_required() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role = Role(id=1, name="viewer", description="Viewer role")
@@ -2079,7 +2079,7 @@ def test_add_role_permissions_permission_id_is_none() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role = Role(id=1, name="viewer", description="Viewer role")
@@ -2116,7 +2116,7 @@ def test_add_role_permissions_different_value_error() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role = Role(id=1, name="viewer", description="Viewer role")
@@ -2150,7 +2150,7 @@ def test_delete_role_cannot_delete_fallback() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     # Mock can_delete_role to return (False, None)
@@ -2176,7 +2176,7 @@ def test_delete_role_not_found_after_check() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     # Mock can_delete_role to return True, but role doesn't exist
@@ -2202,7 +2202,7 @@ def test_delete_role_deletes_role_permissions() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role = Role(id=1, name="viewer", description="Viewer role")
@@ -2255,7 +2255,7 @@ def test_delete_permission_cannot_delete_fallback() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     # Mock can_delete_permission to return (False, None)
@@ -2281,7 +2281,7 @@ def test_delete_permission_not_found_after_check() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     # Mock can_delete_permission to return True, but permission doesn't exist
@@ -2309,7 +2309,7 @@ def test_get_or_create_permission_existing_matches_name() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     existing_permission = Permission(
@@ -2341,7 +2341,7 @@ def test_update_permission_resource_exists() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     permission = Permission(id=1, name="read:books", resource="books", action="read")
@@ -2378,7 +2378,7 @@ def test_update_permission_action_exists() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     permission = Permission(id=1, name="read:books", resource="books", action="read")
@@ -2416,7 +2416,7 @@ def test_update_permission_from_schema_empty_description() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     permission = Permission(
@@ -2450,7 +2450,7 @@ def test_process_permission_assignments_empty_description() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     session.add_exec_result([])  # find_by_name() call - permission doesn't exist
@@ -2488,7 +2488,7 @@ def test_create_role_from_schema_empty_description() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     session.add_exec_result([])  # find_by_name() call - role doesn't exist
@@ -2514,7 +2514,7 @@ def test_update_role_from_schema_empty_description() -> None:
         role_repo,
         perm_repo,
         user_role_repo,
-        role_perm_repo,  # type: ignore[arg-type]
+        role_perm_repo,
     )
 
     role = Role(id=1, name="viewer", description="Old description")

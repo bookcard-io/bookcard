@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 
 
 def create_default_email_send_dependencies(
-    session: Session,  # type: ignore[type-arg]
+    session: Session,
     encryption_key: str,
 ) -> EmailSendDependencies:
     """Create default dependencies for the email-send task.

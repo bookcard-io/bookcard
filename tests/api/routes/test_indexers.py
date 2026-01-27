@@ -153,7 +153,7 @@ class TestGetIndexerService:
         """
         request = MagicMock()
         request.app.state.config.encryption_key = valid_fernet_key
-        service = indexers._get_indexer_service(session, request)
+        service = indexers._get_indexer_service(session, request)  # type: ignore[invalid-argument-type]
         assert service is not None
         assert hasattr(service, "_session")
         assert service._session == session

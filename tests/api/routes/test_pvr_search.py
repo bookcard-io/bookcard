@@ -66,7 +66,7 @@ class TestGetTrackedBookSearchService:
         request = MagicMock()
         request.app.state.config.encryption_key = valid_fernet_key
 
-        service = pvr_search_routes._get_tracked_book_search_service(session, request)
+        service = pvr_search_routes._get_tracked_book_search_service(session, request)  # type: ignore[invalid-argument-type]
         assert service is not None
         assert hasattr(service, "_tracked_book_service")
         assert hasattr(service, "_indexer_search_service")

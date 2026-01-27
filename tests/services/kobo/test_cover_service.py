@@ -101,7 +101,7 @@ def cover_service(
         Service instance.
     """
     return KoboCoverService(
-        mock_book_service,  # type: ignore[arg-type]
+        mock_book_service,
         mock_book_lookup_service,
         mock_proxy_service,
     )
@@ -187,7 +187,7 @@ def test_init(
         Mock proxy service.
     """
     service = KoboCoverService(
-        mock_book_service,  # type: ignore[arg-type]
+        mock_book_service,
         mock_book_lookup_service,
         mock_proxy_service,
     )

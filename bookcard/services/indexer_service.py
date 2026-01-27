@@ -66,7 +66,7 @@ class IndexerRepository(Repository[IndexerDefinition]):
         stmt = (
             select(IndexerDefinition)
             .where(IndexerDefinition.enabled)
-            .order_by(IndexerDefinition.priority, IndexerDefinition.id)
+            .order_by(IndexerDefinition.priority, IndexerDefinition.id)  # type: ignore[invalid-argument-type]
         )
         return list(self._session.exec(stmt).all())
 
@@ -104,7 +104,7 @@ class IndexerService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         repository: IndexerRepository | None = None,
         encryptor: DataEncryptor | None = None,
     ) -> None:

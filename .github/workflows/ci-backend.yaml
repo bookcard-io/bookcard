@@ -69,14 +69,14 @@ jobs:
         if: steps.check_changes.outputs.has_changes == 'true'
         uses: astral-sh/ruff-action@v3
         with:
-          version: "0.14.10"
+          version: "0.14.14"
           args: check --output-format=github --exit-non-zero-on-fix .
 
       - name: Ruff (format)
         if: steps.check_changes.outputs.has_changes == 'true'
         uses: astral-sh/ruff-action@v3
         with:
-          version: "0.14.10"
+          version: "0.14.14"
           args: format --check .
 
       - name: Type-check (ty)

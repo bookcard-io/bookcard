@@ -48,7 +48,7 @@ class AuthorRelationshipRepository:
     including similarities, works, and metadata counts.
     """
 
-    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+    def __init__(self, session: Session) -> None:
         """Initialize relationship repository.
 
         Parameters

@@ -237,7 +237,7 @@ class EpubMetadataExtractor(MetadataExtractionStrategy):
                 else None
             ),
             series_index=(
-                float(series_info["position"])
+                float(series_info["position"])  # type: ignore[invalid-argument-type]
                 if isinstance(series_info.get("position"), (int, float, str))
                 and str(series_info["position"]).replace(".", "").isdigit()
                 else None

@@ -42,6 +42,28 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _normalize_href(href: object) -> str:
+    """Normalize a BeautifulSoup href value to a string.
+
+    Parameters
+    ----------
+    href : object
+        Value returned by BeautifulSoup for an attribute.
+
+    Returns
+    -------
+    str
+        A string href if one can be extracted, otherwise an empty string.
+    """
+    if isinstance(href, str):
+        return href
+    if isinstance(href, list):
+        for value in href:
+            if isinstance(value, str):
+                return value
+    return ""
+
+
 class AmazonProvider(MetadataProvider):
     """Metadata provider for Amazon Books.
 
@@ -208,7 +230,7 @@ class AmazonProvider(MetadataProvider):
         for result in search_results:
             links_elem = result.find_all("a")
             for link_elem in links_elem:
-                href = link_elem.get("href", "")
+                href = _normalize_href(link_elem.get("href"))
                 if "digital-text" in href:
                     links.append(href)
                     break

@@ -71,7 +71,7 @@ def library_with_root() -> Library:
         calibre_db_file="metadata.db",
         is_active=True,
     )
-    lib.library_root = "/library/root"  # type: ignore[attr-defined]
+    lib.library_root = "/library/root"
     return lib
 
 
@@ -350,20 +350,20 @@ class TestSaveCoverFromUrl:
         """Test save_cover_from_url with library_root."""
         book_id = 1
         url = "https://example.com/cover.jpg"
-        mock_book_service._library = library_with_root  # type: ignore[attr-defined]
-        library_with_root.library_root = str(tmp_path)  # type: ignore[attr-defined]
+        mock_book_service._library = library_with_root
+        library_with_root.library_root = str(tmp_path)
         mock_book_service.get_book_full.return_value = book_with_full_relations
 
         mock_calibre_session = DummySession()
         mock_book = Book(id=book_id, title="Test Book", has_cover=False)
-        mock_calibre_session.set_exec_result([mock_book])  # type: ignore[attr-defined]
+        mock_calibre_session.set_exec_result([mock_book])
         mock_calibre_session.add_exec_result([mock_book])  # Extra result
         mock_book_repo = MagicMock()
         mock_book_repo._get_session.return_value.__enter__.return_value = (
             mock_calibre_session
         )
         mock_book_repo._get_session.return_value.__exit__.return_value = None
-        mock_book_service._book_repo = mock_book_repo  # type: ignore[attr-defined]
+        mock_book_service._book_repo = mock_book_repo
 
         with patch.object(
             cover_service, "download_and_validate_image"
@@ -391,19 +391,19 @@ class TestSaveCoverFromUrl:
         book_id = 1
         url = "https://example.com/cover.jpg"
         library.calibre_db_path = str(tmp_path)
-        mock_book_service._library = library  # type: ignore[attr-defined]
+        mock_book_service._library = library
         mock_book_service.get_book_full.return_value = book_with_full_relations
 
         mock_calibre_session = DummySession()
         mock_book = Book(id=book_id, title="Test Book", has_cover=False)
-        mock_calibre_session.set_exec_result([mock_book])  # type: ignore[attr-defined]
+        mock_calibre_session.set_exec_result([mock_book])
         mock_calibre_session.add_exec_result([mock_book])  # Extra result
         mock_book_repo = MagicMock()
         mock_book_repo._get_session.return_value.__enter__.return_value = (
             mock_calibre_session
         )
         mock_book_repo._get_session.return_value.__exit__.return_value = None
-        mock_book_service._book_repo = mock_book_repo  # type: ignore[attr-defined]
+        mock_book_service._book_repo = mock_book_repo
 
         with patch.object(
             cover_service, "download_and_validate_image"
@@ -432,19 +432,19 @@ class TestSaveCoverFromUrl:
         db_file = tmp_path / "metadata.db"
         db_file.touch()
         library.calibre_db_path = str(db_file)
-        mock_book_service._library = library  # type: ignore[attr-defined]
+        mock_book_service._library = library
         mock_book_service.get_book_full.return_value = book_with_full_relations
 
         mock_calibre_session = DummySession()
         mock_book = Book(id=book_id, title="Test Book", has_cover=False)
-        mock_calibre_session.set_exec_result([mock_book])  # type: ignore[attr-defined]
+        mock_calibre_session.set_exec_result([mock_book])
         mock_calibre_session.add_exec_result([mock_book])  # Extra result
         mock_book_repo = MagicMock()
         mock_book_repo._get_session.return_value.__enter__.return_value = (
             mock_calibre_session
         )
         mock_book_repo._get_session.return_value.__exit__.return_value = None
-        mock_book_service._book_repo = mock_book_repo  # type: ignore[attr-defined]
+        mock_book_service._book_repo = mock_book_repo
 
         with patch.object(
             cover_service, "download_and_validate_image"
@@ -493,17 +493,17 @@ class TestSaveCoverFromUrl:
         book_id = 1
         url = "https://example.com/cover.jpg"
         library.calibre_db_path = str(tmp_path)
-        mock_book_service._library = library  # type: ignore[attr-defined]
+        mock_book_service._library = library
         mock_book_service.get_book_full.return_value = book_with_full_relations
 
         mock_calibre_session = DummySession()
-        mock_calibre_session.set_exec_result([])  # type: ignore[attr-defined]  # Book not found
+        mock_calibre_session.set_exec_result([])
         mock_book_repo = MagicMock()
         mock_book_repo._get_session.return_value.__enter__.return_value = (
             mock_calibre_session
         )
         mock_book_repo._get_session.return_value.__exit__.return_value = None
-        mock_book_service._book_repo = mock_book_repo  # type: ignore[attr-defined]
+        mock_book_service._book_repo = mock_book_repo
 
         with patch.object(
             cover_service, "download_and_validate_image"
@@ -598,19 +598,19 @@ class TestSaveCoverImage:
     ) -> None:
         """Test save_cover_image saves content and updates DB."""
         book_id = 1
-        mock_book_service._library = library_with_root  # type: ignore[attr-defined]
-        library_with_root.library_root = str(tmp_path)  # type: ignore[attr-defined]
+        mock_book_service._library = library_with_root
+        library_with_root.library_root = str(tmp_path)
         mock_book_service.get_book_full.return_value = book_with_full_relations
 
         mock_calibre_session = DummySession()
         mock_book = Book(id=book_id, title="Test Book", has_cover=False)
-        mock_calibre_session.set_exec_result([mock_book])  # type: ignore[attr-defined]
+        mock_calibre_session.set_exec_result([mock_book])
         mock_book_repo = MagicMock()
         mock_book_repo._get_session.return_value.__enter__.return_value = (
             mock_calibre_session
         )
         mock_book_repo._get_session.return_value.__exit__.return_value = None
-        mock_book_service._book_repo = mock_book_repo  # type: ignore[attr-defined]
+        mock_book_service._book_repo = mock_book_repo
 
         result = cover_service.save_cover_image(book_id, sample_image_bytes)
 

@@ -64,7 +64,8 @@ class SettingRepository(Repository[UserSetting]):
             User setting entity if found, None otherwise.
         """
         stmt = select(UserSetting).where(
-            UserSetting.user_id == user_id, UserSetting.key == key
+            UserSetting.user_id == user_id,  # ty:ignore[invalid-argument-type]
+            UserSetting.key == key,  # type: ignore[invalid-argument-type]
         )
         return self._session.exec(stmt).first()  # type: ignore[no-matching-overload]
 
@@ -77,7 +78,7 @@ class InviteRepository(Repository[Invite]):
 
     def list_all(self, limit: int = 100) -> Iterable[Invite]:
         """Return most recent invites up to a limit."""
-        stmt = select(Invite).order_by(desc(Invite.created_at)).limit(limit)
+        stmt = select(Invite).order_by(desc(Invite.created_at)).limit(limit)  # type: ignore[invalid-argument-type]
         return self._session.exec(stmt).all()  # type: ignore[no-matching-overload]
 
     def get_by_token(self, token: str) -> Invite | None:
@@ -93,5 +94,5 @@ class InviteRepository(Repository[Invite]):
         Invite | None
             Invite entity if found, None otherwise.
         """
-        stmt = select(Invite).where(Invite.token == token)
+        stmt = select(Invite).where(Invite.token == token)  # type: ignore[invalid-argument-type]
         return self._session.exec(stmt).first()  # type: ignore[no-matching-overload]

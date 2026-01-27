@@ -108,7 +108,7 @@ class ShelfRepository:
                         Shelf.is_public == True,  # noqa: E712
                     ),
                 )
-                .order_by(desc(Shelf.created_at))
+                .order_by(desc(Shelf.created_at))  # type: ignore[invalid-argument-type]
             )
         else:
             stmt = (
@@ -118,7 +118,7 @@ class ShelfRepository:
                     Shelf.is_active == True,  # noqa: E712
                     Shelf.user_id == user_id,
                 )
-                .order_by(desc(Shelf.created_at))
+                .order_by(desc(Shelf.created_at))  # type: ignore[invalid-argument-type]
             )
         return list(self._session.exec(stmt).all())
 
@@ -344,7 +344,7 @@ class BookShelfLinkRepository:
         stmt = (
             select(BookShelfLink)
             .where(BookShelfLink.shelf_id == shelf_id)
-            .order_by(BookShelfLink.order)
+            .order_by(BookShelfLink.order)  # type: ignore[invalid-argument-type]
         )
         return list(self._session.exec(stmt).all())
 

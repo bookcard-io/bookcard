@@ -505,7 +505,7 @@ def _get_annas_archive_api_key() -> str | None:
                 .where(IndexerDefinition.indexer_type == IndexerType.ANNAS_ARCHIVE)
                 .where(IndexerDefinition.enabled == True)  # noqa: E712
                 .where(IndexerDefinition.api_key != None)  # noqa: E711
-                .order_by(IndexerDefinition.priority, IndexerDefinition.id)
+                .order_by(IndexerDefinition.priority, IndexerDefinition.id)  # type: ignore[invalid-argument-type]
                 .limit(1)
             )
             result = session.exec(stmt).first()

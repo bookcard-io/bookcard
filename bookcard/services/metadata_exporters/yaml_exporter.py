@@ -27,7 +27,7 @@ from bookcard.services.metadata_export_utils import (
 from bookcard.services.metadata_exporters.base import MetadataExporter
 
 try:
-    import yaml  # type: ignore[import-untyped]
+    import yaml
 except ImportError:
     yaml = None  # type: ignore[assignment]
 

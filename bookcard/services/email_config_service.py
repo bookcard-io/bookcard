@@ -52,8 +52,8 @@ class EmailConfigService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
-        encryptor: DataEncryptor | None = None,  # type: ignore[type-arg]
+        session: Session,
+        encryptor: DataEncryptor | None = None,
     ) -> None:
         self._session = session
         self._encryptor = encryptor

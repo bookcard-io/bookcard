@@ -60,7 +60,7 @@ def library() -> Library:
     ],
 )
 def test_create_conversion_service(
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
     library: Library,
     converter_path: Path | None,
     should_raise: bool,
@@ -121,7 +121,7 @@ def test_create_conversion_service(
 
 
 def test_create_conversion_service_with_backup_service(
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
     library: Library,
 ) -> None:
     """Test create_conversion_service accepts optional backup service.
@@ -163,7 +163,7 @@ def test_create_conversion_service_with_backup_service(
         service = create_conversion_service(
             session,  # type: ignore[invalid-argument-type]
             library,
-            backup_service=backup_service,  # type: ignore[arg-type]
+            backup_service=backup_service,
         )
 
         assert service is not None
@@ -171,7 +171,7 @@ def test_create_conversion_service_with_backup_service(
 
 
 def test_create_conversion_service_creates_default_backup_service(
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
     library: Library,
 ) -> None:
     """Test create_conversion_service creates default backup service when not provided.

@@ -25,7 +25,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
-from PIL import Image  # type: ignore[import-untyped]
+from PIL import Image
 from sqlmodel import Session
 
 from bookcard.api.deps import get_current_user, get_db_session
@@ -124,11 +124,11 @@ def _get_library_path(book_service: BookService) -> Path:
     Path
         Library root path.
     """
-    lib_root = getattr(book_service._library, "library_root", None)  # type: ignore[attr-defined]  # noqa: SLF001
+    lib_root = getattr(book_service._library, "library_root", None)  # noqa: SLF001
     if lib_root:
         return Path(lib_root)
 
-    library_db_path = book_service._library.calibre_db_path  # type: ignore[attr-defined]  # noqa: SLF001
+    library_db_path = book_service._library.calibre_db_path  # noqa: SLF001
     library_db_path_obj = Path(library_db_path)
     if library_db_path_obj.is_dir():
         return library_db_path_obj

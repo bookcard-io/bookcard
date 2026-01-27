@@ -161,7 +161,7 @@ class TorrentBlackholeClient(BaseDownloadClient):
         super().__init__(
             settings, file_fetcher, url_router, http_client_factory, enabled
         )
-        self.settings: TorrentBlackholeSettings = settings  # type: ignore[assignment]
+        self.settings: TorrentBlackholeSettings = settings
 
     @property
     def client_name(self) -> str:
@@ -338,7 +338,7 @@ class UsenetBlackholeClient(BaseDownloadClient):
         super().__init__(
             settings, file_fetcher, url_router, http_client_factory, enabled
         )
-        self.settings: UsenetBlackholeSettings = settings  # type: ignore[assignment]
+        self.settings: UsenetBlackholeSettings = settings
 
     @property
     def client_name(self) -> str:

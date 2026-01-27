@@ -96,7 +96,7 @@ class LibgenResolver:
                         # Check for common download link patterns
                         if "get.php" in href or text == "GET":
                             # Ensure we have a full URL
-                            download_url = urllib.parse.urljoin(mirror, href)
+                            download_url = urllib.parse.urljoin(mirror, href)  # type: ignore[invalid-argument-type]
                             logger.info("Resolved Libgen URL: %s", download_url)
                             return download_url
 

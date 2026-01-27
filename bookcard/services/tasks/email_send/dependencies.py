@@ -43,7 +43,7 @@ class LibraryProvider(Protocol):
     Follows Dependency Inversion Principle by depending on abstraction.
     """
 
-    def get_active_library(self, session: Session) -> Library:  # type: ignore[type-arg]
+    def get_active_library(self, session: Session) -> Library:
         """Get active library configuration.
 
         Parameters
@@ -73,7 +73,7 @@ class EmailServiceFactory(Protocol):
     def create(
         self,
         session: Session,
-        encryption_key: str,  # type: ignore[type-arg]
+        encryption_key: str,
     ) -> EmailService:
         """Create email service instance.
 
@@ -110,7 +110,7 @@ class EmailSendBookServiceFactory(Protocol):
     def create(
         self,
         library: Library,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
     ) -> BookService:
         """Create book service instance.
 
@@ -139,7 +139,7 @@ class SendPreparationService(Protocol):
         self,
         request: SendBookRequest,
         book_service: BookService,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         user_id: int,
     ) -> SendPreparation:
         """Prepare book for sending.

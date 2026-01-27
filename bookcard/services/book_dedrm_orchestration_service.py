@@ -75,7 +75,7 @@ class BookDeDRMOrchestrationService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         book_service: BookService,
         task_runner: TaskRunner | None = None,
     ) -> None:

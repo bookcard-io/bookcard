@@ -24,7 +24,7 @@ from bookcard.api.schemas.books import BookUpdate
 from bookcard.services.metadata_importers.base import MetadataImporter
 
 try:
-    import yaml  # type: ignore[import-untyped]
+    import yaml
 except ImportError:
     yaml = None  # type: ignore[assignment]
 

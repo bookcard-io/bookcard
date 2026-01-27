@@ -470,7 +470,8 @@ async def rematch_author(
             rematch_request.get("openlibrary_key") if rematch_request else None
         )
         openlibrary_key = rematch_service.determine_openlibrary_key(
-            provided_olid, author_data
+            provided_olid,  # ty:ignore[invalid-argument-type]
+            author_data,
         )
 
         library_id, calibre_author_id, author_metadata_id = (

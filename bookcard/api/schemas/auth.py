@@ -99,9 +99,9 @@ class UserRead(BaseModel):
             ]
 
         return cls(
-            id=user.id,  # type: ignore[arg-type]
+            id=user.id,  # ty:ignore[invalid-argument-type]
             username=user.username,
-            email=user.email,  # type: ignore[arg-type]
+            email=user.email,
             full_name=user.full_name,
             profile_picture=user.profile_picture,
             is_admin=user.is_admin,

@@ -271,8 +271,8 @@ def test_get_active_library_id_no_library() -> None:
 
         with pytest.raises(HTTPException) as exc_info:
             shelves._get_active_library_id(session)  # type: ignore[arg-type]
-        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND  # type: ignore[attr-defined]  # type: ignore[attr-defined]
-        assert exc_info.value.detail == "no_active_library"  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+        assert exc_info.value.detail == "no_active_library"
 
 
 def test_get_active_library_id_no_id() -> None:
@@ -298,8 +298,8 @@ def test_get_active_library_id_no_id() -> None:
 
         with pytest.raises(HTTPException) as exc_info:
             shelves._get_active_library_id(session)  # type: ignore[arg-type]
-        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND  # type: ignore[attr-defined]  # type: ignore[attr-defined]
-        assert exc_info.value.detail == "no_active_library"  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+        assert exc_info.value.detail == "no_active_library"
 
 
 def test_get_active_library_id_success() -> None:
@@ -350,9 +350,9 @@ def test_create_shelf_success(
 
         result = shelves.create_shelf(
             shelf_data=ShelfCreate(name="Test Shelf", is_public=False),
-            session=session,  # type: ignore[arg-type]
+            session=session,
             current_user=mock_user,
-            shelf_service=mock_service,  # type: ignore[arg-type]
+            shelf_service=mock_service,
             library_id=1,
         )
 
@@ -383,12 +383,12 @@ def test_create_shelf_no_id(
     with pytest.raises(HTTPException) as exc_info:
         shelves.create_shelf(
             shelf_data=ShelfCreate(name="Test Shelf", is_public=False),
-            session=session,  # type: ignore[arg-type]
+            session=session,
             current_user=mock_user,
-            shelf_service=mock_service,  # type: ignore[arg-type]
+            shelf_service=mock_service,
             library_id=1,
         )
-    assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR  # type: ignore[attr-defined]
+    assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
 def test_create_shelf_value_error(
@@ -403,12 +403,12 @@ def test_create_shelf_value_error(
     with pytest.raises(HTTPException) as exc_info:
         shelves.create_shelf(
             shelf_data=ShelfCreate(name="Test Shelf", is_public=False),
-            session=session,  # type: ignore[arg-type]
+            session=session,
             current_user=mock_user,
-            shelf_service=mock_service,  # type: ignore[arg-type]
+            shelf_service=mock_service,
             library_id=1,
         )
-    assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST  # type: ignore[attr-defined]
+    assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
 
 
 def test_list_shelves_success(
@@ -433,9 +433,9 @@ def test_list_shelves_success(
         mock_link_repo_class.return_value = mock_link_repo
 
         result = shelves.list_shelves(
-            session=session,  # type: ignore[arg-type]
+            session=session,
             current_user=mock_user,
-            shelf_service=mock_service,  # type: ignore[arg-type]
+            shelf_service=mock_service,
             library_id=1,
         )
 
@@ -471,9 +471,9 @@ def test_get_shelf_success(
 
         result = shelves.get_shelf(
             shelf_id=1,
-            session=session,  # type: ignore[arg-type]
+            session=session,
             current_user=mock_user,
-            shelf_service=mock_service,  # type: ignore[arg-type]
+            shelf_service=mock_service,
             library_id=1,
         )
 
@@ -494,12 +494,12 @@ def test_get_shelf_not_found(mock_user: User, mock_library: Library) -> None:
         with pytest.raises(HTTPException) as exc_info:
             shelves.get_shelf(
                 shelf_id=999,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_get_shelf_permission_denied(
@@ -518,12 +518,12 @@ def test_get_shelf_permission_denied(
         with pytest.raises(HTTPException) as exc_info:
             shelves.get_shelf(
                 shelf_id=1,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
 
 
 def test_get_shelf_wrong_library(
@@ -542,12 +542,12 @@ def test_get_shelf_wrong_library(
         with pytest.raises(HTTPException) as exc_info:
             shelves.get_shelf(
                 shelf_id=1,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_get_shelf_no_id(
@@ -579,12 +579,12 @@ def test_get_shelf_no_id(
         with pytest.raises(HTTPException) as exc_info:
             shelves.get_shelf(
                 shelf_id=1,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
 def test_update_shelf_success(
@@ -616,9 +616,9 @@ def test_update_shelf_success(
         result = shelves.update_shelf(
             shelf_id=1,
             shelf_data=ShelfUpdate(name="Updated Shelf"),
-            session=session,  # type: ignore[arg-type]
+            session=session,
             current_user=mock_user,
-            shelf_service=mock_service,  # type: ignore[arg-type]
+            shelf_service=mock_service,
             library_id=1,
         )
 
@@ -639,12 +639,12 @@ def test_update_shelf_not_found(mock_user: User, mock_library: Library) -> None:
             shelves.update_shelf(
                 shelf_id=999,
                 shelf_data=ShelfUpdate(name="Updated Shelf"),
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_update_shelf_wrong_library(
@@ -664,12 +664,12 @@ def test_update_shelf_wrong_library(
             shelves.update_shelf(
                 shelf_id=1,
                 shelf_data=ShelfUpdate(name="Updated Shelf"),
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_update_shelf_value_error(
@@ -693,12 +693,12 @@ def test_update_shelf_value_error(
             shelves.update_shelf(
                 shelf_id=1,
                 shelf_data=ShelfUpdate(name="Updated Shelf"),
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
 
 
 def test_update_shelf_no_id_after_update(
@@ -732,12 +732,12 @@ def test_update_shelf_no_id_after_update(
             shelves.update_shelf(
                 shelf_id=1,
                 shelf_data=ShelfUpdate(name="Updated Shelf"),
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
 def test_delete_shelf_success(
@@ -758,9 +758,9 @@ def test_delete_shelf_success(
 
         result = shelves.delete_shelf(
             shelf_id=1,
-            session=session,  # type: ignore[arg-type]
+            session=session,
             current_user=mock_user,
-            shelf_service=mock_service,  # type: ignore[arg-type]
+            shelf_service=mock_service,
             library_id=1,
         )
 
@@ -780,12 +780,12 @@ def test_delete_shelf_not_found(mock_user: User, mock_library: Library) -> None:
         with pytest.raises(HTTPException) as exc_info:
             shelves.delete_shelf(
                 shelf_id=999,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_delete_shelf_value_error(
@@ -808,12 +808,12 @@ def test_delete_shelf_value_error(
         with pytest.raises(HTTPException) as exc_info:
             shelves.delete_shelf(
                 shelf_id=1,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
 
 
 def test_add_book_to_shelf_success(
@@ -835,9 +835,9 @@ def test_add_book_to_shelf_success(
         result = shelves.add_book_to_shelf(
             shelf_id=1,
             book_id=100,
-            session=session,  # type: ignore[arg-type]
+            session=session,
             current_user=mock_user,
-            shelf_service=mock_service,  # type: ignore[arg-type]
+            shelf_service=mock_service,
             library_id=1,
         )
 
@@ -861,12 +861,12 @@ def test_add_book_to_shelf_not_found(
             shelves.add_book_to_shelf(
                 shelf_id=999,
                 book_id=100,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_add_book_to_shelf_value_error(
@@ -890,12 +890,12 @@ def test_add_book_to_shelf_value_error(
             shelves.add_book_to_shelf(
                 shelf_id=1,
                 book_id=100,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
 
 
 def test_remove_book_from_shelf_success(
@@ -917,9 +917,9 @@ def test_remove_book_from_shelf_success(
         result = shelves.remove_book_from_shelf(
             shelf_id=1,
             book_id=100,
-            session=session,  # type: ignore[arg-type]
+            session=session,
             current_user=mock_user,
-            shelf_service=mock_service,  # type: ignore[arg-type]
+            shelf_service=mock_service,
             library_id=1,
         )
 
@@ -942,12 +942,12 @@ def test_remove_book_from_shelf_not_found(
             shelves.remove_book_from_shelf(
                 shelf_id=999,
                 book_id=100,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_remove_book_from_shelf_value_error(
@@ -971,12 +971,12 @@ def test_remove_book_from_shelf_value_error(
             shelves.remove_book_from_shelf(
                 shelf_id=1,
                 book_id=100,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
 
 
 def test_reorder_shelf_books_success(
@@ -998,9 +998,9 @@ def test_reorder_shelf_books_success(
         result = shelves.reorder_shelf_books(
             shelf_id=1,
             reorder_data=ShelfReorderRequest(book_orders={100: 0, 101: 1}),
-            session=session,  # type: ignore[arg-type]
+            session=session,
             current_user=mock_user,
-            shelf_service=mock_service,  # type: ignore[arg-type]
+            shelf_service=mock_service,
             library_id=1,
         )
 
@@ -1021,12 +1021,12 @@ def test_reorder_shelf_books_not_found(mock_user: User, mock_library: Library) -
             shelves.reorder_shelf_books(
                 shelf_id=999,
                 reorder_data=ShelfReorderRequest(book_orders={100: 0}),
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_reorder_shelf_books_value_error(
@@ -1050,12 +1050,12 @@ def test_reorder_shelf_books_value_error(
             shelves.reorder_shelf_books(
                 shelf_id=1,
                 reorder_data=ShelfReorderRequest(book_orders={100: 0}),
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
 
 
 def test_get_shelf_books_success(
@@ -1096,9 +1096,9 @@ def test_get_shelf_books_success(
 
         result = shelves.get_shelf_books(
             shelf_id=1,
-            session=session,  # type: ignore[arg-type]
+            session=session,
             current_user=mock_user,
-            shelf_service=mock_service,  # type: ignore[arg-type]
+            shelf_service=mock_service,
             library_id=1,
             page=1,
             page_size=20,
@@ -1124,12 +1124,12 @@ def test_get_shelf_books_not_found(mock_user: User, mock_library: Library) -> No
         with pytest.raises(HTTPException) as exc_info:
             shelves.get_shelf_books(
                 shelf_id=999,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_get_shelf_books_wrong_library(
@@ -1148,12 +1148,12 @@ def test_get_shelf_books_wrong_library(
         with pytest.raises(HTTPException) as exc_info:
             shelves.get_shelf_books(
                 shelf_id=1,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_get_shelf_books_permission_denied(
@@ -1172,12 +1172,12 @@ def test_get_shelf_books_permission_denied(
         with pytest.raises(HTTPException) as exc_info:
             shelves.get_shelf_books(
                 shelf_id=1,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
 
 
 def test_get_shelf_books_sort_by_date_added(
@@ -1218,9 +1218,9 @@ def test_get_shelf_books_sort_by_date_added(
 
         result = shelves.get_shelf_books(
             shelf_id=1,
-            session=session,  # type: ignore[arg-type]
+            session=session,
             current_user=mock_user,
-            shelf_service=mock_service,  # type: ignore[arg-type]
+            shelf_service=mock_service,
             library_id=1,
             page=1,  # Explicitly pass int values
             page_size=20,
@@ -1269,9 +1269,9 @@ def test_get_shelf_books_sort_by_book_id(
 
         result = shelves.get_shelf_books(
             shelf_id=1,
-            session=session,  # type: ignore[arg-type]
+            session=session,
             current_user=mock_user,
-            shelf_service=mock_service,  # type: ignore[arg-type]
+            shelf_service=mock_service,
             library_id=1,
             page=1,  # Explicitly pass int values
             page_size=20,
@@ -1316,9 +1316,9 @@ def test_get_shelf_books_pagination(
 
         result = shelves.get_shelf_books(
             shelf_id=1,
-            session=session,  # type: ignore[arg-type]
+            session=session,
             current_user=mock_user,
-            shelf_service=mock_service,  # type: ignore[arg-type]
+            shelf_service=mock_service,
             library_id=1,
             page=2,
             page_size=3,
@@ -1356,11 +1356,11 @@ def test_upload_shelf_cover_picture_success(
 
         result = shelves.upload_shelf_cover_picture(
             shelf_id=1,
-            session=session,  # type: ignore[arg-type]
+            session=session,
             current_user=mock_user,
-            shelf_service=mock_service,  # type: ignore[arg-type]
+            shelf_service=mock_service,
             library_id=1,
-            file=mock_file,  # type: ignore[arg-type]
+            file=mock_file,
         )
 
         assert result.id == 1
@@ -1384,13 +1384,13 @@ def test_upload_shelf_cover_picture_not_found(
         with pytest.raises(HTTPException) as exc_info:
             shelves.upload_shelf_cover_picture(
                 shelf_id=999,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
-                file=mock_file,  # type: ignore[arg-type]
+                file=mock_file,
             )
-        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_upload_shelf_cover_picture_no_filename(
@@ -1411,13 +1411,13 @@ def test_upload_shelf_cover_picture_no_filename(
         with pytest.raises(HTTPException) as exc_info:
             shelves.upload_shelf_cover_picture(
                 shelf_id=1,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
-                file=mock_file,  # type: ignore[arg-type]
+                file=mock_file,
             )
-        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
 
 
 def test_upload_shelf_cover_picture_read_error(
@@ -1439,13 +1439,13 @@ def test_upload_shelf_cover_picture_read_error(
         with pytest.raises(HTTPException) as exc_info:
             shelves.upload_shelf_cover_picture(
                 shelf_id=1,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
-                file=mock_file,  # type: ignore[arg-type]
+                file=mock_file,
             )
-        assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
 def test_upload_shelf_cover_picture_value_error_shelf_not_found(
@@ -1468,13 +1468,13 @@ def test_upload_shelf_cover_picture_value_error_shelf_not_found(
         with pytest.raises(HTTPException) as exc_info:
             shelves.upload_shelf_cover_picture(
                 shelf_id=1,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
-                file=mock_file,  # type: ignore[arg-type]
+                file=mock_file,
             )
-        assert exc_info.value.status_code == 404  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == 404
 
 
 def test_upload_shelf_cover_picture_value_error_invalid_file_type(
@@ -1497,13 +1497,13 @@ def test_upload_shelf_cover_picture_value_error_invalid_file_type(
         with pytest.raises(HTTPException) as exc_info:
             shelves.upload_shelf_cover_picture(
                 shelf_id=1,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
-                file=mock_file,  # type: ignore[arg-type]
+                file=mock_file,
             )
-        assert exc_info.value.status_code == 400  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == 400
 
 
 def test_upload_shelf_cover_picture_value_error_failed_to_save(
@@ -1528,13 +1528,13 @@ def test_upload_shelf_cover_picture_value_error_failed_to_save(
         with pytest.raises(HTTPException) as exc_info:
             shelves.upload_shelf_cover_picture(
                 shelf_id=1,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
-                file=mock_file,  # type: ignore[arg-type]
+                file=mock_file,
             )
-        assert exc_info.value.status_code == 500  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == 500
 
 
 def test_upload_shelf_cover_picture_permission_error(
@@ -1557,13 +1557,13 @@ def test_upload_shelf_cover_picture_permission_error(
         with pytest.raises(HTTPException) as exc_info:
             shelves.upload_shelf_cover_picture(
                 shelf_id=1,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
-                file=mock_file,  # type: ignore[arg-type]
+                file=mock_file,
             )
-        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
 
 
 def test_upload_shelf_cover_picture_no_id_after_upload(
@@ -1598,13 +1598,13 @@ def test_upload_shelf_cover_picture_no_id_after_upload(
         with pytest.raises(HTTPException) as exc_info:
             shelves.upload_shelf_cover_picture(
                 shelf_id=1,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
-                file=mock_file,  # type: ignore[arg-type]
+                file=mock_file,
             )
-        assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
 def test_upload_shelf_cover_picture_unexpected_value_error(
@@ -1627,11 +1627,11 @@ def test_upload_shelf_cover_picture_unexpected_value_error(
         with pytest.raises(ValueError, match="unexpected_error"):
             shelves.upload_shelf_cover_picture(
                 shelf_id=1,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
-                file=mock_file,  # type: ignore[arg-type]
+                file=mock_file,
             )
 
 
@@ -1648,7 +1648,7 @@ def test_get_shelf_cover_picture_not_found(mock_library: Library) -> None:
         result = shelves.get_shelf_cover_picture(
             request=mock_request,
             shelf_id=999,
-            session=session,  # type: ignore[arg-type]
+            session=session,
             library_id=1,
         )
 
@@ -1672,7 +1672,7 @@ def test_get_shelf_cover_picture_no_cover(
         result = shelves.get_shelf_cover_picture(
             request=mock_request,
             shelf_id=1,
-            session=session,  # type: ignore[arg-type]
+            session=session,
             library_id=1,
         )
 
@@ -1700,7 +1700,7 @@ def test_get_shelf_cover_picture_absolute_path(
             result = shelves.get_shelf_cover_picture(
                 request=mock_request,
                 shelf_id=1,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 library_id=1,
             )
 
@@ -1733,7 +1733,7 @@ def test_get_shelf_cover_picture_relative_path(
             result = shelves.get_shelf_cover_picture(
                 request=mock_request,
                 shelf_id=1,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 library_id=1,
             )
 
@@ -1757,7 +1757,7 @@ def test_get_shelf_cover_picture_file_not_exists(
         result = shelves.get_shelf_cover_picture(
             request=mock_request,
             shelf_id=1,
-            session=session,  # type: ignore[arg-type]
+            session=session,
             library_id=1,
         )
 
@@ -1798,7 +1798,7 @@ def test_get_shelf_cover_picture_media_types(
                 result = shelves.get_shelf_cover_picture(
                     request=mock_request,
                     shelf_id=1,
-                    session=session,  # type: ignore[arg-type]
+                    session=session,
                     library_id=1,
                 )
 
@@ -1830,9 +1830,9 @@ def test_delete_shelf_cover_picture_success(
 
         result = shelves.delete_shelf_cover_picture(
             shelf_id=1,
-            session=session,  # type: ignore[arg-type]
+            session=session,
             current_user=mock_user,
-            shelf_service=mock_service,  # type: ignore[arg-type]
+            shelf_service=mock_service,
             library_id=1,
         )
 
@@ -1854,12 +1854,12 @@ def test_delete_shelf_cover_picture_not_found(
         with pytest.raises(HTTPException) as exc_info:
             shelves.delete_shelf_cover_picture(
                 shelf_id=999,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_delete_shelf_cover_picture_value_error_shelf_not_found(
@@ -1878,12 +1878,12 @@ def test_delete_shelf_cover_picture_value_error_shelf_not_found(
         with pytest.raises(HTTPException) as exc_info:
             shelves.delete_shelf_cover_picture(
                 shelf_id=1,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == 404  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == 404
 
 
 def test_delete_shelf_cover_picture_permission_error(
@@ -1902,12 +1902,12 @@ def test_delete_shelf_cover_picture_permission_error(
         with pytest.raises(HTTPException) as exc_info:
             shelves.delete_shelf_cover_picture(
                 shelf_id=1,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
 
 
 def test_delete_shelf_cover_picture_no_id_after_delete(
@@ -1936,12 +1936,12 @@ def test_delete_shelf_cover_picture_no_id_after_delete(
         with pytest.raises(HTTPException) as exc_info:
             shelves.delete_shelf_cover_picture(
                 shelf_id=1,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )
-        assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
 def test_delete_shelf_cover_picture_unexpected_value_error(
@@ -1960,8 +1960,8 @@ def test_delete_shelf_cover_picture_unexpected_value_error(
         with pytest.raises(ValueError, match="unexpected_error"):
             shelves.delete_shelf_cover_picture(
                 shelf_id=1,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=mock_user,
-                shelf_service=mock_service,  # type: ignore[arg-type]
+                shelf_service=mock_service,
                 library_id=1,
             )

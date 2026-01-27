@@ -552,7 +552,7 @@ class EPUBFixBatchTask(BaseTask):
                 return
 
             # Create fix run
-            library_id = self.library_id or (library.id if library else None)  # type: ignore[union-attr]
+            library_id = self.library_id or (library.id if library else None)
             fix_run = fixer_service.create_fix_run(
                 user_id=self.user_id,
                 library_id=library_id,

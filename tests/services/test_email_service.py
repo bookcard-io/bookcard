@@ -385,7 +385,7 @@ def test_gmail_send_invalid_token_format(
     gmail_config: EmailServerConfig, test_file: Path
 ) -> None:
     """Test GmailEmailSenderStrategy.send raises error when token is not a dict (covers lines 227-230)."""
-    gmail_config.gmail_token = "not_a_dict"
+    gmail_config.gmail_token = "not_a_dict"  # ty:ignore[invalid-assignment]
     strategy = GmailEmailSenderStrategy(gmail_config)
 
     with pytest.raises(EmailServiceError, match="invalid_gmail_token_format"):
@@ -547,7 +547,7 @@ def test_send_ebook_file_too_large(
     smtp_config: EmailServerConfig, tmp_path: Path
 ) -> None:
     """Test EmailService.send_ebook raises error when file too large (covers lines 373-380)."""
-    smtp_config.max_email_size_mb = 1.0
+    smtp_config.max_email_size_mb = 1.0  # ty:ignore[invalid-assignment]
     service = EmailService(smtp_config)
 
     # Create a file larger than the limit

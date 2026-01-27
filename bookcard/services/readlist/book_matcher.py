@@ -268,8 +268,8 @@ class BookMatcherService(BookMatcher):
             series_alias = aliased(Series)
             stmt = (
                 select(Book.id, Book.series_index, Book.pubdate)
-                .join(BookSeriesLink, Book.id == BookSeriesLink.book)
-                .join(series_alias, BookSeriesLink.series == series_alias.id)
+                .join(BookSeriesLink, Book.id == BookSeriesLink.book)  # type: ignore[invalid-argument-type]
+                .join(series_alias, BookSeriesLink.series == series_alias.id)  # type: ignore[invalid-argument-type]
                 .where(func.lower(series_alias.name) == ref.series.lower())
             )
 
@@ -395,8 +395,8 @@ class BookMatcherService(BookMatcher):
             series_alias = aliased(Series)
             stmt = (
                 select(Book.id, Book.series_index, Book.pubdate, series_alias.name)
-                .join(BookSeriesLink, Book.id == BookSeriesLink.book)
-                .join(series_alias, BookSeriesLink.series == series_alias.id)
+                .join(BookSeriesLink, Book.id == BookSeriesLink.book)  # type: ignore[invalid-argument-type]
+                .join(series_alias, BookSeriesLink.series == series_alias.id)  # type: ignore[invalid-argument-type]
             )
             return list(session.exec(stmt).all())
 
@@ -488,8 +488,8 @@ class BookMatcherService(BookMatcher):
             author_alias = aliased(Author)
             stmt = (
                 select(Book.id, Book.title, author_alias.name)
-                .outerjoin(BookAuthorLink, Book.id == BookAuthorLink.book)
-                .outerjoin(author_alias, BookAuthorLink.author == author_alias.id)
+                .outerjoin(BookAuthorLink, Book.id == BookAuthorLink.book)  # type: ignore[invalid-argument-type]
+                .outerjoin(author_alias, BookAuthorLink.author == author_alias.id)  # type: ignore[invalid-argument-type]
                 .distinct()
             )
 

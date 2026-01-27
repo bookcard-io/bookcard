@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
 from bookcard.pvr.base import DownloadClientSettings
@@ -248,7 +249,10 @@ class TestPneumaticClient:
         )
 
         mock_client_instance = MagicMock()
-        mock_client_instance.get.side_effect = Exception("Network error")
+        mock_client_instance.get.side_effect = httpx.RequestError(
+            "Network error",
+            request=httpx.Request("GET", "http://example.com/test.nzb"),
+        )
         mock_client_instance.__enter__ = MagicMock(return_value=mock_client_instance)
         mock_client_instance.__exit__ = MagicMock(return_value=False)
         mock_client_class.return_value = mock_client_instance

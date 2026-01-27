@@ -401,7 +401,7 @@ class FloodClient(BaseDownloadClient):
         super().__init__(
             settings, file_fetcher, url_router, http_client_factory, enabled
         )
-        self.settings: FloodSettings = settings  # type: ignore[assignment]
+        self.settings: FloodSettings = settings
         self._proxy = FloodProxy(self.settings)
 
     @property

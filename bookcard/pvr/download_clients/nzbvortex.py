@@ -519,7 +519,7 @@ class NzbvortexClient(BaseDownloadClient):
         super().__init__(
             settings, file_fetcher, url_router, http_client_factory, enabled
         )
-        self.settings: NzbvortexSettings = settings  # type: ignore[assignment]
+        self.settings: NzbvortexSettings = settings
         self._proxy = NzbvortexProxy(self.settings)
         self._status_mapper = StatusMapper(
             {

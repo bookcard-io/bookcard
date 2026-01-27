@@ -87,8 +87,8 @@ def test_user_repo_list_users_returns_exec_all(
     user_repo: UserAdminRepository, session: MockSession
 ) -> None:
     """Test list_users returns exec().all() result."""
-    u1 = User(id=1, username="u1", email="e1", password_hash="h")  # type: ignore[call-arg]
-    u2 = User(id=2, username="u2", email="e2", password_hash="h")  # type: ignore[call-arg]
+    u1 = User(id=1, username="u1", email="e1", password_hash="h")
+    u2 = User(id=2, username="u2", email="e2", password_hash="h")
     session.set_exec([u1, u2])
     out = list(user_repo.list_users(limit=10, offset=0))
     assert out == [u1, u2]
@@ -98,7 +98,7 @@ def test_user_repo_list_users_respects_pagination(
     user_repo: UserAdminRepository, session: MockSession
 ) -> None:
     """Test list_users respects offset and limit."""
-    u1 = User(id=1, username="u1", email="e1", password_hash="h")  # type: ignore[call-arg]
+    u1 = User(id=1, username="u1", email="e1", password_hash="h")
     session.set_exec([u1])
     out = list(user_repo.list_users(limit=1, offset=1))
     assert out == [u1]
@@ -108,7 +108,7 @@ def test_setting_repo_get_by_key_returns_first(
     setting_repo: SettingRepository, session: MockSession
 ) -> None:
     """Test get_by_key returns exec().first() result."""
-    setting = UserSetting(key="test", value="value")  # type: ignore[call-arg]
+    setting = UserSetting(key="test", value="value")
     session.set_exec([setting])
     out = setting_repo.get_by_key(1, "test")
     assert out is setting
@@ -127,8 +127,8 @@ def test_invite_repo_list_all_returns_exec_all(
     invite_repo: InviteRepository, session: MockSession
 ) -> None:
     """Test list_all returns exec().all() result."""
-    inv1 = Invite(id=1, created_by=1, token="t1")  # type: ignore[call-arg]
-    inv2 = Invite(id=2, created_by=1, token="t2")  # type: ignore[call-arg]
+    inv1 = Invite(id=1, created_by=1, token="t1")
+    inv2 = Invite(id=2, created_by=1, token="t2")
     session.set_exec([inv1, inv2])
     out = list(invite_repo.list_all(limit=10))
     assert out == [inv1, inv2]
@@ -138,7 +138,7 @@ def test_invite_repo_list_all_respects_limit(
     invite_repo: InviteRepository, session: MockSession
 ) -> None:
     """Test list_all respects limit parameter."""
-    inv = Invite(id=1, created_by=1, token="t")  # type: ignore[call-arg]
+    inv = Invite(id=1, created_by=1, token="t")
     session.set_exec([inv])
     out = list(invite_repo.list_all(limit=1))
     assert out == [inv]
@@ -155,7 +155,7 @@ def test_invite_repo_get_by_token_returns_first(
         created_by=1,
         token="test-token-123",
         expires_at=datetime.now(UTC) + timedelta(days=1),
-    )  # type: ignore[call-arg]
+    )
     session.set_exec([inv])
     out = invite_repo.get_by_token("test-token-123")
     assert out is inv

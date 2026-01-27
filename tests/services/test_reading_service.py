@@ -43,32 +43,32 @@ else:
 
 
 @pytest.fixture
-def progress_repo(session: DummySession) -> ReadingProgressRepository:  # type: ignore[valid-type]
+def progress_repo(session: DummySession) -> ReadingProgressRepository:
     """Create ReadingProgressRepository instance."""
     return ReadingProgressRepository(session)  # type: ignore[arg-type]
 
 
 @pytest.fixture
-def session_repo(session: DummySession) -> ReadingSessionRepository:  # type: ignore[valid-type]
+def session_repo(session: DummySession) -> ReadingSessionRepository:
     """Create ReadingSessionRepository instance."""
     return ReadingSessionRepository(session)  # type: ignore[arg-type]
 
 
 @pytest.fixture
-def status_repo(session: DummySession) -> ReadStatusRepository:  # type: ignore[valid-type]
+def status_repo(session: DummySession) -> ReadStatusRepository:
     """Create ReadStatusRepository instance."""
     return ReadStatusRepository(session)  # type: ignore[arg-type]
 
 
 @pytest.fixture
-def annotation_repo(session: DummySession) -> AnnotationRepository:  # type: ignore[valid-type]
+def annotation_repo(session: DummySession) -> AnnotationRepository:
     """Create AnnotationRepository instance."""
     return AnnotationRepository(session)  # type: ignore[arg-type]
 
 
 @pytest.fixture
 def reading_service(
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
     progress_repo: ReadingProgressRepository,
     session_repo: ReadingSessionRepository,
     status_repo: ReadStatusRepository,
@@ -90,7 +90,7 @@ class TestUpdateProgress:
     def test_update_progress_create_new(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test update_progress creates new progress when none exists."""
         session.set_exec_result([])  # get_by_user_book_format returns None
@@ -106,12 +106,12 @@ class TestUpdateProgress:
         assert result.user_id == 1
         assert result.book_id == 1
         assert result.format == "EPUB"
-        assert result in session.added  # type: ignore[attr-defined]
+        assert result in session.added
 
     def test_update_progress_update_existing(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test update_progress updates existing progress."""
         existing = ReadingProgress(
@@ -137,7 +137,7 @@ class TestUpdateProgress:
     def test_update_progress_with_cfi(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test update_progress with CFI."""
         session.set_exec_result([])
@@ -155,7 +155,7 @@ class TestUpdateProgress:
     def test_update_progress_with_page_number(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test update_progress with page number."""
         session.set_exec_result([])
@@ -173,7 +173,7 @@ class TestUpdateProgress:
     def test_update_progress_auto_mark_at_90(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test update_progress auto-marks as read at 90%."""
         session.set_exec_result([])  # No existing progress
@@ -188,12 +188,12 @@ class TestUpdateProgress:
         )
         assert result.progress == 0.90
         # Check that auto-mark was called (status should be created)
-        assert len(session.added) > 0  # type: ignore[attr-defined]
+        assert len(session.added) > 0
 
     def test_update_progress_invalid_range(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test update_progress raises ValueError for invalid progress."""
         with pytest.raises(ValueError, match=r"Progress must be between 0.0 and 1.0"):
@@ -208,7 +208,7 @@ class TestUpdateProgress:
     def test_update_progress_sets_first_opened(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test update_progress sets first_opened_at when progress > 0."""
         session.set_exec_result([])  # No existing progress
@@ -221,7 +221,7 @@ class TestUpdateProgress:
             progress=0.1,
         )
         # Check that first_opened_at was set
-        assert len(session.added) > 0  # type: ignore[attr-defined]
+        assert len(session.added) > 0
 
 
 class TestStartSession:
@@ -230,7 +230,7 @@ class TestStartSession:
     def test_start_session_creates_new(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test start_session creates new session."""
         session.set_exec_result([])  # No existing progress
@@ -246,12 +246,12 @@ class TestStartSession:
         assert result.format == "EPUB"
         assert result.progress_start == 0.0
         assert result.ended_at is None
-        assert result in session.added  # type: ignore[attr-defined]
+        assert result in session.added
 
     def test_start_session_with_existing_progress(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test start_session uses existing progress."""
         existing_progress = ReadingProgress(
@@ -279,7 +279,7 @@ class TestEndSession:
     def test_end_session_success(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test end_session ends a session successfully."""
         session_obj = ReadingSession(
@@ -301,7 +301,7 @@ class TestEndSession:
     def test_end_session_not_found(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test end_session raises ValueError when session not found."""
         session._entities_by_class_and_id[ReadingSession] = {}
@@ -311,7 +311,7 @@ class TestEndSession:
     def test_end_session_already_ended(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test end_session raises ValueError when already ended."""
         session_obj = ReadingSession(
@@ -332,7 +332,7 @@ class TestEndSession:
     def test_end_session_auto_mark_at_90(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test end_session auto-marks as read at 90%."""
         session_obj = ReadingSession(
@@ -356,7 +356,7 @@ class TestMarkAsRead:
     def test_mark_as_read_create_new(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test mark_as_read creates new status."""
         session.set_exec_result([])  # No existing status
@@ -374,7 +374,7 @@ class TestMarkAsRead:
     def test_mark_as_read_update_existing(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test mark_as_read updates existing status."""
         existing = ReadStatus(
@@ -404,7 +404,7 @@ class TestMarkAsUnread:
     def test_mark_as_unread_create_new(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test mark_as_unread creates new status."""
         session.set_exec_result([])
@@ -420,7 +420,7 @@ class TestMarkAsUnread:
     def test_mark_as_unread_update_existing(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test mark_as_unread updates existing status."""
         existing = ReadStatus(
@@ -451,7 +451,7 @@ class TestGetProgress:
     def test_get_progress_found(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test get_progress returns progress when found."""
         progress = ReadingProgress(
@@ -469,7 +469,7 @@ class TestGetProgress:
     def test_get_progress_not_found(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test get_progress returns None when not found."""
         session.set_exec_result([])
@@ -483,7 +483,7 @@ class TestGetRecentReads:
     def test_get_recent_reads(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test get_recent_reads returns recent reads."""
         reads = [
@@ -508,7 +508,7 @@ class TestGetReadingHistory:
     def test_get_reading_history(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test get_reading_history returns sessions."""
         sessions = [
@@ -534,7 +534,7 @@ class TestGetReadStatus:
     def test_get_read_status_found(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test get_read_status returns status when found."""
         status = ReadStatus(
@@ -551,7 +551,7 @@ class TestGetReadStatus:
     def test_get_read_status_not_found(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test get_read_status returns None when not found."""
         session.set_exec_result([])
@@ -573,7 +573,7 @@ class TestUpdateProgressOptionalParams:
     def test_update_progress_existing_with_optional_params(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
         param_name: str,
         param_value: str | int,
         expected_attr: str,
@@ -634,7 +634,7 @@ class TestEndSessionInvalidProgress:
     def test_end_session_invalid_progress_range(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
         progress_end: float,
         expected_error: str,
     ) -> None:
@@ -649,7 +649,7 @@ class TestMarkAsReadWithProgress:
     def test_mark_as_read_update_existing_with_progress(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test mark_as_read updates existing status with progress_when_marked."""
         existing_progress = ReadingProgress(
@@ -688,7 +688,7 @@ class TestAutoMarkAsRead:
     def test_auto_mark_as_read_existing_not_read(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test _auto_mark_as_read updates existing status that is not READ."""
         existing_status = ReadStatus(
@@ -726,7 +726,7 @@ class TestEnsureFirstOpened:
     def test_ensure_first_opened_existing_no_first_opened_not_read(
         self,
         reading_service: ReadingService,
-        session: DummySession,  # type: ignore[valid-type]
+        session: DummySession,
     ) -> None:
         """Test _ensure_first_opened sets first_opened_at and updates status."""
         existing_status = ReadStatus(

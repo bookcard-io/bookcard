@@ -140,7 +140,7 @@ class XmlRpcClient:
                     self.url,
                     content=xml_request,
                     headers={"Content-Type": "text/xml"},
-                    auth=self.auth,
+                    auth=self.auth,  # type: ignore[invalid-argument-type]
                 )
 
                 if response.status_code >= 400:

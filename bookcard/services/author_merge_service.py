@@ -58,7 +58,7 @@ class AuthorMergeService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         author_repo: AuthorRepository | None = None,
         library_service: LibraryService | None = None,
         library_repo: LibraryRepository | None = None,

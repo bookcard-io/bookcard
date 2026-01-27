@@ -64,7 +64,7 @@ class TestScanWorkerManagerStartWorkers:
 
         assert manager._started is True
         assert len(manager.workers) == 6  # 6 worker types
-        manager.broker.start.assert_called_once()  # type: ignore[attr-defined]
+        manager.broker.start.assert_called_once()
 
     def test_start_workers_when_already_started(self, redis_url: str) -> None:
         """Test start_workers when already started (covers lines 62-63).

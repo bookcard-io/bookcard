@@ -193,7 +193,7 @@ def create_shelf(
     try:
         shelf = shelf_service.create_shelf(
             library_id=library_id,
-            user_id=current_user.id,
+            user_id=current_user.id,  # ty:ignore[invalid-argument-type]
             name=shelf_data.name,
             description=shelf_data.description,
             is_public=shelf_data.is_public,
@@ -270,7 +270,7 @@ def list_shelves(
 
     shelves = shelf_service.list_user_shelves(
         library_id=library_id,
-        user_id=current_user.id,
+        user_id=current_user.id,  # ty:ignore[invalid-argument-type]
         include_public=True,
     )
 
@@ -278,10 +278,10 @@ def list_shelves(
     link_repo = BookShelfLinkRepository(session)
     shelf_reads = []
     for shelf in shelves:
-        book_count = len(link_repo.find_by_shelf(shelf.id))
+        book_count = len(link_repo.find_by_shelf(shelf.id))  # ty:ignore[invalid-argument-type]
         shelf_reads.append(
             ShelfRead(
-                id=shelf.id,
+                id=shelf.id,  # ty:ignore[invalid-argument-type]
                 uuid=shelf.uuid,
                 name=shelf.name,
                 description=shelf.description,
@@ -1158,7 +1158,7 @@ def import_read_list(
         # Convert to response schema
         matched = [
             BookMatch(
-                book_id=match.book_id,  # type: ignore[arg-type]
+                book_id=match.book_id,
                 confidence=match.confidence,
                 match_type=match.match_type,
                 reference=match.reference.model_dump(),

@@ -122,7 +122,7 @@ class TestBuildUnmatchedPersisted:
         author_metadata_unmatched: AuthorMetadata,
     ) -> None:
         """Test build for persisted unmatched author without mappings."""
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
         author_metadata_unmatched.remote_ids = []
         author_metadata_unmatched.photos = []
         author_metadata_unmatched.alternate_names = []
@@ -149,7 +149,7 @@ class TestBuildUnmatchedPersisted:
             calibre_author_id=42,
             library_id=1,
         )
-        session.set_exec_result([mapping])  # type: ignore[attr-defined]
+        session.set_exec_result([mapping])
         author_metadata_unmatched.remote_ids = []
         author_metadata_unmatched.photos = []
         author_metadata_unmatched.alternate_names = []
@@ -214,13 +214,13 @@ class TestBuildUnmatchedPersisted:
         ]
 
         # Set up session results for multiple exec calls
-        session.set_exec_result([mapping])  # type: ignore[attr-defined]
-        session.add_exec_result([remote_id])  # type: ignore[attr-defined]
-        session.add_exec_result([photo])  # type: ignore[attr-defined]
-        session.add_exec_result([alt_name])  # type: ignore[attr-defined]
-        session.add_exec_result([link])  # type: ignore[attr-defined]
-        session.add_exec_result([work])  # type: ignore[attr-defined]
-        session.add_exec_result([])  # type: ignore[attr-defined]  # user_photos
+        session.set_exec_result([mapping])
+        session.add_exec_result([remote_id])
+        session.add_exec_result([photo])
+        session.add_exec_result([alt_name])
+        session.add_exec_result([link])
+        session.add_exec_result([work])
+        session.add_exec_result([])
 
         result = dict_builder.build(author_metadata_unmatched)
 
@@ -270,15 +270,15 @@ class TestBuildUnmatchedPersisted:
             created_at=datetime.now(UTC),
         )
 
-        session.set_exec_result([mapping])  # type: ignore[attr-defined]
-        session.add_exec_result([])  # type: ignore[attr-defined]  # remote_ids
-        session.add_exec_result([])  # type: ignore[attr-defined]  # photos
-        session.add_exec_result([])  # type: ignore[attr-defined]  # alternate_names
-        session.add_exec_result([])  # type: ignore[attr-defined]  # links
-        session.add_exec_result([])  # type: ignore[attr-defined]  # works
-        session.add_exec_result([user_photo])  # type: ignore[attr-defined]  # user_photos
+        session.set_exec_result([mapping])
+        session.add_exec_result([])
+        session.add_exec_result([])
+        session.add_exec_result([])
+        session.add_exec_result([])
+        session.add_exec_result([])
+        session.add_exec_result([user_photo])
 
-        result = dict_builder.build(author)  # type: ignore[arg-type]
+        result = dict_builder.build(author)
 
         assert "user_photos" in result
         assert len(result["user_photos"]) == 1  # type: ignore[index]
@@ -322,16 +322,16 @@ class TestBuildMatched:
         )
 
         # Order matches execution: _ensure_relationships_loaded first, then mappings, then user_metadata, then user_photos
-        session.set_exec_result([])  # type: ignore[attr-defined]  # remote_ids (from _ensure_relationships_loaded)
-        session.add_exec_result([])  # type: ignore[attr-defined]  # photos (from _ensure_relationships_loaded)
-        session.add_exec_result([])  # type: ignore[attr-defined]  # alternate_names (from _ensure_relationships_loaded)
-        session.add_exec_result([])  # type: ignore[attr-defined]  # links (from _ensure_relationships_loaded)
-        session.add_exec_result([])  # type: ignore[attr-defined]  # works (from _ensure_relationships_loaded)
-        session.add_exec_result([])  # type: ignore[attr-defined]  # mappings
-        session.add_exec_result([user_metadata])  # type: ignore[attr-defined]  # user_metadata
-        session.add_exec_result([])  # type: ignore[attr-defined]  # user_photos
+        session.set_exec_result([])
+        session.add_exec_result([])
+        session.add_exec_result([])
+        session.add_exec_result([])
+        session.add_exec_result([])
+        session.add_exec_result([])
+        session.add_exec_result([user_metadata])
+        session.add_exec_result([])
 
-        result = dict_builder.build(author)  # type: ignore[arg-type]
+        result = dict_builder.build(author)
 
         assert result["name"] == "Test Author"
         assert result["key"] == "OL123A"
@@ -370,16 +370,16 @@ class TestBuildMatched:
         )
 
         # Order matches execution: _ensure_relationships_loaded first, then mappings, then user_metadata, then user_photos
-        session.set_exec_result([])  # type: ignore[attr-defined]  # remote_ids (from _ensure_relationships_loaded)
-        session.add_exec_result([])  # type: ignore[attr-defined]  # photos (from _ensure_relationships_loaded)
-        session.add_exec_result([])  # type: ignore[attr-defined]  # alternate_names (from _ensure_relationships_loaded)
-        session.add_exec_result([])  # type: ignore[attr-defined]  # links (from _ensure_relationships_loaded)
-        session.add_exec_result([])  # type: ignore[attr-defined]  # works (from _ensure_relationships_loaded)
-        session.add_exec_result([])  # type: ignore[attr-defined]  # mappings
-        session.add_exec_result([])  # type: ignore[attr-defined]  # user_metadata
-        session.add_exec_result([user_photo])  # type: ignore[attr-defined]  # user_photos
+        session.set_exec_result([])
+        session.add_exec_result([])
+        session.add_exec_result([])
+        session.add_exec_result([])
+        session.add_exec_result([])
+        session.add_exec_result([])
+        session.add_exec_result([])
+        session.add_exec_result([user_photo])
 
-        result = dict_builder.build(author)  # type: ignore[arg-type]
+        result = dict_builder.build(author)
 
         assert result["name"] == "Test Author"
         assert "user_photos" in result
@@ -429,7 +429,7 @@ class TestAddUserPhotosField:
         dict_builder._add_user_photos_field(author_data, author_metadata)
 
         assert "user_photos" in author_data
-        photos = author_data["user_photos"]  # type: ignore[assignment]
+        photos = author_data["user_photos"]
         assert isinstance(photos, list)
         assert len(photos) == 1  # Only photo with id should be included
         assert photos[0]["id"] == 1  # type: ignore[index]

@@ -76,7 +76,7 @@ class DownloadDecision:
         """
         return (
             not self.approved
-            and self.rejections
+            and bool(self.rejections)
             and all(r.type == RejectionType.TEMPORARY for r in self.rejections)
         )
 
@@ -91,7 +91,7 @@ class DownloadDecision:
         """
         return (
             not self.approved
-            and self.rejections
+            and bool(self.rejections)
             and any(r.type == RejectionType.PERMANENT for r in self.rejections)
         )
 

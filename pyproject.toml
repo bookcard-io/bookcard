@@ -24,8 +24,8 @@ dependencies = [
     "pydantic[email]>=2.12.4",
     "pyjwt>=2.10.1",
     "python-dotenv>=1.2.1",
-    "sqlalchemy>=2.0.44",
-    "sqlmodel>=0.0.27",
+    "sqlalchemy>=2.0.46",
+    "sqlmodel>=0.0.31",
     "uvicorn[standard]>=0.38.0",
     "python-multipart>=0.0.20",
     "pypdf>=6.6.0",
@@ -70,8 +70,8 @@ dev = [
     "pytest-asyncio>=1.2.0",
     "pytest-cov>=7.0.0",
     "pytest-xdist>=3.8.0",
-    "ruff>=0.14.10",
-    "ty>=0.0.1a25",
+    "ruff>=0.14.14",
+    "ty>=0.0.13",
 
     # via pre-commit
     "filelock>=3.20.3",

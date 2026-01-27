@@ -59,7 +59,7 @@ class KoboReadingStateService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         reading_state_repo: KoboReadingStateRepository,
         read_status_repo: ReadStatusRepository,
         reading_service: ReadingService,

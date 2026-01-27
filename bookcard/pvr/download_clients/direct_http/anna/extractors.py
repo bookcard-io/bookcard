@@ -34,6 +34,17 @@ def is_valid_direct_link(link: str) -> bool:
     return link.startswith(("http://", "https://")) and "/slow_download/" not in link
 
 
+def _normalize_href(href: object) -> str | None:
+    """Normalize BeautifulSoup href value to a single string."""
+    if isinstance(href, str):
+        return href
+    if isinstance(href, list):
+        for value in href:
+            if isinstance(value, str):
+                return value
+    return None
+
+
 class ClipboardLinkExtractor:
     """Extracts link from clipboard writeText call."""
 
@@ -58,7 +69,7 @@ class DownloadButtonExtractor:
         for link in links:
             text = link.get_text(strip=True)
             if text == "📚 Download now" or "Download now" in text:
-                return link["href"]
+                return _normalize_href(link.get("href"))
         return None
 
 
@@ -84,8 +95,10 @@ class CopyTextExtractor:
         if copy_text and copy_text.parent:
             parent = copy_text.parent
             next_link = parent.find_next("a", href=True)
-            if next_link and next_link.get("href"):
-                return next_link["href"]
+            if next_link:
+                href = _normalize_href(next_link.get("href"))
+                if href:
+                    return href
             code_elem = parent.find_next("code")
             if code_elem:
                 return code_elem.get_text(strip=True)
@@ -107,8 +120,8 @@ class GenericLinkExtractor:
         """Extract link using generic patterns."""
         for a_tag in soup.find_all("a", href=True):
             if a_tag.has_attr("download"):
-                href = a_tag["href"]
-                if is_valid_direct_link(href):
+                href = _normalize_href(a_tag.get("href"))
+                if href and is_valid_direct_link(href):
                     return href
 
         for span in soup.find_all(

@@ -247,14 +247,14 @@ class PVRImportService:
                     self._raise_runtime_error(msg)
 
                 with import_transaction(session) as tx:
-                    result = self._workflow.execute(item, download_path, tx)
+                    result = self._workflow.execute(item, download_path, tx)  # type: ignore[invalid-argument-type]
 
                     # Update tracked book status if successful (even if no new book created)
-                    if item.tracked_book:
-                        item.tracked_book.status = TrackedBookStatus.COMPLETED
+                    if item.tracked_book:  # ty:ignore[possibly-missing-attribute]
+                        item.tracked_book.status = TrackedBookStatus.COMPLETED  # ty:ignore[possibly-missing-attribute]
                         if result.book_id:
-                            item.tracked_book.matched_book_id = result.book_id
-                        tx.add(item.tracked_book)
+                            item.tracked_book.matched_book_id = result.book_id  # ty:ignore[possibly-missing-attribute]
+                        tx.add(item.tracked_book)  # ty:ignore[possibly-missing-attribute]
 
                     if self._metrics:
                         self._metrics.increment(

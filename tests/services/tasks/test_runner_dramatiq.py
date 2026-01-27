@@ -493,7 +493,7 @@ def test_enqueue_task_id_none(
 
         mock_task_service = MagicMock(spec=TaskService)
         mock_task = Task(
-            id=None,  # type: ignore[arg-type]
+            id=None,
             task_type=TaskType.BOOK_UPLOAD,
             status=TaskStatus.PENDING,
             user_id=1,

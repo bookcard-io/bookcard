@@ -110,18 +110,18 @@ class EPUBScanner:
             # Query for books with EPUB format
             stmt = (
                 select(Book, Data)
-                .join(Data, Book.id == Data.book)
+                .join(Data, Book.id == Data.book)  # type: ignore[invalid-argument-type]
                 .where(func.upper(Data.format) == "EPUB")
             )
 
             if book_id is not None:
-                stmt = stmt.where(Book.id == book_id)  # type: ignore[attr-defined]
+                stmt = stmt.where(Book.id == book_id)
 
             results = session.exec(stmt).all()
 
             for result in results:
-                book: Book = result[0]  # type: ignore[index]
-                data: Data = result[1]  # type: ignore[index]
+                book: Book = result[0]
+                data: Data = result[1]
 
                 # Build file path
                 book_path = library_path / book.path
@@ -137,7 +137,7 @@ class EPUBScanner:
                 if file_path.exists() and file_path.suffix.lower() == ".epub":
                     epub_files.append(
                         EPUBFileInfo(
-                            book_id=book.id,
+                            book_id=book.id,  # ty:ignore[invalid-argument-type]
                             book_title=book.title,
                             file_path=file_path,
                         )

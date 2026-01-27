@@ -514,27 +514,27 @@ class WorkMetadata(SQLModel, table=True):
     first_publish_date: str | None = Field(default=None, max_length=100)
     covers: list[int] | None = Field(
         default=None,
-        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSONBType(), nullable=True),
     )
     subjects: list[str] | None = Field(
         default=None,
-        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSONBType(), nullable=True),
     )
     subject_people: list[str] | None = Field(
         default=None,
-        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSONBType(), nullable=True),
     )
     subject_places: list[str] | None = Field(
         default=None,
-        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSONBType(), nullable=True),
     )
     links: list[dict[str, Any]] | None = Field(
         default=None,
-        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSONBType(), nullable=True),
     )
     excerpts: list[dict[str, Any]] | None = Field(
         default=None,
-        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSONBType(), nullable=True),
     )
     revision: int | None = Field(default=None)
     latest_revision: int | None = Field(default=None)
@@ -542,7 +542,7 @@ class WorkMetadata(SQLModel, table=True):
     last_modified: datetime | None = Field(default=None)
     raw_data: dict[str, Any] | None = Field(
         default=None,
-        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSONBType(), nullable=True),
     )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
@@ -590,7 +590,7 @@ class AuthorUserMetadata(SQLModel, table=True):
     field_name: str = Field(max_length=100, index=True)
     field_value: dict[str, Any] | list[str] | str | None = Field(
         default=None,
-        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSONBType(), nullable=True),
     )
     is_user_defined: bool = Field(default=True, index=True)
     created_at: datetime = Field(

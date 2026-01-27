@@ -57,7 +57,7 @@ def service(
     return EPUBFixerService(
         session=session,  # type: ignore[valid-type]
         run_repo=mock_run_repo,
-        fix_repo=mock_fix_repo,  # type: ignore[valid-type]
+        fix_repo=mock_fix_repo,
     )
 
 
@@ -113,7 +113,7 @@ class TestEPUBFixerServiceInit:
         service = EPUBFixerService(
             session=session,  # type: ignore[valid-type]
             run_repo=mock_run_repo,
-            fix_repo=mock_fix_repo,  # type: ignore[valid-type]
+            fix_repo=mock_fix_repo,
         )
         assert service._run_repo == mock_run_repo
         assert service._fix_repo == mock_fix_repo

@@ -38,7 +38,9 @@ class TestEnsureUTC:
         ],
     )
     def test_ensure_utc(
-        self, input_dt: datetime | None, expected_tzinfo: type[UTC] | None
+        self,
+        input_dt: datetime | None,
+        expected_tzinfo: type[UTC] | None,  # ty:ignore[invalid-type-form]
     ) -> None:
         """Test ensure_utc with various datetime inputs.
 

@@ -51,8 +51,8 @@ class LibraryService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
-        library_repo: LibraryRepository,  # type: ignore[type-arg]
+        session: Session,
+        library_repo: LibraryRepository,
     ) -> None:
         self._session = session
         self._library_repo = library_repo

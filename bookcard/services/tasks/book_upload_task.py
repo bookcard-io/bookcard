@@ -78,7 +78,7 @@ class BookUploadTask(BaseTask):
         task_id: int,
         user_id: int,
         metadata: dict[str, Any],
-        post_processors: list[PostIngestProcessor] | None = None,  # type: ignore[type-arg]
+        post_processors: list[PostIngestProcessor] | None = None,
     ) -> None:
         """Initialize book upload task.
 
@@ -192,8 +192,8 @@ class BookUploadTask(BaseTask):
 
     def _get_active_library(
         self,
-        session: Session,  # type: ignore[type-arg]
-    ) -> Library:  # type: ignore[name-defined]
+        session: Session,
+    ) -> Library:
         """Get active library configuration.
 
         Parameters
@@ -263,7 +263,7 @@ class BookUploadTask(BaseTask):
 
     def _check_and_handle_duplicate(
         self,
-        library: Library,  # type: ignore[name-defined]
+        library: Library,
         book_service: BookService,
         title: str,
         author_name: str | None,
@@ -324,8 +324,8 @@ class BookUploadTask(BaseTask):
 
     def _add_book_to_library(
         self,
-        session: Session,  # type: ignore[type-arg]
-        library: Library,  # type: ignore[name-defined]
+        session: Session,
+        library: Library,
         update_progress: ProgressCallback,
     ) -> int:
         """Add book to library and return book ID.
@@ -387,9 +387,9 @@ class BookUploadTask(BaseTask):
 
     def _get_post_processors(
         self,
-        session: Session,  # type: ignore[type-arg]
-        library: Library,  # type: ignore[name-defined]
-    ) -> list[PostIngestProcessor]:  # type: ignore[type-arg]
+        session: Session,
+        library: Library,
+    ) -> list[PostIngestProcessor]:
         """Get post-ingest processors, creating defaults if needed.
 
         Parameters
@@ -415,9 +415,9 @@ class BookUploadTask(BaseTask):
 
     def _run_post_processors(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         book_id: int,
-        library: Library,  # type: ignore[name-defined]
+        library: Library,
     ) -> None:
         """Run post-ingest processors for the uploaded book.
 

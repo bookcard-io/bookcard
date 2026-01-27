@@ -154,14 +154,14 @@ class TaskService:
         Sequence[Task]
             List of matching tasks.
         """
-        stmt = select(Task).options(selectinload(Task.user))
+        stmt = select(Task).options(selectinload(Task.user))  # type: ignore[invalid-argument-type]
         if user_id is not None:
-            stmt = stmt.where(Task.user_id == user_id)
+            stmt = stmt.where(Task.user_id == user_id)  # type: ignore[invalid-argument-type]
         if status is not None:
-            stmt = stmt.where(Task.status == status)
+            stmt = stmt.where(Task.status == status)  # type: ignore[invalid-argument-type]
         if task_type is not None:
-            stmt = stmt.where(Task.task_type == task_type)
-        stmt = stmt.order_by(desc(Task.created_at)).limit(limit).offset(offset)
+            stmt = stmt.where(Task.task_type == task_type)  # type: ignore[invalid-argument-type]
+        stmt = stmt.order_by(desc(Task.created_at)).limit(limit).offset(offset)  # type: ignore[invalid-argument-type]
         results = self._session.exec(stmt).all()  # type: ignore[call-overload]
 
         # Extract Task instances from Row objects if needed
@@ -404,7 +404,7 @@ class TaskService:
         """
         stmt = select(TaskStatistics)
         if task_type is not None:
-            stmt = stmt.where(TaskStatistics.task_type == task_type)
+            stmt = stmt.where(TaskStatistics.task_type == task_type)  # type: ignore[invalid-argument-type]
         stmt = stmt.order_by(TaskStatistics.task_type)
         return self._session.exec(stmt).all()  # type: ignore[call-overload]
 
@@ -488,7 +488,7 @@ class TaskService:
         # Get or create statistics record
         result = self._session.exec(  # type: ignore[call-overload]
             select(TaskStatistics).where(
-                TaskStatistics.task_type == task.task_type,
+                TaskStatistics.task_type == task.task_type,  # type: ignore[invalid-argument-type]
             ),
         ).first()
 

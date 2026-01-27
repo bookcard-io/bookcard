@@ -27,7 +27,7 @@ class TestBypassStrategy:
     def test_cannot_instantiate(self) -> None:
         """Test that abstract class cannot be instantiated."""
         with pytest.raises(TypeError):
-            BypassStrategy()  # type: ignore[abstract]
+            BypassStrategy()
 
     def test_fetch_abstract(self) -> None:
         """Test that fetch is abstract."""

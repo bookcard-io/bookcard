@@ -124,11 +124,11 @@ class Task(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     task_type: TaskType = Field(
-        sa_column=Column(SQLEnum(TaskType, native_enum=False), nullable=False),  # type: ignore[call-overload]
+        sa_column=Column(SQLEnum(TaskType, native_enum=False), nullable=False),
     )
     status: TaskStatus = Field(
         default=TaskStatus.PENDING,
-        sa_column=Column(SQLEnum(TaskStatus, native_enum=False), nullable=False),  # type: ignore[call-overload]
+        sa_column=Column(SQLEnum(TaskStatus, native_enum=False), nullable=False),
     )
     progress: float = Field(default=0.0, ge=0.0, le=1.0)
     user_id: int = Field(foreign_key="users.id", index=True)
@@ -142,7 +142,7 @@ class Task(SQLModel, table=True):
     error_message: str | None = Field(default=None, max_length=2000)
     task_data: dict | None = Field(
         default=None,
-        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSON, nullable=True),
     )
 
     # Relationships
@@ -227,7 +227,7 @@ class TaskStatistics(SQLModel, table=True):
     task_type: TaskType = Field(
         sa_column=Column(
             SQLEnum(TaskType, native_enum=False), nullable=False, unique=True
-        ),  # type: ignore[call-overload]
+        ),
     )
     avg_duration: float | None = None
     min_duration: float | None = None

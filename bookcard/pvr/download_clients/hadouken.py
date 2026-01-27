@@ -322,7 +322,7 @@ class HadoukenClient(BaseDownloadClient):
         super().__init__(
             settings, file_fetcher, url_router, http_client_factory, enabled
         )
-        self.settings: HadoukenSettings = settings  # type: ignore[assignment]
+        self.settings: HadoukenSettings = settings
         self._proxy = HadoukenProxy(self.settings)
 
     @property

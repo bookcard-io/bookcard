@@ -97,7 +97,7 @@ class IndexerHealthCheckTask(BaseTask):
             for indexer in indexers:
                 try:
                     logger.info("Checking health for indexer: %s", indexer.name)
-                    service.check_indexer_health(indexer.id)
+                    service.check_indexer_health(indexer.id)  # type: ignore[invalid-argument-type]
                     success_count += 1
                 except Exception:
                     logger.exception(

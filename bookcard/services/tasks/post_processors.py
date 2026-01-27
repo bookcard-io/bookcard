@@ -66,7 +66,7 @@ class PostIngestProcessor(ABC):
     @abstractmethod
     def process(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         book_id: int,
         library: Library,
         user_id: int | None = None,
@@ -103,7 +103,7 @@ class EPUBAutoFixPolicy:
     def __init__(
         self,
         session: Session,
-        library: Library | None,  # type: ignore[type-arg]
+        library: Library | None,
     ) -> None:
         """Initialize EPUB auto-fix policy.
 
@@ -227,7 +227,7 @@ class EPUBPostIngestProcessor(PostIngestProcessor):
     Follows Single Responsibility Principle by focusing only on EPUB processing.
     """
 
-    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+    def __init__(self, session: Session) -> None:
         """Initialize EPUB post-ingest processor.
 
         Parameters
@@ -254,7 +254,7 @@ class EPUBPostIngestProcessor(PostIngestProcessor):
 
     def process(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         book_id: int,
         library: Library | None,
         user_id: int | None = None,
@@ -348,7 +348,7 @@ class ConversionAutoConvertPolicy:
     configuration checking logic.
     """
 
-    def __init__(self, session: Session, user_id: int) -> None:  # type: ignore[type-arg]
+    def __init__(self, session: Session, user_id: int) -> None:
         """Initialize conversion auto-convert policy.
 
         Parameters
@@ -532,7 +532,7 @@ class ConversionPostIngestProcessor(PostIngestProcessor):
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         user_id: int | None = None,
         library: Library | None = None,
     ) -> None:
@@ -588,7 +588,7 @@ class ConversionPostIngestProcessor(PostIngestProcessor):
 
     def process(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         book_id: int,
         library: Library,
         user_id: int | None = None,
@@ -659,7 +659,7 @@ class ConversionPostIngestProcessor(PostIngestProcessor):
     def _get_original_format(
         self,
         session: Session,
-        book_id: int,  # type: ignore[type-arg]
+        book_id: int,
     ) -> str | None:
         """Get the original format of the uploaded book.
 
@@ -725,7 +725,7 @@ class ConversionPostIngestProcessor(PostIngestProcessor):
 
     def _should_convert(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         book_id: int,
         original_format: str,
         target_format: str,
@@ -796,7 +796,7 @@ class ConversionPostIngestProcessor(PostIngestProcessor):
 
     def _perform_conversion(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         book_id: int,
         library: Library,
         original_format: str,

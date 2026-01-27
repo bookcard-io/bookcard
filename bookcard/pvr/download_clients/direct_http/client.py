@@ -100,7 +100,7 @@ class DirectHttpClient(TrackingDownloadClient):
         super().__init__(
             settings, file_fetcher, url_router, http_client_factory, enabled
         )
-        self.settings: DirectHttpSettings = settings  # type: ignore[assignment]
+        self.settings: DirectHttpSettings = settings
 
         if self._http_client_factory is None:
             self._http_client_factory = lambda: create_httpx_client(
@@ -329,8 +329,9 @@ class DirectHttpClient(TrackingDownloadClient):
             items.append(item)
         return items
 
-    def remove_item(self, client_item_id: str, _delete_files: bool = False) -> bool:
+    def remove_item(self, client_item_id: str, delete_files: bool = False) -> bool:
         """Remove item."""
+        del delete_files
         # Cancel future if active
         future = self._active_futures.pop(client_item_id, None)
         if future and not future.done():

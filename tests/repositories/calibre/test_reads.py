@@ -265,7 +265,7 @@ class TestBookReadOperations:
         if method_name == "list_books_with_filters":
             kwargs = dict(kwargs)
             kwargs["author_ids"] = [sample_author.id]
-        books = method(**kwargs)  # type: ignore[misc]
+        books = method(**kwargs)
 
         assert len(books) == 1
         assert books[0].book.id == sample_book.id

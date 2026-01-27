@@ -85,7 +85,8 @@ def list_plugins(
             detail=str(e),
         ) from e
     else:
-        return plugins
+        # Service returns a TypedDict; API returns a Pydantic schema.
+        return [PluginInfo.model_validate(plugin) for plugin in plugins]
 
 
 @router.post(

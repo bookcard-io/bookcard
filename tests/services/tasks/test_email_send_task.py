@@ -244,7 +244,7 @@ class TestEmailSendTaskRun:
         task.run(worker_context)
 
         # Verify progress updates (6 steps: library, email, book, prepare, preprocess, send)
-        assert worker_context.update_progress.call_count == 6
+        assert worker_context.update_progress.call_count == 6  # ty:ignore[unresolved-attribute]
 
         # Verify library provider was called
         library_provider = cast("MagicMock", mock_dependencies.library_provider)
@@ -298,7 +298,7 @@ class TestEmailSendTaskRun:
         task.run(worker_context)
 
         # Should log cancellation but not raise
-        worker_context.update_progress.assert_not_called()
+        worker_context.update_progress.assert_not_called()  # ty:ignore[unresolved-attribute]
 
     def test_run_no_library_configured(
         self,

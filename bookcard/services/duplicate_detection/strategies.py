@@ -54,7 +54,7 @@ class DuplicateDetectionStrategy(ABC):
     @abstractmethod
     def find_duplicate(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         library: "Library",
         file_path: Path,
         title: str | None,
@@ -104,7 +104,7 @@ class TitleAuthorLevenshteinDuplicateStrategy(DuplicateDetectionStrategy):
 
     def find_duplicate(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         library: "Library",  # noqa: ARG002
         file_path: Path,  # noqa: ARG002
         title: str | None,
@@ -278,7 +278,7 @@ class FilenameDuplicateStrategy(DuplicateDetectionStrategy):
 
     def find_duplicate(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         library: "Library",
         file_path: Path,  # noqa: ARG002
         title: str | None,
@@ -364,7 +364,7 @@ class FullFileHashDuplicateStrategy(DuplicateDetectionStrategy):
 
     def find_duplicate(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         library: "Library",
         file_path: Path,
         title: str | None,  # noqa: ARG002
@@ -416,7 +416,7 @@ class FullFileHashDuplicateStrategy(DuplicateDetectionStrategy):
             format_upper = file_format.upper()
             stmt = (
                 select(Book, Data)
-                .join(Data, Book.id == Data.book)
+                .join(Data, Book.id == Data.book)  # type: ignore[invalid-argument-type]
                 .where(Data.format == format_upper)
             )
 
@@ -557,7 +557,7 @@ class DirectTitleAuthorMatchStrategy(DuplicateDetectionStrategy):
 
     def find_duplicate(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         library: "Library",  # noqa: ARG002
         file_path: Path,  # noqa: ARG002
         title: str | None,
@@ -596,8 +596,8 @@ class DirectTitleAuthorMatchStrategy(DuplicateDetectionStrategy):
         # Build query with joins
         stmt = (
             select(Book.id)
-            .join(BookAuthorLink, Book.id == BookAuthorLink.book)
-            .join(Author, BookAuthorLink.author == Author.id)
+            .join(BookAuthorLink, Book.id == BookAuthorLink.book)  # type: ignore[invalid-argument-type]
+            .join(Author, BookAuthorLink.author == Author.id)  # type: ignore[invalid-argument-type]
             .where(Book.title.isnot(None))  # type: ignore[attr-defined]
             .distinct()
         )

@@ -110,7 +110,7 @@ class MatchedAuthorQueryBuilder:
             SQLModel select statement for counting matched authors.
         """
         return (
-            select(func.count(AuthorMetadata.id))  # type: ignore
+            select(func.count(AuthorMetadata.id))
             .join(AuthorMapping, AuthorMetadata.id == AuthorMapping.author_metadata_id)
             .where(AuthorMapping.library_id == library_id)
         )
@@ -251,19 +251,20 @@ class MappedAuthorWithoutKeyFetcher:
             stmt = (
                 select(AuthorMetadata)
                 .join(
-                    AuthorMapping, AuthorMetadata.id == AuthorMapping.author_metadata_id
+                    AuthorMapping,
+                    AuthorMetadata.id == AuthorMapping.author_metadata_id,  # type: ignore[invalid-argument-type]
                 )
                 .where(
                     AuthorMapping.library_id == library_id,
                     AuthorMetadata.openlibrary_key.is_(None),  # type: ignore[attr-defined]
                 )
                 .options(
-                    selectinload(AuthorMetadata.remote_ids),
-                    selectinload(AuthorMetadata.photos),
-                    selectinload(AuthorMetadata.alternate_names),
-                    selectinload(AuthorMetadata.links),
-                    selectinload(AuthorMetadata.works).selectinload(
-                        AuthorWork.subjects
+                    selectinload(AuthorMetadata.remote_ids),  # type: ignore[invalid-argument-type]
+                    selectinload(AuthorMetadata.photos),  # type: ignore[invalid-argument-type]
+                    selectinload(AuthorMetadata.alternate_names),  # type: ignore[invalid-argument-type]
+                    selectinload(AuthorMetadata.links),  # type: ignore[invalid-argument-type]
+                    selectinload(AuthorMetadata.works).selectinload(  # type: ignore[invalid-argument-type]
+                        AuthorWork.subjects  # type: ignore[invalid-argument-type]
                     ),
                 )
             )
@@ -304,10 +305,10 @@ class AuthorResultCombiner:
         Sequence[AuthorResultRow]
             Paginated and sorted results.
         """
-        all_results: list[AuthorResultRow] = list(matched_results)  # type: ignore[arg-type]
+        all_results: list[AuthorResultRow] = list(matched_results)
 
         all_results.extend(
-            UnmatchedAuthorRow(author.name, author.id)  # type: ignore[arg-type]
+            UnmatchedAuthorRow(author.name, author.id)
             for author in unmatched_authors
             if author.id is not None
         )
@@ -356,16 +357,16 @@ class AuthorHydrator:
                 select(AuthorMetadata)
                 .where(AuthorMetadata.id.in_(matched_ids))  # type: ignore
                 .options(
-                    selectinload(AuthorMetadata.remote_ids),
-                    selectinload(AuthorMetadata.photos),
-                    selectinload(AuthorMetadata.alternate_names),
-                    selectinload(AuthorMetadata.links),
-                    selectinload(AuthorMetadata.works).selectinload(
-                        AuthorWork.subjects
+                    selectinload(AuthorMetadata.remote_ids),  # type: ignore[invalid-argument-type]
+                    selectinload(AuthorMetadata.photos),  # type: ignore[invalid-argument-type]
+                    selectinload(AuthorMetadata.alternate_names),  # type: ignore[invalid-argument-type]
+                    selectinload(AuthorMetadata.links),  # type: ignore[invalid-argument-type]
+                    selectinload(AuthorMetadata.works).selectinload(  # type: ignore[invalid-argument-type]
+                        AuthorWork.subjects  # type: ignore[invalid-argument-type]
                     ),
                 )
             )
-            return {a.id: a for a in self._session.exec(stmt).all()}
+            return {a.id: a for a in self._session.exec(stmt).all()}  # ty:ignore[invalid-return-type]
         except Exception:
             logger.exception("Error hydrating matched authors")
             raise

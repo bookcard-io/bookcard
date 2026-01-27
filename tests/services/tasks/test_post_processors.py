@@ -168,7 +168,7 @@ def mock_create_conversion_service() -> Generator[MagicMock, None, None]:
 def test_post_ingest_processor_cannot_instantiate() -> None:
     """Test that PostIngestProcessor cannot be instantiated directly."""
     with pytest.raises(TypeError):
-        PostIngestProcessor()  # type: ignore[abstract]
+        PostIngestProcessor()
 
 
 # ============================================================================
@@ -793,7 +793,7 @@ class TestEPUBPostIngestProcessor:
         processor.process(
             session,  # type: ignore[arg-type]
             book.id,
-            None,  # type: ignore[arg-type]
+            None,
             user_id=1,
         )
 

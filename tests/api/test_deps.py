@@ -16,7 +16,6 @@
 """Tests for FastAPI dependency providers."""
 
 from contextlib import suppress
-from typing import cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -205,11 +204,10 @@ def test_get_optional_user_missing_token_denied_when_library_exists_and_anonymou
         mock_basic_cfg_service.get_basic_config.return_value = mock_basic_cfg
         mock_basic_cfg_service_class.return_value = mock_basic_cfg_service
 
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(HTTPException) as exc:
             get_optional_user(request, session)  # type: ignore[arg-type]
-        exc = cast("HTTPException", exc_info.value)
-        assert exc.status_code == status.HTTP_401_UNAUTHORIZED
-        assert exc.detail == "missing_token"
+        assert exc.value.status_code == status.HTTP_401_UNAUTHORIZED
+        assert exc.value.detail == "missing_token"
 
 
 def test_get_optional_user_missing_token_allowed_when_library_exists_and_anonymous_enabled() -> (
@@ -429,8 +427,8 @@ def test_require_permission_denied() -> None:
         with pytest.raises(HTTPException) as exc_info:
             permission_checker(user, session)  # type: ignore[arg-type]
         exc = exc_info.value
-        assert exc.status_code == status.HTTP_403_FORBIDDEN  # type: ignore[attr-defined]
-        assert "permission_denied" in exc.detail  # type: ignore[attr-defined]
+        assert exc.status_code == status.HTTP_403_FORBIDDEN
+        assert "permission_denied" in exc.detail
 
 
 # ============================================================================

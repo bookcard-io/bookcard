@@ -222,11 +222,11 @@ def _load_user_with_permissions(session: Session, *, user_id: int) -> User:
         select(User)
         .where(User.id == user_id)
         .options(
-            selectinload(User.ereader_devices),
-            selectinload(User.roles)
-            .selectinload(UserRole.role)
-            .selectinload(Role.permissions)
-            .selectinload(RolePermission.permission),
+            selectinload(User.ereader_devices),  # type: ignore[invalid-argument-type]
+            selectinload(User.roles)  # type: ignore[invalid-argument-type]
+            .selectinload(UserRole.role)  # type: ignore[invalid-argument-type]
+            .selectinload(Role.permissions)  # type: ignore[invalid-argument-type]
+            .selectinload(RolePermission.permission),  # type: ignore[invalid-argument-type]
         )
     )
     user_with_rels = session.exec(stmt).first()

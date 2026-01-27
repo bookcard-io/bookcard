@@ -25,6 +25,7 @@ from bookcard.services.library_scanning.data_sources.base import BaseDataSource
 from bookcard.services.library_scanning.data_sources.types import (
     AuthorData,
     BookData,
+    IdentifierDict,
 )
 from bookcard.services.library_scanning.pipeline.context import PipelineContext
 from bookcard.services.library_scanning.pipeline.score import ScoreStage
@@ -44,19 +45,24 @@ class NoOpDataSource(BaseDataSource):
     (e.g., for stages that only use database operations).
     """
 
-    def search_author(self, query: str) -> list[AuthorData]:  # noqa: ARG002
+    def search_author(
+        self, name: str, identifiers: IdentifierDict | None = None
+    ) -> Sequence[AuthorData]:
         """Search for authors (no-op).
 
         Parameters
         ----------
-        query : str
-            Search query (unused).
+        name : str
+            Author name (unused).
+        identifiers : IdentifierDict | None
+            Optional identifiers (unused).
 
         Returns
         -------
-        list[AuthorData]
-            Empty list.
+        Sequence[AuthorData]
+            Empty sequence.
         """
+        del name, identifiers
         return []
 
     def get_author(self, key: str) -> AuthorData | None:  # noqa: ARG002

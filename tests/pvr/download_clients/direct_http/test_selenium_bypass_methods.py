@@ -405,4 +405,4 @@ class TestBypassMethod:
     def test_cannot_instantiate(self) -> None:
         """Test that abstract class cannot be instantiated."""
         with pytest.raises(TypeError):
-            BypassMethod()  # type: ignore[abstract]
+            BypassMethod()

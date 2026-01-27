@@ -27,7 +27,7 @@ import zipfile
 from io import BytesIO
 from typing import TYPE_CHECKING
 
-from PIL import Image  # type: ignore[import-untyped]
+from PIL import Image
 
 from bookcard.services.cover_extractors.base import CoverExtractionStrategy
 

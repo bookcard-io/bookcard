@@ -146,7 +146,7 @@ class CalibreSessionManager(ISessionManager):
                     num_args,
                     func_impl,
                 ) in self._get_calibre_sqlite_functions():
-                    dbapi_conn.create_function(func_name, num_args, func_impl)
+                    dbapi_conn.create_function(func_name, num_args, func_impl)  # type: ignore[invalid-argument-type]
 
             self._engine = create_engine(
                 db_url,

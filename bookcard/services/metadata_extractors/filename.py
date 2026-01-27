@@ -17,31 +17,56 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 from bookcard.services.book_metadata import BookMetadata
 from bookcard.services.metadata_extractors.base import MetadataExtractionStrategy
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 class FilenameMetadataExtractor(MetadataExtractionStrategy):
     """Fallback metadata extraction strategy using filename."""
 
-    def can_handle(self, _file_format: str) -> bool:
-        """Return True as this is the fallback strategy."""
+    def can_handle(self, file_format: str) -> bool:
+        """Check if this strategy can handle the given file format.
+
+        This extractor is the fallback strategy and therefore can handle any format.
+
+        Parameters
+        ----------
+        file_format : str
+            File format extension (unused).
+
+        Returns
+        -------
+        bool
+            Always True.
+        """
+        del file_format
         return True
 
-    def extract(self, file_path: Path, _original_filename: str) -> BookMetadata:
+    def extract(self, file_path: Path, original_filename: str) -> BookMetadata:
         """Extract basic metadata from filename.
 
         Attempts to infer author and title from filename patterns:
         - "Author - Title" -> Author: "Author", Title: "Title"
         - "Author - Title: Subtitle" -> Author: "Author", Title: "Title: Subtitle"
         - "Author - Title - Extra" -> Author: "Author", Title: "Title - Extra"
+
+        Parameters
+        ----------
+        file_path : Path
+            Path to the book file.
+        original_filename : str
+            Original filename for fallback.
+
+        Returns
+        -------
+        BookMetadata
+            Extracted metadata inferred from the filename.
         """
-        stem = file_path.stem
+        # Prefer the original filename (upload name) over the temp file path name.
+        original_stem = Path(original_filename).stem if original_filename else ""
+        stem = original_stem if original_stem else file_path.stem
         if not stem or stem.strip() == "":
             return BookMetadata(title="Unknown", author="Unknown")
 

@@ -32,7 +32,7 @@ else:
 
 
 @pytest.fixture
-def task_service(session: DummySession) -> TaskService:  # type: ignore[valid-type]
+def task_service(session: DummySession) -> TaskService:
     """Create TaskService instance with dummy session."""
     return TaskService(session)  # type: ignore[arg-type]
 
@@ -64,7 +64,7 @@ def task_statistics() -> TaskStatistics:
 class TestTaskServiceInit:
     """Test TaskService initialization."""
 
-    def test_init_stores_session(self, session: DummySession) -> None:  # type: ignore[valid-type]
+    def test_init_stores_session(self, session: DummySession) -> None:
         """Test __init__ stores session."""
         service = TaskService(session)  # type: ignore[arg-type]
         assert service._session == session
@@ -689,10 +689,10 @@ class TestRecordTaskCompletion:
         session._entities_by_class_and_id[Task] = {1: task}
         session.set_exec_result([])  # No existing statistics
         # Clear any previously added entities
-        session.added.clear()  # type: ignore[attr-defined]
+        session.added.clear()
         task_service.record_task_completion(1, TaskStatus.COMPLETED, duration=10.5)
         # Statistics should be added
-        stats_added = [e for e in session.added if isinstance(e, TaskStatistics)]  # type: ignore[attr-defined]
+        stats_added = [e for e in session.added if isinstance(e, TaskStatistics)]
         assert len(stats_added) == 1
         stats = stats_added[0]
         assert stats.total_count == 1

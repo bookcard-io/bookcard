@@ -15,42 +15,6 @@
 
 """Output parsers for Calibre plugin listing."""
 
-from __future__ import annotations
+from bookcard.services.calibre_plugin_service.parsers.composite import CompositeParser
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from bookcard.services.calibre_plugin_service.models import PluginInfo
-    from bookcard.services.calibre_plugin_service.parsers.base import (
-        PluginOutputParser,
-    )
-
-
-@dataclass(frozen=True, slots=True)
-class CompositeParser:
-    """Try parsers in order and return the first match."""
-
-    parsers: tuple[PluginOutputParser, ...]
-
-    def parse(self, output: str) -> list[PluginInfo]:
-        """Parse output into plugin info.
-
-        Parameters
-        ----------
-        output : str
-            Raw ``calibre-customize -l`` stdout.
-
-        Returns
-        -------
-        list[PluginInfo]
-            Parsed plugins.
-        """
-        if not output.strip():
-            return []
-
-        for parser in self.parsers:
-            if parser.can_parse(output):
-                return parser.parse(output)
-
-        return []
+__all__ = ["CompositeParser"]

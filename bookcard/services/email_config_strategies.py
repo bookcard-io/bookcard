@@ -176,7 +176,7 @@ class GmailConfigStrategy:
             return
 
         if encryptor is not None:
-            config.gmail_token = encryptor.encrypt_dict(update.gmail_token)
+            config.gmail_token = encryptor.encrypt_dict(update.gmail_token)  # ty:ignore[invalid-assignment]
             return
 
         config.gmail_token = update.gmail_token

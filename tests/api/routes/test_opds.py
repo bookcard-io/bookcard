@@ -292,7 +292,7 @@ class TestGetOpdsFeedService:
 
         response = opds_routes.feed_index(
             request=mock_request,
-            session=session,  # type: ignore[arg-type]
+            session=session,
             opds_user=opds_user,
         )
 
@@ -389,7 +389,7 @@ class TestFeedEndpoints:
         """
         kwargs: dict[str, object] = {
             "request": mock_request,
-            "session": session,  # type: ignore[arg-type]
+            "session": session,
             "opds_user": opds_user,
         }
 
@@ -494,7 +494,7 @@ class TestFeedSearchPath:
 
         response = opds_routes.feed_search_path(
             request=mock_request,
-            session=session,  # type: ignore[arg-type]
+            session=session,
             opds_user=opds_user,
             query="test+query",
             offset=0,
@@ -516,7 +516,7 @@ class TestFeedSearchPath:
         with pytest.raises(HTTPException) as exc_info:
             opds_routes.feed_search_path(
                 request=mock_request,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 opds_user=opds_user,
                 query="   ",  # Whitespace only
             )
@@ -566,7 +566,7 @@ class TestOpdsDownload:
             mock_book_service_class.return_value = mock_book_service
 
             response = opds_routes.opds_download(
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 opds_user=opds_user,
                 book_id=1,
                 book_format="EPUB",
@@ -587,7 +587,7 @@ class TestOpdsDownload:
 
         with pytest.raises(HTTPException) as exc_info:
             opds_routes.opds_download(
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 opds_user=opds_user,
                 book_id=1,
                 book_format="EPUB",
@@ -615,7 +615,7 @@ class TestOpdsDownload:
 
             with pytest.raises(HTTPException) as exc_info:
                 opds_routes.opds_download(
-                    session=session,  # type: ignore[arg-type]
+                    session=session,
                     opds_user=opds_user,
                     book_id=1,
                     book_format="EPUB",
@@ -653,7 +653,7 @@ class TestOpdsDownload:
 
             # Current behavior: missing format returns a plain 404 Response (not an exception)
             response = opds_routes.opds_download(
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 opds_user=opds_user,
                 book_id=1,
                 book_format="EPUB",
@@ -695,7 +695,7 @@ class TestOpdsCover:
             mock_book_service_class.return_value = mock_book_service
 
             response = opds_routes.opds_cover(
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 opds_user=opds_user,
                 book_id=1,
             )
@@ -714,7 +714,7 @@ class TestOpdsCover:
 
         with pytest.raises(HTTPException) as exc_info:
             opds_routes.opds_cover(
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 opds_user=opds_user,
                 book_id=1,
             )
@@ -740,7 +740,7 @@ class TestOpdsCover:
             mock_book_service_class.return_value = mock_book_service
 
             response = opds_routes.opds_cover(
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 opds_user=opds_user,
                 book_id=1,
             )
@@ -771,7 +771,7 @@ class TestOpdsCover:
             mock_book_service_class.return_value = mock_book_service
 
             response = opds_routes.opds_cover(
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 opds_user=opds_user,
                 book_id=1,
             )
@@ -798,7 +798,7 @@ class TestOpdsStats:
         session.add_exec_result([(2,)])  # series
 
         response = opds_routes.opds_stats(
-            session=session,  # type: ignore[arg-type]
+            session=session,
             opds_user=opds_user,
         )
 
@@ -905,7 +905,7 @@ class TestGetMetadataCalibreCompanion:
         session.set_exec_result([book])
 
         response = opds_routes.get_metadata_calibre_companion(
-            session=session,  # type: ignore[arg-type]
+            session=session,
             opds_user=opds_user,
             uuid="test-uuid",
         )
@@ -925,7 +925,7 @@ class TestGetMetadataCalibreCompanion:
         session.set_exec_result([])
 
         response = opds_routes.get_metadata_calibre_companion(
-            session=session,  # type: ignore[arg-type]
+            session=session,
             opds_user=opds_user,
             uuid="nonexistent",
         )

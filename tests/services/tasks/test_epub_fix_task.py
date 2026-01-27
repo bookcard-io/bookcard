@@ -616,7 +616,7 @@ def test_epub_fix_batch_task_run_success(minimal_epub: Path, temp_dir: Path) -> 
             return_value=[
                 EPUBFileInfo(book_id=1, book_title="Test", file_path=minimal_epub)
             ]
-        )  # type: ignore[method-assign]
+        )
 
         worker_context = {
             "session": session,

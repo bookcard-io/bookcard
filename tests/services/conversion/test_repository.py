@@ -32,7 +32,7 @@ from bookcard.services.conversion.repository import ConversionRepository
 
 
 @pytest.fixture
-def conversion_repo(session: DummySession) -> ConversionRepository:  # type: ignore[valid-type]
+def conversion_repo(session: DummySession) -> ConversionRepository:
     """Create ConversionRepository instance.
 
     Parameters
@@ -81,7 +81,7 @@ def book_conversion() -> BookConversion:
 )
 def test_find_existing_normalizes_formats(
     conversion_repo: ConversionRepository,
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
     book_conversion: BookConversion,
     original_format: str,
     target_format: str,
@@ -116,7 +116,7 @@ def test_find_existing_normalizes_formats(
 
 def test_find_existing_with_status_filter(
     conversion_repo: ConversionRepository,
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
     book_conversion: BookConversion,
 ) -> None:
     """Test find_existing filters by status.
@@ -141,7 +141,7 @@ def test_find_existing_with_status_filter(
 
 def test_find_existing_returns_none_when_not_found(
     conversion_repo: ConversionRepository,
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
 ) -> None:
     """Test find_existing returns None when not found.
 
@@ -161,7 +161,7 @@ def test_find_existing_returns_none_when_not_found(
 
 def test_save_creates_new_record(
     conversion_repo: ConversionRepository,
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
     book_conversion: BookConversion,
 ) -> None:
     """Test save creates new record when none exists.
@@ -186,7 +186,7 @@ def test_save_creates_new_record(
 
 def test_save_updates_existing_record(
     conversion_repo: ConversionRepository,
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
     book_conversion: BookConversion,
 ) -> None:
     """Test save updates existing record.
@@ -233,7 +233,7 @@ def test_save_updates_existing_record(
 )
 def test_save_updates_created_at_on_retry(
     conversion_repo: ConversionRepository,
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
     old_status: ConversionStatus,
     new_status: ConversionStatus,
     should_update_created_at: bool,
@@ -289,7 +289,7 @@ def test_save_updates_created_at_on_retry(
 
 def test_save_handles_integrity_error_with_existing_record(
     conversion_repo: ConversionRepository,
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
     book_conversion: BookConversion,
 ) -> None:
     """Test save handles IntegrityError and updates existing record.
@@ -351,7 +351,7 @@ def test_save_handles_integrity_error_with_existing_record(
 
 def test_save_handles_integrity_error_without_existing_record(
     conversion_repo: ConversionRepository,
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
     book_conversion: BookConversion,
 ) -> None:
     """Test save re-raises IntegrityError when existing record not found.

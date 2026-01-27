@@ -156,7 +156,8 @@ class AuthorRepository:
             stmt = (
                 select(AuthorMetadata)
                 .join(
-                    AuthorMapping, AuthorMetadata.id == AuthorMapping.author_metadata_id
+                    AuthorMapping,
+                    AuthorMetadata.id == AuthorMapping.author_metadata_id,  # type: ignore[invalid-argument-type]
                 )
                 .where(AuthorMapping.library_id == library_id)
                 .distinct()
@@ -212,7 +213,7 @@ class SubjectRepository:
         """
         stmt = (
             select(WorkSubject)
-            .join(AuthorWork, WorkSubject.author_work_id == AuthorWork.id)
+            .join(AuthorWork, WorkSubject.author_work_id == AuthorWork.id)  # type: ignore[invalid-argument-type]
             .where(AuthorWork.author_metadata_id == author_id)
         )
         subjects = self.session.exec(stmt).all()

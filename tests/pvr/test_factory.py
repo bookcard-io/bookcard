@@ -19,6 +19,8 @@ from typing import TYPE_CHECKING, cast
 
 import pytest
 
+from bookcard.pvr.exceptions import PVRProviderError
+
 if TYPE_CHECKING:
     from bookcard.pvr.download_clients.blackhole import (
         TorrentBlackholeSettings,
@@ -38,7 +40,6 @@ from bookcard.pvr.base import (
     BaseDownloadClient,
     BaseIndexer,
     ManagedIndexer,
-    PVRProviderError,
 )
 from bookcard.pvr.factory import (
     create_download_client,
@@ -215,7 +216,7 @@ class TestCreateIndexer:
 
         # Create a class that raises an error on instantiation
         class FailingIndexer(MockIndexer):
-            def __init__(self, *args: object, **kwargs: object) -> None:  # type: ignore[override,misc]
+            def __init__(self, *args: object, **kwargs: object) -> None:
                 # Intentionally don't call super() to test error handling
                 raise ValueError("Creation failed")
 
@@ -291,7 +292,7 @@ class TestCreateDownloadClient:
 
         # Create a class that raises an error on instantiation
         class FailingClient(MockDownloadClient):
-            def __init__(self, *args: object, **kwargs: object) -> None:  # type: ignore[override,misc]
+            def __init__(self, *args: object, **kwargs: object) -> None:
                 # Intentionally don't call super() to test error handling
                 raise ValueError("Creation failed")
 

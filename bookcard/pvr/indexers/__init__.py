@@ -27,18 +27,5 @@ __all__ = [
     "TorznabIndexer",
 ]
 
-
-# Auto-register built-in indexers
-def _register_builtin_indexers() -> None:
-    """Register built-in indexer implementations."""
-    from bookcard.models.pvr import IndexerType
-    from bookcard.pvr.registries import register_indexer
-
-    register_indexer(IndexerType.TORZNAB, TorznabIndexer)
-    register_indexer(IndexerType.NEWZNAB, NewznabIndexer)
-    register_indexer(IndexerType.TORRENT_RSS, TorrentRssIndexer)
-    register_indexer(IndexerType.ANNAS_ARCHIVE, AnnasArchiveIndexer)
-
-
-# Register on import
-_register_builtin_indexers()
+# Auto-register built-in indexers on import
+import bookcard.pvr.indexers._registration  # noqa: F401

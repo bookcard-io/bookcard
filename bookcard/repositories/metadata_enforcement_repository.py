@@ -69,7 +69,7 @@ class MetadataEnforcementRepository(Repository[MetadataEnforcementOperation]):
         stmt = (
             select(MetadataEnforcementOperation)
             .where(MetadataEnforcementOperation.book_id == book_id)
-            .order_by(desc(MetadataEnforcementOperation.created_at))
+            .order_by(desc(MetadataEnforcementOperation.created_at))  # type: ignore[invalid-argument-type]
             .limit(limit)
             .offset(offset)
         )
@@ -100,7 +100,7 @@ class MetadataEnforcementRepository(Repository[MetadataEnforcementOperation]):
         stmt = (
             select(MetadataEnforcementOperation)
             .where(MetadataEnforcementOperation.library_id == library_id)
-            .order_by(desc(MetadataEnforcementOperation.created_at))
+            .order_by(desc(MetadataEnforcementOperation.created_at))  # type: ignore[invalid-argument-type]
             .limit(limit)
             .offset(offset)
         )
@@ -132,7 +132,7 @@ class MetadataEnforcementRepository(Repository[MetadataEnforcementOperation]):
         stmt = (
             select(MetadataEnforcementOperation)
             .where(MetadataEnforcementOperation.status == status)
-            .order_by(desc(MetadataEnforcementOperation.created_at))
+            .order_by(desc(MetadataEnforcementOperation.created_at))  # type: ignore[invalid-argument-type]
             .limit(limit)
             .offset(offset)
         )

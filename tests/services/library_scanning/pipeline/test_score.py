@@ -506,7 +506,7 @@ def test_composite_similarity_calculator_zero_weights(mock_session: MagicMock) -
 
     # Create a calculator that returns non-zero but with zero weight
     class ZeroWeightCalculator(SimilarityCalculator):
-        def calculate(self, a1: AuthorMetadata, a2: AuthorMetadata) -> float:
+        def calculate(self, a1: AuthorMetadata, a2: AuthorMetadata) -> float:  # ty:ignore[invalid-method-override]
             return 0.5
 
     calc = CompositeSimilarityCalculator([(ZeroWeightCalculator(), 0.0)])

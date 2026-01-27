@@ -52,7 +52,7 @@ class KoboShelfItemService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         book_lookup_service: KoboBookLookupService,
     ) -> None:
         self._session = session

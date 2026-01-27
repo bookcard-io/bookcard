@@ -71,7 +71,7 @@ class KoboDownloadService:
         Book service for querying books.
     """
 
-    def __init__(self, book_service: BookService) -> None:  # type: ignore[type-arg]
+    def __init__(self, book_service: BookService) -> None:
         self._book_service = book_service
 
     def get_download_file_info(
@@ -134,7 +134,7 @@ class KoboDownloadService:
     def _find_format(
         self,
         book_with_rels: BookWithFullRelations,
-        book_format: str,  # type: ignore[type-arg]
+        book_format: str,
     ) -> dict[str, object] | None:
         """Find format data in book formats.
 

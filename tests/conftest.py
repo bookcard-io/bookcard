@@ -17,7 +17,7 @@ import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Self
 from unittest.mock import MagicMock
 
 import pytest
@@ -196,7 +196,7 @@ class DummySession:
         """Context manager to disable autoflush (returns self for context manager)."""
         return self
 
-    def __enter__(self) -> "DummySession":
+    def __enter__(self) -> Self:
         """Enter context manager."""
         return self
 

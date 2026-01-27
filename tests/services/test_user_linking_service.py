@@ -46,7 +46,7 @@ def test_find_or_create_oidc_user_missing_sub_raises() -> None:
     """Missing `sub` should raise a ValueError."""
     repo = _StubUserRepo()
     hasher = MagicMock()
-    service = UserLinkingService(repo, hasher)  # type: ignore[arg-type]
+    service = UserLinkingService(repo, hasher)
     session = DummySession()
 
     with pytest.raises(ValueError, match="oidc_userinfo_missing_sub"):
@@ -57,7 +57,7 @@ def test_find_or_create_oidc_user_links_existing_user_by_email() -> None:
     """Existing user found by email should be linked with oidc_sub."""
     repo = _StubUserRepo()
     hasher = MagicMock()
-    service = UserLinkingService(repo, hasher)  # type: ignore[arg-type]
+    service = UserLinkingService(repo, hasher)
     session = DummySession()
 
     user = User(
@@ -85,7 +85,7 @@ def test_find_or_create_oidc_user_creates_new_user() -> None:
 
     hasher = MagicMock()
     hasher.hash.return_value = "hashed"
-    service = UserLinkingService(repo, hasher)  # type: ignore[arg-type]
+    service = UserLinkingService(repo, hasher)
     session = DummySession()
     # Configure count query result: 0 users in system
     # SQLAlchemy count queries return tuples, e.g., (0,)
@@ -119,7 +119,7 @@ def test_find_or_create_oidc_user_username_collision_adds_suffix() -> None:
 
     hasher = MagicMock()
     hasher.hash.return_value = "hashed"
-    service = UserLinkingService(repo, hasher)  # type: ignore[arg-type]
+    service = UserLinkingService(repo, hasher)
     session = DummySession()
     # Configure count query result: 0 users in system (repo user doesn't count)
     # SQLAlchemy count queries return tuples, e.g., (0,)

@@ -227,7 +227,7 @@ class AnnasArchiveHtmlParser:
             title = title_link.get_text(strip=True)
             relative_link = title_link.get("href")
             download_url = urllib.parse.urljoin(base_url, relative_link)
-            guid = relative_link.split("/")[-1] if relative_link else None
+            guid = relative_link.split("/")[-1] if relative_link else None  # ty:ignore[possibly-missing-attribute]
 
             # Author
             author_tag = row.find("a", href=re.compile(r"/search\?q="))
@@ -244,7 +244,7 @@ class AnnasArchiveHtmlParser:
 
             return ReleaseInfo(
                 title=title,
-                download_url=download_url,
+                download_url=download_url,  # ty:ignore[invalid-argument-type]
                 size_bytes=metadata["size_bytes"],
                 author=author,
                 category=metadata["category"],

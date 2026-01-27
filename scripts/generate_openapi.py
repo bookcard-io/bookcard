@@ -69,7 +69,7 @@ def generate_openapi_json(output_path: Path | str = "docs/openapi.json") -> None
         from bookcard.api.routes import ingest
 
         if not hasattr(ingest, "User"):
-            ingest.User = User  # type: ignore[attr-defined, misc]
+            ingest.User = User
 
     openapi_schema = app.openapi()
 

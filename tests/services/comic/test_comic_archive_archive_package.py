@@ -465,7 +465,7 @@ def test_comic_archive_service_register_handler_overrides(tmp_path: Path) -> Non
 
     dummy = _DummyHandler()
     svc.register_handler(".cbz", dummy)  # type: ignore[arg-type]
-    assert svc.handlers[".cbz"] is dummy  # type: ignore[comparison-overlap]
+    assert svc.handlers[".cbz"] is dummy
 
 
 def test_comic_archive_service_get_page_unsupported_handler_path(
@@ -507,7 +507,7 @@ def test_comic_archive_service_scan_metadata_method_smoke(
 ) -> None:
     svc = create_comic_archive_service(cache_size=1, zip_metadata_encodings=("utf-8",))
     cbz = make_zip_file(tmp_path / "a.cbz", {"page1.png": rgb_png_bytes})
-    md = svc._scan_metadata(cbz, last_modified_ns=123)  # type: ignore[attr-defined]
+    md = svc._scan_metadata(cbz, last_modified_ns=123)
     assert md.page_filenames == ("page1.png",)
 
 
@@ -518,7 +518,7 @@ def test_cb7_handler_import_error_branch(
 
     original_import = builtins.__import__
 
-    def guarded_import(  # type: ignore[override]
+    def guarded_import(
         name: str,
         globs: dict[str, object] | None = None,
         locs: dict[str, object] | None = None,
@@ -568,7 +568,7 @@ def test_cb7_handler_success_and_error_branches(
             return {names[0]: BytesIO(rgb_png_bytes)}
 
     fake_py7zr = types.SimpleNamespace(SevenZipFile=FakeSevenZipFile)
-    monkeypatch.setitem(sys.modules, "py7zr", fake_py7zr)  # type: ignore[arg-type]
+    monkeypatch.setitem(sys.modules, "py7zr", fake_py7zr)
 
     md = handler.scan_metadata(tmp_path / "a.cb7", last_modified_ns=1)
     assert md.page_filenames == ("page1.jpg", "page2.png")
@@ -623,7 +623,7 @@ def test_cbr_handler_success_and_error_branches(
 
     class BoomRarFile(FakeRarFile):
         def __enter__(self) -> Self:
-            raise rarfile.Error("boom")  # type: ignore[attr-defined]
+            raise rarfile.Error("boom")
 
     monkeypatch.setattr(rarfile, "RarFile", BoomRarFile)
     with pytest.raises(ArchiveReadError, match="Failed to read CBR"):
@@ -646,7 +646,7 @@ def test_cb7_handler_scan_oserror_branch(
             return False
 
     fake_py7zr = types.SimpleNamespace(SevenZipFile=BoomSevenZipFile)
-    monkeypatch.setitem(sys.modules, "py7zr", fake_py7zr)  # type: ignore[arg-type]
+    monkeypatch.setitem(sys.modules, "py7zr", fake_py7zr)
 
     with pytest.raises(ArchiveReadError, match=r"Failed to read CB7"):
         _ = handler.scan_metadata(tmp_path / "a.cb7", last_modified_ns=1)
@@ -824,8 +824,8 @@ def test_cbc_handler_extract_inner_oserror_branch(
         if isinstance(file, BytesIO):
             return InnerZip()
         if metadata_encoding is None:
-            return real_zipfile(file, mode)
-        return real_zipfile(file, mode, metadata_encoding=metadata_encoding)
+            return real_zipfile(file, mode)  # ty:ignore[no-matching-overload]
+        return real_zipfile(file, mode, metadata_encoding=metadata_encoding)  # ty:ignore[no-matching-overload]
 
     monkeypatch.setattr(cbc_module.zipfile, "ZipFile", dispatch_zipfile)
 
@@ -876,7 +876,7 @@ def test_zip_encoding_detector_probe_path_and_bytes_fallback_and_exceptions(
         def __enter__(self) -> Self:
             if self._metadata_encoding is None:
                 raise zipfile.BadZipFile("bad")
-            return cast("Self", super().__enter__())  # pragma: no cover
+            return super().__enter__()  # pragma: no cover
 
     monkeypatch.setattr(zip_encoding_module.zipfile, "ZipFile", BadZipFallback)
     with pytest.raises(ArchiveCorruptedError):
@@ -886,7 +886,7 @@ def test_zip_encoding_detector_probe_path_and_bytes_fallback_and_exceptions(
         def __enter__(self) -> Self:
             if self._metadata_encoding is None:
                 raise OSError("boom")
-            return cast("Self", super().__enter__())  # pragma: no cover
+            return super().__enter__()  # pragma: no cover
 
     monkeypatch.setattr(zip_encoding_module.zipfile, "ZipFile", OSErrorFallback)
     with pytest.raises(ArchiveReadError):

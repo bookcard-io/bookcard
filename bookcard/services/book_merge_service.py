@@ -48,7 +48,7 @@ class BookMergeService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         library_path: str,
     ) -> None:
         """Initialize book merge service.
@@ -75,17 +75,17 @@ class BookMergeService:
         self._metadata_merger = MetadataMerger(self._repository)
         self._cover_merger = CoverMerger(
             self._file_storage,
-            self._file_storage._library_path,  # type: ignore[attr-defined] # noqa: SLF001
+            self._file_storage._library_path,  # noqa: SLF001
         )
         self._file_merger = FileMerger(
             self._file_storage,
             self._repository,
-            self._file_storage._library_path,  # type: ignore[attr-defined] # noqa: SLF001
+            self._file_storage._library_path,  # noqa: SLF001
         )
         self._cleanup_service = CleanupService(
             self._repository,
             self._file_storage,
-            self._file_storage._library_path,  # type: ignore[attr-defined] # noqa: SLF001
+            self._file_storage._library_path,  # noqa: SLF001
         )
 
     def recommend_keep_book(self, book_ids: list[int]) -> dict[str, Any]:

@@ -16,7 +16,7 @@
 """Cloudflare bypass client."""
 
 from types import TracebackType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Self
 
 from bookcard.pvr.download_clients.direct_http.bypass.config import (
     FlareSolverrConfig,
@@ -101,7 +101,7 @@ class BypassClient:
             return self._response_factory.create_success(url, result.html)
         return self._response_factory.create_error(url)
 
-    def __enter__(self) -> "BypassClient":
+    def __enter__(self) -> Self:
         """Enter context manager.
 
         Returns

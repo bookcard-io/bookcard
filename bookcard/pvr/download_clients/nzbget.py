@@ -229,7 +229,7 @@ class NzbgetProxy:
             msg = "NZBGet failed to add NZB"
             raise PVRProviderError(msg)
 
-        return int(nzb_id)
+        return int(nzb_id)  # type: ignore[invalid-argument-type]
 
     def get_queue(self) -> list[dict[str, Any]]:
         """Get queue items.
@@ -352,7 +352,7 @@ class NzbgetClient(BaseDownloadClient):
         super().__init__(
             settings, file_fetcher, url_router, http_client_factory, enabled
         )
-        self.settings: NzbgetSettings = settings  # type: ignore[assignment]
+        self.settings: NzbgetSettings = settings
         self._proxy = NzbgetProxy(self.settings)
         self._status_mapper = StatusMapper(
             {

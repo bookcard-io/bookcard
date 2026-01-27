@@ -61,8 +61,8 @@ class IngestWatcherService:
 
     def __init__(
         self,
-        engine: Engine,  # type: ignore[name-defined]
-        task_runner: TaskRunner | None = None,  # type: ignore[name-defined]
+        engine: Engine,
+        task_runner: TaskRunner | None = None,
         debounce_seconds: float = 5.0,
     ) -> None:
         """Initialize ingest watcher service.

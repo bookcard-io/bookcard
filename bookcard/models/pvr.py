@@ -174,11 +174,11 @@ class ProwlarrConfig(SQLModel, table=True):
     enabled: bool = Field(default=False, index=True)
     sync_categories: list[str] | None = Field(
         default=None,
-        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSON, nullable=True),
     )
     sync_app_profiles: list[int] | None = Field(
         default=None,
-        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSON, nullable=True),
     )
     sync_interval_minutes: int = Field(default=60)
     created_at: datetime = Field(
@@ -510,12 +510,12 @@ class TrackedBook(SQLModel, table=True):
     series_name: str | None = Field(default=None, max_length=500, index=True)
     series_index: float | None = Field(default=None)
     rating: float | None = Field(default=None)
-    tags: list[str] | None = Field(default=None, sa_column=Column(JSON, nullable=True))  # type: ignore[call-overload]
+    tags: list[str] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
     status: TrackedBookStatus = Field(
         default=TrackedBookStatus.WANTED,
         sa_column=Column(
             SQLEnum(TrackedBookStatus, native_enum=False), nullable=False, index=True
-        ),  # type: ignore[call-overload]
+        ),
     )
     monitor_mode: MonitorMode = Field(
         default=MonitorMode.BOOK_ONLY,
@@ -523,23 +523,23 @@ class TrackedBook(SQLModel, table=True):
             SQLEnum(MonitorMode, native_enum=False),
             nullable=False,
             default=MonitorMode.BOOK_ONLY,
-        ),  # type: ignore[call-overload]
+        ),
     )
     auto_search_enabled: bool = Field(default=True, index=True)
     auto_download_enabled: bool = Field(default=False)
     preferred_formats: list[str] | None = Field(
         default=None,
-        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSON, nullable=True),
         description="Preferred file formats for this book (e.g., ['epub', 'pdf'])",
     )
     exclude_keywords: list[str] | None = Field(
         default=None,
-        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSON, nullable=True),
         description="Keywords to exclude from release title/description for this book",
     )
     require_keywords: list[str] | None = Field(
         default=None,
-        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSON, nullable=True),
         description="Keywords that must appear in release title/description for this book",
     )
     require_title_match: bool = Field(
@@ -655,12 +655,12 @@ class IndexerDefinition(SQLModel, table=True):
     indexer_type: IndexerType = Field(
         sa_column=Column(
             SQLEnum(IndexerType, native_enum=False), nullable=False, index=True
-        ),  # type: ignore[call-overload]
+        ),
     )
     protocol: IndexerProtocol = Field(
         sa_column=Column(
             SQLEnum(IndexerProtocol, native_enum=False), nullable=False, index=True
-        ),  # type: ignore[call-overload]
+        ),
     )
     base_url: str = Field(max_length=1000)
     api_key: str | None = Field(default=None, max_length=500)
@@ -670,17 +670,17 @@ class IndexerDefinition(SQLModel, table=True):
     retry_count: int = Field(default=3)
     categories: list[int] | None = Field(
         default=None,
-        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSON, nullable=True),
     )
     additional_settings: dict[str, Any] | None = Field(
         default=None,
-        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSON, nullable=True),
     )
     status: IndexerStatus = Field(
         default=IndexerStatus.UNHEALTHY,
         sa_column=Column(
             SQLEnum(IndexerStatus, native_enum=False), nullable=False, index=True
-        ),  # type: ignore[call-overload]
+        ),
     )
     last_checked_at: datetime | None = Field(default=None)
     last_successful_query_at: datetime | None = Field(default=None, index=True)
@@ -762,7 +762,7 @@ class DownloadClientDefinition(SQLModel, table=True):
     client_type: DownloadClientType = Field(
         sa_column=Column(
             SQLEnum(DownloadClientType, native_enum=False), nullable=False, index=True
-        ),  # type: ignore[call-overload]
+        ),
     )
     host: str = Field(max_length=255)
     port: int = Field(default=8080)
@@ -776,7 +776,7 @@ class DownloadClientDefinition(SQLModel, table=True):
     download_path: str | None = Field(default=None, max_length=1000)
     additional_settings: dict[str, Any] | None = Field(
         default=None,
-        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSON, nullable=True),
     )
     status: DownloadClientStatus = Field(
         default=DownloadClientStatus.UNHEALTHY,
@@ -784,7 +784,7 @@ class DownloadClientDefinition(SQLModel, table=True):
             SQLEnum(DownloadClientStatus, native_enum=False),
             nullable=False,
             index=True,
-        ),  # type: ignore[call-overload]
+        ),
     )
     last_checked_at: datetime | None = Field(default=None)
     last_successful_connection_at: datetime | None = Field(default=None, index=True)
@@ -904,7 +904,7 @@ class DownloadItem(SQLModel, table=True):
         default=DownloadItemStatus.QUEUED,
         sa_column=Column(
             SQLEnum(DownloadItemStatus, native_enum=False), nullable=False, index=True
-        ),  # type: ignore[call-overload]
+        ),
     )
     progress: float = Field(default=0.0, ge=0.0, le=1.0, index=True)
     size_bytes: int | None = Field(default=None)
@@ -914,7 +914,7 @@ class DownloadItem(SQLModel, table=True):
     quality: str | None = Field(default=None, max_length=50, index=True)
     release_info: dict[str, Any] | None = Field(
         default=None,
-        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSON, nullable=True),
     )
     error_message: str | None = Field(
         default=None, sa_column=Column(Text, nullable=True)
@@ -992,7 +992,7 @@ class DownloadDecisionDefaults(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     preferred_formats: list[str] | None = Field(
         default=None,
-        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSON, nullable=True),
     )
     min_size_bytes: int | None = Field(default=None)
     max_size_bytes: int | None = Field(default=None)
@@ -1002,11 +1002,11 @@ class DownloadDecisionDefaults(SQLModel, table=True):
     min_age_days: int | None = Field(default=None)
     exclude_keywords: list[str] | None = Field(
         default=None,
-        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSON, nullable=True),
     )
     require_keywords: list[str] | None = Field(
         default=None,
-        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSON, nullable=True),
     )
     require_title_match: bool = Field(default=True)
     require_author_match: bool = Field(default=True)

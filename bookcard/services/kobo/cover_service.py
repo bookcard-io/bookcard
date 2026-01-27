@@ -50,7 +50,7 @@ class KoboCoverService:
 
     def __init__(
         self,
-        book_service: BookService,  # type: ignore[type-arg]
+        book_service: BookService,
         book_lookup_service: KoboBookLookupService,
         proxy_service: KoboStoreProxyService,
     ) -> None:

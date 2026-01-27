@@ -63,7 +63,7 @@ class LibraryScanOrchestrator:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         *,
         job_publisher: ScanJobPublisher,
         state_repo: LibraryScanStateRepository | None = None,

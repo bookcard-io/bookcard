@@ -380,7 +380,7 @@ class TorznabIndexer(BaseIndexer):
             settings = torznab_settings
 
         super().__init__(settings)
-        self.settings: TorznabSettings = settings  # type: ignore[assignment]
+        self.settings: TorznabSettings = settings
         self.request_generator = request_generator
         self.parser = parser
 

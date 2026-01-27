@@ -131,7 +131,7 @@ class DownloadService:
         # Check for existing active download
         existing_item = self._download_item_repo.get_latest_by_url_and_tracked_book(
             tracked_book.id,
-            release.download_url,  # type: ignore[arg-type]
+            release.download_url,
         )
         if existing_item and not DownloadStatusMapper.is_terminal(existing_item.status):
             logger.info(
@@ -245,8 +245,8 @@ class DownloadService:
             Created download item.
         """
         return DBDownloadItem(
-            tracked_book_id=tracked_book.id,  # type: ignore[arg-type]
-            download_client_id=client.id,  # type: ignore[arg-type]
+            tracked_book_id=tracked_book.id,
+            download_client_id=client.id,
             indexer_id=release.indexer_id,
             client_item_id=client_item_id,
             guid=release.guid,
@@ -320,7 +320,7 @@ class DownloadService:
             matching_item = self._find_matching_item(download_item, items)
 
             if matching_item:
-                self._item_updater.update(download_item, matching_item)  # type: ignore[arg-type]
+                self._item_updater.update(download_item, matching_item)
                 download_item.updated_at = datetime.now(UTC)
                 self._download_item_repo.update(download_item)
                 self._download_item_repo.commit()

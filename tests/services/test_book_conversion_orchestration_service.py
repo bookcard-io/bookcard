@@ -246,7 +246,7 @@ class TestInitiateConversion:
 
         assert result.task_id == 0
         assert result.message is not None
-        assert "previously" in result.message  # type: ignore[operator]
+        assert "previously" in result.message
 
     def test_initiate_conversion_source_format_not_found(
         self,

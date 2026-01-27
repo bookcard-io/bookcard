@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 class BasicConfigService:
     """Service for managing basic system configuration."""
 
-    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+    def __init__(self, session: Session) -> None:
         """Initialize the basic configuration service.
 
         Parameters
@@ -125,8 +125,8 @@ class LibraryService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
-        library_repo: LibraryRepository,  # type: ignore[type-arg]
+        session: Session,
+        library_repo: LibraryRepository,
     ) -> None:
         self._session = session
         self._library_repo = library_repo
@@ -680,7 +680,7 @@ class LibraryService:
         if epub_fixer_auto_fix_on_ingest is not None:
             library.epub_fixer_auto_fix_on_ingest = epub_fixer_auto_fix_on_ingest
         if duplicate_handling is not None:
-            library.duplicate_handling = duplicate_handling
+            library.duplicate_handling = duplicate_handling  # ty:ignore[invalid-assignment]
 
     def _handle_active_status_change(
         self,
@@ -830,7 +830,7 @@ class EPUBFixerConfigService:
         Active SQLModel session.
     """
 
-    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+    def __init__(self, session: Session) -> None:
         """Initialize EPUB fixer config service.
 
         Parameters
@@ -923,7 +923,7 @@ class EPUBFixerConfigService:
         config = self.get_epub_fixer_config()
         return config.enabled
 
-    def is_auto_fix_on_ingest_enabled(self, library: Library | None = None) -> bool:  # type: ignore[name-defined]
+    def is_auto_fix_on_ingest_enabled(self, library: Library | None = None) -> bool:
         """Check if auto-fix on ingest is enabled for a library.
 
         Parameters
@@ -971,7 +971,7 @@ class ScheduledTasksConfigService:
         Active SQLModel session.
     """
 
-    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+    def __init__(self, session: Session) -> None:
         """Initialize scheduled tasks config service.
 
         Parameters
@@ -1142,7 +1142,7 @@ class FileHandlingConfigService:
         Active SQLModel session.
     """
 
-    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+    def __init__(self, session: Session) -> None:
         """Initialize file handling config service.
 
         Parameters

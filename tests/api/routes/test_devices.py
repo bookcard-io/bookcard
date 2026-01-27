@@ -74,7 +74,7 @@ def test_create_device_success(session: DummySession, current_user: User) -> Non
         mock_service.create_device.return_value = device
         mock_service_class.return_value = mock_service
 
-        result = devices.create_device(session, current_user, payload)  # type: ignore[arg-type]
+        result = devices.create_device(session, current_user, payload)
         assert result.id == 1
         assert result.email == "device@example.com"
         mock_service.create_device.assert_called_once()
@@ -111,7 +111,7 @@ def test_create_device_invalid_format_suppressed(
         mock_service.create_device.return_value = device
         mock_service_class.return_value = mock_service
 
-        result = devices.create_device(session, current_user, payload)  # type: ignore[arg-type]
+        result = devices.create_device(session, current_user, payload)
         assert result.id == 1
         # Verify preferred_format was None (invalid format suppressed)
         call_args = mock_service.create_device.call_args
@@ -138,7 +138,7 @@ def test_create_device_email_exists(session: DummySession, current_user: User) -
         mock_service_class.return_value = mock_service
 
         with pytest.raises(HTTPException) as exc_info:
-            devices.create_device(session, current_user, payload)  # type: ignore[arg-type]
+            devices.create_device(session, current_user, payload)
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 409
         assert exc_info.value.detail == "device_email_already_exists"
@@ -164,7 +164,7 @@ def test_create_device_other_value_error(
         mock_service_class.return_value = mock_service
 
         with pytest.raises(ValueError, match="other_error"):
-            devices.create_device(session, current_user, payload)  # type: ignore[arg-type]
+            devices.create_device(session, current_user, payload)
 
 
 def test_list_devices_success(session: DummySession, current_user: User) -> None:
@@ -187,7 +187,7 @@ def test_list_devices_success(session: DummySession, current_user: User) -> None
         mock_repo.find_by_user.return_value = [device1, device2]
         mock_repo_class.return_value = mock_repo
 
-        result = devices.list_devices(session, current_user)  # type: ignore[arg-type]
+        result = devices.list_devices(session, current_user)
         assert len(result) == 2
         assert result[0].id == 1
         assert result[1].id == 2
@@ -207,7 +207,7 @@ def test_get_device_success(session: DummySession, current_user: User) -> None:
         mock_repo.get.return_value = device
         mock_repo_class.return_value = mock_repo
 
-        result = devices.get_device(1, session, current_user)  # type: ignore[arg-type]
+        result = devices.get_device(1, session, current_user)
         assert result.id == 1
         assert result.email == "device@example.com"
 
@@ -220,7 +220,7 @@ def test_get_device_not_found(session: DummySession, current_user: User) -> None
         mock_repo_class.return_value = mock_repo
 
         with pytest.raises(HTTPException) as exc_info:
-            devices.get_device(999, session, current_user)  # type: ignore[arg-type]
+            devices.get_device(999, session, current_user)
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == "device_not_found"
@@ -243,7 +243,7 @@ def test_get_device_permission_denied(
         mock_repo_class.return_value = mock_repo
 
         with pytest.raises(HTTPException) as exc_info:
-            devices.get_device(1, session, current_user)  # type: ignore[arg-type]
+            devices.get_device(1, session, current_user)
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 403
         assert exc_info.value.detail == "permission_denied"
@@ -284,7 +284,7 @@ def test_update_device_success(session: DummySession, current_user: User) -> Non
         mock_service.update_device.return_value = updated_device
         mock_service_class.return_value = mock_service
 
-        result = devices.update_device(1, session, current_user, payload)  # type: ignore[arg-type]
+        result = devices.update_device(1, session, current_user, payload)
         assert result.id == 1
         assert result.email == "newdevice@example.com"
         session.commit()
@@ -302,7 +302,7 @@ def test_update_device_not_found(session: DummySession, current_user: User) -> N
         mock_repo_class.return_value = mock_repo
 
         with pytest.raises(HTTPException) as exc_info:
-            devices.update_device(999, session, current_user, payload)  # type: ignore[arg-type]
+            devices.update_device(999, session, current_user, payload)
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == "device_not_found"
@@ -335,7 +335,7 @@ def test_update_device_service_not_found(
         mock_service_class.return_value = mock_service
 
         with pytest.raises(HTTPException) as exc_info:
-            devices.update_device(1, session, current_user, payload)  # type: ignore[arg-type]
+            devices.update_device(1, session, current_user, payload)
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == "device_not_found"
@@ -361,7 +361,7 @@ def test_update_device_permission_denied(
         mock_repo_class.return_value = mock_repo
 
         with pytest.raises(HTTPException) as exc_info:
-            devices.update_device(1, session, current_user, payload)  # type: ignore[arg-type]
+            devices.update_device(1, session, current_user, payload)
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 403
         assert exc_info.value.detail == "permission_denied"
@@ -400,7 +400,7 @@ def test_update_device_invalid_format_suppressed(
         mock_service.update_device.return_value = updated_device
         mock_service_class.return_value = mock_service
 
-        result = devices.update_device(1, session, current_user, payload)  # type: ignore[arg-type]
+        result = devices.update_device(1, session, current_user, payload)
         assert result.id == 1
         # Verify preferred_format was None (invalid format suppressed)
         call_args = mock_service.update_device.call_args
@@ -434,7 +434,7 @@ def test_update_device_email_exists(session: DummySession, current_user: User) -
         mock_service_class.return_value = mock_service
 
         with pytest.raises(HTTPException) as exc_info:
-            devices.update_device(1, session, current_user, payload)  # type: ignore[arg-type]
+            devices.update_device(1, session, current_user, payload)
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 409
         assert exc_info.value.detail == "device_email_already_exists"
@@ -467,7 +467,7 @@ def test_update_device_other_value_error(
         mock_service_class.return_value = mock_service
 
         with pytest.raises(ValueError, match="other_error"):
-            devices.update_device(1, session, current_user, payload)  # type: ignore[arg-type]
+            devices.update_device(1, session, current_user, payload)
 
 
 def test_delete_device_success(session: DummySession, current_user: User) -> None:
@@ -491,7 +491,7 @@ def test_delete_device_success(session: DummySession, current_user: User) -> Non
         mock_service.delete_device.return_value = None
         mock_service_class.return_value = mock_service
 
-        devices.delete_device(1, session, current_user)  # type: ignore[arg-type]
+        devices.delete_device(1, session, current_user)
         mock_service.delete_device.assert_called_once_with(1)
         session.commit()
 
@@ -504,7 +504,7 @@ def test_delete_device_not_found(session: DummySession, current_user: User) -> N
         mock_repo_class.return_value = mock_repo
 
         with pytest.raises(HTTPException) as exc_info:
-            devices.delete_device(999, session, current_user)  # type: ignore[arg-type]
+            devices.delete_device(999, session, current_user)
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == "device_not_found"
@@ -527,7 +527,7 @@ def test_delete_device_permission_denied(
         mock_repo_class.return_value = mock_repo
 
         with pytest.raises(HTTPException) as exc_info:
-            devices.delete_device(1, session, current_user)  # type: ignore[arg-type]
+            devices.delete_device(1, session, current_user)
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 403
         assert exc_info.value.detail == "permission_denied"
@@ -555,7 +555,7 @@ def test_delete_device_service_error(session: DummySession, current_user: User) 
         mock_service_class.return_value = mock_service
 
         with pytest.raises(HTTPException) as exc_info:
-            devices.delete_device(1, session, current_user)  # type: ignore[arg-type]
+            devices.delete_device(1, session, current_user)
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == "device_not_found"

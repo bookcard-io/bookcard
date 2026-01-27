@@ -197,7 +197,7 @@ def test_registry_register_invalid_class() -> None:
     registry._providers = {}
 
     with pytest.raises(TypeError):
-        registry.register(str)  # type: ignore[arg-type]
+        registry.register(str)
 
 
 def test_registry_register_existing_provider() -> None:

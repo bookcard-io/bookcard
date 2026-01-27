@@ -138,9 +138,9 @@ class BookRelationshipManager(IBookRelationshipManager):
         # Get current authors
         current_authors_stmt = (
             select(Author.name)
-            .join(BookAuthorLink, Author.id == BookAuthorLink.author)
+            .join(BookAuthorLink, Author.id == BookAuthorLink.author)  # type: ignore[invalid-argument-type]
             .where(BookAuthorLink.book == book_id)
-            .order_by(BookAuthorLink.id)
+            .order_by(BookAuthorLink.id)  # type: ignore[invalid-argument-type]
         )
         current_author_names = self._normalize_string_set(
             list(session.exec(current_authors_stmt).all())
@@ -157,7 +157,7 @@ class BookRelationshipManager(IBookRelationshipManager):
         # Authors are changing - delete existing author links
         delete_links_stmt = select(BookAuthorLink).where(BookAuthorLink.book == book_id)
         existing_links = list(session.exec(delete_links_stmt).all())
-        self._delete_links_and_flush(session, existing_links)
+        self._delete_links_and_flush(session, existing_links)  # type: ignore[invalid-argument-type]
 
         # Create or get authors and create links
         for author_name in author_names:
@@ -261,7 +261,7 @@ class BookRelationshipManager(IBookRelationshipManager):
         # Get current tags
         current_tags_stmt = (
             select(Tag.name)
-            .join(BookTagLink, Tag.id == BookTagLink.tag)
+            .join(BookTagLink, Tag.id == BookTagLink.tag)  # type: ignore[invalid-argument-type]
             .where(BookTagLink.book == book_id)
         )
         current_tag_names = self._normalize_string_set(
@@ -280,7 +280,7 @@ class BookRelationshipManager(IBookRelationshipManager):
         # Tags are changing - delete existing tag links
         delete_tags_stmt = select(BookTagLink).where(BookTagLink.book == book_id)
         existing_tag_links = list(session.exec(delete_tags_stmt).all())
-        self._delete_links_and_flush(session, existing_tag_links)
+        self._delete_links_and_flush(session, existing_tag_links)  # type: ignore[invalid-argument-type]
 
         # Create or get tags and create links
         added_tag_ids: set[int] = set()

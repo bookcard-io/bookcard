@@ -38,7 +38,7 @@ class BookReadingSummaryQueryService:
         Active SQLModel session.
     """
 
-    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+    def __init__(self, session: Session) -> None:
         """Initialize the query service.
 
         Parameters
@@ -87,7 +87,7 @@ class BookReadingSummaryQueryService:
                 ReadStatus.library_id == library_id,
                 col(ReadStatus.book_id).in_(unique_book_ids),
             )
-            .order_by(ReadStatus.book_id)
+            .order_by(ReadStatus.book_id)  # type: ignore[invalid-argument-type]
         )
 
         progress_stmt = (
@@ -111,7 +111,7 @@ class BookReadingSummaryQueryService:
 
         for book_id, status, status_updated_at in status_rows:
             by_book_id[int(book_id)] = BookReadingSummary(
-                read_status=status.value if status is not None else None,
+                read_status=status.value if status is not None else None,  # ty:ignore[possibly-missing-attribute]
                 max_progress=None,
                 status_updated_at=_as_dt(status_updated_at),
                 progress_updated_at=None,

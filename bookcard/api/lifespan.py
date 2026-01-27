@@ -42,8 +42,8 @@ logger = logging.getLogger(__name__)
 
 try:
     # Imported lazily in function to avoid hard dependency at import time in tests
-    from alembic import command as _alembic_command  # type: ignore
-    from alembic.config import Config as _AlembicConfig  # type: ignore
+    from alembic import command as _alembic_command
+    from alembic.config import Config as _AlembicConfig
 except ImportError:  # pragma: no cover - only for environments without Alembic
     _alembic_command = None  # type: ignore[assignment]
     _AlembicConfig = None  # type: ignore[assignment]
@@ -69,7 +69,7 @@ async def run_migrations(cfg: AppConfig) -> None:
 
 def create_lifespan(
     cfg: AppConfig, engine: "Engine"
-) -> Callable[[FastAPI], AsyncIterator[None]]:  # type: ignore[return]
+) -> Callable[[FastAPI], AsyncIterator[None]]:
     """Create lifespan context manager for the FastAPI application.
 
     Parameters

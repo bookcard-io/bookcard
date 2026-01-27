@@ -176,8 +176,8 @@ def test_cancel_download_not_found(
 
     # Type check ignore as these attributes exist on HTTPException but mypy/pyright
     # might infer BaseException which doesn't have them
-    assert exc.value.status_code == status.HTTP_404_NOT_FOUND  # type: ignore[attr-defined]
-    assert exc.value.detail == "Download item not found or cannot be cancelled"  # type: ignore[attr-defined]
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+    assert exc.value.detail == "Download item not found or cannot be cancelled"
 
 
 def test_retry_download_success(
@@ -231,8 +231,8 @@ def test_retry_download_not_found(
 
     # Type check ignore as these attributes exist on HTTPException but mypy/pyright
     # might infer BaseException which doesn't have them
-    assert exc.value.status_code == status.HTTP_404_NOT_FOUND  # type: ignore[attr-defined]
-    assert exc.value.detail == "Download item not found"  # type: ignore[attr-defined]
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+    assert exc.value.detail == "Download item not found"
     mock_import_service.process_completed_download.assert_not_called()
 
 
@@ -265,5 +265,5 @@ def test_retry_download_failure(
 
     # Type check ignore as these attributes exist on HTTPException but mypy/pyright
     # might infer BaseException which doesn't have them
-    assert exc.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR  # type: ignore[attr-defined]
-    assert "Import failed: Import error" in exc.value.detail  # type: ignore[attr-defined]
+    assert exc.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert "Import failed: Import error" in exc.value.detail

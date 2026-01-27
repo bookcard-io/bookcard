@@ -683,10 +683,10 @@ def test_get_kobo_library_service(
         mock_service_class.return_value = mock_service_instance
 
         result = kobo_routes._get_kobo_library_service(
-            session,
+            session,  # type: ignore[invalid-argument-type]
             mock_request,
             auth_token,
-            mock_book_service,  # type: ignore[arg-type]
+            mock_book_service,
         )
 
         assert result is not None
@@ -749,8 +749,8 @@ def test_get_kobo_shelf_item_service(session: DummySession) -> None:
         mock_service_class.return_value = mock_service_instance
 
         result = kobo_routes._get_kobo_shelf_item_service(
-            session,
-            mock_book_service,  # type: ignore[arg-type]
+            session,  # type: ignore[invalid-argument-type]
+            mock_book_service,
         )
 
         assert result is not None
@@ -812,7 +812,7 @@ async def test_handle_auth_device_success(
         result = await kobo_routes.handle_auth_device(
             mock_request,
             session,
-            mock_device_auth_service,  # type: ignore[arg-type]
+            mock_device_auth_service,
         )
 
         assert result == mock_response
@@ -850,7 +850,7 @@ def test_handle_initialization_success(
             mock_request,
             session,
             auth_token,
-            mock_init_service,  # type: ignore[arg-type]
+            mock_init_service,
         )
 
         assert result == mock_resources
@@ -902,7 +902,7 @@ async def test_handle_library_sync_success(
 
         result = await kobo_routes.handle_library_sync(
             mock_request,
-            session,  # type: ignore[arg-type]
+            session,
             kobo_user,
             mock_library_service,
         )
@@ -949,7 +949,7 @@ async def test_handle_library_sync_library_no_id(
     ):
         await kobo_routes.handle_library_sync(
             mock_request,
-            session,  # type: ignore[arg-type]
+            session,
             kobo_user,
             mock_library_service,
         )
@@ -997,7 +997,7 @@ async def test_handle_library_sync_user_no_id(
     ):
         await kobo_routes.handle_library_sync(
             mock_request,
-            session,  # type: ignore[arg-type]
+            session,
             user_no_id,
             mock_library_service,
         )
@@ -1035,7 +1035,7 @@ def test_handle_library_metadata_success(
         result = kobo_routes.handle_library_metadata(
             session,
             book_uuid,
-            mock_library_service,  # type: ignore[arg-type]
+            mock_library_service,
         )
 
         assert isinstance(result, JSONResponse)
@@ -1081,7 +1081,7 @@ def test_handle_library_metadata_proxy_redirect(
         result = kobo_routes.handle_library_metadata(
             session,
             book_uuid,
-            mock_library_service,  # type: ignore[arg-type]
+            mock_library_service,
         )
 
         assert isinstance(result, RedirectResponse)
@@ -1128,7 +1128,7 @@ def test_handle_library_metadata_no_proxy_raises(
             kobo_routes.handle_library_metadata(
                 session,
                 book_uuid,
-                mock_library_service,  # type: ignore[arg-type]
+                mock_library_service,
             )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -1167,7 +1167,7 @@ def test_handle_library_delete_success(
             session,
             kobo_user,
             book_uuid,
-            mock_library_service,  # type: ignore[arg-type]
+            mock_library_service,
         )
 
         assert result.status_code == status.HTTP_204_NO_CONTENT
@@ -1208,7 +1208,7 @@ def test_handle_library_delete_user_no_id(
             session,
             user_no_id,
             book_uuid,
-            mock_library_service,  # type: ignore[arg-type]
+            mock_library_service,
         )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -1257,7 +1257,7 @@ def test_handle_library_delete_proxy_redirect(
             session,
             kobo_user,
             book_uuid,
-            mock_library_service,  # type: ignore[arg-type]
+            mock_library_service,
         )
 
         assert isinstance(result, RedirectResponse)
@@ -1305,7 +1305,7 @@ def test_handle_library_delete_no_proxy_raises(
                 session,
                 kobo_user,
                 book_uuid,
-                mock_library_service,  # type: ignore[arg-type]
+                mock_library_service,
             )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -1377,7 +1377,7 @@ def test_handle_reading_state_get_success(
 
         result = kobo_routes.handle_reading_state_get(
             mock_request,
-            session,  # type: ignore[arg-type]
+            session,
             kobo_user,
             auth_token,
             book_uuid,
@@ -1416,7 +1416,7 @@ def test_handle_reading_state_get_user_no_id(
     with pytest.raises(HTTPException) as exc_info:
         kobo_routes.handle_reading_state_get(
             mock_request,
-            session,  # type: ignore[arg-type]
+            session,
             user_no_id,
             auth_token,
             book_uuid,
@@ -1469,7 +1469,7 @@ def test_handle_reading_state_get_library_no_id(
     ):
         kobo_routes.handle_reading_state_get(
             mock_request,
-            session,  # type: ignore[arg-type]
+            session,
             kobo_user,
             auth_token,
             book_uuid,
@@ -1521,7 +1521,7 @@ def test_handle_reading_state_get_proxy_redirect(
 
         result = kobo_routes.handle_reading_state_get(
             mock_request,
-            session,  # type: ignore[arg-type]
+            session,
             kobo_user,
             auth_token,
             book_uuid,
@@ -1570,7 +1570,7 @@ def test_handle_reading_state_get_no_proxy_raises(
         with pytest.raises(HTTPException) as exc_info:
             kobo_routes.handle_reading_state_get(
                 mock_request,
-                session,  # type: ignore[arg-type]
+                session,
                 kobo_user,
                 auth_token,
                 book_uuid,
@@ -1631,7 +1631,7 @@ async def test_handle_reading_state_put_success(
         mock_reading_func.return_value = mock_reading_state_service
 
         result = await kobo_routes.handle_reading_state_put(
-            session,  # type: ignore[arg-type]
+            session,
             kobo_user,
             book_uuid,
             mock_book_lookup_service,
@@ -1672,7 +1672,7 @@ async def test_handle_reading_state_put_user_no_id(
 
     with pytest.raises(HTTPException) as exc_info:
         await kobo_routes.handle_reading_state_put(
-            session,  # type: ignore[arg-type]
+            session,
             user_no_id,
             book_uuid,
             mock_book_lookup_service,
@@ -1719,7 +1719,7 @@ async def test_handle_reading_state_put_book_not_found(
         pytest.raises(HTTPException) as exc_info,
     ):
         await kobo_routes.handle_reading_state_put(
-            session,  # type: ignore[arg-type]
+            session,
             kobo_user,
             book_uuid,
             mock_book_lookup_service,
@@ -1769,7 +1769,7 @@ async def test_handle_reading_state_put_library_no_id(
         pytest.raises(HTTPException) as exc_info,
     ):
         await kobo_routes.handle_reading_state_put(
-            session,  # type: ignore[arg-type]
+            session,
             kobo_user,
             book_uuid,
             mock_book_lookup_service,
@@ -1817,7 +1817,7 @@ async def test_handle_reading_state_put_no_states(
         pytest.raises(HTTPException) as exc_info,
     ):
         await kobo_routes.handle_reading_state_put(
-            session,  # type: ignore[arg-type]
+            session,
             kobo_user,
             book_uuid,
             mock_book_lookup_service,
@@ -1865,7 +1865,7 @@ def test_handle_tags_create_success(session: DummySession, kobo_user: User) -> N
         result = kobo_routes.handle_tags_create(
             session,
             kobo_user,
-            tag_data,  # type: ignore[arg-type]
+            tag_data,
         )
 
         assert result.status_code == status.HTTP_201_CREATED
@@ -1894,7 +1894,7 @@ def test_handle_tags_create_user_no_id(session: DummySession) -> None:
         kobo_routes.handle_tags_create(
             session,
             user_no_id,
-            tag_data,  # type: ignore[arg-type]
+            tag_data,
         )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -1933,7 +1933,7 @@ def test_handle_tags_create_library_no_id(
         kobo_routes.handle_tags_create(
             session,
             kobo_user,
-            tag_data,  # type: ignore[arg-type]
+            tag_data,
         )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -1981,7 +1981,7 @@ def test_handle_download_success(session: DummySession) -> None:
                 session,
                 book_id,
                 book_format,
-                mock_download_service,  # type: ignore[arg-type]
+                mock_download_service,
             )
 
             assert isinstance(result, FileResponse)
@@ -2015,7 +2015,7 @@ def test_handle_cover_image_success(session: DummySession) -> None:
         return_value=mock_cover_service,
     ):
         result = kobo_routes.handle_cover_image(
-            session,  # type: ignore[arg-type]
+            session,
             book_uuid,
             width,
             height,
@@ -2040,7 +2040,7 @@ def test_handle_top_level(session: DummySession) -> None:
     mock_config = IntegrationConfig(kobo_sync_enabled=True)
     session.set_exec_result([mock_config])
 
-    result = kobo_routes.handle_top_level(session)  # type: ignore[arg-type]
+    result = kobo_routes.handle_top_level(session)
 
     assert result == {}
 
@@ -2092,7 +2092,7 @@ def test_handle_tags_update_put_success(
 
         result = kobo_routes.handle_tags_update(
             mock_request,
-            session,  # type: ignore[arg-type]
+            session,
             kobo_user,
             auth_token,
             tag_id,
@@ -2131,7 +2131,7 @@ def test_handle_tags_update_user_no_id(
     with pytest.raises(HTTPException) as exc_info:
         kobo_routes.handle_tags_update(
             mock_request,
-            session,  # type: ignore[arg-type]
+            session,
             user_no_id,
             auth_token,
             tag_id,
@@ -2196,7 +2196,7 @@ def test_handle_tags_update_delete_success(
 
         result = kobo_routes.handle_tags_update(
             mock_request,
-            session,  # type: ignore[arg-type]
+            session,
             kobo_user,
             auth_token,
             tag_id,
@@ -2252,7 +2252,7 @@ def test_handle_tags_update_proxy_redirect(
 
         result = kobo_routes.handle_tags_update(
             mock_request,
-            session,  # type: ignore[arg-type]
+            session,
             kobo_user,
             auth_token,
             tag_id,
@@ -2309,7 +2309,7 @@ def test_handle_tags_update_no_proxy_raises(
         with pytest.raises(HTTPException) as exc_info:
             kobo_routes.handle_tags_update(
                 mock_request,
-                session,  # type: ignore[arg-type]
+                session,
                 kobo_user,
                 auth_token,
                 tag_id,
@@ -2353,7 +2353,7 @@ def test_handle_tags_add_items_success(session: DummySession, kobo_user: User) -
         mock_repo_class.return_value = mock_repo
 
         result = kobo_routes.handle_tags_add_items(
-            session,  # type: ignore[arg-type]
+            session,
             kobo_user,
             tag_id,
             item_data,
@@ -2388,7 +2388,7 @@ def test_handle_tags_add_items_user_no_id(session: DummySession) -> None:
 
     with pytest.raises(HTTPException) as exc_info:
         kobo_routes.handle_tags_add_items(
-            session,  # type: ignore[arg-type]
+            session,
             user_no_id,
             tag_id,
             item_data,
@@ -2432,7 +2432,7 @@ def test_handle_tags_add_items_shelf_not_found(
 
         with pytest.raises(HTTPException) as exc_info:
             kobo_routes.handle_tags_add_items(
-                session,  # type: ignore[arg-type]
+                session,
                 kobo_user,
                 tag_id,
                 item_data,
@@ -2478,7 +2478,7 @@ def test_handle_tags_add_items_shelf_no_id(
 
         with pytest.raises(HTTPException) as exc_info:
             kobo_routes.handle_tags_add_items(
-                session,  # type: ignore[arg-type]
+                session,
                 kobo_user,
                 tag_id,
                 item_data,
@@ -2524,7 +2524,7 @@ def test_handle_tags_remove_items_success(
         mock_repo_class.return_value = mock_repo
 
         result = kobo_routes.handle_tags_remove_items(
-            session,  # type: ignore[arg-type]
+            session,
             kobo_user,
             tag_id,
             item_data,
@@ -2559,7 +2559,7 @@ def test_handle_tags_remove_items_user_no_id(session: DummySession) -> None:
 
     with pytest.raises(HTTPException) as exc_info:
         kobo_routes.handle_tags_remove_items(
-            session,  # type: ignore[arg-type]
+            session,
             user_no_id,
             tag_id,
             item_data,
@@ -2603,7 +2603,7 @@ def test_handle_tags_remove_items_shelf_not_found(
 
         with pytest.raises(HTTPException) as exc_info:
             kobo_routes.handle_tags_remove_items(
-                session,  # type: ignore[arg-type]
+                session,
                 kobo_user,
                 tag_id,
                 item_data,
@@ -2649,7 +2649,7 @@ def test_handle_tags_remove_items_shelf_no_id(
 
         with pytest.raises(HTTPException) as exc_info:
             kobo_routes.handle_tags_remove_items(
-                session,  # type: ignore[arg-type]
+                session,
                 kobo_user,
                 tag_id,
                 item_data,

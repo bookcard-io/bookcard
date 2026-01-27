@@ -47,10 +47,10 @@ class OpdsAuthService(IOpdsAuthProvider):
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
-        user_repo: UserRepository,  # type: ignore[type-arg]
-        hasher: PasswordHasher,  # type: ignore[type-arg]
-        jwt_manager: JWTManager,  # type: ignore[type-arg]
+        session: Session,
+        user_repo: UserRepository,
+        hasher: PasswordHasher,
+        jwt_manager: JWTManager,
     ) -> None:
         """Initialize OPDS auth service.
 

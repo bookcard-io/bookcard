@@ -466,7 +466,7 @@ class DownloadStationClient(BaseDownloadClient):
         super().__init__(
             settings, file_fetcher, url_router, http_client_factory, enabled
         )
-        self.settings: DownloadStationSettings = settings  # type: ignore[assignment]
+        self.settings: DownloadStationSettings = settings
         self._proxy = DownloadStationProxy(self.settings)
         # Download Station status codes: 0=waiting, 1=downloading, 2=paused,
         # 3=finished, 4=finished (errors), 5=hash checking, 6=extracting, 7=error, 8=seeding

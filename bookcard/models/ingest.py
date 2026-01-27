@@ -87,12 +87,12 @@ class IngestHistory(SQLModel, table=True):
     file_path: str = Field(index=True, max_length=2000)
     status: IngestStatus = Field(
         default=IngestStatus.PENDING,
-        sa_column=Column(SQLEnum(IngestStatus, native_enum=False), nullable=False),  # type: ignore[call-overload]
+        sa_column=Column(SQLEnum(IngestStatus, native_enum=False), nullable=False),
     )
     book_id: int | None = Field(default=None, index=True)
     ingest_metadata: dict | None = Field(
         default=None,
-        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSON, nullable=True),
     )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
@@ -223,7 +223,7 @@ class IngestAudit(SQLModel, table=True):
     file_path: str = Field(max_length=2000)
     audit_metadata: dict | None = Field(
         default=None,
-        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSON, nullable=True),
     )
     user_id: int | None = Field(
         default=None, foreign_key="users.id", nullable=True, index=True
@@ -294,20 +294,20 @@ class IngestConfig(SQLModel, table=True):
     metadata_fetch_enabled: bool = Field(default=False)
     metadata_providers: dict | None = Field(
         default=["google", "openlibrary", "hardcover"],
-        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSON, nullable=True),
     )
     metadata_merge_strategy: str = Field(default="first_wins", max_length=50)
     metadata_priority_order: dict | None = Field(
         default=None,
-        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSON, nullable=True),
     )
     supported_formats: dict | None = Field(
         default=None,
-        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSON, nullable=True),
     )
     ignore_patterns: dict | None = Field(
         default=None,
-        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSON, nullable=True),
     )
     retry_max_attempts: int = Field(default=3)
     retry_backoff_seconds: int = Field(default=300)

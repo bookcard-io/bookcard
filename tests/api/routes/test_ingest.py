@@ -183,7 +183,7 @@ def test_get_ingest_config(session: DummySession) -> None:
         mock_service.get_config.return_value = mock_config
         mock_service_class.return_value = mock_service
 
-        result = ingest_routes.get_ingest_config(session)  # type: ignore[arg-type]
+        result = ingest_routes.get_ingest_config(session)
 
         assert result is not None
         assert result.enabled is True
@@ -267,7 +267,7 @@ def test_update_ingest_config_restarts_watcher(
         result = ingest_routes.update_ingest_config(
             mock_request,
             session,
-            config_update,  # type: ignore[arg-type]
+            config_update,
         )
 
         assert result is not None
@@ -326,7 +326,7 @@ def test_update_ingest_config_watcher_not_available(
         result = ingest_routes.update_ingest_config(
             mock_request_no_watcher,
             session,
-            config_update,  # type: ignore[arg-type]
+            config_update,
         )
 
         assert result is not None
@@ -384,7 +384,7 @@ def test_update_ingest_config_watcher_restart_error(
         result = ingest_routes.update_ingest_config(
             mock_request,
             session,
-            config_update,  # type: ignore[arg-type]
+            config_update,
         )
 
         # Should still return config even if restart fails
@@ -443,7 +443,7 @@ def test_list_ingest_history(
             session,
             page,
             page_size,
-            status_filter,  # type: ignore[arg-type]
+            status_filter,
         )
 
         assert result.page == page
@@ -477,7 +477,7 @@ def test_get_ingest_history_success(admin_user: User, session: DummySession) -> 
 
         result = ingest_routes.get_ingest_history(
             session,
-            history_id,  # type: ignore[arg-type]
+            history_id,
         )
 
         assert result.id == history_id
@@ -501,7 +501,7 @@ def test_get_ingest_history_not_found(admin_user: User, session: DummySession) -
         mock_repo_class.return_value = mock_repo
 
         with pytest.raises(HTTPException) as exc_info:
-            ingest_routes.get_ingest_history(session, history_id)  # type: ignore[arg-type]
+            ingest_routes.get_ingest_history(session, history_id)
 
     assert isinstance(exc_info.value, HTTPException)
     exc = exc_info.value
@@ -700,7 +700,7 @@ def test_retry_ingest_success(
             mock_request,
             session,
             admin_user,
-            history_id,  # type: ignore[arg-type]
+            history_id,
         )
 
         assert result.history_id == history_id
@@ -733,7 +733,7 @@ def test_retry_ingest_not_found(
                 mock_request,
                 session,
                 admin_user,
-                history_id,  # type: ignore[arg-type]
+                history_id,
             )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -772,7 +772,7 @@ def test_retry_ingest_not_failed(
                 mock_request,
                 session,
                 admin_user,
-                history_id,  # type: ignore[arg-type]
+                history_id,
             )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -812,7 +812,7 @@ def test_retry_ingest_no_files(
                 mock_request,
                 session,
                 admin_user,
-                history_id,  # type: ignore[arg-type]
+                history_id,
             )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -855,7 +855,7 @@ def test_retry_ingest_no_task_runner(
                 mock_request_no_watcher,
                 session,
                 admin_user,
-                history_id,  # type: ignore[arg-type]
+                history_id,
             )
 
     assert isinstance(exc_info.value, HTTPException)

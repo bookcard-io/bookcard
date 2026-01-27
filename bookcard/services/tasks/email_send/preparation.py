@@ -38,7 +38,7 @@ class DefaultSendPreparationService:
         self,
         request: SendBookRequest,
         book_service: BookService,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         user_id: int,
     ) -> SendPreparation:
         """Prepare book for sending.

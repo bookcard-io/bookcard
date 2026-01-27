@@ -493,9 +493,9 @@ class BookReadOperations:
     def _fetch_author_names(self, session: Session, *, book_id: int) -> list[str]:
         authors_stmt = (
             select(Author.name)
-            .join(BookAuthorLink, Author.id == BookAuthorLink.author)
+            .join(BookAuthorLink, Author.id == BookAuthorLink.author)  # type: ignore[invalid-argument-type]
             .where(BookAuthorLink.book == book_id)
-            .order_by(BookAuthorLink.id)
+            .order_by(BookAuthorLink.id)  # type: ignore[invalid-argument-type]
         )
         author_rows = session.exec(authors_stmt).all()
         return [row[0] if isinstance(row, tuple) else row for row in author_rows]

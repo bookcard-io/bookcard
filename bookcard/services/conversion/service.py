@@ -81,7 +81,7 @@ class ConversionService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         library: Library,
         book_repository: BookRepository,
         conversion_repository: ConversionRepository,

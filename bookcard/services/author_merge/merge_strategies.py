@@ -76,7 +76,7 @@ class ZeroBooksMergeStrategy:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         calibre_author_service: CalibreAuthorService,
         relationship_repo: AuthorRelationshipRepository,
         data_directory: str | None = None,
@@ -164,7 +164,7 @@ class BothHaveBooksMergeStrategy:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         calibre_author_service: CalibreAuthorService,
         relationship_repo: AuthorRelationshipRepository,
         data_directory: str | None = None,
@@ -256,7 +256,7 @@ class MergeStrategyFactory:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         calibre_author_service: CalibreAuthorService,
         relationship_repo: AuthorRelationshipRepository,
         data_directory: str | None = None,
