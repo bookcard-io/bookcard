@@ -79,7 +79,7 @@ class AuthorSuggestionStrategy(FilterSuggestionStrategy):
         pattern_lower = f"%{query_lower}%"
         stmt = (
             select(Author.id, Author.name)
-            .where(func.lower(Author.name).like(pattern_lower))  # type: ignore[attr-defined]
+            .where(func.lower(Author.name).like(pattern_lower))
             .limit(limit)
         )
         results = session.exec(stmt).all()
@@ -99,7 +99,7 @@ class TitleSuggestionStrategy(FilterSuggestionStrategy):
         pattern_lower = f"%{query_lower}%"
         stmt = (
             select(Book.id, Book.title)
-            .where(func.lower(Book.title).like(pattern_lower))  # type: ignore[attr-defined]
+            .where(func.lower(Book.title).like(pattern_lower))
             .limit(limit)
         )
         results = session.exec(stmt).all()
@@ -117,7 +117,7 @@ class GenreSuggestionStrategy(FilterSuggestionStrategy):
         pattern_lower = f"%{query_lower}%"
         stmt = (
             select(Tag.id, Tag.name)
-            .where(func.lower(Tag.name).like(pattern_lower))  # type: ignore[attr-defined]
+            .where(func.lower(Tag.name).like(pattern_lower))
             .limit(limit)
         )
         results = session.exec(stmt).all()
@@ -135,7 +135,7 @@ class PublisherSuggestionStrategy(FilterSuggestionStrategy):
         pattern_lower = f"%{query_lower}%"
         stmt = (
             select(Publisher.id, Publisher.name)
-            .where(func.lower(Publisher.name).like(pattern_lower))  # type: ignore[attr-defined]
+            .where(func.lower(Publisher.name).like(pattern_lower))
             .limit(limit)
         )
         results = session.exec(stmt).all()
@@ -156,7 +156,7 @@ class IdentifierSuggestionStrategy(FilterSuggestionStrategy):
         pattern_lower = f"%{query_lower}%"
         stmt = (
             select(Identifier.id, Identifier.val, Identifier.type)
-            .where(func.lower(Identifier.val).like(pattern_lower))  # type: ignore[attr-defined]
+            .where(func.lower(Identifier.val).like(pattern_lower))
             .limit(limit)
         )
         results = session.exec(stmt).all()
@@ -180,7 +180,7 @@ class SeriesSuggestionStrategy(FilterSuggestionStrategy):
         pattern_lower = f"%{query_lower}%"
         stmt = (
             select(Series.id, Series.name)
-            .where(func.lower(Series.name).like(pattern_lower))  # type: ignore[attr-defined]
+            .where(func.lower(Series.name).like(pattern_lower))
             .limit(limit)
         )
         results = session.exec(stmt).all()
@@ -200,7 +200,7 @@ class FormatSuggestionStrategy(FilterSuggestionStrategy):
         pattern_lower = f"%{query_lower}%"
         stmt = (
             select(Data.format)
-            .where(func.lower(Data.format).like(pattern_lower))  # type: ignore[attr-defined]
+            .where(func.lower(Data.format).like(pattern_lower))
             .distinct()
             .limit(limit)
         )
@@ -222,7 +222,7 @@ class RatingSuggestionStrategy(FilterSuggestionStrategy):
             rating_query = int(query.strip())
             stmt = (
                 select(Rating.id, Rating.rating)
-                .where(Rating.rating == rating_query)  # type: ignore[attr-defined]
+                .where(Rating.rating == rating_query)
                 .limit(limit)
             )
         except ValueError:
@@ -250,7 +250,7 @@ class LanguageSuggestionStrategy(FilterSuggestionStrategy):
         pattern_lower = f"%{query_lower}%"
         stmt = (
             select(Language.id, Language.lang_code)
-            .where(func.lower(Language.lang_code).like(pattern_lower))  # type: ignore[attr-defined]
+            .where(func.lower(Language.lang_code).like(pattern_lower))
             .limit(limit)
         )
         results = session.exec(stmt).all()

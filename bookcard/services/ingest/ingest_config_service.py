@@ -46,7 +46,7 @@ class IngestConfigService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         config_repo: IngestConfigRepository | None = None,
     ) -> None:
         """Initialize ingest config service.

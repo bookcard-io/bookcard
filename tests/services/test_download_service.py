@@ -167,7 +167,7 @@ class TestDownloadService:
             sample_client_definition
         ]
         # Mock client service to return the client definition
-        mock_client_service.get_download_client = MagicMock(  # type: ignore[method-assign]
+        mock_client_service.get_download_client = MagicMock(
             return_value=sample_client_definition
         )
 

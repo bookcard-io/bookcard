@@ -29,4 +29,4 @@ def register_middleware(app: FastAPI) -> None:
         FastAPI application instance.
     """
     # Middleware (best-effort attachment of user claims)
-    app.add_middleware(AuthMiddleware)
+    app.add_middleware(AuthMiddleware)  # type: ignore[invalid-argument-type]

@@ -160,7 +160,7 @@ class BookConvertTask(BaseTask):
         if self.check_cancelled():
             raise TaskCancelledError(self.task_id)
 
-    def _get_active_library(self, context: WorkerContext) -> Library:  # type: ignore[name-defined]
+    def _get_active_library(self, context: WorkerContext) -> Library:
         """Get active library configuration.
 
         Parameters

@@ -240,8 +240,8 @@ def test_get_with_relationships_returns_user() -> None:
         email="user@example.com",
         password_hash="hash",
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     session.add_exec_result([user])
 
@@ -276,8 +276,8 @@ def test_list_users_with_relationships_returns_users() -> None:
         email="user1@example.com",
         password_hash="hash",
     )
-    user1.ereader_devices = []  # type: ignore[attr-defined]
-    user1.roles = []  # type: ignore[attr-defined]
+    user1.ereader_devices = []
+    user1.roles = []
 
     user2 = User(
         id=2,
@@ -285,8 +285,8 @@ def test_list_users_with_relationships_returns_users() -> None:
         email="user2@example.com",
         password_hash="hash",
     )
-    user2.ereader_devices = []  # type: ignore[attr-defined]
-    user2.roles = []  # type: ignore[attr-defined]
+    user2.ereader_devices = []
+    user2.roles = []
 
     session.add_exec_result([user1, user2])
 
@@ -309,8 +309,8 @@ def test_list_users_with_relationships_with_limit() -> None:
         email="user@example.com",
         password_hash="hash",
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     session.add_exec_result([user])
 
@@ -331,8 +331,8 @@ def test_list_users_with_relationships_no_limit() -> None:
         email="user@example.com",
         password_hash="hash",
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     session.add_exec_result([user])
 
@@ -918,8 +918,8 @@ def test_create_admin_user_success() -> None:
         password_hash="hash",
         is_admin=True,
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     session.add_exec_result([None])  # find_by_username
     session.add_exec_result([None])  # find_by_email
@@ -938,7 +938,7 @@ def test_create_admin_user_success() -> None:
     assert result.username == "admin"
     assert result.email == "admin@example.com"
     assert session.flush_count >= 1
-    assert session.commit_count >= 1  # type: ignore[attr-defined]
+    assert session.commit_count >= 1
 
 
 def test_create_admin_user_username_exists() -> None:
@@ -1012,8 +1012,8 @@ def test_create_admin_user_with_roles() -> None:
         email="admin@example.com",
         password_hash="hash",
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     session.add_exec_result([None])  # find_by_username
     session.add_exec_result([None])  # find_by_email
@@ -1050,8 +1050,8 @@ def test_create_admin_user_with_device() -> None:
         email="admin@example.com",
         password_hash="hash",
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     session.add_exec_result([None])  # find_by_username
     session.add_exec_result([None])  # find_by_email

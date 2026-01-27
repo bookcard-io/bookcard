@@ -167,7 +167,7 @@ class AnnaArchiveResolver(UrlResolverProtocol):
             href = a["href"]
             text = a.get_text().lower()
             if "/slow_download/" in href or "slow partner server" in text:
-                return urllib.parse.urljoin(base_url, href)
+                return urllib.parse.urljoin(base_url, href)  # type: ignore[invalid-argument-type]
         return None
 
     def _find_direct_button_link(
@@ -176,7 +176,7 @@ class AnnaArchiveResolver(UrlResolverProtocol):
         for a in soup.find_all("a", href=True):
             text = a.get_text().lower()
             if "download" in text and "/md5/" not in a["href"]:
-                return urllib.parse.urljoin(base_url, a["href"])
+                return urllib.parse.urljoin(base_url, a["href"])  # type: ignore[invalid-argument-type]
         logger.warning("No download link found on %s", base_url)
         return None
 

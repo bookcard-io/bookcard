@@ -122,11 +122,11 @@ class DeduplicateStage(PipelineStage):
             List of authors with relationships loaded.
         """
         stmt = select(AuthorMetadata).options(
-            selectinload(AuthorMetadata.remote_ids),
-            selectinload(AuthorMetadata.photos),
-            selectinload(AuthorMetadata.alternate_names),
-            selectinload(AuthorMetadata.links),
-            selectinload(AuthorMetadata.works).selectinload(AuthorWork.subjects),
+            selectinload(AuthorMetadata.remote_ids),  # type: ignore[invalid-argument-type]
+            selectinload(AuthorMetadata.photos),  # type: ignore[invalid-argument-type]
+            selectinload(AuthorMetadata.alternate_names),  # type: ignore[invalid-argument-type]
+            selectinload(AuthorMetadata.links),  # type: ignore[invalid-argument-type]
+            selectinload(AuthorMetadata.works).selectinload(AuthorWork.subjects),  # type: ignore[invalid-argument-type]
         )
         all_authors = list(context.session.exec(stmt).all())
 

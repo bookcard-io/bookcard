@@ -116,8 +116,8 @@ class TestMergeAlternateNames:
         command.execute(pipeline_context, keep_author, merge_author)
 
         assert len(pipeline_context.session.added) == 2  # type: ignore[attr-defined]
-        assert alt1 in pipeline_context.session.deleted  # type: ignore[attr-defined]
-        assert alt2 in pipeline_context.session.deleted  # type: ignore[attr-defined]
+        assert alt1 in pipeline_context.session.deleted
+        assert alt2 in pipeline_context.session.deleted
 
     def test_execute_duplicate_names(
         self,
@@ -176,8 +176,8 @@ class TestMergeRemoteIds:
         command.execute(pipeline_context, keep_author, merge_author)
 
         assert len(pipeline_context.session.added) == 2  # type: ignore[attr-defined]
-        assert rid1 in pipeline_context.session.deleted  # type: ignore[attr-defined]
-        assert rid2 in pipeline_context.session.deleted  # type: ignore[attr-defined]
+        assert rid1 in pipeline_context.session.deleted
+        assert rid2 in pipeline_context.session.deleted
 
     def test_execute_duplicate_ids(
         self,
@@ -244,8 +244,8 @@ class TestMergePhotos:
         command.execute(pipeline_context, keep_author, merge_author)
 
         assert len(pipeline_context.session.added) == 2  # type: ignore[attr-defined]
-        assert photo1 in pipeline_context.session.deleted  # type: ignore[attr-defined]
-        assert photo2 in pipeline_context.session.deleted  # type: ignore[attr-defined]
+        assert photo1 in pipeline_context.session.deleted
+        assert photo2 in pipeline_context.session.deleted
 
     def test_execute_duplicate_by_id(
         self,
@@ -386,8 +386,8 @@ class TestMergeLinks:
         command.execute(pipeline_context, keep_author, merge_author)
 
         assert len(pipeline_context.session.added) == 2  # type: ignore[attr-defined]
-        assert link1 in pipeline_context.session.deleted  # type: ignore[attr-defined]
-        assert link2 in pipeline_context.session.deleted  # type: ignore[attr-defined]
+        assert link1 in pipeline_context.session.deleted
+        assert link2 in pipeline_context.session.deleted
 
     def test_execute_duplicate_links(
         self,
@@ -524,7 +524,7 @@ class TestMergeWorks:
 
         command.execute(pipeline_context, keep_author, merge_author)
 
-        assert work2 in pipeline_context.session.deleted  # type: ignore[attr-defined]
+        assert work2 in pipeline_context.session.deleted
 
 
 class TestMergeFields:
@@ -694,7 +694,7 @@ class TestUpdateReferences:
         # Check that sim was deleted (it should be in deleted list)
         deleted_sims = [
             s
-            for s in pipeline_context.session.deleted  # type: ignore[attr-defined]
+            for s in pipeline_context.session.deleted
             if isinstance(s, AuthorSimilarity)
         ]
         assert len(deleted_sims) == 1
@@ -727,7 +727,7 @@ class TestUpdateReferences:
         # Check that sim was deleted (it should be in deleted list)
         deleted_sims = [
             s
-            for s in pipeline_context.session.deleted  # type: ignore[attr-defined]
+            for s in pipeline_context.session.deleted
             if isinstance(s, AuthorSimilarity)
         ]
         assert len(deleted_sims) == 1
@@ -878,7 +878,7 @@ class TestAuthorMerger:
 
         merger._cleanup_remaining_works(pipeline_context, merge_author)
 
-        assert work in pipeline_context.session.deleted  # type: ignore[attr-defined]
+        assert work in pipeline_context.session.deleted
 
     def test_cleanup_remaining_works_no_id(
         self,
@@ -891,7 +891,7 @@ class TestAuthorMerger:
 
         merger._cleanup_remaining_works(pipeline_context, merge_author)
 
-        assert len(pipeline_context.session.deleted) == 0  # type: ignore[attr-defined]
+        assert len(pipeline_context.session.deleted) == 0
 
     def test_merge(
         self,
@@ -910,7 +910,7 @@ class TestAuthorMerger:
 
         merger.merge(pipeline_context, keep_author, merge_author)
 
-        assert merge_author in pipeline_context.session.deleted  # type: ignore[attr-defined]
+        assert merge_author in pipeline_context.session.deleted
         assert pipeline_context.session.flush_count > 0  # type: ignore[attr-defined]
 
     def test_merge_pair(
@@ -936,7 +936,7 @@ class TestAuthorMerger:
 
         merger.merge_pair(pipeline_context, pair)
 
-        assert merge_author in pipeline_context.session.deleted  # type: ignore[attr-defined]
+        assert merge_author in pipeline_context.session.deleted
 
     def test_merge_batch_success(
         self,

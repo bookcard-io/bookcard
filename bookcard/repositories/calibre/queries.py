@@ -67,7 +67,7 @@ class BookQueryBuilder:
         }
         if sort_by == "random":
             return None
-        return valid_sort_fields.get(sort_by, Book.timestamp)  # type: ignore[return-value]
+        return valid_sort_fields.get(sort_by, Book.timestamp)
 
     def build_author_books_subquery(
         self,
@@ -123,17 +123,17 @@ class BookQueryBuilder:
         conditions = []
         if pubdate_month is not None:
             month_str = f"{pubdate_month:02d}"
-            conditions.append(func.strftime("%m", Book.pubdate) == month_str)  # type: ignore[attr-defined]
+            conditions.append(func.strftime("%m", Book.pubdate) == month_str)
         if pubdate_day is not None:
             day_str = f"{pubdate_day:02d}"
-            conditions.append(func.strftime("%d", Book.pubdate) == day_str)  # type: ignore[attr-defined]
+            conditions.append(func.strftime("%d", Book.pubdate) == day_str)
 
         if not conditions:
             return stmt
 
         combined_condition = Book.pubdate.isnot(None)  # type: ignore[attr-defined]
         for condition in conditions:
-            combined_condition = combined_condition & condition  # type: ignore[assignment]
+            combined_condition = combined_condition & condition
         return stmt.where(combined_condition)
 
     def build_list_base_stmt(self, *, search_query: str | None) -> Select:
@@ -161,7 +161,7 @@ class BookQueryBuilder:
                 select(func.count(func.distinct(Book.id)))
                 .join(BookSeriesLink, Book.id == BookSeriesLink.book)
                 .join(series_alias, BookSeriesLink.series == series_alias.id)
-                .where(series_alias.name == series_name)  # type: ignore[attr-defined]
+                .where(series_alias.name == series_name)
             )
 
         query_lower = search_query.lower()
@@ -179,10 +179,10 @@ class BookQueryBuilder:
             .outerjoin(BookSeriesLink, Book.id == BookSeriesLink.book)
             .outerjoin(series_alias, BookSeriesLink.series == series_alias.id)
             .where(
-                (func.lower(Book.title).like(pattern_lower))  # type: ignore[attr-defined]
-                | (func.lower(author_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
-                | (func.lower(tag_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
-                | (func.lower(series_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
+                (func.lower(Book.title).like(pattern_lower))
+                | (func.lower(author_alias.name).like(pattern_lower))
+                | (func.lower(tag_alias.name).like(pattern_lower))
+                | (func.lower(series_alias.name).like(pattern_lower))
             )
         )
 
@@ -197,7 +197,7 @@ class BookQueryBuilder:
     ) -> Select:
         """Apply ordering and pagination to a statement."""
         if sort_field is None:
-            stmt = stmt.order_by(func.random())  # type: ignore[attr-defined]
+            stmt = stmt.order_by(func.random())
         elif sort_order == "desc":
             stmt = stmt.order_by(sort_field.desc())  # type: ignore[attr-defined]
         else:
@@ -222,15 +222,15 @@ class BookQueryBuilder:
 
         return (
             stmt
-            .outerjoin(BookAuthorLink, Book.id == BookAuthorLink.book)
-            .outerjoin(author_alias, BookAuthorLink.author == author_alias.id)
-            .outerjoin(BookTagLink, Book.id == BookTagLink.book)
-            .outerjoin(tag_alias, BookTagLink.tag == tag_alias.id)
+            .outerjoin(BookAuthorLink, Book.id == BookAuthorLink.book)  # type: ignore[invalid-argument-type]
+            .outerjoin(author_alias, BookAuthorLink.author == author_alias.id)  # type: ignore[invalid-argument-type]
+            .outerjoin(BookTagLink, Book.id == BookTagLink.book)  # type: ignore[invalid-argument-type]
+            .outerjoin(tag_alias, BookTagLink.tag == tag_alias.id)  # type: ignore[invalid-argument-type]
             .distinct()
             .where(
-                (func.lower(Book.title).like(pattern_lower))  # type: ignore[attr-defined]
-                | (func.lower(author_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
-                | (func.lower(tag_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
+                (func.lower(Book.title).like(pattern_lower))
+                | (func.lower(author_alias.name).like(pattern_lower))
+                | (func.lower(tag_alias.name).like(pattern_lower))
                 | (func.lower(series_alias.name).like(pattern_lower))  # type: ignore[attr-defined]
             )
         )

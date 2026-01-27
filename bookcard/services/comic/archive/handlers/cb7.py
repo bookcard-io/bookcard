@@ -42,7 +42,7 @@ class CB7Handler(ArchiveHandler):
     ) -> ArchiveMetadata:
         """Scan a CB7 archive and return metadata."""
         try:
-            import py7zr  # type: ignore[import-untyped]
+            import py7zr
         except ImportError as e:
             msg = "py7zr library required for CB7 support"
             raise ArchiveReadError(msg) from e
@@ -73,7 +73,7 @@ class CB7Handler(ArchiveHandler):
         """Extract one image entry from a CB7."""
         _ = metadata  # required by interface; unused for CB7
         try:
-            import py7zr  # type: ignore[import-untyped]
+            import py7zr
         except ImportError as e:
             msg = "py7zr library required for CB7 support"
             raise ArchiveReadError(msg) from e
@@ -97,7 +97,7 @@ class CB7Handler(ArchiveHandler):
     ) -> dict[str, PageDetails]:
         """Get per-page sizes and optional dimensions for a CB7."""
         try:
-            import py7zr  # type: ignore[import-untyped]
+            import py7zr
         except ImportError as e:
             msg = "py7zr library required for CB7 support"
             raise ArchiveReadError(msg) from e

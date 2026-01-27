@@ -721,6 +721,7 @@ class IBookRepository(ABC):
         file_format: str,
         title: str | None = None,
         author_name: str | None = None,
+        pubdate: datetime | None = None,
         library_path: Path | None = None,
     ) -> int:
         """Add a book directly to the Calibre database.
@@ -735,6 +736,9 @@ class IBookRepository(ABC):
             Book title. If None, uses filename without extension.
         author_name : str | None
             Author name. If None, uses 'Unknown'.
+        pubdate : datetime | None
+            Publication date override. If None, uses publication date extracted
+            from file metadata (if available).
         library_path : "Path" | None
             Library root path. If None, uses calibre_db_path.
 

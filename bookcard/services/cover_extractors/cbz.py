@@ -182,7 +182,7 @@ class CbzCoverExtractor(CoverExtractionStrategy):
         """
         # CB7 requires py7zr library
         try:
-            import py7zr  # type: ignore[import-untyped]
+            import py7zr
 
             with py7zr.SevenZipFile(file_path, "r") as cb7_7z:
                 # Find image files (sorted to get first page)

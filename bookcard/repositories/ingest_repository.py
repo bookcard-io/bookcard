@@ -42,7 +42,7 @@ class IngestHistoryRepository(Repository[IngestHistory]):
     Provides CRUD operations and query methods for ingest history records.
     """
 
-    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+    def __init__(self, session: Session) -> None:
         """Initialize ingest history repository.
 
         Parameters
@@ -108,7 +108,7 @@ class IngestRetryRepository(Repository[IngestRetry]):
     Manages retry queue and retry scheduling.
     """
 
-    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+    def __init__(self, session: Session) -> None:
         """Initialize ingest retry repository.
 
         Parameters
@@ -187,7 +187,7 @@ class IngestAuditRepository(Repository[IngestAudit]):
     Provides audit trail operations for ingest operations.
     """
 
-    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+    def __init__(self, session: Session) -> None:
         """Initialize ingest audit repository.
 
         Parameters
@@ -258,7 +258,7 @@ class IngestConfigRepository(Repository[IngestConfig]):
     Manages singleton ingest configuration.
     """
 
-    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+    def __init__(self, session: Session) -> None:
         """Initialize ingest config repository.
 
         Parameters

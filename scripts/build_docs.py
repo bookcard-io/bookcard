@@ -45,7 +45,7 @@ if _generate_openapi_spec is None or _generate_openapi_spec.loader is None:
 
 _generate_openapi_module = importlib.util.module_from_spec(_generate_openapi_spec)
 _generate_openapi_spec.loader.exec_module(_generate_openapi_module)
-generate_openapi_json = _generate_openapi_module.generate_openapi_json  # type: ignore[attr-defined]
+generate_openapi_json = _generate_openapi_module.generate_openapi_json
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
@@ -81,7 +81,7 @@ def build_docs() -> None:
         cmd,
         cwd=root,
         check=False,
-    )
+    )  # ty:ignore[no-matching-overload]
 
     if result.returncode != 0:
         logger.error("Error: mkdocs build failed")
@@ -132,7 +132,7 @@ def serve_docs(host: str = "127.0.0.1", port: int = 8001) -> None:
             f"{host}:{port}",
         ],
         cwd=root,
-    )
+    )  # ty:ignore[no-matching-overload]
 
 
 if __name__ == "__main__":

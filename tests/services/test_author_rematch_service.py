@@ -619,7 +619,7 @@ class TestGetCalibreAuthorDict:
         library_id = 1
         calibre_author_id = 10
 
-        active_library.calibre_db_path = None
+        active_library.calibre_db_path = None  # ty:ignore[invalid-assignment]
         mock_library_repo.get.return_value = active_library
         rematch_service._library_repo = mock_library_repo
 

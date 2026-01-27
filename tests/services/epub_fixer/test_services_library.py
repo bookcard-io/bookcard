@@ -33,7 +33,7 @@ def test_library_locator_library_root() -> None:
     locator = LibraryLocator(library)
     location = locator.get_location()
 
-    assert location == Path(library.library_root)
+    assert location == Path(library.library_root)  # type: ignore[invalid-argument-type]
 
 
 def test_library_locator_split_library() -> None:
@@ -49,7 +49,7 @@ def test_library_locator_split_library() -> None:
     locator = LibraryLocator(library)
     location = locator.get_location()
 
-    assert location == Path(library.split_library_dir)
+    assert location == Path(library.split_library_dir)  # type: ignore[invalid-argument-type]
 
 
 def test_library_locator_split_library_priority() -> None:
@@ -67,7 +67,7 @@ def test_library_locator_split_library_priority() -> None:
     location = locator.get_location()
 
     # library_root should take priority
-    assert location == Path(library.library_root)
+    assert location == Path(library.library_root)  # type: ignore[invalid-argument-type]
 
 
 def test_library_locator_calibre_db_path_dir(temp_dir: Path) -> None:

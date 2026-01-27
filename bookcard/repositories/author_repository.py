@@ -242,7 +242,7 @@ class AuthorRepository(Repository[AuthorMetadata]):
             )
 
             # Add ordering
-            matched_query = matched_query.order_by(AuthorMetadata.name)  # type: ignore
+            matched_query = matched_query.order_by(AuthorMetadata.name)
 
             return list(self._session.exec(matched_query).all())  # type: ignore[no-matching-overload]
         except Exception:
@@ -299,16 +299,16 @@ class AuthorRepository(Repository[AuthorMetadata]):
         stmt = (
             select(AuthorMetadata)
             .where(AuthorMetadata.id == author_id)
-            .join(AuthorMapping, AuthorMetadata.id == AuthorMapping.author_metadata_id)
+            .join(AuthorMapping, AuthorMetadata.id == AuthorMapping.author_metadata_id)  # type: ignore[invalid-argument-type]
             .where(AuthorMapping.library_id == library_id)
             .options(
-                selectinload(AuthorMetadata.remote_ids),
-                selectinload(AuthorMetadata.photos),
-                selectinload(AuthorMetadata.alternate_names),
-                selectinload(AuthorMetadata.links),
-                selectinload(AuthorMetadata.works).selectinload(AuthorWork.subjects),
-                selectinload(AuthorMetadata.similar_to),
-                selectinload(AuthorMetadata.similar_from),
+                selectinload(AuthorMetadata.remote_ids),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.photos),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.alternate_names),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.links),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.works).selectinload(AuthorWork.subjects),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.similar_to),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.similar_from),  # type: ignore[invalid-argument-type]
             )
         )
         return self._session.exec(stmt).first()
@@ -343,16 +343,16 @@ class AuthorRepository(Repository[AuthorMetadata]):
         stmt = (
             select(AuthorMetadata)
             .where(AuthorMetadata.openlibrary_key == normalized_key)
-            .join(AuthorMapping, AuthorMetadata.id == AuthorMapping.author_metadata_id)
+            .join(AuthorMapping, AuthorMetadata.id == AuthorMapping.author_metadata_id)  # type: ignore[invalid-argument-type]
             .where(AuthorMapping.library_id == library_id)
             .options(
-                selectinload(AuthorMetadata.remote_ids),
-                selectinload(AuthorMetadata.photos),
-                selectinload(AuthorMetadata.alternate_names),
-                selectinload(AuthorMetadata.links),
-                selectinload(AuthorMetadata.works).selectinload(AuthorWork.subjects),
-                selectinload(AuthorMetadata.similar_to),
-                selectinload(AuthorMetadata.similar_from),
+                selectinload(AuthorMetadata.remote_ids),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.photos),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.alternate_names),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.links),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.works).selectinload(AuthorWork.subjects),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.similar_to),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.similar_from),  # type: ignore[invalid-argument-type]
             )
         )
         return self._session.exec(stmt).first()
@@ -378,19 +378,19 @@ class AuthorRepository(Repository[AuthorMetadata]):
         """
         stmt = (
             select(AuthorMetadata)
-            .join(AuthorMapping, AuthorMetadata.id == AuthorMapping.author_metadata_id)
+            .join(AuthorMapping, AuthorMetadata.id == AuthorMapping.author_metadata_id)  # type: ignore[invalid-argument-type]
             .where(
                 AuthorMapping.calibre_author_id == calibre_author_id,
                 AuthorMapping.library_id == library_id,
             )
             .options(
-                selectinload(AuthorMetadata.remote_ids),
-                selectinload(AuthorMetadata.photos),
-                selectinload(AuthorMetadata.alternate_names),
-                selectinload(AuthorMetadata.links),
-                selectinload(AuthorMetadata.works).selectinload(AuthorWork.subjects),
-                selectinload(AuthorMetadata.similar_to),
-                selectinload(AuthorMetadata.similar_from),
+                selectinload(AuthorMetadata.remote_ids),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.photos),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.alternate_names),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.links),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.works).selectinload(AuthorWork.subjects),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.similar_to),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.similar_from),  # type: ignore[invalid-argument-type]
             )
         )
         return self._session.exec(stmt).first()
@@ -425,9 +425,9 @@ class AuthorRepository(Repository[AuthorMetadata]):
                         AuthorSimilarity.author1_id == author_id,
                         AuthorSimilarity.author2_id,
                     ),  # type: ignore[attr-defined]
-                    else_=AuthorSimilarity.author1_id,  # type: ignore[attr-defined]
-                ).label("similar_author_id"),  # type: ignore[attr-defined]
-                AuthorSimilarity.similarity_score,  # type: ignore[attr-defined]
+                    else_=AuthorSimilarity.author1_id,
+                ).label("similar_author_id"),
+                AuthorSimilarity.similarity_score,
             )
             .where(
                 (AuthorSimilarity.author1_id == author_id)
@@ -511,18 +511,18 @@ class AuthorRepository(Repository[AuthorMetadata]):
             select(AuthorMetadata)
             .join(
                 AuthorMapping,
-                AuthorMetadata.id == AuthorMapping.author_metadata_id,
+                AuthorMetadata.id == AuthorMapping.author_metadata_id,  # type: ignore[invalid-argument-type]
             )
             .where(
                 AuthorMapping.library_id == library_id,
                 AuthorMetadata.id.in_(similar_author_ids),  # type: ignore[attr-defined]
             )
             .options(
-                selectinload(AuthorMetadata.remote_ids),
-                selectinload(AuthorMetadata.photos),
-                selectinload(AuthorMetadata.alternate_names),
-                selectinload(AuthorMetadata.links),
-                selectinload(AuthorMetadata.works).selectinload(AuthorWork.subjects),
+                selectinload(AuthorMetadata.remote_ids),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.photos),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.alternate_names),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.links),  # type: ignore[invalid-argument-type]
+                selectinload(AuthorMetadata.works).selectinload(AuthorWork.subjects),  # type: ignore[invalid-argument-type]
             )
             .distinct()
             .limit(limit)

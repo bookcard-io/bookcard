@@ -238,7 +238,7 @@ class TestSMTPConfigStrategy:
         config: EmailServerConfig,
     ) -> None:
         """Apply clears Gmail token (SMTP doesn't use it)."""
-        config.gmail_token = "some_token"
+        config.gmail_token = "some_token"  # ty:ignore[invalid-assignment]
         update = EmailServerConfigUpdate(
             server_type=EmailServerType.SMTP,
             smtp_username="user",
@@ -360,7 +360,7 @@ class TestGmailConfigStrategy:
         config: EmailServerConfig,
     ) -> None:
         """Apply clears Gmail token when None provided."""
-        config.gmail_token = "existing_token"
+        config.gmail_token = "existing_token"  # ty:ignore[invalid-assignment]
         update = EmailServerConfigUpdate(
             server_type=EmailServerType.GMAIL,
             gmail_token=None,

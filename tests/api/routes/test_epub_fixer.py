@@ -166,7 +166,7 @@ def test_fix_single_epub_success(
             request_body,
             mock_request,
             session,
-            mock_user,  # type: ignore[arg-type]
+            mock_user,
         )
 
         assert result.task_id == 123
@@ -210,7 +210,7 @@ def test_fix_single_epub_with_optional_fields(
             request_body,
             mock_request,
             session,
-            mock_user,  # type: ignore[arg-type]
+            mock_user,
         )
 
         assert result.task_id == 123
@@ -246,7 +246,7 @@ def test_fix_single_epub_no_task_runner(
             epub_fixer_routes.fix_single_epub(
                 request_body,
                 mock_request_no_task_runner,
-                session,  # type: ignore[arg-type]
+                session,
                 mock_user,
             )
 
@@ -285,7 +285,7 @@ def test_fix_single_epub_enqueue_exception(
                 request_body,
                 mock_request,
                 session,
-                mock_user,  # type: ignore[arg-type]
+                mock_user,
             )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -325,7 +325,7 @@ def test_fix_batch_epub_success(
             request_body,
             mock_request,
             session,
-            mock_user,  # type: ignore[arg-type]
+            mock_user,
         )
 
         assert result.task_id == 456
@@ -364,7 +364,7 @@ def test_fix_batch_epub_with_library_id(
             request_body,
             mock_request,
             session,
-            mock_user,  # type: ignore[arg-type]
+            mock_user,
         )
 
         call_kwargs = mock_task_runner.enqueue.call_args[1]
@@ -397,7 +397,7 @@ def test_fix_batch_epub_no_task_runner(
             epub_fixer_routes.fix_batch_epub(
                 request_body,
                 mock_request_no_task_runner,
-                session,  # type: ignore[arg-type]
+                session,
                 mock_user,
             )
 
@@ -435,7 +435,7 @@ def test_fix_batch_epub_enqueue_exception(
                 request_body,
                 mock_request,
                 session,
-                mock_user,  # type: ignore[arg-type]
+                mock_user,
             )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -511,7 +511,7 @@ def test_list_fix_runs(
             session,
             user,
             page,
-            page_size,  # type: ignore[arg-type]
+            page_size,
         )
 
         assert result.page == page
@@ -550,7 +550,7 @@ def test_list_fix_runs_pagination_estimation(
             session,
             admin_user,
             1,
-            page_size,  # type: ignore[arg-type]
+            page_size,
         )
 
         # When len == page_size, total should be page_size * (page + 1)
@@ -593,7 +593,7 @@ def test_get_fix_run_success(mock_user: User, session: DummySession) -> None:
         result = epub_fixer_routes.get_fix_run(
             run_id,
             session,
-            mock_user,  # type: ignore[arg-type]
+            mock_user,
         )
 
         assert result.id == run_id
@@ -628,7 +628,7 @@ def test_get_fix_run_not_found(mock_user: User, session: DummySession) -> None:
             epub_fixer_routes.get_fix_run(
                 run_id,
                 session,
-                mock_user,  # type: ignore[arg-type]
+                mock_user,
             )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -669,7 +669,7 @@ def test_get_fix_run_access_denied(
             epub_fixer_routes.get_fix_run(
                 run_id,
                 session,
-                mock_user,  # type: ignore[arg-type]
+                mock_user,
             )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -720,7 +720,7 @@ def test_get_fixes_for_run_success(mock_user: User, session: DummySession) -> No
         result = epub_fixer_routes.get_fixes_for_run(
             run_id,
             session,
-            mock_user,  # type: ignore[arg-type]
+            mock_user,
         )
 
         assert result.total == 1
@@ -756,7 +756,7 @@ def test_get_fixes_for_run_not_found(mock_user: User, session: DummySession) -> 
             epub_fixer_routes.get_fixes_for_run(
                 run_id,
                 session,
-                mock_user,  # type: ignore[arg-type]
+                mock_user,
             )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -797,7 +797,7 @@ def test_get_fixes_for_run_access_denied(
             epub_fixer_routes.get_fixes_for_run(
                 run_id,
                 session,
-                mock_user,  # type: ignore[arg-type]
+                mock_user,
             )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -851,7 +851,7 @@ def test_rollback_fix_run_success(mock_user: User, session: DummySession) -> Non
         result = epub_fixer_routes.rollback_fix_run(
             run_id,
             session,
-            mock_user,  # type: ignore[arg-type]
+            mock_user,
         )
 
         assert result.run_id == run_id
@@ -886,7 +886,7 @@ def test_rollback_fix_run_not_found(mock_user: User, session: DummySession) -> N
             epub_fixer_routes.rollback_fix_run(
                 run_id,
                 session,
-                mock_user,  # type: ignore[arg-type]
+                mock_user,
             )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -927,7 +927,7 @@ def test_rollback_fix_run_access_denied(
             epub_fixer_routes.rollback_fix_run(
                 run_id,
                 session,
-                mock_user,  # type: ignore[arg-type]
+                mock_user,
             )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -965,7 +965,7 @@ def test_rollback_fix_run_value_error(mock_user: User, session: DummySession) ->
             epub_fixer_routes.rollback_fix_run(
                 run_id,
                 session,
-                mock_user,  # type: ignore[arg-type]
+                mock_user,
             )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -1005,7 +1005,7 @@ def test_rollback_fix_run_generic_exception(
             epub_fixer_routes.rollback_fix_run(
                 run_id,
                 session,
-                mock_user,  # type: ignore[arg-type]
+                mock_user,
             )
 
     assert isinstance(exc_info.value, HTTPException)
@@ -1065,7 +1065,7 @@ def test_get_fix_statistics(
 
         result = epub_fixer_routes.get_fix_statistics(
             session,
-            mock_user,  # type: ignore[arg-type]
+            mock_user,
         )
 
         assert result.total_runs == 10

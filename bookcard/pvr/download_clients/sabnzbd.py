@@ -472,7 +472,7 @@ class SabnzbdClient(BaseDownloadClient):
         super().__init__(
             settings, file_fetcher, url_router, http_client_factory, enabled
         )
-        self.settings: SabnzbdSettings = settings  # type: ignore[assignment]
+        self.settings: SabnzbdSettings = settings
         self._proxy: SabnzbdProxy = SabnzbdProxy(self.settings)
         self._status_mapper = StatusMapper(
             {

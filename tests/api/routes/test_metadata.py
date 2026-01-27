@@ -398,7 +398,7 @@ def test_search_metadata_stream_event_callback_serialization_error(
     class BadEvent(MetadataSearchEvent):
         """Event that fails to serialize."""
 
-        def model_dump(self) -> dict:
+        def model_dump(self) -> dict:  # ty:ignore[invalid-method-override]
             """Raise exception on dump."""
             raise TypeError("Cannot serialize")
 

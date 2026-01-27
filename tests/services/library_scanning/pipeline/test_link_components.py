@@ -102,7 +102,7 @@ class TestAuthorMappingRepository:
         )
         session.add(mapping)
         session.flush()
-        session.set_exec_result([mapping])  # type: ignore[attr-defined]
+        session.set_exec_result([mapping])
         repo = AuthorMappingRepository(session)  # type: ignore[arg-type]
 
         result = repo.find_by_calibre_author_id(1)
@@ -111,7 +111,7 @@ class TestAuthorMappingRepository:
 
     def test_find_by_calibre_author_id_not_found(self, session: DummySession) -> None:
         """Test find_by_calibre_author_id when not found."""
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
         repo = AuthorMappingRepository(session)  # type: ignore[arg-type]
 
         result = repo.find_by_calibre_author_id(1)
@@ -129,7 +129,7 @@ class TestAuthorMappingRepository:
         )
         session.add(mapping)
         session.flush()
-        session.set_exec_result([mapping])  # type: ignore[attr-defined]
+        session.set_exec_result([mapping])
         repo = AuthorMappingRepository(session)  # type: ignore[arg-type]
 
         result = repo.find_by_calibre_author_id_and_library(1, 1)
@@ -140,7 +140,7 @@ class TestAuthorMappingRepository:
         self, session: DummySession
     ) -> None:
         """Test find_by_calibre_author_id_and_library when not found."""
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
         repo = AuthorMappingRepository(session)  # type: ignore[arg-type]
 
         result = repo.find_by_calibre_author_id_and_library(1, 1)
@@ -156,7 +156,7 @@ class TestAuthorMappingRepository:
         assert result.library_id == mapping_data.library_id
         assert result.calibre_author_id == mapping_data.calibre_author_id
         assert result.author_metadata_id == mapping_data.author_metadata_id
-        assert result in session.added  # type: ignore[attr-defined]
+        assert result in session.added
 
     def test_update(self, session: DummySession, mapping_data: MappingData) -> None:
         """Test update mapping."""
@@ -191,7 +191,7 @@ class TestAuthorMetadataRepository:
         """Test find_by_openlibrary_key when found."""
         session.add(author_metadata)
         session.flush()
-        session.set_exec_result([author_metadata])  # type: ignore[attr-defined]
+        session.set_exec_result([author_metadata])
         repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
 
         result = repo.find_by_openlibrary_key("OL12345A")
@@ -200,7 +200,7 @@ class TestAuthorMetadataRepository:
 
     def test_find_by_openlibrary_key_not_found(self, session: DummySession) -> None:
         """Test find_by_openlibrary_key when not found."""
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
         repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
 
         result = repo.find_by_openlibrary_key("OL12345A")
@@ -223,8 +223,8 @@ class TestMappingService:
         author_metadata: AuthorMetadata,
     ) -> None:
         """Test create_or_update_mapping creates new mapping."""
-        session.set_exec_result([author_metadata])  # type: ignore[attr-defined]  # Metadata found
-        session.add_exec_result([])  # type: ignore[attr-defined]  # No existing mapping
+        session.set_exec_result([author_metadata])
+        session.add_exec_result([])
         mapping_repo = AuthorMappingRepository(session)  # type: ignore[arg-type]
         metadata_repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
         service = MappingService(mapping_repo, metadata_repo)
@@ -248,9 +248,9 @@ class TestMappingService:
             calibre_author_id=1,
             author_metadata_id=1,
         )
-        session.set_exec_result([author_metadata])  # type: ignore[attr-defined]  # Metadata found
-        session.add_exec_result([])  # type: ignore[attr-defined]  # delete_mappings_for_metadata_exclude_author returns empty
-        session.add_exec_result([existing_mapping])  # type: ignore[attr-defined]  # Existing mapping
+        session.set_exec_result([author_metadata])
+        session.add_exec_result([])
+        session.add_exec_result([existing_mapping])
         mapping_repo = AuthorMappingRepository(session)  # type: ignore[arg-type]
         metadata_repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
         service = MappingService(mapping_repo, metadata_repo)
@@ -288,7 +288,7 @@ class TestMappingService:
         match_result: MatchResult,
     ) -> None:
         """Test create_or_update_mapping returns None when metadata not found."""
-        session.set_exec_result([])  # type: ignore[attr-defined]  # Metadata not found
+        session.set_exec_result([])
         mapping_repo = AuthorMappingRepository(session)  # type: ignore[arg-type]
         metadata_repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
         service = MappingService(mapping_repo, metadata_repo)
@@ -308,7 +308,7 @@ class TestMappingService:
             name="Test Author",
         )
         metadata.id = None
-        session.set_exec_result([metadata])  # type: ignore[attr-defined]  # Metadata found but no ID
+        session.set_exec_result([metadata])
         mapping_repo = AuthorMappingRepository(session)  # type: ignore[arg-type]
         metadata_repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
         service = MappingService(mapping_repo, metadata_repo)
@@ -476,8 +476,8 @@ class TestMappingBatchProcessor:
         author_metadata: AuthorMetadata,
     ) -> None:
         """Test process_item successfully creates mapping."""
-        session.set_exec_result([author_metadata])  # type: ignore[attr-defined]
-        session.add_exec_result([])  # type: ignore[attr-defined]  # No existing mapping
+        session.set_exec_result([author_metadata])
+        session.add_exec_result([])
         mapping_repo = AuthorMappingRepository(session)  # type: ignore[arg-type]
         metadata_repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
         mapping_service = MappingService(mapping_repo, metadata_repo)
@@ -503,9 +503,9 @@ class TestMappingBatchProcessor:
             calibre_author_id=1,
             author_metadata_id=1,
         )
-        session.set_exec_result([author_metadata])  # type: ignore[attr-defined]  # find_by_openlibrary_key
-        session.add_exec_result([])  # type: ignore[attr-defined]  # delete_mappings_for_metadata_exclude_author
-        session.add_exec_result([existing_mapping])  # type: ignore[attr-defined]  # Existing mapping from find_by_calibre_author_id_and_library
+        session.set_exec_result([author_metadata])
+        session.add_exec_result([])
+        session.add_exec_result([existing_mapping])
         mapping_repo = AuthorMappingRepository(session)  # type: ignore[arg-type]
         metadata_repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
         mapping_service = MappingService(mapping_repo, metadata_repo)
@@ -525,7 +525,7 @@ class TestMappingBatchProcessor:
         match_result: MatchResult,
     ) -> None:
         """Test process_item returns False on failure."""
-        session.set_exec_result([])  # type: ignore[attr-defined]  # Metadata not found
+        session.set_exec_result([])
         mapping_repo = AuthorMappingRepository(session)  # type: ignore[arg-type]
         metadata_repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
         mapping_service = MappingService(mapping_repo, metadata_repo)
@@ -546,12 +546,12 @@ class TestMappingBatchProcessor:
         author_metadata: AuthorMetadata,
     ) -> None:
         """Test process_batch successfully processes items."""
-        session.set_exec_result([author_metadata])  # type: ignore[attr-defined]  # First find_by_openlibrary_key
-        session.add_exec_result([])  # type: ignore[attr-defined]  # First delete_mappings_for_metadata_exclude_author
-        session.add_exec_result([])  # type: ignore[attr-defined]  # First find_by_calibre_author_id_and_library (no existing mapping)
-        session.add_exec_result([author_metadata])  # type: ignore[attr-defined]  # Second find_by_openlibrary_key
-        session.add_exec_result([])  # type: ignore[attr-defined]  # Second delete_mappings_for_metadata_exclude_author
-        session.add_exec_result([])  # type: ignore[attr-defined]  # Second find_by_calibre_author_id_and_library (no existing mapping)
+        session.set_exec_result([author_metadata])
+        session.add_exec_result([])
+        session.add_exec_result([])
+        session.add_exec_result([author_metadata])
+        session.add_exec_result([])
+        session.add_exec_result([])
         mapping_repo = AuthorMappingRepository(session)  # type: ignore[arg-type]
         metadata_repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
         mapping_service = MappingService(mapping_repo, metadata_repo)
@@ -571,12 +571,12 @@ class TestMappingBatchProcessor:
         author_metadata: AuthorMetadata,
     ) -> None:
         """Test process_batch calls progress callback."""
-        session.set_exec_result([author_metadata])  # type: ignore[attr-defined]  # First find_by_openlibrary_key
-        session.add_exec_result([])  # type: ignore[attr-defined]  # First delete_mappings_for_metadata_exclude_author
-        session.add_exec_result([])  # type: ignore[attr-defined]  # First find_by_calibre_author_id_and_library
-        session.add_exec_result([author_metadata])  # type: ignore[attr-defined]  # Second find_by_openlibrary_key
-        session.add_exec_result([])  # type: ignore[attr-defined]  # Second delete_mappings_for_metadata_exclude_author
-        session.add_exec_result([])  # type: ignore[attr-defined]  # Second find_by_calibre_author_id_and_library
+        session.set_exec_result([author_metadata])
+        session.add_exec_result([])
+        session.add_exec_result([])
+        session.add_exec_result([author_metadata])
+        session.add_exec_result([])
+        session.add_exec_result([])
         mapping_repo = AuthorMappingRepository(session)  # type: ignore[arg-type]
         metadata_repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
         mapping_service = MappingService(mapping_repo, metadata_repo)
@@ -606,8 +606,8 @@ class TestMappingBatchProcessor:
         author_metadata: AuthorMetadata,
     ) -> None:
         """Test process_batch respects cancellation check."""
-        session.set_exec_result([author_metadata])  # type: ignore[attr-defined]
-        session.add_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([author_metadata])
+        session.add_exec_result([])
         mapping_repo = AuthorMappingRepository(session)  # type: ignore[arg-type]
         metadata_repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
         mapping_service = MappingService(mapping_repo, metadata_repo)
@@ -641,10 +641,10 @@ class TestMappingBatchProcessor:
     ) -> None:
         """Test process_batch with mixed success/failure."""
         # First item: success
-        session.set_exec_result([author_metadata])  # type: ignore[attr-defined]
-        session.add_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([author_metadata])
+        session.add_exec_result([])
         # Second item: failure (no metadata)
-        session.add_exec_result([])  # type: ignore[attr-defined]
+        session.add_exec_result([])
         mapping_repo = AuthorMappingRepository(session)  # type: ignore[arg-type]
         metadata_repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
         mapping_service = MappingService(mapping_repo, metadata_repo)

@@ -205,7 +205,7 @@ class SeleniumBaseStrategy(BypassStrategy):
             return
 
         try:
-            driver.uc_open_with_reconnect(  # type: ignore[attr-defined, misc]
+            driver.uc_open_with_reconnect(
                 origin, reconnect_time=min(self._config.reconnect_time, 1.0)
             )
         except (AttributeError, RuntimeError, TimeoutError, ValueError):
@@ -246,9 +246,7 @@ class SeleniumBaseStrategy(BypassStrategy):
 
         logger.debug("Opening URL with SeleniumBase: %s", url)
         # SeleniumBase Driver has uc_open_with_reconnect method but type stubs don't include it
-        driver.uc_open_with_reconnect(  # type: ignore[attr-defined, misc]
-            url, reconnect_time=self._config.reconnect_time
-        )
+        driver.uc_open_with_reconnect(url, reconnect_time=self._config.reconnect_time)
 
         try:
             logger.debug(

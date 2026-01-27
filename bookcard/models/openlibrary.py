@@ -85,7 +85,7 @@ class OpenLibraryAuthor(SQLModel, table=True):
     )
     data: dict[str, Any] | None = Field(
         default=None,
-        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSONBType(), nullable=True),
     )
 
     __table_args__ = (Index("cuix_openlibrary_authors_key", "key", unique=True),)
@@ -120,7 +120,7 @@ class OpenLibraryWork(SQLModel, table=True):
     )
     data: dict[str, Any] | None = Field(
         default=None,
-        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSONBType(), nullable=True),
     )
 
     __table_args__ = (Index("cuix_openlibrary_works_key", "key", unique=True),)
@@ -157,7 +157,7 @@ class OpenLibraryEdition(SQLModel, table=True):
     )
     data: dict[str, Any] | None = Field(
         default=None,
-        sa_column=Column(JSONBType(), nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSONBType(), nullable=True),
     )
     work_key: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
 

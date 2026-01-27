@@ -19,7 +19,7 @@ This module provides concrete HTTP client implementations following DIP
 by implementing the HttpClientProtocol interface.
 """
 
-from typing import Any
+from typing import Any, Self
 
 import httpx
 
@@ -129,7 +129,7 @@ class HttpxClient:
         """
         return self._client.stream(method, url, **kwargs)
 
-    def __enter__(self) -> "HttpxClient":
+    def __enter__(self) -> Self:
         """Enter context manager."""
         return self
 

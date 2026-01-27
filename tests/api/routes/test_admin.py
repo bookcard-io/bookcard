@@ -47,8 +47,8 @@ def test_create_user_success(monkeypatch: pytest.MonkeyPatch) -> None:
         is_admin=False,
         is_active=True,
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     with (
         patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
@@ -151,8 +151,8 @@ def test_create_user_with_roles(monkeypatch: pytest.MonkeyPatch) -> None:
         email="test@example.com",
         password_hash="hash",
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     with (
         patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
@@ -201,8 +201,8 @@ def test_create_user_with_device(monkeypatch: pytest.MonkeyPatch) -> None:
         email="test@example.com",
         password_hash="hash",
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     with (
         patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
@@ -250,8 +250,8 @@ def test_create_user_with_roles_suppresses_value_error(
         email="test@example.com",
         password_hash="hash",
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     with (
         patch("bookcard.api.routes.admin.UserRepository") as mock_user_repo_class,
@@ -302,8 +302,8 @@ def test_create_user_with_device_suppresses_value_error(
         email="test@example.com",
         password_hash="hash",
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     with (
         patch("bookcard.api.routes.admin.UserRepository") as mock_user_repo_class,
@@ -376,8 +376,8 @@ def test_list_users(monkeypatch: pytest.MonkeyPatch) -> None:
         email="user1@example.com",
         password_hash="hash",
     )
-    user1.ereader_devices = []  # type: ignore[attr-defined]
-    user1.roles = []  # type: ignore[attr-defined]
+    user1.ereader_devices = []
+    user1.roles = []
 
     user2 = User(
         id=2,
@@ -385,8 +385,8 @@ def test_list_users(monkeypatch: pytest.MonkeyPatch) -> None:
         email="user2@example.com",
         password_hash="hash",
     )
-    user2.ereader_devices = []  # type: ignore[attr-defined]
-    user2.roles = []  # type: ignore[attr-defined]
+    user2.ereader_devices = []
+    user2.roles = []
 
     with patch("bookcard.api.routes.admin.UserService") as mock_service_class:
         mock_service = MagicMock()
@@ -408,8 +408,8 @@ def test_get_user_success(monkeypatch: pytest.MonkeyPatch) -> None:
         email="test@example.com",
         password_hash="hash",
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     with patch("bookcard.api.routes.admin.UserService") as mock_service_class:
         mock_service = MagicMock()
@@ -448,8 +448,8 @@ def test_update_user_success(monkeypatch: pytest.MonkeyPatch) -> None:
         email="newemail@example.com",
         password_hash="hash",
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     with (
         patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
@@ -497,8 +497,8 @@ def test_update_user_username_conflict(monkeypatch: pytest.MonkeyPatch) -> None:
         email="test@example.com",
         password_hash="hash",
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     with (
         patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
@@ -531,8 +531,8 @@ def test_update_user_admin_status(monkeypatch: pytest.MonkeyPatch) -> None:
         password_hash="hash",
         is_admin=True,
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     with (
         patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
@@ -568,8 +568,8 @@ def test_update_user_active_status(monkeypatch: pytest.MonkeyPatch) -> None:
         password_hash="hash",
         is_active=False,
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     with (
         patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
@@ -604,8 +604,8 @@ def test_update_user_not_found_after_update(monkeypatch: pytest.MonkeyPatch) -> 
         email="test@example.com",
         password_hash="hash",
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     with (
         patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
@@ -638,8 +638,8 @@ def test_update_user_profile_unexpected_error(monkeypatch: pytest.MonkeyPatch) -
         email="test@example.com",
         password_hash="hash",
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     with (
         patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
@@ -680,8 +680,8 @@ def test_update_user_status_value_error(
         email="test@example.com",
         password_hash="hash",
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     with (
         patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
@@ -714,8 +714,8 @@ def test_assign_role_to_user_success(monkeypatch: pytest.MonkeyPatch) -> None:
         email="test@example.com",
         password_hash="hash",
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     with (
         patch("bookcard.api.routes.admin.RoleService") as mock_role_service_class,
@@ -805,8 +805,8 @@ def test_remove_role_from_user_success(monkeypatch: pytest.MonkeyPatch) -> None:
         email="test@example.com",
         password_hash="hash",
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     with (
         patch("bookcard.api.routes.admin.RoleService") as mock_role_service_class,
@@ -873,7 +873,7 @@ def test_create_role_success(monkeypatch: pytest.MonkeyPatch) -> None:
     payload = admin.RoleCreate(name="viewer", description="Viewer role")
 
     role = Role(id=1, name="viewer", description="Viewer role")
-    role.permissions = []  # type: ignore[attr-defined]
+    role.permissions = []
 
     with patch("bookcard.api.routes.admin.RoleService") as mock_service_class:
         mock_service = MagicMock()
@@ -1025,7 +1025,7 @@ def test_unexpected_value_error_re_raised(
             mock_service_class.return_value = mock_service
 
             with pytest.raises(ValueError, match="unexpected_error"):
-                route_func(session, **call_kwargs)  # type: ignore[call-arg]
+                route_func(session, **call_kwargs)
     # Setup for other routes
     else:
         with patch(service_class_path) as mock_service_class:
@@ -1041,10 +1041,10 @@ def test_unexpected_value_error_re_raised(
             # For other routes, check if they re-raise or convert to HTTPException
             if route_func == admin.create_library:
                 with pytest.raises(ValueError, match="unexpected_error"):
-                    route_func(session, **call_kwargs)  # type: ignore[call-arg]
+                    route_func(session, **call_kwargs)
             else:
                 with pytest.raises(ValueError, match="unexpected_error"):
-                    route_func(session, **call_kwargs)  # type: ignore[call-arg]
+                    route_func(session, **call_kwargs)
 
 
 def test_list_roles(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1325,8 +1325,8 @@ def test_delete_permission_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
 
         with pytest.raises(HTTPException) as exc_info:
             admin.delete_permission(session, permission_id=999)
-        assert exc_info.value.status_code == 404  # type: ignore[attr-defined]
-        assert exc_info.value.detail == "permission_not_found"  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == "permission_not_found"
 
 
 def test_delete_permission_assigned_to_roles(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1359,8 +1359,8 @@ def test_delete_permission_assigned_to_roles(monkeypatch: pytest.MonkeyPatch) ->
 
         with pytest.raises(HTTPException) as exc_info:
             admin.delete_permission(session, permission_id=1)
-        assert exc_info.value.status_code == 400  # type: ignore[attr-defined]
-        assert exc_info.value.detail == "permission_assigned_to_roles_2"  # type: ignore[attr-defined]
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == "permission_assigned_to_roles_2"
 
 
 def test_list_permissions_without_resource(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -2017,7 +2017,7 @@ def test_get_user_profile_picture_user_not_found(
         mock_repo_class.return_value = mock_repo
 
         with pytest.raises(HTTPException) as exc_info:
-            admin.get_user_profile_picture(request, session, user_id=999)  # type: ignore[arg-type]
+            admin.get_user_profile_picture(request, session, user_id=999)
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == "user_not_found"
@@ -2055,7 +2055,7 @@ def test_get_user_profile_picture_no_picture(monkeypatch: pytest.MonkeyPatch) ->
         mock_repo.get.return_value = user
         mock_repo_class.return_value = mock_repo
 
-        result = admin.get_user_profile_picture(request, session, user_id=1)  # type: ignore[arg-type]
+        result = admin.get_user_profile_picture(request, session, user_id=1)
         assert isinstance(result, Response)
         assert result.status_code == 404
 
@@ -2097,7 +2097,7 @@ def test_get_user_profile_picture_absolute_path(
             mock_repo.get.return_value = user
             mock_repo_class.return_value = mock_repo
 
-            result = admin.get_user_profile_picture(request, session, user_id=1)  # type: ignore[arg-type]
+            result = admin.get_user_profile_picture(request, session, user_id=1)
             assert isinstance(result, FileResponse)
             assert result.path == str(pic_file)
             assert result.media_type == "image/jpeg"
@@ -2141,7 +2141,7 @@ def test_get_user_profile_picture_relative_path(
             mock_repo.get.return_value = user
             mock_repo_class.return_value = mock_repo
 
-            result = admin.get_user_profile_picture(request, session, user_id=1)  # type: ignore[arg-type]
+            result = admin.get_user_profile_picture(request, session, user_id=1)
             assert isinstance(result, FileResponse)
             assert result.path == str(pic_file)
             assert result.media_type == "image/png"
@@ -2181,7 +2181,7 @@ def test_get_user_profile_picture_file_not_exists(
         mock_repo.get.return_value = user
         mock_repo_class.return_value = mock_repo
 
-        result = admin.get_user_profile_picture(request, session, user_id=1)  # type: ignore[arg-type]
+        result = admin.get_user_profile_picture(request, session, user_id=1)
         assert isinstance(result, Response)
         assert result.status_code == 404
 
@@ -2235,7 +2235,7 @@ def test_get_user_profile_picture_media_types(
             mock_repo.get.return_value = user
             mock_repo_class.return_value = mock_repo
 
-            result = admin.get_user_profile_picture(request, session, user_id=1)  # type: ignore[arg-type]
+            result = admin.get_user_profile_picture(request, session, user_id=1)
             assert isinstance(result, FileResponse)
             assert result.media_type == expected_media_type
 
@@ -2251,8 +2251,8 @@ def test_update_user_with_role_ids(monkeypatch: pytest.MonkeyPatch) -> None:
         email="test@example.com",
         password_hash="hash",
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     with (
         patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
@@ -2293,8 +2293,8 @@ def test_update_user_with_password(monkeypatch: pytest.MonkeyPatch) -> None:
         email="test@example.com",
         password_hash="hash",
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     with (
         patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
@@ -2327,8 +2327,8 @@ def test_update_user_with_device_email(monkeypatch: pytest.MonkeyPatch) -> None:
         email="test@example.com",
         password_hash="hash",
     )
-    user.ereader_devices = []  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = []
+    user.roles = []
 
     with (
         patch("bookcard.api.routes.admin.UserRepository") as mock_repo_class,
@@ -2413,7 +2413,7 @@ def test_delete_user_cannot_delete_self(monkeypatch: pytest.MonkeyPatch) -> None
         mock_get_admin.return_value = admin_user
 
         with pytest.raises(HTTPException) as exc_info:
-            admin.delete_user(request, session, admin_user, user_id=1)  # type: ignore[arg-type]
+            admin.delete_user(request, session, admin_user, user_id=1)
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 403
         assert exc_info.value.detail == "cannot_delete_self"
@@ -2465,7 +2465,7 @@ def test_delete_user_success(monkeypatch: pytest.MonkeyPatch) -> None:
         mock_service.delete_user.return_value = None
         mock_service_class.return_value = mock_service
 
-        admin.delete_user(request, session, admin_user, user_id=2)  # type: ignore[arg-type]
+        admin.delete_user(request, session, admin_user, user_id=2)
         mock_service.delete_user.assert_called_once()
         session.commit()
 
@@ -2511,7 +2511,7 @@ def test_delete_user_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
         mock_service_class.return_value = mock_service
 
         with pytest.raises(HTTPException) as exc_info:
-            admin.delete_user(request, session, admin_user, user_id=999)  # type: ignore[arg-type]
+            admin.delete_user(request, session, admin_user, user_id=999)
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == "user_not_found"
@@ -2560,7 +2560,7 @@ def test_delete_user_other_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
         from bookcard.api.routes import admin
 
         with pytest.raises(ValueError, match="other_error"):
-            admin.delete_user(request, session, admin_user, user_id=999)  # type: ignore[arg-type]
+            admin.delete_user(request, session, admin_user, user_id=999)
 
 
 def test_create_user_generic_value_error() -> None:
@@ -2648,13 +2648,13 @@ def test_get_role_with_permissions_success() -> None:
     """Test _get_role_with_permissions returns role (covers line 753)."""
     session = DummySession()
     role = Role(id=1, name="test", description="test")
-    role.permissions = []  # type: ignore[attr-defined]
+    role.permissions = []
 
     mock_result = MagicMock()
     mock_result.first.return_value = role
 
     with patch.object(session, "exec", return_value=mock_result):
-        result = admin._get_role_with_permissions(session, 1)
+        result = admin._get_role_with_permissions(session, 1)  # type: ignore[invalid-argument-type]
         assert result.id == 1
         assert result.name == "test"
 
@@ -2664,8 +2664,8 @@ def test_create_role_id_is_none() -> None:
     session = DummySession()
     payload = admin.RoleCreate(name="testrole", description="Test role")
 
-    role = Role(id=None, name="testrole", description="Test role")  # type: ignore[call-arg]
-    role.permissions = []  # type: ignore[attr-defined]
+    role = Role(id=None, name="testrole", description="Test role")
+    role.permissions = []
 
     with patch("bookcard.api.routes.admin.RoleService") as mock_service_class:
         mock_service = MagicMock()
@@ -2685,7 +2685,7 @@ def test_create_role_reload_fails() -> None:
     payload = admin.RoleCreate(name="testrole", description="Test role")
 
     role = Role(id=1, name="testrole", description="Test role")
-    role.permissions = []  # type: ignore[attr-defined]
+    role.permissions = []
 
     mock_result = MagicMock()
     mock_result.first.return_value = None  # Simulate reload failure
@@ -2768,7 +2768,7 @@ def test_update_role_value_error_handlers(error_msg: str, expected_status: int) 
     payload = admin.RoleUpdate(name="updated")
 
     role = Role(id=1, name="test", description="test")
-    role.permissions = []  # type: ignore[attr-defined]
+    role.permissions = []
 
     mock_result = MagicMock()
     mock_result.first.return_value = role
@@ -2799,7 +2799,7 @@ def test_update_role_unexpected_value_error() -> None:
     payload = admin.RoleUpdate(name="updated")
 
     role = Role(id=1, name="test", description="test")
-    role.permissions = []  # type: ignore[attr-defined]
+    role.permissions = []
 
     mock_result = MagicMock()
     mock_result.first.return_value = role
@@ -2873,7 +2873,7 @@ def test_grant_permission_to_role_reload_fails() -> None:
     payload = admin.RolePermissionGrant(permission_id=1, condition=None)
 
     role = Role(id=1, name="test", description="test")
-    role.permissions = []  # type: ignore[attr-defined]
+    role.permissions = []
 
     mock_result = MagicMock()
     mock_result.first.return_value = None  # Simulate reload failure
@@ -2899,7 +2899,7 @@ def test_revoke_permission_from_role_reload_fails() -> None:
     """Test revoke_permission_from_role handles reload failure (covers line 1139)."""
     session = DummySession()
     role = Role(id=1, name="test", description="test")
-    role.permissions = []  # type: ignore[attr-defined]
+    role.permissions = []
 
     mock_result = MagicMock()
     mock_result.first.return_value = None  # Simulate reload failure
@@ -2932,7 +2932,7 @@ def test_update_permission_id_is_none() -> None:
         id=None,
         name="updated",
         resource="books",
-        action="read",  # type: ignore[call-arg]
+        action="read",
     )
 
     with (
@@ -3053,7 +3053,7 @@ def test_update_role_permission_generic_value_error() -> None:
     payload = admin.RolePermissionUpdate(condition={"key": "value"})
 
     role = Role(id=1, name="test", description="test")
-    role.permissions = []  # type: ignore[attr-defined]
+    role.permissions = []
 
     mock_result = MagicMock()
     mock_result.first.return_value = role
@@ -3092,7 +3092,7 @@ def test_create_permission_id_is_none() -> None:
         id=None,
         name="new",
         resource="books",
-        action="read",  # type: ignore[call-arg]
+        action="read",
     )
 
     with (
@@ -3255,7 +3255,7 @@ def test_download_openlibrary_dumps_task_runner_unavailable() -> None:
     payload = admin.DownloadFilesRequest(urls=["https://example.com/file.txt"])
 
     with pytest.raises(HTTPException) as exc_info:
-        admin.download_openlibrary_dumps(request, current_user, payload)  # type: ignore[arg-type]
+        admin.download_openlibrary_dumps(request, current_user, payload)
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 503
     assert exc_info.value.detail == "Task runner not available"
@@ -3302,7 +3302,7 @@ def test_download_openlibrary_dumps_value_error() -> None:
         mock_service_class.return_value = mock_service
 
         with pytest.raises(HTTPException) as exc_info:
-            admin.download_openlibrary_dumps(request, current_user, payload)  # type: ignore[arg-type]
+            admin.download_openlibrary_dumps(request, current_user, payload)
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 400
         assert exc_info.value.detail == "No URLs provided"
@@ -3344,7 +3344,7 @@ def test_ingest_openlibrary_dumps_no_file_types() -> None:
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        admin.ingest_openlibrary_dumps(request, current_user, payload)  # type: ignore[arg-type]
+        admin.ingest_openlibrary_dumps(request, current_user, payload)
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 400
     assert "At least one file type" in exc_info.value.detail
@@ -3373,7 +3373,7 @@ def test_ingest_openlibrary_dumps_task_runner_unavailable() -> None:
     payload = admin.IngestFilesRequest(process_authors=True)
 
     with pytest.raises(HTTPException) as exc_info:
-        admin.ingest_openlibrary_dumps(request, current_user, payload)  # type: ignore[arg-type]
+        admin.ingest_openlibrary_dumps(request, current_user, payload)
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 503
     assert exc_info.value.detail == "Task runner not available"
@@ -3403,7 +3403,7 @@ def test_get_openlibrary_dump_config_none() -> None:
         mock_service.get_openlibrary_dump_config.return_value = None
         mock_auth_service.return_value = mock_service
 
-        result = admin.get_openlibrary_dump_config(request, session)  # type: ignore[arg-type]
+        result = admin.get_openlibrary_dump_config(request, session)
 
         assert result.id is None
         assert (
@@ -3450,7 +3450,7 @@ def test_upsert_openlibrary_dump_config_not_admin() -> None:
         mock_auth_service.return_value = mock_service
 
         with pytest.raises(HTTPException) as exc_info:
-            admin.upsert_openlibrary_dump_config(request, session, payload)  # type: ignore[arg-type]
+            admin.upsert_openlibrary_dump_config(request, session, payload)
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 403
         assert exc_info.value.detail == "forbidden"
@@ -3492,7 +3492,7 @@ def test_upsert_openlibrary_dump_config_value_error() -> None:
         mock_auth_service.return_value = mock_service
 
         with pytest.raises(HTTPException) as exc_info:
-            admin.upsert_openlibrary_dump_config(request, session, payload)  # type: ignore[arg-type]
+            admin.upsert_openlibrary_dump_config(request, session, payload)
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 400
         assert exc_info.value.detail == "Invalid URL"
@@ -3555,7 +3555,7 @@ def test_upsert_scheduled_tasks_config_not_admin() -> None:
         "bookcard.api.routes.admin.get_current_user", return_value=non_admin_user
     ):
         with pytest.raises(HTTPException) as exc_info:
-            admin.upsert_scheduled_tasks_config(request, session, payload)  # type: ignore[arg-type]
+            admin.upsert_scheduled_tasks_config(request, session, payload)
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 403
         assert exc_info.value.detail == "forbidden"
@@ -3593,7 +3593,7 @@ def test_upsert_scheduled_tasks_config_value_error() -> None:
         mock_service_class.return_value = mock_service
 
         with pytest.raises(HTTPException) as exc_info:
-            admin.upsert_scheduled_tasks_config(request, session, payload)  # type: ignore[arg-type]
+            admin.upsert_scheduled_tasks_config(request, session, payload)
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 400
         assert exc_info.value.detail == "Invalid config"
@@ -3605,7 +3605,7 @@ def test_update_role_locked_role(monkeypatch: pytest.MonkeyPatch) -> None:
     payload = admin.RoleUpdate(name="updated")
 
     role = Role(id=1, name="admin", description="Admin role")
-    role.permissions = []  # type: ignore[attr-defined]
+    role.permissions = []
 
     with (
         patch("bookcard.api.routes.admin.RoleRepository") as mock_repo_class,
@@ -3726,7 +3726,7 @@ def test_update_role_permission_http_exception() -> None:
     payload = admin.RolePermissionUpdate(condition={"tag": "fiction"})
 
     role = Role(id=1, name="test", description="Test role")
-    role.permissions = []  # type: ignore[attr-defined]
+    role.permissions = []
 
     with (
         patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
@@ -3751,7 +3751,7 @@ def test_update_role_permission_not_found() -> None:
     payload = admin.RolePermissionUpdate(condition={"tag": "fiction"})
 
     role = Role(id=1, name="test", description="Test role")
-    role.permissions = []  # type: ignore[attr-defined]
+    role.permissions = []
 
     with (
         patch("bookcard.api.routes.admin.RoleService") as mock_service_class,
@@ -3846,7 +3846,7 @@ def test_download_openlibrary_dumps_success() -> None:
         mock_service_class.return_value = mock_service
 
         result = admin.download_openlibrary_dumps(
-            request=request,  # type: ignore[arg-type]
+            request=request,
             current_user=current_user,
             payload=payload,
         )
@@ -3907,7 +3907,7 @@ def test_ingest_openlibrary_dumps_success() -> None:
         mock_service_class.return_value = mock_service
 
         result = admin.ingest_openlibrary_dumps(
-            request=request,  # type: ignore[arg-type]
+            request=request,
             current_user=current_user,
             payload=payload,
         )
@@ -3947,7 +3947,7 @@ def test_get_openlibrary_dump_config_returns_defaults() -> None:
         mock_auth_service.return_value = mock_service
 
         result = admin.get_openlibrary_dump_config(
-            request=request,  # type: ignore[arg-type]
+            request=request,
             session=session,
         )
         assert result.id is None
@@ -4003,7 +4003,7 @@ def test_upsert_scheduled_tasks_config_success() -> None:
         mock_service_class.return_value = mock_service
 
         result = admin.upsert_scheduled_tasks_config(
-            request=request,  # type: ignore[arg-type]
+            request=request,
             session=session,
             payload=payload,
         )

@@ -564,7 +564,7 @@ class RTorrentClient(BaseDownloadClient):
         super().__init__(
             settings, file_fetcher, url_router, http_client_factory, enabled
         )
-        self.settings: RTorrentSettings = settings  # type: ignore[assignment]
+        self.settings: RTorrentSettings = settings
         self._proxy = RTorrentProxy(self.settings)
         self._status_mapper = StatusMapper(
             {
@@ -725,7 +725,7 @@ class RTorrentClient(BaseDownloadClient):
 
         name = torrent.get("name", "")
         base_path = torrent.get("base_path")
-        item: DownloadItem = {
+        return {
             "client_item_id": str(hash_str).upper(),
             "title": str(name) if name else "",
             "status": status,
@@ -738,7 +738,6 @@ class RTorrentClient(BaseDownloadClient):
             "eta_seconds": eta_seconds,
             "file_path": str(base_path) if base_path else None,
         }
-        return item
 
     def get_items(self) -> Sequence[DownloadItem]:
         """Get list of active downloads.

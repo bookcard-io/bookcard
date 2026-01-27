@@ -100,7 +100,7 @@ class TestDownloadMonitorService:
         }
 
         # Execute
-        download_monitor_service._update_item(sample_download_item, client_item)
+        download_monitor_service._update_item(sample_download_item, client_item)  # type: ignore[invalid-argument-type]
 
         # Verify DownloadItem updated
         assert sample_download_item.status == DownloadItemStatus.COMPLETED
@@ -150,7 +150,7 @@ class TestDownloadMonitorService:
         }
 
         # Execute
-        download_monitor_service._update_item(sample_download_item, client_item)
+        download_monitor_service._update_item(sample_download_item, client_item)  # type: ignore[invalid-argument-type]
 
         # Verify DownloadItem updated
         assert sample_download_item.status == DownloadItemStatus.FAILED

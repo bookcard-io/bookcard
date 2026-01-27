@@ -204,7 +204,7 @@ class NumericLookupStrategy(AuthorLookupStrategy):
 class OpenLibraryLookupStrategy(AuthorLookupStrategy):
     """Strategy for looking up authors by OpenLibrary key."""
 
-    def can_handle(self, _author_id: str) -> bool:
+    def can_handle(self, author_id: str) -> bool:
         """Return True as fallback strategy.
 
         This strategy always returns True and is used as a fallback
@@ -212,7 +212,7 @@ class OpenLibraryLookupStrategy(AuthorLookupStrategy):
 
         Parameters
         ----------
-        _author_id : str
+        author_id : str
             Author identifier string (unused, but required by interface).
 
         Returns
@@ -220,6 +220,7 @@ class OpenLibraryLookupStrategy(AuthorLookupStrategy):
         bool
             Always True (used as fallback).
         """
+        del author_id
         return True
 
     def lookup(

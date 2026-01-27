@@ -533,7 +533,7 @@ class TransmissionClient(TrackingDownloadClient):
         super().__init__(
             settings, file_fetcher, url_router, http_client_factory, enabled
         )
-        self.settings: TransmissionSettings = settings  # type: ignore[assignment]
+        self.settings: TransmissionSettings = settings
         self._proxy = TransmissionProxy(self.settings)
         self._status_mapper = StatusMapper(
             {

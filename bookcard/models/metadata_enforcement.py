@@ -102,7 +102,7 @@ class MetadataEnforcementOperation(SQLModel, table=True):
         default=EnforcementStatus.PENDING,
         sa_column=Column(
             SQLEnum(EnforcementStatus, native_enum=False), nullable=False, index=True
-        ),  # type: ignore[call-overload]
+        ),
     )
     enforced_at: datetime | None = Field(default=None, index=True)
     error_message: str | None = Field(default=None)

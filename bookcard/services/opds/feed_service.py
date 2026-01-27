@@ -50,7 +50,7 @@ class OpdsFeedService(IOpdsFeedService):
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         library: Library,
         xml_builder: OpdsXmlBuilder | None = None,
         book_query_service: OpdsBookQueryService | None = None,
@@ -781,8 +781,8 @@ class OpdsFeedService(IOpdsFeedService):
         # Get distinct authors linked to books
         stmt = (
             select(Author)
-            .join(BookAuthorLink, Author.id == BookAuthorLink.author)
-            .group_by(Author.id)
+            .join(BookAuthorLink, Author.id == BookAuthorLink.author)  # type: ignore[invalid-argument-type]
+            .group_by(Author.id)  # type: ignore[invalid-argument-type]
             .order_by(Author.sort if Author.sort else Author.name)
             .limit(feed_request.page_size)
             .offset(offset)
@@ -836,9 +836,9 @@ class OpdsFeedService(IOpdsFeedService):
 
         stmt = (
             select(Author)
-            .join(BookAuthorLink, Author.id == BookAuthorLink.author)
+            .join(BookAuthorLink, Author.id == BookAuthorLink.author)  # type: ignore[invalid-argument-type]
             .where(letter_filter)
-            .group_by(Author.id)
+            .group_by(Author.id)  # type: ignore[invalid-argument-type]
             .order_by(Author.sort if Author.sort else Author.name)
             .limit(feed_request.page_size)
             .offset(offset)

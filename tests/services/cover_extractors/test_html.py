@@ -23,7 +23,7 @@ from io import BytesIO
 from pathlib import Path
 
 import pytest
-from PIL import Image  # type: ignore[import-untyped]
+from PIL import Image
 
 from bookcard.services.cover_extractors.html import HtmlCoverExtractor
 

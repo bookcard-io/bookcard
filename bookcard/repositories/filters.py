@@ -112,8 +112,9 @@ class AuthorFilterStrategy(FilterStrategy):
         """Build author filter condition."""
         author_alias = aliased(Author)
         context.stmt = context.stmt.outerjoin(
-            BookAuthorLink, Book.id == BookAuthorLink.book
-        ).outerjoin(author_alias, BookAuthorLink.author == author_alias.id)
+            BookAuthorLink,
+            Book.id == BookAuthorLink.book,  # type: ignore[invalid-argument-type]
+        ).outerjoin(author_alias, BookAuthorLink.author == author_alias.id)  # type: ignore[invalid-argument-type]
         context.or_conditions.append(author_alias.id.in_(filter_value))  # type: ignore[attr-defined]
         return context
 
@@ -142,8 +143,9 @@ class GenreFilterStrategy(FilterStrategy):
         """Build genre filter condition."""
         tag_alias = aliased(Tag)
         context.stmt = context.stmt.outerjoin(
-            BookTagLink, Book.id == BookTagLink.book
-        ).outerjoin(tag_alias, BookTagLink.tag == tag_alias.id)
+            BookTagLink,
+            Book.id == BookTagLink.book,  # type: ignore[invalid-argument-type]
+        ).outerjoin(tag_alias, BookTagLink.tag == tag_alias.id)  # type: ignore[invalid-argument-type]
         context.or_conditions.append(tag_alias.id.in_(filter_value))  # type: ignore[attr-defined]
         return context
 
@@ -159,8 +161,9 @@ class PublisherFilterStrategy(FilterStrategy):
         """Build publisher filter condition."""
         publisher_alias = aliased(Publisher)
         context.stmt = context.stmt.outerjoin(
-            BookPublisherLink, Book.id == BookPublisherLink.book
-        ).outerjoin(publisher_alias, BookPublisherLink.publisher == publisher_alias.id)
+            BookPublisherLink,
+            Book.id == BookPublisherLink.book,  # type: ignore[invalid-argument-type]
+        ).outerjoin(publisher_alias, BookPublisherLink.publisher == publisher_alias.id)  # type: ignore[invalid-argument-type]
         context.or_conditions.append(publisher_alias.id.in_(filter_value))  # type: ignore[attr-defined]
         return context
 
@@ -176,7 +179,8 @@ class IdentifierFilterStrategy(FilterStrategy):
         """Build identifier filter condition."""
         identifier_alias = aliased(Identifier)
         context.stmt = context.stmt.outerjoin(
-            identifier_alias, Book.id == identifier_alias.book
+            identifier_alias,
+            Book.id == identifier_alias.book,  # type: ignore[invalid-argument-type]
         )
         context.or_conditions.append(identifier_alias.id.in_(filter_value))  # type: ignore[attr-defined]
         return context
@@ -208,7 +212,7 @@ class FormatFilterStrategy(FilterStrategy):
     ) -> FilterContext:
         """Build format filter condition."""
         data_alias = aliased(Data)
-        context.stmt = context.stmt.outerjoin(data_alias, Book.id == data_alias.book)
+        context.stmt = context.stmt.outerjoin(data_alias, Book.id == data_alias.book)  # type: ignore[invalid-argument-type]
         context.and_conditions.append(data_alias.format.in_(filter_value))  # type: ignore[attr-defined]
         return context
 
@@ -224,8 +228,9 @@ class RatingFilterStrategy(FilterStrategy):
         """Build rating filter condition."""
         rating_alias = aliased(Rating)
         context.stmt = context.stmt.outerjoin(
-            BookRatingLink, Book.id == BookRatingLink.book
-        ).outerjoin(rating_alias, BookRatingLink.rating == rating_alias.id)
+            BookRatingLink,
+            Book.id == BookRatingLink.book,  # type: ignore[invalid-argument-type]
+        ).outerjoin(rating_alias, BookRatingLink.rating == rating_alias.id)  # type: ignore[invalid-argument-type]
         context.and_conditions.append(rating_alias.id.in_(filter_value))  # type: ignore[attr-defined]
         return context
 
@@ -241,8 +246,9 @@ class LanguageFilterStrategy(FilterStrategy):
         """Build language filter condition."""
         language_alias = aliased(Language)
         context.stmt = context.stmt.outerjoin(
-            BookLanguageLink, Book.id == BookLanguageLink.book
-        ).outerjoin(language_alias, BookLanguageLink.lang_code == language_alias.id)
+            BookLanguageLink,
+            Book.id == BookLanguageLink.book,  # type: ignore[invalid-argument-type]
+        ).outerjoin(language_alias, BookLanguageLink.lang_code == language_alias.id)  # type: ignore[invalid-argument-type]
         context.and_conditions.append(language_alias.id.in_(filter_value))  # type: ignore[attr-defined]
         return context
 

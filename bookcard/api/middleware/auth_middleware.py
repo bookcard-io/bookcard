@@ -27,18 +27,16 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from bookcard.services.security import JWTManager, SecurityTokenError
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from fastapi import Request
+    from starlette.middleware.base import RequestResponseEndpoint
     from starlette.responses import Response
-    from starlette.types import ASGIApp
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
     """Attach `request.state.user` when a valid Bearer token is present."""
 
     async def dispatch(
-        self, request: Request, call_next: Callable[[Request], ASGIApp]
+        self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
         """Process request and attach user claims if valid token present.
 
@@ -46,7 +44,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         ----------
         request : Request
             Incoming FastAPI request.
-        call_next : Callable[[Request], ASGIApp]
+        call_next : RequestResponseEndpoint
             Next middleware in chain.
 
         Returns

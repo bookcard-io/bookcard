@@ -28,20 +28,13 @@ from bookcard.repositories.epub_fixer_repository import (
     EPUBFixRepository,
     EPUBFixRunRepository,
 )
-from tests.repositories.test_base_repository import MockSession
+from tests.repositories.test_base_repository import MockResult, MockSession
 
 
-class MockResultWithFirst[T]:
-    """Mock query result with first() method support."""
+class MockResultWithFirst(MockResult):
+    """Mock query result with `first()` method support."""
 
-    def __init__(self, items: list[T]) -> None:
-        self._items = items
-
-    def all(self) -> list[T]:
-        """Return all items."""
-        return self._items
-
-    def first(self) -> T | None:
+    def first(self) -> Any | None:  # noqa: ANN401
         """Return first item or None if empty."""
         return self._items[0] if self._items else None
 
@@ -54,7 +47,7 @@ class MockSessionWithFirst(MockSession):
         """Initialize extended mock session."""
         super().__init__()
 
-    def exec(self, stmt: Any) -> MockResultWithFirst:  # noqa: ANN401
+    def exec(self, stmt: Any) -> MockResult:  # noqa: ANN401
         """Execute statement and return result with first() support."""
         return MockResultWithFirst(self._next_exec_result)
 

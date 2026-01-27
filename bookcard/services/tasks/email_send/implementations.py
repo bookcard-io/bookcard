@@ -37,7 +37,7 @@ from bookcard.services.tasks.email_send.exceptions import (
 class DefaultLibraryProvider:
     """Default implementation of library provider."""
 
-    def get_active_library(self, session: Session) -> Library:  # type: ignore[type-arg]
+    def get_active_library(self, session: Session) -> Library:
         """Get active library configuration.
 
         Parameters
@@ -79,7 +79,7 @@ class DefaultEmailServiceFactory:
     def create(
         self,
         session: Session,
-        encryption_key: str,  # type: ignore[type-arg]
+        encryption_key: str,
     ) -> EmailService:
         """Create email service instance.
 
@@ -116,7 +116,7 @@ class DefaultEmailSendBookServiceFactory:
     def create(
         self,
         library: Library,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
     ) -> BookService:
         """Create book service instance.
 

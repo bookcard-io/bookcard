@@ -99,7 +99,9 @@ def test_build_minimal_metadata(book: Book) -> None:
         has_cover=False,
         path="Test Book (1)",
     )
-    minimal_book.series_index = None  # Explicitly set to None
+    minimal_book.series_index = (  # ty:ignore[invalid-assignment]
+        None  # Explicitly set to None
+    )
     book_with_rels = BookWithFullRelations(
         book=minimal_book,
         authors=[],

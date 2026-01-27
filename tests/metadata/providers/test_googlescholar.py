@@ -518,7 +518,7 @@ def test_googlescholar_provider_import_error_handling() -> None:
                 raise ImportError("No module named 'scholarly'")
             # For other imports, use the real import
             # Type ignore needed because __import__ has complex overloads
-            return importlib.__import__(  # type: ignore[call-overload]
+            return importlib.__import__(
                 name, globals_dict, locals_dict, fromlist, level
             )
 

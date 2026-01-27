@@ -132,7 +132,7 @@ class TestUpdateProgress:
 
             result = reading_routes.update_progress(
                 progress_data=payload,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=current_user,
                 reading_service=mock_reading_service,
                 library_id=1,
@@ -208,7 +208,7 @@ class TestGetProgress:
         result = reading_routes.get_progress(
             book_id=1,
             book_format="EPUB",
-            session=session,  # type: ignore[arg-type]
+            session=session,
             current_user=current_user,
             reading_service=mock_reading_service,
             library_id=1,
@@ -234,7 +234,7 @@ class TestGetProgress:
             reading_routes.get_progress(
                 book_id=1,
                 book_format="EPUB",
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=current_user,
                 reading_service=mock_reading_service,
                 library_id=1,
@@ -276,7 +276,7 @@ class TestStartSession:
 
         result = reading_routes.start_session(
             session_data=payload,
-            session=session,  # type: ignore[arg-type]
+            session=session,
             current_user=current_user,
             reading_service=mock_reading_service,
             library_id=1,
@@ -329,7 +329,7 @@ class TestEndSession:
             result = reading_routes.end_session(
                 session_id=1,
                 session_end_data=payload,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=current_user,
                 reading_service=mock_reading_service,
             )
@@ -362,7 +362,7 @@ class TestEndSession:
                 reading_routes.end_session(
                     session_id=1,
                     session_end_data=payload,
-                    session=session,  # type: ignore[arg-type]
+                    session=session,
                     current_user=current_user,
                     reading_service=MagicMock(),
                 )
@@ -403,7 +403,7 @@ class TestEndSession:
                 reading_routes.end_session(
                     session_id=1,
                     session_end_data=payload,
-                    session=session,  # type: ignore[arg-type]
+                    session=session,
                     current_user=current_user,
                     reading_service=MagicMock(),
                 )
@@ -442,7 +442,7 @@ class TestGetRecentReads:
 
         result = reading_routes.get_recent_reads(
             limit=10,
-            db_session=session,  # type: ignore[arg-type]
+            db_session=session,
             current_user=current_user,
             reading_service=mock_reading_service,
             library_id=1,
@@ -485,7 +485,7 @@ class TestGetReadingHistory:
         result = reading_routes.get_reading_history(
             book_id=1,
             limit=50,
-            db_session=session,  # type: ignore[arg-type]
+            db_session=session,
             current_user=current_user,
             reading_service=mock_reading_service,
             library_id=1,
@@ -530,7 +530,7 @@ class TestUpdateReadStatus:
         result = reading_routes.update_read_status(
             book_id=1,
             status_data=payload,
-            db_session=session,  # type: ignore[arg-type]
+            db_session=session,
             current_user=current_user,
             reading_service=mock_reading_service,
             library_id=1,
@@ -569,7 +569,7 @@ class TestUpdateReadStatus:
         result = reading_routes.update_read_status(
             book_id=1,
             status_data=payload,
-            db_session=session,  # type: ignore[arg-type]
+            db_session=session,
             current_user=current_user,
             reading_service=mock_reading_service,
             library_id=1,
@@ -629,7 +629,7 @@ class TestGetReadStatus:
 
         result = reading_routes.get_read_status(
             book_id=1,
-            db_session=session,  # type: ignore[arg-type]
+            db_session=session,
             current_user=current_user,
             reading_service=mock_reading_service,
             library_id=1,
@@ -654,7 +654,7 @@ class TestGetReadStatus:
         with pytest.raises(HTTPException) as exc_info:
             reading_routes.get_read_status(
                 book_id=1,
-                db_session=session,  # type: ignore[arg-type]
+                db_session=session,
                 current_user=current_user,
                 reading_service=mock_reading_service,
                 library_id=1,
@@ -790,7 +790,7 @@ class TestUpdateProgressEdgeCases:
             with pytest.raises(HTTPException) as exc_info:
                 reading_routes.update_progress(
                     progress_data=payload,
-                    session=session,  # type: ignore[arg-type]
+                    session=session,
                     current_user=current_user,
                     reading_service=mock_reading_service,
                     library_id=1,
@@ -830,7 +830,7 @@ class TestUpdateProgressEdgeCases:
             with pytest.raises(HTTPException) as exc_info:
                 reading_routes.update_progress(
                     progress_data=payload,
-                    session=session,  # type: ignore[arg-type]
+                    session=session,
                     current_user=current_user,
                     reading_service=mock_reading_service,
                     library_id=1,
@@ -870,7 +870,7 @@ class TestGetProgressEdgeCases:
             reading_routes.get_progress(
                 book_id=1,
                 book_format="EPUB",
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=current_user,
                 reading_service=mock_reading_service,
                 library_id=1,
@@ -914,7 +914,7 @@ class TestStartSessionEdgeCases:
         with pytest.raises(HTTPException) as exc_info:
             reading_routes.start_session(
                 session_data=payload,
-                session=session,  # type: ignore[arg-type]
+                session=session,
                 current_user=current_user,
                 reading_service=mock_reading_service,
                 library_id=1,
@@ -964,7 +964,7 @@ class TestEndSessionEdgeCases:
                 reading_routes.end_session(
                     session_id=1,
                     session_end_data=payload,
-                    session=session,  # type: ignore[arg-type]
+                    session=session,
                     current_user=current_user,
                     reading_service=mock_reading_service,
                 )
@@ -1023,7 +1023,7 @@ class TestEndSessionEdgeCases:
                 reading_routes.end_session(
                     session_id=1,
                     session_end_data=payload,
-                    session=session,  # type: ignore[arg-type]
+                    session=session,
                     current_user=current_user,
                     reading_service=mock_reading_service,
                 )
@@ -1068,7 +1068,7 @@ class TestListSessions:
             mock_repo_class.return_value = mock_session_repo
 
             result = reading_routes.list_sessions(
-                db_session=session,  # type: ignore[arg-type]
+                db_session=session,
                 current_user=current_user,
                 library_id=1,
                 book_id=1,
@@ -1111,7 +1111,7 @@ class TestListSessions:
         session.add_exec_result(sessions)  # For count query
 
         result = reading_routes.list_sessions(
-            db_session=session,  # type: ignore[arg-type]
+            db_session=session,
             current_user=current_user,
             library_id=1,
             book_id=None,
@@ -1157,7 +1157,7 @@ class TestListSessions:
         session.add_exec_result(sessions)  # For count query
 
         result = reading_routes.list_sessions(
-            db_session=session,  # type: ignore[arg-type]
+            db_session=session,
             current_user=current_user,
             library_id=1,
             book_id=None,
@@ -1189,13 +1189,13 @@ class TestUpdateReadStatusEdgeCases:
 
         # Create a mock status_data with invalid status
         invalid_status_data = MagicMock()
-        invalid_status_data.status = "invalid"  # type: ignore[assignment]
+        invalid_status_data.status = "invalid"
 
         with pytest.raises(HTTPException) as exc_info:
             reading_routes.update_read_status(
                 book_id=1,
-                status_data=invalid_status_data,  # type: ignore[arg-type]
-                db_session=session,  # type: ignore[arg-type]
+                status_data=invalid_status_data,
+                db_session=session,
                 current_user=current_user,
                 reading_service=mock_reading_service,
                 library_id=1,
@@ -1237,7 +1237,7 @@ class TestUpdateReadStatusEdgeCases:
             reading_routes.update_read_status(
                 book_id=1,
                 status_data=payload,
-                db_session=session,  # type: ignore[arg-type]
+                db_session=session,
                 current_user=current_user,
                 reading_service=mock_reading_service,
                 library_id=1,
@@ -1276,7 +1276,7 @@ class TestGetReadStatusEdgeCases:
         with pytest.raises(HTTPException) as exc_info:
             reading_routes.get_read_status(
                 book_id=1,
-                db_session=session,  # type: ignore[arg-type]
+                db_session=session,
                 current_user=current_user,
                 reading_service=mock_reading_service,
                 library_id=1,

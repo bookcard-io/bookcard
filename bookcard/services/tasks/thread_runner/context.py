@@ -68,7 +68,7 @@ class TaskContextBuilder:
         """
         # The session_factory is expected to be a context manager (like _get_session)
         # We wrap it in our own context manager
-        with self._session_factory() as session:
+        with self._session_factory() as session:  # ty:ignore[invalid-context-manager]
             service = self._service_factory(session)
             yield session, service
 

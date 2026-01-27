@@ -44,7 +44,7 @@ from bookcard.api.routes.fs import (
 
 
 @pytest.fixture
-def temp_dir() -> Iterator[Path]:  # type: ignore[type-arg]
+def temp_dir() -> Iterator[Path]:
     """Create a temporary directory for testing."""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)

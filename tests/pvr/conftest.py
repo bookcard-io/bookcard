@@ -15,7 +15,7 @@
 
 """Shared fixtures for PVR tests."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -133,8 +133,10 @@ class MockDownloadClient(BaseDownloadClient):
         title: str | None = None,
         category: str | None = None,
         download_path: str | None = None,
+        **kwargs: Any,  # noqa: ANN401
     ) -> str:
         """Mock add download implementation."""
+        del download_url, title, category, download_path, kwargs
         return "mock-item-id-123"
 
     def get_items(self) -> "Sequence[dict[str, str | int | float | None]]":

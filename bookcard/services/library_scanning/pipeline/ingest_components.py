@@ -1339,19 +1339,26 @@ class DirectAuthorSubjectStrategy(SubjectFetchStrategy):
         """
         self.data_fetcher = data_fetcher
 
-    def fetch_subjects(self, author_key: str) -> list[str]:
+    def fetch_subjects(
+        self,
+        author_key: str,
+        author_metadata: AuthorMetadata | None = None,
+    ) -> list[str]:
         """Fetch subjects from author data.
 
         Parameters
         ----------
         author_key : str
             Author key identifier.
+        author_metadata : AuthorMetadata | None
+            Optional author metadata (unused).
 
         Returns
         -------
         list[str]
             List of subject names.
         """
+        del author_metadata
         author_data = self.data_fetcher.fetch_author(author_key)
         return (
             list(author_data.subjects) if author_data and author_data.subjects else []

@@ -143,7 +143,7 @@ class KoboReadingStateRepository(Repository[KoboReadingState]):
         stmt = select(KoboReadingState).where(KoboReadingState.user_id == user_id)
         if last_modified_after:
             stmt = stmt.where(KoboReadingState.last_modified > last_modified_after)
-        stmt = stmt.order_by(KoboReadingState.last_modified)
+        stmt = stmt.order_by(KoboReadingState.last_modified)  # type: ignore[invalid-argument-type]
         return self._session.exec(stmt).all()
 
     def find_by_user_and_books(
@@ -357,5 +357,5 @@ class KoboArchivedBookRepository(Repository[KoboArchivedBook]):
         # Use desc() method on the column to avoid type checker issues
         from sqlalchemy import desc
 
-        stmt = stmt.order_by(desc(KoboArchivedBook.last_modified))
+        stmt = stmt.order_by(desc(KoboArchivedBook.last_modified))  # type: ignore[invalid-argument-type]
         return self._session.exec(stmt).all()

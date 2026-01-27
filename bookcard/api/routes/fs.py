@@ -111,7 +111,7 @@ def _list_subdirectories(base: Path) -> Iterable[Path]:
     if not os.access(base, os.R_OK | os.X_OK):
         return
     try:
-        with os.scandir(base) as it:  # type: ignore[arg-type]
+        with os.scandir(base) as it:
             for entry in it:
                 try:
                     if not entry.is_dir(follow_symlinks=True):
@@ -146,7 +146,7 @@ def _list_files(base: Path) -> Iterable[Path]:
     if not os.access(base, os.R_OK | os.X_OK):
         return
     try:
-        with os.scandir(base) as it:  # type: ignore[arg-type]
+        with os.scandir(base) as it:
             for entry in it:
                 try:
                     if not entry.is_file(follow_symlinks=True):

@@ -29,7 +29,7 @@ from urllib.parse import quote, unquote
 try:
     from scholarly import scholarly  # type: ignore[import-untyped, import-not-found]
 except ImportError:
-    scholarly = None  # type: ignore[assignment, misc]
+    scholarly = None
 
 from bookcard.metadata.base import (
     MetadataProvider,

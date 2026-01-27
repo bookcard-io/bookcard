@@ -116,7 +116,7 @@ class ReadingProgressRepository(Repository[ReadingProgress]):
                 ReadingProgress.library_id == library_id,
                 ReadingProgress.progress > 0.0,
             )
-            .order_by(desc(ReadingProgress.updated_at))
+            .order_by(desc(ReadingProgress.updated_at))  # type: ignore[invalid-argument-type]
         )
         all_progress = list(self._session.exec(stmt).all())
 
@@ -222,7 +222,7 @@ class ReadingSessionRepository(Repository[ReadingSession]):
                 ReadingSession.library_id == library_id,
                 ReadingSession.book_id == book_id,
             )
-            .order_by(desc(ReadingSession.started_at))
+            .order_by(desc(ReadingSession.started_at))  # type: ignore[invalid-argument-type]
             .limit(limit)
         )
         return list(self._session.exec(stmt).all())

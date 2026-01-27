@@ -260,7 +260,7 @@ class TorrentRssIndexer(BaseIndexer):
             settings = rss_settings
 
         super().__init__(settings)
-        self.settings: TorrentRssSettings = settings  # type: ignore[assignment]
+        self.settings: TorrentRssSettings = settings
         self.request_generator = request_generator
         self.parser = parser
 

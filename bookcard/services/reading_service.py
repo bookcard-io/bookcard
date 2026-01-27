@@ -64,7 +64,7 @@ class ReadingService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         progress_repo: ReadingProgressRepository,
         session_repo: ReadingSessionRepository,
         status_repo: ReadStatusRepository,

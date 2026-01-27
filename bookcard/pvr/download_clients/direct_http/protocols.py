@@ -19,7 +19,7 @@ import time
 from collections.abc import Iterator
 from contextlib import AbstractContextManager
 from types import TracebackType
-from typing import Any, Protocol
+from typing import Any, Protocol, Self
 
 import httpx
 from bs4 import BeautifulSoup
@@ -65,7 +65,7 @@ class StreamingHttpClient(Protocol):
         """Stream HTTP response."""
         ...
 
-    def __enter__(self) -> "StreamingHttpClient":
+    def __enter__(self) -> Self:
         """Enter context manager."""
         ...
 

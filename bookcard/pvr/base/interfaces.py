@@ -21,7 +21,7 @@ allowing for loose coupling and better testability.
 
 from collections.abc import Sequence
 from types import TracebackType
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, Self, runtime_checkable
 
 from bookcard.pvr.models import DownloadItem, ReleaseInfo
 from bookcard.pvr.utils.url_router import DownloadType
@@ -124,7 +124,7 @@ class HttpClientProtocol(Protocol):
         """Perform HTTP POST request."""
         ...
 
-    def __enter__(self) -> "HttpClientProtocol":
+    def __enter__(self) -> Self:
         """Enter context manager."""
         ...
 

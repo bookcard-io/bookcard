@@ -90,7 +90,7 @@ class DownloadItemUpdater:
         client_item : ClientItemInfo
             Client item information.
         """
-        progress = self._safe_extract(client_item, "progress", float)
+        progress = self._safe_extract(client_item, "progress", float)  # type: ignore[invalid-argument-type]
         if progress is not None:
             db_item.progress = progress
 

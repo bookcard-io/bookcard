@@ -45,8 +45,8 @@ class EReaderService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
-        devices: EReaderRepository,  # type: ignore[type-arg]
+        session: Session,
+        devices: EReaderRepository,
         dedrm_service: DeDRMService | None = None,
     ) -> None:
         self._session = session

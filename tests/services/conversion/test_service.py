@@ -59,7 +59,7 @@ def mock_book_repository() -> MagicMock:
 
 
 @pytest.fixture
-def mock_conversion_repository(session: DummySession) -> ConversionRepository:  # type: ignore[valid-type]
+def mock_conversion_repository(session: DummySession) -> ConversionRepository:
     """Create a ConversionRepository instance.
 
     Parameters
@@ -89,7 +89,7 @@ def mock_conversion_strategy() -> MagicMock:
 
 @pytest.fixture
 def conversion_service(
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
     mock_book_repository: MagicMock,
     mock_conversion_repository: ConversionRepository,
     mock_conversion_strategy: MagicMock,
@@ -173,7 +173,7 @@ def format_data() -> Data:
     ],
 )
 def test_library_root_property(
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
     mock_book_repository: MagicMock,
     mock_conversion_repository: ConversionRepository,
     mock_conversion_strategy: MagicMock,
@@ -217,13 +217,13 @@ def test_library_root_property(
     result = service._library_root
 
     if use_library_root:
-        assert result == Path(library_root)
+        assert result == Path(library_root)  # type: ignore[invalid-argument-type]
     else:
         assert result == Path(library.calibre_db_path)
 
 
 def test_init_with_backup_service(
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
     library: Library,
     mock_book_repository: MagicMock,
     mock_conversion_repository: ConversionRepository,
@@ -305,7 +305,7 @@ def test_normalize_format(
 def test_check_existing_conversion(
     conversion_service: ConversionService,
     mock_conversion_repository: ConversionRepository,
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
 ) -> None:
     """Test check_existing_conversion finds existing conversion.
 
@@ -334,7 +334,7 @@ def test_check_existing_conversion(
 
 def test_check_existing_conversion_returns_none(
     conversion_service: ConversionService,
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
 ) -> None:
     """Test check_existing_conversion returns None when not found.
 
@@ -354,7 +354,7 @@ def test_check_existing_conversion_returns_none(
 
 def test_convert_book_returns_existing_conversion(
     conversion_service: ConversionService,
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
 ) -> None:
     """Test convert_book returns existing conversion.
 
@@ -382,7 +382,7 @@ def test_convert_book_returns_existing_conversion(
 def test_convert_book_records_existing_format(
     conversion_service: ConversionService,
     mock_book_repository: MagicMock,
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
     book: Book,
     temp_dir: Path,
 ) -> None:
@@ -488,7 +488,7 @@ def test_validate_conversion_request_returns_request(
 def test_record_existing_format(
     conversion_service: ConversionService,
     mock_book_repository: MagicMock,
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
     book: Book,
     temp_dir: Path,
 ) -> None:
@@ -526,7 +526,7 @@ def test_perform_conversion_with_backup(
     conversion_service: ConversionService,
     mock_book_repository: MagicMock,
     mock_conversion_strategy: MagicMock,
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
     book: Book,
     temp_dir: Path,
 ) -> None:
@@ -585,7 +585,7 @@ def test_perform_conversion_handles_conversion_error(
     conversion_service: ConversionService,
     mock_book_repository: MagicMock,
     mock_conversion_strategy: MagicMock,
-    session: DummySession,  # type: ignore[valid-type]
+    session: DummySession,
     book: Book,
     temp_dir: Path,
 ) -> None:

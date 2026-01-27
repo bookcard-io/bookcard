@@ -21,7 +21,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from PIL import Image  # type: ignore[import-untyped]
+from PIL import Image
 
 from bookcard.services.cover_extractors.cbz import CbzCoverExtractor
 
@@ -330,7 +330,7 @@ def test_extract_from_cbr_with_rarfile(
 
     # Inject mock into sys.modules
     original_rarfile = sys.modules.get("rarfile")
-    sys.modules["rarfile"] = mock_rarfile  # type: ignore[assignment]
+    sys.modules["rarfile"] = mock_rarfile
 
     try:
         result = extractor._extract_from_cbr(cbr_path)
@@ -390,7 +390,7 @@ def test_extract_from_cbr_no_images(
 
     # Inject mock into sys.modules
     original_rarfile = sys.modules.get("rarfile")
-    sys.modules["rarfile"] = mock_rarfile  # type: ignore[assignment]
+    sys.modules["rarfile"] = mock_rarfile
 
     try:
         result = extractor._extract_from_cbr(cbr_path)
@@ -430,7 +430,7 @@ def test_extract_from_cbr_rarfile_error(
 
     # Inject mock into sys.modules
     original_rarfile = sys.modules.get("rarfile")
-    sys.modules["rarfile"] = mock_rarfile  # type: ignore[assignment]
+    sys.modules["rarfile"] = mock_rarfile
 
     try:
         result = extractor._extract_from_cbr(cbr_path)
@@ -471,7 +471,7 @@ def test_extract_from_cb7_with_py7zr(
 
     # Inject mock into sys.modules
     original_py7zr = sys.modules.get("py7zr")
-    sys.modules["py7zr"] = mock_py7zr  # type: ignore[assignment]
+    sys.modules["py7zr"] = mock_py7zr
 
     try:
         result = extractor._extract_from_cb7(cb7_path)
@@ -551,7 +551,7 @@ def test_extract_from_cb7_no_images(
 
     # Inject mock into sys.modules
     original_py7zr = sys.modules.get("py7zr")
-    sys.modules["py7zr"] = mock_py7zr  # type: ignore[assignment]
+    sys.modules["py7zr"] = mock_py7zr
 
     try:
         result = extractor._extract_from_cb7(cb7_path)
@@ -589,7 +589,7 @@ def test_extract_from_cb7_py7zr_error(
 
     # Inject mock into sys.modules
     original_py7zr = sys.modules.get("py7zr")
-    sys.modules["py7zr"] = mock_py7zr  # type: ignore[assignment]
+    sys.modules["py7zr"] = mock_py7zr
 
     try:
         result = extractor._extract_from_cb7(cb7_path)

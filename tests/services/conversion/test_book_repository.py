@@ -306,7 +306,9 @@ def test_get_book_file_path(
     book_dir = library_root / book.path
     book_dir.mkdir(parents=True)
 
-    format_data.name = data_name
+    format_data.name = (  # ty:ignore[invalid-assignment]
+        data_name
+    )
     mock_session = mock_calibre_repo.get_session.return_value.__enter__.return_value
     mock_result = MagicMock()
     mock_result.first.return_value = format_data

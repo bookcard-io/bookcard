@@ -144,7 +144,7 @@ class TestGetDownloadClientService:
         mock_request : MagicMock
             Mocked request fixture.
         """
-        service = download_clients._get_download_client_service(session, mock_request)
+        service = download_clients._get_download_client_service(session, mock_request)  # type: ignore[invalid-argument-type]
         assert service is not None
         assert hasattr(service, "_session")
         assert service._session == session

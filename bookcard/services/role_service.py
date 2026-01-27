@@ -61,11 +61,11 @@ class RoleService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
-        roles: RoleRepository,  # type: ignore[type-arg]
-        permissions: PermissionRepository,  # type: ignore[type-arg]
-        user_roles: UserRoleRepository,  # type: ignore[type-arg]
-        role_permissions: RolePermissionRepository,  # type: ignore[type-arg]
+        session: Session,
+        roles: RoleRepository,
+        permissions: PermissionRepository,
+        user_roles: UserRoleRepository,
+        role_permissions: RolePermissionRepository,
     ) -> None:
         self._session = session
         self._roles = roles

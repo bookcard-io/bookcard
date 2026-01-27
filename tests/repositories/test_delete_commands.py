@@ -111,7 +111,7 @@ def test_link_command_execute_deletes_links(
 ) -> None:
     """Test link command execute deletes all links for book."""
     command_cls, link_cls, link_field = link_command_class
-    command = command_cls(session, book_id)  # type: ignore[arg-type]
+    command = command_cls(session, book_id)
 
     # Create test links
     link1 = link_cls(id=1, book=book_id, **{link_field: 10})
@@ -132,7 +132,7 @@ def test_link_command_execute_no_links(
 ) -> None:
     """Test link command execute handles no links gracefully."""
     command_cls, _, _ = link_command_class
-    command = command_cls(session, book_id)  # type: ignore[arg-type]
+    command = command_cls(session, book_id)
 
     session.add_exec_result([])
     command.execute()
@@ -148,7 +148,7 @@ def test_link_command_undo_restores_links(
 ) -> None:
     """Test link command undo restores deleted links."""
     command_cls, link_cls, link_field = link_command_class
-    command = command_cls(session, book_id)  # type: ignore[arg-type]
+    command = command_cls(session, book_id)
 
     link1 = link_cls(id=1, book=book_id, **{link_field: 10})
     link2 = link_cls(id=2, book=book_id, **{link_field: 20})
@@ -168,7 +168,7 @@ def test_link_command_undo_idempotent(
 ) -> None:
     """Test link command undo can be called multiple times safely."""
     command_cls, link_cls, link_field = link_command_class
-    command = command_cls(session, book_id)  # type: ignore[arg-type]
+    command = command_cls(session, book_id)
 
     link1 = link_cls(id=1, book=book_id, **{link_field: 10})
     session.add_exec_result([link1])
@@ -191,7 +191,7 @@ def test_link_command_undo_no_links(
 ) -> None:
     """Test link command undo handles no deleted links."""
     command_cls, _, _ = link_command_class
-    command = command_cls(session, book_id)  # type: ignore[arg-type]
+    command = command_cls(session, book_id)
 
     # Undo without executing
     command.undo()
@@ -331,12 +331,12 @@ def test_delete_data_records_execute_deletes_persistent(
 
     original_inspect = delete_commands_mod.inspect
 
-    def mock_inspect_func(obj: object) -> MagicMock:  # type: ignore[type-arg]
+    def mock_inspect_func(obj: object) -> MagicMock:
         if obj is data1:
             return mock_inspect1
         if obj is data2:
             return mock_inspect2
-        return original_inspect(obj)
+        return original_inspect(obj)  # ty:ignore[invalid-return-type]
 
     delete_commands_mod.inspect = mock_inspect_func  # type: ignore[assignment]
 
@@ -374,12 +374,12 @@ def test_delete_data_records_execute_skips_non_persistent(
 
     original_inspect = delete_commands_mod.inspect
 
-    def mock_inspect_func(obj: object) -> MagicMock:  # type: ignore[type-arg]
+    def mock_inspect_func(obj: object) -> MagicMock:
         if obj is data1:
             return mock_inspect1
         if obj is data2:
             return mock_inspect2
-        return original_inspect(obj)
+        return original_inspect(obj)  # ty:ignore[invalid-return-type]
 
     delete_commands_mod.inspect = mock_inspect_func  # type: ignore[assignment]
 
@@ -412,10 +412,10 @@ def test_delete_data_records_undo_restores_data(
 
     original_inspect = delete_commands_mod.inspect
 
-    def mock_inspect_func(obj: object) -> MagicMock:  # type: ignore[type-arg]
+    def mock_inspect_func(obj: object) -> MagicMock:
         if obj is data1:
             return mock_inspect1
-        return original_inspect(obj)
+        return original_inspect(obj)  # ty:ignore[invalid-return-type]
 
     delete_commands_mod.inspect = mock_inspect_func  # type: ignore[assignment]
 
@@ -681,7 +681,7 @@ def test_delete_user_devices_execute_deletes_devices(
     command = DeleteUserDevicesCommand(
         session,  # type: ignore[arg-type]
         user_id,
-        mock_device_repo,  # type: ignore[arg-type]
+        mock_device_repo,
     )
     command.execute()
 
@@ -702,7 +702,7 @@ def test_delete_user_devices_execute_no_devices(
     command = DeleteUserDevicesCommand(
         session,  # type: ignore[arg-type]
         user_id,
-        mock_device_repo,  # type: ignore[arg-type]
+        mock_device_repo,
     )
     command.execute()
 
@@ -729,7 +729,7 @@ def test_delete_user_devices_undo_restores_devices(
     command = DeleteUserDevicesCommand(
         session,  # type: ignore[arg-type]
         user_id,
-        mock_device_repo,  # type: ignore[arg-type]
+        mock_device_repo,
     )
     command.execute()
     command.undo()
@@ -746,7 +746,7 @@ def test_delete_user_devices_undo_no_devices(
     command = DeleteUserDevicesCommand(
         session,  # type: ignore[arg-type]
         user_id,
-        mock_device_repo,  # type: ignore[arg-type]
+        mock_device_repo,
     )
     command.undo()
 
@@ -769,7 +769,7 @@ def test_delete_user_roles_execute_deletes_roles(
     command = DeleteUserRolesCommand(
         session,  # type: ignore[arg-type]
         user_id,
-        mock_user_role_repo,  # type: ignore[arg-type]
+        mock_user_role_repo,
     )
     command.execute()
 
@@ -790,7 +790,7 @@ def test_delete_user_roles_execute_no_roles(
     command = DeleteUserRolesCommand(
         session,  # type: ignore[arg-type]
         user_id,
-        mock_user_role_repo,  # type: ignore[arg-type]
+        mock_user_role_repo,
     )
     command.execute()
 
@@ -812,7 +812,7 @@ def test_delete_user_roles_undo_restores_roles(
     command = DeleteUserRolesCommand(
         session,  # type: ignore[arg-type]
         user_id,
-        mock_user_role_repo,  # type: ignore[arg-type]
+        mock_user_role_repo,
     )
     command.execute()
     command.undo()
@@ -829,7 +829,7 @@ def test_delete_user_roles_undo_no_roles(
     command = DeleteUserRolesCommand(
         session,  # type: ignore[arg-type]
         user_id,
-        mock_user_role_repo,  # type: ignore[arg-type]
+        mock_user_role_repo,
     )
     command.undo()
 

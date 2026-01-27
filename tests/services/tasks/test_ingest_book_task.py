@@ -314,7 +314,7 @@ class TestFetchMetadata:
         mock_processor_service.fetch_and_store_metadata.assert_called_once_with(
             123, {"title": "Hint"}
         )
-        worker_context.update_progress.assert_called_once_with(0.2, None)
+        worker_context.update_progress.assert_called_once_with(0.2, None)  # type: ignore[attr-defined]
 
     @patch("bookcard.services.tasks.ingest_book_task.IngestProcessorService")
     def test_fetch_metadata_none(
@@ -371,7 +371,7 @@ class TestProcessFiles:
         assert book_ids == [101, 102]
         assert skipped_duplicates == 0
         assert mock_process_single.call_count == 2
-        assert worker_context.update_progress.call_count == 3  # Initial + 2 files
+        assert worker_context.update_progress.call_count == 3  # ty:ignore[unresolved-attribute] Initial + 2 files
 
     @patch(
         "bookcard.services.tasks.ingest_book_task.IngestBookTask._process_single_file"
@@ -1172,7 +1172,7 @@ class TestRun:
 
         mock_processor_service.update_history_status.assert_called()
         mock_processor_service.finalize_history.assert_called_once_with(123, [101, 101])
-        worker_context.update_progress.assert_called()
+        worker_context.update_progress.assert_called()  # ty:ignore[unresolved-attribute]
 
     @patch(
         "bookcard.services.duplicate_detection.book_duplicate_handler.CalibreBookRepository"

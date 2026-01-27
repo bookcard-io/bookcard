@@ -100,7 +100,7 @@ class TestGetTrackedBookService:
         session : DummySession
             Database session fixture.
         """
-        service = tracked_books._get_tracked_book_service(session)
+        service = tracked_books._get_tracked_book_service(session)  # type: ignore[invalid-argument-type]
         assert service is not None
         assert hasattr(service, "_session")
         assert service._session == session

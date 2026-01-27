@@ -298,8 +298,8 @@ class TestBaseIndexer:
         """Test that BaseIndexer.search is abstract."""
 
         # Create a class that doesn't implement search
-        class IncompleteIndexer(BaseIndexer):  # type: ignore[abstract]
-            def test_connection(self) -> bool:  # type: ignore[override]
+        class IncompleteIndexer(BaseIndexer):
+            def test_connection(self) -> bool:
                 return True
 
         with pytest.raises(TypeError):
@@ -309,7 +309,7 @@ class TestBaseIndexer:
         """Test that BaseIndexer.test_connection is abstract."""
 
         # Create a class that doesn't implement test_connection
-        class IncompleteIndexer(BaseIndexer):  # type: ignore[abstract]
+        class IncompleteIndexer(BaseIndexer):
             def search(
                 self,
                 query: str,
@@ -317,8 +317,8 @@ class TestBaseIndexer:
                 author: str | None = None,
                 isbn: str | None = None,
                 max_results: int = 100,
-            ) -> list:  # type: ignore[return,override,misc]
-                return []  # type: ignore[return-value]
+            ) -> list:
+                return []
 
         with pytest.raises(TypeError):
             _ = IncompleteIndexer(settings=IndexerSettings(base_url="https://test.com"))
@@ -399,18 +399,18 @@ class TestBaseDownloadClient:
         """Test that BaseDownloadClient.add_download is abstract."""
 
         # Create a class that doesn't implement add_download
-        class IncompleteClient(BaseDownloadClient):  # type: ignore[abstract]
+        class IncompleteClient(BaseDownloadClient):
             def get_items(
                 self,
-            ) -> list[dict[str, str | int | float | None]]:  # type: ignore[override]
+            ) -> list[dict[str, str | int | float | None]]:
                 return []
 
             def remove_item(
                 self, client_item_id: str, delete_files: bool = False
-            ) -> bool:  # type: ignore[override]
+            ) -> bool:
                 return True
 
-            def test_connection(self) -> bool:  # type: ignore[override]
+            def test_connection(self) -> bool:
                 return True
 
         file_fetcher = FileFetcher(timeout=30)
@@ -426,7 +426,7 @@ class TestBaseDownloadClient:
         """Test that BaseDownloadClient.get_items is abstract."""
 
         # Create a class that doesn't implement get_items
-        class IncompleteClient(BaseDownloadClient):  # type: ignore[abstract]
+        class IncompleteClient(BaseDownloadClient):
             def add_download(
                 self,
                 download_url: str,
@@ -438,7 +438,7 @@ class TestBaseDownloadClient:
 
             def remove_item(
                 self, client_item_id: str, delete_files: bool = False
-            ) -> bool:  # type: ignore[override]
+            ) -> bool:
                 return True
 
             def test_connection(self) -> bool:
@@ -457,7 +457,7 @@ class TestBaseDownloadClient:
         """Test that BaseDownloadClient.remove_item is abstract."""
 
         # Create a class that doesn't implement remove_item
-        class IncompleteClient(BaseDownloadClient):  # type: ignore[abstract]
+        class IncompleteClient(BaseDownloadClient):
             def add_download(
                 self,
                 download_url: str,
@@ -469,7 +469,7 @@ class TestBaseDownloadClient:
 
             def get_items(
                 self,
-            ) -> list[dict[str, str | int | float | None]]:  # type: ignore[override]
+            ) -> list[dict[str, str | int | float | None]]:
                 return []
 
             def test_connection(self) -> bool:
@@ -488,7 +488,7 @@ class TestBaseDownloadClient:
         """Test that BaseDownloadClient.test_connection is abstract."""
 
         # Create a class that doesn't implement test_connection
-        class IncompleteClient(BaseDownloadClient):  # type: ignore[abstract]
+        class IncompleteClient(BaseDownloadClient):
             def add_download(
                 self,
                 download_url: str,
@@ -500,12 +500,12 @@ class TestBaseDownloadClient:
 
             def get_items(
                 self,
-            ) -> list[dict[str, str | int | float | None]]:  # type: ignore[override]
+            ) -> list[dict[str, str | int | float | None]]:
                 return []
 
             def remove_item(
                 self, client_item_id: str, delete_files: bool = False
-            ) -> bool:  # type: ignore[override]
+            ) -> bool:
                 return True
 
         file_fetcher = FileFetcher(timeout=30)

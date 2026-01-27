@@ -43,7 +43,7 @@ class KCCProfileService:
         Database session.
     """
 
-    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+    def __init__(self, session: Session) -> None:
         """Initialize KCC profile service.
 
         Parameters
@@ -73,12 +73,12 @@ class KCCProfileService:
         if hasattr(profile_data, "model_dump"):
             method = profile_data.model_dump
             if callable(method):
-                return method(exclude_unset=True)  # type: ignore[call-arg]
+                return method(exclude_unset=True)
 
         # Try dict (Pydantic v1) - deprecated but kept for compatibility
         method = getattr(profile_data, "dict", None)
         if callable(method):
-            return method(exclude_unset=True)  # type: ignore[call-arg]
+            return method(exclude_unset=True)
 
         # Fallback to dict() constructor
         return dict(profile_data)

@@ -43,7 +43,7 @@ class SendFormatService:
     _SETTING_KEY: ClassVar[str] = "send_format_priority"
     _DEFAULT_PRIORITY: ClassVar[tuple[str, ...]] = ("EPUB", "PDF")
 
-    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+    def __init__(self, session: Session) -> None:
         """Initialize the service.
 
         Parameters

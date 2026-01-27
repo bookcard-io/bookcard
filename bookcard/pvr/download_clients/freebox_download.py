@@ -534,7 +534,7 @@ class FreeboxDownloadClient(BaseDownloadClient):
         super().__init__(
             settings, file_fetcher, url_router, http_client_factory, enabled
         )
-        self.settings: FreeboxDownloadSettings = settings  # type: ignore[assignment]
+        self.settings: FreeboxDownloadSettings = settings
         self._proxy = FreeboxDownloadProxy(self.settings)
         self._status_mapper = StatusMapper(
             {

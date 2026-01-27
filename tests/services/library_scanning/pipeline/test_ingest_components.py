@@ -299,7 +299,7 @@ class TestAuthorMetadataRepository:
         """Test find_by_openlibrary_key when found."""
         session.add(author_metadata)
         session.flush()
-        session.set_exec_result([author_metadata])  # type: ignore[attr-defined]
+        session.set_exec_result([author_metadata])
         repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
 
         result = repo.find_by_openlibrary_key("OL12345A")
@@ -308,7 +308,7 @@ class TestAuthorMetadataRepository:
 
     def test_find_by_openlibrary_key_not_found(self, session: DummySession) -> None:
         """Test find_by_openlibrary_key when not found."""
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
         repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
 
         result = repo.find_by_openlibrary_key("OL12345A")
@@ -324,7 +324,7 @@ class TestAuthorMetadataRepository:
         assert result.name == author_data.name
         assert result.openlibrary_key == author_data.key
         assert result.photo_url == "https://example.com/photo.jpg"
-        assert result in session.added  # type: ignore[attr-defined]
+        assert result in session.added
 
     def test_create_without_photo(
         self, session: DummySession, author_data: AuthorData
@@ -397,7 +397,7 @@ class TestAuthorPhotoRepository:
         )
         session.add(photo)
         session.flush()
-        session.set_exec_result([photo])  # type: ignore[attr-defined]
+        session.set_exec_result([photo])
         repo = AuthorPhotoRepository(session)  # type: ignore[arg-type]
 
         result = repo.exists(author_metadata.id, 12345)
@@ -406,7 +406,7 @@ class TestAuthorPhotoRepository:
 
     def test_exists_false(self, session: DummySession) -> None:
         """Test exists returns False when photo doesn't exist."""
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
         repo = AuthorPhotoRepository(session)  # type: ignore[arg-type]
 
         result = repo.exists(1, 12345)
@@ -426,7 +426,7 @@ class TestAuthorPhotoRepository:
         result = repo.create(photo)
 
         assert result == photo
-        assert result in session.added  # type: ignore[attr-defined]
+        assert result in session.added
 
 
 class TestAuthorRemoteIdRepository:
@@ -444,7 +444,7 @@ class TestAuthorRemoteIdRepository:
         )
         session.add(remote_id)
         session.flush()
-        session.set_exec_result([remote_id])  # type: ignore[attr-defined]
+        session.set_exec_result([remote_id])
         repo = AuthorRemoteIdRepository(session)  # type: ignore[arg-type]
 
         result = repo.find_by_type(author_metadata.id, "viaf")
@@ -453,7 +453,7 @@ class TestAuthorRemoteIdRepository:
 
     def test_find_by_type_not_found(self, session: DummySession) -> None:
         """Test find_by_type when not found."""
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
         repo = AuthorRemoteIdRepository(session)  # type: ignore[arg-type]
 
         result = repo.find_by_type(1, "viaf")
@@ -474,7 +474,7 @@ class TestAuthorRemoteIdRepository:
         result = repo.create(remote_id)
 
         assert result == remote_id
-        assert result in session.added  # type: ignore[attr-defined]
+        assert result in session.added
 
     def test_update(
         self, session: DummySession, author_metadata: AuthorMetadata
@@ -506,7 +506,7 @@ class TestAuthorAlternateNameRepository:
         )
         session.add(alt_name)
         session.flush()
-        session.set_exec_result([alt_name])  # type: ignore[attr-defined]
+        session.set_exec_result([alt_name])
         repo = AuthorAlternateNameRepository(session)  # type: ignore[arg-type]
 
         result = repo.exists(author_metadata.id, "Alt Name")
@@ -515,7 +515,7 @@ class TestAuthorAlternateNameRepository:
 
     def test_exists_false(self, session: DummySession) -> None:
         """Test exists returns False when name doesn't exist."""
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
         repo = AuthorAlternateNameRepository(session)  # type: ignore[arg-type]
 
         result = repo.exists(1, "Alt Name")
@@ -535,7 +535,7 @@ class TestAuthorAlternateNameRepository:
         result = repo.create(alt_name)
 
         assert result == alt_name
-        assert result in session.added  # type: ignore[attr-defined]
+        assert result in session.added
 
 
 class TestAuthorLinkRepository:
@@ -553,7 +553,7 @@ class TestAuthorLinkRepository:
         )
         session.add(link)
         session.flush()
-        session.set_exec_result([link])  # type: ignore[attr-defined]
+        session.set_exec_result([link])
         repo = AuthorLinkRepository(session)  # type: ignore[arg-type]
 
         result = repo.exists_by_url(author_metadata.id, "https://example.com")
@@ -562,7 +562,7 @@ class TestAuthorLinkRepository:
 
     def test_exists_by_url_false(self, session: DummySession) -> None:
         """Test exists_by_url returns False when link doesn't exist."""
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
         repo = AuthorLinkRepository(session)  # type: ignore[arg-type]
 
         result = repo.exists_by_url(1, "https://example.com")
@@ -583,7 +583,7 @@ class TestAuthorLinkRepository:
         result = repo.create(link)
 
         assert result == link
-        assert result in session.added  # type: ignore[attr-defined]
+        assert result in session.added
 
 
 class TestAuthorWorkRepository:
@@ -603,7 +603,7 @@ class TestAuthorWorkRepository:
             work_key="OL2W",
             rank=1,
         )
-        session.set_exec_result([work1, work2])  # type: ignore[attr-defined]
+        session.set_exec_result([work1, work2])
         repo = AuthorWorkRepository(session)  # type: ignore[arg-type]
         assert author_metadata.id is not None
 
@@ -624,7 +624,7 @@ class TestAuthorWorkRepository:
         )
         session.add(work)
         session.flush()
-        session.set_exec_result([work])  # type: ignore[attr-defined]
+        session.set_exec_result([work])
         repo = AuthorWorkRepository(session)  # type: ignore[arg-type]
 
         result = repo.find_by_work_key("OL1W")
@@ -633,7 +633,7 @@ class TestAuthorWorkRepository:
 
     def test_find_by_work_key_not_found(self, session: DummySession) -> None:
         """Test find_by_work_key when not found."""
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
         repo = AuthorWorkRepository(session)  # type: ignore[arg-type]
 
         result = repo.find_by_work_key("OL1W")
@@ -654,7 +654,7 @@ class TestAuthorWorkRepository:
         result = repo.create(work)
 
         assert result == work
-        assert result in session.added  # type: ignore[attr-defined]
+        assert result in session.added
 
 
 class TestWorkSubjectRepository:
@@ -680,7 +680,7 @@ class TestWorkSubjectRepository:
         )
         session.add(subject)
         session.flush()
-        session.set_exec_result([subject])  # type: ignore[attr-defined]
+        session.set_exec_result([subject])
         repo = WorkSubjectRepository(session)  # type: ignore[arg-type]
 
         result = repo.exists(work.id, "Fiction")
@@ -689,7 +689,7 @@ class TestWorkSubjectRepository:
 
     def test_exists_false(self, session: DummySession) -> None:
         """Test exists returns False when subject doesn't exist."""
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
         repo = WorkSubjectRepository(session)  # type: ignore[arg-type]
 
         result = repo.exists(1, "Fiction")
@@ -717,7 +717,7 @@ class TestWorkSubjectRepository:
         result = repo.create(subject)
 
         assert result == subject
-        assert result in session.added  # type: ignore[attr-defined]
+        assert result in session.added
 
 
 # ============================================================================
@@ -739,8 +739,8 @@ class TestAuthorPhotoService:
 
         service.update_photos(author_metadata.id, [12345, 67890])
 
-        assert len(session.added) == 2  # type: ignore[attr-defined]
-        photos = [p for p in session.added if isinstance(p, AuthorPhoto)]  # type: ignore[attr-defined]
+        assert len(session.added) == 2
+        photos = [p for p in session.added if isinstance(p, AuthorPhoto)]
         assert len(photos) == 2
         assert photos[0].is_primary is True
         assert photos[1].is_primary is False
@@ -759,22 +759,20 @@ class TestAuthorPhotoService:
         session.add(existing_photo)
         session.flush()
         # First call returns existing photo (for 12345), second call returns None (for 67890)
-        session.set_exec_result([existing_photo])  # type: ignore[attr-defined]
-        session.add_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([existing_photo])
+        session.add_exec_result([])
         photo_repo = AuthorPhotoRepository(session)  # type: ignore[arg-type]
         url_builder = PhotoUrlBuilder()
         service = AuthorPhotoService(photo_repo, url_builder)
 
         # Clear added list to only count new additions
-        initial_count = len(session.added)  # type: ignore[attr-defined]
+        initial_count = len(session.added)
         service.update_photos(author_metadata.id, [12345, 67890])
 
         # Only new photo should be added
-        assert len(session.added) == initial_count + 1  # type: ignore[attr-defined]
+        assert len(session.added) == initial_count + 1
         new_photos = [
-            p
-            for p in session.added[initial_count:]
-            if isinstance(p, AuthorPhoto)  # type: ignore[attr-defined]
+            p for p in session.added[initial_count:] if isinstance(p, AuthorPhoto)
         ]
         assert len(new_photos) == 1
         assert new_photos[0].openlibrary_photo_id == 67890
@@ -790,14 +788,14 @@ class TestRemoteIdService:
         assert author_metadata.id is not None
         remote_id_repo = AuthorRemoteIdRepository(session)  # type: ignore[arg-type]
         service = RemoteIdService(remote_id_repo)
-        session.set_exec_result([])  # type: ignore[attr-defined]  # No existing IDs
+        session.set_exec_result([])
 
         service.update_identifiers(
             author_metadata.id, {"viaf": "123456", "goodreads": "789012"}
         )
 
-        assert len(session.added) == 2  # type: ignore[attr-defined]
-        remote_ids = [r for r in session.added if isinstance(r, AuthorRemoteId)]  # type: ignore[attr-defined]
+        assert len(session.added) == 2
+        remote_ids = [r for r in session.added if isinstance(r, AuthorRemoteId)]
         assert len(remote_ids) == 2
 
     def test_update_identifiers_existing(
@@ -812,17 +810,17 @@ class TestRemoteIdService:
         session.add(existing)
         session.flush()
         # find_by_type should return the existing ID
-        session.set_exec_result([existing])  # type: ignore[attr-defined]
+        session.set_exec_result([existing])
         remote_id_repo = AuthorRemoteIdRepository(session)  # type: ignore[arg-type]
         service = RemoteIdService(remote_id_repo)
 
         # Clear added list before update
         assert author_metadata.id is not None
-        session.added.clear()  # type: ignore[attr-defined]
+        session.added.clear()
         service.update_identifiers(author_metadata.id, {"viaf": "999999"})
 
         assert existing.identifier_value == "999999"
-        assert len(session.added) == 0  # type: ignore[attr-defined]  # No new IDs added
+        assert len(session.added) == 0
 
 
 class TestAlternateNameService:
@@ -835,12 +833,12 @@ class TestAlternateNameService:
         assert author_metadata.id is not None
         alt_name_repo = AuthorAlternateNameRepository(session)  # type: ignore[arg-type]
         service = AlternateNameService(alt_name_repo)
-        session.set_exec_result([])  # type: ignore[attr-defined]  # No existing names
+        session.set_exec_result([])
 
         service.update_names(author_metadata.id, ["Alt Name 1", "Alt Name 2"])
 
-        assert len(session.added) == 2  # type: ignore[attr-defined]
-        alt_names = [a for a in session.added if isinstance(a, AuthorAlternateName)]  # type: ignore[attr-defined]
+        assert len(session.added) == 2
+        alt_names = [a for a in session.added if isinstance(a, AuthorAlternateName)]
         assert len(alt_names) == 2
 
     def test_update_names_existing(
@@ -853,21 +851,21 @@ class TestAlternateNameService:
         )
         session.add(existing)
         session.flush()
-        session.set_exec_result([existing])  # type: ignore[attr-defined]
-        session.add_exec_result([])  # type: ignore[attr-defined]  # For "New Name" check
+        session.set_exec_result([existing])
+        session.add_exec_result([])
         alt_name_repo = AuthorAlternateNameRepository(session)  # type: ignore[arg-type]
         service = AlternateNameService(alt_name_repo)
 
         # Clear added list to only count new additions
         assert author_metadata.id is not None
-        initial_count = len(session.added)  # type: ignore[attr-defined]
+        initial_count = len(session.added)
         service.update_names(author_metadata.id, ["Existing Name", "New Name"])
 
         # Only new name should be added
-        assert len(session.added) == initial_count + 1  # type: ignore[attr-defined]
+        assert len(session.added) == initial_count + 1
         new_alt_names = [
             a
-            for a in session.added[initial_count:]  # type: ignore[attr-defined]
+            for a in session.added[initial_count:]
             if isinstance(a, AuthorAlternateName)
         ]
         assert len(new_alt_names) == 1
@@ -884,7 +882,7 @@ class TestAuthorLinkService:
         assert author_metadata.id is not None
         link_repo = AuthorLinkRepository(session)  # type: ignore[arg-type]
         service = AuthorLinkService(link_repo)
-        session.set_exec_result([])  # type: ignore[attr-defined]  # No existing links
+        session.set_exec_result([])
 
         service.update_links(
             author_metadata.id,
@@ -894,8 +892,8 @@ class TestAuthorLinkService:
             ],
         )
 
-        assert len(session.added) == 2  # type: ignore[attr-defined]
-        links = [link for link in session.added if isinstance(link, AuthorLink)]  # type: ignore[attr-defined]
+        assert len(session.added) == 2
+        links = [link for link in session.added if isinstance(link, AuthorLink)]
         assert len(links) == 2
 
     def test_update_links_existing(
@@ -909,14 +907,14 @@ class TestAuthorLinkService:
         )
         session.add(existing)
         session.flush()
-        session.set_exec_result([existing])  # type: ignore[attr-defined]
-        session.add_exec_result([])  # type: ignore[attr-defined]  # For "https://new.com" check
+        session.set_exec_result([existing])
+        session.add_exec_result([])
         link_repo = AuthorLinkRepository(session)  # type: ignore[arg-type]
         service = AuthorLinkService(link_repo)
 
         # Clear added list to only count new additions
         assert author_metadata.id is not None
-        initial_count = len(session.added)  # type: ignore[attr-defined]
+        initial_count = len(session.added)
         service.update_links(
             author_metadata.id,
             [
@@ -926,11 +924,11 @@ class TestAuthorLinkService:
         )
 
         # Only new link should be added
-        assert len(session.added) == initial_count + 1  # type: ignore[attr-defined]
+        assert len(session.added) == initial_count + 1
         new_links = [
             link
             for link in session.added[initial_count:]
-            if isinstance(link, AuthorLink)  # type: ignore[attr-defined]
+            if isinstance(link, AuthorLink)
         ]
         assert len(new_links) == 1
         assert new_links[0].url == "https://new.com"
@@ -942,7 +940,7 @@ class TestAuthorLinkService:
         assert author_metadata.id is not None
         link_repo = AuthorLinkRepository(session)  # type: ignore[arg-type]
         service = AuthorLinkService(link_repo)
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
 
         service.update_links(
             author_metadata.id,
@@ -953,7 +951,7 @@ class TestAuthorLinkService:
         )
 
         # Only valid link should be added
-        links = [link for link in session.added if isinstance(link, AuthorLink)]  # type: ignore[attr-defined]
+        links = [link for link in session.added if isinstance(link, AuthorLink)]
         assert len(links) == 1
         assert links[0].url == "https://valid.com"
 
@@ -965,7 +963,7 @@ class TestAuthorMetadataService:
         self, session: DummySession, author_data: AuthorData
     ) -> None:
         """Test upsert_author creates new author."""
-        session.set_exec_result([])  # type: ignore[attr-defined]  # No existing author
+        session.set_exec_result([])
         metadata_repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
         photo_repo = AuthorPhotoRepository(session)  # type: ignore[arg-type]
         remote_id_repo = AuthorRemoteIdRepository(session)  # type: ignore[arg-type]
@@ -1001,7 +999,7 @@ class TestAuthorMetadataService:
         author_metadata: AuthorMetadata,
     ) -> None:
         """Test upsert_author updates existing author."""
-        session.set_exec_result([author_metadata])  # type: ignore[attr-defined]
+        session.set_exec_result([author_metadata])
         metadata_repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
         photo_repo = AuthorPhotoRepository(session)  # type: ignore[arg-type]
         remote_id_repo = AuthorRemoteIdRepository(session)  # type: ignore[arg-type]
@@ -1033,7 +1031,7 @@ class TestAuthorMetadataService:
         self, session: DummySession, author_data: AuthorData
     ) -> None:
         """Test upsert_author raises when author has no ID after create."""
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
         metadata_repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
         photo_repo = AuthorPhotoRepository(session)  # type: ignore[arg-type]
         remote_id_repo = AuthorRemoteIdRepository(session)  # type: ignore[arg-type]
@@ -1075,7 +1073,7 @@ class TestAuthorWorkService:
     ) -> None:
         """Test persist_works with new works."""
         assert author_metadata.id is not None
-        session.set_exec_result([])  # type: ignore[attr-defined]  # No existing works
+        session.set_exec_result([])
         work_repo = AuthorWorkRepository(session)  # type: ignore[arg-type]
         subject_repo = WorkSubjectRepository(session)  # type: ignore[arg-type]
         service = AuthorWorkService(work_repo, subject_repo)
@@ -1101,7 +1099,7 @@ class TestAuthorWorkService:
         # So total_works will be 0.
 
         assert result == 0  # Based on current DummySession behavior
-        works = [w for w in session.added if isinstance(w, AuthorWork)]  # type: ignore[attr-defined]
+        works = [w for w in session.added if isinstance(w, AuthorWork)]
         assert len(works) == 2
 
     def test_persist_works_existing(
@@ -1115,7 +1113,7 @@ class TestAuthorWorkService:
         )
         session.add(existing)
         session.flush()
-        session.set_exec_result([existing])  # type: ignore[attr-defined]  # find_by_author_id returns existing
+        session.set_exec_result([existing])
         work_repo = AuthorWorkRepository(session)  # type: ignore[arg-type]
         subject_repo = WorkSubjectRepository(session)  # type: ignore[arg-type]
         service = AuthorWorkService(work_repo, subject_repo)
@@ -1134,7 +1132,7 @@ class TestAuthorWorkService:
 
         # Clear added list to only count new additions
         assert author_metadata.id is not None
-        initial_count = len(session.added)  # type: ignore[attr-defined]
+        initial_count = len(session.added)
         result = service.persist_works(author_metadata.id, ["OL1W", "OL2W"])
 
         # First call (check existing) -> [existing]
@@ -1142,11 +1140,9 @@ class TestAuthorWorkService:
         # So total count is 1.
 
         assert result == 1
-        assert len(session.added) == initial_count + 1  # type: ignore[attr-defined]
+        assert len(session.added) == initial_count + 1
         new_works = [
-            w
-            for w in session.added[initial_count:]
-            if isinstance(w, AuthorWork)  # type: ignore[attr-defined]
+            w for w in session.added[initial_count:] if isinstance(w, AuthorWork)
         ]
         assert len(new_works) == 1
         assert new_works[0].work_key == "OL2W"
@@ -1172,7 +1168,7 @@ class TestAuthorWorkService:
         )
         session.add(work)
         session.flush()
-        session.set_exec_result([])  # type: ignore[attr-defined]  # No existing subjects
+        session.set_exec_result([])
         work_repo = AuthorWorkRepository(session)  # type: ignore[arg-type]
         subject_repo = WorkSubjectRepository(session)  # type: ignore[arg-type]
         service = AuthorWorkService(work_repo, subject_repo)
@@ -1180,7 +1176,7 @@ class TestAuthorWorkService:
         result = service.persist_work_subjects(work, ["Fiction", "Adventure"])
 
         assert result == 2
-        subjects = [s for s in session.added if isinstance(s, WorkSubject)]  # type: ignore[attr-defined]
+        subjects = [s for s in session.added if isinstance(s, WorkSubject)]
         assert len(subjects) == 2
 
     def test_persist_work_subjects_existing(
@@ -1201,22 +1197,20 @@ class TestAuthorWorkService:
         )
         session.add(existing_subject)
         session.flush()
-        session.set_exec_result([existing_subject])  # type: ignore[attr-defined]  # For "Fiction"
-        session.add_exec_result([])  # type: ignore[attr-defined]  # For "Adventure"
+        session.set_exec_result([existing_subject])
+        session.add_exec_result([])
         work_repo = AuthorWorkRepository(session)  # type: ignore[arg-type]
         subject_repo = WorkSubjectRepository(session)  # type: ignore[arg-type]
         service = AuthorWorkService(work_repo, subject_repo)
 
         # Clear added list to only count new additions
-        initial_count = len(session.added)  # type: ignore[attr-defined]
+        initial_count = len(session.added)
         result = service.persist_work_subjects(work, ["Fiction", "Adventure"])
 
         assert result == 1  # Only one new subject
-        assert len(session.added) == initial_count + 1  # type: ignore[attr-defined]
+        assert len(session.added) == initial_count + 1
         new_subjects = [
-            s
-            for s in session.added[initial_count:]
-            if isinstance(s, WorkSubject)  # type: ignore[attr-defined]
+            s for s in session.added[initial_count:] if isinstance(s, WorkSubject)
         ]
         assert len(new_subjects) == 1
         assert new_subjects[0].subject_name == "Adventure"
@@ -1461,19 +1455,19 @@ class TestWorkBasedSubjectStrategy:
             fetcher, work_service, work_repo, subject_repo
         )
         # First query is for persisting works (empty), second is find_by_work_key (returns work)
-        session.set_exec_result([])  # type: ignore[attr-defined]  # No existing works when persisting
-        session.add_exec_result([])  # type: ignore[attr-defined]  # For commit after persisting works
-        session.add_exec_result([work])  # type: ignore[attr-defined]  # find_by_work_key returns work
-        session.add_exec_result([])  # type: ignore[attr-defined]  # No existing subject "Fiction"
-        session.add_exec_result([])  # type: ignore[attr-defined]  # For commit after persisting fiction
-        session.add_exec_result([])  # type: ignore[attr-defined]  # No existing subject "Adventure"
-        session.add_exec_result([])  # type: ignore[attr-defined]  # For commit after persisting adventure
+        session.set_exec_result([])
+        session.add_exec_result([])
+        session.add_exec_result([work])
+        session.add_exec_result([])
+        session.add_exec_result([])
+        session.add_exec_result([])
+        session.add_exec_result([])
 
         result = strategy.fetch_subjects("OL12345A", author_metadata)
 
         assert len(result) > 0
         # Verify subjects were persisted to the work
-        subjects = [s for s in session.added if isinstance(s, WorkSubject)]  # type: ignore[attr-defined]
+        subjects = [s for s in session.added if isinstance(s, WorkSubject)]
         assert len(subjects) > 0
 
 
@@ -1648,7 +1642,7 @@ class TestAuthorIngestionUnitOfWork:
         author_metadata: AuthorMetadata,
     ) -> None:
         """Test ingest_author successfully."""
-        session.set_exec_result([author_metadata])  # type: ignore[attr-defined]
+        session.set_exec_result([author_metadata])
         metadata_repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
         photo_repo = AuthorPhotoRepository(session)  # type: ignore[arg-type]
         remote_id_repo = AuthorRemoteIdRepository(session)  # type: ignore[arg-type]
@@ -1696,7 +1690,7 @@ class TestAuthorIngestionUnitOfWork:
         author_metadata: AuthorMetadata,
     ) -> None:
         """Test ingest_author with works."""
-        session.set_exec_result([author_metadata])  # type: ignore[attr-defined]
+        session.set_exec_result([author_metadata])
         metadata_repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
         photo_repo = AuthorPhotoRepository(session)  # type: ignore[arg-type]
         remote_id_repo = AuthorRemoteIdRepository(session)  # type: ignore[arg-type]
@@ -1744,7 +1738,7 @@ class TestAuthorIngestionUnitOfWork:
         author_metadata: AuthorMetadata,
     ) -> None:
         """Test ingest_author with subject strategy."""
-        session.set_exec_result([author_metadata])  # type: ignore[attr-defined]
+        session.set_exec_result([author_metadata])
         metadata_repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
         photo_repo = AuthorPhotoRepository(session)  # type: ignore[arg-type]
         remote_id_repo = AuthorRemoteIdRepository(session)  # type: ignore[arg-type]
@@ -1779,9 +1773,9 @@ class TestAuthorIngestionUnitOfWork:
         subject_strategy = WorkBasedSubjectStrategy(
             data_fetcher, work_service, work_repo, subject_repo
         )
-        session.add_exec_result([])  # type: ignore[attr-defined]  # No existing works
-        session.add_exec_result([])  # type: ignore[attr-defined]  # find_by_work_key returns None
-        session.add_exec_result([])  # type: ignore[attr-defined]  # No existing subjects
+        session.add_exec_result([])
+        session.add_exec_result([])
+        session.add_exec_result([])
 
         uow = AuthorIngestionUnitOfWork(
             session,  # type: ignore[arg-type]
@@ -1846,7 +1840,7 @@ class TestAuthorIngestionUnitOfWork:
         author_metadata: AuthorMetadata,
     ) -> None:
         """Test ingest_author without data fetcher."""
-        session.set_exec_result([author_metadata])  # type: ignore[attr-defined]
+        session.set_exec_result([author_metadata])
         metadata_repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
         photo_repo = AuthorPhotoRepository(session)  # type: ignore[arg-type]
         remote_id_repo = AuthorRemoteIdRepository(session)  # type: ignore[arg-type]
@@ -1926,7 +1920,7 @@ class TestAuthorMetadataRepositoryFindByKey:
     ) -> None:
         """Test find_by_openlibrary_key when key already has /authors/ prefix."""
         author_metadata.openlibrary_key = "/authors/OL12345A"
-        session.set_exec_result([author_metadata])  # type: ignore[attr-defined]
+        session.set_exec_result([author_metadata])
         repo = AuthorMetadataRepository(session)  # type: ignore[arg-type]
 
         result = repo.find_by_openlibrary_key("/authors/OL12345A")
@@ -1946,7 +1940,7 @@ class TestWorkMetadataRepository:
             work_key="OL123W",
             title="Test Work",
         )
-        session.set_exec_result([work_metadata])  # type: ignore[attr-defined]
+        session.set_exec_result([work_metadata])
         repo = WorkMetadataRepository(session)  # type: ignore[arg-type]
 
         result = repo.find_by_work_key("OL123W")
@@ -1966,7 +1960,7 @@ class TestWorkMetadataRepository:
         result = repo.create(work_metadata)
 
         assert result == work_metadata
-        assert work_metadata in session.added  # type: ignore[attr-defined]
+        assert work_metadata in session.added
 
     def test_update_work_metadata(self, session: DummySession) -> None:
         """Test update work metadata."""
@@ -2024,9 +2018,7 @@ class TestAuthorWorkServicePersistSubjects:
             assert result == 1
             # Check that subject was truncated to 200 chars
             added_subjects = [
-                item
-                for item in session.added  # type: ignore[attr-defined]
-                if isinstance(item, WorkSubject)
+                item for item in session.added if isinstance(item, WorkSubject)
             ]
             assert len(added_subjects) == 1
             assert len(added_subjects[0].subject_name) == 200
@@ -2081,7 +2073,7 @@ class TestWorkMetadataService:
             "created": {"value": "2020-01-01T00:00:00Z"},
             "last_modified": {"value": "2020-01-02T00:00:00Z"},
         }
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
         work_metadata_repo = WorkMetadataRepository(session)  # type: ignore[arg-type]
         service = WorkMetadataService(work_metadata_repo)
 
@@ -2105,7 +2097,7 @@ class TestWorkMetadataService:
             "title": "New Title",
             "description": "New description",
         }
-        session.set_exec_result([existing])  # type: ignore[attr-defined]
+        session.set_exec_result([existing])
         work_metadata_repo = WorkMetadataRepository(session)  # type: ignore[arg-type]
         service = WorkMetadataService(work_metadata_repo)
 
@@ -2175,11 +2167,11 @@ class TestWorkBasedSubjectStrategyEdgeCases:
             author_metadata_id=1,
             work_key="OL123W",
         )
-        session.add(work)  # type: ignore[attr-defined]
-        session.flush()  # type: ignore[attr-defined]
+        session.add(work)
+        session.flush()
         # Set up exec result so find_by_work_key returns the work
-        session.set_exec_result([work])  # type: ignore[attr-defined]
-        initial_commit_count = session.commit_count  # type: ignore[attr-defined]
+        session.set_exec_result([work])
+        initial_commit_count = session.commit_count
         work_repo = AuthorWorkRepository(session)  # type: ignore[arg-type]
         subject_repo = WorkSubjectRepository(session)  # type: ignore[arg-type]
         work_service = AuthorWorkService(work_repo, subject_repo)
@@ -2191,7 +2183,7 @@ class TestWorkBasedSubjectStrategyEdgeCases:
         strategy._persist_work_subjects("OL123W", ["Subject1", "Subject2"])
 
         # Check that commit was called
-        assert session.commit_count > initial_commit_count  # type: ignore[attr-defined]
+        assert session.commit_count > initial_commit_count
 
     def test_persist_work_subjects_with_exception(
         self, session: DummySession, mock_data_source: MagicMock
@@ -2202,10 +2194,10 @@ class TestWorkBasedSubjectStrategyEdgeCases:
             author_metadata_id=1,
             work_key="OL123W",
         )
-        session.add(work)  # type: ignore[attr-defined]
-        session.flush()  # type: ignore[attr-defined]
+        session.add(work)
+        session.flush()
         # Set up exec result so find_by_work_key returns the work
-        session.set_exec_result([work])  # type: ignore[attr-defined]
+        session.set_exec_result([work])
         session.commit = MagicMock()  # type: ignore[attr-defined]
         rollback_mock = MagicMock()
         session.rollback = rollback_mock  # type: ignore[attr-defined]
@@ -2249,7 +2241,7 @@ class TestWorkBasedSubjectStrategyEdgeCases:
         strategy._persist_work_metadata("OL123W")
 
         # Check that work metadata was persisted
-        assert len(session.added) > 0  # type: ignore[attr-defined]
+        assert len(session.added) > 0
 
     def test_persist_work_metadata_with_exception(
         self, session: DummySession, mock_data_source: MagicMock
@@ -2354,8 +2346,8 @@ class TestAuthorIngestionUnitOfWorkEdgeCases:
     ) -> None:
         """Test ingest_author when no works fetched and work_count is None."""
         author_data.work_count = None
-        session.set_exec_result([author_metadata])  # type: ignore[attr-defined]
-        session.add_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([author_metadata])
+        session.add_exec_result([])
         mock_data_source = MagicMock()
         mock_data_source.get_author_works = MagicMock(return_value=[])
         data_fetcher = AuthorDataFetcher(mock_data_source)
@@ -2380,7 +2372,7 @@ class TestAuthorIngestionUnitOfWorkEdgeCases:
             url_builder,
         )
         work_service = AuthorWorkService(work_repo, subject_repo)
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
         uow = AuthorIngestionUnitOfWork(
             session,  # type: ignore[arg-type]
             author_service,
@@ -2389,7 +2381,7 @@ class TestAuthorIngestionUnitOfWorkEdgeCases:
         )
 
         result = uow.ingest_author(match_result, author_data)
-        session.flush()  # type: ignore[attr-defined]
+        session.flush()
 
         assert result.work_count == 0
 

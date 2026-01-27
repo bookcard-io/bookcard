@@ -415,7 +415,7 @@ class Aria2Client(TrackingDownloadClient):
         super().__init__(
             settings, file_fetcher, url_router, http_client_factory, enabled
         )
-        self.settings: Aria2Settings = settings  # type: ignore[assignment]
+        self.settings: Aria2Settings = settings
 
         if self._http_client_factory is None:
             # Fallback if not injected (though factory should always inject)

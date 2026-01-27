@@ -199,7 +199,7 @@ class TestCalibreFileManagerCollectBookFiles:
     ) -> None:
         """Test collect_book_files handles non-existent directory."""
         files, book_dir = file_manager.collect_book_files(
-            session=session,  # type: ignore[arg-type]  # type: ignore[valid-type]
+            session=session,  # type: ignore[invalid-argument-type]
             book_id=1,
             book_path="Nonexistent/Path",
             library_path=tmp_library_path,
@@ -220,7 +220,7 @@ class TestCalibreFileManagerCollectBookFiles:
         file_path.touch()
 
         files, book_dir = file_manager.collect_book_files(
-            session=session,  # type: ignore[arg-type]  # type: ignore[valid-type]
+            session=session,  # type: ignore[invalid-argument-type]
             book_id=1,
             book_path="not_a_dir",
             library_path=tmp_library_path,

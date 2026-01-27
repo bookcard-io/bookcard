@@ -526,7 +526,7 @@ class TestMatchingOrchestratorHandleUnmatched:
             openlibrary_key=None,
         )
         session.set_exec_result([existing_mapping])
-        session.set_get_result(AuthorMetadata, existing_metadata)  # type: ignore[valid-type]
+        session.set_get_result(AuthorMetadata, existing_metadata)
 
         result = orchestrator._handle_unmatched(
             session=session,  # type: ignore[arg-type]
@@ -559,7 +559,7 @@ class TestMatchingOrchestratorHandleUnmatched:
             openlibrary_key="OL123A",  # Has key, so not unmatched
         )
         session.set_exec_result([existing_mapping])
-        session.set_get_result(AuthorMetadata, existing_metadata)  # type: ignore[valid-type]
+        session.set_get_result(AuthorMetadata, existing_metadata)
 
         result = orchestrator._handle_unmatched(
             session=session,  # type: ignore[arg-type]
@@ -595,7 +595,7 @@ class TestMatchingOrchestratorHandleUnmatched:
             openlibrary_key=None,
         )
         session.set_exec_result([existing_mapping])
-        session.set_get_result(AuthorMetadata, existing_metadata)  # type: ignore[valid-type]
+        session.set_get_result(AuthorMetadata, existing_metadata)
 
         result = orchestrator._handle_unmatched(
             session=session,  # type: ignore[arg-type]

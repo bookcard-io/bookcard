@@ -492,7 +492,7 @@ class QBittorrentClient(TrackingDownloadClient):
         super().__init__(
             settings, file_fetcher, url_router, http_client_factory, enabled
         )
-        self.settings: QBittorrentSettings = settings  # type: ignore[assignment]
+        self.settings: QBittorrentSettings = settings
         self._proxy = QBittorrentProxy(self.settings)
         self._status_mapper = StatusMapper(
             {

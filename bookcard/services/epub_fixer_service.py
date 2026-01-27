@@ -53,7 +53,7 @@ class EPUBFixerService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         run_repo: EPUBFixRunRepository | None = None,
         fix_repo: EPUBFixRepository | None = None,
     ) -> None:

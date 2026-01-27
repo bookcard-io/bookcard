@@ -229,7 +229,7 @@ class EPUBFix(SQLModel, table=True):
     fix_type: EPUBFixType = Field(
         sa_column=Column(
             SQLEnum(EPUBFixType, native_enum=False), nullable=False, index=True
-        ),  # type: ignore[call-overload]
+        ),
     )
     fix_description: str = Field(sa_column=Column(Text, nullable=False))
     file_name: str | None = Field(default=None, max_length=500)  # Filename within EPUB

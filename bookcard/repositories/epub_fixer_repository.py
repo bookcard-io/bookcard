@@ -66,7 +66,7 @@ class EPUBFixRunRepository(Repository[EPUBFixRun]):
         stmt = (
             select(EPUBFixRun)
             .where(EPUBFixRun.user_id == user_id)
-            .order_by(desc(EPUBFixRun.created_at))
+            .order_by(desc(EPUBFixRun.created_at))  # type: ignore[invalid-argument-type]
             .limit(limit)
             .offset(offset)
         )
@@ -97,7 +97,7 @@ class EPUBFixRunRepository(Repository[EPUBFixRun]):
         stmt = (
             select(EPUBFixRun)
             .where(EPUBFixRun.library_id == library_id)
-            .order_by(desc(EPUBFixRun.created_at))
+            .order_by(desc(EPUBFixRun.created_at))  # type: ignore[invalid-argument-type]
             .limit(limit)
             .offset(offset)
         )
@@ -125,7 +125,7 @@ class EPUBFixRunRepository(Repository[EPUBFixRun]):
         stmt = select(EPUBFixRun)
         if manually_triggered is not None:
             stmt = stmt.where(EPUBFixRun.manually_triggered == manually_triggered)
-        stmt = stmt.order_by(desc(EPUBFixRun.created_at)).limit(limit)
+        stmt = stmt.order_by(desc(EPUBFixRun.created_at)).limit(limit)  # type: ignore[invalid-argument-type]
         return list(self._session.exec(stmt).all())
 
     def get_incomplete_runs(self) -> list[EPUBFixRun]:
@@ -241,7 +241,7 @@ class EPUBFixRepository(Repository[EPUBFix]):
             List of fixes for the run, ordered by applied_at.
         """
         stmt = (
-            select(EPUBFix).where(EPUBFix.run_id == run_id).order_by(EPUBFix.applied_at)
+            select(EPUBFix).where(EPUBFix.run_id == run_id).order_by(EPUBFix.applied_at)  # type: ignore[invalid-argument-type]
         )
         return list(self._session.exec(stmt).all())
 
@@ -270,7 +270,7 @@ class EPUBFixRepository(Repository[EPUBFix]):
         stmt = (
             select(EPUBFix)
             .where(EPUBFix.book_id == book_id)
-            .order_by(desc(EPUBFix.applied_at))
+            .order_by(desc(EPUBFix.applied_at))  # type: ignore[invalid-argument-type]
             .limit(limit)
             .offset(offset)
         )
@@ -298,7 +298,7 @@ class EPUBFixRepository(Repository[EPUBFix]):
         stmt = (
             select(EPUBFix)
             .where(EPUBFix.file_path == file_path)
-            .order_by(desc(EPUBFix.applied_at))
+            .order_by(desc(EPUBFix.applied_at))  # type: ignore[invalid-argument-type]
             .limit(limit)
         )
         return list(self._session.exec(stmt).all())
@@ -328,7 +328,7 @@ class EPUBFixRepository(Repository[EPUBFix]):
         stmt = (
             select(EPUBFix)
             .where(EPUBFix.fix_type == fix_type)
-            .order_by(desc(EPUBFix.applied_at))
+            .order_by(desc(EPUBFix.applied_at))  # type: ignore[invalid-argument-type]
             .limit(limit)
             .offset(offset)
         )
@@ -391,5 +391,5 @@ class EPUBFixRepository(Repository[EPUBFix]):
         stmt = select(EPUBFix)
         if fix_type is not None:
             stmt = stmt.where(EPUBFix.fix_type == fix_type)
-        stmt = stmt.order_by(desc(EPUBFix.applied_at)).limit(limit)
+        stmt = stmt.order_by(desc(EPUBFix.applied_at)).limit(limit)  # type: ignore[invalid-argument-type]
         return list(self._session.exec(stmt).all())

@@ -85,7 +85,7 @@ class BookService:
         Required for send_book method that needs to resolve devices by email.
     """
 
-    def __init__(self, library: Library, session: Session | None = None) -> None:  # type: ignore[type-arg]
+    def __init__(self, library: Library, session: Session | None = None) -> None:
         self._library = library
         self._session = session
         self._book_repo = CalibreBookRepository(
@@ -610,12 +610,10 @@ class BookService:
             conditions = []
             for tag_name in tag_names:
                 tag_lower = tag_name.lower()
-                conditions.append(func.lower(Tag.name) == tag_lower)  # type: ignore[attr-defined]
+                conditions.append(func.lower(Tag.name) == tag_lower)
 
             # Query tags matching any of the provided names
-            stmt = select(Tag.id, Tag.name).where(
-                or_(*conditions)  # type: ignore[attr-defined]
-            )
+            stmt = select(Tag.id, Tag.name).where(or_(*conditions))
             results = session.exec(stmt).all()
 
             return [{"id": tag_id, "name": tag_name} for tag_id, tag_name in results]

@@ -130,7 +130,7 @@ class MatchingOrchestrator:
             select(AuthorMapping, AuthorMetadata)
             .join(
                 AuthorMetadata,
-                AuthorMapping.author_metadata_id == AuthorMetadata.id,
+                AuthorMapping.author_metadata_id == AuthorMetadata.id,  # type: ignore[invalid-argument-type]
             )
             .where(
                 AuthorMapping.calibre_author_id == calibre_author_id,

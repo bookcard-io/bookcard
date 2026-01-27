@@ -53,7 +53,7 @@ class PasswordHasher:
 class JWTManager:
     """JWT encoder/decoder using AppConfig settings."""
 
-    def __init__(self, config: AppConfig) -> None:  # type: ignore[type-arg]
+    def __init__(self, config: AppConfig) -> None:
         self._secret = config.jwt_secret
         self._alg = config.jwt_algorithm
         self._expires_minutes = int(config.jwt_expires_minutes)
@@ -92,7 +92,7 @@ class JWTManager:
     def decode_token(
         self,
         token: str,
-        is_blacklisted: Callable[[str], bool] | None = None,  # type: ignore[type-arg]
+        is_blacklisted: Callable[[str], bool] | None = None,
     ) -> dict[str, Any]:
         """Decode and validate a JWT, returning its claims if valid.
 
@@ -116,7 +116,7 @@ class JWTManager:
         """
         try:
             claims = jwt.decode(token, self._secret, algorithms=[self._alg])
-        except jwt.InvalidTokenError as err:  # type: ignore[attr-defined]
+        except jwt.InvalidTokenError as err:
             raise SecurityTokenError from err
 
         # Check blacklist if provided

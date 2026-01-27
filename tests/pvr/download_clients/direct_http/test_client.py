@@ -219,7 +219,7 @@ class TestDirectHttpClient:
         future = Future()
         client._active_futures["test-id"] = future
 
-        result = client.remove_item("test-id", _delete_files=False)
+        result = client.remove_item("test-id", delete_files=False)
         assert result is True
         assert "test-id" not in client._active_futures
         mock_state_manager.remove.assert_called_once_with("test-id")

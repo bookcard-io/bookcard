@@ -43,7 +43,7 @@ class AuthorCoreService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         author_repo: AuthorRepository,
         library_service: LibraryService,
     ) -> None:
@@ -314,14 +314,14 @@ class AuthorCoreService:
         ).first()
 
         if existing:
-            existing.field_value = value  # type: ignore[assignment]
+            existing.field_value = value
             existing.is_user_defined = True
             self._session.add(existing)
         else:
             user_metadata = AuthorUserMetadata(
                 author_metadata_id=author_metadata_id,
                 field_name=field_name,
-                field_value=value,  # type: ignore[arg-type]
+                field_value=value,
                 is_user_defined=True,
             )
             self._session.add(user_metadata)

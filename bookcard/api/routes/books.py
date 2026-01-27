@@ -2377,7 +2377,7 @@ def get_format_metadata(
     # Alternatively, we could inject CalibreBookRepository directly if we had a dependency for it.
     # Given the current structure, accessing _book_repo is the most straightforward path.
     # pylint: disable=protected-access
-    metadata_service = FormatMetadataService(book_service._book_repo)  # type: ignore[attr-defined]  # noqa: SLF001
+    metadata_service = FormatMetadataService(book_service._book_repo)  # noqa: SLF001
 
     try:
         return metadata_service.get_format_metadata(book_id, file_format)

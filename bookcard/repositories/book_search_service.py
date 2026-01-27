@@ -82,7 +82,7 @@ class BookSearchService(IBookSearchService):
         # Search books by title
         book_stmt = (
             select(Book.id, Book.title)
-            .where(func.lower(Book.title).like(pattern_lower))  # type: ignore[attr-defined]
+            .where(func.lower(Book.title).like(pattern_lower))
             .limit(book_limit)
         )
         book_results = session.exec(book_stmt).all()
@@ -93,7 +93,7 @@ class BookSearchService(IBookSearchService):
         # Search authors
         author_stmt = (
             select(Author.id, Author.name)
-            .where(func.lower(Author.name).like(pattern_lower))  # type: ignore[attr-defined]
+            .where(func.lower(Author.name).like(pattern_lower))
             .limit(author_limit)
         )
         author_results = session.exec(author_stmt).all()
@@ -105,7 +105,7 @@ class BookSearchService(IBookSearchService):
         # Search tags
         tag_stmt = (
             select(Tag.id, Tag.name)
-            .where(func.lower(Tag.name).like(pattern_lower))  # type: ignore[attr-defined]
+            .where(func.lower(Tag.name).like(pattern_lower))
             .limit(tag_limit)
         )
         tag_results = session.exec(tag_stmt).all()
@@ -116,7 +116,7 @@ class BookSearchService(IBookSearchService):
         # Search series
         series_stmt = (
             select(Series.id, Series.name)
-            .where(func.lower(Series.name).like(pattern_lower))  # type: ignore[attr-defined]
+            .where(func.lower(Series.name).like(pattern_lower))
             .limit(series_limit)
         )
         series_results = session.exec(series_stmt).all()

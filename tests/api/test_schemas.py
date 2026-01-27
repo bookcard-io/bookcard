@@ -256,8 +256,8 @@ def test_user_read_from_user_with_default_ereader() -> None:
         email="device2@example.com",
         is_default=True,
     )
-    user.ereader_devices = [device1, device2]  # type: ignore[attr-defined]
-    user.roles = []  # type: ignore[attr-defined]
+    user.ereader_devices = [device1, device2]
+    user.roles = []
 
     user_read = UserRead.from_user(user)
     assert user_read.id == 1
@@ -280,11 +280,11 @@ def test_user_read_from_user_with_roles() -> None:
     role1 = Role(id=1, name="viewer", description="Viewer role")
     role2 = Role(id=2, name="editor", description="Editor role")
     user_role1 = UserRole(id=1, user_id=1, role_id=1)
-    user_role1.role = role1  # type: ignore[attr-defined]
+    user_role1.role = role1
     user_role2 = UserRole(id=2, user_id=1, role_id=2)
-    user_role2.role = role2  # type: ignore[attr-defined]
-    user.roles = [user_role1, user_role2]  # type: ignore[attr-defined]
-    user.ereader_devices = []  # type: ignore[attr-defined]
+    user_role2.role = role2
+    user.roles = [user_role1, user_role2]
+    user.ereader_devices = []
 
     user_read = UserRead.from_user(user)
     assert user_read.id == 1
@@ -312,9 +312,9 @@ def test_user_read_from_user_with_role_none() -> None:
     from bookcard.models.auth import Role
 
     role2 = Role(id=2, name="editor", description="Editor role")
-    user_role2.role = role2  # type: ignore[attr-defined]
-    user.roles = [user_role1, user_role2]  # type: ignore[attr-defined]
-    user.ereader_devices = []  # type: ignore[attr-defined]
+    user_role2.role = role2
+    user.roles = [user_role1, user_role2]
+    user.ereader_devices = []
 
     user_read = UserRead.from_user(user)
     assert user_read.id == 1

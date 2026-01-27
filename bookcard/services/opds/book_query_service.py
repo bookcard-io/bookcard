@@ -45,7 +45,7 @@ class OpdsBookQueryService(IOpdsBookQueryService):
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         library: Library,
         book_service: BookService | None = None,
         permission_service: PermissionService | None = None,

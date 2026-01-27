@@ -130,12 +130,12 @@ class BookConversion(SQLModel, table=True):
     conversion_method: ConversionMethod = Field(
         sa_column=Column(
             SQLEnum(ConversionMethod, native_enum=False), nullable=False, index=True
-        ),  # type: ignore[call-overload]
+        ),
     )
     status: ConversionStatus = Field(
         sa_column=Column(
             SQLEnum(ConversionStatus, native_enum=False), nullable=False, index=True
-        ),  # type: ignore[call-overload]
+        ),
     )
     error_message: str | None = Field(
         default=None, sa_column=Column(Text, nullable=True)

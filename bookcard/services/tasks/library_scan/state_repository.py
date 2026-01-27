@@ -38,7 +38,7 @@ class LibraryScanStateRepository:
         SQLModel session used for persistence operations.
     """
 
-    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+    def __init__(self, session: Session) -> None:
         self._session = session
 
     def get_by_library_id(self, library_id: int) -> LibraryScanState | None:

@@ -275,7 +275,7 @@ class MetadataService:
                 providers = list(self.registry.get_enabled_providers(enable_providers))
             else:
                 providers = list(self.registry.get_enabled_providers(None))
-        return providers
+        return providers  # ty:ignore[invalid-return-type]
 
     def _cancel_pending_futures(
         self,

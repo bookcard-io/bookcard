@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pytest
-from PIL import Image  # type: ignore[import-untyped]
+from PIL import Image
 
 from bookcard.services.cover_extractors.pdf import PdfCoverExtractor
 

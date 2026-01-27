@@ -82,11 +82,11 @@ class BookFileService:
 
     def _get_library_path(self) -> Path:
         """Resolve the library root path from service configuration."""
-        lib_root = getattr(self._book_service._library, "library_root", None)  # type: ignore[attr-defined]  # noqa: SLF001
+        lib_root = getattr(self._book_service._library, "library_root", None)  # noqa: SLF001
         if lib_root:
             return Path(lib_root)
 
-        library_db_path = self._book_service._library.calibre_db_path  # type: ignore[attr-defined]  # noqa: SLF001
+        library_db_path = self._book_service._library.calibre_db_path  # noqa: SLF001
         library_db_path_obj = Path(library_db_path)
         if library_db_path_obj.is_dir():
             return library_db_path_obj

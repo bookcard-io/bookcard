@@ -1172,7 +1172,7 @@ def handle_tags_remove_items(
             detail="shelf_missing_id",
         )
 
-    shelf_item_service.remove_items_from_shelf(shelf.id, kobo_user.id, item_data)
+    shelf_item_service.remove_items_from_shelf(shelf.id, kobo_user.id, item_data)  # type: ignore[invalid-argument-type]
 
     session.commit()
 

@@ -40,7 +40,7 @@ from urllib.parse import urlencode
 
 import httpx
 import jwt
-from jwt.algorithms import RSAAlgorithm  # type: ignore[attr-defined]
+from jwt.algorithms import RSAAlgorithm
 
 from bookcard.config import AppConfig  # noqa: TC001
 
@@ -316,7 +316,7 @@ class OIDCAuthService:
         try:
             claims = jwt.decode(
                 token,
-                key=public_key,
+                key=public_key,  # type: ignore[invalid-argument-type]
                 algorithms=["RS256"],
                 issuer=issuer if issuer else None,
                 options=options,

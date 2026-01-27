@@ -312,7 +312,7 @@ def test_extract_metadata_find_all(extractor: Fb2MetadataExtractor) -> None:
 
     def patched_extract_tags(
         root_elem: etree._Element,
-        ns_dict: dict[str, str],  # type: ignore[name-defined]
+        ns_dict: dict[str, str],
     ) -> list[str]:
         """Patched version that captures and calls find_all."""
         # We can't directly access find_all, but we can ensure

@@ -723,7 +723,7 @@ def opds_cover(
     # Check permission
     permission_service = PermissionService(session)
     context = BookPermissionHelper.build_permission_context(book_with_rels)
-    if not permission_service.has_permission(opds_user, "books", "read", context):
+    if not permission_service.has_permission(opds_user, "books", "read", context):  # type: ignore[invalid-argument-type]
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="permission_denied",

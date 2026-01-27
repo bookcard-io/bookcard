@@ -55,18 +55,18 @@ def service(session: DummySession, mock_config_repo: MagicMock) -> IngestConfigS
 
 
 @pytest.fixture
-def service_default_repo(session: DummySession) -> IngestConfigService:  # type: ignore[valid-type]
+def service_default_repo(session: DummySession) -> IngestConfigService:
     """Create IngestConfigService with default repository."""
     return IngestConfigService(session=session)  # type: ignore[valid-type]
 
 
-def test_init_with_repo(session: DummySession, mock_config_repo: MagicMock) -> None:  # type: ignore[valid-type]
+def test_init_with_repo(session: DummySession, mock_config_repo: MagicMock) -> None:
     """Test IngestConfigService initialization with repository."""
     service = IngestConfigService(session=session, config_repo=mock_config_repo)  # type: ignore[valid-type]
     assert service._config_repo == mock_config_repo
 
 
-def test_init_without_repo(session: DummySession) -> None:  # type: ignore[valid-type]
+def test_init_without_repo(session: DummySession) -> None:
     """Test IngestConfigService initialization without repository."""
     service = IngestConfigService(session=session)  # type: ignore[valid-type]
     assert isinstance(service._config_repo, IngestConfigRepository)

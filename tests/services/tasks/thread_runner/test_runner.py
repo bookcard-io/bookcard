@@ -137,7 +137,7 @@ class TestEnqueue:
             mock_get_session.return_value.__enter__.return_value = mock_session
             mock_task_service = MagicMock(spec=TaskService)
             mock_task = Task(
-                id=None,  # type: ignore[arg-type]
+                id=None,
                 task_type=TaskType.BOOK_UPLOAD,
                 status=TaskStatus.PENDING,
                 user_id=1,

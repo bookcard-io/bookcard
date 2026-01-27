@@ -59,7 +59,7 @@ class KoboShelfService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         shelf_service: ShelfService,
         reading_state_repo: KoboReadingStateRepository,
     ) -> None:

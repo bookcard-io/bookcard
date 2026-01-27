@@ -71,7 +71,7 @@ class AnnasArchiveIndexer(BaseIndexer):
             )
 
         super().__init__(settings)
-        self.settings: AnnasArchiveSettings = settings  # type: ignore[assignment]
+        self.settings: AnnasArchiveSettings = settings
 
         self._http_client = http_client or HttpxClientAdapter(
             timeout=settings.timeout_seconds

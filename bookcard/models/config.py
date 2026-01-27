@@ -495,18 +495,18 @@ class ScheduledJobDefinition(SQLModel, table=True):
     task_type: TaskType = Field(
         sa_column=Column(
             SQLEnum(TaskType, native_enum=False), nullable=False, index=True
-        ),  # type: ignore[call-overload]
+        ),
     )
     cron_expression: str = Field(max_length=100, index=True)
     enabled: bool = Field(default=False, index=True)
     arguments: dict[str, Any] | None = Field(
         default=None,
-        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSON, nullable=True),
         description="Optional task payload arguments",
     )
     job_metadata: dict[str, Any] | None = Field(
         default=None,
-        sa_column=Column(JSON, nullable=True),  # type: ignore[call-overload]
+        sa_column=Column(JSON, nullable=True),
         description="Optional task metadata",
     )
     user_id: int | None = Field(

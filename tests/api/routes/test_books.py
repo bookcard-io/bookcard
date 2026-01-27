@@ -363,7 +363,7 @@ def test_get_active_library_service_no_active_library() -> None:
         mock_service_class.return_value = mock_service
 
         with pytest.raises(HTTPException) as exc_info:
-            books._get_active_library_service(session)
+            books._get_active_library_service(session)  # type: ignore[invalid-argument-type]
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == "no_active_library"
@@ -393,7 +393,7 @@ def test_get_active_library_service_success() -> None:
         mock_book_service = MagicMock()
         mock_book_service_class.return_value = mock_book_service
 
-        result = books._get_active_library_service(session)
+        result = books._get_active_library_service(session)  # type: ignore[invalid-argument-type]
         assert result == mock_book_service
         mock_book_service_class.assert_called_once_with(library, session=session)
 
@@ -1881,7 +1881,7 @@ def test_delete_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     mock_service = MockBookService(get_book_full_result=existing_book_full)
-    mock_service.delete_book = MagicMock(return_value=None)  # type: ignore[assignment]
+    mock_service.delete_book = MagicMock(return_value=None)
 
     def mock_get_active_library_service(sess: object) -> MockBookService:
         return mock_service
@@ -1930,7 +1930,7 @@ def test_delete_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     mock_service = MockBookService(get_book_full_result=existing_book_full)
-    mock_service.delete_book = MagicMock(side_effect=ValueError("book_not_found"))  # type: ignore[assignment]
+    mock_service.delete_book = MagicMock(side_effect=ValueError("book_not_found"))
 
     def mock_get_active_library_service(sess: object) -> MockBookService:
         return mock_service
@@ -1981,7 +1981,7 @@ def test_delete_book_other_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
 
     mock_service = MockBookService(get_book_full_result=existing_book_full)
     # Use a ValueError that's not "book_not_found" to trigger the else branch
-    mock_service.delete_book = MagicMock(side_effect=ValueError("other_error"))  # type: ignore[assignment]
+    mock_service.delete_book = MagicMock(side_effect=ValueError("other_error"))
 
     def mock_get_active_library_service(sess: object) -> MockBookService:
         return mock_service
@@ -2032,7 +2032,7 @@ def test_delete_book_os_error(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     mock_service = MockBookService(get_book_full_result=existing_book_full)
-    mock_service.delete_book = MagicMock(side_effect=OSError("Permission denied"))  # type: ignore[assignment]
+    mock_service.delete_book = MagicMock(side_effect=OSError("Permission denied"))
 
     def mock_get_active_library_service(sess: object) -> MockBookService:
         return mock_service
@@ -2083,7 +2083,7 @@ def test_upload_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
     request = DummyRequest()
 
     mock_service = MockBookService()
-    mock_service.add_book = MagicMock(return_value=1)  # type: ignore[assignment]
+    mock_service.add_book = MagicMock(return_value=1)
 
     def mock_get_active_library_service(sess: object) -> MockBookService:
         return mock_service
@@ -2103,7 +2103,7 @@ def test_upload_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
     result = books.upload_book(
         request,
         current_user=current_user,
-        file=mock_file,  # type: ignore[arg-type]
+        file=mock_file,
         permission_helper=mock_permission_helper,
         session=session,
     )
@@ -2151,7 +2151,7 @@ def test_upload_book_no_extension(monkeypatch: pytest.MonkeyPatch) -> None:
         books.upload_book(
             request,
             current_user=current_user,
-            file=mock_file,  # type: ignore[arg-type]
+            file=mock_file,
             permission_helper=mock_permission_helper,
             session=session,
         )
@@ -2214,7 +2214,7 @@ def test_upload_book_save_error(monkeypatch: pytest.MonkeyPatch) -> None:
                     file=mock_file,
                     permission_helper=mock_permission_helper,
                     session=session,
-                )  # type: ignore[arg-type]
+                )
             assert isinstance(exc_info.value, HTTPException)
             assert exc_info.value.status_code == 500
             assert "failed_to_save_file" in exc_info.value.detail
@@ -2328,7 +2328,7 @@ def test_send_book_email_server_not_configured(monkeypatch: pytest.MonkeyPatch) 
             send_request=payload,
             book_service=mock_service,
             permission_helper=mock_permission_helper,
-        )  # type: ignore[arg-type]
+        )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail == "email_server_not_configured_or_disabled"
@@ -2420,7 +2420,7 @@ def test_send_book_email_server_disabled(monkeypatch: pytest.MonkeyPatch) -> Non
             send_request=payload,
             book_service=mock_service,
             permission_helper=mock_permission_helper,
-        )  # type: ignore[arg-type]
+        )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail == "email_server_not_configured_or_disabled"
@@ -2513,7 +2513,7 @@ def test_send_book_user_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
             send_request=payload,
             book_service=mock_service,
             permission_helper=mock_permission_helper,
-        )  # type: ignore[arg-type]
+        )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 500
     assert exc_info.value.detail == "user_missing_id"
@@ -2613,7 +2613,7 @@ def test_send_book_success_enqueues_task(monkeypatch: pytest.MonkeyPatch) -> Non
         send_request=payload,
         book_service=mock_service,
         permission_helper=mock_permission_helper,
-    )  # type: ignore[arg-type]
+    )
 
     # Should return None (204 No Content)
     assert result is None
@@ -2728,7 +2728,7 @@ def test_send_book_task_runner_unavailable(monkeypatch: pytest.MonkeyPatch) -> N
             send_request=payload,
             book_service=mock_service,
             permission_helper=mock_permission_helper,
-        )  # type: ignore[arg-type]
+        )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 503
     assert exc_info.value.detail == "Task runner not available"
@@ -2823,7 +2823,7 @@ def test_send_book_task_runner_none(monkeypatch: pytest.MonkeyPatch) -> None:
             send_request=payload,
             book_service=mock_service,
             permission_helper=mock_permission_helper,
-        )  # type: ignore[arg-type]
+        )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 503
     assert exc_info.value.detail == "Task runner not available"
@@ -2904,7 +2904,7 @@ def test_send_book_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
             send_request=payload,
             book_service=mock_service,
             permission_helper=mock_permission_helper,
-        )  # type: ignore[arg-type]
+        )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == "book_not_found"

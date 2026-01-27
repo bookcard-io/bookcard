@@ -90,7 +90,7 @@ def test__get_book_service_no_active_library(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(comic_routes, "LibraryService", FakeLibraryService)
 
     with pytest.raises(HTTPException) as exc_info:
-        _ = comic_routes._get_book_service(object())
+        _ = comic_routes._get_book_service(object())  # type: ignore[invalid-argument-type]
     exc = exc_info.value
     assert isinstance(exc, HTTPException)
     assert exc.status_code == 404
@@ -123,7 +123,7 @@ def test__get_book_service_returns_book_service(
     monkeypatch.setattr(comic_routes, "LibraryService", FakeLibraryService)
     monkeypatch.setattr(comic_routes, "BookService", FakeBookService)
 
-    svc = comic_routes._get_book_service(object())
+    svc = comic_routes._get_book_service(object())  # type: ignore[invalid-argument-type]
     assert isinstance(svc, FakeBookService)
     assert svc.library is fake_library
 
@@ -273,7 +273,7 @@ def test__get_comic_file_path_missing_book_id() -> None:
 
     class FakeBookService:
         def __init__(self) -> None:
-            self._library = types.SimpleNamespace(  # type: ignore[name-defined]
+            self._library = types.SimpleNamespace(
                 library_root=None,
                 calibre_db_path="/tmp",
             )
@@ -310,7 +310,7 @@ def test__get_comic_file_path_success(tmp_path: Path) -> None:
 
     class FakeBookService:
         def __init__(self) -> None:
-            self._library = types.SimpleNamespace(  # type: ignore[name-defined]
+            self._library = types.SimpleNamespace(
                 library_root=str(library_root),
                 calibre_db_path=str(library_root / "metadata.db"),
             )

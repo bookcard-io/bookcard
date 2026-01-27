@@ -132,7 +132,7 @@ class TrackedBookService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         library_service: LibraryService | None = None,
         repository: TrackedBookRepository | None = None,
     ) -> None:

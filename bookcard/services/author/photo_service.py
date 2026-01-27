@@ -50,7 +50,7 @@ class AuthorPhotoService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         author_repo: AuthorRepository,
         library_service: LibraryService,
         photo_storage: PhotoStorageInterface,
@@ -306,8 +306,8 @@ class AuthorPhotoService:
             .where(AuthorUserPhoto.author_metadata_id == author.id)
             .order_by(
                 desc(AuthorUserPhoto.is_primary),
-                AuthorUserPhoto.order,
-                AuthorUserPhoto.created_at,
+                AuthorUserPhoto.order,  # type: ignore[invalid-argument-type]
+                AuthorUserPhoto.created_at,  # type: ignore[invalid-argument-type]
             )
         ).all()
 

@@ -26,6 +26,7 @@ from bookcard.models.core import Author
 from bookcard.repositories.author_listing_components import (
     AuthorHydrator,
     AuthorResultCombiner,
+    AuthorResultRow,
     MappedIdsFetcher,
     MatchedAuthorQueryBuilder,
     UnmatchedAuthorFetcher,
@@ -293,7 +294,7 @@ class TestUnmatchedAuthorFetcher:
         mock_repo.get_session.return_value.__enter__.return_value = mock_calibre_session
         mock_repo_class.return_value = mock_repo
 
-        fetcher = UnmatchedAuthorFetcher(  # type: ignore[arg-type]
+        fetcher = UnmatchedAuthorFetcher(
             mock_session,  # type: ignore[arg-type]
             calibre_repo_factory=mock_repo_class,  # type: ignore[arg-type]
         )
@@ -336,7 +337,7 @@ class TestUnmatchedAuthorFetcher:
         mock_repo.get_session.return_value.__enter__.return_value = mock_calibre_session
         mock_repo_class.return_value = mock_repo
 
-        fetcher = UnmatchedAuthorFetcher(  # type: ignore[arg-type]
+        fetcher = UnmatchedAuthorFetcher(
             mock_session,  # type: ignore[arg-type]
             calibre_repo_factory=mock_repo_class,  # type: ignore[arg-type]
         )
@@ -367,7 +368,7 @@ class TestUnmatchedAuthorFetcher:
         """
         mock_repo_class.side_effect = Exception("Database error")
 
-        fetcher = UnmatchedAuthorFetcher(  # type: ignore[arg-type]
+        fetcher = UnmatchedAuthorFetcher(
             mock_session,  # type: ignore[arg-type]
             calibre_repo_factory=mock_repo_class,  # type: ignore[arg-type]
         )
@@ -417,9 +418,18 @@ class TestAuthorResultCombiner:
 
         Covers lines 249-261.
         """
+
+        class MatchedRow:
+            """Simple row-like object for matched authors."""
+
+            def __init__(self, name: str, author_id: int) -> None:
+                self.name = name
+                self.type = "matched"
+                self.id = author_id
+
         # Create matched results
-        matched_results = [
-            type("Row", (), {"name": f"Matched {i}", "type": "matched", "id": i})()
+        matched_results: list[AuthorResultRow] = [
+            MatchedRow(name=f"Matched {i}", author_id=i)
             for i in range(1, matched_count + 1)
         ]
 
@@ -429,7 +439,10 @@ class TestAuthorResultCombiner:
         ]
 
         result = AuthorResultCombiner.combine_and_paginate(
-            matched_results, unmatched_authors, page, page_size
+            matched_results,
+            unmatched_authors,
+            page,
+            page_size,
         )
 
         assert len(result) == expected_count

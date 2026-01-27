@@ -456,7 +456,7 @@ class UTorrentClient(BaseDownloadClient):
         super().__init__(
             settings, file_fetcher, url_router, http_client_factory, enabled
         )
-        self.settings: UTorrentSettings = settings  # type: ignore[assignment]
+        self.settings: UTorrentSettings = settings
         self._proxy = UTorrentProxy(self.settings)
         # uTorrent status flags: bit 0=started, bit 1=checking, bit 2=start_after_check,
         # bit 3=checked, bit 4=error, bit 5=paused, bit 6=queued, bit 7=loaded

@@ -103,7 +103,7 @@ class UserService:
         Repository providing user persistence operations.
     """
 
-    def __init__(self, session: Session, users: UserRepository) -> None:  # type: ignore[type-arg]
+    def __init__(self, session: Session, users: UserRepository) -> None:
         self._session = session
         self._users = users
 
@@ -311,8 +311,8 @@ class UserService:
                 # SELECT * FROM ereader_devices WHERE user_id IN (1)
                 # SELECT * FROM user_roles WHERE user_id IN (1)
                 # SELECT * FROM roles WHERE id IN (role_ids)
-                selectinload(User.ereader_devices),
-                selectinload(User.roles).selectinload(UserRole.role),
+                selectinload(User.ereader_devices),  # type: ignore[invalid-argument-type]
+                selectinload(User.roles).selectinload(UserRole.role),  # type: ignore[invalid-argument-type]
             )
         )
         return self._session.exec(stmt).first()
@@ -355,8 +355,8 @@ class UserService:
             .options(
                 # selectinload: Executes separate SELECT with IN clause
                 # Avoids cartesian product issues with multiple one-to-many relationships
-                selectinload(User.ereader_devices),
-                selectinload(User.roles).selectinload(UserRole.role),
+                selectinload(User.ereader_devices),  # type: ignore[invalid-argument-type]
+                selectinload(User.roles).selectinload(UserRole.role),  # type: ignore[invalid-argument-type]
             )
         )
         if limit is not None:

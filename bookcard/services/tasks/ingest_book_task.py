@@ -418,7 +418,7 @@ class IngestBookTask(BaseTask):
         metadata_hint: dict[str, Any] | None,
         config: "IngestConfig",
         library: "Library",
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
     ) -> int:
         """Process a single file.
 
@@ -829,7 +829,7 @@ class IngestBookTask(BaseTask):
 
     def _get_post_processors(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         library: "Library",
     ) -> list["PostIngestProcessor"]:
         """Get post-ingest processors for auto-ingest.
@@ -853,7 +853,7 @@ class IngestBookTask(BaseTask):
 
     def _run_post_processors(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         book_id: int,
         library: "Library",
         file_format: str,

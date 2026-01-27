@@ -332,8 +332,8 @@ class ProwlarrSyncService:
 
         new_indexer = IndexerDefinition(
             name=p_indexer.name,
-            indexer_type=indexer_type,  # type: ignore[arg-type]
-            protocol=protocol,  # type: ignore[arg-type]
+            indexer_type=indexer_type,
+            protocol=protocol,
             base_url=indexer_url,
             api_key=api_key,
             enabled=True,

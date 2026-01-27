@@ -802,7 +802,7 @@ class TestBookStripDrmTaskRun:
 
             task.run(worker_context)
 
-            assert worker_context.update_progress.call_count >= 4
+            assert worker_context.update_progress.call_count >= 4  # ty:ignore[unresolved-attribute]
             # We no longer call add_format, we replace the file in place
             mock_book_service.add_format.assert_not_called()
 

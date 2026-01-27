@@ -209,7 +209,7 @@ class TestGetAuthor:
             mock_chain_class.return_value = mock_chain
 
             service = AuthorCoreService(
-                core_service._session,  # type: ignore[arg-type]
+                core_service._session,
                 author_repo=mock_author_repo,
                 library_service=core_service._library_service,
             )
@@ -267,7 +267,7 @@ class TestSaveUserMetadata:
         value: list[str] | dict[str, object] | str,
     ) -> None:
         """Test _save_user_metadata creates new user metadata."""
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
 
         core_service._save_user_metadata(
             author_metadata_id=1,
@@ -275,8 +275,8 @@ class TestSaveUserMetadata:
             value=value,
         )
 
-        assert len(session.added) == 1  # type: ignore[attr-defined]
-        added = session.added[0]  # type: ignore[attr-defined]
+        assert len(session.added) == 1
+        added = session.added[0]
         assert isinstance(added, AuthorUserMetadata)
         assert added.author_metadata_id == 1
         assert added.field_name == "genres"
@@ -295,7 +295,7 @@ class TestSaveUserMetadata:
             field_value=["Old"],
             is_user_defined=False,
         )
-        session.set_exec_result([existing])  # type: ignore[attr-defined]
+        session.set_exec_result([existing])
 
         core_service._save_user_metadata(
             author_metadata_id=1,
@@ -305,7 +305,7 @@ class TestSaveUserMetadata:
 
         assert existing.field_value == ["Fiction", "Sci-Fi"]
         assert existing.is_user_defined is True
-        assert existing in session.added  # type: ignore[attr-defined]
+        assert existing in session.added
 
 
 # ============================================================================
@@ -329,14 +329,14 @@ class TestDeleteUserMetadata:
             field_value=["Fiction"],
             is_user_defined=True,
         )
-        session.set_exec_result([existing])  # type: ignore[attr-defined]
+        session.set_exec_result([existing])
 
         core_service._delete_user_metadata(
             author_metadata_id=1,
             field_name="genres",
         )
 
-        assert existing in session.deleted  # type: ignore[attr-defined]
+        assert existing in session.deleted
 
     def test_delete_user_metadata_not_found(
         self,
@@ -344,11 +344,11 @@ class TestDeleteUserMetadata:
         session: DummySession,
     ) -> None:
         """Test _delete_user_metadata when metadata not found."""
-        session.set_exec_result([])  # type: ignore[attr-defined]
+        session.set_exec_result([])
 
         core_service._delete_user_metadata(
             author_metadata_id=1,
             field_name="genres",
         )
 
-        assert len(session.deleted) == 0  # type: ignore[attr-defined]
+        assert len(session.deleted) == 0

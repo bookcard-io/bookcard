@@ -302,7 +302,7 @@ def test_get_rematch_service(monkeypatch: pytest.MonkeyPatch) -> None:
         mock_service = MagicMock()
         mock_service_class.return_value = mock_service
 
-        result = authors._get_rematch_service(  # type: ignore[arg-type]
+        result = authors._get_rematch_service(
             session,  # type: ignore[arg-type]
             request,  # type: ignore[arg-type]
             mock_author_service,  # type: ignore[arg-type]
@@ -679,7 +679,7 @@ async def test_rematch_author_success(monkeypatch: pytest.MonkeyPatch) -> None:
     request = DummyRequest()
     result = await authors.rematch_author(
         author_id="1",
-        request=request,  # type: ignore[arg-type]
+        request=request,
         current_user=current_user,
         author_service=mock_service,
         rematch_service=mock_rematch_service,
@@ -722,7 +722,7 @@ async def test_rematch_author_error(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(HTTPException):
         await authors.rematch_author(
             author_id="1",
-            request=request,  # type: ignore[arg-type]
+            request=request,
             current_user=current_user,
             author_service=mock_service,
             rematch_service=mock_rematch_service,
@@ -827,8 +827,8 @@ def test_upload_author_photo_no_filename(monkeypatch: pytest.MonkeyPatch) -> Non
             permission_helper=mock_permission_helper,
             file=mock_file,
         )
-    assert exc_info.value.status_code == 400  # type: ignore[attr-defined]
-    assert exc_info.value.detail == "filename_required"  # type: ignore[attr-defined]
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "filename_required"
 
 
 def test_upload_author_photo_read_error(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -854,8 +854,8 @@ def test_upload_author_photo_read_error(monkeypatch: pytest.MonkeyPatch) -> None
             permission_helper=mock_permission_helper,
             file=mock_file,
         )
-    assert exc_info.value.status_code == 500  # type: ignore[attr-defined]
-    assert "failed_to_read_file" in exc_info.value.detail  # type: ignore[attr-defined]
+    assert exc_info.value.status_code == 500
+    assert "failed_to_read_file" in exc_info.value.detail
 
 
 def test_upload_photo_from_url_success(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -935,8 +935,8 @@ def test_upload_photo_from_url_unexpected_error(
             permission_helper=mock_permission_helper,
             request=request,
         )
-    assert exc_info.value.status_code == 500  # type: ignore[attr-defined]
-    assert "Internal server error" in exc_info.value.detail  # type: ignore[attr-defined]
+    assert exc_info.value.status_code == 500
+    assert "Internal server error" in exc_info.value.detail
 
 
 def test_get_author_photo_success(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -977,7 +977,7 @@ def test_get_author_photo_success(monkeypatch: pytest.MonkeyPatch) -> None:
             current_user=current_user,
             author_service=mock_service,
             permission_helper=mock_permission_helper,
-            request=request,  # type: ignore[arg-type]
+            request=request,
         )
 
         assert isinstance(result, FileResponse)
@@ -1022,7 +1022,7 @@ def test_get_author_photo_not_found_author(monkeypatch: pytest.MonkeyPatch) -> N
             current_user=current_user,
             author_service=mock_service,
             permission_helper=mock_permission_helper,
-            request=request,  # type: ignore[arg-type]
+            request=request,
         )
 
         assert isinstance(result, Response)
@@ -1052,7 +1052,7 @@ def test_get_author_photo_not_found_photo(monkeypatch: pytest.MonkeyPatch) -> No
         current_user=current_user,
         author_service=mock_service,
         permission_helper=mock_permission_helper,
-        request=request,  # type: ignore[arg-type]
+        request=request,
     )
 
     assert isinstance(result, Response)
@@ -1341,7 +1341,7 @@ def test_get_author_photo_404_http_exception(
         current_user=current_user,
         author_service=mock_service,
         permission_helper=mock_permission_helper,
-        request=request,  # type: ignore[arg-type]
+        request=request,
     )
 
     assert isinstance(result, Response)
@@ -1387,7 +1387,7 @@ def test_get_author_photo_file_not_exists(
             current_user=current_user,
             author_service=mock_service,
             permission_helper=mock_permission_helper,
-            request=request,  # type: ignore[arg-type]
+            request=request,
         )
 
         assert isinstance(result, Response)
@@ -1436,7 +1436,7 @@ def test_get_author_photo_invalid_media_type(
             current_user=current_user,
             author_service=mock_service,
             permission_helper=mock_permission_helper,
-            request=request,  # type: ignore[arg-type]
+            request=request,
         )
 
         assert isinstance(result, FileResponse)

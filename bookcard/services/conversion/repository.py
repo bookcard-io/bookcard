@@ -48,7 +48,7 @@ class ConversionRepository:
         Database session.
     """
 
-    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+    def __init__(self, session: Session) -> None:
         """Initialize conversion repository.
 
         Parameters

@@ -107,7 +107,7 @@ def test_register_source() -> None:
             self,
             title: str | None = None,
             isbn: str | None = None,
-            authors: list[str] | None = None,
+            authors: Sequence[str] | None = None,
         ) -> Sequence[BookData]:
             return []
 
@@ -171,7 +171,7 @@ def test_register_source_case_insensitive() -> None:
             self,
             title: str | None = None,
             isbn: str | None = None,
-            authors: list[str] | None = None,
+            authors: Sequence[str] | None = None,
         ) -> Sequence[BookData]:
             return []
 

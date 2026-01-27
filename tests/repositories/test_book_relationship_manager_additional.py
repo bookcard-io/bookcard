@@ -34,7 +34,7 @@ from bookcard.models.core import (
     Rating,
     Series,
     Tag,
-)  # type: ignore[arg-type]
+)
 from bookcard.repositories.book_relationship_manager import BookRelationshipManager
 from bookcard.services.book_metadata import BookMetadata
 from tests.conftest import DummySession, MockResult
@@ -49,7 +49,7 @@ def manager() -> BookRelationshipManager:
     BookRelationshipManager
         Book relationship manager instance.
     """
-    return BookRelationshipManager()  # type: ignore[arg-type]
+    return BookRelationshipManager()
 
 
 @pytest.fixture
@@ -75,7 +75,7 @@ class TestNormalizeStringSet:
         manager : BookRelationshipManager
             Book relationship manager.
         """
-        result = manager._normalize_string_set(["  Tag1  ", "TAG2", "", "  "])  # type: ignore[arg-type]
+        result = manager._normalize_string_set(["  Tag1  ", "TAG2", "", "  "])
         assert result == {"tag1", "tag2"}
 
 
@@ -94,8 +94,8 @@ class TestDeleteLinksAndFlush:
         session : DummySession
             Database session.
         """
-        link1 = BookTagLink(book=1, tag=1)  # type: ignore[arg-type]
-        link2 = BookTagLink(book=1, tag=2)  # type: ignore[arg-type]
+        link1 = BookTagLink(book=1, tag=1)
+        link2 = BookTagLink(book=1, tag=2)
         manager._delete_links_and_flush(session, [link1, link2])  # type: ignore[arg-type]
         assert link1 in session.deleted
         assert link2 in session.deleted
@@ -137,9 +137,9 @@ class TestUpdateAuthors:
         """
         # Use session's built-in exec result mechanism
         # First query: get current author names
-        session.set_exec_result(["author 1", "author 2"])  # type: ignore[arg-type]
+        session.set_exec_result(["author 1", "author 2"])
 
-        initial_added_count = len(session.added)  # type: ignore[arg-type]
+        initial_added_count = len(session.added)
 
         # Use same normalized names (the normalization lowercases, so these should match)
         manager.update_authors(session, book_id, ["Author 1", "Author 2"])  # type: ignore[arg-type]
@@ -161,23 +161,21 @@ class TestUpdateAuthors:
         book_id : int
             Book ID.
         """
-        existing_link = BookAuthorLink(book=book_id, author=1, id=1)  # type: ignore[arg-type]
+        existing_link = BookAuthorLink(book=book_id, author=1, id=1)
         # Set up exec results in sequence
         session.set_exec_result(["Old Author"])  # Current authors
         session.add_exec_result([existing_link])  # Existing links to delete
-        session.add_exec_result([
-            None
-        ])  # Author lookup (doesn't exist)  # type: ignore[arg-type]
+        session.add_exec_result([None])  # Author lookup (doesn't exist)
 
         manager.update_authors(session, book_id, ["New Author"])  # type: ignore[arg-type]
 
-        # Verify old link was deleted (check by attributes since object identity might differ)  # type: ignore[arg-type]
+        # Verify old link was deleted (check by attributes since object identity might differ)
         deleted_links = [d for d in session.deleted if isinstance(d, BookAuthorLink)]
         assert len(deleted_links) > 0
         assert deleted_links[0].book == book_id
         # Verify new author and link were added
-        assert any(isinstance(item, Author) for item in session.added)  # type: ignore[arg-type]
-        assert any(isinstance(item, BookAuthorLink) for item in session.added)  # type: ignore[arg-type]
+        assert any(isinstance(item, Author) for item in session.added)
+        assert any(isinstance(item, BookAuthorLink) for item in session.added)
 
     def test_update_authors_author_id_none(
         self, manager: BookRelationshipManager, session: DummySession, book_id: int
@@ -193,21 +191,19 @@ class TestUpdateAuthors:
         book_id : int
             Book ID.
         """
-        author = Author(name="Test Author")  # type: ignore[arg-type]
-        author.id = None  # type: ignore[assignment]
+        author = Author(name="Test Author")
+        author.id = None
         # Set up exec results in sequence
-        session.set_exec_result([])  # Current authors (empty)  # type: ignore[arg-type]
-        session.add_exec_result([])  # Existing links (empty)  # type: ignore[arg-type]
-        session.add_exec_result([
-            author
-        ])  # Author lookup (exists but id is None)  # type: ignore[arg-type]
+        session.set_exec_result([])  # Current authors (empty)
+        session.add_exec_result([])  # Existing links (empty)
+        session.add_exec_result([author])  # Author lookup (exists but id is None)
 
         manager.update_authors(session, book_id, ["Test Author"])  # type: ignore[arg-type]
 
-        # When author.id is None, the code skips creating the link (line 147: continue)  # type: ignore[arg-type]
+        # When author.id is None, the code skips creating the link (line 147: continue)
         # Since author is found (not None), it won't be added, and no link is created
-        assert not any(isinstance(item, BookAuthorLink) for item in session.added)  # type: ignore[arg-type]
-        # Author with None id is found, so it's not added (only added if author is None)  # type: ignore[arg-type]
+        assert not any(isinstance(item, BookAuthorLink) for item in session.added)
+        # Author with None id is found, so it's not added (only added if author is None)
 
     def test_update_authors_empty_author_name(
         self, manager: BookRelationshipManager, session: DummySession, book_id: int
@@ -223,14 +219,14 @@ class TestUpdateAuthors:
         book_id : int
             Book ID.
         """
-        session.set_exec_result([])  # Current authors (empty)  # type: ignore[arg-type]
-        session.add_exec_result([])  # Existing links (empty)  # type: ignore[arg-type]
+        session.set_exec_result([])  # Current authors (empty)
+        session.add_exec_result([])  # Existing links (empty)
 
         manager.update_authors(session, book_id, ["  ", ""])  # type: ignore[arg-type]  # Empty author names
 
-        # Empty author names should be skipped (line 138: continue)  # type: ignore[arg-type]
-        assert not any(isinstance(item, Author) for item in session.added)  # type: ignore[arg-type]
-        assert not any(isinstance(item, BookAuthorLink) for item in session.added)  # type: ignore[arg-type]
+        # Empty author names should be skipped (line 138: continue)
+        assert not any(isinstance(item, Author) for item in session.added)
+        assert not any(isinstance(item, BookAuthorLink) for item in session.added)
 
 
 class TestUpdateSeries:
@@ -251,7 +247,7 @@ class TestUpdateSeries:
             (None, 2, BookSeriesLink(book=1, series=1, id=1), False, True),
             ("New Series", None, BookSeriesLink(book=1, series=1, id=1), False, True),
         ],
-    )  # type: ignore[arg-type]
+    )
     def test_update_series(
         self,
         manager: BookRelationshipManager,
@@ -287,17 +283,13 @@ class TestUpdateSeries:
         # Set up exec results
         session.set_exec_result([current_link] if current_link else [])  # Current link
         if not should_remove and series_name and series_name.strip():
-            session.add_exec_result([
-                None
-            ])  # Series lookup (doesn't exist)  # type: ignore[arg-type]
+            session.add_exec_result([None])  # Series lookup (doesn't exist)
 
-        manager.update_series(session, book_id, series_name, series_id)  # type: ignore[arg-type]  # type: ignore[arg-type]
+        manager.update_series(session, book_id, series_name, series_id)  # type: ignore[invalid-argument-type]
 
         if should_remove and current_link:
             deleted_links = [
-                d
-                for d in session.deleted
-                if isinstance(d, BookSeriesLink)  # type: ignore[arg-type]
+                d for d in session.deleted if isinstance(d, BookSeriesLink)
             ]
             assert len(deleted_links) > 0
         elif expected_link and not should_remove:
@@ -324,7 +316,7 @@ class TestUpdateTags:
             Book ID.
         """
         session.set_exec_result(["tag1", "tag2"])  # Current tags
-        initial_added_count = len(session.added)  # type: ignore[arg-type]
+        initial_added_count = len(session.added)
 
         manager.update_tags(session, book_id, ["Tag1", "Tag2"])  # type: ignore[arg-type]
 
@@ -345,12 +337,10 @@ class TestUpdateTags:
         book_id : int
             Book ID.
         """
-        existing_link = BookTagLink(book=book_id, tag=1, id=1)  # type: ignore[arg-type]
+        existing_link = BookTagLink(book=book_id, tag=1, id=1)
         session.set_exec_result(["Old Tag"])  # Current tags
         session.add_exec_result([existing_link])  # Existing links to delete
-        session.add_exec_result([
-            None
-        ])  # Tag lookup (doesn't exist)  # type: ignore[arg-type]
+        session.add_exec_result([None])  # Tag lookup (doesn't exist)
 
         manager.update_tags(session, book_id, ["New Tag"])  # type: ignore[arg-type]
 
@@ -358,8 +348,8 @@ class TestUpdateTags:
         deleted_links = [d for d in session.deleted if isinstance(d, BookTagLink)]
         assert len(deleted_links) > 0
         # Verify new tag and link were added
-        assert any(isinstance(item, Tag) for item in session.added)  # type: ignore[arg-type]
-        assert any(isinstance(item, BookTagLink) for item in session.added)  # type: ignore[arg-type]
+        assert any(isinstance(item, Tag) for item in session.added)
+        assert any(isinstance(item, BookTagLink) for item in session.added)
 
     def test_update_tags_deduplicates_input(
         self, manager: BookRelationshipManager, session: DummySession, book_id: int
@@ -375,16 +365,14 @@ class TestUpdateTags:
         book_id : int
             Book ID.
         """
-        session.set_exec_result([])  # Current tags (empty)  # type: ignore[arg-type]
-        session.add_exec_result([])  # Existing links (empty)  # type: ignore[arg-type]
-        session.add_exec_result([
-            None
-        ])  # Tag lookup (doesn't exist)  # type: ignore[arg-type]
+        session.set_exec_result([])  # Current tags (empty)
+        session.add_exec_result([])  # Existing links (empty)
+        session.add_exec_result([None])  # Tag lookup (doesn't exist)
 
         manager.update_tags(session, book_id, ["Dup", " dup ", "DUP"])  # type: ignore[arg-type]
 
-        added_tags = [a for a in session.added if isinstance(a, Tag)]  # type: ignore[arg-type]
-        added_links = [a for a in session.added if isinstance(a, BookTagLink)]  # type: ignore[arg-type]
+        added_tags = [a for a in session.added if isinstance(a, Tag)]
+        added_links = [a for a in session.added if isinstance(a, BookTagLink)]
         assert len(added_tags) == 1
         assert len(added_links) == 1
 
@@ -402,14 +390,14 @@ class TestUpdateTags:
         book_id : int
             Book ID.
         """
-        session.set_exec_result([])  # Current tags (empty)  # type: ignore[arg-type]
-        session.add_exec_result([])  # Existing links (empty)  # type: ignore[arg-type]
+        session.set_exec_result([])  # Current tags (empty)
+        session.add_exec_result([])  # Existing links (empty)
 
         manager.update_tags(session, book_id, ["  ", ""])  # type: ignore[arg-type]  # Empty tag names
 
-        # Empty tag names should be skipped (line 260: continue)  # type: ignore[arg-type]
-        assert not any(isinstance(item, Tag) for item in session.added)  # type: ignore[arg-type]
-        assert not any(isinstance(item, BookTagLink) for item in session.added)  # type: ignore[arg-type]
+        # Empty tag names should be skipped (line 260: continue)
+        assert not any(isinstance(item, Tag) for item in session.added)
+        assert not any(isinstance(item, BookTagLink) for item in session.added)
 
     def test_update_tags_tag_id_none(
         self, manager: BookRelationshipManager, session: DummySession, book_id: int
@@ -425,18 +413,16 @@ class TestUpdateTags:
         book_id : int
             Book ID.
         """
-        tag = Tag(name="Test Tag")  # type: ignore[arg-type]
-        tag.id = None  # type: ignore[assignment]
-        session.set_exec_result([])  # Current tags (empty)  # type: ignore[arg-type]
-        session.add_exec_result([])  # Existing links (empty)  # type: ignore[arg-type]
-        session.add_exec_result([
-            tag
-        ])  # Tag lookup (exists but id is None)  # type: ignore[arg-type]
+        tag = Tag(name="Test Tag")
+        tag.id = None
+        session.set_exec_result([])  # Current tags (empty)
+        session.add_exec_result([])  # Existing links (empty)
+        session.add_exec_result([tag])  # Tag lookup (exists but id is None)
 
         manager.update_tags(session, book_id, ["Test Tag"])  # type: ignore[arg-type]
 
-        # When tag.id is None, the code skips creating the link (line 268: continue)  # type: ignore[arg-type]
-        assert not any(isinstance(item, BookTagLink) for item in session.added)  # type: ignore[arg-type]
+        # When tag.id is None, the code skips creating the link (line 268: continue)
+        assert not any(isinstance(item, BookTagLink) for item in session.added)
 
 
 class TestUpdateIdentifiers:
@@ -456,10 +442,10 @@ class TestUpdateIdentifiers:
         book_id : int
             Book ID.
         """
-        ident1 = Identifier(book=book_id, type="isbn", val="123")  # type: ignore[arg-type]
-        ident2 = Identifier(book=book_id, type="asin", val="B001")  # type: ignore[arg-type]
+        ident1 = Identifier(book=book_id, type="isbn", val="123")
+        ident2 = Identifier(book=book_id, type="asin", val="B001")
         session.set_exec_result([ident1, ident2])  # Current identifiers
-        initial_added_count = len(session.added)  # type: ignore[arg-type]
+        initial_added_count = len(session.added)
 
         manager.update_identifiers(
             session,  # type: ignore[arg-type]
@@ -514,14 +500,14 @@ class TestUpdatePublisher:
         book_id : int
             Book ID.
         """
-        publisher = Publisher(id=1, name="Publisher")  # type: ignore[arg-type]
-        link = BookPublisherLink(book=book_id, publisher=1, id=1)  # type: ignore[arg-type]
+        publisher = Publisher(id=1, name="Publisher")
+        link = BookPublisherLink(book=book_id, publisher=1, id=1)
         session.set_exec_result([link])  # Current link
         session.add_exec_result([publisher])  # Publisher lookup
 
-        initial_added_count = len(session.added)  # type: ignore[arg-type]
+        initial_added_count = len(session.added)
 
-        manager.update_publisher(session, book_id, "Publisher")  # type: ignore[arg-type]  # type: ignore[arg-type]
+        manager.update_publisher(session, book_id, "Publisher")  # type: ignore[invalid-argument-type]
 
         # No changes should be made
         assert len(session.added) == initial_added_count
@@ -540,24 +526,22 @@ class TestUpdatePublisher:
         book_id : int
             Book ID.
         """
-        old_link = BookPublisherLink(book=book_id, publisher=1, id=1)  # type: ignore[arg-type]
+        old_link = BookPublisherLink(book=book_id, publisher=1, id=1)
         session.set_exec_result([old_link])  # Current link
-        session.add_exec_result([
-            None
-        ])  # Publisher lookup (doesn't exist, will create)  # type: ignore[arg-type]
+        session.add_exec_result([None])  # Publisher lookup (doesn't exist, will create)
 
         # Ensure new publisher gets a different ID by pre-seeding the session
         # Add a dummy entity so the new publisher gets ID 2 instead of 1
-        session._next_id = 2  # type: ignore[attr-defined]
+        session._next_id = 2
 
-        manager.update_publisher(session, book_id, "New Publisher")  # type: ignore[arg-type]  # type: ignore[arg-type]
+        manager.update_publisher(session, book_id, "New Publisher")  # type: ignore[invalid-argument-type]
 
-        # Verify old link was deleted (publisher changed from 1 to new publisher with ID 2)  # type: ignore[arg-type]
+        # Verify old link was deleted (publisher changed from 1 to new publisher with ID 2)
         deleted_links = [d for d in session.deleted if isinstance(d, BookPublisherLink)]
         assert len(deleted_links) > 0
         # Verify new publisher and link were added
-        assert any(isinstance(item, Publisher) for item in session.added)  # type: ignore[arg-type]
-        assert any(isinstance(item, BookPublisherLink) for item in session.added)  # type: ignore[arg-type]
+        assert any(isinstance(item, Publisher) for item in session.added)
+        assert any(isinstance(item, BookPublisherLink) for item in session.added)
 
 
 class TestGetCurrentLanguageIds:
@@ -577,12 +561,12 @@ class TestGetCurrentLanguageIds:
         book_id : int
             Book ID.
         """
-        link1 = BookLanguageLink(book=book_id, lang_code=1)  # type: ignore[arg-type]
-        link2 = BookLanguageLink(book=book_id, lang_code=2)  # type: ignore[arg-type]
+        link1 = BookLanguageLink(book=book_id, lang_code=1)
+        link2 = BookLanguageLink(book=book_id, lang_code=2)
 
         def mock_exec(stmt: object) -> MockResult:
             """Mock session.exec for language link queries."""
-            return MockResult([link1, link2])  # type: ignore[arg-type]
+            return MockResult([link1, link2])
 
         session.exec = mock_exec  # type: ignore[assignment]
 
@@ -607,11 +591,11 @@ class TestFindOrCreateLanguage:
         session : DummySession
             Database session.
         """
-        language = Language(id=1, lang_code="en")  # type: ignore[arg-type]
+        language = Language(id=1, lang_code="en")
 
         def mock_exec(stmt: object) -> MockResult:
             """Mock session.exec for language queries."""
-            return MockResult([language])  # type: ignore[arg-type]
+            return MockResult([language])
 
         session.exec = mock_exec  # type: ignore[assignment]
 
@@ -635,14 +619,14 @@ class TestFindOrCreateLanguage:
 
         def mock_exec(stmt: object) -> MockResult:
             """Mock session.exec for language queries."""
-            return MockResult([None])  # type: ignore[arg-type]
+            return MockResult([None])
 
         session.exec = mock_exec  # type: ignore[assignment]
 
         result = manager._find_or_create_language(session, "fr")  # type: ignore[arg-type]
 
         assert result is not None
-        assert any(isinstance(item, Language) for item in session.added)  # type: ignore[arg-type]
+        assert any(isinstance(item, Language) for item in session.added)
         assert session.flush_count > 0
 
 
@@ -676,11 +660,11 @@ class TestResolveLanguageIds:
         session : DummySession
             Database session.
         """
-        language = Language(id=1, lang_code="en")  # type: ignore[arg-type]
+        language = Language(id=1, lang_code="en")
 
         def mock_exec(stmt: object) -> MockResult:
             """Mock session.exec for language queries."""
-            return MockResult([language])  # type: ignore[arg-type]
+            return MockResult([language])
 
         session.exec = mock_exec  # type: ignore[assignment]
 
@@ -715,7 +699,7 @@ class TestRemoveDuplicateIds:
         manager : BookRelationshipManager
             Book relationship manager.
         """
-        result = manager._remove_duplicate_ids([1, 2, 1, 3, 2])  # type: ignore[arg-type]
+        result = manager._remove_duplicate_ids([1, 2, 1, 3, 2])
         assert result == [1, 2, 3]
 
 
@@ -734,8 +718,8 @@ class TestDeleteExistingLanguageLinks:
         session : DummySession
             Database session.
         """
-        link1 = BookLanguageLink(book=1, lang_code=1)  # type: ignore[arg-type]
-        link2 = BookLanguageLink(book=1, lang_code=2)  # type: ignore[arg-type]
+        link1 = BookLanguageLink(book=1, lang_code=1)
+        link2 = BookLanguageLink(book=1, lang_code=2)
 
         manager._delete_existing_language_links(session, [link1, link2])  # type: ignore[arg-type]
 
@@ -789,7 +773,7 @@ class TestCreateLanguageLinks:
         book_id : int
             Book ID.
         """
-        existing_link = BookLanguageLink(book=book_id, lang_code=1)  # type: ignore[arg-type]
+        existing_link = BookLanguageLink(book=book_id, lang_code=1)
 
         def mock_exec(stmt: object) -> MockResult:
             """Mock session.exec for language link queries."""
@@ -820,12 +804,12 @@ class TestUpdateLanguages:
         book_id : int
             Book ID.
         """
-        link = BookLanguageLink(book=book_id, lang_code=1, id=1)  # type: ignore[arg-type]
+        link = BookLanguageLink(book=book_id, lang_code=1, id=1)
         session.set_exec_result([link])  # Current links
 
-        initial_added_count = len(session.added)  # type: ignore[arg-type]
+        initial_added_count = len(session.added)
 
-        manager.update_languages(session, book_id, language_ids=[1])  # type: ignore[arg-type]  # type: ignore[arg-type]
+        manager.update_languages(session, book_id, language_ids=[1])  # type: ignore[invalid-argument-type]
 
         # No changes should be made
         assert len(session.added) == initial_added_count
@@ -844,19 +828,17 @@ class TestUpdateLanguages:
         book_id : int
             Book ID.
         """
-        old_link = BookLanguageLink(book=book_id, lang_code=1, id=1)  # type: ignore[arg-type]
+        old_link = BookLanguageLink(book=book_id, lang_code=1, id=1)
         session.set_exec_result([old_link])  # Current links
-        session.add_exec_result([
-            None
-        ])  # New link lookup (doesn't exist)  # type: ignore[arg-type]
+        session.add_exec_result([None])  # New link lookup (doesn't exist)
 
-        manager.update_languages(session, book_id, language_ids=[2])  # type: ignore[arg-type]  # type: ignore[arg-type]
+        manager.update_languages(session, book_id, language_ids=[2])  # type: ignore[invalid-argument-type]
 
         # Verify old link was deleted
         deleted_links = [d for d in session.deleted if isinstance(d, BookLanguageLink)]
         assert len(deleted_links) > 0
         # Verify new link was added
-        assert any(isinstance(item, BookLanguageLink) for item in session.added)  # type: ignore[arg-type]
+        assert any(isinstance(item, BookLanguageLink) for item in session.added)
 
 
 class TestUpdateRating:
@@ -876,15 +858,15 @@ class TestUpdateRating:
         book_id : int
             Book ID.
         """
-        link = BookRatingLink(book=book_id, rating=1, id=1)  # type: ignore[arg-type]
+        link = BookRatingLink(book=book_id, rating=1, id=1)
         session.set_exec_result([link])  # Current link
 
-        initial_added_count = len(session.added)  # type: ignore[arg-type]
+        initial_added_count = len(session.added)
 
         # Use rating_id=1 which matches the current link's rating
-        manager.update_rating(session, book_id, rating_id=1)  # type: ignore[arg-type]  # type: ignore[arg-type]
+        manager.update_rating(session, book_id, rating_id=1)  # type: ignore[invalid-argument-type]
 
-        # No changes should be made (rating_id 1 matches current link's rating 1)  # type: ignore[arg-type]
+        # No changes should be made (rating_id 1 matches current link's rating 1)
         assert len(session.added) == initial_added_count
 
     def test_update_rating_change(
@@ -901,23 +883,21 @@ class TestUpdateRating:
         book_id : int
             Book ID.
         """
-        old_link = BookRatingLink(book=book_id, rating=1, id=1)  # type: ignore[arg-type]
+        old_link = BookRatingLink(book=book_id, rating=1, id=1)
         session.set_exec_result([old_link])  # Current link
-        session.add_exec_result([
-            None
-        ])  # Rating lookup (doesn't exist, will create)  # type: ignore[arg-type]
+        session.add_exec_result([None])  # Rating lookup (doesn't exist, will create)
 
         # Ensure new rating gets a different ID
-        session._next_id = 2  # type: ignore[attr-defined]
+        session._next_id = 2
 
-        manager.update_rating(session, book_id, rating_value=5)  # type: ignore[arg-type]  # type: ignore[arg-type]
+        manager.update_rating(session, book_id, rating_value=5)  # type: ignore[invalid-argument-type]
 
-        # Verify old link was deleted (rating changed from 1 to new rating with ID 2)  # type: ignore[arg-type]
+        # Verify old link was deleted (rating changed from 1 to new rating with ID 2)
         deleted_links = [d for d in session.deleted if isinstance(d, BookRatingLink)]
         assert len(deleted_links) > 0
         # Verify new rating and link were added
-        assert any(isinstance(item, Rating) for item in session.added)  # type: ignore[arg-type]
-        assert any(isinstance(item, BookRatingLink) for item in session.added)  # type: ignore[arg-type]
+        assert any(isinstance(item, Rating) for item in session.added)
+        assert any(isinstance(item, BookRatingLink) for item in session.added)
 
     def test_update_rating_target_none(
         self, manager: BookRelationshipManager, session: DummySession, book_id: int
@@ -933,11 +913,9 @@ class TestUpdateRating:
         book_id : int
             Book ID.
         """
-        old_link = BookRatingLink(book=book_id, rating=1, id=1)  # type: ignore[arg-type]
+        old_link = BookRatingLink(book=book_id, rating=1, id=1)
         session.set_exec_result([old_link])  # Current link
-        session.add_exec_result([
-            None
-        ])  # Rating lookup (doesn't exist)  # type: ignore[arg-type]
+        session.add_exec_result([None])  # Rating lookup (doesn't exist)
 
         # Create a rating that won't get an ID after flush
         def mock_flush() -> None:
@@ -948,13 +926,13 @@ class TestUpdateRating:
         original_flush = session.flush
         session.flush = mock_flush  # type: ignore[assignment]
 
-        manager.update_rating(session, book_id, rating_value=5)  # type: ignore[arg-type]  # type: ignore[arg-type]
+        manager.update_rating(session, book_id, rating_value=5)  # type: ignore[invalid-argument-type]
 
         # Verify old link was deleted
         deleted_links = [d for d in session.deleted if isinstance(d, BookRatingLink)]
         assert len(deleted_links) > 0
-        # No new link should be added (target_rating_id is None)  # type: ignore[arg-type]
-        assert not any(isinstance(item, BookRatingLink) for item in session.added)  # type: ignore[arg-type]
+        # No new link should be added (target_rating_id is None)
+        assert not any(isinstance(item, BookRatingLink) for item in session.added)
 
         session.flush = original_flush  # type: ignore[assignment]
 
@@ -972,16 +950,16 @@ class TestUpdateRating:
         book_id : int
             Book ID.
         """
-        old_link = BookRatingLink(book=book_id, rating=1, id=1)  # type: ignore[arg-type]
+        old_link = BookRatingLink(book=book_id, rating=1, id=1)
         session.set_exec_result([old_link])  # Current link
 
-        manager.update_rating(session, book_id, rating_value=None, rating_id=None)  # type: ignore[arg-type]  # type: ignore[arg-type]
+        manager.update_rating(session, book_id, rating_value=None, rating_id=None)  # type: ignore[invalid-argument-type]
 
         # Verify old link was deleted
         deleted_links = [d for d in session.deleted if isinstance(d, BookRatingLink)]
         assert len(deleted_links) > 0
         # No new link should be added
-        assert not any(isinstance(item, BookRatingLink) for item in session.added)  # type: ignore[arg-type]
+        assert not any(isinstance(item, BookRatingLink) for item in session.added)
 
 
 class TestAddMetadata:
@@ -1009,23 +987,23 @@ class TestAddMetadata:
             identifiers=[{"type": "isbn", "val": "123"}],
             languages=["en"],
             series="Series",
-        )  # type: ignore[arg-type]
+        )
 
         def mock_exec(stmt: object) -> MockResult:
             """Mock session.exec for various queries."""
-            return MockResult([None])  # type: ignore[arg-type]
+            return MockResult([None])
 
         session.exec = mock_exec  # type: ignore[assignment]
 
-        manager.add_metadata(session, book_id, metadata)  # type: ignore[arg-type]  # type: ignore[arg-type]
+        manager.add_metadata(session, book_id, metadata)  # type: ignore[invalid-argument-type]
 
         # Verify all metadata was added
-        assert any(isinstance(item, Comment) for item in session.added)  # type: ignore[arg-type]
-        assert any(isinstance(item, Tag) for item in session.added)  # type: ignore[arg-type]
-        assert any(isinstance(item, Publisher) for item in session.added)  # type: ignore[arg-type]
-        assert any(isinstance(item, Identifier) for item in session.added)  # type: ignore[arg-type]
-        assert any(isinstance(item, Language) for item in session.added)  # type: ignore[arg-type]
-        assert any(isinstance(item, Series) for item in session.added)  # type: ignore[arg-type]
+        assert any(isinstance(item, Comment) for item in session.added)
+        assert any(isinstance(item, Tag) for item in session.added)
+        assert any(isinstance(item, Publisher) for item in session.added)
+        assert any(isinstance(item, Identifier) for item in session.added)
+        assert any(isinstance(item, Language) for item in session.added)
+        assert any(isinstance(item, Series) for item in session.added)
 
     def test_add_book_identifiers_update_existing(
         self, manager: BookRelationshipManager, session: DummySession, book_id: int
@@ -1041,7 +1019,7 @@ class TestAddMetadata:
         book_id : int
             Book ID.
         """
-        existing_ident = Identifier(book=book_id, type="isbn", val="old", id=1)  # type: ignore[arg-type]
+        existing_ident = Identifier(book=book_id, type="isbn", val="old", id=1)
         session.set_exec_result([existing_ident])  # Existing identifier found
 
         manager._add_book_identifiers(
@@ -1050,7 +1028,7 @@ class TestAddMetadata:
             [{"type": "isbn", "val": "new"}],
         )
 
-        # Identifier should be updated (not added)  # type: ignore[arg-type]
+        # Identifier should be updated (not added)
         assert existing_ident.val == "new"
         # No new identifier should be added
         new_idents = [i for i in session.added if isinstance(i, Identifier)]
@@ -1070,14 +1048,10 @@ class TestAddMetadata:
         book_id : int
             Book ID.
         """
-        language = Language(lang_code="en")  # type: ignore[arg-type]
-        language.id = None  # type: ignore[assignment]
-        session.set_exec_result([
-            None
-        ])  # Language lookup (doesn't exist)  # type: ignore[arg-type]
-        session.add_exec_result([
-            None
-        ])  # Link lookup (doesn't exist)  # type: ignore[arg-type]
+        language = Language(lang_code="en")
+        language.id = None
+        session.set_exec_result([None])  # Language lookup (doesn't exist)
+        session.add_exec_result([None])  # Link lookup (doesn't exist)
 
         # Mock _find_or_create_language to return language with None id
         original_find = manager._find_or_create_language
@@ -1085,7 +1059,7 @@ class TestAddMetadata:
 
         manager._add_book_languages(session, book_id, ["en"])  # type: ignore[arg-type]
 
-        # When language.id is None, the code skips creating the link (line 791: continue)  # type: ignore[arg-type]
-        assert not any(isinstance(item, BookLanguageLink) for item in session.added)  # type: ignore[arg-type]
+        # When language.id is None, the code skips creating the link (line 791: continue)
+        assert not any(isinstance(item, BookLanguageLink) for item in session.added)
 
         manager._find_or_create_language = original_find  # type: ignore[assignment]

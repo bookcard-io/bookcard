@@ -83,7 +83,7 @@ class IngestProcessorService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         config_service: IngestConfigService | None = None,
         history_repo: IngestHistoryRepository | None = None,
         audit_repo: IngestAuditRepository | None = None,

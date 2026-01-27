@@ -52,7 +52,7 @@ class KoboAuthService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         auth_token_repo: KoboAuthTokenRepository,
         user_repo: UserRepository,
     ) -> None:

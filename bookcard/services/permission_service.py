@@ -41,7 +41,7 @@ class PermissionService:
         Active SQLModel session.
     """
 
-    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+    def __init__(self, session: Session) -> None:
         self._session = session
 
     def has_permission(
@@ -387,8 +387,8 @@ class PermissionService:
         # Load user roles with role-permission relationships
         stmt = (
             select(UserRole, RolePermission, Permission)
-            .join(RolePermission, UserRole.role_id == RolePermission.role_id)
-            .join(Permission, RolePermission.permission_id == Permission.id)
+            .join(RolePermission, UserRole.role_id == RolePermission.role_id)  # type: ignore[invalid-argument-type]
+            .join(Permission, RolePermission.permission_id == Permission.id)  # type: ignore[invalid-argument-type]
             .where(UserRole.user_id == user.id)
         )
 

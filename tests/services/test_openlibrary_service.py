@@ -68,7 +68,7 @@ class TestCreateDownloadTask:
         ("urls", "expected_error"),
         [
             ([], ValueError),
-            (None, ValueError),  # type: ignore[list-item]
+            (None, ValueError),
         ],
     )
     def test_create_download_task_no_urls(

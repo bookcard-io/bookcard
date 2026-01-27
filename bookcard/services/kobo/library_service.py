@@ -72,7 +72,7 @@ class KoboLibraryService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         book_service: BookService,
         metadata_service: KoboMetadataService,
         sync_service: KoboSyncService,

@@ -30,7 +30,7 @@ class AuthorSerializationService:
     Handles building author dictionaries from AuthorMetadata objects.
     """
 
-    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+    def __init__(self, session: Session) -> None:
         """Initialize author serialization service.
 
         Parameters

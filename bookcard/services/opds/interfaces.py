@@ -40,13 +40,17 @@ class IOpdsFeedService(ABC):
     """Interface for generating OPDS feeds."""
 
     @abstractmethod
-    def generate_catalog_feed(self, request: Request) -> OpdsFeedResponse:
+    def generate_catalog_feed(
+        self, request: Request, user: User | None
+    ) -> OpdsFeedResponse:
         """Generate main catalog feed.
 
         Parameters
         ----------
         request : Request
             FastAPI request object.
+        user : User | None
+            Authenticated user or None.
 
         Returns
         -------

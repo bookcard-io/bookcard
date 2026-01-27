@@ -181,11 +181,11 @@ class BookCoverService:
         book_obj = book_with_rels.book
 
         # Get library path
-        lib_root = getattr(self._book_service._library, "library_root", None)  # type: ignore[attr-defined]  # noqa: SLF001
+        lib_root = getattr(self._book_service._library, "library_root", None)  # noqa: SLF001
         if lib_root:
             library_path = Path(lib_root)
         else:
-            library_db_path = self._book_service._library.calibre_db_path  # type: ignore[attr-defined]  # noqa: SLF001
+            library_db_path = self._book_service._library.calibre_db_path  # noqa: SLF001
             library_db_path_obj = Path(library_db_path)
             if library_db_path_obj.is_dir():
                 library_path = library_db_path_obj
@@ -200,7 +200,7 @@ class BookCoverService:
         cover_path.write_bytes(content)
 
         # Update database to mark book as having a cover
-        with self._book_service._book_repo.get_session() as calibre_session:  # type: ignore[attr-defined]  # noqa: SLF001
+        with self._book_service._book_repo.get_session() as calibre_session:  # noqa: SLF001
             book_stmt = select(Book).where(Book.id == book_id)
             calibre_book = calibre_session.exec(book_stmt).first()
             if calibre_book:

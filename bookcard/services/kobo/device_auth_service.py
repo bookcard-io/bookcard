@@ -53,7 +53,7 @@ class KoboDeviceAuthService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         proxy_service: KoboStoreProxyService,
     ) -> None:
         self._session = session

@@ -29,11 +29,6 @@ from typing import TYPE_CHECKING, ClassVar
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
-if TYPE_CHECKING:
-    from bookcard.services.library_scanning.pipeline.duplicate_detector import (
-        DuplicatePair,
-    )
-
 from bookcard.models.author_metadata import (
     AuthorAlternateName,
     AuthorLink,
@@ -46,6 +41,11 @@ from bookcard.models.author_metadata import (
     WorkSubject,
 )
 from bookcard.services.library_scanning.pipeline.context import PipelineContext
+
+if TYPE_CHECKING:
+    from bookcard.services.library_scanning.pipeline.duplicate_detector import (
+        DuplicatePair,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -490,7 +490,7 @@ class MergeFields(MergeCommand):
 
     def execute(
         self,
-        _context: PipelineContext,
+        context: PipelineContext,
         keep: AuthorMetadata,
         merge: AuthorMetadata,
     ) -> None:
@@ -498,13 +498,14 @@ class MergeFields(MergeCommand):
 
         Parameters
         ----------
-        _context : PipelineContext
+        context : PipelineContext
             Pipeline context with database session (unused).
         keep : AuthorMetadata
             Record to keep.
         merge : AuthorMetadata
             Record to merge from.
         """
+        del context
         # Merge text fields (prefer non-null)
         for field in self.FIELDS_TO_MERGE:
             if not getattr(keep, field) and getattr(merge, field):
@@ -560,6 +561,10 @@ class UpdateReferences(MergeCommand):
         merge : AuthorMetadata
             Record to merge from.
         """
+        if keep.id is None:
+            msg = "Cannot update mappings: keep author has no id"
+            raise ValueError(msg)
+
         mapping_stmt = select(AuthorMapping).where(
             AuthorMapping.author_metadata_id == merge.id
         )
@@ -598,7 +603,7 @@ class UpdateReferences(MergeCommand):
                 # Self-similarity after merge - delete it
                 context.session.delete(sim)
             else:
-                sim.author1_id = keep.id
+                sim.author1_id = keep.id  # ty:ignore[invalid-assignment]
 
         # Similarities where merge is author2
         similarity_stmt2 = select(AuthorSimilarity).where(
@@ -609,7 +614,7 @@ class UpdateReferences(MergeCommand):
                 # Self-similarity after merge - delete it
                 context.session.delete(sim)
             else:
-                sim.author2_id = keep.id
+                sim.author2_id = keep.id  # ty:ignore[invalid-assignment]
 
 
 class AuthorMerger:
@@ -712,12 +717,12 @@ class AuthorMerger:
             keep_works = context.session.exec(
                 select(AuthorWork).where(AuthorWork.author_metadata_id == keep.id)
             ).all()
-            keep_work_ids = [w.id for w in keep_works]
+            keep_work_ids = [w.id for w in keep_works]  # type: ignore[list-item]
         if merge.id is not None:
             merge_works = context.session.exec(
                 select(AuthorWork).where(AuthorWork.author_metadata_id == merge.id)
             ).all()
-            merge_work_ids = [w.id for w in merge_works]
+            merge_work_ids = [w.id for w in merge_works]  # type: ignore[list-item]
 
         logger.debug(
             "AuthorMerger.merge: before commands, keep.id=%s has %d works (ids=%s); "

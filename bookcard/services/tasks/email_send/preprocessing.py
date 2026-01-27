@@ -47,7 +47,7 @@ class PreprocessingContext:
     Bundles all parameters needed for preprocessing steps.
     """
 
-    session: Session  # type: ignore[type-arg]
+    session: Session
     library: Library
     book_with_rels: BookWithFullRelations
     book_id: int

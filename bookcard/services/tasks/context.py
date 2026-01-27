@@ -81,7 +81,7 @@ class WorkerContext:
         Callback function for enqueuing new tasks.
     """
 
-    session: Session  # type: ignore[type-arg]
+    session: Session
     update_progress: ProgressCallback
     task_service: TaskServiceProtocol
 

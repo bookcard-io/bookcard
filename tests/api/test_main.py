@@ -179,8 +179,8 @@ def test_create_app_lifespan_with_alembic_enabled() -> None:
         app.state.task_runner = None
 
         async def run_lifespan() -> None:
-            if app.router.lifespan_context:  # type: ignore[attr-defined]
-                async with app.router.lifespan_context(app):  # type: ignore[attr-defined]
+            if app.router.lifespan_context:
+                async with app.router.lifespan_context(app):
                     pass
 
         asyncio.run(run_lifespan())
@@ -230,8 +230,8 @@ def test_create_app_lifespan_without_alembic() -> None:
         app.state.task_runner = None
 
         async def run_lifespan() -> None:
-            if app.router.lifespan_context:  # type: ignore[attr-defined]
-                async with app.router.lifespan_context(app):  # type: ignore[attr-defined]
+            if app.router.lifespan_context:
+                async with app.router.lifespan_context(app):
                     pass
 
         # Should not raise any errors
@@ -1373,8 +1373,8 @@ def test_lifespan_cancelled_error() -> None:
         app.state.task_runner = None
 
         async def run_lifespan_with_cancel() -> None:
-            if app.router.lifespan_context:  # type: ignore[attr-defined]
-                async with app.router.lifespan_context(app):  # type: ignore[attr-defined]
+            if app.router.lifespan_context:
+                async with app.router.lifespan_context(app):
                     # Cancel the lifespan task to trigger CancelledError handling
                     raise asyncio.CancelledError
 

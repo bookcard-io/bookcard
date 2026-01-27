@@ -38,7 +38,7 @@ class BookReadModelService:
         Active SQLModel session used to build user-specific read models.
     """
 
-    def __init__(self, session: Session) -> None:  # type: ignore[type-arg]
+    def __init__(self, session: Session) -> None:
         """Initialize the read-model service.
 
         Parameters

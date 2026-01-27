@@ -90,7 +90,7 @@ class DownloadClientRepository(Repository[DownloadClientDefinition]):
         stmt = (
             select(DownloadClientDefinition)
             .where(DownloadClientDefinition.enabled)
-            .order_by(DownloadClientDefinition.priority, DownloadClientDefinition.id)
+            .order_by(DownloadClientDefinition.priority, DownloadClientDefinition.id)  # type: ignore[invalid-argument-type]
         )
         return list(self._session.exec(stmt).all())
 
@@ -132,7 +132,7 @@ class DownloadClientService:
 
     def __init__(
         self,
-        session: Session,  # type: ignore[type-arg]
+        session: Session,
         repository: DownloadClientRepository | None = None,
         encryptor: DataEncryptor | None = None,
     ) -> None:
@@ -540,8 +540,9 @@ class DownloadClientService:
             # to be TrackingDownloadClient which has get_items()
             tracking_client = cast("TrackingDownloadClient", client_instance)
             items = tracking_client.get_items()
-            # Convert TypedDict to regular dict for JSON serialization
-            return [dict(item) for item in items]
+            # `DownloadItem` is a TypedDict but runtime values are plain dicts.
+            # Cast for callers expecting `dict[str, object]`.
+            return [cast("dict[str, object]", item) for item in items]
         except (ValueError, TypeError, PVRProviderError):
             raise
         except Exception as e:

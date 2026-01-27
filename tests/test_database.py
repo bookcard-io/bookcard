@@ -94,7 +94,7 @@ class DummySession:
 
 def test_get_session_commit_and_close(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(db, "Session", DummySession)
-    with db.get_session(object()) as session:
+    with db.get_session(object()) as session:  # ty:ignore[invalid-argument-type]
         assert isinstance(session, DummySession)
     assert session.committed is True
     assert session.closed is True
@@ -103,7 +103,7 @@ def test_get_session_commit_and_close(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_get_session_rollback_on_exception(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(db, "Session", DummySession)
-    with pytest.raises(RuntimeError), db.get_session(object()) as session:
+    with pytest.raises(RuntimeError), db.get_session(object()) as session:  # ty:ignore[invalid-argument-type]
         raise RuntimeError("boom")
     assert session.rolled is True
     assert session.closed is True
@@ -138,7 +138,7 @@ class DummySessionWithLockError:
 def test_get_session_retry_on_lock_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that get_session retries on database lock errors (covers lines 130-141)."""
     monkeypatch.setattr(db, "Session", DummySessionWithLockError)
-    with db.get_session(object()) as session:
+    with db.get_session(object()) as session:  # ty:ignore[invalid-argument-type]
         assert isinstance(session, DummySessionWithLockError)
     # Should have retried and eventually succeeded
     assert session.committed is True
@@ -177,12 +177,12 @@ def test_get_session_max_retries_exceeded(monkeypatch: pytest.MonkeyPatch) -> No
 
     with (
         pytest.raises(OperationalError),
-        db.get_session(object(), max_retries=2) as session,
+        db.get_session(object(), max_retries=2) as session,  # ty:ignore[invalid-argument-type]
     ):
         pass
     # Should have tried max_retries times
-    assert session.commit_count == 2
-    assert session.closed is True
+    assert session.commit_count == 2  # ty:ignore[unresolved-attribute]
+    assert session.closed is True  # ty:ignore[unresolved-attribute]
 
 
 class DummySessionWithOtherError:
@@ -211,10 +211,10 @@ def test_get_session_no_retry_on_other_error(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(db, "Session", DummySessionWithOtherError)
     from sqlalchemy.exc import OperationalError
 
-    with pytest.raises(OperationalError), db.get_session(object()) as session:
+    with pytest.raises(OperationalError), db.get_session(object()) as session:  # type: ignore[arg-type]
         pass
-    assert session.rolled is True
-    assert session.closed is True
+    assert session.rolled is True  # type: ignore[attr-defined]
+    assert session.closed is True  # type: ignore[attr-defined]
 
 
 def test_create_db_engine_sqlite_pragma_setup(tmp_path: Path) -> None:

@@ -715,7 +715,7 @@ def test_get_thumbnail_path_with_library_root() -> None:
         calibre_db_path="/tmp/test_library",
         calibre_db_file="metadata.db",
     )
-    library.library_root = "/custom/library/root"  # type: ignore[attr-defined]
+    library.library_root = "/custom/library/root"
 
     book = Book(
         id=123,
@@ -747,7 +747,7 @@ def test_add_book_with_library_root() -> None:
         calibre_db_path="/path/to/library",
         calibre_db_file="metadata.db",
     )
-    library.library_root = "/custom/library/root"  # type: ignore[attr-defined]
+    library.library_root = "/custom/library/root"
 
     with patch(
         "bookcard.services.book_service.CalibreBookRepository"
@@ -806,7 +806,7 @@ def test_delete_book_with_library_root() -> None:
         calibre_db_path="/path/to/library",
         calibre_db_file="metadata.db",
     )
-    library.library_root = "/custom/library/root"  # type: ignore[attr-defined]
+    library.library_root = "/custom/library/root"
 
     with patch(
         "bookcard.services.book_service.CalibreBookRepository"
@@ -1242,7 +1242,7 @@ def test_send_book_to_device_book_missing_id(
     email_service: MagicMock,
 ) -> None:
     """Test send_book_to_device raises ValueError when book missing id (covers lines 564-566)."""
-    book.id = None  # type: ignore[assignment]
+    book.id = None
     book_with_rels = BookWithFullRelations(
         book=book,
         authors=[],
@@ -1664,7 +1664,7 @@ def test_send_book_to_email_book_missing_id(
     email_service: MagicMock,
 ) -> None:
     """Test send_book_to_email raises ValueError when book missing id (covers lines 790-793)."""
-    book.id = None  # type: ignore[assignment]
+    book.id = None
     book_with_rels = BookWithFullRelations(
         book=book,
         authors=[],
@@ -1972,7 +1972,7 @@ def test_get_book_file_path_with_library_root(
     tmp_path: Path,
 ) -> None:
     """Test _get_book_file_path with library_root (covers lines 939-941)."""
-    library.library_root = str(tmp_path)  # type: ignore[attr-defined]
+    library.library_root = str(tmp_path)
     format_data = {"format": "EPUB", "name": "test.epub", "size": 1000}
 
     with (
@@ -2054,7 +2054,7 @@ def test_get_book_file_path_primary_path_exists(
     tmp_path: Path,
 ) -> None:
     """Test _get_book_file_path finds file at primary path (covers lines 955-957)."""
-    library.library_root = str(tmp_path)  # type: ignore[attr-defined]
+    library.library_root = str(tmp_path)
     format_data = {"format": "EPUB", "name": "test.epub", "size": 1000}
 
     with (
@@ -2080,7 +2080,7 @@ def test_get_book_file_path_alternative_path_exists(
     tmp_path: Path,
 ) -> None:
     """Test _get_book_file_path finds file at alternative path (covers lines 959-966)."""
-    library.library_root = str(tmp_path)  # type: ignore[attr-defined]
+    library.library_root = str(tmp_path)
     format_data = {"format": "EPUB", "name": "test.epub", "size": 1000}
 
     with (
@@ -2106,7 +2106,7 @@ def test_get_book_file_path_directory_search(
     tmp_path: Path,
 ) -> None:
     """Test _get_book_file_path finds file by directory search (covers lines 968-977)."""
-    library.library_root = str(tmp_path)  # type: ignore[attr-defined]
+    library.library_root = str(tmp_path)
     format_data = {"format": "EPUB", "name": "test.epub", "size": 1000}
 
     with (
@@ -2133,7 +2133,7 @@ def test_get_book_file_path_not_found(
     tmp_path: Path,
 ) -> None:
     """Test _get_book_file_path raises ValueError when file not found (covers lines 979-981)."""
-    library.library_root = str(tmp_path)  # type: ignore[attr-defined]
+    library.library_root = str(tmp_path)
     format_data = {"format": "EPUB", "name": "test.epub", "size": 1000}
 
     with (
@@ -2491,7 +2491,7 @@ def test_ensure_epub_for_kindle_no_library(library: Library, book: Book) -> None
         mock_lib_service_class.return_value = mock_lib_service
 
         service = BookService(library)
-        service._session = DummySession()  # type: ignore[assignment]
+        service._session = DummySession()
 
         with pytest.raises(ValueError, match="No active library configured"):
             service._ensure_epub_for_kindle(1, book_with_rels, device)
@@ -2574,7 +2574,7 @@ def test_ensure_epub_for_kindle_conversion_success(
         mock_create_conversion.return_value = mock_conv_service
 
         service = BookService(library)
-        service._session = DummySession()  # type: ignore[assignment]
+        service._session = DummySession()
         service.get_book_full = MagicMock(return_value=refreshed_book)  # type: ignore[method-assign]
 
         result = service._ensure_epub_for_kindle(1, book_with_rels, device)
@@ -2649,7 +2649,7 @@ def test_ensure_epub_for_kindle_conversion_failed(library: Library, book: Book) 
         mock_create_conversion.return_value = mock_conv_service
 
         service = BookService(library)
-        service._session = DummySession()  # type: ignore[assignment]
+        service._session = DummySession()
 
         with pytest.raises(RuntimeError, match="Failed to convert to EPUB"):
             service._ensure_epub_for_kindle(1, book_with_rels, device)
@@ -2706,7 +2706,7 @@ def test_ensure_epub_for_kindle_exception_handling(
         mock_create_conversion.return_value = mock_conv_service
 
         service = BookService(library)
-        service._session = DummySession()  # type: ignore[assignment]
+        service._session = DummySession()
 
         with pytest.raises(ValueError, match="Conversion error"):
             service._ensure_epub_for_kindle(1, book_with_rels, device)
@@ -2787,7 +2787,7 @@ def test_ensure_epub_for_kindle_refresh_no_epub(library: Library, book: Book) ->
         mock_create_conversion.return_value = mock_conv_service
 
         service = BookService(library)
-        service._session = DummySession()  # type: ignore[assignment]
+        service._session = DummySession()
         service.get_book_full = MagicMock(return_value=refreshed_book)  # type: ignore[method-assign]
 
         result = service._ensure_epub_for_kindle(1, book_with_rels, device)
@@ -2854,7 +2854,7 @@ def test_ensure_epub_for_kindle_refresh_none(library: Library, book: Book) -> No
         mock_create_conversion.return_value = mock_conv_service
 
         service = BookService(library)
-        service._session = DummySession()  # type: ignore[assignment]
+        service._session = DummySession()
         service.get_book_full = MagicMock(return_value=None)  # type: ignore[method-assign]
 
         result = service._ensure_epub_for_kindle(1, book_with_rels, device)
@@ -2888,7 +2888,7 @@ def test_ensure_epub_for_kindle_no_user_id(library: Library, book: Book) -> None
 
     device = EReaderDevice(
         id=1,
-        user_id=None,  # type: ignore[arg-type]
+        user_id=None,
         device_name="Kindle",
         device_type="kindle",
         formats=[EBookFormat.EPUB],
@@ -2921,7 +2921,7 @@ def test_ensure_epub_for_kindle_no_user_id(library: Library, book: Book) -> None
         mock_create_conversion.return_value = mock_conv_service
 
         service = BookService(library)
-        service._session = DummySession()  # type: ignore[assignment]
+        service._session = DummySession()
         service.get_book_full = MagicMock(return_value=None)  # type: ignore[method-assign]
 
         result = service._ensure_epub_for_kindle(1, book_with_rels, device)

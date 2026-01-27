@@ -342,7 +342,7 @@ class OpenLibraryDumpDataSource(BaseDataSource):
             logger.exception("Unexpected error getting author works for %s", author_key)
             return []
 
-    def _search_by_isbn(self, session: Session, isbn: str) -> list[BookData]:  # type: ignore[type-arg]
+    def _search_by_isbn(self, session: Session, isbn: str) -> list[BookData]:
         """Search for books by ISBN.
 
         Parameters
@@ -365,7 +365,7 @@ class OpenLibraryDumpDataSource(BaseDataSource):
         stmt = select(OpenLibraryEditionIsbn.edition_key).where(
             OpenLibraryEditionIsbn.isbn == normalized_isbn
         )
-        edition_keys = [row.edition_key for row in session.exec(stmt).all()]
+        edition_keys = [row.edition_key for row in session.exec(stmt).all()]  # ty:ignore[unresolved-attribute]
 
         if not edition_keys:
             return results
@@ -407,7 +407,7 @@ class OpenLibraryDumpDataSource(BaseDataSource):
 
         return results[:20]
 
-    def _search_by_title(self, session: Session, title: str) -> list[BookData]:  # type: ignore[type-arg]
+    def _search_by_title(self, session: Session, title: str) -> list[BookData]:
         """Search for books by title using trigram similarity.
 
         Parameters
@@ -429,7 +429,7 @@ class OpenLibraryDumpDataSource(BaseDataSource):
         work_data_col = func.cast(OpenLibraryWork.data, JSONB)  # type: ignore[arg-type]
         title_field = func.cast(
             work_data_col.op("->>")("title"),
-            Text(),  # type: ignore[attr-defined]
+            Text(),
         )
 
         stmt = (

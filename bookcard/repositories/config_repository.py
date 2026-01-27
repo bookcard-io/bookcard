@@ -55,7 +55,7 @@ class LibraryRepository(Repository[Library]):
         list[Library]
             All libraries.
         """
-        stmt = select(Library).order_by(Library.created_at)
+        stmt = select(Library).order_by(Library.created_at)  # type: ignore[invalid-argument-type]
         return list(self._session.exec(stmt).all())
 
     def find_by_path(self, calibre_db_path: str) -> Library | None:

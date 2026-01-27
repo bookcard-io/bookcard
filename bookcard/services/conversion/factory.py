@@ -22,7 +22,7 @@ with all dependencies properly configured.
 import logging
 from typing import TYPE_CHECKING
 
-from sqlmodel import Session  # type: ignore[type-arg]
+from sqlmodel import Session
 
 from bookcard.models.config import Library
 from bookcard.repositories import CalibreBookRepository
@@ -54,7 +54,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_conversion_service(
-    session: Session,  # type: ignore[type-arg]
+    session: Session,
     library: Library,
     backup_service: FileBackupService | None = None,
 ) -> ConversionService:

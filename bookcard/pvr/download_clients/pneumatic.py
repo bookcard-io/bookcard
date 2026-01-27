@@ -23,6 +23,7 @@ import logging
 import tempfile
 from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import Any
 
 import httpx
 
@@ -107,7 +108,7 @@ class PneumaticClient(BaseDownloadClient):
         super().__init__(
             settings, file_fetcher, url_router, http_client_factory, enabled
         )
-        self.settings: PneumaticSettings = settings  # type: ignore[assignment]
+        self.settings: PneumaticSettings = settings
 
         # Ensure directories exist
         Path(self.settings.nzb_folder).mkdir(parents=True, exist_ok=True)
@@ -122,8 +123,9 @@ class PneumaticClient(BaseDownloadClient):
         self,
         download_url: str,
         title: str | None = None,
-        category: str | None = None,  # noqa: ARG002
-        download_path: str | None = None,  # noqa: ARG002
+        category: str | None = None,
+        download_path: str | None = None,
+        **kwargs: Any,  # noqa: ANN401
     ) -> str:
         """Add a download to Pneumatic.
 
@@ -137,6 +139,8 @@ class PneumaticClient(BaseDownloadClient):
             Optional category (not used).
         download_path : str | None
             Optional download path (not used).
+        **kwargs : Any
+            Additional metadata/options (unused).
 
         Returns
         -------
@@ -151,6 +155,8 @@ class PneumaticClient(BaseDownloadClient):
         if not self.is_enabled():
             msg = "Pneumatic client is disabled"
             raise PVRProviderError(msg)
+
+        del category, download_path, kwargs
 
         def _raise_invalid_url_error() -> None:
             """Raise error for invalid download URL."""
@@ -194,7 +200,9 @@ class PneumaticClient(BaseDownloadClient):
             # Return ID based on filename and modification time
             return f"pneumatic_{strm_path.name}_{int(strm_path.stat().st_mtime)}"
 
-        except Exception as e:
+        except PVRProviderError:
+            raise
+        except (httpx.HTTPError, OSError, ValueError, TypeError) as e:
             msg = f"Failed to add download to Pneumatic: {e}"
             raise PVRProviderError(msg) from e
 

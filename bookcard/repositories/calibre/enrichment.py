@@ -111,7 +111,7 @@ class BookEnrichmentService:
     @cache
     def _table(model: type[SQLModel]) -> Table:
         """Return the SQLAlchemy table for a SQLModel model."""
-        return SQLModel.metadata.tables[model.__tablename__]
+        return SQLModel.metadata.tables[model.__tablename__]  # ty:ignore[invalid-argument-type]
 
     @staticmethod
     @cache

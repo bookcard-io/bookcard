@@ -90,7 +90,7 @@ class OpenLibraryDumpDownloadTask(BaseTask):
     def _download_file(
         self,
         url: str,
-        update_progress: Callable[..., None],  # type: ignore[type-arg]
+        update_progress: Callable[..., None],
         file_index: int,
         total_files: int,
     ) -> str:

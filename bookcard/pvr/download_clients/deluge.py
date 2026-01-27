@@ -509,7 +509,7 @@ class DelugeClient(TrackingDownloadClient):
         super().__init__(
             settings, file_fetcher, url_router, http_client_factory, enabled
         )
-        self.settings: DelugeSettings = settings  # type: ignore[assignment]
+        self.settings: DelugeSettings = settings
         self._proxy = DelugeProxy(self.settings)
         self._status_mapper = StatusMapper(
             {

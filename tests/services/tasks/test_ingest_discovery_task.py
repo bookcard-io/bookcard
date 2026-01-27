@@ -194,7 +194,7 @@ def test_run_with_worker_context(
         task.run(worker_context)
 
         # Verify progress was updated
-        assert worker_context.update_progress.called
+        assert worker_context.update_progress.called  # type: ignore[attr-defined]
 
 
 def test_run_ingest_disabled(
@@ -215,7 +215,7 @@ def test_run_ingest_disabled(
         task.run(worker_context)
 
         # Verify progress updated to 1.0 with disabled message
-        worker_context.update_progress.assert_any_call(
+        worker_context.update_progress.assert_any_call(  # type: ignore[attr-defined]
             1.0, {"message": "Ingest disabled"}
         )
 
@@ -239,7 +239,7 @@ def test_run_ingest_dir_not_exists(
         task.run(worker_context)
 
         # Verify progress updated with error
-        worker_context.update_progress.assert_any_call(
+        worker_context.update_progress.assert_any_call(  # type: ignore[attr-defined]
             1.0, {"error": "Ingest directory not found"}
         )
 
@@ -273,7 +273,7 @@ def test_run_no_files_found(
         task.run(worker_context)
 
         # Verify progress updated with no files message
-        worker_context.update_progress.assert_any_call(
+        worker_context.update_progress.assert_any_call(  # type: ignore[attr-defined]
             1.0, {"message": "No files found"}
         )
 
@@ -339,7 +339,7 @@ def test_run_successful_discovery(
         )
 
         # Verify final progress update
-        worker_context.update_progress.assert_any_call(1.0, {"history_ids": [123]})
+        worker_context.update_progress.assert_any_call(1.0, {"history_ids": [123]})  # type: ignore[attr-defined]
 
 
 def test_run_without_enqueue_task(
@@ -456,7 +456,7 @@ def test_run_file_group_processing_exception(
         task.run(worker_context)
 
         # Verify progress was still updated to completion
-        worker_context.update_progress.assert_any_call(1.0, {"history_ids": []})
+        worker_context.update_progress.assert_any_call(1.0, {"history_ids": []})  # type: ignore[attr-defined]
 
 
 def test_run_general_exception(
@@ -544,7 +544,7 @@ def test_run_multiple_file_groups(
         assert worker_context.enqueue_task.call_count == 2  # type: ignore[valid-type]
 
         # Verify final progress with both history IDs
-        worker_context.update_progress.assert_any_call(1.0, {"history_ids": [123, 456]})
+        worker_context.update_progress.assert_any_call(1.0, {"history_ids": [123, 456]})  # type: ignore[attr-defined]
 
 
 def test_run_progress_updates(
@@ -595,7 +595,7 @@ def test_run_progress_updates(
         task.run(worker_context)
 
         # Verify progress updates at each stage
-        calls = worker_context.update_progress.call_args_list
+        calls = worker_context.update_progress.call_args_list  # type: ignore[attr-defined]
         assert calls[0][0][0] == 0.1  # Starting discovery
         assert calls[1][0][0] == 0.2  # Discovering files
         assert calls[2][0][0] == 0.4  # Extracting metadata
