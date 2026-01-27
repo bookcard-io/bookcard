@@ -150,52 +150,11 @@ ENV PATH="/app/calibre:${PATH}"
 # Install uv for KCC
 RUN pip install --no-cache-dir uv
 
-ARG KCC_VERSION=v9.4.3
+ARG KCC_VERSION=master
 ENV KCC_VERSION=${KCC_VERSION}
 
 RUN git clone --depth 1 --branch ${KCC_VERSION} https://github.com/ciromattia/kcc.git /opt/kcc || \
     git clone --depth 1 https://github.com/ciromattia/kcc.git /opt/kcc
-
-# Patch KCC extraction on Linux:
-# Some CBR/RAR archives use compression methods that `7z` can list but cannot extract
-# (KCC then raises "Failed to extract archive"). `bsdtar` (libarchive) can extract these.
-# We inject `bsdtar` into KCC's extraction command list so it is tried first after the
-# existing `.reverse()` call.
-RUN python3 - <<'PY'
-from __future__ import annotations
-
-from pathlib import Path
-
-path = Path("/opt/kcc/kindlecomicconverter/comicarchive.py")
-text = path.read_text(encoding="utf-8")
-
-# Idempotency: skip if already patched.
-if "bsdtar" in text:
-    raise SystemExit(0)
-
-lines = text.splitlines()
-
-def _find_index(start: int, predicate) -> int:
-    for i in range(start, len(lines)):
-        if predicate(lines[i]):
-            return i
-    raise RuntimeError("Failed to locate patch insertion point in comicarchive.py")
-
-extract_def = _find_index(0, lambda l: l.startswith("    def extract(self, targetdir):"))
-list_start = _find_index(extract_def, lambda l: "extraction_commands = [" in l)
-list_end = _find_index(list_start + 1, lambda l: l.strip() == "]")
-
-# Insert as the last element in the list literal so that after `extraction_commands.reverse()`
-# it will be attempted first.
-bsdtar_cmd = (
-    "            ['bsdtar', '--exclude', '__MACOSX', '--exclude', '.DS_Store', "
-    "'--exclude', 'thumbs.db', '--exclude', 'Thumbs.db', '-xf', self.basename, "
-    "'-C', targetdir],"
-)
-lines.insert(list_end, bsdtar_cmd)
-
-path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-PY
 
 RUN uv venv /opt/kcc/venv && \
     . /opt/kcc/venv/bin/activate && \

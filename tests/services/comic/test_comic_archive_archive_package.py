@@ -589,6 +589,8 @@ def test_cbr_handler_success_and_error_branches(
 
     import rarfile
 
+    monkeypatch.setattr(rarfile, "tool_setup", lambda *args, **kwargs: None)
+
     class FakeRarFile:
         def __init__(self, _path: Path, _mode: str) -> None:
             self._names = ["page2.png", "page1.jpg", "folder/"]
