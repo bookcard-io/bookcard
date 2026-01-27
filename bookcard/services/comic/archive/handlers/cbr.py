@@ -24,6 +24,7 @@ import rarfile
 from bookcard.services.comic.archive.exceptions import ArchiveReadError
 from bookcard.services.comic.archive.handlers.base import ArchiveHandler
 from bookcard.services.comic.archive.models import ArchiveMetadata, PageDetails
+from bookcard.services.comic.archive.rarfile_backend import prefer_bsdtar_on_linux
 from bookcard.services.comic.archive.utils import (
     is_image_entry,
     natural_sort_key,
@@ -70,6 +71,7 @@ class CBRHandler(ArchiveHandler):
         _ = metadata  # required by interface; unused for CBR
         validate_archive_entry_name(filename)
         try:
+            prefer_bsdtar_on_linux(rarfile)
             with rarfile.RarFile(file_path, "r") as rf:
                 return rf.read(filename)
         except (rarfile.Error, OSError, KeyError) as e:
@@ -87,6 +89,8 @@ class CBRHandler(ArchiveHandler):
         """Get per-page sizes and optional dimensions for a CBR."""
         details: dict[str, PageDetails] = {}
         try:
+            if include_dimensions:
+                prefer_bsdtar_on_linux(rarfile)
             with rarfile.RarFile(file_path, "r") as rf:
                 for name in metadata.page_filenames:
                     validate_archive_entry_name(name)
