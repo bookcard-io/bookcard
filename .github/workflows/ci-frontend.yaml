@@ -38,14 +38,18 @@ jobs:
   lockfile-guard:
     name: Guard against unintended lockfile rewrites
     needs: changes
-    # Dependabot security updates may legitimately change `web/package-lock.json`
-    # without touching `web/package.json` (transitive vulnerability fixes).
-    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Fail if lockfile changed without manifest
         shell: bash
         run: |
+          # Dependabot security updates may legitimately change `web/package-lock.json`
+          # without touching `web/package.json` (transitive vulnerability fixes).
+          if [ "${{ github.actor }}" = "dependabot[bot]" ]; then
+            echo "Dependabot PR detected; allowing lockfile-only updates."
+            exit 0
+          fi
+
           lockfile="${{ needs.changes.outputs.frontend_lockfile }}"
           manifest="${{ needs.changes.outputs.frontend_manifest }}"
 
