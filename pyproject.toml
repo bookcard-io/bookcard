@@ -27,8 +27,8 @@ dependencies = [
     "sqlalchemy>=2.0.46",
     "sqlmodel>=0.0.31",
     "uvicorn[standard]>=0.38.0",
-    "python-multipart>=0.0.20",
-    "pypdf>=6.6.0",
+    "python-multipart>=0.0.22",
+    "pypdf>=6.6.2",
     "py-ezmail>=2.3.5",
     "pyyaml>=6.0.3",
     "defusedxml>=0.7.1",
@@ -72,6 +72,7 @@ dev = [
     "pytest-xdist>=3.8.0",
     "ruff>=0.14.14",
     "ty>=0.0.13",
+    "wheel>=0.46.2",
 
     # via pre-commit
     "filelock>=3.20.3",
