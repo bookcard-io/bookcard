@@ -21,6 +21,7 @@ following the ConversionStrategy protocol.
 
 import logging
 import subprocess  # noqa: S404
+from collections.abc import Callable
 from contextlib import suppress
 from pathlib import Path
 from typing import NoReturn
@@ -186,37 +187,20 @@ class KCCConversionStrategy:
                 cwd=str(input_path.parent),
             )
 
-            if result.returncode != 0:
-                error_msg = (
-                    result.stderr or result.stdout or "Unknown KCC conversion error"
-                )
-                msg = f"KCC conversion failed: {error_msg}"
-                _raise_conversion_error(msg)
+            self._raise_if_kcc_failed(result, _raise_conversion_error)
 
-            # KCC outputs to the same directory as input by default
-            # We need to find the output file and move it to the desired location
+            # KCC writes into the output directory specified via `-o`.
             expected_output = self._find_kcc_output(
                 input_path, target_format, output_path
             )
-
-            if not expected_output.exists():
-                msg = "KCC conversion completed but output file not found"
-                _raise_conversion_error(msg)
-
-            # Move to final location if different
-            if expected_output != output_path:
-                from shutil import move
-
-                move(str(expected_output), str(output_path))
-                logger.debug("KCC converted file moved to: %s", output_path)
-            else:
-                logger.debug("KCC converted file saved to: %s", output_path)
+            self._ensure_output_file_is_valid(expected_output, _raise_conversion_error)
+            self._move_output_to_target(expected_output, output_path)
         except subprocess.TimeoutExpired:
             msg = f"KCC conversion timed out after {self._timeout} seconds"
             raise ConversionError(msg) from None
         except ConversionError:
             raise
-        except Exception as e:
+        except (FileNotFoundError, OSError, ValueError, RuntimeError) as e:
             # Clean up output file on error
             with suppress(OSError):
                 if output_path.exists():
@@ -225,6 +209,44 @@ class KCCConversionStrategy:
             raise ConversionError(msg) from e
         else:
             return output_path
+
+    def _raise_if_kcc_failed(
+        self,
+        result: subprocess.CompletedProcess[str],
+        raise_error: Callable[[str], NoReturn],
+    ) -> None:
+        """Raise ConversionError when KCC exits non-zero."""
+        if result.returncode == 0:
+            return
+        error_msg = result.stderr or result.stdout or "Unknown KCC conversion error"
+        raise_error(f"KCC conversion failed: {error_msg}")
+
+    def _ensure_output_file_is_valid(
+        self, path: Path, raise_error: Callable[[str], NoReturn]
+    ) -> None:
+        """Ensure the output file exists and is non-empty."""
+        if not path.exists():
+            raise_error("KCC conversion completed but output file not found")
+        if path.stat().st_size == 0:
+            raise_error(
+                f"KCC conversion completed but output file is empty (path={path})"
+            )
+
+    def _move_output_to_target(self, src: Path, dst: Path) -> None:
+        """Move the output file to the requested destination."""
+        if src == dst:
+            logger.debug("KCC converted file saved to: %s", dst)
+            return
+
+        from shutil import move
+
+        # ConversionService uses NamedTemporaryFile, so dst may already exist (0 bytes).
+        with suppress(OSError):
+            if dst.exists():
+                dst.unlink()
+
+        move(str(src), str(dst))
+        logger.debug("KCC converted file moved to: %s", dst)
 
     def _get_python_command(self) -> str:
         """Get Python command to use for running KCC.
@@ -426,8 +448,8 @@ class KCCConversionStrategy:
         Path
             Path to the output file created by KCC.
         """
-        # KCC outputs to input directory with format-specific naming
         input_dir = input_path.parent
+        output_dir = output_path.parent
         input_stem = input_path.stem
 
         # Map format to extension
@@ -449,10 +471,26 @@ class KCCConversionStrategy:
             f"{input_path.name}.{ext}",
         ]
 
-        for name in possible_names:
-            candidate = input_dir / name
-            if candidate.exists():
-                return candidate
+        candidate_dirs = (
+            [output_dir] if output_dir == input_dir else [output_dir, input_dir]
+        )
+
+        candidates: list[Path] = []
+        for d in candidate_dirs:
+            candidates.extend(d / name for name in possible_names)
+            candidates.extend(d.glob(f"*.{ext}"))
+
+        scored: list[tuple[int, float, Path]] = []
+        for p in candidates:
+            if not p.is_file():
+                continue
+            with suppress(OSError):
+                st = p.stat()
+                scored.append((st.st_size, st.st_mtime, p))
+
+        if scored:
+            # Prefer larger files; tie-breaker by modification time.
+            return max(scored, key=lambda t: (t[0], t[1]))[2]
 
         # If not found, return the expected output path
         # (KCC might have used a different naming scheme)

@@ -370,6 +370,39 @@ class TestConvert:
             assert output_path.exists()
             mock_run.assert_called_once()
 
+    def test_convert_success_output_written_to_output_dir(
+        self,
+        strategy: KCCConversionStrategy,
+        input_path: Path,
+        output_path: Path,
+    ) -> None:
+        """Test successful conversion when KCC writes into output directory.
+
+        This matches how BookCard calls KCC: ConversionService passes a pre-created
+        temp file path, and KCC writes the real output into `output_path.parent` via `-o`.
+        """
+        with patch("subprocess.run") as mock_run:
+            mock_result = MagicMock()
+            mock_result.returncode = 0
+            mock_run.return_value = mock_result
+
+            # Simulate ConversionService temp file placeholder (0 bytes).
+            output_path.write_text("")
+
+            # Simulate KCC writing the real output into the output directory.
+            kcc_output = output_path.parent / f"{input_path.stem}.mobi"
+            kcc_output.write_text("converted content")
+
+            result = strategy.convert(
+                input_path=input_path,
+                target_format="MOBI",
+                output_path=output_path,
+            )
+
+            assert result == output_path
+            assert output_path.read_text() == "converted content"
+            mock_run.assert_called_once()
+
     def test_convert_success_output_already_at_target(
         self,
         strategy: KCCConversionStrategy,
@@ -562,7 +595,7 @@ class TestConvert:
         input_path: Path,
         output_path: Path,
     ) -> None:
-        """Test conversion with general exception (covers lines 219-225).
+        """Test conversion with unexpected OS/process error.
 
         Parameters
         ----------
@@ -574,7 +607,7 @@ class TestConvert:
             Output file path.
         """
         with patch("subprocess.run") as mock_run:
-            mock_run.side_effect = Exception("Unexpected error")
+            mock_run.side_effect = FileNotFoundError("python3 not found")
 
             with pytest.raises(ConversionError, match="KCC conversion failed"):
                 strategy.convert(
@@ -592,7 +625,7 @@ class TestConvert:
         input_path: Path,
         output_path: Path,
     ) -> None:
-        """Test conversion with general exception when output exists (covers lines 219-225).
+        """Test conversion with unexpected OS/process error when output exists.
 
         Parameters
         ----------
@@ -606,7 +639,7 @@ class TestConvert:
         output_path.write_text("partial output")
 
         with patch("subprocess.run") as mock_run:
-            mock_run.side_effect = Exception("Unexpected error")
+            mock_run.side_effect = FileNotFoundError("python3 not found")
 
             with pytest.raises(ConversionError):
                 strategy.convert(
