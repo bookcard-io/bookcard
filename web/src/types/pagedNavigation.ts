@@ -14,6 +14,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import type { ComicReadingDirection } from "./comicReader";
+import type { KeydownEventTarget } from "./eventTargets";
 
 /**
  * Common types for paged navigation inputs (keyboard / touch / click).
@@ -67,22 +68,4 @@ export interface PagedNavigationStrategy {
   ) => PagedNavigationAction;
 }
 
-/**
- * Interface for event targets capable of keydown subscription.
- *
- * Notes
- * -----
- * This avoids hard dependencies on `window`/`document` and improves testability.
- */
-export interface KeydownEventTarget {
-  addEventListener: (
-    type: "keydown",
-    listener: (e: KeyboardEvent) => void,
-    options?: AddEventListenerOptions | boolean,
-  ) => void;
-  removeEventListener: (
-    type: "keydown",
-    listener: (e: KeyboardEvent) => void,
-    options?: EventListenerOptions | boolean,
-  ) => void;
-}
+export type { KeydownEventTarget };

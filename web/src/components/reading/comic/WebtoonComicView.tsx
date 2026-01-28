@@ -15,7 +15,15 @@
 
 "use client";
 
-import { forwardRef } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from "react";
+import { useCurrentPageTracker } from "@/hooks/reading/comic/useCurrentPageTracker";
+import { useStepKeyboardNavigation } from "@/hooks/reading/comic/useStepKeyboardNavigation";
 import {
   BaseVirtualizedComicView,
   type BaseVirtualizedComicViewProps,
@@ -36,13 +44,20 @@ export interface WebtoonComicViewHandle extends VirtualizedComicViewHandle {}
 /**
  * Webtoon-style comic view with smooth infinite scrolling.
  *
- * Thin wrapper around BaseVirtualizedComicView with webtoon-specific defaults.
- * Displays comic pages in an infinite vertical scroll.
- * Pages are loaded as the user scrolls down.
+ * Mode wrapper around BaseVirtualizedComicView with webtoon-specific defaults.
+ *
+ * Notes
+ * -----
+ * This component orchestrates:
+ * - Mode defaults (webtoon config)
+ * - Page tracking (for input-driven navigation)
+ * - Keyboard navigation (vertical strategy)
+ *
+ * Rendering and virtualization are delegated to `BaseVirtualizedComicView`.
  *
  * This refactored version follows:
  * - DRY: Reuses BaseVirtualizedComicView instead of duplicating code
- * - SRP: Focuses solely on configuration, delegates rendering to base component
+ * - SRP: Focuses on orchestration, delegates rendering to base component
  * - OCP: Configurable via props, extensible without modification
  * - Consistency: Uses useVisiblePage hook like ContinuousComicView
  *
@@ -57,7 +72,43 @@ export const WebtoonComicView = forwardRef<
   WebtoonComicViewHandle,
   WebtoonComicViewProps
 >((props, ref) => {
-  const { config, initialPage, ...restProps } = props;
+  const { config, initialPage, onPageChange, totalPages, ...restProps } = props;
+  const innerRef = useRef<VirtualizedComicViewHandle | null>(null);
+
+  const initialPageClamped = Math.max(
+    1,
+    Math.min(initialPage ?? 1, totalPages),
+  );
+  const pageTracker = useCurrentPageTracker(initialPageClamped);
+
+  const handlePageChange = useMemo(
+    () => pageTracker.createPageChangeHandler(onPageChange),
+    [pageTracker, onPageChange],
+  );
+
+  const goToPage = useCallback((page: number) => {
+    innerRef.current?.scrollToPage(page, "smooth");
+  }, []);
+
+  useStepKeyboardNavigation({
+    readingDirection: "vertical",
+    totalPages,
+    getCurrentPage: pageTracker.getCurrentPage,
+    onGoToPage: goToPage,
+  });
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      jumpToPage: (page: number) => innerRef.current?.jumpToPage(page),
+      jumpToProgress: (progress: number) =>
+        innerRef.current?.jumpToProgress(progress),
+      scrollToPage: (page: number, behavior?: ScrollBehavior) =>
+        innerRef.current?.scrollToPage(page, behavior),
+    }),
+    [],
+  );
+
   const mergedConfig: VirtualizedViewConfig = {
     ...WEBTOON_CONFIG,
     ...config,
@@ -65,8 +116,10 @@ export const WebtoonComicView = forwardRef<
 
   return (
     <BaseVirtualizedComicView
-      ref={ref}
+      ref={innerRef}
       {...restProps}
+      totalPages={totalPages}
+      onPageChange={handlePageChange}
       config={mergedConfig}
       initialPage={initialPage}
     />

@@ -23,6 +23,7 @@ import {
   useLayoutEffect,
   useRef,
 } from "react";
+import { useSmoothScrollBehavior } from "@/hooks/reading/comic/useSmoothScrollBehavior";
 import { cn } from "@/libs/utils";
 import { ComicPage } from "./ComicPage";
 import { useVisiblePage } from "./hooks/useVisiblePage";
@@ -54,10 +55,60 @@ export interface BaseVirtualizedComicViewProps {
   initialPage?: number | null;
 }
 
-export interface VirtualizedComicViewHandle {
+/**
+ * Handle for instant page navigation (jump semantics).
+ *
+ * Notes
+ * -----
+ * This interface follows ISP by separating jump navigation from smooth scrolling.
+ * Consumers that only need instant navigation can depend on this interface.
+ */
+export interface JumpNavigationHandle {
+  /** Jump to a specific page instantly (1-based). */
   jumpToPage: (page: number) => void;
+  /** Jump to a specific progress instantly (0.0 to 1.0). */
   jumpToProgress: (progress: number) => void;
 }
+
+/**
+ * Handle for smooth page scrolling.
+ *
+ * Notes
+ * -----
+ * This interface follows ISP by separating smooth scrolling from jump navigation.
+ * Consumers that only need smooth scrolling can depend on this interface.
+ */
+export interface SmoothScrollHandle {
+  /**
+   * Scroll to a specific page.
+   *
+   * Notes
+   * -----
+   * This is intended for input-driven "page step" navigation (e.g. keyboard)
+   * where a smooth animation is desired to match natural scrolling.
+   *
+   * Parameters
+   * ----------
+   * page : int
+   *     Target page number (1-based).
+   * behavior : {"auto", "smooth"}, optional
+   *     Scroll behavior (default: "auto").
+   */
+  scrollToPage: (page: number, behavior?: ScrollBehavior) => void;
+}
+
+/**
+ * Complete handle for virtualized comic view navigation.
+ *
+ * Notes
+ * -----
+ * This interface combines jump and smooth scroll capabilities (ISP: composition
+ * of smaller interfaces). Consumers that need all navigation methods depend on
+ * this interface.
+ */
+export interface VirtualizedComicViewHandle
+  extends JumpNavigationHandle,
+    SmoothScrollHandle {}
 
 // ============================================================================
 // Default Configurations
@@ -120,6 +171,9 @@ export const BaseVirtualizedComicView = forwardRef<
     const hasJumpedToInitialPageRef = useRef(false);
     const prevZoomRef = useRef(1.0);
 
+    // Extract scroll behavior management to separate hook (SRP)
+    const smoothScrollController = useSmoothScrollBehavior();
+
     useLayoutEffect(() => {
       if (
         containerRef.current &&
@@ -174,8 +228,34 @@ export const BaseVirtualizedComicView = forwardRef<
           const target = Math.max(1, Math.min(page, totalPages));
           rowVirtualizer.scrollToIndex(target - 1, { align: "start" });
         },
+        scrollToPage: (page: number, behavior: ScrollBehavior = "auto") => {
+          const clamped = Math.max(1, Math.min(page, totalPages));
+          const scrollFn = () => {
+            rowVirtualizer.scrollToIndex(clamped - 1, { align: "start" });
+          };
+
+          if (behavior !== "smooth") {
+            scrollFn();
+            return;
+          }
+
+          const el = containerRef.current;
+          if (!el) {
+            scrollFn();
+            return;
+          }
+
+          // Delegate smooth scroll behavior management to extracted hook (SRP)
+          // Use CSS-driven smooth scrolling (no `behavior: "smooth"` passed to
+          // the virtualizer) to avoid warnings in dynamic-size mode.
+          smoothScrollController.scrollWithSmoothBehavior(el, scrollFn);
+        },
       }),
-      [totalPages, rowVirtualizer],
+      [
+        totalPages,
+        rowVirtualizer,
+        smoothScrollController.scrollWithSmoothBehavior,
+      ],
     );
 
     // Jump to initial page on mount when available
