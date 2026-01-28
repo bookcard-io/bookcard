@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { render, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { PagedComicView } from "./PagedComicView";
 
@@ -115,5 +115,86 @@ describe("PagedComicView", () => {
       // Should not be in spread until dimensions are re-learned.
       expect(page2El?.textContent).not.toContain("w-1/2");
     });
+  });
+
+  it("navigates with ArrowUp/ArrowDown in vertical mode", () => {
+    const onNext = vi.fn();
+    const onPrevious = vi.fn();
+
+    render(
+      <PagedComicView
+        {...baseProps}
+        readingDirection="vertical"
+        canGoNext={true}
+        canGoPrevious={true}
+        onNext={onNext}
+        onPrevious={onPrevious}
+      />,
+    );
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+    });
+    expect(onNext).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" }));
+    });
+    expect(onPrevious).toHaveBeenCalledTimes(1);
+  });
+
+  it("navigates with trackpad wheel at scroll edges in vertical mode", () => {
+    const onNext = vi.fn();
+    const onPrevious = vi.fn();
+
+    const { getByLabelText } = render(
+      <PagedComicView
+        {...baseProps}
+        readingDirection="vertical"
+        canGoNext={true}
+        canGoPrevious={true}
+        onNext={onNext}
+        onPrevious={onPrevious}
+      />,
+    );
+
+    const viewer = getByLabelText(/Comic page viewer/i) as HTMLElement;
+
+    // Simulate being at the top edge.
+    Object.defineProperty(viewer, "scrollTop", {
+      value: 0,
+      configurable: true,
+    });
+    Object.defineProperty(viewer, "scrollHeight", {
+      value: 2000,
+      configurable: true,
+    });
+    Object.defineProperty(viewer, "clientHeight", {
+      value: 1000,
+      configurable: true,
+    });
+    Object.defineProperty(viewer, "scrollLeft", {
+      value: 0,
+      configurable: true,
+    });
+    Object.defineProperty(viewer, "scrollWidth", {
+      value: 1000,
+      configurable: true,
+    });
+    Object.defineProperty(viewer, "clientWidth", {
+      value: 1000,
+      configurable: true,
+    });
+
+    fireEvent.wheel(viewer, { deltaY: -120, deltaX: 0 });
+    expect(onPrevious).toHaveBeenCalledTimes(1);
+
+    // Simulate being at the bottom edge.
+    Object.defineProperty(viewer, "scrollTop", {
+      value: 1000,
+      configurable: true,
+    });
+    fireEvent.wheel(viewer, { deltaY: 120, deltaX: 0 });
+    expect(onNext).toHaveBeenCalledTimes(1);
   });
 });

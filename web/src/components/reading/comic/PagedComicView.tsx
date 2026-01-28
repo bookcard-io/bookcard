@@ -17,7 +17,6 @@
 
 import { useCallback, useMemo, useRef } from "react";
 import { ComicPage } from "@/components/reading/comic/ComicPage";
-import { usePagedNavigation } from "@/components/reading/comic/hooks/usePagedNavigation";
 import { usePagedPageLoading } from "@/components/reading/comic/hooks/usePagedPageLoading";
 import type { GetPreloadPages } from "@/components/reading/comic/hooks/usePreloadPages";
 import { usePreloadPages } from "@/components/reading/comic/hooks/usePreloadPages";
@@ -27,7 +26,9 @@ import type {
 } from "@/components/reading/comic/hooks/useSpreadDetection";
 import { useSpreadDetection } from "@/components/reading/comic/hooks/useSpreadDetection";
 import { useZoomScrollCenter } from "@/components/reading/comic/hooks/useZoomScrollCenter";
+import { usePagedNavigation } from "@/hooks/reading/comic/usePagedNavigation";
 import { cn } from "@/libs/utils";
+import type { ComicReadingDirection } from "@/types/comicReader";
 
 export interface PagedComicViewProps {
   bookId: number;
@@ -49,7 +50,7 @@ export interface PagedComicViewProps {
    * heuristics without changing the component internals.
    */
   spreadHeuristic?: SpreadHeuristic;
-  readingDirection?: "ltr" | "rtl";
+  readingDirection?: ComicReadingDirection;
   zoomLevel?: number;
   className?: string;
   /** Number of pages to preload before and after current page (default: 3) */
@@ -105,17 +106,21 @@ export function PagedComicView({
   useZoomScrollCenter({ containerRef, zoomLevel });
 
   // Use extracted navigation hook (SRP improvement)
-  const { handleContainerClick, handleTouchStart, handleTouchEnd } =
-    usePagedNavigation({
-      containerRef,
-      readingDirection,
-      totalPages,
-      canGoNext,
-      canGoPrevious,
-      onNext,
-      onPrevious,
-      onGoToPage: onPageChange,
-    });
+  const {
+    handleContainerClick,
+    handleTouchStart,
+    handleTouchEnd,
+    handleWheel,
+  } = usePagedNavigation({
+    containerRef,
+    readingDirection,
+    totalPages,
+    canGoNext,
+    canGoPrevious,
+    onNext,
+    onPrevious,
+    onGoToPage: onPageChange,
+  });
 
   const { effectiveSpreadMode, onPageDimensions } = useSpreadDetection({
     enabled: spreadMode,
@@ -168,6 +173,7 @@ export function PagedComicView({
       }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
+      onWheel={handleWheel}
       aria-label={`Comic page viewer, page ${currentPage} of ${totalPages}`}
     >
       <div
