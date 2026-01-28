@@ -29,8 +29,10 @@ import { useComicPages } from "./hooks/useComicPages";
 import { useCursorAutoHide } from "./hooks/useCursorAutoHide";
 import type { PagingInfo } from "./ReaderControls";
 
-export type ComicReadingMode = "paged" | "continuous" | "webtoon";
-export type ComicReadingDirection = "ltr" | "rtl" | "vertical";
+export type {
+  ComicReadingDirection,
+  ComicReadingMode,
+} from "@/types/comicReader";
 
 /**
  * Status message component for reader states.
@@ -220,9 +222,7 @@ export function ComicReader({
             onNext={navigation.goToNext}
             onPrevious={navigation.goToPrevious}
             spreadMode={spreadMode}
-            readingDirection={
-              readingDirection === "vertical" ? "ltr" : readingDirection
-            }
+            readingDirection={readingDirection}
           />
         );
       }
