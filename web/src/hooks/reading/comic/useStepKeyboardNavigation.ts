@@ -17,27 +17,24 @@ import { useCallback, useMemo } from "react";
 import { useKeydownListener } from "@/hooks/useKeydownListener";
 import type { ComicReadingDirection } from "@/types/comicReader";
 import type {
-  BasicNavigationCallbacks,
   KeydownEventTarget,
   PagedNavigationAction,
-  PageJumpCallbacks,
 } from "@/types/pagedNavigation";
 import { isEditableEventTarget } from "@/utils/domEvents";
 import { getPagedNavigationStrategy } from "@/utils/pagedNavigation";
 
-export interface PagedKeyboardNavigationOptions
-  extends BasicNavigationCallbacks,
-    PageJumpCallbacks {
+export interface StepKeyboardNavigationOptions {
+  /** Reading direction to map keys for. */
   readingDirection: ComicReadingDirection;
+  /** Total number of pages (1-based). */
+  totalPages: number;
+  /** Get the currently visible page number (1-based). */
+  getCurrentPage: () => number;
+  /** Navigate to a specific page (1-based). */
+  onGoToPage: (page: number) => void;
   /** Whether to listen for keyboard events (default: true). */
   enabled?: boolean;
-  /**
-   * Optional keydown event target.
-   *
-   * Notes
-   * -----
-   * If omitted, defaults to `window` when available.
-   */
+  /** Optional keydown event target (default: window when available). */
   target?: KeydownEventTarget | null;
 }
 
@@ -48,24 +45,26 @@ function isPageJumpAction(
 }
 
 /**
- * Hook for handling keyboard navigation in the paged comic view.
+ * Hook for step-based keyboard navigation.
+ *
+ * Notes
+ * -----
+ * This hook converts mapped navigation actions (via `pagedNavigation` strategy)
+ * into page-step transitions using `getCurrentPage`.
  *
  * Parameters
  * ----------
- * options : PagedKeyboardNavigationOptions
+ * options : StepKeyboardNavigationOptions
  *     Keyboard navigation configuration and callbacks.
  */
-export function usePagedKeyboardNavigation({
+export function useStepKeyboardNavigation({
   readingDirection,
   totalPages,
-  canGoNext,
-  canGoPrevious,
-  onNext,
-  onPrevious,
+  getCurrentPage,
   onGoToPage,
   enabled = true,
   target,
-}: PagedKeyboardNavigationOptions): void {
+}: StepKeyboardNavigationOptions): void {
   const strategy = useMemo(
     () => getPagedNavigationStrategy(readingDirection),
     [readingDirection],
@@ -78,17 +77,19 @@ export function usePagedKeyboardNavigation({
       const action = strategy.mapKeyToAction(e.key);
       if (!action) return;
 
+      const current = getCurrentPage();
+
       if (action === "next") {
-        if (!canGoNext) return;
+        if (current >= totalPages) return;
         e.preventDefault();
-        onNext();
+        onGoToPage(current + 1);
         return;
       }
 
       if (action === "previous") {
-        if (!canGoPrevious) return;
+        if (current <= 1) return;
         e.preventDefault();
-        onPrevious();
+        onGoToPage(current - 1);
         return;
       }
 
@@ -97,15 +98,7 @@ export function usePagedKeyboardNavigation({
         onGoToPage(action === "first" ? 1 : totalPages);
       }
     },
-    [
-      strategy,
-      canGoNext,
-      canGoPrevious,
-      onNext,
-      onPrevious,
-      onGoToPage,
-      totalPages,
-    ],
+    [strategy, getCurrentPage, totalPages, onGoToPage],
   );
 
   useKeydownListener({

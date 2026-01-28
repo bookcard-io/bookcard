@@ -15,7 +15,15 @@
 
 "use client";
 
-import { forwardRef } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from "react";
+import { useCurrentPageTracker } from "@/hooks/reading/comic/useCurrentPageTracker";
+import { useStepKeyboardNavigation } from "@/hooks/reading/comic/useStepKeyboardNavigation";
 import {
   BaseVirtualizedComicView,
   type BaseVirtualizedComicViewProps,
@@ -42,8 +50,9 @@ export interface ContinuousComicViewHandle extends VirtualizedComicViewHandle {}
  *
  * This refactored version follows:
  * - DRY: Reuses BaseVirtualizedComicView instead of duplicating code
- * - SRP: Focuses solely on configuration, delegates rendering to base component
+ * - SRP: Focuses on orchestration (config + keyboard navigation + ref forwarding)
  * - OCP: Configurable via props, extensible without modification
+ * - DIP: Depends on abstractions (hooks) not concrete implementations
  *
  * Parameters
  * ----------
@@ -56,7 +65,48 @@ export const ContinuousComicView = forwardRef<
   ContinuousComicViewHandle,
   ContinuousComicViewProps
 >((props, ref) => {
-  const { config, initialPage, ...restProps } = props;
+  const { config, initialPage, onPageChange, totalPages, ...restProps } = props;
+  const innerRef = useRef<VirtualizedComicViewHandle | null>(null);
+
+  // Extract page tracking to separate hook (SRP)
+  const initialPageClamped = Math.max(
+    1,
+    Math.min(initialPage ?? 1, totalPages),
+  );
+  const pageTracker = useCurrentPageTracker(initialPageClamped);
+
+  // Create page change handler that updates tracker and calls parent callback
+  const handlePageChange = useMemo(
+    () => pageTracker.createPageChangeHandler(onPageChange),
+    [pageTracker, onPageChange],
+  );
+
+  // Navigation callback for keyboard hook
+  const goToPage = useCallback((page: number) => {
+    innerRef.current?.scrollToPage(page, "smooth");
+  }, []);
+
+  // Set up keyboard navigation (DIP: depends on hook abstraction)
+  useStepKeyboardNavigation({
+    readingDirection: "vertical",
+    totalPages,
+    getCurrentPage: pageTracker.getCurrentPage,
+    onGoToPage: goToPage,
+  });
+
+  // Forward imperative handle (ISP: exposes full interface)
+  useImperativeHandle(
+    ref,
+    () => ({
+      jumpToPage: (page: number) => innerRef.current?.jumpToPage(page),
+      jumpToProgress: (progress: number) =>
+        innerRef.current?.jumpToProgress(progress),
+      scrollToPage: (page: number, behavior?: ScrollBehavior) =>
+        innerRef.current?.scrollToPage(page, behavior),
+    }),
+    [],
+  );
+
   const mergedConfig: VirtualizedViewConfig = {
     ...CONTINUOUS_CONFIG,
     ...config,
@@ -64,8 +114,10 @@ export const ContinuousComicView = forwardRef<
 
   return (
     <BaseVirtualizedComicView
-      ref={ref}
+      ref={innerRef}
       {...restProps}
+      totalPages={totalPages}
+      onPageChange={handlePageChange}
       config={mergedConfig}
       initialPage={initialPage}
     />

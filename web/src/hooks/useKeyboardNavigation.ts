@@ -13,7 +13,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { useEffect } from "react";
+import { useCallback } from "react";
+import { useKeydownListener } from "@/hooks/useKeydownListener";
 
 export interface KeyboardNavigationOptions {
   /** Callback when Escape key is pressed. */
@@ -43,27 +44,29 @@ export function useKeyboardNavigation(
 ): void {
   const { onEscape, onArrowLeft, onArrowRight, enabled = true } = options;
 
-  useEffect(() => {
-    if (!enabled) {
-      return;
-    }
-
-    const handleKeyDown = (e: KeyboardEvent) => {
+  const onKeyDown = useCallback(
+    (e: KeyboardEvent) => {
       if (e.key === "Escape" && onEscape) {
         e.preventDefault();
         onEscape();
-      } else if (e.key === "ArrowLeft" && onArrowLeft) {
+        return;
+      }
+      if (e.key === "ArrowLeft" && onArrowLeft) {
         e.preventDefault();
         onArrowLeft();
-      } else if (e.key === "ArrowRight" && onArrowRight) {
+        return;
+      }
+      if (e.key === "ArrowRight" && onArrowRight) {
         e.preventDefault();
         onArrowRight();
       }
-    };
+    },
+    [onEscape, onArrowLeft, onArrowRight],
+  );
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [enabled, onEscape, onArrowLeft, onArrowRight]);
+  useKeydownListener({
+    enabled,
+    defaultTarget: "document",
+    onKeyDown,
+  });
 }
