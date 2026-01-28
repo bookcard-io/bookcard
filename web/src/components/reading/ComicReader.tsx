@@ -267,9 +267,6 @@ export function ComicReader({
       role="application"
       aria-label="Comic reader"
       onMouseMove={handleUserActivity}
-      onTouchStart={handleUserActivity}
-      onKeyDown={handleUserActivity}
-      onWheel={handleUserActivity}
     >
       {renderView()}
     </div>
