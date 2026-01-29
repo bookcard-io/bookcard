@@ -45,8 +45,6 @@ _ALLOWED_WRITE_EXACT: Final[dict[str, set[str]]] = {
     "/auth/logout": {"POST"},
     "/auth/oidc/callback": {"POST"},
     # Auth: allow "DB-only" preference/profile tweaks
-    "/auth/password": {"PUT"},
-    "/auth/profile": {"PATCH"},
     "/auth/settings": {"PUT"},  # allow changing settings
     # Reading: allow persisting reading state (DB-only)
     "/reading/progress": {"PUT"},

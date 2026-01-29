@@ -68,6 +68,8 @@ def demo_state() -> dict[str, int]:
         "reading_sessions_put": 0,
         "reading_status_put": 0,
         "profile_picture_post": 0,
+        "profile_picture_patch": 0,
+        "profile_picture_delete": 0,
         "kobo_sync_get": 0,
         "oidc_callback_get": 0,
     }
@@ -136,6 +138,16 @@ def _register_demo_blocked_routes(app: FastAPI, state: dict[str, int]) -> None:
     @app.post("/auth/profile-picture")
     def upload_profile_picture() -> dict[str, bool]:
         state["profile_picture_post"] += 1
+        return {"ok": True}
+
+    @app.patch("/auth/profile-picture")
+    def update_profile_picture() -> dict[str, bool]:
+        state["profile_picture_patch"] += 1
+        return {"ok": True}
+
+    @app.delete("/auth/profile-picture")
+    def delete_profile_picture() -> dict[str, bool]:
+        state["profile_picture_delete"] += 1
         return {"ok": True}
 
     @app.get("/kobo/v1/library/sync")
@@ -208,12 +220,14 @@ def test_demo_mode_allows_db_only_writes_for_non_admin(demo_app: FastAPI) -> Non
     assert app.state._test_state["settings_put"] == 1
 
     resp = client.patch("/auth/profile", headers=headers)
-    assert resp.status_code == 200
-    assert app.state._test_state["profile_patch"] == 1
+    assert resp.status_code == 403
+    assert resp.json()["detail"] == "demo_mode_read_only"
+    assert app.state._test_state["profile_patch"] == 0
 
     resp = client.put("/auth/password", headers=headers)
-    assert resp.status_code == 200
-    assert app.state._test_state["password_put"] == 1
+    assert resp.status_code == 403
+    assert resp.json()["detail"] == "demo_mode_read_only"
+    assert app.state._test_state["password_put"] == 0
 
     resp = client.put("/reading/progress", headers=headers)
     assert resp.status_code == 200
@@ -239,12 +253,22 @@ def test_demo_mode_blocks_filesystem_like_writes_for_non_admin(
     client = TestClient(app)
 
     token = _make_token(is_admin=False)
-    resp = client.post(
-        "/auth/profile-picture", headers={"Authorization": f"Bearer {token}"}
-    )
+    headers = {"Authorization": f"Bearer {token}"}
+
+    resp = client.post("/auth/profile-picture", headers=headers)
     assert resp.status_code == 403
     assert resp.json()["detail"] == "demo_mode_read_only"
     assert app.state._test_state["profile_picture_post"] == 0
+
+    resp = client.patch("/auth/profile-picture", headers=headers)
+    assert resp.status_code == 403
+    assert resp.json()["detail"] == "demo_mode_read_only"
+    assert app.state._test_state["profile_picture_patch"] == 0
+
+    resp = client.delete("/auth/profile-picture", headers=headers)
+    assert resp.status_code == 403
+    assert resp.json()["detail"] == "demo_mode_read_only"
+    assert app.state._test_state["profile_picture_delete"] == 0
 
 
 def test_demo_mode_blocks_stateful_get_for_non_admin(demo_app: FastAPI) -> None:
