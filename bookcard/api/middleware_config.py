@@ -18,6 +18,7 @@
 from fastapi import FastAPI
 
 from bookcard.api.middleware.auth_middleware import AuthMiddleware
+from bookcard.api.middleware.demo_mode_middleware import DemoModeWriteLockMiddleware
 
 
 def register_middleware(app: FastAPI) -> None:
@@ -28,5 +29,8 @@ def register_middleware(app: FastAPI) -> None:
     app : FastAPI
         FastAPI application instance.
     """
+    # NOTE: Starlette runs middleware in reverse order of addition.
+    # Auth must run first to populate `request.state.user_claims` for downstream checks.
+    app.add_middleware(DemoModeWriteLockMiddleware)  # type: ignore[invalid-argument-type]
     # Middleware (best-effort attachment of user claims)
     app.add_middleware(AuthMiddleware)  # type: ignore[invalid-argument-type]

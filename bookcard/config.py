@@ -62,6 +62,10 @@ class AppConfig:
         OIDC client secret configured in the provider (required for confidential clients).
     oidc_scopes : str
         OAuth2 scopes requested during the OIDC flow.
+    demo_mode : bool
+        When enabled, the API runs in **read-only demo mode** for non-admin users.
+        Non-safe HTTP methods (POST/PUT/PATCH/DELETE) are blocked by middleware to
+        prevent changes to server state and filesystem-backed operations.
     """
 
     jwt_secret: str
@@ -80,6 +84,7 @@ class AppConfig:
     oidc_client_id: str = ""
     oidc_client_secret: str = ""
     oidc_scopes: str = "openid profile email"
+    demo_mode: bool = False
 
     @staticmethod
     def _normalize_env_value(value: str | None) -> str | None:
@@ -244,6 +249,7 @@ class AppConfig:
         oidc_scopes = AppConfig._normalize_env_value_with_default(
             os.getenv("OIDC_SCOPES"), "openid profile email"
         )
+        demo_mode = AppConfig._parse_bool_env("DEMO_MODE", "false")
 
         if oidc_enabled:
             if not oidc_issuer:
@@ -284,4 +290,5 @@ class AppConfig:
             oidc_client_id=oidc_client_id,
             oidc_client_secret=oidc_client_secret,
             oidc_scopes=oidc_scopes,
+            demo_mode=demo_mode,
         )
