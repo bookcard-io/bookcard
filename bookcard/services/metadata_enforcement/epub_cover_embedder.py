@@ -23,6 +23,7 @@ import io
 import logging
 from pathlib import Path
 from typing import ClassVar
+from urllib.parse import unquote
 
 from lxml import etree  # type: ignore[attr-defined]
 from PIL import Image
@@ -104,16 +105,19 @@ class EpubCoverEmbedder(BaseCoverEmbedder):
             if cover_item is not None:
                 # Case 1: Existing cover found - replace it
                 self._replace_existing_cover(contents, opf_path, cover_item, image_data)
+
+                # Ensure metadata tag points to this item (fixes Kindle thumbnail issues)
+                self._ensure_cover_metadata(opf_root, cover_item.get("id"))
             else:
                 # Case 2: No cover found - add new one
                 self._add_new_cover(
                     contents, opf_root, opf_path, image_data, mime_type, extension
                 )
 
-                # Update OPF content
-                contents.files[opf_path] = etree.tostring(
-                    opf_root, encoding="utf-8", xml_declaration=True, pretty_print=True
-                ).decode("utf-8")
+            # Update OPF content (required for both cases to ensure metadata sync)
+            contents.files[opf_path] = etree.tostring(
+                opf_root, encoding="utf-8", xml_declaration=True, pretty_print=True
+            ).decode("utf-8")
         except Exception:
             logger.exception("Failed to embed cover into EPUB")
             return False
@@ -124,8 +128,8 @@ class EpubCoverEmbedder(BaseCoverEmbedder):
         """Find existing cover item in manifest.
 
         Strategy:
-        1. Look for item with properties="cover-image" (EPUB 3)
-        2. Look for metadata meta name="cover" -> item id (EPUB 2)
+        1. Look for metadata meta name="cover" -> item id (EPUB 2)
+        2. Look for item with properties="cover-image" (EPUB 3)
         3. Look for common item IDs
         """
         manifest = opf_root.find("opf:manifest", namespaces=NAMESPACES)
@@ -136,12 +140,12 @@ class EpubCoverEmbedder(BaseCoverEmbedder):
         if manifest is None:
             return None
 
-        # 1. properties="cover-image"
-        if item := self._find_cover_by_properties(manifest):
+        # 1. meta name="cover" (Prioritize EPUB 2 style for better compatibility)
+        if (item := self._find_cover_by_metadata(opf_root, manifest)) is not None:
             return item
 
-        # 2. meta name="cover"
-        if item := self._find_cover_by_metadata(opf_root, manifest):
+        # 2. properties="cover-image"
+        if (item := self._find_cover_by_properties(manifest)) is not None:
             return item
 
         # 3. Fallback IDs
@@ -227,6 +231,33 @@ class EpubCoverEmbedder(BaseCoverEmbedder):
 
             return data, mime_types.get(target_ext, "image/jpeg"), target_ext
 
+    def _ensure_cover_metadata(self, opf_root: etree._Element, cover_id: str) -> None:
+        """Ensure metadata contains meta name="cover" pointing to cover_id.
+
+        This is crucial for compatibility with readers like Kindle that rely on
+        EPUB 2 style metadata even for EPUB 3 files.
+        """
+        if not cover_id:
+            return
+
+        metadata = opf_root.find("opf:metadata", namespaces=NAMESPACES)
+        if metadata is None:
+            return
+
+        # Check existing
+        for meta in metadata.findall("opf:meta", namespaces=NAMESPACES):
+            if meta.get("name") == "cover":
+                if meta.get("content") != cover_id:
+                    meta.set("content", cover_id)
+                return
+
+        # Create new if not found
+        etree.SubElement(
+            metadata,
+            f"{{{NS_OPF}}}meta",
+            attrib={"name": "cover", "content": cover_id},
+        )
+
     def _replace_existing_cover(
         self,
         contents: EPUBContents,
@@ -241,7 +272,9 @@ class EpubCoverEmbedder(BaseCoverEmbedder):
 
         # Resolve path relative to OPF
         opf_dir = Path(opf_path).parent
-        cover_full_path = (opf_dir / href).as_posix()
+        # Unquote URL-encoded characters (e.g. %20 -> space)
+        decoded_href = unquote(href)
+        cover_full_path = (opf_dir / decoded_href).as_posix()
 
         # Check if file exists in binary_files (it should)
         # We try both exact match and normalization because zip paths can be tricky
