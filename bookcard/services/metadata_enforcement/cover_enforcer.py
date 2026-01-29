@@ -52,7 +52,8 @@ class CoverEnforcementService:
     """
 
     # Supported formats for cover embedding
-    SUPPORTED_FORMATS: ClassVar[list[str]] = ["epub", "azw3"]
+    # Note: EPUB is handled by EpubMetadataEnforcer (without ebook-polish)
+    SUPPORTED_FORMATS: ClassVar[list[str]] = ["azw3"]
 
     def __init__(self, library: Library) -> None:
         """Initialize cover enforcement service.

@@ -21,6 +21,7 @@ supporting EPUB 2 and EPUB 3 cover image detection.
 
 from __future__ import annotations
 
+import posixpath
 import zipfile
 from contextlib import suppress
 from pathlib import Path
@@ -73,9 +74,16 @@ class EpubCoverExtractor(CoverExtractionStrategy):
 
             # Extract cover image from EPUB archive
             try:
-                return epub_zip.read(cover_path)
+                data = epub_zip.read(cover_path)
             except (KeyError, zipfile.BadZipFile):
                 return None
+            else:
+                # Check if data looks like HTML/XHTML (starts with tags)
+                # Some EPUBs point to an HTML wrapper page instead of the image
+                if data.strip().startswith((b"<html", b"<?xml", b"<!DOCTYPE")):
+                    return self._extract_image_from_html(data, cover_path, epub_zip)
+
+                return data
 
     def _find_opf_file(self, epub_zip: zipfile.ZipFile) -> str | None:
         """Find the OPF file in the EPUB archive."""
@@ -203,13 +211,62 @@ class EpubCoverExtractor(CoverExtractionStrategy):
 
         # Otherwise, resolve relative to OPF directory
         if opf_dir == Path():
-            return decoded_href
+            full_path = decoded_href
+        else:
+            # Use posixpath for zip file paths
+            # opf_dir is a Path object, convert to str using as_posix
+            full_path = f"{opf_dir.as_posix()}/{decoded_href}"
 
-        # Join opf_dir with cover_href
-        cover_path = opf_dir / decoded_href
         # Normalize path (resolve .. and .)
-        normalized = cover_path.as_posix()
-        # Remove leading ./ if present
+        normalized = posixpath.normpath(full_path)
+
+        # Remove leading ./ if present (posixpath.normpath might leave it if started with ./)
         if normalized.startswith("./"):
             normalized = normalized[2:]
         return normalized
+
+    def _extract_image_from_html(
+        self, html_content: bytes, html_path: str, epub_zip: zipfile.ZipFile
+    ) -> bytes | None:
+        """Extract image from HTML cover page."""
+        try:
+            # Use HTML parser to be lenient
+            parser = etree.HTMLParser()
+            root = etree.fromstring(html_content, parser=parser)
+        except (etree.XMLSyntaxError, ValueError, TypeError):
+            return None
+        else:
+            # Try <img> src
+            img = root.find(".//img")
+            if img is not None:
+                src = img.get("src")
+                if src:
+                    return self._read_image_from_src(src, html_path, epub_zip)
+
+            # Try <image> xlink:href (SVG style)
+            image = root.find(".//image")
+            if image is not None:
+                # etree HTMLParser might lowercase namespaces or tag names
+                href = (
+                    image.get("href")
+                    or image.get("{http://www.w3.org/1999/xlink}href")
+                    or image.get("xlink:href")
+                )
+                if href:
+                    return self._read_image_from_src(href, html_path, epub_zip)
+
+            return None
+
+    def _read_image_from_src(
+        self, src: str, base_path: str, epub_zip: zipfile.ZipFile
+    ) -> bytes | None:
+        """Read image file resolving src relative to base_path."""
+        try:
+            # Resolve path
+            decoded_src = unquote(src)
+            base_dir = Path(base_path).parent
+
+            image_path = self._resolve_cover_path(decoded_src, base_dir)
+            return epub_zip.read(image_path)
+        except (KeyError, zipfile.BadZipFile):
+            return None

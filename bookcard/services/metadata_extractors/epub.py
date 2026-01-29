@@ -161,6 +161,8 @@ class EpubMetadataExtractor(MetadataExtractionStrategy):
         # Parse metadata elements
         metadata_elem = root.find(".//opf:metadata", ns)
         if metadata_elem is None:
+            metadata_elem = root.find(".//metadata")
+        if metadata_elem is None:
             # Fallback to root if no metadata element
             metadata_elem = root
 
@@ -424,40 +426,23 @@ class EpubMetadataExtractor(MetadataExtractionStrategy):
         if not date_str:
             return None
 
-        # Try various date formats
         date_str = date_str.strip()
-        formats = [
-            "%Y-%m-%dT%H:%M:%S",
-            "%Y-%m-%dT%H:%M:%SZ",
-            "%Y-%m-%d",
-            "%Y-%m",
-            "%Y",
-        ]
+        normalized = date_str.replace("Z", "+00:00")
 
+        try:
+            parsed = datetime.fromisoformat(normalized)
+        except ValueError:
+            pass
+        else:
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=UTC)
+            return parsed
+
+        formats = ["%Y-%m-%d", "%Y-%m", "%Y"]
         for fmt in formats:
             try:
-                if len(date_str) >= len(
-                    fmt
-                    .replace("%", "")
-                    .replace("T", "")
-                    .replace("Z", "")
-                    .replace(":", "")
-                    .replace("-", "")
-                ):
-                    return datetime.strptime(
-                        date_str[
-                            : len(
-                                fmt
-                                .replace("%", "")
-                                .replace("T", "")
-                                .replace("Z", "")
-                                .replace(":", "")
-                                .replace("-", "")
-                            )
-                        ],
-                        fmt,
-                    ).replace(tzinfo=UTC)
-            except (ValueError, TypeError):
+                return datetime.strptime(date_str, fmt).replace(tzinfo=UTC)
+            except ValueError:
                 continue
 
         return None

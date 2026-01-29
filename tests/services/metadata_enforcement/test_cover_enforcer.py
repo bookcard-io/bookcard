@@ -206,6 +206,7 @@ def test_enforce_cover_valid_no_ebooks(
 
         service = CoverEnforcementService(library)
         result = service.enforce_cover(book_with_rels)
+        # Should return True because cover file verification passed, even if no embedding happened
         assert result is True
 
 
@@ -291,7 +292,7 @@ def test_run_ebook_polish_success(library: Library) -> None:
     """Test _run_ebook_polish with successful execution."""
     polish_path = "/usr/bin/ebook-polish"
     cover_path = Path("/test/cover.jpg")
-    ebook_path = Path("/test/book.epub")
+    ebook_path = Path("/test/book.azw3")
 
     mock_result = Mock()
     mock_result.returncode = 0
@@ -307,7 +308,7 @@ def test_run_ebook_polish_failure(library: Library) -> None:
     """Test _run_ebook_polish with failed execution."""
     polish_path = "/usr/bin/ebook-polish"
     cover_path = Path("/test/cover.jpg")
-    ebook_path = Path("/test/book.epub")
+    ebook_path = Path("/test/book.azw3")
 
     mock_result = Mock()
     mock_result.returncode = 1
@@ -323,7 +324,7 @@ def test_run_ebook_polish_timeout(library: Library) -> None:
     """Test _run_ebook_polish with timeout."""
     polish_path = "/usr/bin/ebook-polish"
     cover_path = Path("/test/cover.jpg")
-    ebook_path = Path("/test/book.epub")
+    ebook_path = Path("/test/book.azw3")
 
     with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 300)):
         service = CoverEnforcementService(library)
@@ -335,7 +336,7 @@ def test_run_ebook_polish_exception(library: Library) -> None:
     """Test _run_ebook_polish with exception."""
     polish_path = "/usr/bin/ebook-polish"
     cover_path = Path("/test/cover.jpg")
-    ebook_path = Path("/test/book.epub")
+    ebook_path = Path("/test/book.azw3")
 
     with patch("subprocess.run", side_effect=Exception("Unexpected error")):
         service = CoverEnforcementService(library)
@@ -452,17 +453,18 @@ def test_embed_cover_into_ebooks_no_book_id(
 def test_embed_cover_into_ebooks_success(
     library: Library, book_with_rels: BookWithFullRelations, tmp_path: Path
 ) -> None:
-    """Test _embed_cover_into_ebooks with successful embedding."""
+    """Test _embed_cover_into_ebooks with successful embedding (AZW3)."""
     library_root = tmp_path / "library"
     library_root.mkdir()
     book_dir = library_root / book_with_rels.book.path
     book_dir.mkdir(parents=True)
     cover_file = book_dir / "cover.jpg"
     cover_file.write_bytes(b"test")
-    ebook_file = book_dir / "test.epub"
+    ebook_file = book_dir / "test.azw3"
     ebook_file.write_text("test")
 
-    data_record = Data(id=1, book=1, format="EPUB", uncompressed_size=100, name="test")
+    # Use AZW3 to test polish logic
+    data_record = Data(id=1, book=1, format="AZW3", uncompressed_size=100, name="test")
 
     with (
         patch(
@@ -495,6 +497,50 @@ def test_embed_cover_into_ebooks_success(
         service = CoverEnforcementService(library)
         result = service._embed_cover_into_ebooks(book_with_rels, book_dir, cover_file)
         assert result is True
+
+
+def test_embed_cover_into_ebooks_skips_epub(
+    library: Library, book_with_rels: BookWithFullRelations, tmp_path: Path
+) -> None:
+    """Test _embed_cover_into_ebooks skips EPUB format."""
+    library_root = tmp_path / "library"
+    library_root.mkdir()
+    book_dir = library_root / book_with_rels.book.path
+    book_dir.mkdir(parents=True)
+    cover_file = book_dir / "cover.jpg"
+    cover_file.write_bytes(b"test")
+    ebook_file = book_dir / "test.epub"
+    ebook_file.write_text("test")
+
+    data_record = Data(id=1, book=1, format="EPUB", uncompressed_size=100, name="test")
+
+    with (
+        patch(
+            "bookcard.services.metadata_enforcement.cover_enforcer.LibraryPathResolver"
+        ) as mock_resolver_class,
+        patch(
+            "bookcard.services.metadata_enforcement.cover_enforcer.CalibreBookRepository"
+        ) as mock_repo_class,
+        patch.object(
+            CoverEnforcementService,
+            "_get_ebook_polish_path",
+            return_value="/usr/bin/ebook-polish",
+        ),
+    ):
+        mock_resolver = MagicMock()
+        mock_resolver.get_library_root.return_value = library_root
+        mock_resolver_class.return_value = mock_resolver
+
+        mock_repo = MagicMock()
+        mock_session = MagicMock()
+        mock_session.exec.return_value.all.return_value = [data_record]
+        mock_repo.get_session.return_value.__enter__.return_value = mock_session
+        mock_repo.get_session.return_value.__exit__.return_value = None
+        mock_repo_class.return_value = mock_repo
+
+        service = CoverEnforcementService(library)
+        result = service._embed_cover_into_ebooks(book_with_rels, book_dir, cover_file)
+        assert result is False
 
 
 def test_embed_cover_into_ebooks_unsupported_format(
