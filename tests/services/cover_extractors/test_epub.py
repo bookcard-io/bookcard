@@ -362,27 +362,31 @@ def test_resolve_cover_path_normalize(extractor: EpubCoverExtractor) -> None:
 
 
 def test_resolve_cover_path_leading_dot_slash(extractor: EpubCoverExtractor) -> None:
-    """Test _resolve_cover_path removes leading ./ (covers line 221)."""
+    """Test _resolve_cover_path removes leading ./ (covers line 224-225)."""
     # Test the specific case where normalized path starts with "./"
-    # Python's Path.as_posix() normally removes leading ./, so we need to mock it
-    # to test line 221 which removes the leading ./
+    # posixpath.normpath() normally removes leading ./, so we mock it to return
+    # a value starting with ./ to test the removal logic
     from pathlib import Path
     from unittest.mock import MagicMock, patch
 
     cover_href = "Images/cover.jpg"
-    opf_dir = Path("OEBPS")
+    # Create a mock Path object
+    mock_opf_dir = MagicMock(spec=Path)
+    mock_opf_dir.__eq__ = lambda self, other: False  # Make it not equal to Path()
+    mock_opf_dir.as_posix.return_value = "OEBPS"
 
-    # Mock the Path object's as_posix() to return a value starting with ./
-    mock_path = MagicMock()
-    mock_path.as_posix.return_value = "./OEBPS/Images/cover.jpg"
-    mock_path.__truediv__ = Path.__truediv__
-
-    with patch.object(Path, "__truediv__", return_value=mock_path):
-        result = extractor._resolve_cover_path(cover_href, opf_dir)
-        # Should remove leading ./ (line 221)
+    # Mock posixpath.normpath to return a value starting with ./
+    with patch(
+        "bookcard.services.cover_extractors.epub.posixpath.normpath"
+    ) as mock_normpath:
+        mock_normpath.return_value = "./OEBPS/Images/cover.jpg"
+        result = extractor._resolve_cover_path(cover_href, mock_opf_dir)
+        # Should remove leading ./ (line 224-225)
         assert result == "OEBPS/Images/cover.jpg"
-        # Verify as_posix was called (which triggers the check)
-        mock_path.as_posix.assert_called_once()
+        # Verify as_posix was called (line 218)
+        mock_opf_dir.as_posix.assert_called_once()
+        # Verify normpath was called (line 221)
+        mock_normpath.assert_called_once()
 
 
 def test_find_cover_by_property_none_manifest(extractor: EpubCoverExtractor) -> None:
