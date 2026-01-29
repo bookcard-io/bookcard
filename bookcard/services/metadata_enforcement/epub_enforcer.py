@@ -132,7 +132,9 @@ class EpubMetadataEnforcer(EbookMetadataEnforcer):
             # Check for cover.jpg in book directory
             cover_path = file_path.parent / "cover.jpg"
             if cover_path.exists():
-                self._cover_embedder.embed_cover(contents, opf_path, cover_path)
+                self._cover_embedder.embed_cover(
+                    contents, cover_path, opf_path=opf_path
+                )
 
             # Write EPUB back
             self._writer.write(contents, file_path)

@@ -197,7 +197,7 @@ def test_enforce_metadata_with_cover(
         assert result is True
         mock_writer.write.assert_called_once()
         mock_embedder.embed_cover.assert_called_once_with(
-            mock_contents, "OEBPS/content.opf", cover_file
+            mock_contents, cover_file, opf_path="OEBPS/content.opf"
         )
 
 

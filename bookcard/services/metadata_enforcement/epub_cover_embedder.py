@@ -28,6 +28,7 @@ from lxml import etree  # type: ignore[attr-defined]
 from PIL import Image
 
 from bookcard.services.epub_fixer.core.epub import EPUBContents
+from bookcard.services.metadata_enforcement.base_cover_embedder import BaseCoverEmbedder
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ NAMESPACES = {
 }
 
 
-class EpubCoverEmbedder:
+class EpubCoverEmbedder(BaseCoverEmbedder):
     """Helper to embed cover images into EPUB files.
 
     Follows SRP by handling only cover embedding logic for EPUBs.
@@ -51,9 +52,9 @@ class EpubCoverEmbedder:
 
     def embed_cover(
         self,
-        contents: EPUBContents,
-        opf_path: str,
+        contents: object,
         cover_path: Path,
+        **kwargs: object,
     ) -> bool:
         """Embed cover image into EPUB contents.
 
@@ -61,16 +62,25 @@ class EpubCoverEmbedder:
         ----------
         contents : EPUBContents
             EPUB file contents to modify.
-        opf_path : str
-            Path to OPF file within EPUB.
         cover_path : Path
             Path to new cover image file.
+        **kwargs : object
+            Additional arguments. Requires 'opf_path'.
 
         Returns
         -------
         bool
             True if cover was successfully embedded, False otherwise.
         """
+        if not isinstance(contents, EPUBContents):
+            logger.error("contents must be an instance of EPUBContents")
+            return False
+
+        opf_path = kwargs.get("opf_path")
+        if not opf_path or not isinstance(opf_path, str):
+            logger.warning("opf_path argument is required for EPUB cover embedding")
+            return False
+
         try:
             # Get OPF content
             opf_content = contents.files.get(opf_path)
