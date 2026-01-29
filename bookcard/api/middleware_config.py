@@ -29,8 +29,9 @@ def register_middleware(app: FastAPI) -> None:
     app : FastAPI
         FastAPI application instance.
     """
+    cfg = getattr(app.state, "config", None)
     # Only install demo-mode write lock when enabled to avoid overhead in normal mode.
-    if bool(getattr(app.state.config, "demo_mode", False)):
+    if cfg is not None and bool(getattr(cfg, "demo_mode", False)):
         # NOTE: Starlette runs middleware in reverse order of addition.
         # Auth must run first to populate `request.state.user_claims` for downstream checks.
         app.add_middleware(DemoModeWriteLockMiddleware)  # type: ignore[invalid-argument-type]
