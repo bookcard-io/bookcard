@@ -555,3 +555,231 @@ def test_extract_bad_zip(extractor: EpubCoverExtractor) -> None:
             extractor.extract_cover(file_path)
     finally:
         file_path.unlink()
+
+
+def test_extract_cover_from_html_wrapper_img_tag(extractor: EpubCoverExtractor) -> None:
+    """Test extracting cover image referenced by <img> in HTML wrapper."""
+    opf_content = """<?xml version="1.0"?>
+    <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+        <manifest>
+            <item id="cover-page" href="cover.xhtml" media-type="application/xhtml+xml" properties="cover-image"/>
+        </manifest>
+    </package>"""
+
+    html_content = b"""<html>
+        <body>
+            <img src="Images/cover.jpg" alt="Cover"/>
+        </body>
+    </html>"""
+
+    cover_image = b"actual image data"
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".epub") as tmp:
+        file_path = Path(tmp.name)
+
+    try:
+        with zipfile.ZipFile(file_path, "w") as epub_zip:
+            epub_zip.writestr("OEBPS/content.opf", opf_content)
+            epub_zip.writestr("OEBPS/cover.xhtml", html_content)
+            epub_zip.writestr("OEBPS/Images/cover.jpg", cover_image)
+
+        result = extractor.extract_cover(file_path)
+        assert result == cover_image
+    finally:
+        file_path.unlink()
+
+
+def test_extract_cover_from_html_wrapper_svg_image_tag(
+    extractor: EpubCoverExtractor,
+) -> None:
+    """Test extracting cover image referenced by <image> in SVG/HTML wrapper."""
+    opf_content = """<?xml version="1.0"?>
+    <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+        <manifest>
+            <item id="cover-page" href="cover.xhtml" media-type="application/xhtml+xml" properties="cover-image"/>
+        </manifest>
+    </package>"""
+
+    html_content = b"""<html xmlns="http://www.w3.org/1999/xhtml">
+        <body>
+            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+                <image width="100%" height="100%" xlink:href="Images/cover.jpg"/>
+            </svg>
+        </body>
+    </html>"""
+
+    cover_image = b"actual image data"
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".epub") as tmp:
+        file_path = Path(tmp.name)
+
+    try:
+        with zipfile.ZipFile(file_path, "w") as epub_zip:
+            epub_zip.writestr("OEBPS/content.opf", opf_content)
+            epub_zip.writestr("OEBPS/cover.xhtml", html_content)
+            epub_zip.writestr("OEBPS/Images/cover.jpg", cover_image)
+
+        result = extractor.extract_cover(file_path)
+        assert result == cover_image
+    finally:
+        file_path.unlink()
+
+
+def test_extract_cover_from_html_wrapper_svg_href_tag(
+    extractor: EpubCoverExtractor,
+) -> None:
+    """Test extracting cover image referenced by <image> href (no xlink) in SVG wrapper."""
+    opf_content = """<?xml version="1.0"?>
+    <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+        <manifest>
+            <item id="cover-page" href="cover.xhtml" media-type="application/xhtml+xml" properties="cover-image"/>
+        </manifest>
+    </package>"""
+
+    html_content = b"""<html xmlns="http://www.w3.org/1999/xhtml">
+        <body>
+            <svg xmlns="http://www.w3.org/2000/svg">
+                <image width="100%" height="100%" href="Images/cover.jpg"/>
+            </svg>
+        </body>
+    </html>"""
+
+    cover_image = b"actual image data"
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".epub") as tmp:
+        file_path = Path(tmp.name)
+
+    try:
+        with zipfile.ZipFile(file_path, "w") as epub_zip:
+            epub_zip.writestr("OEBPS/content.opf", opf_content)
+            epub_zip.writestr("OEBPS/cover.xhtml", html_content)
+            epub_zip.writestr("OEBPS/Images/cover.jpg", cover_image)
+
+        result = extractor.extract_cover(file_path)
+        assert result == cover_image
+    finally:
+        file_path.unlink()
+
+
+def test_extract_cover_from_html_wrapper_relative_path(
+    extractor: EpubCoverExtractor,
+) -> None:
+    """Test path resolution in HTML wrapper with relative paths."""
+    opf_content = """<?xml version="1.0"?>
+    <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+        <manifest>
+            <item id="cover-page" href="Text/cover.xhtml" media-type="application/xhtml+xml" properties="cover-image"/>
+        </manifest>
+    </package>"""
+
+    # Image is at ../Images/cover.jpg relative to Text/cover.xhtml
+    # i.e., OEBPS/Text/../Images/cover.jpg -> OEBPS/Images/cover.jpg
+    html_content = b"""<html>
+        <body>
+            <img src="../Images/cover.jpg" />
+        </body>
+    </html>"""
+
+    cover_image = b"actual image data"
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".epub") as tmp:
+        file_path = Path(tmp.name)
+
+    try:
+        with zipfile.ZipFile(file_path, "w") as epub_zip:
+            epub_zip.writestr("OEBPS/content.opf", opf_content)
+            epub_zip.writestr("OEBPS/Text/cover.xhtml", html_content)
+            epub_zip.writestr("OEBPS/Images/cover.jpg", cover_image)
+
+        result = extractor.extract_cover(file_path)
+        assert result == cover_image
+    finally:
+        file_path.unlink()
+
+
+def test_extract_cover_from_html_wrapper_no_image(
+    extractor: EpubCoverExtractor,
+) -> None:
+    """Test HTML wrapper with no image tag returns None."""
+    opf_content = """<?xml version="1.0"?>
+    <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+        <manifest>
+            <item id="cover-page" href="cover.xhtml" media-type="application/xhtml+xml" properties="cover-image"/>
+        </manifest>
+    </package>"""
+
+    html_content = b"""<html>
+        <body>
+            <p>Just text</p>
+        </body>
+    </html>"""
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".epub") as tmp:
+        file_path = Path(tmp.name)
+
+    try:
+        with zipfile.ZipFile(file_path, "w") as epub_zip:
+            epub_zip.writestr("OEBPS/content.opf", opf_content)
+            epub_zip.writestr("OEBPS/cover.xhtml", html_content)
+
+        result = extractor.extract_cover(file_path)
+        assert result is None
+    finally:
+        file_path.unlink()
+
+
+def test_extract_cover_from_html_wrapper_missing_image(
+    extractor: EpubCoverExtractor,
+) -> None:
+    """Test HTML wrapper referencing missing image returns None."""
+    opf_content = """<?xml version="1.0"?>
+    <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+        <manifest>
+            <item id="cover-page" href="cover.xhtml" media-type="application/xhtml+xml" properties="cover-image"/>
+        </manifest>
+    </package>"""
+
+    html_content = b"""<html>
+        <body>
+            <img src="missing.jpg"/>
+        </body>
+    </html>"""
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".epub") as tmp:
+        file_path = Path(tmp.name)
+
+    try:
+        with zipfile.ZipFile(file_path, "w") as epub_zip:
+            epub_zip.writestr("OEBPS/content.opf", opf_content)
+            epub_zip.writestr("OEBPS/cover.xhtml", html_content)
+
+        result = extractor.extract_cover(file_path)
+        assert result is None
+    finally:
+        file_path.unlink()
+
+
+def test_extract_cover_not_html_wrapper(extractor: EpubCoverExtractor) -> None:
+    """Test that non-HTML data is returned as-is."""
+    opf_content = """<?xml version="1.0"?>
+    <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+        <manifest>
+            <item id="cover-image" href="cover.jpg" media-type="image/jpeg" properties="cover-image"/>
+        </manifest>
+    </package>"""
+
+    # Binary data that doesn't start with html tags
+    cover_image = b"actual image data"
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".epub") as tmp:
+        file_path = Path(tmp.name)
+
+    try:
+        with zipfile.ZipFile(file_path, "w") as epub_zip:
+            epub_zip.writestr("OEBPS/content.opf", opf_content)
+            epub_zip.writestr("OEBPS/cover.jpg", cover_image)
+
+        result = extractor.extract_cover(file_path)
+        assert result == cover_image
+    finally:
+        file_path.unlink()
