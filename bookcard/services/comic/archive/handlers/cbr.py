@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import subprocess  # noqa: S404
 from typing import TYPE_CHECKING
 
 import rarfile
@@ -24,7 +25,7 @@ import rarfile
 from bookcard.services.comic.archive.exceptions import ArchiveReadError
 from bookcard.services.comic.archive.handlers.base import ArchiveHandler
 from bookcard.services.comic.archive.models import ArchiveMetadata, PageDetails
-from bookcard.services.comic.archive.rarfile_backend import prefer_bsdtar_on_linux
+from bookcard.services.comic.archive.rar_extractor import extract_member_with_bsdtar
 from bookcard.services.comic.archive.utils import (
     is_image_entry,
     natural_sort_key,
@@ -71,10 +72,25 @@ class CBRHandler(ArchiveHandler):
         _ = metadata  # required by interface; unused for CBR
         validate_archive_entry_name(filename)
         try:
-            prefer_bsdtar_on_linux(rarfile)
             with rarfile.RarFile(file_path, "r") as rf:
-                return rf.read(filename)
-        except (rarfile.Error, OSError, KeyError) as e:
+                try:
+                    return rf.read(filename)
+                except rarfile.BadRarFile:
+                    # `rarfile` delegates extraction to external tools. In some
+                    # environments, its tool backend selection can fail even for
+                    # valid archives. Prefer a direct `bsdtar` call as a fallback
+                    # (if available), as it has proven more reliable for CBRs.
+                    #
+                    # If `bsdtar` is unavailable or also fails, we'll surface the
+                    # original rarfile error below.
+                    return extract_member_with_bsdtar(file_path, filename=filename)
+        except (
+            rarfile.Error,
+            OSError,
+            KeyError,
+            FileNotFoundError,
+            subprocess.CalledProcessError,
+        ) as e:
             msg = f"Failed to extract {filename!r} from CBR {file_path}: {e}"
             raise ArchiveReadError(msg) from e
 
@@ -89,8 +105,6 @@ class CBRHandler(ArchiveHandler):
         """Get per-page sizes and optional dimensions for a CBR."""
         details: dict[str, PageDetails] = {}
         try:
-            if include_dimensions:
-                prefer_bsdtar_on_linux(rarfile)
             with rarfile.RarFile(file_path, "r") as rf:
                 for name in metadata.page_filenames:
                     validate_archive_entry_name(name)
@@ -104,13 +118,21 @@ class CBRHandler(ArchiveHandler):
                     width: int | None = None
                     height: int | None = None
                     if include_dimensions:
-                        data = rf.read(name)
+                        try:
+                            data = rf.read(name)
+                        except rarfile.BadRarFile:
+                            data = extract_member_with_bsdtar(file_path, filename=name)
                         width, height = image_processor.get_dimensions(data)
 
                     details[name] = PageDetails(
                         file_size=file_size, width=width, height=height
                     )
-        except (rarfile.Error, OSError) as e:
+        except (
+            rarfile.Error,
+            OSError,
+            FileNotFoundError,
+            subprocess.CalledProcessError,
+        ) as e:
             msg = f"Failed to read CBR {file_path}: {e}"
             raise ArchiveReadError(msg) from e
 
