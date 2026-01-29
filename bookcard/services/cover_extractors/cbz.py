@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING
 
 from PIL import Image
 
-from bookcard.services.comic.archive.rarfile_backend import prefer_bsdtar_on_linux
+from bookcard.services.comic.archive.rar_extractor import extract_member_with_bsdtar
 from bookcard.services.cover_extractors.base import CoverExtractionStrategy
 
 if TYPE_CHECKING:
@@ -139,7 +139,6 @@ class CbzCoverExtractor(CoverExtractionStrategy):
             return None
 
         try:
-            prefer_bsdtar_on_linux(rarfile)
             with rarfile.RarFile(file_path, "r") as cbr_rar:
                 # Find image files (sorted to get first page)
                 image_files = [
@@ -160,7 +159,12 @@ class CbzCoverExtractor(CoverExtractionStrategy):
 
                 # Use first image as cover
                 first_image = image_files[0]
-                image_data = cbr_rar.read(first_image)
+                try:
+                    image_data = cbr_rar.read(first_image)
+                except rarfile.BadRarFile:
+                    image_data = extract_member_with_bsdtar(
+                        file_path, filename=first_image
+                    )
 
                 # Process and convert to JPEG
                 result = self._process_image(image_data)
