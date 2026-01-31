@@ -55,6 +55,7 @@ if TYPE_CHECKING:
     from collections.abc import Generator
     from datetime import datetime
 
+    from sqlalchemy.sql.elements import ColumnElement
     from sqlmodel import Session
 
     from bookcard.repositories.models import BookWithFullRelations, BookWithRelations
@@ -272,6 +273,34 @@ class CalibreBookRepository(IBookRepository):
             formats=formats,
             rating_ids=rating_ids,
             language_ids=language_ids,
+        )
+
+    def list_books_by_filter(
+        self,
+        filter_expression: ColumnElement[bool],
+        limit: int = 20,
+        offset: int = 0,
+        sort_by: str = "timestamp",
+        sort_order: str = "desc",
+        full: bool = False,
+    ) -> list[BookWithRelations | BookWithFullRelations]:
+        """List books matching a custom SQLAlchemy filter expression."""
+        return self._reads.list_books_by_filter(
+            filter_expression=filter_expression,
+            limit=limit,
+            offset=offset,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            full=full,
+        )
+
+    def count_books_by_filter(
+        self,
+        filter_expression: ColumnElement[bool],
+    ) -> int:
+        """Count books matching a custom SQLAlchemy filter expression."""
+        return self._reads.count_books_by_filter(
+            filter_expression=filter_expression,
         )
 
     def get_book(self, book_id: int) -> BookWithRelations | None:

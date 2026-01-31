@@ -40,6 +40,8 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from pathlib import Path
 
+    from sqlalchemy.sql.elements import ColumnElement
+
     from bookcard.repositories.interfaces import (
         IBookSearchService,
         ILibraryStatisticsService,
@@ -308,6 +310,89 @@ class BookReadOperations:
             self._session_manager.get_session,
             _op,
             operation_name="count_books_with_filters",
+        )
+
+    def list_books_by_filter(
+        self,
+        filter_expression: ColumnElement[bool],
+        *,
+        limit: int = 20,
+        offset: int = 0,
+        sort_by: str = "timestamp",
+        sort_order: str = "desc",
+        full: bool = False,
+    ) -> list[BookWithRelations | BookWithFullRelations]:
+        """List books matching a custom SQLAlchemy filter expression."""
+        sort_field = self._queries.get_sort_field(sort_by)
+        normalized_sort_order = sort_order.lower()
+        if normalized_sort_order not in {"asc", "desc"}:
+            normalized_sort_order = "desc"
+
+        def _op(session: Session) -> list[BookWithRelations | BookWithFullRelations]:
+            # We use the base statement which includes series join
+            # But we might need to be careful if filter_expression uses aliases
+            # For now, assume filter_expression uses standard models (Book, Author, etc.)
+            # as constructed by BookRuleEvaluator.
+
+            # Note: build_list_base_stmt adds series join with alias.
+            # If our filter uses BookSeriesLink directly, it might conflict or duplicate joins
+            # if we are not careful. BookRuleEvaluator uses EXISTS subqueries, so it shouldn't
+            # conflict with the main query's joins.
+
+            stmt = self._queries.build_list_base_stmt(search_query=None)
+            stmt = stmt.where(filter_expression)
+
+            stmt = self._queries.apply_ordering_and_pagination(
+                stmt,
+                sort_field=sort_field,
+                sort_order=normalized_sort_order,
+                limit=limit,
+                offset=offset,
+            )
+
+            results = session.exec(stmt).all()  # type: ignore[arg-type]
+            base_books = self._build_books_from_results(session, results)
+            if full:
+                return cast(
+                    "list[BookWithRelations | BookWithFullRelations]",
+                    self._enrichment.enrich_books_with_full_details(
+                        session, base_books
+                    ),
+                )
+            self._enrich_base_books_for_list(session, base_books)
+            return cast("list[BookWithRelations | BookWithFullRelations]", base_books)
+
+        return self._retry.run_read(
+            self._session_manager.get_session,
+            _op,
+            operation_name="list_books_by_filter",
+        )
+
+    def count_books_by_filter(
+        self,
+        filter_expression: ColumnElement[bool],
+    ) -> int:
+        """Count books matching a custom SQLAlchemy filter expression."""
+
+        def _op(session: Session) -> int:
+            # We need a base count statement.
+            # build_count_stmt handles search_query joins.
+            # Here we just want a simple count with our custom filter.
+            # But wait, build_list_base_stmt has joins that might be needed if we were selecting?
+            # No, for count we just need to count distinct books that match the filter.
+            # Since filter uses EXISTS subqueries, we don't need extra joins in the main query
+            # unless the filter relies on them being present in the FROM clause (which it shouldn't).
+
+            stmt = select(func.count(func.distinct(Book.id)))
+            stmt = stmt.where(filter_expression)
+
+            result = session.exec(stmt).one()
+            return int(result) if result else 0
+
+        return self._retry.run_read(
+            self._session_manager.get_session,
+            _op,
+            operation_name="count_books_by_filter",
         )
 
     def get_book(self, *, book_id: int) -> BookWithRelations | None:

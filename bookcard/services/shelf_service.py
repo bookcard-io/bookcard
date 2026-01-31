@@ -24,8 +24,9 @@ import logging
 from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+from bookcard.models.magic_shelf_rules import GroupRule
 from bookcard.models.shelves import BookShelfLink, Shelf, ShelfTypeEnum
 from bookcard.repositories.config_repository import LibraryRepository
 from bookcard.services.config_service import LibraryService
@@ -101,6 +102,7 @@ class ShelfService:
         is_public: bool,
         description: str | None = None,
         shelf_type: ShelfTypeEnum = ShelfTypeEnum.SHELF,
+        filter_rules: dict[str, Any] | None = None,
     ) -> Shelf:
         """Create a new shelf.
 
@@ -114,6 +116,12 @@ class ShelfService:
             Shelf name (must be unique per library/user for private, per library for public).
         is_public : bool
             Whether the shelf is shared with everyone.
+        description : str | None
+            Optional description.
+        shelf_type : ShelfTypeEnum
+            Type of shelf (default: SHELF).
+        filter_rules : dict[str, Any] | None
+            Filter rules for Magic Shelves.
 
         Returns
         -------
@@ -123,11 +131,18 @@ class ShelfService:
         Raises
         ------
         ValueError
-            If a shelf with the same name already exists for the library/user/public scope.
+            If a shelf with the same name already exists or invalid rules.
         """
         if not self._shelf_repo.check_name_unique(library_id, name, user_id, is_public):
             msg = f"Shelf name '{name}' already exists in this library"
             raise ValueError(msg)
+
+        if shelf_type == ShelfTypeEnum.MAGIC_SHELF and filter_rules:
+            try:
+                GroupRule.model_validate(filter_rules)
+            except Exception as e:
+                msg = f"Invalid filter rules: {e}"
+                raise ValueError(msg) from e
 
         shelf = Shelf(
             name=name,
@@ -135,6 +150,7 @@ class ShelfService:
             is_public=is_public,
             is_active=True,  # New shelves are active by default (library should be active)
             shelf_type=shelf_type,
+            filter_rules=filter_rules,
             user_id=user_id,
             library_id=library_id,
             created_at=datetime.now(UTC),
@@ -153,6 +169,7 @@ class ShelfService:
         description: str | None = None,
         is_public: bool | None = None,
         shelf_type: ShelfTypeEnum | None = None,
+        filter_rules: dict[str, Any] | None = None,
     ) -> Shelf:
         """Update a shelf.
 
@@ -164,10 +181,14 @@ class ShelfService:
             User requesting the update (for permission check).
         name : str | None
             New shelf name (optional).
+        description : str | None
+            New description (optional).
         is_public : bool | None
             New public status (optional).
         shelf_type : ShelfTypeEnum | None
             New shelf type (optional).
+        filter_rules : dict[str, Any] | None
+            New filter rules (optional).
 
         Returns
         -------
@@ -177,7 +198,7 @@ class ShelfService:
         Raises
         ------
         ValueError
-            If shelf not found, permission denied, or name conflict.
+            If shelf not found, permission denied, name conflict, or invalid rules.
         """
         if user.id is None:
             msg = "User must have an ID"
@@ -192,16 +213,55 @@ class ShelfService:
             msg = "Permission denied: cannot edit this shelf"
             raise ValueError(msg)
 
+        self._validate_shelf_update(shelf, user, name, is_public)
+        self._update_shelf_properties(shelf, name, description, is_public, shelf_type)
+
+        # Validate rules if provided or if type is changing to MAGIC_SHELF
+        target_type = shelf_type if shelf_type is not None else shelf.shelf_type
+        target_rules = filter_rules if filter_rules is not None else shelf.filter_rules
+
+        if target_type == ShelfTypeEnum.MAGIC_SHELF and target_rules:
+            try:
+                GroupRule.model_validate(target_rules)
+            except Exception as e:
+                msg = f"Invalid filter rules: {e}"
+                raise ValueError(msg) from e
+
+        if filter_rules is not None:
+            shelf.filter_rules = filter_rules
+
+        shelf.updated_at = datetime.now(UTC)
+        self._session.flush()
+        return shelf
+
+    def _validate_shelf_update(
+        self,
+        shelf: Shelf,
+        user: User,
+        name: str | None,
+        is_public: bool | None,
+    ) -> None:
+        """Validate shelf update parameters."""
+        if name is not None and not self._shelf_repo.check_name_unique(
+            shelf.library_id,
+            name,
+            user.id,  # type: ignore[arg-type]
+            shelf.is_public if is_public is None else is_public,
+            exclude_id=shelf.id,
+        ):
+            msg = f"Shelf name '{name}' already exists in this library"
+            raise ValueError(msg)
+
+    def _update_shelf_properties(
+        self,
+        shelf: Shelf,
+        name: str | None,
+        description: str | None,
+        is_public: bool | None,
+        shelf_type: ShelfTypeEnum | None,
+    ) -> None:
+        """Update basic shelf properties."""
         if name is not None:
-            if not self._shelf_repo.check_name_unique(
-                shelf.library_id,
-                name,
-                user.id,
-                shelf.is_public if is_public is None else is_public,
-                exclude_id=shelf_id,
-            ):
-                msg = f"Shelf name '{name}' already exists in this library"
-                raise ValueError(msg)
             shelf.name = name
         if description is not None:
             shelf.description = description
@@ -209,10 +269,6 @@ class ShelfService:
             shelf.is_public = is_public
         if shelf_type is not None:
             shelf.shelf_type = shelf_type
-
-        shelf.updated_at = datetime.now(UTC)
-        self._session.flush()
-        return shelf
 
     def delete_shelf(self, shelf_id: int, user: User) -> None:
         """Delete a shelf and all its book associations.
