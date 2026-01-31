@@ -15,13 +15,15 @@
 
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { Button } from "@/components/forms/Button";
 import { TextArea } from "@/components/forms/TextArea";
 import { TextInput } from "@/components/forms/TextInput";
 import { ShelfCoverSection } from "@/components/shelves/ShelfCoverSection";
 import { useGlobalMessages } from "@/contexts/GlobalMessageContext";
 import { useUser } from "@/contexts/UserContext";
+import { useShelfEditState } from "@/hooks/shelves/useShelfEditState";
+import { useShelfImport } from "@/hooks/shelves/useShelfImport";
 import { useCoverFile } from "@/hooks/useCoverFile";
 import { useModal } from "@/hooks/useModal";
 import { useModalInteractions } from "@/hooks/useModalInteractions";
@@ -29,7 +31,13 @@ import { useShelfCoverOperations } from "@/hooks/useShelfCoverOperations";
 import { useShelfForm } from "@/hooks/useShelfForm";
 import { importReadList } from "@/services/shelfService";
 import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
+import {
+  comicRackImportStrategy,
+  type FileImportStrategy,
+} from "@/utils/importStrategies";
 import { buildShelfPermissionContext } from "@/utils/permissions";
+import { SHELF_ACTION, SHELF_RESOURCE } from "@/utils/shelfConstants";
+import { getErrorMessage, prepareShelfData } from "@/utils/shelfEditHelpers";
 
 export interface ShelfEditModalProps {
   /** Shelf to edit (null for create mode). */
@@ -49,6 +57,10 @@ export interface ShelfEditModalProps {
   onCoverSaved?: (shelf: Shelf) => void;
   /** Callback when cover picture is deleted. Receives updated shelf without cover. */
   onCoverDeleted?: (shelf: Shelf) => void;
+  /** Strategy for importing files. Defaults to ComicRack .cbl. */
+  importStrategy?: FileImportStrategy;
+  /** Callback to import a reading list file. */
+  onImport?: (shelfId: number, file: File) => Promise<void>;
 }
 
 /**
@@ -67,16 +79,36 @@ export function ShelfEditModal({
   onSave,
   onCoverSaved,
   onCoverDeleted,
+  importStrategy = comicRackImportStrategy,
+  onImport,
 }: ShelfEditModalProps) {
   const isEditMode = shelf !== null;
   const { canPerformAction } = useUser();
   const { showDanger } = useGlobalMessages();
-  const shelfContext = shelf ? buildShelfPermissionContext(shelf) : undefined;
-  const canCreate = !isEditMode && canPerformAction("shelves", "create");
-  const canEdit =
-    isEditMode && canPerformAction("shelves", "edit", shelfContext);
-  const [importFile, setImportFile] = useState<File | null>(null);
 
+  // Permission logic
+  const hasPermission = useMemo(() => {
+    if (isEditMode) {
+      const shelfContext = buildShelfPermissionContext(shelf);
+      return canPerformAction(
+        SHELF_RESOURCE.SHELVES,
+        SHELF_ACTION.EDIT,
+        shelfContext,
+      );
+    }
+    return canPerformAction(SHELF_RESOURCE.SHELVES, SHELF_ACTION.CREATE);
+  }, [isEditMode, shelf, canPerformAction]);
+
+  // State hooks
+  const {
+    coverOperationError,
+    setCoverOperationError,
+    isSaving,
+    setIsSaving,
+    reset: resetState,
+  } = useShelfEditState();
+
+  // Form hook
   const {
     name,
     description,
@@ -95,11 +127,10 @@ export function ShelfEditModal({
     onSubmit: async () => {
       // This won't be called since we handle submission manually
     },
-    onError: (error) => {
-      showDanger(error);
-    },
+    onError: (error) => showDanger(error),
   });
 
+  // Cover file hook
   const {
     coverFile,
     coverPreviewUrl,
@@ -116,11 +147,24 @@ export function ShelfEditModal({
     isEditMode,
   });
 
-  const [isSaving, setIsSaving] = useState(false);
-  const [coverOperationError, setCoverOperationError] = useState<string | null>(
-    null,
-  );
+  // Import hook
+  const {
+    importFile,
+    handleFileChange: handleImportFileChange,
+    resetImport,
+  } = useShelfImport({
+    strategy: importStrategy,
+    enabled: !isEditMode,
+    onParseSuccess: (data) => {
+      if (data.name) setName(data.name);
+      if (data.description) setDescription(data.description);
+    },
+    onError: (error) => {
+      showDanger(getErrorMessage(error, "Failed to parse file"));
+    },
+  });
 
+  // Cover operations hook
   const { executeCoverOperations } = useShelfCoverOperations({
     onCoverSaved,
     onCoverDeleted,
@@ -130,9 +174,8 @@ export function ShelfEditModal({
     },
   });
 
-  // Prevent body scroll when modal is open
+  // Modal hooks
   useModal(true);
-
   const { handleOverlayClick, handleModalClick } = useModalInteractions({
     onClose,
   });
@@ -151,145 +194,83 @@ export function ShelfEditModal({
       setCoverOperationError(null);
       handleCoverFileChange(e);
     },
-    [handleCoverFileChange],
-  );
-
-  const handleCblFileChange = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const selectedFile = e.target.files?.[0] || null;
-      setImportFile(selectedFile);
-
-      if (!selectedFile) {
-        return;
-      }
-
-      // Only parse and auto-populate fields in create mode
-      if (!isEditMode) {
-        try {
-          const text = await selectedFile.text();
-          const parser = new DOMParser();
-          const xmlDoc = parser.parseFromString(text, "text/xml");
-
-          const parserError = xmlDoc.querySelector("parsererror");
-          if (parserError) {
-            showDanger("Invalid XML file");
-            setImportFile(null);
-            return;
-          }
-
-          const nameElement = xmlDoc.querySelector("ReadingList > Name");
-          if (nameElement?.textContent) {
-            setName(nameElement.textContent.trim());
-          }
-
-          const descriptionElement = xmlDoc.querySelector(
-            "ReadingList > Description",
-          );
-          if (descriptionElement?.textContent) {
-            setDescription(descriptionElement.textContent.trim());
-          }
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : "Failed to parse CBL file";
-          showDanger(errorMessage);
-          setImportFile(null);
-        }
-      }
-    },
-    [isEditMode, setName, setDescription, showDanger],
+    [handleCoverFileChange, setCoverOperationError],
   );
 
   const handleCancel = useCallback(() => {
     resetForm();
     resetCover();
-    setImportFile(null);
-    setCoverOperationError(null);
+    resetState();
+    resetImport();
     onClose();
-  }, [resetForm, resetCover, onClose]);
+  }, [resetForm, resetCover, resetState, resetImport, onClose]);
 
-  const handleFormSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
+  const performImport = async (shelfId: number, file: File) => {
+    if (onImport) {
+      await onImport(shelfId, file);
+    } else {
+      // Default fallback if not injected
+      await importReadList(
+        shelfId,
+        { importer: importStrategy.importerType, auto_add_matched: true },
+        file,
+      );
+    }
+  };
 
-      // Validate form first
-      const isValid = await validateAndSubmit();
-      if (!isValid) {
-        return;
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validate form first
+    const isValid = await validateAndSubmit();
+    if (!isValid) {
+      return;
+    }
+
+    setIsSaving(true);
+    setCoverOperationError(null);
+
+    try {
+      // Prepare shelf data
+      const data = prepareShelfData(name, description, isPublic);
+
+      // Save the shelf and get the result. For create mode, optionally
+      // include the read list file so the API can import it in a single call.
+      const saveOptions =
+        !isEditMode && importFile ? { readListFile: importFile } : undefined;
+      const savedShelf = await onSave(data, saveOptions);
+
+      // Handle import in edit mode (after shelf is saved)
+      if (isEditMode && importFile && savedShelf) {
+        try {
+          await performImport(savedShelf.id, importFile);
+        } catch (error) {
+          showDanger(getErrorMessage(error, "Failed to import reading list"));
+          // Don't close modal on import error so user can retry
+          return;
+        }
       }
 
-      setIsSaving(true);
-      setCoverOperationError(null);
-
-      try {
-        // Prepare shelf data
-        const data: ShelfCreate | ShelfUpdate = {
-          name: name.trim(),
-          description: description.trim() || null,
-          is_public: isPublic,
-          // shelf_type is handled by import or defaults
-        };
-
-        // Save the shelf and get the result. For create mode, optionally
-        // include the read list file so the API can import it in a single call.
-        const saveOptions =
-          !isEditMode && importFile ? { readListFile: importFile } : undefined;
-        const savedShelf = await onSave(data, saveOptions);
-
-        // Handle import in edit mode (after shelf is saved)
-        if (isEditMode && importFile && savedShelf) {
-          try {
-            await importReadList(
-              savedShelf.id,
-              { importer: "comicrack", auto_add_matched: true },
-              importFile,
-            );
-          } catch (error) {
-            const errorMessage =
-              error instanceof Error
-                ? error.message
-                : "Failed to import reading list";
-            showDanger(errorMessage);
-            // Don't close modal on import error so user can retry
-            return;
-          }
-        }
-
-        // Handle cover operations after shelf is saved
-        if (savedShelf && (coverFile || isCoverDeleteStaged)) {
-          await executeCoverOperations(
-            savedShelf,
-            coverFile,
-            isCoverDeleteStaged,
-          );
-        }
-
-        onClose();
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Failed to save shelf";
-        showDanger(errorMessage);
-        // Error handling is done by useShelfForm and useShelfCoverOperations
-      } finally {
-        setIsSaving(false);
+      // Handle cover operations after shelf is saved
+      if (savedShelf && (coverFile || isCoverDeleteStaged)) {
+        await executeCoverOperations(
+          savedShelf,
+          coverFile,
+          isCoverDeleteStaged,
+        );
       }
-    },
-    [
-      validateAndSubmit,
-      name,
-      description,
-      isPublic,
-      isEditMode,
-      onSave,
-      importFile,
-      coverFile,
-      isCoverDeleteStaged,
-      executeCoverOperations,
-      onClose,
-      showDanger,
-    ],
-  );
 
-  const hasPermission = canCreate || canEdit;
+      onClose();
+    } catch (error) {
+      showDanger(getErrorMessage(error, "Failed to save shelf"));
+      // Error handling is done by useShelfForm and useShelfCoverOperations
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const isFormDisabled = !hasPermission;
+  const isActionDisabled = !hasPermission || isSubmitting || isSaving;
 
   return (
     /* biome-ignore lint/a11y/noStaticElementInteractions: modal overlay pattern */
@@ -345,15 +326,15 @@ export function ShelfEditModal({
             <div className="space-y-4">
               <div className="font-medium text-sm text-text-a10">
                 {isEditMode
-                  ? "Import Reading List (ComicRack .cbl)"
-                  : "Create from Reading List (ComicRack .cbl)"}
+                  ? `Import ${importStrategy.label}`
+                  : `Create from ${importStrategy.label}`}
               </div>
               <input
                 id="readlist-import-input"
                 type="file"
-                accept=".cbl"
-                onChange={handleCblFileChange}
-                disabled={!hasPermission}
+                accept={importStrategy.accept}
+                onChange={handleImportFileChange}
+                disabled={isFormDisabled}
                 className="block w-full rounded-md border border-surface-a20 bg-surface-a0 px-4 py-3 font-inherit text-base text-text-a0 leading-normal transition-[border-color_0.2s,box-shadow_0.2s,background-color_0.2s] file:mr-4 file:cursor-pointer file:rounded file:border-0 file:bg-surface-a20 file:px-4 file:py-2 file:font-semibold file:text-sm file:text-text-a0 hover:file:bg-surface-a30 focus:border-primary-a0 focus:bg-surface-a10 focus:shadow-[var(--shadow-focus-ring)] focus:outline-none hover:not(:focus):border-surface-a30 disabled:cursor-not-allowed disabled:opacity-50"
               />
             </div>
@@ -365,7 +346,7 @@ export function ShelfEditModal({
               error={errors.name}
               required
               autoFocus
-              disabled={!hasPermission}
+              disabled={isFormDisabled}
             />
 
             <TextArea
@@ -375,7 +356,7 @@ export function ShelfEditModal({
               error={errors.description}
               rows={4}
               placeholder="Optional description of the shelf"
-              disabled={!hasPermission}
+              disabled={isFormDisabled}
             />
 
             <ShelfCoverSection
@@ -385,7 +366,7 @@ export function ShelfEditModal({
               coverPreviewUrl={coverPreviewUrl}
               coverError={coverError || coverOperationError}
               fileInputRef={fileInputRef}
-              isSaving={isSaving || !hasPermission}
+              isSaving={isSaving || isFormDisabled}
               onCoverFileChange={handleCoverFileChangeWithErrorClear}
               onClearCoverFile={handleClearCoverFile}
               onCoverDelete={handleCoverDelete}
@@ -398,7 +379,7 @@ export function ShelfEditModal({
                 id="isPublic"
                 checked={isPublic}
                 onChange={(e) => setIsPublic(e.target.checked)}
-                disabled={!hasPermission}
+                disabled={isFormDisabled}
                 className="h-4 w-4 cursor-pointer rounded border-surface-a20 text-primary-a0 accent-[var(--color-primary-a0)] focus:ring-2 focus:ring-primary-a0 disabled:cursor-not-allowed disabled:opacity-50"
               />
               <label
@@ -420,7 +401,7 @@ export function ShelfEditModal({
                 variant="ghost"
                 size="medium"
                 onClick={handleCancel}
-                disabled={isSubmitting || isSaving}
+                disabled={isActionDisabled}
               >
                 Cancel
               </Button>
@@ -429,7 +410,7 @@ export function ShelfEditModal({
                 variant="primary"
                 size="medium"
                 loading={isSubmitting || isSaving}
-                disabled={!hasPermission || isSubmitting || isSaving}
+                disabled={isActionDisabled}
               >
                 {isEditMode ? "Save" : "Create"}
               </Button>
