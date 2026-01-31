@@ -34,6 +34,7 @@ class ShelfTypeEnum(StrEnum):
 
     SHELF = "shelf"
     READ_LIST = "read_list"
+    MAGIC_SHELF = "magic_shelf"
 
 
 class Shelf(SQLModel, table=True):
@@ -99,6 +100,10 @@ class Shelf(SQLModel, table=True):
         ),
     )
     read_list_metadata: dict[str, Any] | None = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),
+    )
+    filter_rules: dict[str, Any] | None = Field(
         default=None,
         sa_column=Column(JSON, nullable=True),
     )

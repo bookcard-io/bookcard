@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from datetime import datetime
     from pathlib import Path
 
+    from sqlalchemy.sql.elements import ColumnElement
     from sqlmodel import Session
 
     from bookcard.repositories.models import BookWithFullRelations, BookWithRelations
@@ -641,6 +642,59 @@ class IBookRepository(ABC):
         -------
         int
             Total number of books matching the filters.
+        """
+        ...
+
+    @abstractmethod
+    def list_books_by_filter(
+        self,
+        filter_expression: ColumnElement[bool],
+        limit: int = 20,
+        offset: int = 0,
+        sort_by: str = "timestamp",
+        sort_order: str = "desc",
+        full: bool = False,
+    ) -> list[BookWithRelations | BookWithFullRelations]:
+        """List books matching a custom SQLAlchemy filter expression.
+
+        Parameters
+        ----------
+        filter_expression : ColumnElement[bool]
+            SQLAlchemy expression to filter books.
+        limit : int
+            Maximum number of books to return.
+        offset : int
+            Number of books to skip.
+        sort_by : str
+            Field to sort by (default: 'timestamp').
+        sort_order : str
+            Sort order: 'asc' or 'desc' (default: 'desc').
+        full : bool
+            If True, return full book details with all metadata (default: False).
+
+        Returns
+        -------
+        list[BookWithRelations | BookWithFullRelations]
+            List of books matching the filter.
+        """
+        ...
+
+    @abstractmethod
+    def count_books_by_filter(
+        self,
+        filter_expression: ColumnElement[bool],
+    ) -> int:
+        """Count books matching a custom SQLAlchemy filter expression.
+
+        Parameters
+        ----------
+        filter_expression : ColumnElement[bool]
+            SQLAlchemy expression to filter books.
+
+        Returns
+        -------
+        int
+            Total number of books matching the filter.
         """
         ...
 
