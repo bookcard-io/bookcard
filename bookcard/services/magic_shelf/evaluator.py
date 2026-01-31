@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, cast
 from sqlalchemy import and_, exists, or_, select
 
 from bookcard.models.core import Book
-from bookcard.models.magic_shelf_rules import GroupRule, JoinType, Rule
+from bookcard.models.magic_shelf_rules import GroupRule, JoinType, Rule, RuleOperator
 from bookcard.services.magic_shelf.definitions import (
     DirectFieldDefinition,
     RelatedFieldDefinition,
@@ -101,6 +101,12 @@ class BookRuleEvaluator:
         rule: Rule,
     ) -> ColumnElement[bool]:
         """Evaluate a rule involving a related table."""
+        # Handle existence checks (IS_EMPTY / IS_NOT_EMPTY) specially
+        # These operators check for the presence/absence of the relationship itself,
+        # rather than filtering on columns of the related table.
+        if rule.operator in (RuleOperator.IS_EMPTY, RuleOperator.IS_NOT_EMPTY):
+            return self._evaluate_related_existence(definition, rule.operator)
+
         # Case 1: Many-to-Many via Link Table
         if definition.link_model is not None:
             # EXISTS (SELECT 1 FROM link_table JOIN target_table ON ... WHERE link.book = book.id AND target.col OP val)
@@ -141,3 +147,40 @@ class BookRuleEvaluator:
 
         logger.warning("Invalid related field definition for %s", rule.field)
         return False  # type: ignore[return-value]
+
+    def _evaluate_related_existence(
+        self,
+        definition: RelatedFieldDefinition,
+        operator: RuleOperator,
+    ) -> ColumnElement[bool]:
+        """Evaluate existence of a relationship (IS_EMPTY / IS_NOT_EMPTY)."""
+        stmt = None
+
+        # Case 1: Many-to-Many via Link Table
+        if definition.link_model is not None:
+            # SELECT 1 FROM link_table WHERE link.book = book.id
+            stmt = (
+                select(1)
+                .select_from(definition.link_model)
+                .where(cast("ColumnElement[bool]", definition.link_root_fk == Book.id))
+            )
+
+        # Case 2: One-to-Many (Related table has FK to Book)
+        elif definition.related_root_fk is not None:
+            # SELECT 1 FROM target_table WHERE target.book = book.id
+            stmt = (
+                select(1)
+                .select_from(definition.target_model)
+                .where(
+                    cast("ColumnElement[bool]", definition.related_root_fk == Book.id)
+                )
+            )
+
+        if stmt is None:
+            logger.warning("Invalid related field definition for existence check")
+            return False  # type: ignore[return-value]
+
+        if operator == RuleOperator.IS_EMPTY:
+            return ~exists(stmt)
+
+        return exists(stmt)
