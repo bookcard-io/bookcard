@@ -146,6 +146,97 @@ def sample_data(session: Session) -> dict[str, int | None]:
 
     session.commit()
 
+    # Book 10: SciFi, Rating 5, Year 2025 (Recent)
+    book10 = Book(
+        title="SciFi Hit",
+        isbn="1010",
+        pubdate=datetime.now(UTC),
+    )
+    rating5_2 = Rating(rating=5)
+    session.add(rating5_2)
+    session.add(book10)
+    session.commit()
+    session.add(BookRatingLink(book=book10.id, rating=rating5_2.id))
+    tag_scifi = Tag(name="SciFi")
+    session.add(tag_scifi)
+    session.commit()
+    session.add(BookTagLink(book=book10.id, tag=tag_scifi.id))
+
+    # Book 11: Horror, Rating 2, Year 1980, Author King
+    book11 = Book(
+        title="Old King Horror",
+        isbn="1111",
+        pubdate=datetime(1980, 1, 1, tzinfo=UTC),
+    )
+    rating2 = Rating(rating=2)
+    session.add(rating2)
+    session.add(book11)
+    session.commit()
+    session.add(BookRatingLink(book=book11.id, rating=rating2.id))
+    # Reuse Horror tag and King author if possible, but creating new instances for simplicity in test data
+    # (Assuming unique constraints aren't enforced in this in-memory setup or we use get_or_create logic,
+    # but here we just create new ones or fetch existing if we were careful.
+    # To be safe and avoid unique constraint errors if they exist, let's reuse.)
+    # Actually, let's just create new ones with same names if unique constraints allow,
+    # or better, fetch the ones we created earlier.
+    # For simplicity in this test fixture, I'll just create new objects.
+    # If unique constraints bite, we'll see.
+    # The models define `name` but don't explicitly show `unique=True` in the snippet provided earlier,
+    # but usually tags/authors are unique.
+    # Let's try to query them to be safe.
+    tag_horror_ref = session.exec(select(Tag).where(Tag.name == "Horror")).first()
+    author_king_ref = session.exec(
+        select(Author).where(Author.name == "Stephen King")
+    ).first()
+
+    # If they don't exist (because of test execution order or whatever), create them.
+    if not tag_horror_ref:
+        tag_horror_ref = Tag(name="Horror")
+        session.add(tag_horror_ref)
+    if not author_king_ref:
+        author_king_ref = Author(name="Stephen King")
+        session.add(author_king_ref)
+
+    session.commit()
+    session.add(BookTagLink(book=book11.id, tag=tag_horror_ref.id))
+    session.add(BookAuthorLink(book=book11.id, author=author_king_ref.id))
+
+    # Book 12: Romance (Control)
+    book12 = Book(title="Romance Novel", isbn="1212")
+    tag_romance = Tag(name="Romance")
+    session.add(tag_romance)
+    session.add(book12)
+    session.commit()
+    session.add(BookTagLink(book=book12.id, tag=tag_romance.id))
+
+    # Book 13: Horror, Rating 2, Year 1980, Author Orwell (Control)
+    book13 = Book(
+        title="Old Orwell Horror",
+        isbn="1313",
+        pubdate=datetime(1980, 1, 1, tzinfo=UTC),
+    )
+    author_orwell = Author(name="George Orwell")
+    session.add(author_orwell)
+    session.add(book13)
+    session.commit()
+    session.add(BookRatingLink(book=book13.id, rating=rating2.id))  # Reuse rating 2
+    session.add(BookTagLink(book=book13.id, tag=tag_horror_ref.id))  # Reuse Horror
+    session.add(BookAuthorLink(book=book13.id, author=author_orwell.id))
+
+    # Book 14: Title="UniqueTitle"
+    book14 = Book(title="UniqueTitle", isbn="1414")
+    session.add(book14)
+
+    # Book 15: Author="SpecificAuthor"
+    book15 = Book(title="Other Title", isbn="1515")
+    author_specific = Author(name="SpecificAuthor")
+    session.add(author_specific)
+    session.add(book15)
+    session.commit()
+    session.add(BookAuthorLink(book=book15.id, author=author_specific.id))
+
+    session.commit()
+
     # Refresh to ensure relationships are loaded if needed (though we query via links usually)
     return {
         "book1": book1.id,
@@ -157,6 +248,12 @@ def sample_data(session: Session) -> dict[str, int | None]:
         "book7": book7.id,
         "book8": book8.id,
         "book9": book9.id,
+        "book10": book10.id,
+        "book11": book11.id,
+        "book12": book12.id,
+        "book13": book13.id,
+        "book14": book14.id,
+        "book15": book15.id,
     }
 
 
@@ -182,8 +279,12 @@ def test_genre_horror(session: Session, sample_data: dict[str, int | None]) -> N
     stmt = select(Book).where(filter_expr)
     results = session.exec(stmt).all()
 
-    assert len(results) == 1
-    assert results[0].id == sample_data["book2"]
+    # Book 2, Book 11, Book 13 have Horror tag
+    assert len(results) == 3
+    ids = {b.id for b in results}
+    assert sample_data["book2"] in ids
+    assert sample_data["book11"] in ids
+    assert sample_data["book13"] in ids
 
 
 def test_highly_rated_recent(
@@ -210,8 +311,11 @@ def test_highly_rated_recent(
     stmt = select(Book).where(filter_expr)
     results = session.exec(stmt).all()
 
-    assert len(results) == 1
-    assert results[0].id == sample_data["book3"]
+    # Book 3 and Book 10 match
+    assert len(results) == 2
+    ids = {b.id for b in results}
+    assert sample_data["book3"] in ids
+    assert sample_data["book10"] in ids
 
 
 def test_title_hash_no_series(
@@ -331,10 +435,16 @@ def test_nested_complex_logic(
     stmt = select(Book).where(filter_expr)
     results = session.exec(stmt).all()
 
-    # Should match book9 (Old Bad) and book3 (Good Recent)
+    # Should match:
+    # Old/Low: Book 9, Book 11, Book 13
+    # New/High: Book 3, Book 10
     ids = {b.id for b in results}
+    assert len(ids) == 5
     assert sample_data["book9"] in ids
+    assert sample_data["book11"] in ids
+    assert sample_data["book13"] in ids
     assert sample_data["book3"] in ids
+    assert sample_data["book10"] in ids
     assert sample_data["book1"] not in ids
 
 
@@ -450,6 +560,141 @@ def test_not_operators(session: Session, sample_data: dict[str, int | None]) -> 
     ids3 = {b.id for b in res3}
     assert sample_data["book2"] not in ids3
     assert sample_data["book1"] in ids3
+
+
+def test_deeply_nested_logic(
+    session: Session, sample_data: dict[str, int | None]
+) -> None:
+    """Test deeply nested logic: (Horror OR SciFi) AND ((High Rated AND Recent) OR (Old AND (King OR Straub)))."""
+    evaluator = BookRuleEvaluator()
+
+    # Part 1: Genre = Horror OR Genre = SciFi
+    g1_horror = Rule(
+        field=RuleField.TAG, operator=RuleOperator.CONTAINS, value="Horror"
+    )
+    g1_scifi = Rule(field=RuleField.TAG, operator=RuleOperator.CONTAINS, value="SciFi")
+    group1 = GroupRule(rules=[g1_horror, g1_scifi], join_type=JoinType.OR)
+
+    # Part 2a: High Rated (>4) AND Recent (>2020)
+    g2a_rating = Rule(
+        field=RuleField.RATING, operator=RuleOperator.GREATER_THAN, value=4
+    )
+    g2a_date = Rule(
+        field=RuleField.PUBDATE,
+        operator=RuleOperator.GREATER_THAN,
+        value=datetime(2020, 1, 1, tzinfo=UTC).isoformat(),
+    )
+    group2a = GroupRule(rules=[g2a_rating, g2a_date], join_type=JoinType.AND)
+
+    # Part 2b: Old (<1990) AND (Author=King OR Author=Straub)
+    g2b_date = Rule(
+        field=RuleField.PUBDATE,
+        operator=RuleOperator.LESS_THAN,
+        value=datetime(1990, 1, 1, tzinfo=UTC).isoformat(),
+    )
+    g2b_king = Rule(
+        field=RuleField.AUTHOR, operator=RuleOperator.CONTAINS, value="King"
+    )
+    g2b_straub = Rule(
+        field=RuleField.AUTHOR, operator=RuleOperator.CONTAINS, value="Straub"
+    )
+    group2b_authors = GroupRule(rules=[g2b_king, g2b_straub], join_type=JoinType.OR)
+    group2b = GroupRule(rules=[g2b_date, group2b_authors], join_type=JoinType.AND)
+
+    # Part 2: 2a OR 2b
+    group2 = GroupRule(rules=[group2a, group2b], join_type=JoinType.OR)
+
+    # Root: Group 1 AND Group 2
+    root = GroupRule(rules=[group1, group2], join_type=JoinType.AND)
+
+    filter_expr = evaluator.build_filter(root)
+    stmt = select(Book).where(filter_expr)
+    results = session.exec(stmt).all()
+    ids = {b.id for b in results}
+
+    # Expect:
+    # Book 10: SciFi, 5, 2025 -> Matches G1(SciFi) AND G2a(High/Recent). -> MATCH
+    # Book 11: Horror, 2, 1980, King -> Matches G1(Horror) AND G2b(Old/King). -> MATCH
+    # Book 13: Horror, 2, 1980, Orwell -> Matches G1(Horror) but FAILS G2 (Not High/Recent, Not King/Straub). -> NO MATCH
+    # Book 12: Romance -> Fails G1. -> NO MATCH
+    # Book 2: Horror, No Rating/Date -> Fails G2. -> NO MATCH
+
+    assert sample_data["book10"] in ids
+    assert sample_data["book11"] in ids
+    assert sample_data["book13"] not in ids
+    assert sample_data["book12"] not in ids
+    assert sample_data["book2"] not in ids
+
+
+def test_mixed_direct_and_related_or(
+    session: Session, sample_data: dict[str, int | None]
+) -> None:
+    """Test OR logic mixing direct fields and related fields."""
+    evaluator = BookRuleEvaluator()
+
+    # Title="UniqueTitle" OR Author="SpecificAuthor"
+    rule1 = Rule(
+        field=RuleField.TITLE, operator=RuleOperator.EQUALS, value="UniqueTitle"
+    )
+    rule2 = Rule(
+        field=RuleField.AUTHOR, operator=RuleOperator.EQUALS, value="SpecificAuthor"
+    )
+    group = GroupRule(rules=[rule1, rule2], join_type=JoinType.OR)
+
+    filter_expr = evaluator.build_filter(group)
+    stmt = select(Book).where(filter_expr)
+    results = session.exec(stmt).all()
+    ids = {b.id for b in results}
+
+    # Book 14: Title="UniqueTitle" -> Match
+    # Book 15: Author="SpecificAuthor" -> Match
+    # Book 1: Title="Blank ISBN Book" -> No Match
+    assert sample_data["book14"] in ids
+    assert sample_data["book15"] in ids
+    assert sample_data["book1"] not in ids
+
+
+def test_in_operator_related_field(
+    session: Session, sample_data: dict[str, int | None]
+) -> None:
+    """Test IN operator on a related field (Author)."""
+    evaluator = BookRuleEvaluator()
+
+    # Author IN ["Stephen King", "Peter Straub"]
+    rule = Rule(
+        field=RuleField.AUTHOR,
+        operator=RuleOperator.IN,
+        value=["Stephen King", "Peter Straub"],
+    )
+    group = GroupRule(rules=[rule])
+
+    filter_expr = evaluator.build_filter(group)
+    stmt = select(Book).where(filter_expr)
+    results = session.exec(stmt).all()
+    ids = {b.id for b in results}
+
+    # Book 6: King & Straub -> Match
+    # Book 11: King -> Match
+    # Book 13: Orwell -> No Match
+    assert sample_data["book6"] in ids
+    assert sample_data["book11"] in ids
+    assert sample_data["book13"] not in ids
+
+
+def test_empty_group_behavior(
+    session: Session, sample_data: dict[str, int | None]
+) -> None:
+    """Test that an empty group returns all books (True)."""
+    evaluator = BookRuleEvaluator()
+    group = GroupRule(rules=[])
+
+    filter_expr = evaluator.build_filter(group)
+    # filter_expr should be True
+    stmt = select(Book).where(filter_expr)
+    results = session.exec(stmt).all()
+
+    # Should return all books
+    assert len(results) == len(sample_data)
 
 
 def test_boundary_operators(
