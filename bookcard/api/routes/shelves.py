@@ -48,12 +48,15 @@ from bookcard.api.schemas.shelves import (
     ShelfUpdate,
 )
 from bookcard.models.auth import User
+from bookcard.repositories.calibre.repository import CalibreBookRepository
 from bookcard.repositories.config_repository import LibraryRepository
 from bookcard.repositories.shelf_repository import (
     BookShelfLinkRepository,
     ShelfRepository,
 )
 from bookcard.services.config_service import LibraryService
+from bookcard.services.magic_shelf.evaluator import BookRuleEvaluator
+from bookcard.services.magic_shelf.service import MagicShelfService
 from bookcard.services.permission_service import PermissionService
 from bookcard.services.shelf_service import ShelfService
 
@@ -132,6 +135,44 @@ def _get_active_library_id(
 
 
 ActiveLibraryIdDep = Annotated[int, Depends(_get_active_library_id)]
+
+
+def _magic_shelf_service(
+    session: SessionDep,
+    library_id: ActiveLibraryIdDep,
+) -> MagicShelfService:
+    """Create a MagicShelfService instance.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+    library_id : ActiveLibraryIdDep
+        Active library ID dependency.
+
+    Returns
+    -------
+    MagicShelfService
+        MagicShelf service instance.
+    """
+    library_repo = LibraryRepository(session)
+    library_service = LibraryService(session, library_repo)
+    library = library_service.get_library(library_id)
+
+    if not library or not library.calibre_db_path:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Active library has no path",
+        )
+
+    shelf_repo = ShelfRepository(session)
+    book_repo = CalibreBookRepository(calibre_db_path=library.calibre_db_path)
+    evaluator = BookRuleEvaluator()
+
+    return MagicShelfService(shelf_repo, book_repo, evaluator)
+
+
+MagicShelfServiceDep = Annotated[MagicShelfService, Depends(_magic_shelf_service)]
 
 
 def _build_shelf_permission_context(shelf: Shelf) -> dict[str, object]:
@@ -219,6 +260,7 @@ def create_shelf(
             is_public=shelf.is_public,
             is_active=shelf.is_active,
             shelf_type=shelf.shelf_type,
+            filter_rules=shelf.filter_rules,
             read_list_metadata=shelf.read_list_metadata,
             user_id=shelf.user_id,
             library_id=shelf.library_id,
@@ -289,6 +331,7 @@ def list_shelves(
                 is_public=shelf.is_public,
                 is_active=shelf.is_active,
                 shelf_type=shelf.shelf_type,
+                filter_rules=shelf.filter_rules,
                 read_list_metadata=shelf.read_list_metadata,
                 user_id=shelf.user_id,
                 library_id=shelf.library_id,
@@ -381,6 +424,7 @@ def get_shelf(
         is_public=shelf.is_public,
         is_active=shelf.is_active,
         shelf_type=shelf.shelf_type,
+        filter_rules=shelf.filter_rules,
         user_id=shelf.user_id,
         library_id=shelf.library_id,
         created_at=shelf.created_at,
@@ -448,6 +492,7 @@ def update_shelf(
             description=shelf_data.description,
             is_public=shelf_data.is_public,
             shelf_type=shelf_data.shelf_type,
+            filter_rules=shelf_data.filter_rules,
         )
         session.commit()
 
@@ -469,6 +514,7 @@ def update_shelf(
             is_public=shelf.is_public,
             is_active=shelf.is_active,
             shelf_type=shelf.shelf_type,
+            filter_rules=shelf.filter_rules,
             read_list_metadata=shelf.read_list_metadata,
             user_id=shelf.user_id,
             library_id=shelf.library_id,
@@ -716,6 +762,7 @@ def get_shelf_books(
     session: SessionDep,
     current_user: CurrentUserDep,
     shelf_service: ShelfServiceDep,
+    magic_shelf_service: MagicShelfServiceDep,
     library_id: ActiveLibraryIdDep,
     page: int = Query(default=1, ge=1, description="Page number"),
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
@@ -740,6 +787,8 @@ def get_shelf_books(
         Current authenticated user.
     shelf_service : ShelfServiceDep
         Shelf service dependency.
+    magic_shelf_service : MagicShelfServiceDep
+        Magic Shelf service dependency.
     page : int
         Page number (1-indexed).
     page_size : int
@@ -779,6 +828,26 @@ def get_shelf_books(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Permission denied: cannot view this shelf",
         )
+
+    # Handle Magic Shelves
+    from bookcard.models.shelves import ShelfTypeEnum
+
+    if shelf.shelf_type == ShelfTypeEnum.MAGIC_SHELF:
+        try:
+            books, _ = magic_shelf_service.get_books_for_shelf(
+                shelf_id=shelf_id,
+                page=page,
+                page_size=page_size,
+                sort_by=sort_by if sort_by != "order" else "timestamp",
+                sort_order=sort_order,
+                full=False,
+            )
+            return [book.book.id for book in books if book.book.id is not None]
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e),
+            ) from e
 
     link_repo = BookShelfLinkRepository(session)
     links = link_repo.find_by_shelf(shelf_id)
@@ -890,6 +959,7 @@ def upload_shelf_cover_picture(
             is_public=shelf.is_public,
             is_active=shelf.is_active,
             shelf_type=shelf.shelf_type,
+            filter_rules=shelf.filter_rules,
             read_list_metadata=shelf.read_list_metadata,
             user_id=shelf.user_id,
             library_id=shelf.library_id,
@@ -1047,6 +1117,7 @@ def delete_shelf_cover_picture(
             is_public=shelf.is_public,
             is_active=shelf.is_active,
             shelf_type=shelf.shelf_type,
+            filter_rules=shelf.filter_rules,
             read_list_metadata=shelf.read_list_metadata,
             user_id=shelf.user_id,
             library_id=shelf.library_id,

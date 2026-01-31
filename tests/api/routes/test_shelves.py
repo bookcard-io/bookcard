@@ -92,6 +92,7 @@ class MockShelfService:
         is_public: bool,
         description: str | None = None,
         shelf_type: object | None = None,
+        filter_rules: dict[str, object] | None = None,
     ) -> Shelf:
         """Mock create_shelf method."""
         if self.create_shelf_result is None:
@@ -106,6 +107,7 @@ class MockShelfService:
         description: str | None = None,
         is_public: bool | None = None,
         shelf_type: object | None = None,
+        filter_rules: dict[str, object] | None = None,
     ) -> Shelf:
         """Mock update_shelf method."""
         if self.update_shelf_result is None:
@@ -1064,6 +1066,7 @@ def test_get_shelf_books_success(
     """Test get_shelf_books succeeds (covers lines 668-704)."""
     session = DummySession()
     mock_service = MockShelfService()
+    mock_magic_service = MagicMock()
 
     link1 = BookShelfLink(
         id=1,
@@ -1099,6 +1102,7 @@ def test_get_shelf_books_success(
             session=session,
             current_user=mock_user,
             shelf_service=mock_service,
+            magic_shelf_service=mock_magic_service,
             library_id=1,
             page=1,
             page_size=20,
@@ -1115,6 +1119,7 @@ def test_get_shelf_books_not_found(mock_user: User, mock_library: Library) -> No
     """Test get_shelf_books raises 404 when shelf not found (covers lines 670-674)."""
     session = DummySession()
     mock_service = MockShelfService()
+    mock_magic_service = MagicMock()
 
     with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
         mock_repo = MagicMock()
@@ -1127,6 +1132,7 @@ def test_get_shelf_books_not_found(mock_user: User, mock_library: Library) -> No
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=mock_magic_service,
                 library_id=1,
             )
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
@@ -1138,6 +1144,7 @@ def test_get_shelf_books_wrong_library(
     """Test get_shelf_books raises 404 when shelf belongs to different library (covers lines 677-681)."""
     session = DummySession()
     mock_service = MockShelfService()
+    mock_magic_service = MagicMock()
     mock_shelf.library_id = 2
 
     with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
@@ -1151,6 +1158,7 @@ def test_get_shelf_books_wrong_library(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=mock_magic_service,
                 library_id=1,
             )
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
@@ -1162,6 +1170,7 @@ def test_get_shelf_books_permission_denied(
     """Test get_shelf_books raises 403 when permission denied (covers lines 683-687)."""
     session = DummySession()
     mock_service = MockShelfService()
+    mock_magic_service = MagicMock()
     mock_service.can_view_shelf_result = False
 
     with patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class:
@@ -1175,6 +1184,7 @@ def test_get_shelf_books_permission_denied(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=mock_magic_service,
                 library_id=1,
             )
         assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
@@ -1186,6 +1196,7 @@ def test_get_shelf_books_sort_by_date_added(
     """Test get_shelf_books sorts by date_added (covers lines 695-696)."""
     session = DummySession()
     mock_service = MockShelfService()
+    mock_magic_service = MagicMock()
 
     link1 = BookShelfLink(
         id=1,
@@ -1221,6 +1232,7 @@ def test_get_shelf_books_sort_by_date_added(
             session=session,
             current_user=mock_user,
             shelf_service=mock_service,
+            magic_shelf_service=mock_magic_service,
             library_id=1,
             page=1,  # Explicitly pass int values
             page_size=20,
@@ -1237,6 +1249,7 @@ def test_get_shelf_books_sort_by_book_id(
     """Test get_shelf_books sorts by book_id (covers lines 697-698)."""
     session = DummySession()
     mock_service = MockShelfService()
+    mock_magic_service = MagicMock()
 
     link1 = BookShelfLink(
         id=1,
@@ -1272,6 +1285,7 @@ def test_get_shelf_books_sort_by_book_id(
             session=session,
             current_user=mock_user,
             shelf_service=mock_service,
+            magic_shelf_service=mock_magic_service,
             library_id=1,
             page=1,  # Explicitly pass int values
             page_size=20,
@@ -1288,6 +1302,7 @@ def test_get_shelf_books_pagination(
     """Test get_shelf_books pagination (covers lines 701-703)."""
     session = DummySession()
     mock_service = MockShelfService()
+    mock_magic_service = MagicMock()
 
     links = [
         BookShelfLink(
@@ -1319,6 +1334,7 @@ def test_get_shelf_books_pagination(
             session=session,
             current_user=mock_user,
             shelf_service=mock_service,
+            magic_shelf_service=mock_magic_service,
             library_id=1,
             page=2,
             page_size=3,

@@ -55,7 +55,11 @@ class ShelfCreate(BaseModel):
     )
     shelf_type: ShelfTypeEnum = Field(
         default=ShelfTypeEnum.SHELF,
-        description="Type of the shelf (SHELF or READ_LIST)",
+        description="Type of the shelf (SHELF, READ_LIST, or MAGIC_SHELF)",
+    )
+    filter_rules: dict[str, Any] | None = Field(
+        default=None,
+        description="Filter rules for Magic Shelves",
     )
 
 
@@ -90,7 +94,11 @@ class ShelfUpdate(BaseModel):
     )
     shelf_type: ShelfTypeEnum | None = Field(
         default=None,
-        description="Type of the shelf (SHELF or READ_LIST)",
+        description="Type of the shelf (SHELF, READ_LIST, or MAGIC_SHELF)",
+    )
+    filter_rules: dict[str, Any] | None = Field(
+        default=None,
+        description="New filter rules",
     )
 
 
@@ -139,6 +147,10 @@ class ShelfRead(BaseModel):
     is_public: bool
     is_active: bool
     shelf_type: ShelfTypeEnum
+    filter_rules: dict[str, Any] | None = Field(
+        default=None,
+        description="Filter rules for Magic Shelves",
+    )
     read_list_metadata: dict[str, Any] | None = Field(
         default=None,
         description="Original read list metadata if shelf was created from import",
