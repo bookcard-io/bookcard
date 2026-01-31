@@ -19,7 +19,7 @@
  * These types match the backend API schemas defined in bookcard/api/schemas/shelves.py
  */
 
-export type ShelfType = "shelf" | "read_list";
+export type ShelfType = "shelf" | "read_list" | "magic_shelf";
 
 export interface Shelf {
   /** Shelf primary key. */
@@ -36,8 +36,10 @@ export interface Shelf {
   is_public: boolean;
   /** Whether the shelf is active (mirrors library's active status). */
   is_active: boolean;
-  /** Type of the shelf (shelf or read_list). */
+  /** Type of the shelf (shelf, read_list, or magic_shelf). */
   shelf_type: ShelfType;
+  /** Filter rules for Magic Shelves. */
+  filter_rules?: Record<string, unknown> | null;
   /** Original read list metadata if shelf was created from import. */
   read_list_metadata?: Record<string, unknown> | null;
   /** Owner user ID. */
@@ -57,8 +59,10 @@ export interface Shelf {
 export interface ShelfCreate {
   /** Shelf name (must be unique per user for private, globally for public). */
   name: string;
-  /** Type of the shelf (shelf or read_list). */
+  /** Type of the shelf (shelf, read_list, or magic_shelf). */
   shelf_type?: ShelfType;
+  /** Filter rules for Magic Shelves. */
+  filter_rules?: Record<string, unknown> | null;
   /** Optional description of the shelf. */
   description?: string | null;
   /** Whether the shelf is shared with everyone. */
@@ -74,6 +78,8 @@ export interface ShelfUpdate {
   is_public?: boolean | null;
   /** New shelf type (optional). */
   shelf_type?: ShelfType | null;
+  /** New filter rules (optional). */
+  filter_rules?: Record<string, unknown> | null;
 }
 
 export interface BookReference {

@@ -35,11 +35,13 @@ export async function GET(
     const { id } = await params;
     const { searchParams } = request.nextUrl;
     const page = searchParams.get("page") || "1";
+    const pageSize = searchParams.get("page_size") || "20";
     const sortBy = searchParams.get("sort_by") || "order";
     const sortOrder = searchParams.get("sort_order") || "asc";
 
     const queryParams: Record<string, string> = {
       page,
+      page_size: pageSize,
       sort_by: sortBy,
       sort_order: sortOrder,
     };
