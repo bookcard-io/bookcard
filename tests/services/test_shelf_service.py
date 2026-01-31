@@ -25,7 +25,7 @@ from unittest.mock import patch
 import pytest
 
 from bookcard.models.auth import User
-from bookcard.models.shelves import BookShelfLink, Shelf
+from bookcard.models.shelves import BookShelfLink, Shelf, ShelfTypeEnum
 from bookcard.repositories.shelf_repository import (
     BookShelfLinkRepository,
     ShelfRepository,
@@ -1460,3 +1460,150 @@ def test_delete_cover_picture_no_cover() -> None:
 
         assert result.cover_picture is None
         assert session.flush_count > 0
+
+
+def test_create_magic_shelf_success() -> None:
+    """Test create_shelf succeeds for magic shelf with valid rules."""
+    session = DummySession()
+    shelf_repo = ShelfRepository(session)  # type: ignore[arg-type]
+    link_repo = BookShelfLinkRepository(session)  # type: ignore[arg-type]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        service = ShelfService(
+            session,  # type: ignore[arg-type]
+            shelf_repo,
+            link_repo,
+            data_directory=tmpdir,
+        )
+
+        valid_rules = {
+            "rules": [{"field": "TITLE", "operator": "EQUALS", "value": "test"}]
+        }
+
+        with patch.object(shelf_repo, "check_name_unique", return_value=True):
+            shelf = service.create_shelf(
+                library_id=1,
+                user_id=1,
+                name="Magic Shelf",
+                is_public=False,
+                shelf_type=ShelfTypeEnum.MAGIC_SHELF,
+                filter_rules=valid_rules,
+            )
+
+            assert shelf.shelf_type == ShelfTypeEnum.MAGIC_SHELF
+            assert shelf.filter_rules == valid_rules
+
+
+def test_create_magic_shelf_invalid_rules() -> None:
+    """Test create_shelf raises ValueError for magic shelf with invalid rules."""
+    session = DummySession()
+    shelf_repo = ShelfRepository(session)  # type: ignore[arg-type]
+    link_repo = BookShelfLinkRepository(session)  # type: ignore[arg-type]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        service = ShelfService(
+            session,  # type: ignore[arg-type]
+            shelf_repo,
+            link_repo,
+            data_directory=tmpdir,
+        )
+
+        invalid_rules = {"rules": [{"field": "INVALID", "operator": "EQ"}]}
+
+        with (
+            patch.object(shelf_repo, "check_name_unique", return_value=True),
+            pytest.raises(ValueError, match="Invalid filter rules"),
+        ):
+            service.create_shelf(
+                library_id=1,
+                user_id=1,
+                name="Magic Shelf",
+                is_public=False,
+                shelf_type=ShelfTypeEnum.MAGIC_SHELF,
+                filter_rules=invalid_rules,
+            )
+
+
+def test_update_magic_shelf_success() -> None:
+    """Test update_shelf succeeds when updating rules."""
+    session = DummySession()
+    shelf_repo = ShelfRepository(session)  # type: ignore[arg-type]
+    link_repo = BookShelfLinkRepository(session)  # type: ignore[arg-type]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        service = ShelfService(
+            session,  # type: ignore[arg-type]
+            shelf_repo,
+            link_repo,
+            data_directory=tmpdir,
+        )
+
+        shelf = Shelf(
+            id=1,
+            name="Magic Shelf",
+            is_public=False,
+            user_id=1,
+            library_id=1,
+            shelf_type=ShelfTypeEnum.MAGIC_SHELF,
+            filter_rules={"rules": []},
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+            last_modified=datetime.now(UTC),
+        )
+        session.add(shelf)
+
+        new_rules = {
+            "rules": [{"field": "TITLE", "operator": "EQUALS", "value": "updated"}]
+        }
+
+        user = _create_user(1)
+        with patch.object(shelf_repo, "check_name_unique", return_value=True):
+            updated = service.update_shelf(
+                shelf_id=1,
+                user=user,
+                filter_rules=new_rules,
+            )
+
+            assert updated.filter_rules == new_rules
+
+
+def test_update_magic_shelf_invalid_rules() -> None:
+    """Test update_shelf raises ValueError when updating with invalid rules."""
+    session = DummySession()
+    shelf_repo = ShelfRepository(session)  # type: ignore[arg-type]
+    link_repo = BookShelfLinkRepository(session)  # type: ignore[arg-type]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        service = ShelfService(
+            session,  # type: ignore[arg-type]
+            shelf_repo,
+            link_repo,
+            data_directory=tmpdir,
+        )
+
+        shelf = Shelf(
+            id=1,
+            name="Magic Shelf",
+            is_public=False,
+            user_id=1,
+            library_id=1,
+            shelf_type=ShelfTypeEnum.MAGIC_SHELF,
+            filter_rules={"rules": []},
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+            last_modified=datetime.now(UTC),
+        )
+        session.add(shelf)
+
+        invalid_rules = {"rules": [{"field": "INVALID"}]}
+
+        user = _create_user(1)
+        with (
+            patch.object(shelf_repo, "check_name_unique", return_value=True),
+            pytest.raises(ValueError, match="Invalid filter rules"),
+        ):
+            service.update_shelf(
+                shelf_id=1,
+                user=user,
+                filter_rules=invalid_rules,
+            )

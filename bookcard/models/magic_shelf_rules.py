@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RuleOperator(StrEnum):
@@ -71,6 +71,8 @@ class JoinType(StrEnum):
 class Rule(BaseModel):
     """A single filter rule."""
 
+    model_config = ConfigDict(extra="forbid")
+
     field: RuleField
     operator: RuleOperator
     value: str | int | float | list[str] | list[int] | None = None
@@ -78,6 +80,8 @@ class Rule(BaseModel):
 
 class GroupRule(BaseModel):
     """A group of rules combined with a logical operator."""
+
+    model_config = ConfigDict(extra="forbid")
 
     join_type: JoinType = JoinType.AND
     rules: list[Rule | GroupRule] = Field(default_factory=list)
