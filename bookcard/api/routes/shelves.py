@@ -34,7 +34,8 @@ from fastapi import (
     status,
 )
 from fastapi.responses import FileResponse, Response
-from sqlmodel import Session
+from sqlalchemy import func
+from sqlmodel import Session, select
 
 from bookcard.api.deps import get_current_user, get_db_session
 from bookcard.api.schemas.shelves import (
@@ -48,7 +49,7 @@ from bookcard.api.schemas.shelves import (
     ShelfUpdate,
 )
 from bookcard.models.auth import User
-from bookcard.models.shelves import ShelfTypeEnum
+from bookcard.models.shelves import BookShelfLink, ShelfTypeEnum
 from bookcard.repositories.calibre.repository import CalibreBookRepository
 from bookcard.repositories.config_repository import LibraryRepository
 from bookcard.repositories.shelf_repository import (
@@ -879,7 +880,7 @@ def get_shelf_books(
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
     sort_by: str = Query(
         default="order",
-        description="Sort field: 'order', 'date_added', 'book_id'",
+        description="Sort field: 'order', 'date_added', 'book_id', 'random'",
     ),
     sort_order: str = Query(
         default="asc",
@@ -905,7 +906,7 @@ def get_shelf_books(
     page_size : int
         Number of items per page.
     sort_by : str
-        Sort field: 'order', 'date_added', or 'book_id'.
+        Sort field: 'order', 'date_added', 'book_id', or 'random'.
     sort_order : str
         Sort order: 'asc' or 'desc'.
 
@@ -961,9 +962,22 @@ def get_shelf_books(
             ) from e
 
     link_repo = BookShelfLinkRepository(session)
+    offset = (page - 1) * page_size
+
+    if sort_by == "random":
+        # SQL-level random ordering; ignores sort_order.
+        stmt = (
+            select(BookShelfLink.book_id)
+            .where(BookShelfLink.shelf_id == shelf_id)
+            .order_by(func.random())
+            .offset(offset)
+            .limit(page_size)
+        )
+        return list(session.exec(stmt).all())
+
     links = link_repo.find_by_shelf(shelf_id)
 
-    # Sort links
+    # Sort links (in-memory)
     if sort_by == "order":
         links.sort(key=lambda x: x.order, reverse=(sort_order == "desc"))
     elif sort_by == "date_added":
@@ -971,10 +985,7 @@ def get_shelf_books(
     elif sort_by == "book_id":
         links.sort(key=lambda x: x.book_id, reverse=(sort_order == "desc"))
 
-    # Paginate
-    offset = (page - 1) * page_size
     paginated_links = links[offset : offset + page_size]
-
     return [link.book_id for link in paginated_links]
 
 

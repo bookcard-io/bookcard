@@ -76,7 +76,8 @@ export function buildShelfCreatePayload(
 ): ShelfCreate {
   const fallbackName = options.fallbackName ?? "";
 
-  const name = (input.name ?? "").toString().trim() || fallbackName.trim() || "";
+  const name =
+    (input.name ?? "").toString().trim() || fallbackName.trim() || "";
 
   const payload: ShelfCreate = {
     name,

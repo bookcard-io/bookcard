@@ -1362,6 +1362,47 @@ def test_get_shelf_books_sort_by_book_id(
         assert result[0] == 100  # Lower ID first
 
 
+def test_get_shelf_books_sort_by_random_uses_sql_ordering(
+    mock_user: User, mock_shelf: Shelf, mock_library: Library
+) -> None:
+    """Test get_shelf_books supports random sort via SQL ordering."""
+    session = DummySession()
+    mock_service = MockShelfService()
+    mock_magic_service = MagicMock()
+
+    # The route should rely on SQL ordering, so the exec() result order is preserved.
+    session.set_exec_result([101, 100, 102])
+
+    with (
+        patch("bookcard.api.routes.shelves.ShelfRepository") as mock_repo_class,
+        patch(
+            "bookcard.api.routes.shelves.BookShelfLinkRepository"
+        ) as mock_link_repo_class,
+    ):
+        mock_repo = MagicMock()
+        mock_repo.get.return_value = mock_shelf
+        mock_repo_class.return_value = mock_repo
+
+        mock_link_repo = MagicMock()
+        mock_link_repo_class.return_value = mock_link_repo
+
+        result = shelves.get_shelf_books(
+            shelf_id=1,
+            session=session,
+            current_user=mock_user,
+            shelf_service=mock_service,
+            magic_shelf_service=mock_magic_service,
+            library_id=1,
+            page=1,
+            page_size=20,
+            sort_by="random",
+            sort_order="asc",
+        )
+
+        assert result == [101, 100, 102]
+        mock_link_repo.find_by_shelf.assert_not_called()
+
+
 def test_get_shelf_books_pagination(
     mock_user: User, mock_shelf: Shelf, mock_library: Library
 ) -> None:

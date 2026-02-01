@@ -15,8 +15,9 @@
 
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FaWandMagicSparkles } from "react-icons/fa6";
+import { ImageWithLoading } from "@/components/common/ImageWithLoading";
 import { BookCardOverlay } from "@/components/library/BookCardOverlay";
 import { ReadListBadge } from "@/components/shelves/ReadListBadge";
 import { ShelfCardCheckbox } from "@/components/shelves/ShelfCardCheckbox";
@@ -35,6 +36,10 @@ import { useShelfEditModal } from "@/hooks/useShelfEditModal";
 import { cn } from "@/libs/utils";
 import type { Shelf } from "@/types/shelf";
 import { buildShelfPermissionContext } from "@/utils/permissions";
+
+type ShelfBooksPreviewResponse = {
+  book_ids?: number[];
+};
 
 export interface ShelfCardProps {
   /** Shelf data to display. */
@@ -90,6 +95,89 @@ export function ShelfCard({
   const shelfType = shelf.shelf_type as unknown as string;
   const isMagicShelf =
     shelfType === "magic_shelf" || shelfType === "MAGIC_SHELF";
+  const hasCustomCover = Boolean(shelf.cover_picture);
+
+  const [magicShelfCoverBookIds, setMagicShelfCoverBookIds] = useState<
+    number[]
+  >([]);
+
+  const shouldUseMagicShelfGridCover = isMagicShelf && !hasCustomCover;
+
+  useEffect(() => {
+    if (!shouldUseMagicShelfGridCover) {
+      setMagicShelfCoverBookIds([]);
+      return;
+    }
+
+    const abortController = new AbortController();
+
+    async function loadMagicShelfCoverBooks() {
+      try {
+        const maxCandidates = 50;
+        const tryFetch = async (sortBy: string) => {
+          const queryParams = new URLSearchParams({
+            page: "1",
+            page_size: maxCandidates.toString(),
+            sort_by: sortBy,
+            sort_order: "asc",
+          });
+
+          return fetch(
+            `/api/shelves/${shelf.id}/books?${queryParams.toString()}`,
+            {
+              signal: abortController.signal,
+              cache: "no-store",
+            },
+          );
+        };
+
+        // Prefer backend-driven randomization for Magic Shelf covers.
+        // Fallback to deterministic "order" if the backend doesn't support it.
+        const response = await (async () => {
+          const randomResponse = await tryFetch("random");
+          if (randomResponse.ok) {
+            return randomResponse;
+          }
+          return tryFetch("order");
+        })();
+
+        if (!response.ok) {
+          setMagicShelfCoverBookIds([]);
+          return;
+        }
+
+        const data = (await response.json()) as ShelfBooksPreviewResponse;
+        const bookIds = Array.isArray(data.book_ids) ? data.book_ids : [];
+
+        setMagicShelfCoverBookIds(bookIds.slice(0, 4));
+      } catch (err) {
+        if ((err as { name?: string } | null)?.name === "AbortError") {
+          return;
+        }
+        setMagicShelfCoverBookIds([]);
+      }
+    }
+
+    void loadMagicShelfCoverBooks();
+
+    return () => {
+      abortController.abort();
+    };
+  }, [shouldUseMagicShelfGridCover, shelf.id]);
+
+  const magicShelfCoverUrls = useMemo(() => {
+    return magicShelfCoverBookIds
+      .slice(0, 4)
+      .map((bookId) => `/api/books/${bookId}/cover`);
+  }, [magicShelfCoverBookIds]);
+
+  const magicShelfGridLayout = useMemo(() => {
+    const count = magicShelfCoverUrls.length;
+    if (count <= 1) return "one";
+    if (count === 2) return "two";
+    if (count === 3) return "three";
+    return "four";
+  }, [magicShelfCoverUrls.length]);
 
   const { isShaking, isGlowing, triggerAnimation } = useShelfCardAnimation();
 
@@ -157,15 +245,64 @@ export function ShelfCard({
         data-shelf-card
       >
         <div className="relative">
-          <ShelfCardCover
-            shelfName={shelf.name}
-            shelfId={shelf.id}
-            hasCoverPicture={Boolean(shelf.cover_picture)}
-          />
+          {hasCustomCover ? (
+            <ShelfCardCover
+              shelfName={shelf.name}
+              shelfId={shelf.id}
+              hasCoverPicture
+            />
+          ) : shouldUseMagicShelfGridCover && magicShelfCoverUrls.length > 0 ? (
+            <div className="relative aspect-[2/3] w-full overflow-hidden">
+              <div
+                className={cn(
+                  "h-full w-full overflow-hidden bg-gradient-to-br from-surface-a20 to-surface-a10",
+                  magicShelfGridLayout === "one" &&
+                    "grid grid-cols-1 grid-rows-1",
+                  magicShelfGridLayout === "two" &&
+                    "grid grid-cols-1 grid-rows-2",
+                  magicShelfGridLayout === "three" &&
+                    "grid grid-cols-2 grid-rows-2",
+                  magicShelfGridLayout === "four" &&
+                    "grid grid-cols-2 grid-rows-2",
+                )}
+              >
+                {magicShelfCoverUrls.map((url, idx) => {
+                  const isThirdInThree =
+                    magicShelfGridLayout === "three" && idx === 2;
+                  return (
+                    <div
+                      key={url}
+                      className={cn(
+                        "relative h-full w-full overflow-hidden",
+                        isThirdInThree && "col-span-2",
+                      )}
+                    >
+                      <ImageWithLoading
+                        src={url}
+                        alt={`Cover preview ${idx + 1} for ${shelf.name}`}
+                        width={200}
+                        height={300}
+                        className="h-full w-full object-cover"
+                        containerClassName="w-full h-full"
+                        unoptimized
+                      />
+                      <div className="absolute inset-0 ring-1 ring-surface-a0/20" />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <ShelfCardCover
+              shelfName={shelf.name}
+              shelfId={shelf.id}
+              hasCoverPicture={false}
+            />
+          )}
           {isMagicShelf && (
             <div
               className={cn(
-                "pointer-events-none absolute right-2 top-2 z-20",
+                "pointer-events-none absolute top-2 right-2 z-20",
                 "flex h-7 w-7 items-center justify-center rounded-full",
                 "bg-surface-a0/50 text-warning-a10 backdrop-blur-sm",
               )}
