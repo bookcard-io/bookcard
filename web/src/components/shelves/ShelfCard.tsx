@@ -41,6 +41,23 @@ type ShelfBooksPreviewResponse = {
   book_ids?: number[];
 };
 
+function extractShelfBookIds(data: unknown): number[] {
+  if (Array.isArray(data)) {
+    return data.filter((id): id is number => typeof id === "number");
+  }
+
+  if (typeof data !== "object" || data === null) {
+    return [];
+  }
+
+  const maybe = data as ShelfBooksPreviewResponse;
+  if (!Array.isArray(maybe.book_ids)) {
+    return [];
+  }
+
+  return maybe.book_ids.filter((id): id is number => typeof id === "number");
+}
+
 export interface ShelfCardProps {
   /** Shelf data to display. */
   shelf: Shelf;
@@ -146,8 +163,8 @@ export function ShelfCard({
           return;
         }
 
-        const data = (await response.json()) as ShelfBooksPreviewResponse;
-        const bookIds = Array.isArray(data.book_ids) ? data.book_ids : [];
+        const data = (await response.json()) as unknown;
+        const bookIds = extractShelfBookIds(data);
 
         setMagicShelfCoverBookIds(bookIds.slice(0, 4));
       } catch (err) {

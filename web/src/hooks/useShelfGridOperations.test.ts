@@ -26,12 +26,17 @@ vi.mock("@/contexts/ShelvesContext", () => ({
   useShelvesContext: vi.fn(),
 }));
 
+vi.mock("@/contexts/SelectedShelfContext", () => ({
+  useSelectedShelf: vi.fn(),
+}));
+
 vi.mock("@/services/shelfService", () => ({
   createShelf: vi.fn(),
   deleteShelf: vi.fn(),
   updateShelf: vi.fn(),
 }));
 
+import { useSelectedShelf } from "@/contexts/SelectedShelfContext";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
 import { useShelves } from "@/hooks/useShelves";
 import { createShelf, deleteShelf, updateShelf } from "@/services/shelfService";
@@ -95,6 +100,11 @@ describe("useShelfGridOperations", () => {
       error: null,
       refresh: mockRefreshContext,
     } as ReturnType<typeof useShelvesContext>);
+
+    vi.mocked(useSelectedShelf).mockReturnValue({
+      selectedShelfId: undefined,
+      setSelectedShelfId: vi.fn(),
+    } as ReturnType<typeof useSelectedShelf>);
 
     shelfDataUpdateRef = {
       current: {

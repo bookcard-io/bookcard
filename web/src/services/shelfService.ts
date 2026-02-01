@@ -113,6 +113,7 @@ export async function listShelves(): Promise<ShelfListResponse> {
   const response = await fetch(API_BASE, {
     method: "GET",
     credentials: "include",
+    cache: "no-store",
   });
 
   if (!response.ok) {
@@ -388,6 +389,7 @@ export async function getShelfBooks(
   const response = await fetch(`${API_BASE}/${shelfId}/books?${params}`, {
     method: "GET",
     credentials: "include",
+    cache: "no-store",
   });
 
   if (!response.ok) {

@@ -14,6 +14,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { useCallback } from "react";
+import { useSelectedShelf } from "@/contexts/SelectedShelfContext";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
 import type { CreateShelfOptions } from "@/services/shelfService";
 import {
@@ -79,6 +80,7 @@ export function useShelfGridOperations(
 ): UseShelfGridOperationsResult {
   const { shelfDataUpdateRef, onShelvesDeleted, onError } = options;
   const { refresh: refreshContext } = useShelvesContext();
+  const { selectedShelfId, setSelectedShelfId } = useSelectedShelf();
 
   const handleShelfUpdate = useCallback(
     async (shelf: Shelf) => {
@@ -91,8 +93,17 @@ export function useShelfGridOperations(
         shelf.id,
         buildShelfLocalPatchFromShelf(shelf),
       );
+
+      // If the shelf is currently selected as a filter, force a re-fetch of
+      // shelf contents by toggling the selection.
+      if (selectedShelfId === shelf.id) {
+        setSelectedShelfId(undefined);
+        setTimeout(() => {
+          setSelectedShelfId(shelf.id);
+        }, 0);
+      }
     },
-    [refreshContext, shelfDataUpdateRef],
+    [refreshContext, shelfDataUpdateRef, selectedShelfId, setSelectedShelfId],
   );
 
   const handleCoverUpdate = useCallback(
