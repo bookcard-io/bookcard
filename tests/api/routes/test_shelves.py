@@ -34,7 +34,7 @@ from bookcard.api.schemas.shelves import (
 )
 from bookcard.models.auth import User
 from bookcard.models.config import Library
-from bookcard.models.shelves import BookShelfLink, Shelf
+from bookcard.models.shelves import BookShelfLink, Shelf, ShelfTypeEnum
 from tests.conftest import DummySession
 
 
@@ -355,6 +355,7 @@ def test_create_shelf_success(
             session=session,
             current_user=mock_user,
             shelf_service=mock_service,
+            magic_shelf_service=MagicMock(),
             library_id=1,
         )
 
@@ -388,6 +389,7 @@ def test_create_shelf_no_id(
             session=session,
             current_user=mock_user,
             shelf_service=mock_service,
+            magic_shelf_service=MagicMock(),
             library_id=1,
         )
     assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -408,6 +410,7 @@ def test_create_shelf_value_error(
             session=session,
             current_user=mock_user,
             shelf_service=mock_service,
+            magic_shelf_service=MagicMock(),
             library_id=1,
         )
     assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
@@ -438,8 +441,61 @@ def test_list_shelves_success(
             session=session,
             current_user=mock_user,
             shelf_service=mock_service,
+            magic_shelf_service=MagicMock(),
             library_id=1,
         )
+
+        assert len(result.shelves) == 1
+        assert result.total == 1
+        assert result.shelves[0].id == 1
+
+
+def test_list_shelves_magic_shelf_uses_dynamic_count(
+    mock_user: User,
+    mock_library: Library,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test list_shelves returns dynamic count for magic shelves."""
+    session = DummySession()
+    mock_service = MockShelfService()
+    _mock_permission_service(monkeypatch)
+
+    magic_shelf = Shelf(
+        id=1,
+        name="Magic Shelf",
+        description=None,
+        is_public=False,
+        user_id=mock_user.id,
+        library_id=1,
+        shelf_type=ShelfTypeEnum.MAGIC_SHELF,
+        filter_rules={"join_type": "AND", "rules": []},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+        last_modified=datetime.now(UTC),
+    )
+    mock_service.list_user_shelves_result = [magic_shelf]
+
+    magic_shelf_service = MagicMock()
+    magic_shelf_service.count_books_for_shelf.return_value = 5
+
+    with patch(
+        "bookcard.api.routes.shelves.BookShelfLinkRepository"
+    ) as mock_link_repo_class:
+        mock_link_repo = MagicMock()
+        mock_link_repo.find_by_shelf.return_value = []
+        mock_link_repo_class.return_value = mock_link_repo
+
+        result = shelves.list_shelves(
+            session=session,
+            current_user=mock_user,
+            shelf_service=mock_service,
+            magic_shelf_service=magic_shelf_service,
+            library_id=1,
+        )
+
+        assert result.total == 1
+        assert result.shelves[0].book_count == 5
+        magic_shelf_service.count_books_for_shelf.assert_called_once_with(1)
 
         assert len(result.shelves) == 1
         assert result.total == 1
@@ -476,6 +532,7 @@ def test_get_shelf_success(
             session=session,
             current_user=mock_user,
             shelf_service=mock_service,
+            magic_shelf_service=MagicMock(),
             library_id=1,
         )
 
@@ -499,6 +556,7 @@ def test_get_shelf_not_found(mock_user: User, mock_library: Library) -> None:
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
             )
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
@@ -523,6 +581,7 @@ def test_get_shelf_permission_denied(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
             )
         assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
@@ -547,6 +606,7 @@ def test_get_shelf_wrong_library(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
             )
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
@@ -584,6 +644,7 @@ def test_get_shelf_no_id(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
             )
         assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -621,6 +682,7 @@ def test_update_shelf_success(
             session=session,
             current_user=mock_user,
             shelf_service=mock_service,
+            magic_shelf_service=MagicMock(),
             library_id=1,
         )
 
@@ -644,6 +706,7 @@ def test_update_shelf_not_found(mock_user: User, mock_library: Library) -> None:
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
             )
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
@@ -669,6 +732,7 @@ def test_update_shelf_wrong_library(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
             )
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
@@ -698,6 +762,7 @@ def test_update_shelf_value_error(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
             )
         assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
@@ -737,6 +802,7 @@ def test_update_shelf_no_id_after_update(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
             )
         assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -1375,6 +1441,7 @@ def test_upload_shelf_cover_picture_success(
             session=session,
             current_user=mock_user,
             shelf_service=mock_service,
+            magic_shelf_service=MagicMock(),
             library_id=1,
             file=mock_file,
         )
@@ -1403,6 +1470,7 @@ def test_upload_shelf_cover_picture_not_found(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
                 file=mock_file,
             )
@@ -1430,6 +1498,7 @@ def test_upload_shelf_cover_picture_no_filename(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
                 file=mock_file,
             )
@@ -1458,6 +1527,7 @@ def test_upload_shelf_cover_picture_read_error(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
                 file=mock_file,
             )
@@ -1487,6 +1557,7 @@ def test_upload_shelf_cover_picture_value_error_shelf_not_found(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
                 file=mock_file,
             )
@@ -1516,6 +1587,7 @@ def test_upload_shelf_cover_picture_value_error_invalid_file_type(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
                 file=mock_file,
             )
@@ -1547,6 +1619,7 @@ def test_upload_shelf_cover_picture_value_error_failed_to_save(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
                 file=mock_file,
             )
@@ -1576,6 +1649,7 @@ def test_upload_shelf_cover_picture_permission_error(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
                 file=mock_file,
             )
@@ -1617,6 +1691,7 @@ def test_upload_shelf_cover_picture_no_id_after_upload(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
                 file=mock_file,
             )
@@ -1646,6 +1721,7 @@ def test_upload_shelf_cover_picture_unexpected_value_error(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
                 file=mock_file,
             )
@@ -1849,6 +1925,7 @@ def test_delete_shelf_cover_picture_success(
             session=session,
             current_user=mock_user,
             shelf_service=mock_service,
+            magic_shelf_service=MagicMock(),
             library_id=1,
         )
 
@@ -1873,6 +1950,7 @@ def test_delete_shelf_cover_picture_not_found(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
             )
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
@@ -1897,6 +1975,7 @@ def test_delete_shelf_cover_picture_value_error_shelf_not_found(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
             )
         assert exc_info.value.status_code == 404
@@ -1921,6 +2000,7 @@ def test_delete_shelf_cover_picture_permission_error(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
             )
         assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
@@ -1955,6 +2035,7 @@ def test_delete_shelf_cover_picture_no_id_after_delete(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
             )
         assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -1979,5 +2060,6 @@ def test_delete_shelf_cover_picture_unexpected_value_error(
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
+                magic_shelf_service=MagicMock(),
                 library_id=1,
             )
