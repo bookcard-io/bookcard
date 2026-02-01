@@ -16,6 +16,7 @@
 "use client";
 
 import { useRef } from "react";
+import { FaWandMagicSparkles } from "react-icons/fa6";
 import { BookCardOverlay } from "@/components/library/BookCardOverlay";
 import { ReadListBadge } from "@/components/shelves/ReadListBadge";
 import { ShelfCardCheckbox } from "@/components/shelves/ShelfCardCheckbox";
@@ -85,6 +86,10 @@ export function ShelfCard({
 }: ShelfCardProps) {
   const menu = useBookCardMenu();
   const cardRef = useRef<HTMLButtonElement>(null);
+  // API/frontend convention is lowercase, but tolerate uppercase just in case.
+  const shelfType = shelf.shelf_type as unknown as string;
+  const isMagicShelf =
+    shelfType === "magic_shelf" || shelfType === "MAGIC_SHELF";
 
   const { isShaking, isGlowing, triggerAnimation } = useShelfCardAnimation();
 
@@ -157,6 +162,20 @@ export function ShelfCard({
             shelfId={shelf.id}
             hasCoverPicture={Boolean(shelf.cover_picture)}
           />
+          {isMagicShelf && (
+            <div
+              className={cn(
+                "pointer-events-none absolute right-2 top-2 z-20",
+                "flex h-7 w-7 items-center justify-center rounded-full",
+                "bg-surface-a0/50 text-warning-a10 backdrop-blur-sm",
+              )}
+              title="Magic shelf"
+              aria-hidden="true"
+              data-magic-shelf-icon
+            >
+              <FaWandMagicSparkles className="h-4 w-4" />
+            </div>
+          )}
           <BookCardOverlay selected={selected}>
             <ShelfCardCheckbox
               shelf={shelf}
