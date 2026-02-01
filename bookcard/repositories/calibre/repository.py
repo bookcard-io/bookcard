@@ -55,8 +55,8 @@ if TYPE_CHECKING:
     from collections.abc import Generator
     from datetime import datetime
 
-    from sqlalchemy.sql.elements import ColumnElement
     from sqlmodel import Session
+    from sqlmodel.sql.expression import SelectOfScalar
 
     from bookcard.repositories.models import BookWithFullRelations, BookWithRelations
 
@@ -275,18 +275,19 @@ class CalibreBookRepository(IBookRepository):
             language_ids=language_ids,
         )
 
-    def list_books_by_filter(
+    def list_books_by_ids_query(
         self,
-        filter_expression: ColumnElement[bool],
+        book_ids_query: SelectOfScalar[int],
+        *,
         limit: int = 20,
         offset: int = 0,
         sort_by: str = "timestamp",
         sort_order: str = "desc",
         full: bool = False,
     ) -> list[BookWithRelations | BookWithFullRelations]:
-        """List books matching a custom SQLAlchemy filter expression."""
-        return self._reads.list_books_by_filter(
-            filter_expression=filter_expression,
+        """List books whose IDs are returned by a query."""
+        return self._reads.list_books_by_ids_query(
+            book_ids_query,
             limit=limit,
             offset=offset,
             sort_by=sort_by,
@@ -294,14 +295,9 @@ class CalibreBookRepository(IBookRepository):
             full=full,
         )
 
-    def count_books_by_filter(
-        self,
-        filter_expression: ColumnElement[bool],
-    ) -> int:
-        """Count books matching a custom SQLAlchemy filter expression."""
-        return self._reads.count_books_by_filter(
-            filter_expression=filter_expression,
-        )
+    def count_books_by_ids_query(self, book_ids_query: SelectOfScalar[int]) -> int:
+        """Count books whose IDs are returned by a query."""
+        return self._reads.count_books_by_ids_query(book_ids_query)
 
     def get_book(self, book_id: int) -> BookWithRelations | None:
         """Get a book by ID."""

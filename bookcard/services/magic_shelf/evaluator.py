@@ -25,7 +25,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, cast
 
-from sqlalchemy import and_, exists, or_, select
+from sqlalchemy import and_, exists, or_
+from sqlmodel import select
 
 from bookcard.models.core import Book
 from bookcard.models.magic_shelf_rules import GroupRule, JoinType, Rule, RuleOperator
@@ -38,6 +39,7 @@ from bookcard.services.magic_shelf.operators import OperatorRegistry
 
 if TYPE_CHECKING:
     from sqlalchemy.sql.elements import ColumnElement
+    from sqlmodel.sql.expression import SelectOfScalar
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +51,10 @@ class BookRuleEvaluator:
         self._operators = OperatorRegistry()
         self._fields = get_book_field_definitions()
 
-    def build_filter(self, group_rule: GroupRule) -> ColumnElement[bool]:
-        """Build a SQLAlchemy filter expression from a GroupRule.
+    def build_matching_book_ids_stmt(
+        self, group_rule: GroupRule
+    ) -> SelectOfScalar[int]:
+        """Build a SQL statement selecting book IDs matching a rule group.
 
         Parameters
         ----------
@@ -59,16 +63,31 @@ class BookRuleEvaluator:
 
         Returns
         -------
-        ColumnElement[bool]
-            SQLAlchemy expression representing the filter.
+        SelectOfScalar[int]
+            A SQL statement selecting matching `Book.id` values.
+
+        Notes
+        -----
+        This method returns a standalone statement with `Book` as the FROM clause.
+        Callers can safely embed it as a subquery (e.g., `Book.id.in_(...)`) without
+        risking SQLAlchemy auto-correlation issues caused by outer query joins.
         """
+        filter_expr = self._build_filter_expression(group_rule)
+        # Keep semantics: empty rule group matches all books.
+        # `Book.id` is non-nullable; cast keeps the type checker narrow.
+        return cast(
+            "SelectOfScalar[int]", select(Book.id).where(filter_expr).distinct()
+        )
+
+    def _build_filter_expression(self, group_rule: GroupRule) -> ColumnElement[bool]:
+        """Build a boolean SQLAlchemy expression from a GroupRule."""
         if not group_rule.rules:
             return True  # type: ignore[return-value]
 
         expressions: list[ColumnElement[bool]] = []
         for item in group_rule.rules:
             if isinstance(item, GroupRule):
-                expressions.append(self.build_filter(item))
+                expressions.append(self._build_filter_expression(item))
             elif isinstance(item, Rule):
                 expressions.append(self._evaluate_rule(item))
 

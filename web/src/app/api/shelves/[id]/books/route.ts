@@ -54,11 +54,22 @@ export async function GET(
       queryParams,
     });
 
-    const data = await response.json();
+    const data = await (async () => {
+      try {
+        return (await response.json()) as unknown;
+      } catch {
+        const text = await response.text().catch(() => "");
+        return { detail: text || "Failed to fetch shelf books" };
+      }
+    })();
 
     if (!response.ok) {
+      const detail =
+        typeof data === "object" && data !== null && "detail" in data
+          ? (data as { detail?: string }).detail
+          : undefined;
       return NextResponse.json(
-        { detail: data.detail || "Failed to fetch shelf books" },
+        { detail: detail || "Failed to fetch shelf books" },
         { status: response.status },
       );
     }

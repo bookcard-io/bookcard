@@ -29,8 +29,8 @@ if TYPE_CHECKING:
     from datetime import datetime
     from pathlib import Path
 
-    from sqlalchemy.sql.elements import ColumnElement
     from sqlmodel import Session
+    from sqlmodel.sql.expression import SelectOfScalar
 
     from bookcard.repositories.models import BookWithFullRelations, BookWithRelations
     from bookcard.services.book_metadata import BookMetadata
@@ -646,55 +646,53 @@ class IBookRepository(ABC):
         ...
 
     @abstractmethod
-    def list_books_by_filter(
+    def list_books_by_ids_query(
         self,
-        filter_expression: ColumnElement[bool],
+        book_ids_query: SelectOfScalar[int],
+        *,
         limit: int = 20,
         offset: int = 0,
         sort_by: str = "timestamp",
         sort_order: str = "desc",
         full: bool = False,
     ) -> list[BookWithRelations | BookWithFullRelations]:
-        """List books matching a custom SQLAlchemy filter expression.
+        """List books whose IDs are returned by a query.
 
         Parameters
         ----------
-        filter_expression : ColumnElement[bool]
-            SQLAlchemy expression to filter books.
+        book_ids_query : SelectOfScalar[int]
+            Statement returning the matching `Book.id` values.
         limit : int
             Maximum number of books to return.
         offset : int
             Number of books to skip.
         sort_by : str
-            Field to sort by (default: 'timestamp').
+            Field to sort by.
         sort_order : str
-            Sort order: 'asc' or 'desc' (default: 'desc').
+            Sort order ('asc' or 'desc').
         full : bool
-            If True, return full book details with all metadata (default: False).
+            If True, return full book details with all metadata.
 
         Returns
         -------
         list[BookWithRelations | BookWithFullRelations]
-            List of books matching the filter.
+            List of books matching the query.
         """
         ...
 
     @abstractmethod
-    def count_books_by_filter(
-        self,
-        filter_expression: ColumnElement[bool],
-    ) -> int:
-        """Count books matching a custom SQLAlchemy filter expression.
+    def count_books_by_ids_query(self, book_ids_query: SelectOfScalar[int]) -> int:
+        """Count books whose IDs are returned by a query.
 
         Parameters
         ----------
-        filter_expression : ColumnElement[bool]
-            SQLAlchemy expression to filter books.
+        book_ids_query : SelectOfScalar[int]
+            Statement returning the matching `Book.id` values.
 
         Returns
         -------
         int
-            Total number of books matching the filter.
+            Total number of matching books.
         """
         ...
 

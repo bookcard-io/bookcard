@@ -81,8 +81,8 @@ class MagicShelfService:
         if not group_rule:
             return 0
 
-        filter_expr = self._evaluator.build_filter(group_rule)
-        return self._book_repo.count_books_by_filter(filter_expression=filter_expr)
+        book_ids_query = self._evaluator.build_matching_book_ids_stmt(group_rule)
+        return self._book_repo.count_books_by_ids_query(book_ids_query)
 
     def get_books_for_shelf(
         self,
@@ -134,14 +134,14 @@ class MagicShelfService:
             return [], 0
 
         # Build filter expression
-        filter_expr = self._evaluator.build_filter(group_rule)
+        book_ids_query = self._evaluator.build_matching_book_ids_stmt(group_rule)
 
         # Calculate offset
         offset = (page - 1) * page_size
 
         # Execute query
-        books = self._book_repo.list_books_by_filter(
-            filter_expression=filter_expr,
+        books = self._book_repo.list_books_by_ids_query(
+            book_ids_query,
             limit=page_size,
             offset=offset,
             sort_by=sort_by,
@@ -149,7 +149,7 @@ class MagicShelfService:
             full=full,
         )
 
-        count = self._book_repo.count_books_by_filter(filter_expression=filter_expr)
+        count = self._book_repo.count_books_by_ids_query(book_ids_query)
 
         return books, count
 
