@@ -34,6 +34,7 @@ import { cn } from "@/libs/utils";
 import type { CreateShelfOptions } from "@/services/shelfService";
 import type { Book } from "@/types/book";
 import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
+import { buildShelfCreatePayload } from "@/utils/shelfPayload";
 import { getShelfCoverUrlWithCacheBuster } from "@/utils/shelves";
 
 export interface AddToShelfModalProps {
@@ -262,12 +263,9 @@ export function AddToShelfModal({
       data: ShelfCreate | ShelfUpdate,
       options?: CreateShelfOptions,
     ): Promise<Shelf> => {
-      // If no name is provided in data, use the input field value
-      const shelfData: ShelfCreate = {
-        name: data.name || newShelfName.trim() || "",
-        description: data.description || null,
-        is_public: data.is_public || false,
-      };
+      const shelfData = buildShelfCreatePayload(data, {
+        fallbackName: newShelfName,
+      });
       const newShelf = await createShelf(shelfData, options);
 
       // Automatically add all books to the newly created shelf

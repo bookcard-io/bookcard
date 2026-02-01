@@ -20,6 +20,7 @@
  */
 
 import { useCallback, useState } from "react";
+import type { FilterGroup } from "@/types/magicShelf";
 import type { ShelfCreate, ShelfUpdate } from "@/types/shelf";
 
 interface UseShelfFormOptions {
@@ -29,6 +30,8 @@ interface UseShelfFormOptions {
   initialDescription?: string | null;
   /** Initial public status (for edit mode). */
   initialIsPublic?: boolean;
+  /** Initial filter rules (for edit mode). */
+  initialFilterRules?: FilterGroup | null;
   /** Callback when form is successfully submitted. */
   onSubmit?: (data: ShelfCreate | ShelfUpdate) => void | Promise<void>;
   /** Callback when form submission fails. */
@@ -42,16 +45,25 @@ interface UseShelfFormReturn {
   description: string;
   /** Current public status. */
   isPublic: boolean;
+  /** Current filter rules. */
+  filterRules: FilterGroup | null;
   /** Whether form is being submitted. */
   isSubmitting: boolean;
   /** Form validation errors. */
-  errors: { name?: string; description?: string; isPublic?: string };
+  errors: {
+    name?: string;
+    description?: string;
+    isPublic?: string;
+    filterRules?: string;
+  };
   /** Update shelf name. */
   setName: (name: string) => void;
   /** Update description. */
   setDescription: (description: string) => void;
   /** Update public status. */
   setIsPublic: (isPublic: boolean) => void;
+  /** Update filter rules. */
+  setFilterRules: (rules: FilterGroup | null) => void;
   /** Validate and submit the form. */
   handleSubmit: () => Promise<boolean>;
   /** Reset form to initial values. */
@@ -78,6 +90,7 @@ export function useShelfForm(
     initialName = "",
     initialDescription = null,
     initialIsPublic = false,
+    initialFilterRules = null,
     onSubmit,
     onError,
   } = options;
@@ -85,11 +98,15 @@ export function useShelfForm(
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription ?? "");
   const [isPublic, setIsPublic] = useState(initialIsPublic);
+  const [filterRules, setFilterRules] = useState<FilterGroup | null>(
+    initialFilterRules,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{
     name?: string;
     description?: string;
     isPublic?: string;
+    filterRules?: string;
   }>({});
 
   const validate = useCallback((): boolean => {
@@ -97,6 +114,7 @@ export function useShelfForm(
       name?: string;
       description?: string;
       isPublic?: string;
+      filterRules?: string;
     } = {};
 
     if (!name.trim()) {
@@ -126,6 +144,7 @@ export function useShelfForm(
         name: name.trim(),
         description: description.trim() || null,
         is_public: isPublic,
+        filter_rules: filterRules as Record<string, unknown> | null,
       };
 
       if (onSubmit) {
@@ -144,25 +163,28 @@ export function useShelfForm(
     } finally {
       setIsSubmitting(false);
     }
-  }, [name, description, isPublic, validate, onSubmit, onError]);
+  }, [name, description, isPublic, filterRules, validate, onSubmit, onError]);
 
   const reset = useCallback(() => {
     setName(initialName);
     setDescription(initialDescription ?? "");
     setIsPublic(initialIsPublic);
+    setFilterRules(initialFilterRules);
     setErrors({});
     setIsSubmitting(false);
-  }, [initialName, initialDescription, initialIsPublic]);
+  }, [initialName, initialDescription, initialIsPublic, initialFilterRules]);
 
   return {
     name,
     description,
     isPublic,
+    filterRules,
     isSubmitting,
     errors,
     setName,
     setDescription,
     setIsPublic,
+    setFilterRules,
     handleSubmit,
     reset,
   };

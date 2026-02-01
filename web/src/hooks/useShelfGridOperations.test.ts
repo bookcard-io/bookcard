@@ -130,12 +130,16 @@ describe("useShelfGridOperations", () => {
       name: "Updated Shelf",
       description: "Updated description",
       is_public: true,
+      shelf_type: "shelf",
+      filter_rules: null,
     });
     expect(mockRefreshContext).toHaveBeenCalled();
     expect(shelfDataUpdateRef.current?.updateShelf).toHaveBeenCalledWith(1, {
       name: "Updated Shelf",
       description: "Updated description",
       is_public: true,
+      shelf_type: "shelf",
+      filter_rules: null,
     });
   });
 

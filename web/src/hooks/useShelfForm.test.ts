@@ -167,6 +167,7 @@ describe("useShelfForm", () => {
         name: "Valid Name",
         description: "Valid Description",
         is_public: false,
+        filter_rules: null,
       });
     });
   });
@@ -193,6 +194,7 @@ describe("useShelfForm", () => {
         name: "Trimmed Name",
         description: "Trimmed Description",
         is_public: false,
+        filter_rules: null,
       });
     });
 
@@ -217,6 +219,7 @@ describe("useShelfForm", () => {
         name: "Valid Name",
         description: null,
         is_public: false,
+        filter_rules: null,
       });
     });
 

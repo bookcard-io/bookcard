@@ -22,6 +22,10 @@ import {
   updateShelf as updateShelfApi,
 } from "@/services/shelfService";
 import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
+import {
+  buildShelfLocalPatchFromShelf,
+  buildShelfUpdatePayloadFromShelf,
+} from "@/utils/shelfPayload";
 
 export interface ShelfDataUpdateRef {
   /** Update shelf data in local state. */
@@ -78,19 +82,15 @@ export function useShelfGridOperations(
 
   const handleShelfUpdate = useCallback(
     async (shelf: Shelf) => {
-      await updateShelfApi(shelf.id, {
-        name: shelf.name,
-        description: shelf.description,
-        is_public: shelf.is_public,
-      });
+      const payload = buildShelfUpdatePayloadFromShelf(shelf);
+      await updateShelfApi(shelf.id, payload);
       // Refresh context to sync with Sidebar and other components
       await refreshContext();
       // Update local state to reflect changes without full refresh
-      shelfDataUpdateRef.current?.updateShelf(shelf.id, {
-        name: shelf.name,
-        description: shelf.description,
-        is_public: shelf.is_public,
-      });
+      shelfDataUpdateRef.current?.updateShelf(
+        shelf.id,
+        buildShelfLocalPatchFromShelf(shelf),
+      );
     },
     [refreshContext, shelfDataUpdateRef],
   );
